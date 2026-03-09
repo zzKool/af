@@ -43,17 +43,19 @@ refactor: extract CSV parsing into dedicated service
 - **Chore branches:** `chore/<description>` (branch from `develop`)
 - No staging environment — deploy directly from `main` after CI passes
 
-### Story Git Workflow
+### Sprint Git Workflow
 
-Each story follows this branch lifecycle:
+Each sprint uses a single feature branch for all stories in that sprint:
 
-1. **Branch off `develop`:** `git checkout -b feature/<story-id>` (e.g., `feature/0-2-local-env-verification`)
-2. **Develop on the feature branch:** All commits for the story go here
-3. **Code review:** Review happens on the feature branch
-4. **PR to `develop`:** After review passes, create a pull request to merge into `develop`
-5. **Deploy:** When `develop` is stable and ready, merge `develop` → `main` to deploy
+1. **Checkout `develop`:** `git checkout develop`
+2. **Pull latest:** `git pull`
+3. **Create sprint branch:** `git checkout -b feature/<epic-id>-<description>` (e.g., `feature/epic-1-scaffolding-auth`)
+4. **Complete the sprint:** Implement all stories with intermediate commits and pushes
+5. **Review:** Code review happens on the feature branch
+6. **PR to `develop`:** After review passes, create a pull request to merge `feature/*` → `develop`
+7. **Deploy:** When `develop` is stable and ready, merge `develop` → `main` to deploy
 
-Branch naming uses the story ID from the sprint plan (e.g., `feature/1-3-authentication-session-management`).
+Commits within the sprint branch use conventional commit prefixes and reference story IDs where relevant.
 
 ## Naming Standards
 
