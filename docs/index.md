@@ -23,6 +23,7 @@ Reusable code patterns and development conventions.
 
 Environment setup, settings, and deployment configuration.
 
+- [[project-scaffold]] — Tech stack, development commands, project structure
 - [[local-environment-setup]] — Prerequisites, quick start, and service verification
 - [[environment-variables]] — Required env vars and their purpose
 - [[docker-compose]] — Local development services (PostgreSQL, Azurite)

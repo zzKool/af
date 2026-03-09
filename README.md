@@ -47,6 +47,28 @@ docker compose exec db-test psql -U defterfab -d defterfab_test -c "SELECT 1;"
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:10000/devstoreaccount1?comp=list
 ```
 
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (Turbopack)
+npm run dev
+
+# Run linter
+npm run lint
+
+# Run tests
+npm run test
+
+# Run E2E tests
+npm run e2e
+
+# TypeScript check
+npm run typecheck
+```
+
 ## Stop Services
 
 ```bash
