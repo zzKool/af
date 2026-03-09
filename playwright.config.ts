@@ -22,5 +22,8 @@ export default defineConfig({
     command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
+    env: {
+      DATABASE_URL: "postgresql://defterfab:test@localhost:5433/defterfab_test",
+    },
   },
 });
