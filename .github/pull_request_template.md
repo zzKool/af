@@ -1,3 +1,5 @@
+<!-- PR title should use conventional commit format: feat: description, fix: description, etc. -->
+
 ## Summary
 <!-- What does this PR do? Why? -->
 

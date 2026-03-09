@@ -32,6 +32,10 @@ _bmad-output/
 # Claude Code local state
 .claude/
 
+# AI IDE state
+.cursor/
+.windsurf/
+
 # OS files
 .DS_Store
 Thumbs.db
