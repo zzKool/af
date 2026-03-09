@@ -1,0 +1,42 @@
+// ─────────────────────────────────────────────────────────────
+// App domain models — all follow the mandatory template:
+// id, tenantId, createdAt, updatedAt, createdBy, source
+//
+// Better Auth's organization.id maps to tenantId on every model.
+// RLS policies use current_setting('app.tenant_id')::uuid.
+// Enums are PostgreSQL-level (raw SQL in migrations), NOT Prisma-level.
+// ─────────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  orgNumber String?  @map("org_number")
+  address   String?
+  currency  String   @default("SEK")
+  logoUrl   String?  @map("logo_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenantConfigs TenantConfig[]
+
+  @@map("tenants")
+}
+
+/// Sample domain model to validate the mandatory template pattern with RLS.
+/// This minimal model proves the RLS + tenant-client pipeline end-to-end.
+/// Will be extended or replaced by real domain models in later stories.
+model TenantConfig {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String
+  value     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy String   @map("created_by") @db.Uuid
+  source    String   @default("system")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@map("tenant_configs")
+}

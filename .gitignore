@@ -16,6 +16,9 @@ build/
 .env*
 !.env.example
 
+# Generated code
+src/generated/
+
 # TypeScript
 *.tsbuildinfo
 

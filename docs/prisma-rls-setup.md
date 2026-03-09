@@ -1,0 +1,99 @@
+# Prisma & RLS Setup
+
+Multi-tenant database isolation using Prisma 7 with PostgreSQL Row Level Security.
+
+## Multi-File Schema
+
+Prisma schema is split across `prisma/schema/`:
+
+- `auth.prisma` — Generator, datasource, auth models (owned by Better Auth after Story 1.3)
+- `app.prisma` — Domain models (our code, follows mandatory template)
+
+Configuration lives in `prisma.config.ts` at project root. Prisma 7 multi-file schema is GA — no preview flag needed.
+
+## RLS Pattern
+
+Every tenant-scoped table uses PostgreSQL RLS with `FORCE`:
+
+```sql
+ALTER TABLE <table_name> ENABLE ROW LEVEL SECURITY;
+ALTER TABLE <table_name> FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON <table_name>
+  USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+```
+
+`FORCE ROW LEVEL SECURITY` is critical — without it, the table owner role bypasses RLS entirely.
+
+## Dual Database Roles
+
+| Role | Purpose | Connection |
+|------|---------|------------|
+| `defterfab` (superuser) | Migrations, TRUNCATE, admin ops | `DATABASE_MIGRATION_URL` |
+| `defterfab_app` (app role) | Runtime queries, RLS enforced | `DATABASE_URL` |
+
+The app **never** connects as superuser in production.
+
+## Tenant-Aware Client
+
+All tenant-scoped database access goes through `src/server/db/tenant-client.ts`:
+
+```typescript
+import { withTenantTransaction } from "@/server/db/tenant-client";
+
+const configs = await withTenantTransaction(prisma, tenantId, async (tx) => {
+  return tx.tenantConfig.findMany();
+});
+```
+
+### How It Works
+
+1. Prisma `$transaction` (interactive) acquires a single DB connection
+2. `SET LOCAL app.tenant_id = '<uuid>'` scopes the variable to that transaction only
+3. PostgreSQL RLS policies filter all queries to the scoped tenant
+4. On commit/rollback, `SET LOCAL` is automatically cleared — safe for connection pooling
+
+### Raw SQL Access
+
+For queries outside Prisma's ORM, use `withTenantConnection`:
+
+```typescript
+import { withTenantConnection } from "@/server/db/tenant-client";
+
+const rows = await withTenantConnection(pool, tenantId, async (client) => {
+  const res = await client.query("SELECT * FROM tenant_configs WHERE key = $1", ["lang"]);
+  return res.rows;
+});
+```
+
+## Adding New Tables
+
+1. Define model in `prisma/schema/app.prisma` following the [[conventions#prisma-model-template|mandatory template]]
+2. Run `npx prisma migrate dev --name <description>`
+3. **Before applying:** Append RLS statements to the generated migration SQL
+4. Re-run `npx prisma migrate dev` to apply
+5. Add integration tests in a co-located `.test.ts` file
+
+## Test Infrastructure
+
+- `src/server/db/test-setup.ts` — Global setup: runs migrations against test DB
+- `src/server/db/test-fixtures.ts` — Factory functions: `createTestTenant()`, `createTestUser()`, `createTestTenantConfig()`
+- `src/server/db/tenant-client.test.ts` — RLS isolation integration tests
+
+Tests use two pools:
+- **Admin pool** (superuser) — test data setup, TRUNCATE cleanup
+- **App pool** (`defterfab_app`) — RLS-enforced queries under test
+
+### Running Tests
+
+```bash
+docker compose up -d          # Start dev + test databases
+npm run test                  # All tests
+npx vitest src/server/        # Server tests only
+```
+
+## Technical Decisions
+
+- **SET LOCAL (not SET):** `SET` persists for the session, leaking tenant context across requests in a connection pool. `SET LOCAL` is transaction-scoped.
+- **UUID validation:** PostgreSQL `SET` doesn't support parameterized queries (`$1`). We validate UUID format with regex before string interpolation to prevent SQL injection.
+- **$transaction (not $extends):** Prisma interactive transactions hold a single DB connection, making `SET LOCAL` reliable. The `$extends`+`$allOperations` approach was less predictable with Driver Adapters.
+- **WASM engine:** Prisma 7 defaults to WASM engine with Driver Adapters — no special config needed.
