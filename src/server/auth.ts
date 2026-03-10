@@ -16,6 +16,21 @@ export const auth = betterAuth({
     organization({
       allowUserToCreateOrganization: true,
       creatorRole: "owner",
+      organizationHooks: {
+        afterCreateOrganization: async ({ organization: org }) => {
+          // Uses a transaction with SET LOCAL to bypass RLS on the tenants table.
+          // This is the ONE exception to "never use base prisma directly" —
+          // no RLS context exists when creating the tenant itself.
+          await prisma.$transaction(async (tx) => {
+            await tx.$executeRawUnsafe(`SET LOCAL app.tenant_id = '${org.id}'`);
+            await tx.tenant.upsert({
+              where: { id: org.id },
+              update: { name: org.name },
+              create: { id: org.id, name: org.name },
+            });
+          });
+        },
+      },
     }),
     nextCookies(),
   ],
