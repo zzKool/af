@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
+import type { CallerIdentity } from "@/types/caller-identity";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -95,6 +96,68 @@ export async function createTestTenantConfig(
   }
 
   return config;
+}
+
+/**
+ * Creates an authenticated context via Better Auth API.
+ * Signs up a user, creates an org, sets it active, and returns session headers
+ * plus a frozen CallerIdentity. Reusable by all future story tests.
+ */
+type AuthApi = { api: Record<string, (...args: never[]) => Promise<unknown>> };
+
+export async function createAuthenticatedContext(
+  authInstance: AuthApi,
+  role: "owner" | "member",
+  ownerContext?: { headers: Headers; orgId: string },
+): Promise<{ headers: Headers; callerIdentity: CallerIdentity }> {
+  const suffix = randomUUID().slice(0, 8);
+  const email = `${role}-${suffix}@test.local`;
+
+  const signUp = await authInstance.api.signUpEmail({
+    body: { email, password: "password123", name: `Test ${role}` },
+  });
+
+  const response = await authInstance.api.signInEmail({
+    body: { email, password: "password123" },
+    asResponse: true,
+  });
+  const cookies = response.headers.getSetCookie();
+  const headers = new Headers();
+  headers.set("cookie", cookies.map((c: string) => c.split(";")[0]).join("; "));
+
+  let orgId: string;
+  if (role === "owner") {
+    const org = await authInstance.api.createOrganization({
+      headers,
+      body: { name: `Org ${suffix}`, slug: `org-${suffix}` },
+    });
+    orgId = org.id;
+  } else {
+    if (!ownerContext) throw new Error("ownerContext required for member role");
+    orgId = ownerContext.orgId;
+    const invitation = await authInstance.api.createInvitation({
+      headers: ownerContext.headers,
+      body: { email, role: "member", organizationId: orgId },
+    });
+    await authInstance.api.acceptInvitation({
+      headers,
+      body: { invitationId: invitation.id },
+    });
+  }
+
+  await authInstance.api.setActiveOrganization({
+    headers,
+    body: { organizationId: orgId },
+  });
+
+  const callerIdentity: CallerIdentity = Object.freeze({
+    userId: signUp.user.id,
+    tenantId: orgId,
+    role: role === "owner" ? "owner" : "accountant",
+    source: "web" as const,
+  });
+
+  return { headers, callerIdentity };
 }
 
 /**

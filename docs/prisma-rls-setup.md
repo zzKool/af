@@ -101,3 +101,5 @@ Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invit
 - **UUID validation:** PostgreSQL `SET` doesn't support parameterized queries (`$1`). We validate UUID format with regex before string interpolation to prevent SQL injection.
 - **$transaction (not $extends):** Prisma interactive transactions hold a single DB connection, making `SET LOCAL` reliable. The `$extends`+`$allOperations` approach was less predictable with Driver Adapters.
 - **WASM engine:** Prisma 7 defaults to WASM engine with Driver Adapters — no special config needed.
+
+For how RLS is activated at runtime via the Server Action middleware chain, see [[server-actions]].

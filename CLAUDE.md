@@ -41,14 +41,24 @@ Next.js 16.1 + Prisma 7 + PostgreSQL 17 + Better Auth 1.5.
 - authedAction: full middleware chain (most actions)
 - ownerAction: owner role required (settings, user mgmt)
 - Business errors: return { error: AppError } inside data, never throw
-- See src/server/actions/journal.ts for reference pattern
+- See src/server/actions/tenant-profile.ts for the foundational Server Action pattern
 
-## Git Workflow (Automated)
-- On `/bmad-bmm-dev-story` start: `git checkout develop && git pull && git checkout -b feature/story-<id>-<description>`
-- One feature branch per story (not per epic)
-- Branch naming: `feature/story-1-2-prisma-schema-rls`, `feature/story-1-3-auth-session`
-- Intermediate commits during story implementation, push before code review
-- On `/bmad-bmm-code-review` completion: PR `feature/story-*` → `develop`
+## Git Workflow (STRICT — per command, per story)
+One feature branch per story (not per epic). Branch naming: `feature/story-<id>-<description>`
+
+### 1. `/bmad-bmm-create-story` — ALWAYS start with:
+   a. `git checkout develop`
+   b. `git pull`
+   c. `git checkout -b feature/story-<id>-<description>`
+
+### 2. `/bmad-bmm-dev-story` — during implementation:
+   a. `git add` + `git commit` periodically (intermediate commits)
+   b. `git push` when dev is done
+
+### 3. `/bmad-bmm-code-review` — when review completes:
+   a. If fixes needed: commit fixes, push again
+   b. When fully done: create PR `feature/story-*` → `develop`
+
 - Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`
 - NEVER use Co-Authored-By Claude headers
 - NEVER include "Generated with Claude Code" in PR descriptions or comments

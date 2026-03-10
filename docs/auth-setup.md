@@ -97,7 +97,7 @@ export const config = {
 
 **Note:** Next.js route groups like `(app)` don't create URL segments, so the matcher uses a deny-list pattern excluding public paths rather than matching a `/(app)` prefix.
 
-Full session validation happens server-side in Server Actions (Story 1.4).
+Full session validation happens server-side in Server Actions. For Server Action middleware that uses auth context, see [[server-actions]].
 
 ## Auth API Route
 
