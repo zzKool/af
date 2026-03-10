@@ -105,7 +105,7 @@ export async function createTestTenantConfig(
  */
 type AuthApi = {
   // biome-ignore lint/suspicious/noExplicitAny: generic auth API signature requires flexible typing
-  api: Record<string, (...args: any[]) => Promise<unknown>>;
+  api: Record<string, (...args: any[]) => Promise<any>>;
 };
 
 export async function createAuthenticatedContext(
