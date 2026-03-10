@@ -130,8 +130,8 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 **CRITICAL: Use selectors from Gate 0.8 — verify nav item element types match `getByRole` usage.**
 
-- [ ] 4.1 Create `e2e/auth.spec.ts` — login and navigation verification. Use exact nav item text labels and element roles from Gate 0.8. If sidebar uses Next.js `<Link>` (renders as `<a>`), `getByRole('link')` is correct. If it uses `<button>`, adjust accordingly.
-- [ ] 4.2 Verify E2E tests pass locally: `npm run e2e` (requires dev server running + seeded test DB).
+- [x] 4.1 Create `e2e/auth.spec.ts` — login and navigation verification. Use exact nav item text labels and element roles from Gate 0.8. If sidebar uses Next.js `<Link>` (renders as `<a>`), `getByRole('link')` is correct. If it uses `<button>`, adjust accordingly.
+- [x] 4.2 Verify E2E tests pass locally: `npm run e2e` (requires dev server running + seeded test DB).
 
 ### Task 5: Create GitHub Actions CI workflow (AC: #1, #2, #3, #7, #8)
 
