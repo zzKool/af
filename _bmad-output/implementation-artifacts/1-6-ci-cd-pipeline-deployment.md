@@ -40,7 +40,7 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 ### Task 1: Configure Next.js standalone output (AC: #6)
 
-- [ ] 1.1 Update `next.config.ts` — add `output: 'standalone'`:
+- [x] 1.1 Update `next.config.ts` — add `output: 'standalone'`:
   ```typescript
   const nextConfig: NextConfig = {
     output: 'standalone',
@@ -48,13 +48,13 @@ so that every push to `develop` is tested and the codebase remains reliable as n
     // If Gate 0.4 fails: add '@prisma/adapter-pg', '@prisma/client'
   };
   ```
-- [ ] 1.2 Verify `npm run build` produces `.next/standalone/server.js` and `.next/static/` directory.
-- [ ] 1.3 **Runtime verification** (from Gate 0.4): standalone server starts and serves pages with database connection.
-- [ ] 1.4 Add `.next/standalone/` to `.gitignore` if not already covered by `.next/`.
+- [x] 1.2 Verify `npm run build` produces `.next/standalone/server.js` and `.next/static/` directory.
+- [x] 1.3 **Runtime verification** (from Gate 0.4): standalone server starts and serves pages with database connection.
+- [x] 1.4 Add `.next/standalone/` to `.gitignore` if not already covered by `.next/`.
 
 ### Task 2: Create Dockerfile (AC: #6)
 
-- [ ] 2.1 Create `Dockerfile` in project root — multi-stage build:
+- [x] 2.1 Create `Dockerfile` in project root — multi-stage build:
   ```dockerfile
   # Stage 1: Install dependencies
   FROM node:22-alpine AS deps
@@ -86,7 +86,7 @@ so that every push to `develop` is tested and the codebase remains reliable as n
   ENV HOSTNAME="0.0.0.0"
   CMD ["node", "server.js"]
   ```
-- [ ] 2.2 Create `.dockerignore`:
+- [x] 2.2 Create `.dockerignore`:
   ```
   node_modules
   .next
@@ -97,7 +97,7 @@ so that every push to `develop` is tested and the codebase remains reliable as n
   .env*
   .claude
   ```
-- [ ] 2.3 Verify `docker build -t defterfab .` succeeds locally. Start container with database env vars and confirm it connects and serves pages.
+- [x] 2.3 Verify `docker build -t defterfab .` succeeds locally. Start container with database env vars and confirm it connects and serves pages.
 
 ### Task 3: Create Playwright auth setup fixtures (AC: #4)
 
