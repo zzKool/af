@@ -113,15 +113,14 @@ jobs:
           cp -r public/. .next/standalone/public/ 2>/dev/null || true
       - name: Start server and run E2E tests
         run: |
-          (cd .next/standalone && node server.js) > server.log 2>&1 &
+          (cd .next/standalone && NODE_ENV=test node server.js) > server.log 2>&1 &
           npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
           echo "=== Server started, checking health ==="
           cat server.log
-          echo "=== Testing auth API ==="
-          curl -s -X POST http://localhost:3000/api/auth/sign-in/email \
+          echo "=== Testing auth API (showing response headers) ==="
+          curl -s -i -X POST http://localhost:3000/api/auth/sign-in/email \
             -H "Content-Type: application/json" \
-            -d '{"email":"owner@dev.test","password":"password123"}' \
-            -w "\nHTTP_STATUS: %{http_code}\n" || true
+            -d '{"email":"owner@dev.test","password":"password123"}' || true
           echo "=== Running E2E tests ==="
           npm run e2e
         env:
