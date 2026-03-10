@@ -91,6 +91,10 @@ npm run test                  # All tests
 npx vitest src/server/        # Server tests only
 ```
 
+## Auth Tables — No RLS
+
+Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invitations`, `verifications`) **MUST NOT** have RLS policies. They are global cross-tenant tables owned by Better Auth. Adding RLS to them will break authentication silently. See [[auth-setup]] for details.
+
 ## Technical Decisions
 
 - **SET LOCAL (not SET):** `SET` persists for the session, leaking tenant context across requests in a connection pool. `SET LOCAL` is transaction-scoped.

@@ -109,7 +109,7 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     // Set a dummy tenant_id so RLS doesn't block — but FORCE RLS means we
     // need to truncate using TRUNCATE which bypasses RLS
     await client.query(
-      "TRUNCATE tenant_configs, tenants, members, accounts, sessions, users CASCADE",
+      "TRUNCATE tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {
