@@ -43,4 +43,4 @@ afterAll(async () => {
   await pool.end();
 });
 
-export { pool, prisma, APP_URL, MIGRATION_URL };
+export { APP_URL, MIGRATION_URL };

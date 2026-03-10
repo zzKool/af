@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface TestTenantData {
   id: string;
   name: string;
@@ -75,6 +77,9 @@ export async function createTestTenantConfig(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (!UUID_RE.test(tenantId)) {
+      throw new Error(`Invalid tenant ID format: ${tenantId}`);
+    }
     await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
     await client.query(
       `INSERT INTO tenant_configs (id, tenant_id, key, value, created_by, source, updated_at)

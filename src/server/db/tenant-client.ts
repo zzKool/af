@@ -60,7 +60,11 @@ export async function withTenantConnection<T>(
     await pgClient.query("COMMIT");
     return result;
   } catch (error) {
-    await pgClient.query("ROLLBACK");
+    try {
+      await pgClient.query("ROLLBACK");
+    } catch {
+      // Swallow rollback error — preserve the original error
+    }
     throw error;
   } finally {
     pgClient.release();
