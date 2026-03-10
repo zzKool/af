@@ -59,9 +59,15 @@ export default function RegisterPage() {
         return;
       }
 
-      await authClient.organization.setActive({
+      const setActiveResult = await authClient.organization.setActive({
         organizationId: orgResult.data.id,
       });
+
+      if (setActiveResult.error) {
+        setError("Account created but setup incomplete. Please try again.");
+        setLoading(false);
+        return;
+      }
 
       router.push("/dashboard");
     } catch {

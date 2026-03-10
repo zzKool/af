@@ -6,7 +6,7 @@ import { prisma } from "@/server/db/client";
 import type { CallerIdentity } from "@/types/caller-identity";
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL || process.env.AUTH_URL,
+  baseURL: process.env.BETTER_AUTH_URL || process.env.AUTH_URL || "http://localhost:3000",
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true,

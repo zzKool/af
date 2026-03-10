@@ -77,7 +77,7 @@ await authClient.organization.setActive({ organizationId });
 
 ## Route Protection
 
-`src/middleware.ts` protects `/(app)` routes using cookie-existence check only (fast, no DB call):
+`src/middleware.ts` protects all routes except public paths using a cookie-existence check (fast, no DB call):
 
 ```typescript
 import { getSessionCookie } from "better-auth/cookies";
@@ -89,7 +89,13 @@ export function middleware(request: NextRequest) {
   }
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|login|register|favicon.ico).*)"],
+};
 ```
+
+**Note:** Next.js route groups like `(app)` don't create URL segments, so the matcher uses a deny-list pattern excluding public paths rather than matching a `/(app)` prefix.
 
 Full session validation happens server-side in Server Actions (Story 1.4).
 
