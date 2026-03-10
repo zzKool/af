@@ -9,9 +9,7 @@ setup("authenticate as accountant", async ({ page }) => {
   await page.waitForFunction(
     () => {
       const form = document.querySelector("form");
-      return (
-        form && Object.keys(form).some((k) => k.startsWith("__reactFiber"))
-      );
+      return form && Object.keys(form).some((k) => k.startsWith("__reactFiber"));
     },
     { timeout: 15000 },
   );
