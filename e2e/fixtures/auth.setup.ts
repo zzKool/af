@@ -3,14 +3,14 @@ import { expect, test as setup } from "@playwright/test";
 const OWNER_AUTH_FILE = "e2e/.auth/owner.json";
 
 setup("authenticate as owner", async ({ page }) => {
-  await page.goto("/login");
-  await page.waitForLoadState("networkidle");
+  // Use API directly to bypass React hydration timing in standalone mode
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: "owner@dev.test", password: "password123" },
+  });
+  expect(response.ok()).toBeTruthy();
 
-  await page.getByLabel("Email").fill("owner@dev.test");
-  await page.getByLabel("Password").fill("password123");
-  await page.getByRole("button", { name: "Sign in" }).click();
-
-  // Wait for redirect to dashboard (longer timeout for CI standalone server)
+  // Navigate to dashboard to verify auth and populate storageState
+  await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
 
   // Save signed-in state
