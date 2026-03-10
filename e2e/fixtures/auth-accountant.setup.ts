@@ -4,13 +4,14 @@ const ACCOUNTANT_AUTH_FILE = "e2e/.auth/accountant.json";
 
 setup("authenticate as accountant", async ({ page }) => {
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
 
   await page.getByLabel("Email").fill("accountant@dev.test");
   await page.getByLabel("Password").fill("password123");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  // Wait for redirect to dashboard
-  await expect(page).toHaveURL(/\/dashboard/);
+  // Wait for redirect to dashboard (longer timeout for CI standalone server)
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
 
   // Save signed-in state
   await page.context().storageState({ path: ACCOUNTANT_AUTH_FILE });
