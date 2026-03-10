@@ -1,4 +1,4 @@
-import { test as setup, expect } from "@playwright/test";
+import { expect, test as setup } from "@playwright/test";
 
 const OWNER_AUTH_FILE = "e2e/.auth/owner.json";
 

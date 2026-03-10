@@ -1,6 +1,6 @@
 # Story 1.6: CI/CD Pipeline & Deployment
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -356,12 +356,12 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 ### Task 8: Verification and validation (AC: all)
 
-- [ ] 8.1 Run `npm run lint` — clean on all new/modified files.
-- [ ] 8.2 Run `npm run typecheck` — zero errors.
-- [ ] 8.3 Run `npm run build` — successful with standalone output.
-- [ ] 8.4 Run `npm run test` — all 54+ existing tests pass. Zero regressions.
-- [ ] 8.5 Verify Dockerfile builds locally: `docker build -t defterfab .`
-- [ ] 8.6 E2E tests: verify locally if possible (requires seeded test DB + dev server). If E2E can't run locally due to environment constraints, document what's needed and verify in CI.
+- [x] 8.1 Run `npm run lint` — clean on all new/modified files.
+- [x] 8.2 Run `npm run typecheck` — zero errors.
+- [x] 8.3 Run `npm run build` — successful with standalone output.
+- [x] 8.4 Run `npm run test` — all 54+ existing tests pass. Zero regressions.
+- [x] 8.5 Verify Dockerfile builds locally: `docker build -t defterfab .`
+- [x] 8.6 E2E tests: verify locally if possible (requires seeded test DB + dev server). If E2E can't run locally due to environment constraints, document what's needed and verify in CI.
 - [ ] 8.7 Measure first CI run times after PR creation — document as baseline in `docs/ci-cd.md`.
 
 ## Definition of Done
@@ -573,6 +573,37 @@ Claude Opus 4.6
 
 ### Completion Notes List
 
-- Task 0: All 8 gates passed. Standalone output works with Prisma (no additional serverExternalPackages needed). Selector contract: login uses label "Email"/"Password", button "Sign in", redirect to /dashboard. Sidebar uses Link (a tags) — owner sees 8 items, accountant sees 3. tsx not in deps — needs adding. prisma generate not in postinstall — needs explicit CI step.
+- Task 0: All 8 gates passed. Standalone output works with Prisma (no additional serverExternalPackages needed). Selector contract documented. tsx and prisma generate gaps identified.
+- Task 1: Added output: 'standalone' to next.config.ts. Runtime verified on port 3099.
+- Task 2: Dockerfile (multi-stage node:22-alpine) and .dockerignore created. Docker build verified.
+- Task 3: Auth setup fixtures for owner and accountant. Playwright config updated with setup projects. webServer disabled in CI.
+- Task 4: E2E spec verifies owner (8 nav links) and accountant (3 nav links) sidebar visibility.
+- Task 5: CI workflow with parallel lint/typecheck/unit-test → build → E2E. Deploy job disabled. Added wait-on and tsx deps.
+- Task 6: .env.example updated with CI/deployment secrets documentation.
+- Task 7: docs/ci-cd.md with pipeline overview, local dev, E2E patterns, Docker, recovery runbook. docs/index.md and CLAUDE.md updated.
+- Task 8: All verifications passed. Seed script fixed for fresh DB (try-catch on signInEmail, DB-based invitation lookup). E2E to be fully verified on first CI run. 8.7 (baseline times) pending first CI run.
 
 ### File List
+
+**New files:**
+- .github/workflows/ci.yml
+- Dockerfile
+- .dockerignore
+- e2e/fixtures/auth.setup.ts
+- e2e/fixtures/auth-accountant.setup.ts
+- e2e/auth.spec.ts
+- docs/ci-cd.md
+
+**Modified files:**
+- next.config.ts (added output: 'standalone')
+- playwright.config.ts (setup projects, CI webServer disabled)
+- package.json (added wait-on, tsx devDeps)
+- package-lock.json
+- .gitignore (added e2e/.auth/)
+- .env.example (added CI secrets docs)
+- docs/index.md (added ci-cd wiki-link)
+- CLAUDE.md (added CI note)
+- prisma/seed.ts (fixed fresh DB seeding)
+
+**Deleted files:**
+- e2e/fixtures/.gitkeep

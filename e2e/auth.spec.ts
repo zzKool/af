@@ -1,11 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Owner authentication and navigation", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
 
-  test("owner can access dashboard with full sidebar navigation", async ({
-    page,
-  }) => {
+  test("owner can access dashboard with full sidebar navigation", async ({ page }) => {
     await page.goto("/dashboard");
 
     // Verify dashboard loaded
@@ -20,9 +18,7 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Partners" })).toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Reconciliation" }),
-    ).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Reconciliation" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Invoices" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
   });
@@ -31,9 +27,7 @@ test.describe("Owner authentication and navigation", () => {
 test.describe("Accountant authentication and navigation", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
-  test("accountant can access dashboard with restricted sidebar navigation", async ({
-    page,
-  }) => {
+  test("accountant can access dashboard with restricted sidebar navigation", async ({ page }) => {
     await page.goto("/dashboard");
 
     // Verify dashboard loaded
@@ -48,20 +42,10 @@ test.describe("Accountant authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
 
     // Verify owner-only links are NOT visible
-    await expect(
-      nav.getByRole("link", { name: "Banking" }),
-    ).not.toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Partners" }),
-    ).not.toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Reconciliation" }),
-    ).not.toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Invoices" }),
-    ).not.toBeVisible();
-    await expect(
-      nav.getByRole("link", { name: "Settings" }),
-    ).not.toBeVisible();
+    await expect(nav.getByRole("link", { name: "Banking" })).not.toBeVisible();
+    await expect(nav.getByRole("link", { name: "Partners" })).not.toBeVisible();
+    await expect(nav.getByRole("link", { name: "Reconciliation" })).not.toBeVisible();
+    await expect(nav.getByRole("link", { name: "Invoices" })).not.toBeVisible();
+    await expect(nav.getByRole("link", { name: "Settings" })).not.toBeVisible();
   });
 });

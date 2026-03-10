@@ -25,13 +25,13 @@ async function seed() {
 
   // 1. Create owner user (idempotent: try sign-in first)
   let ownerUserId: string;
-  const ownerSignIn = await auth.api.signInEmail({
-    body: { email: "owner@dev.test", password: PASSWORD },
-  });
-  if (ownerSignIn?.user) {
+  try {
+    const ownerSignIn = await auth.api.signInEmail({
+      body: { email: "owner@dev.test", password: PASSWORD },
+    });
     ownerUserId = ownerSignIn.user.id;
     console.log("  ✓ Owner user already exists:", ownerUserId);
-  } else {
+  } catch {
     const ownerSignUp = await auth.api.signUpEmail({
       body: { email: "owner@dev.test", password: PASSWORD, name: "Zik Owner" },
     });
@@ -41,13 +41,13 @@ async function seed() {
 
   // 2. Create accountant user (idempotent)
   let accountantUserId: string;
-  const accountantSignIn = await auth.api.signInEmail({
-    body: { email: "accountant@dev.test", password: PASSWORD },
-  });
-  if (accountantSignIn?.user) {
+  try {
+    const accountantSignIn = await auth.api.signInEmail({
+      body: { email: "accountant@dev.test", password: PASSWORD },
+    });
     accountantUserId = accountantSignIn.user.id;
     console.log("  ✓ Accountant user already exists:", accountantUserId);
-  } else {
+  } catch {
     const accountantSignUp = await auth.api.signUpEmail({
       body: { email: "accountant@dev.test", password: PASSWORD, name: "Test Accountant" },
     });
@@ -96,13 +96,10 @@ async function seed() {
     const accountantHeaders = new Headers();
     accountantHeaders.set("cookie", acctCookies.map((c: string) => c.split(";")[0]).join("; "));
 
-    const invitations = await auth.api.listInvitations({
-      headers: accountantHeaders,
+    // Find invitation directly from DB since listInvitations requires active org
+    const pendingInvite = await prisma.invitation.findFirst({
+      where: { organizationId: orgId, email: "accountant@dev.test", status: "pending" },
     });
-    const pendingInvite = invitations?.find(
-      (inv: { organizationId: string; status: string }) =>
-        inv.organizationId === orgId && inv.status === "pending",
-    );
     if (pendingInvite) {
       await auth.api.acceptInvitation({
         headers: accountantHeaders,
