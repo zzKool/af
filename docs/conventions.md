@@ -43,19 +43,27 @@ refactor: extract CSV parsing into dedicated service
 - **Chore branches:** `chore/<description>` (branch from `develop`)
 - No staging environment — deploy directly from `main` after CI passes
 
-### Story Git Workflow
+### Story Git Workflow (STRICT — per command, per story)
 
-Each story gets its own feature branch:
+Each story gets its own feature branch. Git actions are tied to specific BMAD commands:
 
-1. **Checkout `develop`:** `git checkout develop`
-2. **Pull latest:** `git pull`
-3. **Create story branch:** `git checkout -b feature/story-<id>-<description>` (e.g., `feature/story-1-2-prisma-schema-rls`)
-4. **Implement the story:** Intermediate commits and pushes during implementation
-5. **Review:** Code review happens on the story branch
-6. **PR to `develop`:** After review passes, create a pull request to merge `feature/story-*` → `develop`
-7. **Deploy:** When `develop` is stable and ready, merge `develop` → `main` to deploy
+#### 1. `/bmad-bmm-create-story` — ALWAYS start with:
+   a. `git checkout develop`
+   b. `git pull`
+   c. `git checkout -b feature/story-<id>-<description>` (e.g., `feature/story-1-2-prisma-schema-rls`)
 
-Commits use conventional commit prefixes and reference story IDs where relevant.
+#### 2. `/bmad-bmm-dev-story` — during implementation:
+   a. `git add` + `git commit` periodically (intermediate commits)
+   b. `git push` when dev is done
+
+#### 3. `/bmad-bmm-code-review` — when review completes:
+   a. If fixes needed: commit fixes, push again
+   b. When fully done: create PR `feature/story-*` → `develop`
+
+#### Deploy
+When `develop` is stable and ready, merge `develop` → `main` to deploy.
+
+Commits use conventional commit prefixes. NEVER use Co-Authored-By Claude headers. NEVER include "Generated with Claude Code" in PR descriptions or comments.
 
 ## Naming Standards
 

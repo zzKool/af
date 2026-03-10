@@ -1,8 +1,9 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
+import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
 import { auth } from "@/server/auth";
-import { cleanupTestData } from "@/server/db/test-fixtures";
+import { cleanupTestData, createAuthenticatedContext } from "@/server/db/test-fixtures";
 import { resetRateLimit } from "./rate-limit";
 
 // Mock next/headers — provides request headers to auth middleware
@@ -31,63 +32,6 @@ afterAll(async () => {
   await adminPool.end();
 });
 
-async function setupOwnerWithHeaders() {
-  await auth.api.signUpEmail({
-    body: { email: "owner@test.local", password: "password123", name: "Owner" },
-  });
-
-  const response = await auth.api.signInEmail({
-    body: { email: "owner@test.local", password: "password123" },
-    asResponse: true,
-  });
-  const cookies = response.headers.getSetCookie();
-  const headers = new Headers();
-  headers.set("cookie", cookies.map((c) => c.split(";")[0]).join("; "));
-
-  const org = await auth.api.createOrganization({
-    headers,
-    body: { name: "Test Org", slug: "test-org" },
-  });
-
-  await auth.api.setActiveOrganization({
-    headers,
-    body: { organizationId: org.id },
-  });
-
-  return { headers, orgId: org.id };
-}
-
-async function setupAccountantWithHeaders(ownerHeaders: Headers, orgId: string) {
-  await auth.api.signUpEmail({
-    body: { email: "accountant@test.local", password: "password123", name: "Accountant" },
-  });
-
-  const invitation = await auth.api.createInvitation({
-    headers: ownerHeaders,
-    body: { email: "accountant@test.local", role: "member", organizationId: orgId },
-  });
-
-  const response = await auth.api.signInEmail({
-    body: { email: "accountant@test.local", password: "password123" },
-    asResponse: true,
-  });
-  const cookies = response.headers.getSetCookie();
-  const acctHeaders = new Headers();
-  acctHeaders.set("cookie", cookies.map((c) => c.split(";")[0]).join("; "));
-
-  await auth.api.acceptInvitation({
-    headers: acctHeaders,
-    body: { invitationId: invitation.id },
-  });
-
-  await auth.api.setActiveOrganization({
-    headers: acctHeaders,
-    body: { organizationId: orgId },
-  });
-
-  return { headers: acctHeaders };
-}
-
 // Import action clients after mocks are set up
 import { authedAction, ownerAction, publicAction } from "./action-client";
 
@@ -104,10 +48,22 @@ const ownerTestAction = ownerAction.schema(z.object({})).action(async ({ ctx }) 
   return { ok: true, role: ctx.callerIdentity.role };
 });
 
+// Test action that throws an unhandled error (for handleServerError tests)
+const crashingAction = authedAction.schema(z.object({})).action(async () => {
+  throw new Error("Unexpected crash");
+});
+
+const prismaCrashingAction = authedAction.schema(z.object({})).action(async () => {
+  throw new PrismaClientKnownRequestError("Connection refused", {
+    code: "P1001",
+    clientVersion: "7.0.0",
+  });
+});
+
 describe("action-client integration", () => {
   it("full chain: authenticated owner → action executes successfully", async () => {
-    const { headers } = await setupOwnerWithHeaders();
-    mockHeaders = headers;
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
 
     const result = await ownerTestAction({});
     expect(result?.serverError).toBeUndefined();
@@ -116,8 +72,11 @@ describe("action-client integration", () => {
   });
 
   it("full chain: accountant via ownerAction → FORBIDDEN", async () => {
-    const owner = await setupOwnerWithHeaders();
-    const accountant = await setupAccountantWithHeaders(owner.headers, owner.orgId);
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const accountant = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
     mockHeaders = accountant.headers;
 
     const result = await ownerTestAction({});
@@ -147,13 +106,40 @@ describe("action-client integration", () => {
   });
 
   it("authedAction allows accountant for read operations", async () => {
-    const owner = await setupOwnerWithHeaders();
-    const accountant = await setupAccountantWithHeaders(owner.headers, owner.orgId);
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const accountant = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
     mockHeaders = accountant.headers;
 
     const result = await authedTestAction({});
     expect(result?.serverError).toBeUndefined();
     expect(result?.data?.ok).toBe(true);
     expect(result?.data?.role).toBe("accountant");
+  });
+
+  it("handleServerError returns INTERNAL_ERROR with retryable: false for generic errors", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+
+    const result = await crashingAction({});
+    expect(result?.serverError).toMatchObject({
+      code: "INTERNAL_ERROR",
+      message: "An unexpected error occurred",
+      retryable: false,
+    });
+  });
+
+  it("handleServerError returns INTERNAL_ERROR with retryable: true for Prisma errors", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+
+    const result = await prismaCrashingAction({});
+    expect(result?.serverError).toMatchObject({
+      code: "INTERNAL_ERROR",
+      message: "An unexpected error occurred",
+      retryable: true,
+    });
   });
 });

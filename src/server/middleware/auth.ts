@@ -26,7 +26,7 @@ export const authMiddleware = createMiddleware<{
   return next({
     ctx: {
       userId: authCtx.userId,
-      tenantId: authCtx.tenantId as string | null,
+      tenantId: authCtx.tenantId,
     },
   });
 });

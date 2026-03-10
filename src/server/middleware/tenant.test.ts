@@ -199,4 +199,27 @@ describe("tenantMiddleware", () => {
     await callTenantMiddleware({ userId, tenantId }, next);
     expect(next).toHaveBeenCalled();
   });
+
+  it("throws FORBIDDEN for unknown role (e.g. 'admin') via exhaustive match", async () => {
+    const { userId, tenantId } = await setupOwner();
+
+    // Directly update the member role to an unexpected value via SQL
+    // Better Auth supports "admin" role but our app doesn't map it
+    const client = await adminPool.connect();
+    try {
+      await client.query(`UPDATE members SET role = 'admin' WHERE user_id = $1 AND organization_id = $2`, [
+        userId,
+        tenantId,
+      ]);
+    } finally {
+      client.release();
+    }
+
+    await expect(callTenantMiddleware({ userId, tenantId })).rejects.toMatchObject({
+      appError: {
+        code: "FORBIDDEN",
+        message: "Unknown role: admin",
+      },
+    });
+  });
 });

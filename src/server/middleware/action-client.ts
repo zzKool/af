@@ -1,4 +1,5 @@
 import { createMiddleware, createSafeActionClient } from "next-safe-action";
+import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
 import type { AppError } from "@/types/app-error";
 import { authMiddleware } from "./auth";
 import { ActionError } from "./errors";
@@ -20,7 +21,7 @@ const baseClient = createSafeActionClient({
       return error.appError;
     }
     console.error("Server Action error:", error);
-    const retryable = error?.constructor?.name?.startsWith("Prisma") ?? false;
+    const retryable = error instanceof PrismaClientKnownRequestError;
     return {
       code: "INTERNAL_ERROR" as const,
       message: "An unexpected error occurred",
