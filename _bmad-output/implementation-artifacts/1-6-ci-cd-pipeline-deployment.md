@@ -327,7 +327,7 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 ### Task 6: Update environment and configuration (AC: #1, #3)
 
-- [ ] 6.1 Update `.env.example` — add CI/deployment notes (commented, for future reference):
+- [x] 6.1 Update `.env.example` — add CI/deployment notes (commented, for future reference):
   ```
   # CI/CD (GitHub Actions - set as repository secrets when deploying)
   # AZURE_CREDENTIALS={"clientId":"...","clientSecret":"...","subscriptionId":"...","tenantId":"..."}
@@ -337,8 +337,8 @@ so that every push to `develop` is tested and the codebase remains reliable as n
   # AZURE_RESOURCE_GROUP=defterfab-rg
   # PRODUCTION_DATABASE_URL=postgresql://...
   ```
-- [ ] 6.2 Ensure `e2e/.auth/` is in `.gitignore`.
-- [ ] 6.3 Ensure `playwright-report/` is in `.gitignore`.
+- [x] 6.2 Ensure `e2e/.auth/` is in `.gitignore`.
+- [x] 6.3 Ensure `playwright-report/` is in `.gitignore`.
 
 ### Task 7: Write documentation (AC: #9, #10)
 
