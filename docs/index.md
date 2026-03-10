@@ -10,6 +10,7 @@ Technical decisions, stack choices, and system design patterns.
 - [[tech-stack]] — Languages, frameworks, and library versions
 - [[data-model]] — Database schema, relationships, and RLS policies
 - [[prisma-rls-setup]] — Multi-tenant RLS with Prisma 7, tenant-aware client, migration workflow
+- [[auth-setup]] — Better Auth 1.5 configuration, organization-to-tenant mapping, session management
 
 ## Patterns
 

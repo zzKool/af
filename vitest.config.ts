@@ -16,6 +16,7 @@ export default defineConfig({
           include: ["src/server/**/*.test.ts"],
           environment: "node",
           setupFiles: ["src/server/db/test-setup.ts"],
+          fileParallelism: false,
         },
       },
       {

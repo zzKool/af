@@ -1,0 +1,138 @@
+# Auth Setup
+
+Authentication and session management using Better Auth 1.5 with organization-based multi-tenancy.
+
+## Better Auth Configuration
+
+Server-side configuration lives in `src/server/auth.ts`:
+
+- **Prisma adapter** connects to PostgreSQL via the base Prisma client
+- **Email + password** authentication with minimum 8 character passwords
+- **Organization plugin** maps organizations to tenants (`creatorRole: "owner"`)
+- **nextCookies plugin** for automatic cookie handling in Server Actions
+- **Experimental joins** enabled for 2-3x faster `/get-session` performance
+- **Database-generated IDs** (`generateId: false`) — all auth tables use `gen_random_uuid()` for UUID consistency
+
+## Organization-to-Tenant Mapping
+
+This is the most critical architectural concept:
+
+```
+Better Auth Session
+  └─ activeOrganizationId ← user's current workspace
+       └─ SET LOCAL app.tenant_id = activeOrganizationId
+            └─ RLS policies filter ALL tenant-scoped queries
+```
+
+| Better Auth Concept | Our Concept |
+|---------------------|-------------|
+| `organization.id` | `tenantId` |
+| `session.activeOrganizationId` | Current tenant context |
+| `member.role = "owner"` | Owner role |
+| `member.role = "member"` | Accountant role |
+
+## Session Structure
+
+After sign-in with an active organization:
+
+```typescript
+const session = await auth.api.getSession({ headers });
+// session.user.id       → userId
+// session.user.email    → user email
+// session.session.activeOrganizationId → tenantId (our key mapping)
+```
+
+## Getting Auth Context
+
+In Server Components and Server Actions, use `getAuthContext()`:
+
+```typescript
+import { getAuthContext } from "@/server/auth";
+
+const context = await getAuthContext(headers);
+// context.userId   → string
+// context.tenantId → string | null (null if no active org)
+// context.role     → null (enriched by Story 1.4's authMiddleware)
+```
+
+Story 1.4's `authMiddleware` will enrich this into a full `CallerIdentity` with role lookup and `source: 'web'`.
+
+## Auth Client (React)
+
+Client-side auth operations use `src/lib/auth-client.ts`:
+
+```typescript
+import { authClient } from "@/lib/auth-client";
+
+// Sign up
+await authClient.signUp.email({ email, password, name });
+
+// Sign in
+await authClient.signIn.email({ email, password });
+
+// Organization management
+await authClient.organization.create({ name, slug });
+await authClient.organization.setActive({ organizationId });
+```
+
+## Route Protection
+
+`src/middleware.ts` protects all routes except public paths using a cookie-existence check (fast, no DB call):
+
+```typescript
+import { getSessionCookie } from "better-auth/cookies";
+
+export function middleware(request: NextRequest) {
+  const sessionCookie = getSessionCookie(request);
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|login|register|favicon.ico).*)"],
+};
+```
+
+**Note:** Next.js route groups like `(app)` don't create URL segments, so the matcher uses a deny-list pattern excluding public paths rather than matching a `/(app)` prefix.
+
+Full session validation happens server-side in Server Actions (Story 1.4).
+
+## Auth API Route
+
+All Better Auth endpoints are handled by `src/app/api/auth/[...all]/route.ts`:
+
+```typescript
+import { auth } from "@/server/auth";
+import { toNextJsHandler } from "better-auth/next-js";
+export const { GET, POST } = toNextJsHandler(auth);
+```
+
+## Auth Tables — NO RLS
+
+Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invitations`, `verifications`) are **global cross-tenant tables** owned by Better Auth.
+
+**NEVER add RLS policies to auth tables.** Adding RLS would break Better Auth silently. Only app domain tables (in `app.prisma`) get RLS via [[prisma-rls-setup]].
+
+## Adding New Auth Features
+
+1. Update Better Auth config in `src/server/auth.ts` (add plugins, options)
+2. Run `npx auth generate` to regenerate schema additions
+3. Merge generated changes into `prisma/schema/auth.prisma` preserving conventions (`@db.Uuid`, `@db.Timestamptz`, `@map("snake_case")`)
+4. Run `npx prisma migrate dev --name <description>`
+5. Update client plugins in `src/lib/auth-client.ts` if needed
+6. Add tests in `src/server/auth.test.ts`
+
+## File Locations
+
+| File | Purpose |
+|------|---------|
+| `src/server/auth.ts` | Better Auth server config + `getAuthContext()` |
+| `src/lib/auth-client.ts` | Better Auth React client with organization plugin |
+| `src/app/api/auth/[...all]/route.ts` | Auth API route handler |
+| `src/app/(auth)/login/page.tsx` | Login page |
+| `src/app/(auth)/register/page.tsx` | Registration page |
+| `src/middleware.ts` | Route protection (cookie check) |
+| `prisma/schema/auth.prisma` | Auth schema (regenerated via `npx auth generate`) |
+| `src/server/auth.test.ts` | Auth integration tests |
