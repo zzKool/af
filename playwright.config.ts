@@ -14,16 +14,33 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "owner-setup",
+      testMatch: /auth\.setup\.ts/,
+      testDir: "./e2e/fixtures",
+    },
+    {
+      name: "accountant-setup",
+      testMatch: /auth-accountant\.setup\.ts/,
+      testDir: "./e2e/fixtures",
+    },
+    {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+      dependencies: ["owner-setup", "accountant-setup"],
+      testMatch: "**/*.spec.ts",
+      testIgnore: "**/fixtures/**",
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    env: {
-      DATABASE_URL: "postgresql://defterfab:test@localhost:5433/defterfab_test",
-    },
-  },
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: "http://localhost:3000",
+        reuseExistingServer: true,
+        env: {
+          DATABASE_URL: "postgresql://defterfab:test@localhost:5433/defterfab_test",
+        },
+      },
 });

@@ -53,7 +53,7 @@ Each story gets its own feature branch. Git actions are tied to specific BMAD co
    c. `git checkout -b feature/story-<id>-<description>` (e.g., `feature/story-1-2-prisma-schema-rls`)
 
 #### 2. `/bmad-bmm-dev-story` — during implementation:
-   a. `git add` + `git commit` periodically (intermediate commits)
+   a. `git add` + `git commit` after each completed task
    b. `git push` when dev is done
 
 #### 3. `/bmad-bmm-code-review` — when review completes:

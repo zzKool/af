@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+_bmad*
+e2e
+*.md
+.env*
+.claude

@@ -15,6 +15,7 @@ Next.js 16.1 + Prisma 7 + PostgreSQL 17 + Better Auth 1.5.
 - `npm run e2e` — Playwright E2E
 - `npm run lint` — Biome check
 - `docker compose up -d` — Start dev + test databases
+- CI runs on every PR to `develop` via GitHub Actions (lint, typecheck, test, build, E2E)
 
 ## Conventions
 - See architecture.md in _bmad-output/planning-artifacts/ for full details
@@ -52,7 +53,7 @@ One feature branch per story (not per epic). Branch naming: `feature/story-<id>-
    c. `git checkout -b feature/story-<id>-<description>`
 
 ### 2. `/bmad-bmm-dev-story` — during implementation:
-   a. `git add` + `git commit` periodically (intermediate commits)
+   a. `git add` + `git commit` after each completed task
    b. `git push` when dev is done
 
 ### 3. `/bmad-bmm-code-review` — when review completes:

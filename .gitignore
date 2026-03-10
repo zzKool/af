@@ -4,6 +4,7 @@ node_modules/
 # Next.js
 .next/
 out/
+next-env.d.ts
 
 # Turbopack
 .turbo/
@@ -27,6 +28,7 @@ coverage/
 test-results/
 playwright-report/
 blob-report/
+e2e/.auth/
 
 # BMAD framework (not part of deliverable)
 _bmad/

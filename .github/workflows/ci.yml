@@ -1,0 +1,170 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '_bmad*/**'
+  pull_request:
+    branches: [develop]
+
+env:
+  NODE_VERSION: '22'
+  AUTH_SECRET: 'ci-test-secret-not-for-production'
+  AUTH_URL: 'http://localhost:3000'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+
+  unit-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: defterfab
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: defterfab_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U defterfab"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run test
+
+  build-and-e2e:
+    needs: [lint, typecheck, unit-test]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: defterfab
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: defterfab_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U defterfab"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Build without standalone (for next start + E2E)
+        run: npm run build
+        env:
+          NEXT_OUTPUT_STANDALONE: 'false'
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+      - run: npx prisma migrate deploy
+      - run: npx prisma db seed
+      - name: Start server and run E2E tests
+        run: |
+          npx next start -p 3000 > server.log 2>&1 &
+          npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
+          npm run e2e
+        env:
+          PORT: 3000
+          HOSTNAME: localhost
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            server.log
+          retention-days: 7
+
+  # Deploy job — DISABLED until Azure is provisioned
+  # To enable:
+  #   1. Provision Azure Container Apps + ACR
+  #   2. Add GitHub secrets: AZURE_CREDENTIALS, ACR_LOGIN_SERVER, ACR_USERNAME,
+  #      ACR_PASSWORD, AZURE_RESOURCE_GROUP, PRODUCTION_DATABASE_URL
+  #   3. Change 'if: false' to 'if: github.ref == 'refs/heads/main' && github.event_name == 'push''
+  deploy:
+    needs: [build-and-e2e]
+    if: false # TODO: Enable when Azure is provisioned
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - uses: azure/docker-login@v2
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Run database migrations
+        run: |
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/defterfab:${{ github.sha }} .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/defterfab:${{ github.sha }}
+      - name: Deploy to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name defterfab \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/defterfab:${{ github.sha }}

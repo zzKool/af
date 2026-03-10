@@ -1,6 +1,5 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod/v4";
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
@@ -55,8 +54,8 @@ describe("settings service", () => {
 
     expect(result.error).toBeUndefined();
     expect(result.data).toBeDefined();
-    expect(result.data!.currency).toBe("SEK");
-    expect(typeof result.data!.name).toBe("string");
+    expect(result.data?.currency).toBe("SEK");
+    expect(typeof result.data?.name).toBe("string");
   });
 
   it("updateTenantProfile updates and returns new data", async () => {
@@ -116,7 +115,7 @@ describe("settings service", () => {
     );
 
     expect(result.error).toBeDefined();
-    expect(result.error!.code).toBe("NOT_FOUND");
+    expect(result.error?.code).toBe("NOT_FOUND");
   });
 });
 
@@ -130,8 +129,8 @@ describe("afterCreateOrganization hook", () => {
       return tx.tenant.findUnique({ where: { id: tenantId } });
     });
     expect(tenant).not.toBeNull();
-    expect(tenant!.id).toBe(tenantId);
-    expect(tenant!.currency).toBe("SEK");
+    expect(tenant?.id).toBe(tenantId);
+    expect(tenant?.currency).toBe("SEK");
   });
 
   it("Tenant row has correct default currency (SEK)", async () => {
@@ -140,7 +139,7 @@ describe("afterCreateOrganization hook", () => {
     const tenant = await withTenantTransaction(prisma, tenantId, async (tx) => {
       return tx.tenant.findUnique({ where: { id: tenantId } });
     });
-    expect(tenant!.currency).toBe("SEK");
+    expect(tenant?.currency).toBe("SEK");
   });
 
   it("upsert is idempotent — creating org with existing tenant does not crash", async () => {
