@@ -1,7 +1,7 @@
+import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
-import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
 import { auth } from "@/server/auth";
 import { cleanupTestData, createAuthenticatedContext } from "@/server/db/test-fixtures";
 import { resetRateLimit } from "./rate-limit";

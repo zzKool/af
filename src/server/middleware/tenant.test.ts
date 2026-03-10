@@ -207,10 +207,10 @@ describe("tenantMiddleware", () => {
     // Better Auth supports "admin" role but our app doesn't map it
     const client = await adminPool.connect();
     try {
-      await client.query(`UPDATE members SET role = 'admin' WHERE user_id = $1 AND organization_id = $2`, [
-        userId,
-        tenantId,
-      ]);
+      await client.query(
+        `UPDATE members SET role = 'admin' WHERE user_id = $1 AND organization_id = $2`,
+        [userId, tenantId],
+      );
     } finally {
       client.release();
     }
