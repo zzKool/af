@@ -24,22 +24,11 @@ export default defineConfig({
       testDir: "./e2e/fixtures",
     },
     {
-      name: "owner-tests",
+      name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        storageState: "e2e/.auth/owner.json",
       },
-      dependencies: ["owner-setup"],
-      testMatch: "**/*.spec.ts",
-      testIgnore: "**/fixtures/**",
-    },
-    {
-      name: "accountant-tests",
-      use: {
-        ...devices["Desktop Chrome"],
-        storageState: "e2e/.auth/accountant.json",
-      },
-      dependencies: ["accountant-setup"],
+      dependencies: ["owner-setup", "accountant-setup"],
       testMatch: "**/*.spec.ts",
       testIgnore: "**/fixtures/**",
     },

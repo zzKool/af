@@ -599,7 +599,7 @@ Claude Opus 4.6
 - playwright.config.ts (setup projects, CI webServer disabled)
 - package.json (added wait-on, tsx devDeps)
 - package-lock.json
-- .gitignore (added e2e/.auth/)
+- .gitignore (added e2e/.auth/, next-env.d.ts)
 - .env.example (added CI secrets docs)
 - docs/index.md (added ci-cd wiki-link)
 - CLAUDE.md (added CI note)
