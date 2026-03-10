@@ -89,7 +89,9 @@ sequenceDiagram
 | Public (no auth) | `publicAction` | N/A | login, register |
 | Read (any role) | `authedAction` | Yes (read) | get journal entries |
 | Write (any) | `ownerAction` | No | create entry, upload doc |
-| Read (owner only) | `ownerAction` | No | view settings, contracts |
+| Read settings (owner) | `ownerAction` | No | `getTenantProfile` |
+| Write settings | `ownerAction` | No | `updateTenantProfile` |
+| List members | `ownerAction` | No | `listTenantMembers` |
 
 ## Error Handling Contract
 

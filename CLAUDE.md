@@ -41,7 +41,7 @@ Next.js 16.1 + Prisma 7 + PostgreSQL 17 + Better Auth 1.5.
 - authedAction: full middleware chain (most actions)
 - ownerAction: owner role required (settings, user mgmt)
 - Business errors: return { error: AppError } inside data, never throw
-- See src/server/actions/tenant-profile.ts for the foundational Server Action pattern
+- See src/server/actions/settings.ts for the production Server Action pattern
 
 ## Git Workflow (STRICT — per command, per story)
 One feature branch per story (not per epic). Branch naming: `feature/story-<id>-<description>`

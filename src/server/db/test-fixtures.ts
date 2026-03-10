@@ -103,7 +103,9 @@ export async function createTestTenantConfig(
  * Signs up a user, creates an org, sets it active, and returns session headers
  * plus a frozen CallerIdentity. Reusable by all future story tests.
  */
-type AuthApi = { api: Record<string, (...args: never[]) => Promise<unknown>> };
+type AuthApi = {
+  api: Record<string, (...args: any[]) => Promise<any>>;
+};
 
 export async function createAuthenticatedContext(
   authInstance: AuthApi,
