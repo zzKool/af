@@ -132,13 +132,12 @@ jobs:
           path: .
       - name: Prepare standalone server
         run: |
+          mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
       - name: Start server and run E2E tests
         run: |
           cd .next/standalone && node server.js > ../../server.log 2>&1 &
-          npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
-          npm run e2e
           npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
           npm run e2e
         env:
