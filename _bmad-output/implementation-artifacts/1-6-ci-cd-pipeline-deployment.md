@@ -103,9 +103,9 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 **CRITICAL: Use selectors from Gate 0.8 — do NOT guess form labels or redirect URLs.**
 
-- [ ] 3.1 Create `e2e/fixtures/auth.setup.ts` — owner authentication setup. Use exact selectors from Gate 0.8 for email field, password field, submit button, and post-login redirect URL.
-- [ ] 3.2 Create `e2e/fixtures/auth-accountant.setup.ts` — accountant authentication setup. Same selectors, different credentials.
-- [ ] 3.3 Update `playwright.config.ts` — add setup projects and authenticated test projects:
+- [x] 3.1 Create `e2e/fixtures/auth.setup.ts` — owner authentication setup. Use exact selectors from Gate 0.8 for email field, password field, submit button, and post-login redirect URL.
+- [x] 3.2 Create `e2e/fixtures/auth-accountant.setup.ts` — accountant authentication setup. Same selectors, different credentials.
+- [x] 3.3 Update `playwright.config.ts` — add setup projects and authenticated test projects:
   ```typescript
   projects: [
     { name: 'owner-setup', testMatch: /auth\.setup\.ts/, testDir: './e2e/fixtures' },
@@ -123,8 +123,8 @@ so that every push to `develop` is tested and the codebase remains reliable as n
   ],
   ```
   Note: CI does NOT use the `webServer` directive — the standalone server is started separately in the CI workflow.
-- [ ] 3.4 Add `e2e/.auth/` to `.gitignore` (storageState files contain session tokens).
-- [ ] 3.5 Remove the `.gitkeep` from `e2e/fixtures/` once real files exist.
+- [x] 3.4 Add `e2e/.auth/` to `.gitignore` (storageState files contain session tokens).
+- [x] 3.5 Remove the `.gitkeep` from `e2e/fixtures/` once real files exist.
 
 ### Task 4: Create basic E2E test spec (AC: #5)
 

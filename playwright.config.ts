@@ -14,16 +14,45 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: "owner-setup",
+      testMatch: /auth\.setup\.ts/,
+      testDir: "./e2e/fixtures",
+    },
+    {
+      name: "accountant-setup",
+      testMatch: /auth-accountant\.setup\.ts/,
+      testDir: "./e2e/fixtures",
+    },
+    {
+      name: "owner-tests",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/owner.json",
+      },
+      dependencies: ["owner-setup"],
+      testMatch: "**/*.spec.ts",
+      testIgnore: "**/fixtures/**",
+    },
+    {
+      name: "accountant-tests",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/accountant.json",
+      },
+      dependencies: ["accountant-setup"],
+      testMatch: "**/*.spec.ts",
+      testIgnore: "**/fixtures/**",
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    env: {
-      DATABASE_URL: "postgresql://defterfab:test@localhost:5433/defterfab_test",
-    },
-  },
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: "http://localhost:3000",
+        reuseExistingServer: true,
+        env: {
+          DATABASE_URL:
+            "postgresql://defterfab:test@localhost:5433/defterfab_test",
+        },
+      },
 });
