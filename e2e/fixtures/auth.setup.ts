@@ -3,24 +3,35 @@ import { expect, test as setup } from "@playwright/test";
 const OWNER_AUTH_FILE = "e2e/.auth/owner.json";
 
 setup("authenticate as owner", async ({ page }) => {
-  // Navigate to any page first so we have a valid origin for fetch
-  await page.goto("/login");
-
-  // Call auth API via browser fetch so cookies are set in the browser context
-  const result = await page.evaluate(async () => {
-    const res = await fetch("/api/auth/sign-in/email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: "owner@dev.test",
-        password: "password123",
-      }),
-    });
-    return { ok: res.ok, status: res.status };
+  // Sign in via API
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email: "owner@dev.test", password: "password123" },
   });
-  expect(result.ok).toBeTruthy();
+  expect(response.ok()).toBeTruthy();
 
-  // Navigate to dashboard — middleware should now see the session cookie
+  // Extract session cookie from response and add to browser context
+  const setCookieHeader = response.headersArray().find(
+    (h) => h.name.toLowerCase() === "set-cookie",
+  );
+  expect(setCookieHeader).toBeTruthy();
+
+  const cookieParts = setCookieHeader!.value.split(";")[0];
+  const eqIndex = cookieParts.indexOf("=");
+  const name = cookieParts.substring(0, eqIndex);
+  const value = cookieParts.substring(eqIndex + 1);
+
+  await page.context().addCookies([
+    {
+      name,
+      value,
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  // Verify auth works
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
 
