@@ -135,8 +135,8 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 ### Task 5: Create GitHub Actions CI workflow (AC: #1, #2, #3, #7, #8)
 
-- [ ] 5.1 Install `wait-on` as dev dependency: `npm install -D wait-on`
-- [ ] 5.2 Create `.github/workflows/ci.yml`:
+- [x] 5.1 Install `wait-on` as dev dependency: `npm install -D wait-on`
+- [x] 5.2 Create `.github/workflows/ci.yml`:
   ```yaml
   name: CI/CD Pipeline
   on:
@@ -322,8 +322,8 @@ so that every push to `develop` is tested and the codebase remains reliable as n
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --image ${{ secrets.ACR_LOGIN_SERVER }}/defterfab:${{ github.sha }}
   ```
-- [ ] 5.3 Verify CI workflow syntax: review against GitHub Actions schema.
-- [ ] 5.4 **First PR is self-validating:** The CI workflow added in this PR will trigger CI on the PR itself (GitHub Actions reads workflow from PR branch for `pull_request` triggers). Verify the workflow file is at the exact path `.github/workflows/ci.yml`.
+- [x] 5.3 Verify CI workflow syntax: review against GitHub Actions schema.
+- [x] 5.4 **First PR is self-validating:** The CI workflow added in this PR will trigger CI on the PR itself (GitHub Actions reads workflow from PR branch for `pull_request` triggers). Verify the workflow file is at the exact path `.github/workflows/ci.yml`.
 
 ### Task 6: Update environment and configuration (AC: #1, #3)
 
