@@ -104,7 +104,8 @@ export async function createTestTenantConfig(
  * plus a frozen CallerIdentity. Reusable by all future story tests.
  */
 type AuthApi = {
-  api: Record<string, (...args: any[]) => Promise<any>>;
+  // biome-ignore lint/suspicious/noExplicitAny: generic auth API signature requires flexible typing
+  api: Record<string, (...args: any[]) => Promise<unknown>>;
 };
 
 export async function createAuthenticatedContext(
