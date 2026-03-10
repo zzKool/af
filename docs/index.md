@@ -17,7 +17,7 @@ Technical decisions, stack choices, and system design patterns.
 Reusable code patterns and development conventions.
 
 - [[conventions]] — Commit conventions, branching strategy, naming standards
-- [[server-action-pipeline]] — Middleware chain for all mutations
+- [[server-actions]] — Middleware chain, RBAC, error handling, and testing guide
 - [[error-handling]] — Typed error codes and response patterns
 - [[hexagonal-architecture]] — Import boundaries and service isolation
 

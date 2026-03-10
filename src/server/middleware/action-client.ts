@@ -1,0 +1,93 @@
+import { createMiddleware, createSafeActionClient } from "next-safe-action";
+import type { AppError } from "@/types/app-error";
+import { authMiddleware } from "./auth";
+import { ActionError } from "./errors";
+import { checkRateLimit, resetRateLimit } from "./rate-limit";
+import { tenantMiddleware } from "./tenant";
+
+/**
+ * Base action client with error handler.
+ * handleServerError distinguishes ActionError (business errors from middleware)
+ * from unexpected crashes. Both are returned as serverError to the client.
+ *
+ * - ActionError → pass through the AppError object
+ * - Prisma errors → INTERNAL_ERROR with retryable: true
+ * - Other errors → INTERNAL_ERROR with retryable: false
+ */
+const baseClient = createSafeActionClient({
+  handleServerError: (error) => {
+    if (error instanceof ActionError) {
+      return error.appError;
+    }
+    console.error("Server Action error:", error);
+    const retryable = error?.constructor?.name?.startsWith("Prisma") ?? false;
+    return {
+      code: "INTERNAL_ERROR" as const,
+      message: "An unexpected error occurred",
+      retryable,
+    };
+  },
+});
+
+/**
+ * Public actions (login, register) — no auth, no middleware.
+ * MUST NEVER perform database mutations.
+ */
+export const publicAction = baseClient;
+
+/**
+ * Rate limit middleware — enforces in-memory rate limiting per userId.
+ * Runs BEFORE tenant middleware to avoid holding open a DB transaction
+ * for rejected requests.
+ */
+const rateLimitMiddleware = createMiddleware<{
+  serverError: AppError;
+  ctx: { userId: string };
+}>().define(async ({ ctx, next }) => {
+  const { allowed } = checkRateLimit(ctx.userId);
+  if (!allowed) {
+    throw new ActionError({
+      code: "RATE_LIMITED",
+      message: "Too many requests",
+      retryable: true,
+    });
+  }
+  return next({ ctx });
+});
+
+/**
+ * Authenticated actions — for CROSS-ROLE READ operations only.
+ * Chain order: auth → rateLimit → tenant
+ * Rate limiting runs BEFORE tenant to avoid holding a DB transaction for rejected requests.
+ */
+export const authedAction = baseClient
+  .use(authMiddleware)
+  .use(rateLimitMiddleware)
+  .use(tenantMiddleware);
+
+/**
+ * requireRole middleware — checks callerIdentity.role from context.
+ */
+const ownerRoleMiddleware = createMiddleware<{
+  serverError: AppError;
+  ctx: { callerIdentity: { role: string } };
+}>().define(async ({ ctx, next }) => {
+  if (ctx.callerIdentity.role !== "owner") {
+    throw new ActionError({
+      code: "FORBIDDEN",
+      message: "Requires owner role",
+      retryable: false,
+    });
+  }
+  return next({ ctx });
+});
+
+/**
+ * Owner-only actions — for ALL mutations and owner-restricted reads.
+ * Extends authedAction with owner role check.
+ */
+export const ownerAction = authedAction.use(ownerRoleMiddleware);
+
+// Re-export for test cleanup
+export { resetRateLimit };
+export { ActionError } from "./errors";
