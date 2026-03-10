@@ -1,4 +1,3 @@
-import { prisma } from "@/server/db/client";
 import type { TransactionClient } from "@/server/db/tenant-client";
 import type { AppError } from "@/types/app-error";
 import type { CallerIdentity } from "@/types/caller-identity";
@@ -64,9 +63,10 @@ export async function updateTenantProfile(
   });
 
   // Sync name to Organization model to prevent Org ↔ Tenant name desync.
-  // Uses base prisma client (no RLS on auth tables — Organization is a BA model).
+  // Uses the same transaction so both updates are atomic — if either fails, both roll back.
+  // Organization table has no RLS, so SET LOCAL doesn't affect this query.
   if (input.name !== undefined) {
-    await prisma.organization.update({
+    await tx.organization.update({
       where: { id: caller.tenantId },
       data: { name: input.name },
     });
@@ -86,8 +86,8 @@ export async function listTenantMembers(
   tx: TransactionClient,
   caller: CallerIdentity,
 ): Promise<ServiceResult<{ id: string; userId: string; role: string }[]>> {
-  // Query members from auth tables (no RLS — auth tables are unscoped).
-  // Use base prisma through auth API to list org members.
+  // Member table has no RLS — querying through the RLS-scoped tx is safe
+  // because SET LOCAL only affects tables with RLS policies.
   const members = await tx.member.findMany({
     where: { organizationId: caller.tenantId },
     select: { id: true, userId: true, role: true },

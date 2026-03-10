@@ -10,6 +10,12 @@ export default async function CompanySettingsPage() {
   const auth = await getAuthContext(hdrs);
   if (!auth?.tenantId) redirect("/login");
 
+  // Owner-only access — enforce RBAC server-side (AC #1)
+  const member = await prisma.member.findFirst({
+    where: { userId: auth.userId, organizationId: auth.tenantId },
+  });
+  if (member?.role !== "owner") redirect("/dashboard");
+
   const tenantId = auth.tenantId;
   const profile = await withTenantTransaction(prisma, tenantId, async (tx) => {
     return tx.tenant.findUnique({ where: { id: tenantId } });

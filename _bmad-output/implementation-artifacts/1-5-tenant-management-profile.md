@@ -1,6 +1,6 @@
 # Story 1.5: Tenant Management & Profile
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -498,6 +498,7 @@ Claude Opus 4.6
 ### Change Log
 
 - 2026-03-10: Implemented Story 1.5 — Tenant Management & Profile
+- 2026-03-10: Code review fixes — H1: TenantSwitcher reads from Tenant model, H2: company page role check, H3: UUID validation in auth hook, M3: Users tab active, M4: atomic name sync
 
 ### File List
 
@@ -526,7 +527,8 @@ Claude Opus 4.6
 - docs/tenant-management.md
 
 **Modified files:**
-- src/server/auth.ts (added afterCreateOrganization hook)
+- src/server/auth.ts (added afterCreateOrganization hook + UUID validation)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (story status sync)
 - src/app/(app)/layout.tsx (added Providers, Sidebar, auth/role guards)
 - src/server/db/test-fixtures.ts (fixed AuthApi type)
 - docs/index.md (added tenant-management link)

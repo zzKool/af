@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SettingsPage() {
   return (
@@ -10,9 +10,7 @@ export default function SettingsPage() {
           <TabsTrigger value="company" render={<Link href="/settings/company" />}>
             Company
           </TabsTrigger>
-          <TabsTrigger value="users" disabled>
-            Users (Coming soon)
-          </TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="bank-accounts" disabled>
             Bank Accounts (Coming soon)
           </TabsTrigger>
@@ -23,6 +21,11 @@ export default function SettingsPage() {
             VAT (Coming soon)
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="users" className="mt-6">
+          <p className="text-sm text-muted-foreground">
+            User management coming in a future update.
+          </p>
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -21,6 +21,9 @@ export const auth = betterAuth({
           // Uses a transaction with SET LOCAL to bypass RLS on the tenants table.
           // This is the ONE exception to "never use base prisma directly" —
           // no RLS context exists when creating the tenant itself.
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(org.id)) {
+            throw new Error(`Invalid organization ID format: ${org.id}`);
+          }
           await prisma.$transaction(async (tx) => {
             await tx.$executeRawUnsafe(`SET LOCAL app.tenant_id = '${org.id}'`);
             await tx.tenant.upsert({

@@ -41,7 +41,13 @@ const navItems: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings, roles: ["owner"] },
 ];
 
-export function Sidebar({ role }: { role: CallerIdentity["role"] }) {
+export function Sidebar({
+  role,
+  tenants,
+}: {
+  role: CallerIdentity["role"];
+  tenants: { id: string; name: string }[];
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -67,7 +73,7 @@ export function Sidebar({ role }: { role: CallerIdentity["role"] }) {
       )}
     >
       {/* Tenant Switcher */}
-      {!collapsed && <TenantSwitcher onSwitching={setSwitching} />}
+      {!collapsed && <TenantSwitcher tenants={tenants} onSwitching={setSwitching} />}
 
       {/* Collapse toggle */}
       <button
