@@ -3,13 +3,24 @@ import { expect, test as setup } from "@playwright/test";
 const ACCOUNTANT_AUTH_FILE = "e2e/.auth/accountant.json";
 
 setup("authenticate as accountant", async ({ page }) => {
-  // Use API directly to bypass React hydration timing in standalone mode
-  const response = await page.request.post("/api/auth/sign-in/email", {
-    data: { email: "accountant@dev.test", password: "password123" },
-  });
-  expect(response.ok()).toBeTruthy();
+  // Navigate to any page first so we have a valid origin for fetch
+  await page.goto("/login");
 
-  // Navigate to dashboard to verify auth and populate storageState
+  // Call auth API via browser fetch so cookies are set in the browser context
+  const result = await page.evaluate(async () => {
+    const res = await fetch("/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "accountant@dev.test",
+        password: "password123",
+      }),
+    });
+    return { ok: res.ok, status: res.status };
+  });
+  expect(result.ok).toBeTruthy();
+
+  // Navigate to dashboard — middleware should now see the session cookie
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
 
