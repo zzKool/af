@@ -81,14 +81,12 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run build
+      - name: Package build output
+        run: tar -czf build-output.tar.gz .next/standalone .next/static prisma
       - uses: actions/upload-artifact@v4
         with:
           name: build-output
-          path: |
-            .next/standalone
-            .next/static
-            prisma
-          include-hidden-files: true
+          path: build-output.tar.gz
           retention-days: 1
 
   e2e:
@@ -130,9 +128,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: build-output
-          path: .
       - name: Prepare standalone server
         run: |
+          tar -xzf build-output.tar.gz
           mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public 2>/dev/null || mkdir -p .next/standalone/public
