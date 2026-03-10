@@ -70,7 +70,7 @@ jobs:
       - run: npm run test
 
   build-and-e2e:
-    # needs: [lint, typecheck, unit-test]  # TODO: restore after E2E is verified
+    needs: [lint, typecheck, unit-test]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -106,22 +106,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx prisma migrate deploy
       - run: npx prisma db seed
-      - name: Prepare standalone server
-        run: |
-          cp -r .next/static .next/standalone/.next/static
-          mkdir -p .next/standalone/public
-          cp -r public/. .next/standalone/public/ 2>/dev/null || true
       - name: Start server and run E2E tests
         run: |
-          (cd .next/standalone && NODE_ENV=test node server.js) > server.log 2>&1 &
+          npx next start -p 3000 > server.log 2>&1 &
           npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
-          echo "=== Server started, checking health ==="
-          cat server.log
-          echo "=== Testing auth API (showing response headers) ==="
-          curl -s -i -X POST http://localhost:3000/api/auth/sign-in/email \
-            -H "Content-Type: application/json" \
-            -d '{"email":"owner@dev.test","password":"password123"}' || true
-          echo "=== Running E2E tests ==="
           npm run e2e
         env:
           PORT: 3000
