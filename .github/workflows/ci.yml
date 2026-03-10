@@ -88,6 +88,7 @@ jobs:
             .next/standalone
             .next/static
             prisma
+          include-hidden-files: true
           retention-days: 1
 
   e2e:
