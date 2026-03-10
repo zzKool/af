@@ -52,7 +52,7 @@ One feature branch per story (not per epic). Branch naming: `feature/story-<id>-
    c. `git checkout -b feature/story-<id>-<description>`
 
 ### 2. `/bmad-bmm-dev-story` — during implementation:
-   a. `git add` + `git commit` periodically (intermediate commits)
+   a. `git add` + `git commit` after each completed task
    b. `git push` when dev is done
 
 ### 3. `/bmad-bmm-code-review` — when review completes:
