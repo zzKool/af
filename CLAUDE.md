@@ -43,6 +43,16 @@ Next.js 16.1 + Prisma 7 + PostgreSQL 17 + Better Auth 1.5.
 - Business errors: return { error: AppError } inside data, never throw
 - See src/server/actions/journal.ts for reference pattern
 
+## Git Workflow (Automated)
+- On `/bmad-bmm-dev-story` start: `git checkout develop && git pull && git checkout -b feature/story-<id>-<description>`
+- One feature branch per story (not per epic)
+- Branch naming: `feature/story-1-2-prisma-schema-rls`, `feature/story-1-3-auth-session`
+- Intermediate commits during story implementation, push before code review
+- On `/bmad-bmm-code-review` completion: PR `feature/story-*` → `develop`
+- Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`
+- NEVER use Co-Authored-By Claude headers
+- NEVER include "Generated with Claude Code" in PR descriptions or comments
+
 ## Planning Artifacts (read for context)
 - _bmad-output/planning-artifacts/prd.md
 - _bmad-output/planning-artifacts/architecture.md
