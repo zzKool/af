@@ -4,13 +4,37 @@ const ACCOUNTANT_AUTH_FILE = "e2e/.auth/accountant.json";
 
 setup("authenticate as accountant", async ({ page }) => {
   await page.goto("/login");
-  await page.waitForLoadState("load");
   await page.waitForLoadState("networkidle");
 
   await page.getByLabel("Email").fill("accountant@dev.test");
   await page.getByLabel("Password").fill("password123");
-  await page.getByRole("button", { name: "Sign in" }).click();
 
+  // Click sign-in and wait for auth API response
+  const [authResponse] = await Promise.all([
+    page.waitForResponse("**/api/auth/sign-in/email"),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ]);
+  expect(authResponse.ok()).toBeTruthy();
+
+  // Set active organization on the new session (required by dashboard layout)
+  const orgId = await page.evaluate(async () => {
+    const res = await fetch("/api/auth/organization/list", { method: "GET" });
+    const orgs = await res.json();
+    if (orgs.length > 0) {
+      await fetch("/api/auth/organization/set-active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgs[0].id }),
+      });
+      return orgs[0].id;
+    }
+    return null;
+  });
+  expect(orgId).toBeTruthy();
+
+  // Navigate to dashboard — should work now with active org set
+  await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
+
   await page.context().storageState({ path: ACCOUNTANT_AUTH_FILE });
 });
