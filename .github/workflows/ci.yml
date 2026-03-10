@@ -69,28 +69,8 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run test
 
-  build:
+  build-and-e2e:
     needs: [lint, typecheck, unit-test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run build
-      - name: Package build output
-        run: tar -czf build-output.tar.gz .next/standalone .next/static prisma
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: build-output.tar.gz
-          retention-days: 1
-
-  e2e:
-    needs: [build]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -116,27 +96,25 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
-      - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npx prisma db seed
-      - uses: actions/download-artifact@v4
-        with:
-          name: build-output
       - name: Prepare standalone server
         run: |
-          tar -xzf build-output.tar.gz
-          mkdir -p .next/standalone/.next
           cp -r .next/static .next/standalone/.next/static
-          cp -r public .next/standalone/public 2>/dev/null || mkdir -p .next/standalone/public
+          mkdir -p .next/standalone/public
+          cp -r public/. .next/standalone/public/ 2>/dev/null || true
       - name: Start server and run E2E tests
         run: |
           cd .next/standalone && node server.js > ../../server.log 2>&1 &
+          cd ../..
           npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
           npm run e2e
         env:
@@ -158,7 +136,7 @@ jobs:
   #      ACR_PASSWORD, AZURE_RESOURCE_GROUP, PRODUCTION_DATABASE_URL
   #   3. Change 'if: false' to 'if: github.ref == 'refs/heads/main' && github.event_name == 'push''
   deploy:
-    needs: [e2e]
+    needs: [build-and-e2e]
     if: false # TODO: Enable when Azure is provisioned
     runs-on: ubuntu-latest
     environment: production
