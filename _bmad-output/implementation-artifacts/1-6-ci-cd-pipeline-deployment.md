@@ -342,7 +342,7 @@ so that every push to `develop` is tested and the codebase remains reliable as n
 
 ### Task 7: Write documentation (AC: #9, #10)
 
-- [ ] 7.1 Create `docs/ci-cd.md` with these sections:
+- [x] 7.1 Create `docs/ci-cd.md` with these sections:
   - **Pipeline Overview:** Mermaid diagram of lint → typecheck → unit-test (parallel) → build → e2e flow. What each job does, target durations.
   - **Local Development:** How to run each step locally (`npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, `npm run e2e`).
   - **E2E Testing:** How auth setup works (storageState pattern), how to add new E2E tests, selector contract from Gate 0.8.
@@ -351,8 +351,8 @@ so that every push to `develop` is tested and the codebase remains reliable as n
   - **Phase 2 — Recovery Runbook (NFR24):** (Requires deployed environment) Step-by-step: Azure PostgreSQL PITR restore → redeploy last known good image → verify health → validate data.
   - **CI Minutes Budget:** Free tier is 2,000 min/month. Estimated ~1,600 min/month during active development. First lever if approaching limit: run lint+typecheck only on PR (not push).
   - **Discipline Note:** No branch protection (requires GitHub Pro). Always use PRs to `develop` — never push directly.
-- [ ] 7.2 Update `docs/index.md` — add `[[ci-cd]]` wiki-link.
-- [ ] 7.3 Update `CLAUDE.md` — add to Key Commands section: `CI runs on every PR to develop via GitHub Actions`.
+- [x] 7.2 Update `docs/index.md` — add `[[ci-cd]]` wiki-link.
+- [x] 7.3 Update `CLAUDE.md` — add to Key Commands section: `CI runs on every PR to develop via GitHub Actions`.
 
 ### Task 8: Verification and validation (AC: all)
 

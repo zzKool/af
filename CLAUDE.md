@@ -15,6 +15,7 @@ Next.js 16.1 + Prisma 7 + PostgreSQL 17 + Better Auth 1.5.
 - `npm run e2e` — Playwright E2E
 - `npm run lint` — Biome check
 - `docker compose up -d` — Start dev + test databases
+- CI runs on every PR to `develop` via GitHub Actions (lint, typecheck, test, build, E2E)
 
 ## Conventions
 - See architecture.md in _bmad-output/planning-artifacts/ for full details

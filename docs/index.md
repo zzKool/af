@@ -31,6 +31,7 @@ Environment setup, settings, and deployment configuration.
 - [[environment-variables]] — Required env vars and their purpose
 - [[docker-compose]] — Local development services (PostgreSQL, Azurite)
 - [[deployment]] — Azure Container Apps deployment patterns
+- [[ci-cd]] — CI/CD pipeline, Docker, E2E testing, and recovery runbook
 
 ## Components
 
