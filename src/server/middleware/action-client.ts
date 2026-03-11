@@ -1,12 +1,14 @@
 import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
 import { createMiddleware, createSafeActionClient } from "next-safe-action";
 import type { TransactionClient } from "@/server/db/tenant-client";
+import { logger } from "@/server/logger";
 import { createAuditEntry } from "@/server/services/audit";
 import type { AppError } from "@/types/app-error";
 import type { AuditLogger } from "@/types/audit";
 import type { CallerIdentity } from "@/types/caller-identity";
 import { authMiddleware } from "./auth";
 import { ActionError } from "./errors";
+import { loggingMiddleware } from "./logging";
 import { checkRateLimit, resetRateLimit } from "./rate-limit";
 import { tenantMiddleware } from "./tenant";
 
@@ -24,7 +26,7 @@ const baseClient = createSafeActionClient({
     if (error instanceof ActionError) {
       return error.appError;
     }
-    console.error("Server Action error:", error);
+    logger.error({ err: error }, "Unhandled Server Action error");
     const retryable = error instanceof PrismaClientKnownRequestError;
     return {
       code: "INTERNAL_ERROR" as const,
@@ -81,12 +83,13 @@ const auditMiddleware = createMiddleware<{
 
 /**
  * Authenticated actions — for CROSS-ROLE READ operations only.
- * Chain order: auth → rateLimit → tenant → audit
+ * Chain order: auth → rateLimit → logging → tenant → audit
  * Rate limiting runs BEFORE tenant to avoid holding a DB transaction for rejected requests.
  */
 export const authedAction = baseClient
   .use(authMiddleware)
   .use(rateLimitMiddleware)
+  .use(loggingMiddleware)
   .use(tenantMiddleware)
   .use(auditMiddleware);
 
