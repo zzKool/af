@@ -159,7 +159,7 @@ describe("banker's rounding (ROUND_HALF_EVEN)", () => {
 
   test("0.001 rounds to 0.00", () => {
     const result = new Prisma.Decimal("0.001").toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-    expect(result.toString()).toBe("0");
+    expect(result.toFixed(2)).toBe("0.00");
   });
 });
 
@@ -172,6 +172,11 @@ describe("formatCurrency — error handling", () => {
 
   test("throws TypeError for non-numeric string", () => {
     expect(() => formatCurrency("abc", "CHF")).toThrow(TypeError);
+  });
+
+  test("throws TypeError for >2 decimal places (unrounded input)", () => {
+    expect(() => formatCurrency("1.999", "SEK")).toThrow(TypeError);
+    expect(() => formatCurrency("33.335", "CHF")).toThrow(TypeError);
   });
 });
 

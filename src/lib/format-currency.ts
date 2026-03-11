@@ -43,8 +43,13 @@ export function formatCurrency(amount: string, currency: Currency): string {
     decPart = value.slice(dotIndex + 1);
   }
 
-  // Pad or truncate decimal to CURRENCY_DECIMAL_PLACES
-  decPart = decPart.padEnd(CURRENCY_DECIMAL_PLACES, "0").slice(0, CURRENCY_DECIMAL_PLACES);
+  // Pad decimal to CURRENCY_DECIMAL_PLACES — reject unexpected precision
+  if (decPart.length > CURRENCY_DECIMAL_PLACES) {
+    throw new TypeError(
+      `formatCurrency: amount "${amount}" has ${decPart.length} decimal places — expected at most ${CURRENCY_DECIMAL_PLACES}. Round before formatting.`,
+    );
+  }
+  decPart = decPart.padEnd(CURRENCY_DECIMAL_PLACES, "0");
 
   // Add thousands separators
   const { thousandsSep, decimalSep } = getSeparators(currency);
