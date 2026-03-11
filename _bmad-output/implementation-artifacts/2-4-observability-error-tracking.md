@@ -1,6 +1,6 @@
 # Story 2.4: Observability & Error Tracking
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,48 +33,48 @@ so that I can diagnose issues quickly with full tenant and user context in every
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create Pino logger singleton and configuration (AC: #1, #5)
-  - [ ] 1.1 Install `pino-pretty` as a devDependency (`npm install -D pino-pretty`) — NOT installed yet
-  - [ ] 1.2 Create `src/server/logger.ts` — Pino 10 singleton with structured JSON output, log levels (error, warn, info, debug), and `LOG_LEVEL` env var defaulting to `"info"` in production and `"debug"` in development
-  - [ ] 1.3 Configure Pino transport: JSON to stdout (no pretty-print in production). Use `pino-pretty` only in development via conditional transport config
-  - [ ] 1.4 Add base context fields: `{ service: "defterfab", version: process.env.npm_package_version || "unknown", environment: process.env.NODE_ENV }`
-  - [ ] 1.5 Export `logger` instance directly — callers use `logger.child({ ... })` for request-scoped loggers. Do NOT create a `createChildLogger` wrapper — it's abstraction over a one-liner
-  - [ ] 1.6 Verify `pino` and `pino-http` are already in `serverExternalPackages` in `next.config.ts` (they are — no change needed)
+- [x] Task 1: Create Pino logger singleton and configuration (AC: #1, #5)
+  - [x] 1.1 Install `pino-pretty` as a devDependency (`npm install -D pino-pretty`) — NOT installed yet
+  - [x] 1.2 Create `src/server/logger.ts` — Pino 10 singleton with structured JSON output, log levels (error, warn, info, debug), and `LOG_LEVEL` env var defaulting to `"info"` in production and `"debug"` in development
+  - [x] 1.3 Configure Pino transport: JSON to stdout (no pretty-print in production). Use `pino-pretty` only in development via conditional transport config
+  - [x] 1.4 Add base context fields: `{ service: "defterfab", version: process.env.npm_package_version || "unknown", environment: process.env.NODE_ENV }`
+  - [x] 1.5 Export `logger` instance directly — callers use `logger.child({ ... })` for request-scoped loggers. Do NOT create a `createChildLogger` wrapper — it's abstraction over a one-liner
+  - [x] 1.6 Verify `pino` and `pino-http` are already in `serverExternalPackages` in `next.config.ts` (they are — no change needed)
 
-- [ ] Task 2: Create request-scoped logging context middleware (AC: #2, #6)
-  - [ ] 2.1 Create `src/server/middleware/logging.ts` — a `next-safe-action` middleware that creates a child logger with `{ tenantId, userId, requestId }` bindings
-  - [ ] 2.2 Generate `requestId` using `crypto.randomUUID()` — one per Server Action invocation
-  - [ ] 2.3 Inject `log` (child Pino logger) into middleware context so all downstream middleware and handlers have access
-  - [ ] 2.4 Add `loggingMiddleware` to the action chain in `action-client.ts` — insert AFTER `authMiddleware` (needs userId) but BEFORE `tenantMiddleware`. For tenantId, use the raw `ctx.tenantId` from auth context (available before tenant validation)
-  - [ ] 2.5 Log at info level on every action entry: `log.info({ action: "server_action" }, "Action invoked")`
-  - [ ] 2.6 Update `tenantMiddleware` type signature to include `log: pino.Logger` as a required field (not optional — middleware chain is deterministic, logging always runs before tenant)
+- [x] Task 2: Create request-scoped logging context middleware (AC: #2, #6)
+  - [x] 2.1 Create `src/server/middleware/logging.ts` — a `next-safe-action` middleware that creates a child logger with `{ tenantId, userId, requestId }` bindings
+  - [x] 2.2 Generate `requestId` using `crypto.randomUUID()` — one per Server Action invocation
+  - [x] 2.3 Inject `log` (child Pino logger) into middleware context so all downstream middleware and handlers have access
+  - [x] 2.4 Add `loggingMiddleware` to the action chain in `action-client.ts` — insert AFTER `authMiddleware` (needs userId) but BEFORE `tenantMiddleware`. For tenantId, use the raw `ctx.tenantId` from auth context (available before tenant validation)
+  - [x] 2.5 Log at info level on every action entry: `log.info({ action: "server_action" }, "Action invoked")`
+  - [x] 2.6 Update `tenantMiddleware` type signature to include `log: pino.Logger` as a required field (not optional — middleware chain is deterministic, logging always runs before tenant)
 
-- [ ] Task 3: Replace console statements with Pino (AC: #1, #5)
-  - [ ] 3.1 In `action-client.ts` `handleServerError`: replace `console.error("Server Action error:", error)` with `logger.error({ err: error }, "Unhandled Server Action error")` — use the base logger here since request context isn't available in the error handler
-  - [ ] 3.2 In `tenant.ts`: replace `console.warn(...)` for unknown roles with `ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role")` — use the request-scoped logger from context
-  - [ ] 3.3 Verify no other `console.*` statements exist in `src/server/` (excluding test files). Confirmed: only the two above exist
-  - [ ] 3.4 Consider adding a Biome lint rule (`noConsole` or restricted globals) for `src/server/` to structurally prevent future `console.*` regressions — if available in Biome 2, add it; if not, add a comment in `biome.json` as a TODO
+- [x] Task 3: Replace console statements with Pino (AC: #1, #5)
+  - [x] 3.1 In `action-client.ts` `handleServerError`: replace `console.error("Server Action error:", error)` with `logger.error({ err: error }, "Unhandled Server Action error")` — use the base logger here since request context isn't available in the error handler
+  - [x] 3.2 In `tenant.ts`: replace `console.warn(...)` for unknown roles with `ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role")` — use the request-scoped logger from context
+  - [x] 3.3 Verify no other `console.*` statements exist in `src/server/` (excluding test files). Confirmed: only the two above exist
+  - [x] 3.4 Consider adding a Biome lint rule (`noConsole` or restricted globals) for `src/server/` to structurally prevent future `console.*` regressions — if available in Biome 2, add it; if not, add a comment in `biome.json` as a TODO
 
-- [ ] Task 4: Write unit tests for logger and middleware (AC: #1, #2, #5, #6)
-  - [ ] 4.1 Create `src/server/logger.test.ts` — test that logger produces structured JSON with expected fields (`level`, `time`, `msg`, `service`, `environment`), test child logger inherits base bindings, test log level filtering
-  - [ ] 4.2 Create `src/server/middleware/logging.test.ts` — test that logging middleware injects `log` into context with `tenantId`, `userId`, `requestId` bindings, test requestId is a valid UUID
-  - [ ] 4.3 Update `action-client.test.ts` — add logging middleware to the chain setup so existing tests pass with new middleware order
-  - [ ] 4.4 Update `tenant.test.ts` — provide a Pino logger (real or child of test logger) in the mock context, since `tenantMiddleware` now requires `log: pino.Logger` in its input type. This file has 8 integration tests that will break without this update
-  - [ ] 4.5 Test error handler logging: verify `logger.error()` is called for non-ActionError exceptions, verify it is NOT called for ActionError (business errors are returned directly, not logged at error level)
+- [x] Task 4: Write unit tests for logger and middleware (AC: #1, #2, #5, #6)
+  - [x] 4.1 Create `src/server/logger.test.ts` — test that logger produces structured JSON with expected fields (`level`, `time`, `msg`, `service`, `environment`), test child logger inherits base bindings, test log level filtering
+  - [x] 4.2 Create `src/server/middleware/logging.test.ts` — test that logging middleware injects `log` into context with `tenantId`, `userId`, `requestId` bindings, test requestId is a valid UUID
+  - [x] 4.3 Update `action-client.test.ts` — add logging middleware to the chain setup so existing tests pass with new middleware order
+  - [x] 4.4 Update `tenant.test.ts` — provide a Pino logger (real or child of test logger) in the mock context, since `tenantMiddleware` now requires `log: pino.Logger` in its input type. This file has 8 integration tests that will break without this update
+  - [x] 4.5 Test error handler logging: verify `logger.error()` is called for non-ActionError exceptions, verify it is NOT called for ActionError (business errors are returned directly, not logged at error level)
 
-- [ ] Task 5: Build verification checkpoint
-  - [ ] 5.1 `npm run build` — verify build succeeds with Pino logger (no runtime errors, no import issues)
-  - [ ] 5.2 `npm run test` — all tests pass
-  - [ ] 5.3 `npx biome check --write` — lint clean
+- [x] Task 5: Build verification checkpoint
+  - [x] 5.1 `npm run build` — verify build succeeds with Pino logger (no runtime errors, no import issues)
+  - [x] 5.2 `npm run test` — all tests pass
+  - [x] 5.3 `npx biome check --write` — lint clean
 
-- [ ] Task 6: Update documentation (AC: #7)
-  - [ ] 6.1 Create `docs/observability.md` with wiki-links — document the observability systems (logging now, Sentry deferred), log level conventions, structured field requirements. Reference [[audit-trail]], [[clock-and-rates]]
-  - [ ] 6.2 Update `docs/index.md` with link to new doc
+- [x] Task 6: Update documentation (AC: #7)
+  - [x] 6.1 Create `docs/observability.md` with wiki-links — document the observability systems (logging now, Sentry deferred), log level conventions, structured field requirements. Reference [[audit-trail]], [[clock-and-rates]]
+  - [x] 6.2 Update `docs/index.md` with link to new doc
 
-- [ ] Task 7: Final validation
-  - [ ] 7.1 `npm run test` — all tests pass (including new logger and middleware tests)
-  - [ ] 7.2 `npx biome check --write` — lint clean
-  - [ ] 7.3 `npm run build` — clean build
+- [x] Task 7: Final validation
+  - [x] 7.1 `npm run test` — all tests pass (including new logger and middleware tests)
+  - [x] 7.2 `npx biome check --write` — lint clean
+  - [x] 7.3 `npm run build` — clean build
 
 ## Dev Notes
 
@@ -265,10 +265,40 @@ The `loggingMiddleware` needs `userId` and `tenantId` from `authMiddleware` cont
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6
 
 ### Debug Log References
 
+- vi.mock hoisting issue: Variables declared outside `vi.mock()` factory are not accessible due to hoisting. Fixed by using `vi.hoisted()` to declare mock variables.
+
 ### Completion Notes List
 
+- Created Pino 10 logger singleton with structured JSON output, log levels, environment-aware transport (pino-pretty in dev, JSON in prod)
+- Created request-scoped logging middleware injecting `{ userId, tenantId, requestId }` bindings via `logger.child()`
+- Updated middleware chain: auth → rateLimit → logging → tenant → audit
+- Replaced `console.error` in error handler with `logger.error` (base logger, no request context in error handler)
+- Replaced `console.warn` in tenant middleware with `ctx.log.warn` (request-scoped logger)
+- Updated `tenantMiddleware` type signature to require `log: pino.Logger`
+- Biome `noConsole` lint rule not available for per-directory overrides in Biome 2 — convention documented in observability.md instead
+- 135 tests pass across 14 test files, 0 regressions
+- New tests: 4 logger tests, 3 logging middleware tests, 2 error handler logging tests
+
+### Change Log
+
+- 2026-03-11: Implemented story 2.4 — Pino structured logging with request-scoped context
+
 ### File List
+
+- `src/server/logger.ts` (new) — Pino logger singleton
+- `src/server/logger.test.ts` (new) — Logger unit tests (4 tests)
+- `src/server/middleware/logging.ts` (new) — Request-scoped logging middleware
+- `src/server/middleware/logging.test.ts` (new) — Logging middleware tests (3 tests)
+- `src/server/middleware/action-client.ts` (modified) — Added loggingMiddleware to chain, replaced console.error with logger.error
+- `src/server/middleware/action-client.test.ts` (modified) — Added logger mock and error handler logging tests (2 new tests)
+- `src/server/middleware/tenant.ts` (modified) — Added `log: pino.Logger` to type, replaced console.warn with ctx.log.warn
+- `src/server/middleware/tenant.test.ts` (modified) — Added silent Pino logger to mock context
+- `.env.example` (modified) — Added LOG_LEVEL
+- `docs/observability.md` (new) — Observability documentation with wiki-links
+- `docs/index.md` (modified) — Added observability link
+- `package.json` (modified) — Added pino-pretty devDependency
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — Story status updated
