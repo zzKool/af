@@ -12,6 +12,7 @@ Technical decisions, stack choices, and system design patterns.
 - [[prisma-rls-setup]] — Multi-tenant RLS with Prisma 7, tenant-aware client, migration workflow
 - [[auth-setup]] — Better Auth 1.5 configuration, organization-to-tenant mapping, session management
 - [[tenant-management]] — Tenant profile, dual-model pattern, tenant switching, seed data
+- [[audit-trail]] — Immutable audit trail, source provenance, opt-in service pattern
 
 ## Patterns
 
