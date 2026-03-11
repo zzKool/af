@@ -62,7 +62,7 @@ development_status:
   2-2-decimal-arithmetic-currency-foundation: done
   2-3-clock-abstraction-exchange-rate-storage: done
   2-4-observability-error-tracking: done
-  2-5-minimal-dashboard-shell: backlog
+  2-5-minimal-dashboard-shell: review
   epic-2-retrospective: optional
 
   # Epic 3: Tenant Configuration
