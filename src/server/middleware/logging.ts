@@ -17,5 +17,11 @@ export const loggingMiddleware = createMiddleware<{
 
   log.info({ action: "server_action" }, "Action invoked");
 
-  return next({ ctx: { ...ctx, log } });
+  const start = performance.now();
+  try {
+    return await next({ ctx: { ...ctx, log } });
+  } finally {
+    const durationMs = Math.round(performance.now() - start);
+    log.info({ action: "server_action", durationMs }, "Action completed");
+  }
 });

@@ -1,6 +1,6 @@
 # Story 2.4: Observability & Error Tracking
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -280,19 +280,35 @@ Claude Opus 4.6
 - Replaced `console.warn` in tenant middleware with `ctx.log.warn` (request-scoped logger)
 - Updated `tenantMiddleware` type signature to require `log: pino.Logger`
 - Biome `noConsole` lint rule not available for per-directory overrides in Biome 2 — convention documented in observability.md instead
-- 135 tests pass across 14 test files, 0 regressions
-- New tests: 4 logger tests, 3 logging middleware tests, 2 error handler logging tests
+- 137 tests pass across 14 test files, 0 regressions
+- New tests: 4 logger tests, 5 logging middleware tests, 2 error handler logging tests
 
 ### Change Log
 
 - 2026-03-11: Implemented story 2.4 — Pino structured logging with request-scoped context
+- 2026-03-11: Code review fixes — added duration logging, null tenantId test, pino-pretty to serverExternalPackages
+
+### Senior Developer Review (AI)
+
+**Reviewer:** Zik on 2026-03-11
+**Outcome:** Approved with fixes applied
+
+**Fixes applied:**
+- M1: Added action completion/duration logging to logging middleware (try/finally with `performance.now()`)
+- M2: Added test for `tenantId: null` case in logging middleware
+- L3: Added `pino-pretty` to `serverExternalPackages` in `next.config.ts`
+- L2: Updated File List to include `package-lock.json` and `next.config.ts`
+
+**Future considerations (not blockers):**
+- M3: Error handler uses base logger — unhandled error logs lack requestId/userId/tenantId for correlation. Architectural limitation of next-safe-action's `handleServerError` callback (no access to middleware context). Consider wrapping action handlers in a try/catch in a future story if correlation is critical.
+- L1: `action: "server_action"` is generic — doesn't identify which specific action was invoked. Requires next-safe-action metadata configuration to pass action names into middleware.
 
 ### File List
 
 - `src/server/logger.ts` (new) — Pino logger singleton
 - `src/server/logger.test.ts` (new) — Logger unit tests (4 tests)
-- `src/server/middleware/logging.ts` (new) — Request-scoped logging middleware
-- `src/server/middleware/logging.test.ts` (new) — Logging middleware tests (3 tests)
+- `src/server/middleware/logging.ts` (new, review-modified) — Request-scoped logging middleware with duration tracking
+- `src/server/middleware/logging.test.ts` (new, review-modified) — Logging middleware tests (5 tests)
 - `src/server/middleware/action-client.ts` (modified) — Added loggingMiddleware to chain, replaced console.error with logger.error
 - `src/server/middleware/action-client.test.ts` (modified) — Added logger mock and error handler logging tests (2 new tests)
 - `src/server/middleware/tenant.ts` (modified) — Added `log: pino.Logger` to type, replaced console.warn with ctx.log.warn
@@ -301,4 +317,6 @@ Claude Opus 4.6
 - `docs/observability.md` (new) — Observability documentation with wiki-links
 - `docs/index.md` (modified) — Added observability link
 - `package.json` (modified) — Added pino-pretty devDependency
+- `package-lock.json` (modified) — Updated lock file
+- `next.config.ts` (modified) — Added pino-pretty to serverExternalPackages
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified) — Story status updated

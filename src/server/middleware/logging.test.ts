@@ -65,6 +65,28 @@ describe("loggingMiddleware", () => {
     expect(childArgs.requestId).toMatch(UUID_V4_REGEX);
   });
 
+  it("handles null tenantId in context bindings", async () => {
+    const next = vi.fn().mockResolvedValue({});
+
+    await callLoggingMiddleware({ userId: "user-1", tenantId: null }, next);
+
+    expect(mockChild).toHaveBeenCalledWith({
+      userId: "user-1",
+      tenantId: null,
+      requestId: expect.stringMatching(UUID_V4_REGEX),
+    });
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ctx: expect.objectContaining({
+          userId: "user-1",
+          tenantId: null,
+          log: expect.any(Object),
+        }),
+      }),
+    );
+  });
+
   it("logs action entry at info level", async () => {
     const mockLog = {
       info: vi.fn(),
@@ -81,5 +103,27 @@ describe("loggingMiddleware", () => {
     );
 
     expect(mockLog.info).toHaveBeenCalledWith({ action: "server_action" }, "Action invoked");
+  });
+
+  it("logs action completion with duration", async () => {
+    const mockLog = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn(),
+    };
+    mockChild.mockReturnValueOnce(mockLog);
+
+    await callLoggingMiddleware(
+      { userId: "user-1", tenantId: "tenant-1" },
+      vi.fn().mockResolvedValue({}),
+    );
+
+    expect(mockLog.info).toHaveBeenCalledTimes(2);
+    expect(mockLog.info).toHaveBeenCalledWith(
+      { action: "server_action", durationMs: expect.any(Number) },
+      "Action completed",
+    );
   });
 });
