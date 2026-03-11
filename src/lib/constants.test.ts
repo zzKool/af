@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { Prisma } from "@/generated/prisma/browser";
 import {
@@ -8,6 +10,21 @@ import {
   DEFAULT_VAT_RATE_SE,
   DEFAULT_VAT_RATE_SE_STR,
 } from "./constants";
+
+describe("client-safe import guard", () => {
+  test("constants.ts does not import @prisma/client", () => {
+    const content = fs.readFileSync(path.resolve(import.meta.dirname, "constants.ts"), "utf-8");
+    expect(content).not.toMatch(/from\s+["']@prisma\/client["']/);
+  });
+
+  test("format-currency.ts does not import @prisma/client", () => {
+    const content = fs.readFileSync(
+      path.resolve(import.meta.dirname, "format-currency.ts"),
+      "utf-8",
+    );
+    expect(content).not.toMatch(/from\s+["']@prisma\/client["']/);
+  });
+});
 
 describe("constants", () => {
   test("CURRENCIES contains exactly SEK, CHF, EUR, USD", () => {

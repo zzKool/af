@@ -180,6 +180,18 @@ describe("formatCurrency — error handling", () => {
   });
 });
 
+// --- Boundary tests ---
+
+describe("formatCurrency — boundary values", () => {
+  test("formats max DECIMAL(15,2) value for SEK", () => {
+    expect(formatCurrency("99999999999.99", "SEK")).toBe("99\u00A0999\u00A0999\u00A0999,99");
+  });
+
+  test("formats max DECIMAL(15,2) value for CHF", () => {
+    expect(formatCurrency("99999999999.99", "CHF")).toBe("99'999'999'999.99");
+  });
+});
+
 // --- Standard input tests ---
 
 describe("formatCurrency — standard inputs", () => {
