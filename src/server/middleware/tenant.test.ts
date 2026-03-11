@@ -1,7 +1,10 @@
 import { Pool } from "pg";
+import pino from "pino";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth } from "@/server/auth";
 import { cleanupTestData } from "@/server/db/test-fixtures";
+
+const silentLogger = pino({ level: "silent" });
 
 const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL ||
@@ -91,7 +94,7 @@ function callTenantMiddleware(
   return (tenantMiddleware as (...args: unknown[]) => Promise<unknown>)({
     clientInput: undefined,
     bindArgsClientInputs: [],
-    ctx,
+    ctx: { ...ctx, log: silentLogger },
     metadata: undefined,
     next,
   });
