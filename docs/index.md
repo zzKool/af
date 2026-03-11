@@ -22,6 +22,7 @@ Reusable code patterns and development conventions.
 - [[server-actions]] — Middleware chain, RBAC, error handling, and testing guide
 - [[error-handling]] — Typed error codes and response patterns
 - [[hexagonal-architecture]] — Import boundaries and service isolation
+- [[decimal-currency]] — Decimal arithmetic, currency formatting, boundary rule
 
 ## Configuration
 
