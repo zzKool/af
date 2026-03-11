@@ -12,6 +12,23 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(async () => mockHeaders),
 }));
 
+// Spy on logger.error to verify error handler logging
+const { mockLoggerError } = vi.hoisted(() => ({
+  mockLoggerError: vi.fn(),
+}));
+vi.mock("@/server/logger", () => ({
+  logger: {
+    error: mockLoggerError,
+    child: vi.fn().mockReturnValue({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn(),
+    }),
+  },
+}));
+
 const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL ||
   "postgresql://defterfab:test@localhost:5433/defterfab_test";
@@ -26,6 +43,7 @@ beforeEach(async () => {
   await cleanupTestData(adminPool);
   resetRateLimit();
   mockHeaders = new Headers();
+  mockLoggerError.mockClear();
 });
 
 afterAll(async () => {
@@ -141,5 +159,23 @@ describe("action-client integration", () => {
       message: "An unexpected error occurred",
       retryable: true,
     });
+  });
+
+  it("handleServerError calls logger.error for unexpected errors", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+
+    await crashingAction({});
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      "Unhandled Server Action error",
+    );
+  });
+
+  it("handleServerError does NOT call logger.error for ActionError (business errors)", async () => {
+    mockHeaders = new Headers(); // No cookies → UNAUTHORIZED ActionError
+
+    await authedTestAction({});
+    expect(mockLoggerError).not.toHaveBeenCalled();
   });
 });

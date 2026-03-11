@@ -13,6 +13,7 @@ Technical decisions, stack choices, and system design patterns.
 - [[auth-setup]] — Better Auth 1.5 configuration, organization-to-tenant mapping, session management
 - [[tenant-management]] — Tenant profile, dual-model pattern, tenant switching, seed data
 - [[audit-trail]] — Immutable audit trail, source provenance, opt-in service pattern
+- [[observability]] — Pino structured logging, log levels, request-scoped context, Azure Log Analytics
 
 ## Patterns
 

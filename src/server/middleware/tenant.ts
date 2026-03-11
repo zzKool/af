@@ -1,4 +1,5 @@
 import { createMiddleware } from "next-safe-action";
+import type pino from "pino";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
 import type { AppError } from "@/types/app-error";
@@ -12,7 +13,7 @@ import { ActionError } from "./errors";
  */
 export const tenantMiddleware = createMiddleware<{
   serverError: AppError;
-  ctx: { userId: string; tenantId: string | null };
+  ctx: { userId: string; tenantId: string | null; log: pino.Logger };
 }>().define(async ({ ctx, next }) => {
   const { userId, tenantId } = ctx;
 
@@ -47,7 +48,7 @@ export const tenantMiddleware = createMiddleware<{
       role = "accountant";
       break;
     default:
-      console.warn(`Unknown Better Auth role: ${member.role} for user ${userId}`);
+      ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role");
       throw new ActionError({
         code: "FORBIDDEN",
         message: `Unknown role: ${member.role}`,
