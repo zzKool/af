@@ -22,8 +22,16 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: "lib",
+          include: ["src/lib/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: "client",
-          include: ["src/components/**/*.test.tsx", "src/lib/**/*.test.ts"],
+          include: ["src/components/**/*.test.tsx"],
           environment: "jsdom",
         },
       },
