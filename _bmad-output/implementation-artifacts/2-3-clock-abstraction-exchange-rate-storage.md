@@ -1,6 +1,6 @@
 # Story 2.3: Clock Abstraction & Exchange Rate Storage
 
-Status: review
+Status: done
 
 ## Story
 
@@ -232,16 +232,18 @@ Claude Opus 4.6
 - **Task 3:** 13 unit tests covering RealClock system time, TestClock determinism, timezone boundaries (CET+1 offset), DST transitions (CET→CEST), currentPeriod derivation, advance accumulation, defensive copies, and Invalid Date throws.
 - **Task 4:** 4 integration tests verifying UPDATE silently dropped (rowCount 0), DELETE silently dropped (rowCount 0), INSERT happy path with fetched_at timestamp, and duplicate key constraint error.
 - **Task 5:** Created `docs/clock-and-rates.md` with wiki-links to audit-trail, decimal-currency, and constants. Updated `docs/index.md`.
-- **Task 6:** Full suite 123/123 tests pass across 12 files. Biome lint clean.
+- **Task 6:** Full suite 126/126 tests pass across 12 files. Biome lint clean.
+- **Code Review Fixes:** Cached Intl.DateTimeFormatter at module scope, RealClock.today() derives from this.now(), negative advance() guard, added RealClock format tests, imported MIGRATION_URL in ecb-rates tests, removed redundant afterAll truncate, added JSDoc to TestClock constructor.
 
 ### Change Log
 
 - 2026-03-11: Story 2.3 implemented — Clock abstraction + ecb_rates schema + tests + docs
+- 2026-03-11: Code review fixes — perf, consistency, test coverage, cleanup (8 issues fixed)
 
 ### File List
 
 - `src/server/services/clock.ts` (new) — Clock interface, RealClock, TestClock, factory functions
-- `src/server/services/clock.test.ts` (new) — 13 unit tests for Clock
+- `src/server/services/clock.test.ts` (new) — 16 unit tests for Clock
 - `src/server/services/ecb-rates.test.ts` (new) — 4 integration tests for ecb_rates immutability
 - `prisma/schema/app.prisma` (modified) — Added EcbRate model
 - `prisma/migrations/20260311095132_add_ecb_rates_table/migration.sql` (new) — ecb_rates table + GRANT + immutability RULEs
