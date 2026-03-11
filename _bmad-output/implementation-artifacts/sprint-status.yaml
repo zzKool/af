@@ -59,7 +59,7 @@ development_status:
   # Epic 2: Data Integrity & Compliance Foundation
   epic-2: in-progress
   2-1-audit-trail-infrastructure: done
-  2-2-decimal-arithmetic-currency-foundation: ready-for-dev
+  2-2-decimal-arithmetic-currency-foundation: in-progress
   2-3-clock-abstraction-exchange-rate-storage: backlog
   2-4-observability-error-tracking: backlog
   2-5-minimal-dashboard-shell: backlog
