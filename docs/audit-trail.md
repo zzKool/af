@@ -72,7 +72,7 @@ When `CallerIdentity.source === "seed"`, the audit middleware provides a no-op l
 | `entity_id` | TEXT | ID of the affected entity (not necessarily UUID) |
 | `old_data` | JSONB | Previous state (null for creates) |
 | `new_data` | JSONB | New state (null for deletes) |
-| `source` | TEXT | `web`, `mcp`, `cli`, or `system` |
+| `source` | TEXT | `web`, `mcp`, `cli`, or `system` (`seed` operations skip audit) |
 | `created_at` | TIMESTAMPTZ | When the action occurred |
 
 ### Indexes
@@ -103,5 +103,5 @@ CREATE POLICY tenant_isolation ON audit_logs
 
 - **No automated enforcement:** If a dev forgets to call `audit.log()` in a mutation service, there is no error and no audit entry. Code review must catch omissions.
 - **Only app models:** Audit covers Prisma models in `app.prisma` — NOT Better Auth models (`User`, `Session`, `Organization`, `Member`).
-- **Planned UI:** Audit trail will be accessible through a future dashboard surface (see [[ux-design-specification]]) for user confidence and accountability.
+- **Planned UI:** Audit trail will be accessible through a future dashboard surface for user confidence and accountability (see UX design specification in planning artifacts).
 - **Future enhancement:** Consider replacing `DO INSTEAD NOTHING` rules with trigger functions that log tampering attempts.

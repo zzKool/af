@@ -279,33 +279,31 @@ describe("audit behavioral tests", () => {
     expect(newData.address).toBe("123 Street");
   });
 
-  it("transaction rollback: no audit entry when service returns AppError", async () => {
+  it("no audit entry when service returns AppError (tenant not found)", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
-    // Use a non-existent tenantId as callerIdentity to trigger an error in the update
-    // We'll force an error by updating with a caller whose tenantId doesn't match a real tenant
+    // Use a non-existent tenantId — service returns NOT_FOUND AppError before reaching audit.log()
     const fakeCaller: CallerIdentity = {
       ...owner.callerIdentity,
       tenantId: "00000000-0000-0000-0000-000000000099",
     };
 
-    // The update will fail because the tenant doesn't exist (RLS-filtered findUnique → null, update → not found)
-    try {
-      await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
+    const result = await withTenantTransaction(
+      prisma,
+      owner.callerIdentity.tenantId,
+      async (tx) => {
         const audit = createRealAuditLogger(tx, fakeCaller);
-        const result = await settingsService.updateTenantProfile(tx, fakeCaller, audit, {
+        return settingsService.updateTenantProfile(tx, fakeCaller, audit, {
           name: "Should Fail",
         });
-        // If we get an error result, throw to trigger rollback
-        if (result.error) {
-          throw new Error("Simulated rollback");
-        }
-      });
-    } catch {
-      // Expected
-    }
+      },
+    );
 
-    // Verify no audit entry was created (transaction rolled back)
+    // Service returns AppError, not a throw
+    expect(result.error).toBeDefined();
+    expect(result.error?.code).toBe("NOT_FOUND");
+
+    // Verify no audit entry was created (service returned before audit.log())
     const logs = await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
       return tx.auditLog.findMany();
     });
@@ -321,10 +319,12 @@ describe("audit behavioral tests", () => {
     };
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      // Create audit logger that skips for seed (matches middleware behavior)
+      // Replicate the real middleware logic from action-client.ts auditMiddleware:
+      // const isNoOp = ctx.callerIdentity.source === "seed"
+      const isNoOp = seedCaller.source === "seed";
       const audit: AuditLogger = {
         log: async (params) => {
-          if (seedCaller.source === "seed") return;
+          if (isNoOp) return;
           await createAuditEntry(tx, seedCaller, params);
         },
       };

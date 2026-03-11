@@ -84,6 +84,10 @@ async function insertAuditLog(
   return id;
 }
 
+// These tests run as the app role (appPool) within tenant context (SET LOCAL).
+// RLS USING clause allows the matching-tenant row to be visible, so RLS alone would
+// permit the UPDATE/DELETE. The PostgreSQL RULE is what actually blocks the operation.
+// If the RULE were removed, these tests would fail (UPDATE/DELETE would succeed).
 describe("audit_logs immutability", () => {
   it("UPDATE on audit_logs has no effect (0 rows changed, original data intact)", async () => {
     const auditId = await insertAuditLog(tenantA.id, userA.id, {

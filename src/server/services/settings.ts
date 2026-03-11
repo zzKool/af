@@ -1,4 +1,5 @@
 import type { TransactionClient } from "@/server/db/tenant-client";
+import { toAuditData } from "@/server/services/audit";
 import type { AppError } from "@/types/app-error";
 import type { AuditLogger } from "@/types/audit";
 import type { CallerIdentity } from "@/types/caller-identity";
@@ -54,7 +55,13 @@ export async function updateTenantProfile(
   //   }
   // }
 
+  // Read-before-write for audit oldData. Under READ COMMITTED (PostgreSQL default),
+  // concurrent updates to the same tenant could cause stale oldData in the audit log.
+  // Acceptable for a solo-owner app; revisit with SERIALIZABLE if multi-user editing is added.
   const old = await tx.tenant.findUnique({ where: { id: caller.tenantId } });
+  if (!old) {
+    return { error: { code: "NOT_FOUND", message: "Tenant not found", retryable: false } };
+  }
 
   const tenant = await tx.tenant.update({
     where: { id: caller.tenantId },
@@ -92,20 +99,6 @@ export async function updateTenantProfile(
       currency: tenant.currency,
     },
   };
-}
-
-/**
- * Strips Prisma internals from a record for audit log storage.
- * Returns only plain data fields — no relations, no _count, no Prisma metadata.
- */
-function toAuditData(record: unknown): Record<string, unknown> | null {
-  if (!record) return null;
-  const { id, ...fields } = record as Record<string, unknown>;
-  return Object.fromEntries(
-    Object.entries(fields).filter(
-      ([_, v]) => v === null || typeof v !== "object" || v instanceof Date,
-    ),
-  );
 }
 
 export async function listTenantMembers(

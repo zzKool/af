@@ -1,6 +1,6 @@
 # Story 2.1: Audit Trail Infrastructure
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -340,3 +340,4 @@ Claude Opus 4.6
 
 ### Change Log
 - 2026-03-11: Story 2.1 implemented — audit trail infrastructure with immutable logs, RLS isolation, opt-in service pattern, and comprehensive tests
+- 2026-03-11: Code review fixes — null check in updateTenantProfile (convention compliance), moved toAuditData to shared audit utility, fixed rollback test name/logic, improved seed test to mirror real middleware, added GRANT to migration, fixed broken wiki-link, added TOCTOU/immutability comments, fixed pre-existing tsc error in audit.ts
