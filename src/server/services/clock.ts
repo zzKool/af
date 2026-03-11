@@ -17,16 +17,16 @@ export interface Clock {
 
 const STOCKHOLM_TZ = "Europe/Stockholm";
 
+// Cached formatter — sv-SE locale formats as YYYY-MM-DD natively
+const stockholmDateFormatter = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: STOCKHOLM_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 function formatStockholmDate(date: Date): string {
-  // Intl.DateTimeFormat with explicit parts gives us reliable YYYY-MM-DD
-  const formatter = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: STOCKHOLM_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  // sv-SE locale formats as YYYY-MM-DD natively
-  return formatter.format(date);
+  return stockholmDateFormatter.format(date);
 }
 
 /** Production clock — wraps system time with Europe/Stockholm timezone. */
@@ -36,7 +36,7 @@ class RealClock implements Clock {
   }
 
   today(): string {
-    return formatStockholmDate(new Date());
+    return formatStockholmDate(this.now());
   }
 
   currentPeriod(): string {
@@ -48,6 +48,7 @@ class RealClock implements Clock {
 class TestClock implements Clock {
   private fixedTime: Date;
 
+  /** @throws {Error} If fixedTime is an Invalid Date. */
   constructor(fixedTime: Date) {
     if (Number.isNaN(fixedTime.getTime())) {
       throw new Error("TestClock: Invalid Date provided");
@@ -75,8 +76,11 @@ class TestClock implements Clock {
     this.fixedTime = new Date(date.getTime());
   }
 
-  /** Advance fixed time by the given number of milliseconds. */
+  /** Advance fixed time by the given number of milliseconds. Must be non-negative. */
   advance(ms: number): void {
+    if (ms < 0) {
+      throw new Error("TestClock.advance: negative values are not supported");
+    }
     this.fixedTime = new Date(this.fixedTime.getTime() + ms);
   }
 }

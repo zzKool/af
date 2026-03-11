@@ -13,6 +13,14 @@ describe("RealClock", () => {
     expect(result.getTime()).toBeGreaterThanOrEqual(before);
     expect(result.getTime()).toBeLessThanOrEqual(after);
   });
+
+  it("today() returns YYYY-MM-DD format", () => {
+    expect(clock.today()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("currentPeriod() returns YYYY-MM format", () => {
+    expect(clock.currentPeriod()).toMatch(/^\d{4}-\d{2}$/);
+  });
 });
 
 describe("TestClock", () => {
@@ -99,6 +107,13 @@ describe("TestClock", () => {
     const clock = createTestClock(fixed);
     expect(() => clock.setTime(new Date("invalid"))).toThrow(
       "TestClock.setTime: Invalid Date provided",
+    );
+  });
+
+  it("advance() throws on negative values", () => {
+    const clock = createTestClock(fixed);
+    expect(() => clock.advance(-1000)).toThrow(
+      "TestClock.advance: negative values are not supported",
     );
   });
 });

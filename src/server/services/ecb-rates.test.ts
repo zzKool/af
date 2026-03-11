@@ -1,15 +1,12 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { MIGRATION_URL } from "../db/test-setup";
 
 // Admin pool — ecb_rates has no RLS, so we use admin for all operations.
-const ADMIN_DATABASE_URL =
-  process.env.DATABASE_TEST_MIGRATION_URL ||
-  "postgresql://defterfab:test@localhost:5433/defterfab_test";
-
 let adminPool: Pool;
 
 beforeAll(async () => {
-  adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+  adminPool = new Pool({ connectionString: MIGRATION_URL });
 });
 
 beforeEach(async () => {
@@ -17,7 +14,6 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await adminPool.query("TRUNCATE ecb_rates");
   await adminPool.end();
 });
 
