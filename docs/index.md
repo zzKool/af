@@ -23,6 +23,7 @@ Reusable code patterns and development conventions.
 - [[error-handling]] — Typed error codes and response patterns
 - [[hexagonal-architecture]] — Import boundaries and service isolation
 - [[decimal-currency]] — Decimal arithmetic, currency formatting, boundary rule
+- [[clock-and-rates]] — Clock abstraction, timezone rules, ECB rate storage
 
 ## Configuration
 
