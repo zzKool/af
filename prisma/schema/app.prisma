@@ -41,6 +41,18 @@ model TenantConfig {
   @@map("tenant_configs")
 }
 
+// ECB exchange rate cache — global (no tenantId), immutable (no updatedAt).
+// Not following mandatory template: this is a cache of external public data.
+model EcbRate {
+  date         DateTime @db.Date
+  currencyPair String   @map("currency_pair")
+  rate         Decimal  @db.Decimal(18, 6)
+  fetchedAt    DateTime @default(now()) @map("fetched_at") @db.Timestamptz
+
+  @@id([date, currencyPair])
+  @@map("ecb_rates")
+}
+
 model AuditLog {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId   String   @map("tenant_id") @db.Uuid
