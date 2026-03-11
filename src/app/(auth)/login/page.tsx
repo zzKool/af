@@ -34,6 +34,14 @@ export default function LoginPage() {
       return;
     }
 
+    // Set active organization so the dashboard layout gets a valid tenantId
+    const orgs = await authClient.organization.list();
+    if (orgs.data && orgs.data.length > 0) {
+      await authClient.organization.setActive({
+        organizationId: orgs.data[0].id,
+      });
+    }
+
     router.push("/dashboard");
   }
 
