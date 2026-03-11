@@ -46,6 +46,7 @@ export default async function AppLayout({
     <Providers>
       <div className="flex h-screen">
         <Sidebar role={role} tenants={tenants} />
+        {/* main.overflow-auto is the intentional scroll container — do not change, future sticky positioning depends on it */}
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </Providers>
