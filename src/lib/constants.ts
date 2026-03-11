@@ -1,5 +1,66 @@
 // Business constants — client-safe (NO @prisma/client import)
 
+import type { CallerIdentity } from "@/types/caller-identity";
+
+// Navigation configuration
+export type NavItem = {
+  path: string;
+  label: string;
+  icon: string; // lucide-react icon name — resolved in sidebar component
+  roles: CallerIdentity["role"][];
+  enabled: boolean;
+};
+
+/**
+ * Central navigation items config. Sidebar reads from this array.
+ * To enable a new route: set enabled: true when the page is built.
+ * Security note: All paths are visible in the client bundle even when disabled.
+ * Server Actions enforce RBAC — sidebar hiding is UI convenience only.
+ */
+export const NAV_ITEMS: readonly NavItem[] = [
+  {
+    path: "/dashboard",
+    label: "Dashboard",
+    icon: "LayoutDashboard",
+    roles: ["owner", "accountant"],
+    enabled: true,
+  },
+  {
+    path: "/documents",
+    label: "Documents",
+    icon: "FileText",
+    roles: ["owner", "accountant"],
+    enabled: false,
+  },
+  {
+    path: "/journal",
+    label: "Journal",
+    icon: "BookOpen",
+    roles: ["owner", "accountant"],
+    enabled: false,
+  },
+  { path: "/banking", label: "Banking", icon: "Landmark", roles: ["owner"], enabled: false },
+  { path: "/partners", label: "Partners", icon: "Users", roles: ["owner"], enabled: false },
+  {
+    path: "/reconciliation",
+    label: "Reconciliation",
+    icon: "ArrowLeftRight",
+    roles: ["owner"],
+    enabled: false,
+  },
+  { path: "/invoices", label: "Invoices", icon: "Receipt", roles: ["owner"], enabled: false },
+  { path: "/settings", label: "Settings", icon: "Settings", roles: ["owner"], enabled: true },
+] as const;
+
+/**
+ * Role → default landing page mapping.
+ * Both roles land on /dashboard for now; future: accountant → /periods.
+ */
+export const ROLE_LANDING_PAGE: Record<CallerIdentity["role"], string> = {
+  owner: "/dashboard",
+  accountant: "/dashboard",
+};
+
 // Currency
 export const CURRENCIES = ["SEK", "CHF", "EUR", "USD"] as const;
 export type Currency = (typeof CURRENCIES)[number];

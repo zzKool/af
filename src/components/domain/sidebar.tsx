@@ -17,29 +17,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { NAV_ITEMS } from "@/lib/constants";
+import { filterNavItems } from "@/lib/nav-filter";
 import { cn } from "@/lib/utils";
 import type { CallerIdentity } from "@/types/caller-identity";
 import { TenantSwitcher } from "./tenant-switcher";
 
 const STORAGE_KEY = "sidebar-collapsed";
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-  roles: CallerIdentity["role"][];
+/** Map icon name strings from NAV_ITEMS to actual lucide-react components */
+const ICON_MAP: Record<string, React.ElementType> = {
+  LayoutDashboard,
+  FileText,
+  BookOpen,
+  Landmark,
+  Users,
+  ArrowLeftRight,
+  Receipt,
+  Settings,
 };
-
-const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["owner", "accountant"] },
-  { label: "Documents", href: "/documents", icon: FileText, roles: ["owner", "accountant"] },
-  { label: "Journal", href: "/journal", icon: BookOpen, roles: ["owner", "accountant"] },
-  { label: "Banking", href: "/banking", icon: Landmark, roles: ["owner"] },
-  { label: "Partners", href: "/partners", icon: Users, roles: ["owner"] },
-  { label: "Reconciliation", href: "/reconciliation", icon: ArrowLeftRight, roles: ["owner"] },
-  { label: "Invoices", href: "/invoices", icon: Receipt, roles: ["owner"] },
-  { label: "Settings", href: "/settings", icon: Settings, roles: ["owner"] },
-];
 
 export function Sidebar({
   role,
@@ -63,7 +59,7 @@ export function Sidebar({
     localStorage.setItem(STORAGE_KEY, String(next));
   }
 
-  const filteredItems = navItems.filter((item) => item.roles.includes(role));
+  const filteredItems = filterNavItems(NAV_ITEMS, role);
 
   return (
     <aside
@@ -88,12 +84,12 @@ export function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-2 py-2" aria-label="Main navigation">
         {filteredItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          const Icon = item.icon;
+          const isActive = pathname.startsWith(item.path);
+          const Icon = ICON_MAP[item.icon];
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.path}
+              href={item.path}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 isActive
@@ -104,7 +100,7 @@ export function Sidebar({
               aria-current={isActive ? "page" : undefined}
               tabIndex={switching ? -1 : undefined}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              {Icon && <Icon className="h-4 w-4 shrink-0" />}
               {!collapsed && <span className="truncate">{item.label}</span>}
             </Link>
           );
