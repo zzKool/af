@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function DashboardError({
@@ -16,13 +17,7 @@ export default function DashboardError({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">We couldn't load the dashboard. Please try again.</p>
-          <button
-            type="button"
-            onClick={reset}
-            className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
-          >
-            Try again
-          </button>
+          <Button onClick={reset}>Try again</Button>
         </CardContent>
       </Card>
     </div>

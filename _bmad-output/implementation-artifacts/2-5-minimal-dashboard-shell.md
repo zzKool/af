@@ -1,6 +1,6 @@
 # Story 2.5: Minimal Dashboard Shell
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -237,6 +237,7 @@ Claude Opus 4.6
 ### Change Log
 
 - 2026-03-11: Story implemented — all 6 tasks completed, 30 new tests added (137 → 167)
+- 2026-03-12: Code review fixes — wildcard locale crash (H1), `||` → `??` (M2), stronger test assertions (M1/M3/M4), shadcn Button in error.tsx (L1), removed redundant `as const` (L2)
 
 ### File List
 

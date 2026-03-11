@@ -30,7 +30,12 @@ describe("resolveLocale", () => {
     expect(resolveLocale("en-US,en;q=0.9,sv-SE;q=0.8,de;q=0.7")).toBe("en-US");
   });
 
-  test("handles wildcard", () => {
-    expect(resolveLocale("*")).toBe("*");
+  test("handles wildcard by falling back to en", () => {
+    expect(resolveLocale("*")).toBe("en");
+  });
+
+  test("handles malformed input gracefully", () => {
+    expect(resolveLocale(";;;,,")).toBe("en");
+    expect(resolveLocale(",,,")).toBe("en");
   });
 });

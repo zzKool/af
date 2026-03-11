@@ -66,7 +66,7 @@ export async function getDashboardData(
   }
 
   return {
-    userName: user?.name || "User",
+    userName: user?.name ?? "User",
     companyName,
     lastLoginAt,
     role: caller.role,

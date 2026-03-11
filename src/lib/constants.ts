@@ -50,7 +50,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { path: "/invoices", label: "Invoices", icon: "Receipt", roles: ["owner"], enabled: false },
   { path: "/settings", label: "Settings", icon: "Settings", roles: ["owner"], enabled: true },
-] as const;
+];
 
 /**
  * Role → default landing page mapping.

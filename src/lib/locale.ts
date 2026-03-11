@@ -17,5 +17,6 @@ export function resolveLocale(acceptLanguageHeader: string | null): string {
 
   parsed.sort((a, b) => b.quality - a.quality);
 
-  return parsed[0]?.locale || "en";
+  const best = parsed[0]?.locale;
+  return best && best !== "*" ? best : "en";
 }
