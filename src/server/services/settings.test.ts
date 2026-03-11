@@ -5,7 +5,11 @@ import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/server/db/test-fixtures";
 import { resetRateLimit } from "@/server/middleware/rate-limit";
+import type { AuditLogger } from "@/types/audit";
 import * as settingsService from "./settings";
+
+/** No-op audit logger for tests that don't care about audit */
+const noopAudit: AuditLogger = { log: async () => {} };
 
 // Mock next/headers — provides request headers to auth middleware
 let mockHeaders: Headers = new Headers();
@@ -65,7 +69,7 @@ describe("settings service", () => {
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        return settingsService.updateTenantProfile(tx, owner.callerIdentity, {
+        return settingsService.updateTenantProfile(tx, owner.callerIdentity, noopAudit, {
           name: "Updated Company",
           orgNumber: "123456-7890",
           address: "New Street 1",
@@ -86,7 +90,7 @@ describe("settings service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return settingsService.updateTenantProfile(tx, owner.callerIdentity, {
+      return settingsService.updateTenantProfile(tx, owner.callerIdentity, noopAudit, {
         name: "Synced Name",
       });
     });

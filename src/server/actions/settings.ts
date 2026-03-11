@@ -25,7 +25,7 @@ export const getTenantProfile = ownerAction.schema(z.object({})).action(async ({
 export const updateTenantProfile = ownerAction
   .schema(updateProfileSchema)
   .action(async ({ ctx, parsedInput }) => {
-    return settingsService.updateTenantProfile(ctx.tx, ctx.callerIdentity, parsedInput);
+    return settingsService.updateTenantProfile(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
   });
 
 /**

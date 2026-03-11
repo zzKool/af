@@ -1,5 +1,6 @@
 import type { TransactionClient } from "@/server/db/tenant-client";
 import type { AppError } from "@/types/app-error";
+import type { AuditLogger } from "@/types/audit";
 import type { CallerIdentity } from "@/types/caller-identity";
 
 // MUST NOT import from next/* or src/components/*
@@ -41,6 +42,7 @@ export async function getTenantProfile(
 export async function updateTenantProfile(
   tx: TransactionClient,
   caller: CallerIdentity,
+  audit: AuditLogger,
   input: UpdateTenantProfileInput,
 ): Promise<ServiceResult<TenantProfile>> {
   // Currency immutability guard: reject currency changes if journal entries exist.
@@ -52,6 +54,8 @@ export async function updateTenantProfile(
   //   }
   // }
 
+  const old = await tx.tenant.findUnique({ where: { id: caller.tenantId } });
+
   const tenant = await tx.tenant.update({
     where: { id: caller.tenantId },
     data: {
@@ -60,6 +64,14 @@ export async function updateTenantProfile(
       ...(input.address !== undefined && { address: input.address }),
       ...(input.currency !== undefined && { currency: input.currency }),
     },
+  });
+
+  await audit.log({
+    action: "update",
+    entityType: "tenant",
+    entityId: caller.tenantId,
+    oldData: toAuditData(old),
+    newData: toAuditData(tenant),
   });
 
   // Sync name to Organization model to prevent Org ↔ Tenant name desync.
@@ -80,6 +92,20 @@ export async function updateTenantProfile(
       currency: tenant.currency,
     },
   };
+}
+
+/**
+ * Strips Prisma internals from a record for audit log storage.
+ * Returns only plain data fields — no relations, no _count, no Prisma metadata.
+ */
+function toAuditData(record: unknown): Record<string, unknown> | null {
+  if (!record) return null;
+  const { id, ...fields } = record as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(fields).filter(
+      ([_, v]) => v === null || typeof v !== "object" || v instanceof Date,
+    ),
+  );
 }
 
 export async function listTenantMembers(
