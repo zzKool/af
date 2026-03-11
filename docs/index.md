@@ -37,6 +37,12 @@ Environment setup, settings, and deployment configuration.
 - [[deployment]] — Azure Container Apps deployment patterns
 - [[ci-cd]] — CI/CD pipeline, Docker, E2E testing, and recovery runbook
 
+## Pages
+
+Page-specific documentation and patterns.
+
+- [[dashboard]] — Route config, locale resolution, page archetypes, toast infrastructure
+
 ## Components
 
 UI component documentation and design system.
