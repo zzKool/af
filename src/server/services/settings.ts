@@ -1,5 +1,7 @@
 import type { TransactionClient } from "@/server/db/tenant-client";
+import { toAuditData } from "@/server/services/audit";
 import type { AppError } from "@/types/app-error";
+import type { AuditLogger } from "@/types/audit";
 import type { CallerIdentity } from "@/types/caller-identity";
 
 // MUST NOT import from next/* or src/components/*
@@ -41,6 +43,7 @@ export async function getTenantProfile(
 export async function updateTenantProfile(
   tx: TransactionClient,
   caller: CallerIdentity,
+  audit: AuditLogger,
   input: UpdateTenantProfileInput,
 ): Promise<ServiceResult<TenantProfile>> {
   // Currency immutability guard: reject currency changes if journal entries exist.
@@ -52,6 +55,14 @@ export async function updateTenantProfile(
   //   }
   // }
 
+  // Read-before-write for audit oldData. Under READ COMMITTED (PostgreSQL default),
+  // concurrent updates to the same tenant could cause stale oldData in the audit log.
+  // Acceptable for a solo-owner app; revisit with SERIALIZABLE if multi-user editing is added.
+  const old = await tx.tenant.findUnique({ where: { id: caller.tenantId } });
+  if (!old) {
+    return { error: { code: "NOT_FOUND", message: "Tenant not found", retryable: false } };
+  }
+
   const tenant = await tx.tenant.update({
     where: { id: caller.tenantId },
     data: {
@@ -60,6 +71,14 @@ export async function updateTenantProfile(
       ...(input.address !== undefined && { address: input.address }),
       ...(input.currency !== undefined && { currency: input.currency }),
     },
+  });
+
+  await audit.log({
+    action: "update",
+    entityType: "tenant",
+    entityId: caller.tenantId,
+    oldData: toAuditData(old),
+    newData: toAuditData(tenant),
   });
 
   // Sync name to Organization model to prevent Org ↔ Tenant name desync.
