@@ -52,13 +52,15 @@ so that I can diagnose issues quickly with full tenant and user context in every
 - [ ] Task 3: Replace console statements with Pino (AC: #1, #5)
   - [ ] 3.1 In `action-client.ts` `handleServerError`: replace `console.error("Server Action error:", error)` with `logger.error({ err: error }, "Unhandled Server Action error")` — use the base logger here since request context isn't available in the error handler
   - [ ] 3.2 In `tenant.ts`: replace `console.warn(...)` for unknown roles with `ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role")` — use the request-scoped logger from context
-  - [ ] 3.3 Verify no other `console.*` statements exist in `src/server/` (excluding test files)
+  - [ ] 3.3 Verify no other `console.*` statements exist in `src/server/` (excluding test files). Confirmed: only the two above exist
+  - [ ] 3.4 Consider adding a Biome lint rule (`noConsole` or restricted globals) for `src/server/` to structurally prevent future `console.*` regressions — if available in Biome 2, add it; if not, add a comment in `biome.json` as a TODO
 
 - [ ] Task 4: Write unit tests for logger and middleware (AC: #1, #2, #5, #6)
   - [ ] 4.1 Create `src/server/logger.test.ts` — test that logger produces structured JSON with expected fields (`level`, `time`, `msg`, `service`, `environment`), test child logger inherits base bindings, test log level filtering
   - [ ] 4.2 Create `src/server/middleware/logging.test.ts` — test that logging middleware injects `log` into context with `tenantId`, `userId`, `requestId` bindings, test requestId is a valid UUID
-  - [ ] 4.3 Verify existing `action-client.test.ts` tests still pass after middleware chain changes (add logging middleware to test setup if needed)
-  - [ ] 4.4 Test error handler logging: verify `logger.error()` is called for non-ActionError exceptions, verify it is NOT called for ActionError (business errors are returned directly, not logged at error level)
+  - [ ] 4.3 Update `action-client.test.ts` — add logging middleware to the chain setup so existing tests pass with new middleware order
+  - [ ] 4.4 Update `tenant.test.ts` — provide a Pino logger (real or child of test logger) in the mock context, since `tenantMiddleware` now requires `log: pino.Logger` in its input type. This file has 8 integration tests that will break without this update
+  - [ ] 4.5 Test error handler logging: verify `logger.error()` is called for non-ActionError exceptions, verify it is NOT called for ActionError (business errors are returned directly, not logged at error level)
 
 - [ ] Task 5: Build verification checkpoint
   - [ ] 5.1 `npm run build` — verify build succeeds with Pino logger (no runtime errors, no import issues)
@@ -92,7 +94,7 @@ so that I can diagnose issues quickly with full tenant and user context in every
 
 Pino 10 is already installed (`^10.3.1`) and listed in `serverExternalPackages` in `next.config.ts`. `pino-http` (`^11.0.0`) is also installed but this story uses Pino directly (not HTTP middleware) since logging happens inside Server Actions, not at the HTTP layer. Keep `pino-http` in deps — useful later for webhooks/Inngest handlers outside the Server Action pattern.
 
-**Azure deployment note:** In Azure Container Apps, stdout is captured automatically by the container runtime and routed to Log Analytics. No log shipping agent, no sidecar, no fluentd config needed. Just JSON to stdout. Pino's default numeric `level` field enables efficient filtering in Log Analytics.
+**Azure note:** stdout → Azure Log Analytics automatically in Container Apps. No sidecar needed. Document details in `docs/observability.md`.
 
 ```typescript
 // Target API shape
@@ -141,18 +143,9 @@ The logging middleware:
 
 **IMPORTANT:** The `tenantId` at this point is from the session (not yet validated). That's fine — it's for log correlation, not authorization. Tenant validation happens in `tenantMiddleware`.
 
-### Sentry Integration — DEFERRED
+### Sentry — OUT OF SCOPE
 
-Sentry is deferred to a follow-up story. Rationale:
-- `@sentry/nextjs` compatibility with Next.js 16.1/Turbopack is unverified and historically lags behind Next.js releases
-- For a 2-3 user app, Pino structured logging provides the core operational visibility
-- The three observability systems are architecturally independent — Sentry can be added later without touching Pino code
-- Avoids `withSentryConfig()` wrapper risk (monkey-patches Turbopack config, most fragile integration point)
-
-When the follow-up story is created, key decisions:
-- `captureException` only for non-ActionError exceptions (business errors stay local)
-- Context enrichment via `Sentry.setUser()` + `Sentry.setTag("tenantId")` in logging middleware
-- `@sentry/nextjs` preferred; fall back to `@sentry/node` if Turbopack issues persist
+Deferred to follow-up story. No Sentry code, no `@sentry/nextjs`, no `withSentryConfig()` in this story.
 
 ### Action Chain Modification
 
@@ -186,8 +179,16 @@ The `loggingMiddleware` needs `userId` and `tenantId` from `authMiddleware` cont
 - Verify `logger.error()` is NOT called for ActionError (business errors returned directly)
 - This is the most important test — validates the error classification boundary
 
+**Tenant middleware tests** (`src/server/middleware/tenant.test.ts`):
+- 8 existing integration tests that mock the middleware context with `{ userId, tenantId }`
+- ALL will break when `log: pino.Logger` becomes a required field in the input type
+- Fix: create a test helper Pino logger (e.g., `pino({ level: "silent" })`) and include in mock context
+- Verify CallerIdentity immutability, transaction client injection, and role matching still pass
+
 **Existing test impact:**
-- `action-client.test.ts` — must account for logging middleware in the chain
+- `action-client.test.ts` (145 lines) — must account for logging middleware in the chain
+- `tenant.test.ts` (225 lines, 8 tests) — must provide `log` in mock context
+- `auth.test.ts` — unaffected (logging middleware comes after auth, auth tests are isolated)
 - Integration tests — logging middleware is transparent (just adds `log` to context)
 
 ### Dependencies from Previous Stories
@@ -203,7 +204,7 @@ The `loggingMiddleware` needs `userId` and `tenantId` from `authMiddleware` cont
 2. **Never send business errors (ActionError) to Sentry** — these are expected flow, not bugs
 3. **Never log sensitive data** — no passwords, tokens, full request bodies with PII
 4. **Never create per-request Pino instances** — use `logger.child()` for request-scoped bindings
-5. **Never import Pino in `src/components/`** — logging is server-side only. Client errors go through error boundaries
+5. **Never import Pino in `src/components/`** — logging is server-side only. Client errors go through error boundaries. Note: `error.tsx` (Story 2.5) is a Client Component and cannot use Pino directly — it will need a Server Action or API route to report errors server-side
 6. **Never block the request on logging** — Pino is async by default, keep it that way
 7. **Never mix audit trail and application logging** — audit is permanent legal record, logging is operational telemetry
 8. **Never install `winston` or `bunyan`** — Pino is the project standard (architecture doc)
