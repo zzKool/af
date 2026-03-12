@@ -15,6 +15,7 @@ export const translationsSchema = z
     sv: z.string().optional(),
     fr: z.string().optional(),
   })
+  .strict()
   .optional();
 
 export type BasTranslations = z.infer<typeof translationsSchema>;
