@@ -14,8 +14,8 @@ export default function SettingsPage() {
           <TabsTrigger value="bank-accounts" disabled>
             Bank Accounts (Coming soon)
           </TabsTrigger>
-          <TabsTrigger value="bas-categories" disabled>
-            BAS Categories (Coming soon)
+          <TabsTrigger value="bas-categories" render={<Link href="/settings/bas-categories" />}>
+            BAS Categories
           </TabsTrigger>
           <TabsTrigger value="vat" disabled>
             VAT (Coming soon)
