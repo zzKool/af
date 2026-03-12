@@ -17,7 +17,8 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenantConfigs TenantConfig[]
+  tenantConfigs  TenantConfig[]
+  basPreferences TenantBasPreference[]
 
   @@map("tenants")
 }
@@ -72,4 +73,43 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([tenantId, userId])
   @@map("audit_logs")
+}
+
+// BAS reference table — NO RLS, read-only, natural key
+// Not following mandatory template: this is app-level reference data, not tenant-scoped
+model BasCategory {
+  code           String   @id // "501" — 3-digit BAS group code (natural key, not UUID)
+  name           String // "Lokalkostnader" — Swedish canonical
+  nameEn         String?  @map("name_en") // "Premises costs" — from English 2025 file
+  nameFr         String?  @map("name_fr") // "Frais de locaux" — AI-generated, Plan Comptable/IFRS
+  className      String   @map("class_name") // "LOKALKOSTNADER" — stored uppercase per BAS standard
+  classNum       Int      @map("class_num") // 5 — first digit of code
+  isCommon       Boolean  @default(false) @map("is_common")
+  suggestedAlias String?  @map("suggested_alias") // "Lokal" — curated short label
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  preferences TenantBasPreference[]
+
+  @@map("bas_categories")
+}
+
+// Tenant BAS preferences — full RLS, follows mandatory template
+model TenantBasPreference {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  basCode      String   @map("bas_code") // FK to BasCategory.code
+  isFavorite   Boolean  @default(false) @map("is_favorite")
+  shortCode    String?  @map("short_code") // User-defined alias
+  translations Json?    @db.JsonB // { en?: string, sv?: string, fr?: string }
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String   @map("created_by") @db.Uuid
+  source       String   @default("web")
+
+  basCategory BasCategory @relation(fields: [basCode], references: [code])
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, basCode])
+  @@index([tenantId, isFavorite])
+  @@map("tenant_bas_preferences")
 }

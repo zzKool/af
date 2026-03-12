@@ -56,5 +56,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# BAS source data (proprietary, not for distribution)
+prisma/data/*.xlsx
+prisma/data/*.pdf
+
 # Vercel
 .vercel

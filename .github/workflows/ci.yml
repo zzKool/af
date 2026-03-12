@@ -56,7 +56,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/defterfab_test
       DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +66,10 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npx prisma generate
-      - run: npx prisma migrate deploy
+      - name: Run migrations (superuser)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
       - run: npm run test
 
   build-and-e2e:
@@ -87,7 +90,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/defterfab_test
       DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
     steps:
       - uses: actions/checkout@v4
@@ -107,8 +110,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
-      - run: npx prisma migrate deploy
-      - run: npx prisma db seed
+      - name: Run migrations (superuser)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      - name: Seed database (superuser)
+        run: npx prisma db seed
+        env:
+          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
       - name: Start server and run E2E tests
         run: |
           npx next start -p 3000 > server.log 2>&1 &

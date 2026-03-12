@@ -44,6 +44,7 @@ Environment setup, settings, and deployment configuration.
 Page-specific documentation and patterns.
 
 - [[dashboard]] — Route config, locale resolution, page archetypes, toast infrastructure
+- [[bas-categories]] — BAS kontoplan reference data, no-RLS shared data pattern, natural key, sparse preferences
 
 ## Components
 

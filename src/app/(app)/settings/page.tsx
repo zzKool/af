@@ -7,15 +7,23 @@ export default function SettingsPage() {
       <h1 className="mb-6 text-2xl font-semibold">Settings</h1>
       <Tabs defaultValue="company">
         <TabsList>
-          <TabsTrigger value="company" render={<Link href="/settings/company" />}>
+          <TabsTrigger
+            value="company"
+            nativeButton={false}
+            render={<Link href="/settings/company" />}
+          >
             Company
           </TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="bank-accounts" disabled>
             Bank Accounts (Coming soon)
           </TabsTrigger>
-          <TabsTrigger value="bas-categories" disabled>
-            BAS Categories (Coming soon)
+          <TabsTrigger
+            value="bas-categories"
+            nativeButton={false}
+            render={<Link href="/settings/bas-categories" />}
+          >
+            BAS Categories
           </TabsTrigger>
           <TabsTrigger value="vat" disabled>
             VAT (Coming soon)
