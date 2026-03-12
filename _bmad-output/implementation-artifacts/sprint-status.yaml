@@ -57,16 +57,17 @@ development_status:
   epic-1-retrospective: done
 
   # Epic 2: Data Integrity & Compliance Foundation
-  epic-2: in-progress
+  epic-2: done
   2-1-audit-trail-infrastructure: done
   2-2-decimal-arithmetic-currency-foundation: done
   2-3-clock-abstraction-exchange-rate-storage: done
   2-4-observability-error-tracking: done
   2-5-minimal-dashboard-shell: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   # Epic 3: Tenant Configuration
-  epic-3: backlog
+  epic-3: in-progress
+  3-0-epic-3-prep-sprint: done
   3-1-bas-category-management: backlog
   3-2-vat-registration-management: backlog
   3-3-bank-account-csv-format-configuration: backlog
