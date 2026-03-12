@@ -17,8 +17,9 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenantConfigs  TenantConfig[]
-  basPreferences TenantBasPreference[]
+  tenantConfigs    TenantConfig[]
+  basPreferences   TenantBasPreference[]
+  vatRegistrations VatRegistration[]
 
   @@map("tenants")
 }
@@ -112,4 +113,26 @@ model TenantBasPreference {
   @@unique([tenantId, basCode])
   @@index([tenantId, isFavorite])
   @@map("tenant_bas_preferences")
+}
+
+// VAT registrations — per-tenant multi-country VAT management, full RLS
+// Follows mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source)
+// rate_schedule: JSONB array of applicable VAT rates, e.g., { rates: [25, 12, 6] }
+// Downstream consumers: Epic 4 (contracts), Epic 10 (invoicing), declaration exports
+model VatRegistration {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  country      String   @db.VarChar(2) // ISO 3166-1 alpha-2: "SE", "CH", "DE"
+  vatNumber    String   @map("vat_number") @db.VarChar(50) // "SE556677889001", "CHE-123.456.789 MWST"
+  rateSchedule Json?    @map("rate_schedule") @db.JsonB // { rates: [25, 12, 6] }
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String   @map("created_by") @db.Uuid
+  source       String   @default("web")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, country, vatNumber])
+  @@index([tenantId])
+  @@map("vat_registrations")
 }
