@@ -23,6 +23,11 @@ export type BasTranslations = z.infer<typeof translationsSchema>;
 /**
  * Get all BAS categories (shared reference data, no RLS).
  * Any authenticated user can read — no caller/audit params needed.
+ *
+ * Architectural exception: bas_categories has no tenant_id and no RLS.
+ * It's a read-only reference table (immutability enforced via PostgreSQL RULEs).
+ * Natural key: BasCategory.code (3-digit BAS code) is the @id, not a UUID.
+ * Updated yearly from bas.se XLSX files via prisma/data/parse-bas.mjs.
  */
 export async function getBasCategories(tx: TransactionClient) {
   const categories = await tx.basCategory.findMany({

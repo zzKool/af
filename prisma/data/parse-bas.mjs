@@ -11,7 +11,6 @@
  * Usage: node prisma/data/parse-bas.mjs > prisma/migrations/<name>/bas_seed.sql
  */
 
-import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
@@ -975,7 +974,7 @@ const values = merged.map((row) => {
   return `  (${escSql(row.code)}, ${escSql(row.name)}, ${escSql(row.nameEn)}, ${escSql(nameFr)}, ${escSql(row.className)}, ${row.classNum}, ${isCommon}, ${escSql(alias)})`;
 });
 
-lines.push(values.join(",\n") + ";");
+lines.push(`${values.join(",\n")};`);
 lines.push("");
 
 process.stdout.write(lines.join("\n"));
