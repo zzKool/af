@@ -1,11 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { create } from "zustand";
-
-/**
- * Tests for the tenant store reset mechanism.
- * We test the core Zustand store behavior directly (no React rendering needed).
- * The React hook integration (useEffect + useTenantId) is tested via E2E.
- */
+import { createTenantStore, createTenantTracker } from "./create-tenant-store";
 
 interface FilterState {
   search: string;
@@ -14,69 +8,96 @@ interface FilterState {
 
 const initialState: FilterState = { search: "", sortBy: "name" };
 
-function createTestStore() {
-  return create<FilterState>()(() => ({ ...initialState }));
-}
-
-describe("Tenant store reset mechanism", () => {
-  test("store initializes with initial state", () => {
-    const store = createTestStore();
-    expect(store.getState()).toEqual({ search: "", sortBy: "name" });
+describe("createTenantTracker", () => {
+  test("first call records tenant and returns false (no reset)", () => {
+    const shouldReset = createTenantTracker();
+    expect(shouldReset("tenant-1")).toBe(false);
   });
 
-  test("store state can be modified", () => {
-    const store = createTestStore();
-    store.setState({ search: "test query" });
-    expect(store.getState().search).toBe("test query");
-    expect(store.getState().sortBy).toBe("name");
+  test("same tenant returns false (no reset)", () => {
+    const shouldReset = createTenantTracker();
+    shouldReset("tenant-1");
+    expect(shouldReset("tenant-1")).toBe(false);
   });
 
-  test("store resets to initial state on tenant switch", () => {
-    const store = createTestStore();
-
-    // Simulate user modifying state
-    store.setState({ search: "modified", sortBy: "date" });
-    expect(store.getState()).toEqual({ search: "modified", sortBy: "date" });
-
-    // Simulate tenant switch — reset to initial state
-    store.setState({ ...initialState });
-    expect(store.getState()).toEqual({ search: "", sortBy: "name" });
+  test("different tenant returns true (reset)", () => {
+    const shouldReset = createTenantTracker();
+    shouldReset("tenant-1");
+    expect(shouldReset("tenant-2")).toBe(true);
   });
 
-  test("multiple independent stores all reset independently", () => {
-    const storeA = createTestStore();
-    const storeB = createTestStore();
-
-    storeA.setState({ search: "A query" });
-    storeB.setState({ search: "B query", sortBy: "date" });
-
-    // Reset only store A (simulating tenant switch for store A)
-    storeA.setState({ ...initialState });
-
-    expect(storeA.getState()).toEqual({ search: "", sortBy: "name" });
-    expect(storeB.getState()).toEqual({ search: "B query", sortBy: "date" });
+  test("null tenant never triggers reset", () => {
+    const shouldReset = createTenantTracker();
+    shouldReset("tenant-1");
+    expect(shouldReset(null)).toBe(false);
   });
 
-  test("reset does not fire on same tenant re-selection", () => {
-    const store = createTestStore();
-
-    // Modify state
-    store.setState({ search: "important filter" });
-
-    // Simulate same tenant re-selected — state should NOT reset
-    // (In the React hook, prevTenantIdRef.current === tenantId → no reset)
-    // Here we just verify the store keeps its state when not explicitly reset
-    expect(store.getState().search).toBe("important filter");
+  test("null initial tenant then real tenant triggers reset (safe: store at initial state)", () => {
+    const shouldReset = createTenantTracker();
+    expect(shouldReset(null)).toBe(false);
+    // null was stored as prev, so "tenant-1" !== null triggers reset
+    // This is safe because the store hasn't been modified yet on first load
+    expect(shouldReset("tenant-1")).toBe(true);
   });
 
-  test("subscribe notifies on state changes", () => {
-    const store = createTestStore();
+  test("tracks across multiple switches", () => {
+    const shouldReset = createTenantTracker();
+    shouldReset("tenant-1"); // init
+    expect(shouldReset("tenant-2")).toBe(true);
+    expect(shouldReset("tenant-2")).toBe(false);
+    expect(shouldReset("tenant-3")).toBe(true);
+    expect(shouldReset("tenant-1")).toBe(true); // back to first
+  });
+});
+
+describe("createTenantStore", () => {
+  test("factory returns a hook function with .store property", () => {
+    const useStore = createTenantStore(initialState);
+    expect(typeof useStore).toBe("function");
+    expect(useStore.store).toBeDefined();
+    expect(useStore.store.getState).toBeDefined();
+    expect(useStore.store.setState).toBeDefined();
+  });
+
+  test("store initializes with provided initial state", () => {
+    const useStore = createTenantStore(initialState);
+    expect(useStore.store.getState()).toEqual({ search: "", sortBy: "name" });
+  });
+
+  test("store state can be modified via .store.setState", () => {
+    const useStore = createTenantStore(initialState);
+    useStore.store.setState({ search: "test query" });
+    expect(useStore.store.getState().search).toBe("test query");
+    expect(useStore.store.getState().sortBy).toBe("name");
+  });
+
+  test("store resets to initial state via setState", () => {
+    const useStore = createTenantStore(initialState);
+
+    useStore.store.setState({ search: "modified", sortBy: "date" });
+    expect(useStore.store.getState()).toEqual({ search: "modified", sortBy: "date" });
+
+    useStore.store.setState({ ...initialState });
+    expect(useStore.store.getState()).toEqual({ search: "", sortBy: "name" });
+  });
+
+  test("multiple stores from separate createTenantStore calls are independent", () => {
+    const storeA = createTenantStore({ count: 0 });
+    const storeB = createTenantStore({ count: 0 });
+
+    storeA.store.setState({ count: 42 });
+    expect(storeA.store.getState().count).toBe(42);
+    expect(storeB.store.getState().count).toBe(0);
+  });
+
+  test("subscribe notifies on state changes including reset", () => {
+    const useStore = createTenantStore(initialState);
     const changes: FilterState[] = [];
 
-    store.subscribe((state) => changes.push({ ...state }));
+    useStore.store.subscribe((state) => changes.push({ ...state }));
 
-    store.setState({ search: "first" });
-    store.setState({ ...initialState }); // reset
+    useStore.store.setState({ search: "first" });
+    useStore.store.setState({ ...initialState });
 
     expect(changes).toHaveLength(2);
     expect(changes[0].search).toBe("first");

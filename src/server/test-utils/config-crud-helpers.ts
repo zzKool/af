@@ -65,8 +65,10 @@ export async function assertAuditLogged(
 /**
  * Asserts full CRUD operations work for a config service.
  *
+ * Contract: `read` must return `null` (not throw) when the entity is not found.
+ * Services should use `findUnique` (returns null) rather than `findUniqueOrThrow`.
+ *
  * @param operations - Object with create/read/update/delete functions to test
- * @param fixtures - Test data for each operation
  */
 export async function assertCrudOperations(operations: {
   create: () => Promise<{ id: string }>;

@@ -3,13 +3,9 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 function findFiles(dir: string, ext: string, ignore?: RegExp): string[] {
-  try {
-    return readdirSync(dir, { recursive: true, withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(ext) && (!ignore || !ignore.test(e.name)))
-      .map((e) => join(e.parentPath, e.name));
-  } catch {
-    return [];
-  }
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(ext) && (!ignore || !ignore.test(e.name)))
+    .map((e) => join(e.parentPath, e.name));
 }
 
 describe("Architecture guard: GRANT ALL in migrations", () => {
@@ -45,6 +41,7 @@ describe("Architecture guard: GRANT ALL in migrations", () => {
 describe("Architecture guard: no next/* imports in services", () => {
   test("services must not import from next/*", () => {
     const files = findFiles("src/server/services", ".ts", /\.test\.ts$/);
+    expect(files.length, "Guard found no service files to scan").toBeGreaterThan(0);
     for (const file of files) {
       const content = readFileSync(file, "utf-8");
       expect(content, `next/* import found in ${file}`).not.toMatch(/import.*from\s+['"]next\//);
@@ -55,12 +52,13 @@ describe("Architecture guard: no next/* imports in services", () => {
 describe("Architecture guard: no console.* in server code", () => {
   test("server code must use Pino logger, not console.*", () => {
     const files = findFiles("src/server", ".ts", /\.(test|spec)\.ts$|seed\.ts$/);
+    expect(files.length, "Guard found no server files to scan").toBeGreaterThan(0);
     for (const file of files) {
       const content = readFileSync(file, "utf-8");
       const lines = content.split("\n");
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        if (line.startsWith("//") || line.startsWith("*")) continue;
+        if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) continue;
         expect(
           /\bconsole\.(log|warn|error|info|debug)\b/.test(line),
           `console.* found in ${file} line ${i + 1}: ${line}`,

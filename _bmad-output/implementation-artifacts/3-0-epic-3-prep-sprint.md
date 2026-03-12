@@ -1,6 +1,6 @@
 # Story 3.0: Epic 3 Prep Sprint
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -250,6 +250,7 @@ Claude Opus 4.6
 ### Change Log
 
 - 2026-03-12: Story 3.0 implementation complete. All 7 tasks done. 177 tests (10 new), 4 docs created, 3 deferred items resolved.
+- 2026-03-12: Code review fixes — extracted `createTenantTracker` for testable tenant-change logic, rewrote tests to cover actual `createTenantStore` (12 tests, up from 6), added guard test file-count assertions, improved console.* comment detection, documented `assertCrudOperations` contract. 183 tests pass.
 
 ### File List
 

@@ -1,10 +1,37 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { create, type StoreApi } from "zustand";
 import { useTenantId } from "./use-tenant-id";
 
 /**
+ * Creates a tenant-change tracker. Returns a function that determines whether
+ * the store should reset based on the current tenant ID.
+ *
+ * Pure logic — no React dependency. Independently testable.
+ */
+export function createTenantTracker() {
+  let prevTenantId: string | null = null;
+  let initialized = false;
+
+  return function shouldReset(tenantId: string | null): boolean {
+    if (!initialized) {
+      prevTenantId = tenantId;
+      initialized = true;
+      return false;
+    }
+    if (tenantId !== null && tenantId !== prevTenantId) {
+      prevTenantId = tenantId;
+      return true;
+    }
+    return false;
+  };
+}
+
+/**
  * Factory that creates a Zustand store scoped to the active tenant.
  * When the tenant changes, the store resets to its initial state.
+ *
+ * The reset is tracked per-store (not per-component), so multiple components
+ * sharing the same store only trigger one reset on tenant switch.
  *
  * Usage:
  * ```ts
@@ -17,21 +44,15 @@ import { useTenantId } from "./use-tenant-id";
  */
 export function createTenantStore<T extends Record<string, unknown>>(initialState: T) {
   const store = create<T>()(() => ({ ...initialState }));
+  const shouldReset = createTenantTracker();
 
   function useTenantAwareStore<U>(selector: (state: T) => U): U {
     const tenantId = useTenantId();
-    const prevTenantIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-      if (prevTenantIdRef.current === null) {
-        // First mount — just record the tenant, don't reset
-        prevTenantIdRef.current = tenantId;
-        return;
-      }
-      if (tenantId !== null && tenantId !== prevTenantIdRef.current) {
+      if (shouldReset(tenantId)) {
         store.setState({ ...initialState });
       }
-      prevTenantIdRef.current = tenantId;
     }, [tenantId]);
 
     return store(selector);
