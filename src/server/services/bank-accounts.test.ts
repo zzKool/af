@@ -236,7 +236,7 @@ describe("bank accounts service", () => {
         bankFormatId: formatId,
       });
     });
-    const id = created.data?.id;
+    const id = created.data!.id;
 
     const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
@@ -263,7 +263,7 @@ describe("bank accounts service", () => {
         bankFormatId: formatId,
       });
     });
-    const id = created.data?.id;
+    const id = created.data!.id;
 
     // Update to same format (only one exists) — should succeed
     const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -294,7 +294,7 @@ describe("bank accounts service", () => {
         bankFormatId: formatId,
       });
     });
-    const id2 = created2.data?.id;
+    const id2 = created2.data!.id;
 
     // Try to update second account to match first
     const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -318,7 +318,7 @@ describe("bank accounts service", () => {
         bankFormatId: formatId,
       });
     });
-    const id = created.data?.id;
+    const id = created.data!.id;
 
     const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
@@ -382,7 +382,7 @@ describe("bank accounts service", () => {
         bankFormatId: formatId,
       });
     });
-    const id = created.data?.id;
+    const id = created.data!.id;
 
     const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
       return bankService.updateBankAccount(tx, owner.callerIdentity, noopAudit, id, {
@@ -413,7 +413,7 @@ describe("full CRUD cycle", () => {
             bankFormatId: formatId,
           });
         });
-        return { id: result.data?.id };
+        return { id: result.data!.id };
       },
       read: async (id) => {
         return withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -496,7 +496,7 @@ describe("audit logging", () => {
         bankFormatId: formatId,
       });
     });
-    const id = created.data?.id;
+    const id = created.data!.id;
 
     await withTenantTransaction(prisma, tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
@@ -520,7 +520,7 @@ describe("audit logging", () => {
         bankFormatId: formatId,
       });
     });
-    const id = created.data?.id;
+    const id = created.data!.id;
 
     await withTenantTransaction(prisma, tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);

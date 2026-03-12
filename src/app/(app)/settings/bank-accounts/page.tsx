@@ -21,6 +21,7 @@ export default async function BankAccountsSettingsPage() {
   const callerIdentity = {
     userId: auth.userId,
     tenantId,
+    role: "owner" as const,
     source: "web" as const,
   };
 
