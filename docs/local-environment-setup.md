@@ -1,38 +1,118 @@
 # Local Environment Setup
 
-How to set up and verify the local development environment for DefterFab.
+Quick guide to get DefterFab running locally from scratch.
 
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Node.js | v24.x LTS | Runtime for Next.js |
-| Docker Desktop | 28.x+ | Container runtime for local services |
-| Git | Any recent | Version control |
+| Tool           | Version   | Purpose                        |
+| -------------- | --------- | ------------------------------ |
+| Node.js        | v24.x LTS | Runtime for Next.js            |
+| Docker Desktop | 28.x+     | PostgreSQL + Azurite containers |
+| Git            | Any recent | Version control                |
 
-## Services Overview
+## 1. Clone & install
 
-The [[docker-compose]] configuration provides three services:
+```bash
+git clone git@github.com:zzKool/defterfab.git
+cd defterfab
+git checkout develop
+npm install
+```
 
-- **db-dev** — PostgreSQL 17 development database on port 5432
-- **db-test** — PostgreSQL 17 test database on port 5433 (used by Vitest integration tests)
-- **azurite** — Azure Storage emulator on ports 10000 (blob), 10001 (queue), 10002 (table)
+## 2. Environment variables
 
-Next.js runs locally (not in Docker) via `npm run dev`.
+```bash
+cp .env.example .env.local
+```
 
-## Setup Steps
+Then generate a random auth secret and set it in `.env.local`:
 
-1. Clone the repo and switch to `develop` branch
-2. Copy `.env.example` to `.env.local`
-3. Run `docker compose up -d` to start all services
-4. Verify connectivity using commands in the [[docker-compose]] section of README
+```bash
+# Linux/macOS
+openssl rand -base64 32
 
-## Environment Variables
+# PowerShell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 }) -as [byte[]])
+```
 
-See [[environment-variables]] for the full list. The `.env.example` file contains all required variables with local development defaults pre-filled, including the well-known Azurite connection string.
+Replace `generate-a-random-secret-here` in `.env.local` with the generated value.
+
+All other defaults in `.env.example` are ready for local dev (Azurite uses its well-known key).
+
+## 3. Start Docker services
+
+```bash
+docker compose up -d
+```
+
+This starts three services:
+
+| Service    | Port(s)             | Purpose                          |
+| ---------- | ------------------- | -------------------------------- |
+| **db-dev** | 5432                | PostgreSQL 17 development DB     |
+| **db-test**| 5433                | PostgreSQL 17 test DB            |
+| **azurite**| 10000, 10001, 10002 | Azure Storage emulator (blob/queue/table) |
+
+Verify containers are healthy:
+
+```bash
+docker compose ps
+```
+
+## 4. Run database migrations
+
+```bash
+npm run db:migrate
+```
+
+This runs `prisma migrate dev` which:
+- Creates all tables, enums, and indexes
+- Creates the `defterfab_app` role (used by the app at runtime with RLS enforced)
+- Sets up Row-Level Security policies
+- Generates the Prisma client
+
+## 5. Seed the database
+
+```bash
+npm run db:seed
+```
+
+Creates the dev dataset:
+
+| Account                    | Password      | Role       |
+| -------------------------- | ------------- | ---------- |
+| `owner@dev.test`           | `password123` | Owner      |
+| `accountant@dev.test`      | `password123` | Member     |
+
+Organization: **Dev AB** (slug: `dev-ab`, org number: `556677-8899`)
+
+The seed is idempotent — safe to run multiple times.
+
+## 6. Start the dev server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in with one of the seed accounts above.
+
+## Other useful commands
+
+| Command               | What it does                          |
+| --------------------- | ------------------------------------- |
+| `npm run test`        | Run Vitest unit/integration tests     |
+| `npm run test:watch`  | Run Vitest in watch mode              |
+| `npm run e2e`         | Run Playwright E2E tests              |
+| `npm run e2e:ui`      | Playwright interactive UI mode        |
+| `npm run lint`        | Biome lint check                      |
+| `npm run lint:fix`    | Biome lint auto-fix                   |
+| `npm run typecheck`   | TypeScript type check (no emit)       |
+| `npm run db:studio`   | Open Prisma Studio (DB browser)       |
 
 ## Troubleshooting
 
-- **Port conflict on 5432:** Another PostgreSQL instance may be running. Stop it or change the host port in `docker-compose.yml`.
-- **Azurite returns 403:** This is expected for unauthenticated container listing requests. The service is running correctly.
+- **Port 5432 conflict:** Another PostgreSQL instance may be running. Stop it or change the host port in `docker-compose.yml`.
+- **Migration fails with role error:** Make sure `DATABASE_MIGRATION_URL` uses the `defterfab` superuser (not `defterfab_app`).
+- **Seed fails:** Ensure migrations ran first (`npm run db:migrate`) and the dev server is not running (both use the same DB).
+- **Azurite 403:** Expected for unauthenticated container listing. The service is running correctly.
 - **Docker not found:** Ensure Docker Desktop is installed and running. Verify with `docker compose version`.

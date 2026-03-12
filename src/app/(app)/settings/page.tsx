@@ -25,8 +25,12 @@ export default function SettingsPage() {
           >
             BAS Categories
           </TabsTrigger>
-          <TabsTrigger value="vat" disabled>
-            VAT (Coming soon)
+          <TabsTrigger
+            value="vat-registrations"
+            nativeButton={false}
+            render={<Link href="/settings/vat-registrations" />}
+          >
+            VAT Registrations
           </TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-6">
