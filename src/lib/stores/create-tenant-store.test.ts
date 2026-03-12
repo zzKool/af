@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { createTenantStore, createTenantTracker } from "./create-tenant-store";
 
-interface FilterState {
+type FilterState = {
   search: string;
   sortBy: string;
-}
+};
 
 const initialState: FilterState = { search: "", sortBy: "name" };
 
