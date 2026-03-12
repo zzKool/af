@@ -68,7 +68,7 @@ development_status:
   # Epic 3: Tenant Configuration
   epic-3: in-progress
   3-0-epic-3-prep-sprint: done
-  3-1-bas-category-management: backlog
+  3-1-bas-category-management: in-progress
   3-2-vat-registration-management: backlog
   3-3-bank-account-csv-format-configuration: backlog
   3-4-document-type-prefixes-personal-locale: backlog
