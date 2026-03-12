@@ -25,6 +25,8 @@ Reusable code patterns and development conventions.
 - [[hexagonal-architecture]] — Import boundaries and service isolation
 - [[decimal-currency]] — Decimal arithmetic, currency formatting, boundary rule
 - [[clock-and-rates]] — Clock abstraction, timezone rules, ECB rate storage
+- [[zustand-stores]] — Tenant-scoped Zustand store pattern with auto-reset
+- [[middleware]] — Auth gating strategy (proxy.ts session cookie checks)
 
 ## Configuration
 
@@ -58,3 +60,5 @@ Backend service documentation and API contracts.
 - [[business-logic]] — Service layer patterns and responsibilities
 - [[external-integrations]] — Azure DI, Blob Storage, ECB, Inngest
 - [[testing]] — Test architecture, fixtures, and coverage strategy
+- [[config-page-test-template]] — Reusable test structure for config CRUD pages (Stories 3.1–3.4)
+- [[story-creation-checklist]] — Mutation story checklist, pattern-setter flag, retro gate check
