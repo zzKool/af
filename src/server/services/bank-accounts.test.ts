@@ -369,6 +369,30 @@ describe("bank accounts service", () => {
     expect(result.error?.code).toBe("VALIDATION_ERROR");
     expect(result.error?.message).toContain("Bank format not found");
   });
+
+  it("update bankFormatId validation: reject non-existent format ID", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const formatId = await getNordeaFormatId();
+
+    const created = await withTenantTransaction(prisma, tenantId, async (tx) => {
+      return bankService.createBankAccount(tx, owner.callerIdentity, noopAudit, {
+        accountNumber: "211 53 13-5",
+        currency: "SEK",
+        bankFormatId: formatId,
+      });
+    });
+    const id = created.data?.id;
+
+    const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+      return bankService.updateBankAccount(tx, owner.callerIdentity, noopAudit, id, {
+        bankFormatId: "00000000-0000-0000-0000-000000000000",
+      });
+    });
+
+    expect(result.error?.code).toBe("VALIDATION_ERROR");
+    expect(result.error?.message).toContain("Bank format not found");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────

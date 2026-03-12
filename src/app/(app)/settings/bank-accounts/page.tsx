@@ -4,6 +4,7 @@ import { BankAccountsTab } from "@/components/settings/bank-accounts-tab";
 import { getAuthContext } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
+import * as bankService from "@/server/services/bank-accounts";
 
 export default async function BankAccountsSettingsPage() {
   const hdrs = await headers();
@@ -17,21 +18,21 @@ export default async function BankAccountsSettingsPage() {
   if (member?.role !== "owner") redirect("/dashboard");
 
   const tenantId = auth.tenantId;
+  const callerIdentity = {
+    userId: auth.userId,
+    tenantId,
+    source: "web" as const,
+  };
 
-  // Fetch initial data: bank accounts (tenant-scoped) and bank formats (app-level)
+  // Fetch initial data via service methods (single source of truth for queries)
   const { accounts, formats } = await withTenantTransaction(prisma, tenantId, async (tx) => {
-    const [bankAccounts, bankFormats] = await Promise.all([
-      tx.bankAccount.findMany({
-        include: { bankFormat: true },
-        orderBy: [{ accountNumber: "asc" }, { currency: "asc" }],
-      }),
-      tx.bankFormat.findMany({
-        orderBy: { name: "asc" },
-      }),
+    const [accountsResult, bankFormats] = await Promise.all([
+      bankService.getBankAccounts(tx, callerIdentity),
+      bankService.getBankFormats(tx),
     ]);
 
     return {
-      accounts: bankAccounts.map((a) => ({
+      accounts: (accountsResult.data ?? []).map((a) => ({
         id: a.id,
         accountAlias: a.accountAlias,
         accountNumber: a.accountNumber,

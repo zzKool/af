@@ -195,7 +195,12 @@ export async function updateBankAccount(
     };
   }
 
-  const updateData: Record<string, unknown> = {};
+  const updateData: {
+    accountAlias?: string | null;
+    accountNumber?: string;
+    currency?: string;
+    bankFormatId?: string;
+  } = {};
   if (input.accountAlias !== undefined) updateData.accountAlias = input.accountAlias;
   if (input.accountNumber !== undefined) updateData.accountNumber = input.accountNumber;
   if (input.currency !== undefined) updateData.currency = input.currency;

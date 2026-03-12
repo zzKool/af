@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -221,7 +222,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
         <AddAccountForm
           bankFormats={bankFormats}
           onCreate={handleCreate}
-          onCancel={() => setShowAddForm(false)}
+          onClose={() => setShowAddForm(false)}
           isCreating={isCreating}
         />
       )}
@@ -333,7 +334,12 @@ function AccountCard({
 
         {/* Currency — select with auto-save onChange */}
         <div>
-          <span className="text-[10px] text-muted-foreground uppercase">Currency</span>
+          <Label
+            htmlFor={`ba-currency-${account.id}`}
+            className="text-[10px] text-muted-foreground uppercase"
+          >
+            Currency
+          </Label>
           <Select
             value={account.currency}
             onValueChange={(value) => {
@@ -341,7 +347,7 @@ function AccountCard({
               onUpdateField(account.id, "currency", value);
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`ba-currency-${account.id}`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -356,7 +362,12 @@ function AccountCard({
 
         {/* Bank Format — select with auto-save onChange */}
         <div>
-          <span className="text-[10px] text-muted-foreground uppercase">CSV Format</span>
+          <Label
+            htmlFor={`ba-format-${account.id}`}
+            className="text-[10px] text-muted-foreground uppercase"
+          >
+            CSV Format
+          </Label>
           <Select
             value={account.bankFormatId}
             onValueChange={(value) => {
@@ -364,7 +375,7 @@ function AccountCard({
               onUpdateField(account.id, "bankFormatId", value);
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`ba-format-${account.id}`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -403,7 +414,7 @@ function AccountCard({
 function AddAccountForm({
   bankFormats,
   onCreate,
-  onCancel,
+  onClose,
   isCreating,
 }: {
   bankFormats: BankFormat[];
@@ -413,7 +424,7 @@ function AddAccountForm({
     currency: string;
     bankFormatId: string;
   }) => Promise<boolean>;
-  onCancel: () => void;
+  onClose: () => void;
   isCreating: boolean;
 }) {
   const [accountNumber, setAccountNumber] = useState("");
@@ -453,7 +464,7 @@ function AddAccountForm({
       setAlias("");
       setCurrency(CURRENCIES[0]);
       setBankFormatId(bankFormats.length === 1 ? bankFormats[0].id : "");
-      onCancel();
+      onClose();
     }
   };
 
@@ -487,9 +498,11 @@ function AddAccountForm({
           />
         </div>
         <div>
-          <span className="text-[10px] text-muted-foreground uppercase">Currency</span>
+          <Label htmlFor="ba-add-currency" className="text-[10px] text-muted-foreground uppercase">
+            Currency
+          </Label>
           <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="ba-add-currency" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -502,9 +515,11 @@ function AddAccountForm({
           </Select>
         </div>
         <div>
-          <span className="text-[10px] text-muted-foreground uppercase">CSV Format</span>
+          <Label htmlFor="ba-add-format" className="text-[10px] text-muted-foreground uppercase">
+            CSV Format
+          </Label>
           <Select value={bankFormatId} onValueChange={(v) => v && setBankFormatId(v)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="ba-add-format" className="w-full">
               <SelectValue placeholder="Select format..." />
             </SelectTrigger>
             <SelectContent>
@@ -518,7 +533,7 @@ function AddAccountForm({
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isCreating}>
+        <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isCreating}>
           Cancel
         </Button>
         <Button type="submit" size="sm" disabled={isCreating}>
