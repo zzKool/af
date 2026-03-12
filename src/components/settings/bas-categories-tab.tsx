@@ -3,7 +3,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, Loader2, Search, Star } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createTenantStore } from "@/lib/stores/create-tenant-store";
@@ -60,6 +61,19 @@ const CLASS_NAMES_EN: Record<number, string> = {
   8: "Financial",
 };
 
+/** Extract error message from a server action result */
+function actionError(result: {
+  serverError?: unknown;
+  data?: { error?: { message?: string } };
+}): string | null {
+  if (result.serverError) {
+    const se = result.serverError as { message?: string };
+    return se.message || "Server error";
+  }
+  if (result.data?.error) return result.data.error.message || "Action failed";
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────
@@ -70,6 +84,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     () => new Map(initialPreferences.map((p) => [p.basCode, p])),
   );
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set([1]));
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [showQuickStart, setShowQuickStart] = useState(false);
   const [quickStartCodes, setQuickStartCodes] = useState<Set<string>>(new Set());
   const [savingCodes, setSavingCodes] = useState<Set<string>>(new Set());
@@ -114,6 +129,15 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     });
   }, []);
 
+  const toggleRow = useCallback((code: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }, []);
+
   const hasActivePrefs = preferences.size > 0;
   const hasFavorites = Array.from(preferences.values()).some((p) => p.isFavorite);
 
@@ -130,22 +154,26 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     async (code: string) => {
       markSaving(code, true);
       const result = await execActivate({ codes: [code] });
-      if (!result?.serverError && !result?.data?.error) {
-        // Optimistic: find category and create pref
-        const cat = initialCategories.find((c) => c.code === code);
-        if (cat) {
-          setPreferences((prev) => {
-            const next = new Map(prev);
-            next.set(code, {
-              id: "",
-              basCode: code,
-              isFavorite: false,
-              shortCode: null,
-              translations: null,
-              basCategory: cat,
+      if (result) {
+        const err = actionError(result);
+        if (err) {
+          toast.error(`Failed to activate ${code}: ${err}`);
+        } else {
+          const cat = initialCategories.find((c) => c.code === code);
+          if (cat) {
+            setPreferences((prev) => {
+              const next = new Map(prev);
+              next.set(code, {
+                id: crypto.randomUUID(),
+                basCode: code,
+                isFavorite: false,
+                shortCode: null,
+                translations: null,
+                basCategory: cat,
+              });
+              return next;
             });
-            return next;
-          });
+          }
         }
       }
       markSaving(code, false);
@@ -157,12 +185,22 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     async (code: string) => {
       markSaving(code, true);
       const result = await execDeactivate({ basCode: code });
-      if (!result?.serverError && !result?.data?.error) {
-        setPreferences((prev) => {
-          const next = new Map(prev);
-          next.delete(code);
-          return next;
-        });
+      if (result) {
+        const err = actionError(result);
+        if (err) {
+          toast.error(`Failed to deactivate ${code}: ${err}`);
+        } else {
+          setPreferences((prev) => {
+            const next = new Map(prev);
+            next.delete(code);
+            return next;
+          });
+          setExpandedRows((prev) => {
+            const next = new Set(prev);
+            next.delete(code);
+            return next;
+          });
+        }
       }
       markSaving(code, false);
     },
@@ -172,17 +210,29 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
   // ─── Favorite toggle (auto-save onChange) ───
   const handleFavoriteToggle = useCallback(
     async (code: string) => {
-      const pref = preferences.get(code);
-      if (!pref) return;
-      const newVal = !pref.isFavorite;
-      // Optimistic update
       setPreferences((prev) => {
         const next = new Map(prev);
         const existing = next.get(code);
-        if (existing) next.set(code, { ...existing, isFavorite: newVal });
+        if (existing) next.set(code, { ...existing, isFavorite: !existing.isFavorite });
         return next;
       });
-      await execUpdate({ basCode: code, isFavorite: newVal });
+      const result = await execUpdate({
+        basCode: code,
+        isFavorite: !preferences.get(code)?.isFavorite,
+      });
+      if (result) {
+        const err = actionError(result);
+        if (err) {
+          toast.error(`Failed to update favorite: ${err}`);
+          // Revert optimistic update
+          setPreferences((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(code);
+            if (existing) next.set(code, { ...existing, isFavorite: !existing.isFavorite });
+            return next;
+          });
+        }
+      }
     },
     [preferences, execUpdate],
   );
@@ -200,7 +250,11 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
         if (existing) next.set(code, { ...existing, shortCode: val });
         return next;
       });
-      await execUpdate({ basCode: code, shortCode: val });
+      const result = await execUpdate({ basCode: code, shortCode: val });
+      if (result) {
+        const err = actionError(result);
+        if (err) toast.error(`Failed to save alias: ${err}`);
+      }
     },
     [preferences, execUpdate],
   );
@@ -220,7 +274,11 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
         if (existing) next.set(code, { ...existing, translations });
         return next;
       });
-      await execUpdate({ basCode: code, translations });
+      const result = await execUpdate({ basCode: code, translations });
+      if (result) {
+        const err = actionError(result);
+        if (err) toast.error(`Failed to save translation: ${err}`);
+      }
     },
     [preferences, execUpdate],
   );
@@ -241,27 +299,35 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     if (codes.length === 0) return;
     setSavingCodes(new Set(codes));
     const result = await execActivate({ codes });
-    if (!result?.serverError && !result?.data?.error) {
-      setPreferences((prev) => {
-        const next = new Map(prev);
-        for (const code of codes) {
-          const cat = initialCategories.find((c) => c.code === code);
-          if (cat) {
-            next.set(code, {
-              id: "",
-              basCode: code,
-              isFavorite: false,
-              shortCode: cat.suggestedAlias || null,
-              translations: null,
-              basCategory: cat,
-            });
-          }
-        }
-        return next;
-      });
+    if (result) {
+      const err = actionError(result);
+      if (err) {
+        toast.error(`Failed to activate categories: ${err}`);
+        setSavingCodes(new Set());
+        return; // Keep quick-start panel open on failure
+      }
     }
+    // Success — update local state (no suggestedAlias in optimistic state; it's not persisted by activate)
+    setPreferences((prev) => {
+      const next = new Map(prev);
+      for (const code of codes) {
+        const cat = initialCategories.find((c) => c.code === code);
+        if (cat) {
+          next.set(code, {
+            id: crypto.randomUUID(),
+            basCode: code,
+            isFavorite: false,
+            shortCode: null,
+            translations: null,
+            basCategory: cat,
+          });
+        }
+      }
+      return next;
+    });
     setSavingCodes(new Set());
     setShowQuickStart(false);
+    toast.success(`Activated ${codes.length} categories`);
   }, [quickStartCodes, execActivate, initialCategories]);
 
   return (
@@ -325,7 +391,9 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
             categories={categories}
             preferences={preferences}
             expanded={expandedClasses.has(classNum)}
+            expandedRows={expandedRows}
             onToggle={() => toggleClass(classNum)}
+            onToggleRow={toggleRow}
             savingCodes={savingCodes}
             onActivate={handleActivate}
             onDeactivate={handleDeactivate}
@@ -410,7 +478,9 @@ function ClassAccordion({
   categories,
   preferences,
   expanded,
+  expandedRows,
   onToggle,
+  onToggleRow,
   savingCodes,
   onActivate,
   onDeactivate,
@@ -423,7 +493,9 @@ function ClassAccordion({
   categories: BasCategory[];
   preferences: Map<string, BasPreference>;
   expanded: boolean;
+  expandedRows: Set<string>;
   onToggle: () => void;
+  onToggleRow: (code: string) => void;
   savingCodes: Set<string>;
   onActivate: (code: string) => void;
   onDeactivate: (code: string) => void;
@@ -437,7 +509,7 @@ function ClassAccordion({
   const virtualizer = useVirtualizer({
     count: categories.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 44,
+    estimateSize: (index) => (expandedRows.has(categories[index].code) ? 110 : 44),
     overscan: 10,
   });
 
@@ -467,16 +539,18 @@ function ClassAccordion({
               const cat = categories[virtualRow.index];
               const pref = preferences.get(cat.code);
               const isSaving = savingCodes.has(cat.code);
+              const isRowExpanded = expandedRows.has(cat.code);
 
               return (
                 <div
                   key={cat.code}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
                   style={{
                     position: "absolute",
                     top: 0,
                     left: 0,
                     width: "100%",
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
@@ -484,6 +558,8 @@ function ClassAccordion({
                     category={cat}
                     preference={pref}
                     saving={isSaving}
+                    expanded={isRowExpanded}
+                    onToggleExpand={() => onToggleRow(cat.code)}
                     onActivate={() => onActivate(cat.code)}
                     onDeactivate={() => onDeactivate(cat.code)}
                     onFavoriteToggle={() => onFavoriteToggle(cat.code)}
@@ -507,6 +583,8 @@ function CategoryRow({
   category,
   preference,
   saving,
+  expanded,
+  onToggleExpand,
   onActivate,
   onDeactivate,
   onFavoriteToggle,
@@ -516,6 +594,8 @@ function CategoryRow({
   category: BasCategory;
   preference?: BasPreference;
   saving: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onActivate: () => void;
   onDeactivate: () => void;
   onFavoriteToggle: () => void;
@@ -523,7 +603,6 @@ function CategoryRow({
   onTranslationSave: (lang: "en" | "sv" | "fr", value: string) => void;
 }) {
   const isActive = !!preference;
-  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className={`border-b last:border-b-0 ${isActive ? "bg-primary/5" : ""}`}>
@@ -575,7 +654,7 @@ function CategoryRow({
         {isActive && (
           <button
             type="button"
-            onClick={() => setExpanded(!expanded)}
+            onClick={onToggleExpand}
             className="text-xs text-muted-foreground hover:text-foreground shrink-0"
             title="Edit details"
           >
@@ -591,24 +670,28 @@ function CategoryRow({
       {isActive && expanded && (
         <div className="px-3 pb-2 pt-0 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <InlineField
+            code={category.code}
             label="Alias"
             value={preference?.shortCode || ""}
             onSave={onShortCodeSave}
             placeholder={category.suggestedAlias || "e.g. Lokal"}
           />
           <InlineField
+            code={category.code}
             label="Custom SV"
             value={(preference?.translations as Record<string, string>)?.sv || ""}
             onSave={(v) => onTranslationSave("sv", v)}
             placeholder={category.name}
           />
           <InlineField
+            code={category.code}
             label="Custom EN"
             value={(preference?.translations as Record<string, string>)?.en || ""}
             onSave={(v) => onTranslationSave("en", v)}
             placeholder={category.nameEn || ""}
           />
           <InlineField
+            code={category.code}
             label="Custom FR"
             value={(preference?.translations as Record<string, string>)?.fr || ""}
             onSave={(v) => onTranslationSave("fr", v)}
@@ -624,18 +707,25 @@ function CategoryRow({
 // Inline text field with auto-save onBlur
 // ─────────────────────────────────────────────────────────────
 function InlineField({
+  code,
   label,
   value,
   onSave,
   placeholder,
 }: {
+  code: string;
   label: string;
   value: string;
   onSave: (v: string) => void;
   placeholder?: string;
 }) {
   const [local, setLocal] = useState(value);
-  const id = `bas-field-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  const id = `bas-field-${code}-${label.toLowerCase().replace(/\s+/g, "-")}`;
+
+  // Sync local state when value prop changes (e.g., server response updates)
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
 
   return (
     <div>
