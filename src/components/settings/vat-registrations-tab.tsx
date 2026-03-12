@@ -68,6 +68,12 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
   const { executeAsync: execUpdate } = useAction(updateVatRegistration);
   const { executeAsync: execDelete } = useAction(deleteVatRegistration);
 
+  // Ref to avoid stale closures in update callbacks
+  const registrationsRef = useRef(registrations);
+  useEffect(() => {
+    registrationsRef.current = registrations;
+  }, [registrations]);
+
   // ─── Create ───
   const handleCreate = useCallback(
     async (country: string, vatNumber: string, rateScheduleRaw: string) => {
@@ -82,10 +88,14 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
           return false;
         }
         const newId = result.data?.data?.id;
+        if (!newId) {
+          toast.error("Failed to create registration");
+          return false;
+        }
         setRegistrations((prev) => [
           ...prev,
           {
-            id: newId || crypto.randomUUID(),
+            id: newId,
             country: country.toUpperCase(),
             vatNumber,
             rateSchedule: rateSchedule ?? null,
@@ -101,7 +111,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
   // ─── Update (auto-save onBlur) ───
   const handleUpdateVatNumber = useCallback(
     async (id: string, vatNumber: string) => {
-      const reg = registrations.find((r) => r.id === id);
+      const reg = registrationsRef.current.find((r) => r.id === id);
       if (!reg || reg.vatNumber === vatNumber) return;
 
       // Optimistic update
@@ -119,12 +129,12 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
         }
       }
     },
-    [registrations, execUpdate],
+    [execUpdate],
   );
 
   const handleUpdateRateSchedule = useCallback(
     async (id: string, rawRates: string) => {
-      const reg = registrations.find((r) => r.id === id);
+      const reg = registrationsRef.current.find((r) => r.id === id);
       if (!reg) return;
 
       const rates = parseRateInput(rawRates);
@@ -148,7 +158,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
         }
       }
     },
-    [registrations, execUpdate],
+    [execUpdate],
   );
 
   // ─── Delete ───

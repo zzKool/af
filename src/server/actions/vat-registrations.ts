@@ -19,7 +19,7 @@ export const getVatRegistrations = ownerAction.schema(z.object({})).action(async
 export const createVatRegistration = ownerAction
   .schema(
     z.object({
-      country: z.string().length(2).toUpperCase().trim(),
+      country: z.string().trim().toUpperCase().length(2),
       vatNumber: z.string().min(1).max(50).trim(),
       rateSchedule: vatService.rateScheduleSchema.optional(),
     }),
