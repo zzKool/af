@@ -204,7 +204,7 @@ export async function updateVatRegistration(
  */
 export async function deleteVatRegistration(
   tx: TransactionClient,
-  caller: CallerIdentity,
+  _caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ deleted: boolean }>> {
