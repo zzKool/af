@@ -46,6 +46,7 @@ Page-specific documentation and patterns.
 - [[dashboard]] — Route config, locale resolution, page archetypes, toast infrastructure
 - [[bas-categories]] — BAS kontoplan reference data, no-RLS shared data pattern, natural key, sparse preferences
 - [[vat-registrations]] — Multi-country VAT registration management, rate schedule JSONB, auto-save pattern
+- [[bank-accounts]] — Bank account configuration with CSV format library, two-table pattern, multi-currency accounts
 
 ## Components
 

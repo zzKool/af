@@ -20,6 +20,7 @@ model Tenant {
   tenantConfigs    TenantConfig[]
   basPreferences   TenantBasPreference[]
   vatRegistrations VatRegistration[]
+  bankAccounts     BankAccount[]
 
   @@map("tenants")
 }
@@ -135,4 +136,49 @@ model VatRegistration {
   @@unique([tenantId, country, vatNumber])
   @@index([tenantId])
   @@map("vat_registrations")
+}
+
+// Bank CSV format library — app-level reference data (NO RLS, no tenantId)
+// Not following mandatory template: this is app-level reference data, not tenant-scoped
+// Immutable via PostgreSQL RULEs (no UPDATE, no DELETE, no INSERT after seed)
+// Downstream: Epic 6 CSV import, Epic 9 format admin
+model BankFormat {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String   @unique @db.VarChar(100) // "Nordea CSV (Sweden)"
+  bankName         String   @map("bank_name") @db.VarChar(100) // "Nordea"
+  delimiter        String   @db.VarChar(10) // ";"
+  decimalSeparator String   @map("decimal_separator") @db.VarChar(5) // ","
+  dateFormat       String   @map("date_format") @db.VarChar(30) // "YYYY/MM/DD"
+  encoding         String   @db.VarChar(30) // "ISO-8859-1"
+  columnMapping    Json     @map("column_mapping") @db.JsonB // field-to-column map
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  bankAccounts BankAccount[]
+
+  @@map("bank_formats")
+}
+
+// Bank accounts — per-tenant, full RLS, follows mandatory template
+// Each record = one bank account + currency combination
+// No bankName column — derived from format relation (bankFormat.bankName)
+// Downstream: Epic 6 CSV import, Epic 6 banking view
+model BankAccount {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  accountAlias  String?  @map("account_alias") @db.VarChar(100) // Optional friendly name
+  accountNumber String   @map("account_number") @db.VarChar(50) // "211 53 13-5"
+  currency      String   @db.VarChar(3) // "SEK", "CHF", etc.
+  bankFormatId  String   @map("bank_format_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy     String   @map("created_by") @db.Uuid
+  source        String   @default("web")
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankFormat BankFormat @relation(fields: [bankFormatId], references: [id])
+
+  @@unique([tenantId, accountNumber, currency])
+  @@index([tenantId])
+  @@index([bankFormatId])
+  @@map("bank_accounts")
 }

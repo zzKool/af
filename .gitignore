@@ -60,5 +60,8 @@ yarn-error.log*
 prisma/data/*.xlsx
 prisma/data/*.pdf
 
+# Ingestion docs
+prisma/data/PLUS*.csv
+
 # Vercel
 .vercel

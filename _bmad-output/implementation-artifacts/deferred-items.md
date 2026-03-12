@@ -3,7 +3,7 @@
 Living document tracking all deferred technical debt, feature gaps, and process improvements.
 Updated after every code review and retrospective. Checked before every story creation.
 
-**Last updated:** 2026-03-12 (Story 3.0 Prep Sprint)
+**Last updated:** 2026-03-12 (Story 3.3 Code Review)
 
 ---
 
@@ -16,6 +16,8 @@ Updated after every code review and retrospective. Checked before every story cr
 | 6 | `action: "server_action"` is generic in logs | Epic 2, Story 2.4 review | Low | — | Before Epic 5 | More actions = harder to debug without action identity |
 | 7 | Decimal boundary lint rule (no `.toNumber()` on Prisma.Decimal) | Epic 2, Story 2.2 | Low | — | Before Epic 6 | Journal entries introduce real currency columns |
 | 8 | Branch protection (requires GitHub Pro) | Epic 0 retro | Low | Zik | Before production deploy | PR protection for develop branch |
+| 9 | Replace `confirm()` with shadcn AlertDialog for delete confirmations | Story 3.3 review | Low | — | Before Epic 5 | All 3 settings tabs (bank-accounts, vat-registrations, bas-categories) use native `confirm()`. Add shared AlertDialog component and update all tabs together for consistency |
+| 10 | Bank format FK change test needs second seeded format | Story 3.3 review | Low | — | Before Epic 9 | "Update bankFormatId" test only verifies same format (only Nordea seeded). Story 9.1 adds more formats — add proper FK-change test then |
 
 ---
 
