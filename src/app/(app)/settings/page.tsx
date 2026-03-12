@@ -15,8 +15,12 @@ export default function SettingsPage() {
             Company
           </TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="bank-accounts" disabled>
-            Bank Accounts (Coming soon)
+          <TabsTrigger
+            value="bank-accounts"
+            nativeButton={false}
+            render={<Link href="/settings/bank-accounts" />}
+          >
+            Bank Accounts
           </TabsTrigger>
           <TabsTrigger
             value="bas-categories"
