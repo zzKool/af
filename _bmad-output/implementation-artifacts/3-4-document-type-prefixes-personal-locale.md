@@ -1,6 +1,6 @@
 # Story 3.4: Document-Type Prefixes & Personal Locale
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -232,9 +232,27 @@ Claude Opus 4.6
 - Task 9: 306 tests all passing — 59 new tests (21 prefix service, 11 user preferences, 27 format utilities)
 - Task 10: Documentation with wiki-links for document-type prefixes and user preferences
 
+### Senior Developer Review (AI)
+
+**Reviewer:** Zik — 2026-03-13
+**Outcome:** Approved with fixes applied
+
+**Findings (7 total — 1 High, 3 Medium, 3 Low):**
+
+1. **HIGH — Manual AuditLogger via dynamic import in page:** Replaced with static `createAuditEntry` import. Extracted `getDocumentTypePrefixesWithSeed()` composite service method.
+2. **MEDIUM — Duplicated seed orchestration:** Action and page both had check→seed→get logic. Consolidated into single service method used by both.
+3. **MEDIUM — Uncommitted Biome formatting:** 8 files had unstaged formatting changes. Applied and committed.
+4. **MEDIUM — Silent seed failure in page:** Seed errors were ignored. Now propagated via composite method's ServiceResult.
+5. **LOW — Missing visual separator:** Added `border-l` separator before "My Preferences" tab to visually separate user-scoped from tenant-scoped settings.
+6. **LOW — Preview number without decimals:** Added `minimumFractionDigits: 2` so preview shows "12,500.00" / "12 500,00" as spec requires.
+7. **LOW — Unsafe type assertion:** Replaced `as` cast with runtime `SUPPORTED_LOCALES.includes()` check before passing locale to action.
+
+All findings fixed in commit `b28a720`.
+
 ### Change Log
 
 - 2026-03-13: Story 3.4 implementation complete — all 10 tasks, all ACs satisfied
+- 2026-03-13: Code review — 7 findings fixed (1H, 3M, 3L), status → done
 
 ### File List
 
