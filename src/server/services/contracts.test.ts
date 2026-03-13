@@ -62,7 +62,7 @@ afterAll(async () => {
 async function createClientPartner(
   tenantId: string,
   caller: CallerIdentity,
-  overrides?: { name?: string; defaultCurrency?: string },
+  overrides?: { name?: string; defaultCurrency?: "SEK" | "CHF" | "EUR" | "USD" },
 ): Promise<string> {
   const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
     return partnerService.createPartner(tx, caller, noopAudit, {
