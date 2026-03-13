@@ -1,6 +1,6 @@
 # Story 4.0: Epic 4 Prep Sprint
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -44,62 +44,62 @@ so that Epic 4 stories (4.1–4.3) have proper UI patterns, automated formatting
   - [x] 0.3 Verify no other items have passed their deferral deadline
   - [x] 0.4 Document check result in Dev Agent Record
 
-- [ ] Task 1: Shared ConfirmDialog component (AC: #1)
-  - [ ] 1.1 Add shadcn/ui AlertDialog component: `npx shadcn@latest add alert-dialog` — this installs `@radix-ui/react-alert-dialog` and generates `src/components/ui/alert-dialog.tsx`
-  - [ ] 1.2 Create `src/components/ui/confirm-dialog.tsx` — a reusable wrapper around AlertDialog with props: `open`, `onOpenChange`, `title` (default: "Are you sure?"), `description`, `confirmLabel` (default: "Delete"), `cancelLabel` (default: "Cancel"), `onConfirm`, `isLoading`, `variant` (default: "destructive"). Use shadcn AlertDialog primitives (AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction). Footer order: Cancel first, then confirm button (so Cancel receives initial focus for safe keyboard navigation). Confirm button shows loading spinner and both buttons are disabled while `isLoading` is true.
-  - [ ] 1.3 Create `src/hooks/use-confirm-dialog.ts` — a React hook that manages open/close state, pending async action, and loading state. Returns `{ dialogProps, confirm }` where `confirm(asyncAction, opts?)` stores the action, opens the dialog. On confirm click: sets `isLoading=true`, awaits the async action, closes dialog on success, shows error toast on failure and keeps dialog open. On cancel: discards action, closes. `opts` accepts `{ description?: string }` to override the dialog description per call.
-  - [ ] 1.4 Replace `confirm()` in `src/components/settings/bank-accounts-tab.tsx:170` with `useConfirmDialog` + `<ConfirmDialog>`. Include entity name in description: e.g. `Delete "${account.name}" bank account? This cannot be undone.`
-  - [ ] 1.5 Replace `confirm()` in `src/components/settings/vat-registrations-tab.tsx:167` with `useConfirmDialog` + `<ConfirmDialog>`. Include entity name in description: e.g. `Delete "${reg.country}" VAT registration? This cannot be undone.`
-  - [ ] 1.6 Replace `confirm()` in `src/components/settings/document-type-prefixes-tab.tsx:115` with `useConfirmDialog` + `<ConfirmDialog>`. Include entity name in description: e.g. `Delete "${prefix.prefix}" document prefix? This cannot be undone.`
-  - [ ] 1.7 Write unit tests for `useConfirmDialog` hook: opens on confirm call, closes on cancel, executes async action on confirm with loading state, shows error toast on action failure, handles multiple sequential confirms
-  - [ ] 1.8 Manually verify all three settings tabs still work: delete flow shows dialog, cancel aborts, confirm deletes
+- [x] Task 1: Shared ConfirmDialog component (AC: #1)
+  - [x] 1.1 Add shadcn/ui AlertDialog component: `npx shadcn@latest add alert-dialog` — this installs `@radix-ui/react-alert-dialog` and generates `src/components/ui/alert-dialog.tsx`
+  - [x] 1.2 Create `src/components/ui/confirm-dialog.tsx` — a reusable wrapper around AlertDialog with props: `open`, `onOpenChange`, `title` (default: "Are you sure?"), `description`, `confirmLabel` (default: "Delete"), `cancelLabel` (default: "Cancel"), `onConfirm`, `isLoading`, `variant` (default: "destructive"). Use shadcn AlertDialog primitives (AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction). Footer order: Cancel first, then confirm button (so Cancel receives initial focus for safe keyboard navigation). Confirm button shows loading spinner and both buttons are disabled while `isLoading` is true.
+  - [x] 1.3 Create `src/hooks/use-confirm-dialog.ts` — a React hook that manages open/close state, pending async action, and loading state. Returns `{ dialogProps, confirm }` where `confirm(asyncAction, opts?)` stores the action, opens the dialog. On confirm click: sets `isLoading=true`, awaits the async action, closes dialog on success, shows error toast on failure and keeps dialog open. On cancel: discards action, closes. `opts` accepts `{ description?: string }` to override the dialog description per call.
+  - [x] 1.4 Replace `confirm()` in `src/components/settings/bank-accounts-tab.tsx:170` with `useConfirmDialog` + `<ConfirmDialog>`. Include entity name in description: e.g. `Delete "${account.name}" bank account? This cannot be undone.`
+  - [x] 1.5 Replace `confirm()` in `src/components/settings/vat-registrations-tab.tsx:167` with `useConfirmDialog` + `<ConfirmDialog>`. Include entity name in description: e.g. `Delete "${reg.country}" VAT registration? This cannot be undone.`
+  - [x] 1.6 Replace `confirm()` in `src/components/settings/document-type-prefixes-tab.tsx:115` with `useConfirmDialog` + `<ConfirmDialog>`. Include entity name in description: e.g. `Delete "${prefix.prefix}" document prefix? This cannot be undone.`
+  - [x] 1.7 Write unit tests for `useConfirmDialog` hook: opens on confirm call, closes on cancel, executes async action on confirm with loading state, shows error toast on action failure, handles multiple sequential confirms
+  - [x] 1.8 Manually verify all three settings tabs still work: delete flow shows dialog, cancel aborts, confirm deletes
 
-- [ ] Task 2: Biome pre-commit hook (AC: #2)
-  - [ ] 2.1 Install husky and lint-staged: `npm install --save-dev husky lint-staged`
-  - [ ] 2.2 Initialize husky: `npx husky init` — this creates `.husky/` directory and a pre-commit hook file
-  - [ ] 2.3 Configure lint-staged in `package.json`: `"lint-staged": { "*.{ts,tsx,js,jsx,json,css}": ["biome check --write --no-errors-on-unmatched"] }`
-  - [ ] 2.4 Update `.husky/pre-commit` to run `npx lint-staged`
-  - [ ] 2.5 Test the hook: stage a file with formatting issues, attempt commit, verify Biome auto-fixes and the commit succeeds with formatted code
-  - [ ] 2.6 Test edge case: stage a file with lint errors (not just formatting), verify the commit is blocked with clear error output
+- [x] Task 2: Biome pre-commit hook (AC: #2)
+  - [x] 2.1 Install husky and lint-staged: `npm install --save-dev husky lint-staged`
+  - [x] 2.2 Initialize husky: `npx husky init` — this creates `.husky/` directory and a pre-commit hook file
+  - [x] 2.3 Configure lint-staged in `package.json`: `"lint-staged": { "*.{ts,tsx,js,jsx,json,css}": ["biome check --write --no-errors-on-unmatched"] }`
+  - [x] 2.4 Update `.husky/pre-commit` to run `npx lint-staged`
+  - [x] 2.5 Test the hook: stage a file with formatting issues, attempt commit, verify Biome auto-fixes and the commit succeeds with formatted code
+  - [x] 2.6 Test edge case: stage a file with lint errors (not just formatting), verify the commit is blocked with clear error output
 
-- [ ] Task 3: Cross-table FK under RLS spike (AC: #3)
-  - [ ] 3.1 Design a minimal spike test: create two related tables in a test migration (or use existing tables like `bas_categories` + a temporary FK reference) to verify RLS behavior when querying across FK joins
-  - [ ] 3.2 Test scenario 1: Prisma `findMany({ include: { relatedTable: true } })` — does RLS on the parent table prevent seeing child records from other tenants?
-  - [ ] 3.3 Test scenario 2: Prisma `findMany({ where: { relatedTable: { someField: value } } })` — does filtering through FK respect RLS on both tables?
-  - [ ] 3.4 Test scenario 3: Raw SQL `JOIN` across two RLS-protected tables — verify tenant isolation holds
-  - [ ] 3.5 Test scenario 4: Prisma `create` with `connect` referencing another tenant's record — can tenant A set a FK to tenant B's entity? (PostgreSQL FK constraints are checked by table owner role, which bypasses RLS. If this succeeds, document that service-level FK validation is required before saving.)
-  - [ ] 3.6 Document findings in `docs/cross-table-rls.md`: what works, what doesn't, any gotchas for Epic 4's Partner → VatRegistration FK. If FK constraints bypass RLS, document the service-level validation pattern.
-  - [ ] 3.7 If issues found: document workaround recommendations (e.g., explicit tenant_id WHERE clauses, service-level validation)
+- [x] Task 3: Cross-table FK under RLS spike (AC: #3)
+  - [x] 3.1 Design a minimal spike test: create two related tables in a test migration (or use existing tables like `bas_categories` + a temporary FK reference) to verify RLS behavior when querying across FK joins
+  - [x] 3.2 Test scenario 1: Prisma `findMany({ include: { relatedTable: true } })` — does RLS on the parent table prevent seeing child records from other tenants?
+  - [x] 3.3 Test scenario 2: Prisma `findMany({ where: { relatedTable: { someField: value } } })` — does filtering through FK respect RLS on both tables?
+  - [x] 3.4 Test scenario 3: Raw SQL `JOIN` across two RLS-protected tables — verify tenant isolation holds
+  - [x] 3.5 Test scenario 4: Prisma `create` with `connect` referencing another tenant's record — can tenant A set a FK to tenant B's entity? (PostgreSQL FK constraints are checked by table owner role, which bypasses RLS. If this succeeds, document that service-level FK validation is required before saving.)
+  - [x] 3.6 Document findings in `docs/cross-table-rls.md`: what works, what doesn't, any gotchas for Epic 4's Partner → VatRegistration FK. If FK constraints bypass RLS, document the service-level validation pattern.
+  - [x] 3.7 If issues found: document workaround recommendations (e.g., explicit tenant_id WHERE clauses, service-level validation)
 
-- [ ] Task 4: `assertCrossTableRlsIsolation` test helper (AC: #4) — **depends on Task 3 findings; helper design may be revised based on spike results**
-  - [ ] 4.1 Add `assertCrossTableRlsIsolation` to `src/server/test-utils/config-crud-helpers.ts`. Signature: `assertCrossTableRlsIsolation(prisma, parentModel, childModel, parentTenantAId, parentTenantBId, includeRelation)`. Verifies: (a) parent query with `include` only returns own-tenant children, (b) cross-tenant FK references are invisible. If Task 3 reveals FK constraints bypass RLS, also verify that service-level validation catches cross-tenant FK references.
-  - [ ] 4.2 Write tests for the helper itself using existing RLS-protected tables (e.g., `tenantConfig` + `tenant` if they have a relationship, or the tables identified in the spike)
-  - [ ] 4.3 Update `docs/config-page-test-template.md` to document the new helper's usage for inter-entity stories
+- [x] Task 4: `assertCrossTableRlsIsolation` test helper (AC: #4) — **depends on Task 3 findings; helper design may be revised based on spike results**
+  - [x] 4.1 Add `assertCrossTableRlsIsolation` to `src/server/test-utils/config-crud-helpers.ts`. Signature: `assertCrossTableRlsIsolation(prisma, parentModel, childModel, parentTenantAId, parentTenantBId, includeRelation)`. Verifies: (a) parent query with `include` only returns own-tenant children, (b) cross-tenant FK references are invisible. If Task 3 reveals FK constraints bypass RLS, also verify that service-level validation catches cross-tenant FK references.
+  - [x] 4.2 Write tests for the helper itself using existing RLS-protected tables (e.g., `tenantConfig` + `tenant` if they have a relationship, or the tables identified in the spike)
+  - [x] 4.3 Update `docs/config-page-test-template.md` to document the new helper's usage for inter-entity stories
 
-- [ ] Task 5: Client-side checklist in story creation template (AC: #5)
-  - [ ] 5.1 Add a "Client-Side UI Checklist" section to `docs/story-creation-checklist.md` after the existing "Mutation Story Checklist" section
-  - [ ] 5.2 Include these mandatory checklist items:
+- [x] Task 5: Client-side checklist in story creation template (AC: #5)
+  - [x] 5.1 Add a "Client-Side UI Checklist" section to `docs/story-creation-checklist.md` after the existing "Mutation Story Checklist" section
+  - [x] 5.2 Include these mandatory checklist items:
     - Error handling: All Server Action failures surfaced via toast (never silent failures)
     - Stale closure avoidance: Callbacks in `useEffect`/event handlers use refs or functional updates for mutable state
     - Unique React keys: List items use stable unique IDs (never array index for dynamic lists)
     - Optimistic update rollback: If using optimistic updates, rollback on Server Action failure
     - Confirm dialog: Delete operations use `<ConfirmDialog>` (never native `confirm()`)
-  - [ ] 5.3 Add a brief rationale note for each item referencing the Epic 3 retro findings
+  - [x] 5.3 Add a brief rationale note for each item referencing the Epic 3 retro findings
 
-- [ ] Task 6: Update deferred items register (AC: #6)
-  - [ ] 6.1 Update `_bmad-output/implementation-artifacts/deferred-items.md`:
+- [x] Task 6: Update deferred items register (AC: #6)
+  - [x] 6.1 Update `_bmad-output/implementation-artifacts/deferred-items.md`:
     - Move item #9 (replace `confirm()`) to Resolved section with note "Story 4.0 Task 1 — shared ConfirmDialog component"
     - Add any new items from Epic 3 retro that aren't already captured (items #7–#10 should already be there from Story 3.3 review)
-  - [ ] 6.2 Review all active items: verify deadlines are still appropriate for current project stage
-  - [ ] 6.3 Update "Last updated" date
-  - [ ] 6.4 Update `docs/index.md` with link to any new docs created (e.g., `cross-table-rls.md`)
+  - [x] 6.2 Review all active items: verify deadlines are still appropriate for current project stage
+  - [x] 6.3 Update "Last updated" date
+  - [x] 6.4 Update `docs/index.md` with link to any new docs created (e.g., `cross-table-rls.md`)
 
-- [ ] Task 7: Verify everything (AC: all)
-  - [ ] 7.1 Run full test suite: `npm run test` — all existing 306+ tests + new tests pass
-  - [ ] 7.2 Run `npm run lint` (Biome check) — clean
-  - [ ] 7.3 Run `npm run e2e` — no regressions
-  - [ ] 7.4 Verify the pre-commit hook works: stage a change, commit, confirm Biome runs
-  - [ ] 7.5 Verify `npm run dev` starts without warnings related to changes
+- [x] Task 7: Verify everything (AC: all)
+  - [x] 7.1 Run full test suite: `npm run test` — all existing 306+ tests + new tests pass
+  - [x] 7.2 Run `npm run lint` (Biome check) — clean (only pre-existing warnings)
+  - [x] 7.3 Run `npm run e2e` — no regressions (2 pre-existing failures on develop, not introduced by this story)
+  - [x] 7.4 Verify the pre-commit hook works: stage a change, commit, confirm Biome runs
+  - [x] 7.5 Verify `npm run dev` starts without warnings related to changes
 
 ## Dev Notes
 
@@ -220,7 +220,7 @@ Modified files:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6
 
 ### Debug Log References
 
@@ -232,4 +232,41 @@ Modified files:
 
 ### Completion Notes List
 
+- Task 0: Retro gate check passed — no items past deadline, item #9 confirmed addressed by Task 1
+- Task 2: husky + lint-staged installed and configured, pre-commit hook auto-formats staged files via Biome
+- Task 1: Shared ConfirmDialog built on Base UI AlertDialog (shadcn v4), useConfirmDialog hook with async loading/error handling, replaced native confirm() in 3 settings tabs, 9 unit tests
+- Task 3: RLS spike confirmed: JOINs respect RLS per-table, but FK constraints bypass RLS (PostgreSQL design). Service-level validation required for cross-tenant FK writes.
+- Task 4: assertCrossTableRlsIsolation helper added to config-crud-helpers.ts, tested with bankAccount → bankFormat relation, docs updated
+- Task 5: Client-Side UI Checklist added to story-creation-checklist.md with 5 mandatory items and rationale from Epic 3 retro
+- Task 6: Deferred item #9 resolved, all active items reviewed, docs/index.md updated with cross-table-rls.md link
+- Task 7: 321 tests pass (15 new), lint clean (only pre-existing warnings), E2E failures pre-existing on develop, dev server starts clean
+
+### Change Log
+
+- 2026-03-13: Story 4.0 implementation complete — all 8 tasks done, 321 tests passing
+
 ### File List
+
+New files:
+- .husky/pre-commit
+- src/components/ui/alert-dialog.tsx
+- src/components/ui/confirm-dialog.tsx
+- src/hooks/use-confirm-dialog.ts
+- src/hooks/use-confirm-dialog.test.tsx
+- src/server/test-utils/cross-table-rls-spike.test.ts
+- docs/cross-table-rls.md
+
+Modified files:
+- package.json (husky, lint-staged, @testing-library/react, jsdom deps + lint-staged config)
+- package-lock.json
+- vitest.config.ts (added hooks test glob to client project)
+- src/components/ui/button.tsx (shadcn update — cosmetic)
+- src/components/settings/bank-accounts-tab.tsx (replace confirm() with ConfirmDialog)
+- src/components/settings/vat-registrations-tab.tsx (replace confirm() with ConfirmDialog)
+- src/components/settings/document-type-prefixes-tab.tsx (replace confirm() with ConfirmDialog)
+- src/server/test-utils/config-crud-helpers.ts (add assertCrossTableRlsIsolation)
+- docs/story-creation-checklist.md (add Client-Side UI Checklist section)
+- docs/config-page-test-template.md (document cross-table RLS helper)
+- docs/index.md (add cross-table-rls.md link)
+- _bmad-output/implementation-artifacts/deferred-items.md (resolve item #9)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (status updates)
