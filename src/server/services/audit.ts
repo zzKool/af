@@ -11,7 +11,7 @@ export async function createAuditEntry(
   tx: TransactionClient,
   caller: CallerIdentity,
   params: {
-    action: "create" | "update" | "delete";
+    action: "create" | "update" | "delete" | "deactivate" | "reactivate";
     entityType: string;
     entityId: string;
     oldData?: Record<string, unknown> | null;
