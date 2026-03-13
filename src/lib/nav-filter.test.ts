@@ -9,10 +9,10 @@ describe("filterNavItems", () => {
     expect(labels).toEqual(["Dashboard", "Settings"]);
   });
 
-  test("accountant sees only Dashboard (Settings is owner-only)", () => {
+  test("accountant sees Dashboard and Settings (Settings accessible to both roles)", () => {
     const result = filterNavItems(NAV_ITEMS, "accountant");
     const labels = result.map((i) => i.label);
-    expect(labels).toEqual(["Dashboard"]);
+    expect(labels).toEqual(["Dashboard", "Settings"]);
   });
 
   test("disabled items are excluded even if role matches", () => {

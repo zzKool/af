@@ -71,7 +71,7 @@ development_status:
   3-1-bas-category-management: done
   3-2-vat-registration-management: done
   3-3-bank-account-csv-format-configuration: done
-  3-4-document-type-prefixes-personal-locale: backlog
+  3-4-document-type-prefixes-personal-locale: done
   epic-3-retrospective: optional
 
   # Epic 4: Partners & Contracts

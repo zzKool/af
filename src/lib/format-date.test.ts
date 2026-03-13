@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { formatDateShort, formatDateTime } from "./format-date";
+import { SUPPORTED_LOCALES } from "@/lib/constants";
+import { formatDate, formatDateShort, formatDateTime, resolveLocale } from "./format-date";
 
 describe("formatDateTime", () => {
   const testDate = new Date("2026-03-11T14:30:00Z");
@@ -47,5 +48,68 @@ describe("formatDateShort", () => {
   test("accepts string date input", () => {
     const result = formatDateShort("2026-03-11T14:30:00Z", "en");
     expect(result).toMatch(/\d/);
+  });
+});
+
+describe("resolveLocale", () => {
+  test("returns sv-SE for null", () => {
+    expect(resolveLocale(null)).toBe("sv-SE");
+  });
+
+  test("returns sv-SE for undefined", () => {
+    expect(resolveLocale(undefined)).toBe("sv-SE");
+  });
+
+  test("returns sv-SE for empty string", () => {
+    expect(resolveLocale("")).toBe("sv-SE");
+  });
+
+  test("returns the locale if supported", () => {
+    expect(resolveLocale("en-US")).toBe("en-US");
+  });
+
+  test("falls back to sv-SE for unsupported locale", () => {
+    expect(resolveLocale("xx-YY")).toBe("sv-SE");
+  });
+});
+
+describe("formatDate", () => {
+  const testDate = new Date("2026-03-12T12:00:00Z");
+
+  test("formats with sv-SE locale", () => {
+    const result = formatDate(testDate, "sv-SE");
+    expect(result).toBeTruthy();
+    expect(result).toContain("2026");
+  });
+
+  test("formats with en-US locale", () => {
+    const result = formatDate(testDate, "en-US");
+    expect(result).toBeTruthy();
+    expect(result).toContain("March");
+  });
+
+  test("formats with fr-FR locale", () => {
+    const result = formatDate(testDate, "fr-FR");
+    expect(result).toBeTruthy();
+    expect(result).toContain("2026");
+  });
+
+  test("all SUPPORTED_LOCALES produce valid output", () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const result = formatDate(testDate, locale);
+      expect(result, `formatDate should work for ${locale}`).toBeTruthy();
+      expect(result).toContain("2026");
+    }
+  });
+
+  test("accepts string date input", () => {
+    const result = formatDate("2026-03-12T12:00:00Z", "en-US");
+    expect(result).toContain("2026");
+  });
+
+  test("uses sv-SE as fallback when no locale provided", () => {
+    const result = formatDate(testDate);
+    expect(result).toBeTruthy();
+    expect(result).toContain("2026");
   });
 });

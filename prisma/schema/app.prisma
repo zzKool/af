@@ -17,10 +17,11 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenantConfigs    TenantConfig[]
-  basPreferences   TenantBasPreference[]
-  vatRegistrations VatRegistration[]
-  bankAccounts     BankAccount[]
+  tenantConfigs        TenantConfig[]
+  basPreferences       TenantBasPreference[]
+  vatRegistrations     VatRegistration[]
+  bankAccounts         BankAccount[]
+  documentTypePrefixes DocumentTypePrefix[]
 
   @@map("tenants")
 }
@@ -181,4 +182,36 @@ model BankAccount {
   @@index([tenantId])
   @@index([bankFormatId])
   @@map("bank_accounts")
+}
+
+// Document-type prefixes — per-tenant, full RLS, follows mandatory template
+// Configurable prefixes for business key generation (e.g., "exp_", "inv_")
+// Document types are free-form strings — this table IS the configurable type registry
+// Downstream: Epic 5 (document upload uses prefixes for business keys)
+model DocumentTypePrefix {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  documentType String   @map("document_type") @db.VarChar(30) // "expense", "invoice", "contract"
+  prefix       String   @db.VarChar(10) // "exp_", "inv_", "ctrt_"
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String   @map("created_by") @db.Uuid
+  source       String   @default("web")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, documentType])
+  @@map("document_type_prefixes")
+}
+
+/// User-scoped (not tenant-scoped). Access controlled by userId from auth context, not RLS.
+model UserPreference {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid // NO Prisma @relation — cross-schema FK, application-level enforcement
+  locale    String?  // BCP 47 tag (e.g., "sv-SE", "en-US"), null = use browser locale
+  source    String   @default("manual") // Always "manual" for user preferences — mandatory template compliance
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("user_preferences")
 }

@@ -40,11 +40,11 @@ test.describe("Accountant authentication and navigation", () => {
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     await expect(nav).toBeVisible();
 
-    // Accountant sees only Dashboard (Settings is owner-only)
+    // Accountant sees Dashboard and Settings (My Preferences tab)
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
     // Owner-only and not-yet-enabled links are NOT visible
-    await expect(nav.getByRole("link", { name: "Settings" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Documents" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).not.toBeVisible();
