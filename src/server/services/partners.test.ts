@@ -543,3 +543,103 @@ describe("partner audit logging", () => {
     await assertAuditLogged(adminPool, tenantId, "reactivate", "partner", id);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Server Action RBAC tests
+// ─────────────────────────────────────────────────────────────
+// Import actions after mocks
+import {
+  createPartnerAction,
+  deactivatePartnerAction,
+  getPartnersAction,
+  reactivatePartnerAction,
+  searchPartnersAction,
+  updatePartnerAction,
+} from "@/server/actions/partners";
+
+describe("partner actions RBAC", () => {
+  it("owner can create via action", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+
+    const result = await createPartnerAction({
+      name: "Action Test Partner",
+      types: ["client"],
+    });
+    expect(result?.serverError).toBeUndefined();
+    expect(result?.data?.data?.id).toBeDefined();
+  });
+
+  it("owner can read via action", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+
+    await createPartnerAction({ name: "Readable Partner", types: ["client"] });
+
+    const result = await getPartnersAction({});
+    expect(result?.serverError).toBeUndefined();
+    expect(result?.data?.data?.length).toBe(1);
+  });
+
+  it("member cannot create via action (FORBIDDEN)", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const member = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    mockHeaders = member.headers;
+
+    const result = await createPartnerAction({
+      name: "Should Fail",
+      types: ["client"],
+    });
+    expect(result?.serverError).toBeDefined();
+    expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("member cannot read partners (FORBIDDEN)", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const member = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    mockHeaders = member.headers;
+
+    const result = await getPartnersAction({});
+    expect(result?.serverError).toBeDefined();
+    expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("unauthenticated cannot read partners (UNAUTHORIZED)", async () => {
+    mockHeaders = new Headers();
+    const result = await getPartnersAction({});
+    expect(result?.serverError).toBeDefined();
+    expect(result?.serverError).toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  it("member cannot deactivate via action (FORBIDDEN)", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const member = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    mockHeaders = member.headers;
+
+    const result = await deactivatePartnerAction({ id: "00000000-0000-0000-0000-000000000000" });
+    expect(result?.serverError).toBeDefined();
+    expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("member cannot search partners (FORBIDDEN)", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const member = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    mockHeaders = member.headers;
+
+    const result = await searchPartnersAction({ query: "test" });
+    expect(result?.serverError).toBeDefined();
+    expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
+  });
+});
