@@ -10,6 +10,7 @@ Technical decisions, stack choices, and system design patterns.
 - [[tech-stack]] — Languages, frameworks, and library versions
 - [[data-model]] — Database schema, relationships, and RLS policies
 - [[prisma-rls-setup]] — Multi-tenant RLS with Prisma 7, tenant-aware client, migration workflow
+- [[cross-table-rls]] — Cross-table FK behavior under RLS, service-level FK validation pattern (Epic 4 spike)
 - [[auth-setup]] — Better Auth 1.5 configuration, organization-to-tenant mapping, session management
 - [[tenant-management]] — Tenant profile, dual-model pattern, tenant switching, seed data
 - [[audit-trail]] — Immutable audit trail, source provenance, opt-in service pattern
