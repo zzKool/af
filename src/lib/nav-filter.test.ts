@@ -3,13 +3,13 @@ import { NAV_ITEMS, type NavItem } from "./constants";
 import { filterNavItems } from "./nav-filter";
 
 describe("filterNavItems", () => {
-  test("owner sees Dashboard and Settings when only those are enabled", () => {
+  test("owner sees Dashboard, Partners, and Settings", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
-    expect(labels).toEqual(["Dashboard", "Settings"]);
+    expect(labels).toEqual(["Dashboard", "Partners", "Settings"]);
   });
 
-  test("accountant sees Dashboard and Settings (Settings accessible to both roles)", () => {
+  test("accountant sees Dashboard and Settings (Partners is owner-only)", () => {
     const result = filterNavItems(NAV_ITEMS, "accountant");
     const labels = result.map((i) => i.label);
     expect(labels).toEqual(["Dashboard", "Settings"]);
@@ -58,9 +58,9 @@ describe("NAV_ITEMS configuration", () => {
     }
   });
 
-  test("only Dashboard and Settings are initially enabled", () => {
+  test("Dashboard, Partners, and Settings are enabled", () => {
     const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.label);
-    expect(enabled).toEqual(["Dashboard", "Settings"]);
+    expect(enabled).toEqual(["Dashboard", "Partners", "Settings"]);
   });
 
   test("all paths start with /", () => {
