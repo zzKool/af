@@ -40,7 +40,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     enabled: false,
   },
   { path: "/banking", label: "Banking", icon: "Landmark", roles: ["owner"], enabled: false },
-  { path: "/partners", label: "Partners", icon: "Users", roles: ["owner"], enabled: false },
+  { path: "/partners", label: "Partners", icon: "Users", roles: ["owner"], enabled: true },
   {
     path: "/reconciliation",
     label: "Reconciliation",

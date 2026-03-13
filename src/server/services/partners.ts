@@ -49,8 +49,8 @@ export const updatePartnerSchema = createPartnerSchema.partial().extend({
   id: z.string().uuid(),
 });
 
-export type CreatePartnerInput = z.infer<typeof createPartnerSchema>;
-export type UpdatePartnerInput = z.infer<typeof updatePartnerSchema>;
+export type CreatePartnerInput = z.input<typeof createPartnerSchema>;
+export type UpdatePartnerInput = z.input<typeof updatePartnerSchema>;
 
 // --- FK Validation ---
 
@@ -204,7 +204,7 @@ export async function createPartner(
 
 export async function updatePartner(
   tx: TransactionClient,
-  caller: CallerIdentity,
+  _caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
   data: Omit<UpdatePartnerInput, "id">,
@@ -301,7 +301,7 @@ export async function updatePartner(
 
 export async function deactivatePartner(
   tx: TransactionClient,
-  caller: CallerIdentity,
+  _caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ deactivated: boolean }>> {
@@ -328,7 +328,7 @@ export async function deactivatePartner(
 
 export async function reactivatePartner(
   tx: TransactionClient,
-  caller: CallerIdentity,
+  _caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ reactivated: boolean }>> {
