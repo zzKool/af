@@ -1,7 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { ConfirmDialog } from "./confirm-dialog";
+
+// Radix Dialog's async animation cleanup can fire after jsdom tears down,
+// causing "window is not defined". Explicit cleanup prevents this.
+afterEach(() => {
+  cleanup();
+});
 
 describe("ConfirmDialog", () => {
   const defaultProps = {

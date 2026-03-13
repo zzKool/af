@@ -1,6 +1,6 @@
 export type AuditLogger = {
   log: (params: {
-    action: "create" | "update" | "delete";
+    action: "create" | "update" | "delete" | "deactivate" | "reactivate";
     entityType: string;
     entityId: string;
     oldData?: Record<string, unknown> | null;
