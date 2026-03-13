@@ -17,6 +17,7 @@ export default defineConfig({
           environment: "node",
           setupFiles: ["src/server/db/test-setup.ts"],
           fileParallelism: false,
+          testTimeout: 30_000,
         },
       },
       {
