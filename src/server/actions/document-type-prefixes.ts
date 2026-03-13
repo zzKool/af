@@ -1,0 +1,72 @@
+"use server";
+
+import { z } from "zod/v4";
+import { ownerAction } from "@/server/middleware/action-client";
+import * as prefixService from "@/server/services/document-type-prefixes";
+
+/**
+ * Get all document-type prefixes for the tenant — owner only.
+ * Orchestrates seed-on-first-access: checks TenantConfig flag → seeds if needed → returns results.
+ */
+export const getDocumentTypePrefixes = ownerAction.schema(z.object({})).action(async ({ ctx }) => {
+  const seeded = await prefixService.isPrefixesSeeded(ctx.tx, ctx.callerIdentity);
+  if (!seeded) {
+    await prefixService.seedDocumentTypePrefixes(ctx.tx, ctx.callerIdentity, ctx.audit);
+  }
+  return prefixService.getDocumentTypePrefixes(ctx.tx, ctx.callerIdentity);
+});
+
+/**
+ * Create a new document-type prefix — owner only.
+ */
+export const createDocumentTypePrefix = ownerAction
+  .schema(
+    z.object({
+      documentType: prefixService.documentTypeSchema,
+      prefix: prefixService.prefixSchema,
+    }),
+  )
+  .action(async ({ ctx, parsedInput }) => {
+    return prefixService.createDocumentTypePrefix(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput,
+    );
+  });
+
+/**
+ * Update an existing document-type prefix — owner only.
+ * Only prefix field can be updated (documentType is immutable).
+ */
+export const updateDocumentTypePrefix = ownerAction
+  .schema(
+    z.object({
+      id: z.string().uuid(),
+      prefix: prefixService.prefixSchema,
+    }),
+  )
+  .action(async ({ ctx, parsedInput }) => {
+    const { id, ...input } = parsedInput;
+    return prefixService.updateDocumentTypePrefix(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      id,
+      input,
+    );
+  });
+
+/**
+ * Delete a document-type prefix — owner only.
+ */
+export const deleteDocumentTypePrefix = ownerAction
+  .schema(z.object({ id: z.string().uuid() }))
+  .action(async ({ ctx, parsedInput }) => {
+    return prefixService.deleteDocumentTypePrefix(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput.id,
+    );
+  });
