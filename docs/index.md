@@ -51,6 +51,7 @@ Page-specific documentation and patterns.
 - [[document-type-prefixes]] — Configurable business key prefixes, seed-on-first-access, free-form document types
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 - [[partner-crud-pattern]] — Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
+- [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
 
 ## Components
 

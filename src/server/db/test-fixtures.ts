@@ -220,6 +220,76 @@ export async function createTestPartner(
 }
 
 /**
+ * Creates a test contract directly via SQL with tenant context set (RLS-aware).
+ */
+export async function createTestContract(
+  pool: Pool,
+  tenantId: string,
+  createdBy: string,
+  partnerId: string,
+  overrides?: {
+    name?: string;
+    startDate?: string;
+    endDate?: string;
+    assignedEmployeeId?: string;
+    billingRate?: string;
+    currency?: string;
+    paymentTerms?: string;
+    vatRegistrationId?: string;
+    isActive?: boolean;
+  },
+): Promise<{ id: string; name: string }> {
+  const contract = {
+    id: randomUUID(),
+    name: overrides?.name ?? `Contract ${randomUUID().slice(0, 8)}`,
+    startDate: overrides?.startDate ?? "2026-01-01",
+    endDate: overrides?.endDate ?? null,
+    assignedEmployeeId: overrides?.assignedEmployeeId ?? null,
+    billingRate: overrides?.billingRate ?? null,
+    currency: overrides?.currency ?? null,
+    paymentTerms: overrides?.paymentTerms ?? null,
+    vatRegistrationId: overrides?.vatRegistrationId ?? null,
+    isActive: overrides?.isActive ?? true,
+  };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (!UUID_RE.test(tenantId)) {
+      throw new Error(`Invalid tenant ID format: ${tenantId}`);
+    }
+    await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
+    await client.query(
+      `INSERT INTO contracts (id, tenant_id, name, partner_id, start_date, end_date, assigned_employee_id, billing_rate, currency, payment_terms, vat_registration_id, is_active, created_by, source, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'web', NOW())`,
+      [
+        contract.id,
+        tenantId,
+        contract.name,
+        partnerId,
+        contract.startDate,
+        contract.endDate,
+        contract.assignedEmployeeId,
+        contract.billingRate,
+        contract.currency,
+        contract.paymentTerms,
+        contract.vatRegistrationId,
+        contract.isActive,
+        createdBy,
+      ],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return contract;
+}
+
+/**
  * Cleans up all test data. Used in afterEach or afterAll hooks.
  */
 export async function cleanupTestData(pool: Pool): Promise<void> {
@@ -230,8 +300,9 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     await client.query("BEGIN");
     // Set a dummy tenant_id so RLS doesn't block — but FORCE RLS means we
     // need to truncate using TRUNCATE which bypasses RLS
+    // contracts BEFORE partners (FK dependency)
     await client.query(
-      "TRUNCATE ecb_rates, audit_logs, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
+      "TRUNCATE ecb_rates, audit_logs, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {

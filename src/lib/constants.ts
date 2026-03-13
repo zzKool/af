@@ -94,6 +94,19 @@ export const DEFAULT_DOCUMENT_TYPE_PREFIXES: Record<string, string> = {
   certificate: "cert_",
 };
 
+// Payment terms — machine-readable constants for contract billing
+export const PAYMENT_TERMS = [
+  "NET_10",
+  "NET_15",
+  "NET_30",
+  "NET_45",
+  "NET_60",
+  "NET_90",
+  "PREPAID",
+  "ON_RECEIPT",
+] as const;
+export type PaymentTerm = (typeof PAYMENT_TERMS)[number];
+
 // Supported locales for user preferences
 export const SUPPORTED_LOCALES = ["sv-SE", "en-US", "en-GB", "fr-FR", "fr-CH", "de-CH"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];

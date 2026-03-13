@@ -83,12 +83,15 @@ async function validateBasCategoryFK(
 
 export async function getPartners(
   tx: TransactionClient,
-  options?: { includeInactive?: boolean; search?: string },
+  options?: { includeInactive?: boolean; search?: string; types?: string[] },
 ): Promise<ServiceResult<Awaited<ReturnType<typeof tx.partner.findMany>>>> {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic where clause construction
   const where: any = {};
   if (!options?.includeInactive) {
     where.isActive = true;
+  }
+  if (options?.types && options.types.length > 0) {
+    where.types = { hasSome: options.types };
   }
   if (options?.search) {
     const term = options.search;
@@ -246,6 +249,42 @@ export async function updatePartner(
   if (data.defaultBasCategoryCode !== undefined && data.defaultBasCategoryCode !== null) {
     const fkError = await validateBasCategoryFK(tx, data.defaultBasCategoryCode);
     if (fkError) return { error: fkError };
+  }
+
+  // Type-removal guard: prevent removing types referenced by active contracts
+  if (data.types !== undefined) {
+    const removingClient = existing.types.includes("client") && !data.types.includes("client");
+    if (removingClient) {
+      const activeContracts = await tx.contract.count({
+        where: { partnerId: id, isActive: true },
+      });
+      if (activeContracts > 0) {
+        return {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot remove client type — partner has active contracts.",
+            retryable: false,
+          },
+        };
+      }
+    }
+
+    const removingEmployee =
+      existing.types.includes("employee") && !data.types.includes("employee");
+    if (removingEmployee) {
+      const assignedContracts = await tx.contract.count({
+        where: { assignedEmployeeId: id, isActive: true },
+      });
+      if (assignedContracts > 0) {
+        return {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot remove employee type — partner is assigned to active contracts.",
+            retryable: false,
+          },
+        };
+      }
+    }
   }
 
   // Build update data — only include provided fields
