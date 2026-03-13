@@ -23,6 +23,7 @@ model Tenant {
   bankAccounts         BankAccount[]
   documentTypePrefixes DocumentTypePrefix[]
   partners             Partner[]
+  contracts            Contract[]
 
   @@map("tenants")
 }
@@ -134,7 +135,8 @@ model VatRegistration {
   createdBy    String   @map("created_by") @db.Uuid
   source       String   @default("web")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contracts Contract[]
 
   @@unique([tenantId, country, vatNumber])
   @@index([tenantId])
@@ -245,5 +247,40 @@ model Partner {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   basCategory BasCategory? @relation(fields: [defaultBasCategoryCode], references: [code])
 
+  contracts         Contract[] @relation("PartnerContracts")
+  employeeContracts Contract[] @relation("EmployeeContracts")
+
   @@map("partners")
+}
+
+// Contracts — child entity of Partner (client), full RLS, follows mandatory template
+// Belongs to a client-type partner, optional employee assignment
+// Soft-delete via is_active boolean
+// billingRate: Decimal(15,2) — first money field in codebase
+model Contract {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  name                String
+  partnerId           String    @map("partner_id") @db.Uuid
+  startDate           DateTime  @map("start_date") @db.Date
+  endDate             DateTime? @map("end_date") @db.Date
+  assignedEmployeeId  String?   @map("assigned_employee_id") @db.Uuid
+  billingRate         Decimal?  @map("billing_rate") @db.Decimal(15, 2)
+  currency            String?
+  paymentTerms        String?   @map("payment_terms")
+  vatRegistrationId   String?   @map("vat_registration_id") @db.Uuid
+  externalReferences  Json      @default("[]") @map("external_references")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy           String    @map("created_by") @db.Uuid
+  source              String    @default("web")
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  partner          Partner          @relation("PartnerContracts", fields: [partnerId], references: [id])
+  assignedEmployee Partner?         @relation("EmployeeContracts", fields: [assignedEmployeeId], references: [id])
+  vatRegistration  VatRegistration? @relation(fields: [vatRegistrationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, partnerId])
+  @@map("contracts")
 }
