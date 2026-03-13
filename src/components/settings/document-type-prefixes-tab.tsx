@@ -5,7 +5,9 @@ import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import {
   createDocumentTypePrefix,
   deleteDocumentTypePrefix,
@@ -58,6 +60,7 @@ export function DocumentTypePrefixesTab({ initialPrefixes }: Props) {
   const { executeAsync: execCreate, isPending: isCreating } = useAction(createDocumentTypePrefix);
   const { executeAsync: execUpdate } = useAction(updateDocumentTypePrefix);
   const { executeAsync: execDelete } = useAction(deleteDocumentTypePrefix);
+  const { dialogProps, confirm } = useConfirmDialog();
 
   const prefixesRef = useRef(prefixes);
   useEffect(() => {
@@ -111,26 +114,31 @@ export function DocumentTypePrefixesTab({ initialPrefixes }: Props) {
 
   // ─── Delete ───
   const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm("Delete this document prefix? This cannot be undone.")) return;
-
-      setDeleting((prev) => new Set(prev).add(id));
-      const result = await execDelete({ id });
-      if (result) {
-        const err = actionError(result);
-        if (err) {
-          toast.error(err);
-        } else {
-          setPrefixes((prev) => prev.filter((p) => p.id !== id));
-        }
-      }
-      setDeleting((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+    (id: string) => {
+      const item = prefixesRef.current.find((p) => p.id === id);
+      const name = item?.prefix || "this prefix";
+      confirm(
+        async () => {
+          setDeleting((prev) => new Set(prev).add(id));
+          try {
+            const result = await execDelete({ id });
+            if (result) {
+              const err = actionError(result);
+              if (err) throw new Error(err);
+              setPrefixes((prev) => prev.filter((p) => p.id !== id));
+            }
+          } finally {
+            setDeleting((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          }
+        },
+        { description: `Delete "${name}" document prefix? This cannot be undone.` },
+      );
     },
-    [execDelete],
+    [execDelete, confirm],
   );
 
   return (
@@ -167,6 +175,8 @@ export function DocumentTypePrefixesTab({ initialPrefixes }: Props) {
           Add Prefix
         </Button>
       )}
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }
