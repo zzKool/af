@@ -50,6 +50,7 @@ Page-specific documentation and patterns.
 - [[bank-accounts]] — Bank account configuration with CSV format library, two-table pattern, multi-currency accounts
 - [[document-type-prefixes]] — Configurable business key prefixes, seed-on-first-access, free-form document types
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
+- [[partner-crud-pattern]] — Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 
 ## Components
 
