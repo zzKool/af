@@ -1,6 +1,6 @@
 # Story 4.0: Epic 4 Prep Sprint
 
-Status: ready-for-dev
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -38,11 +38,11 @@ so that Epic 4 stories (4.1–4.3) have proper UI patterns, automated formatting
 
 ## Tasks / Subtasks
 
-- [ ] Task 0: Retro Gate Check (AC: all)
-  - [ ] 0.1 Open `_bmad-output/implementation-artifacts/deferred-items.md` and check for items with deadlines at or before Epic 4
-  - [ ] 0.2 Verify item #9 (replace `confirm()` with AlertDialog) is addressed by Task 1
-  - [ ] 0.3 Verify no other items have passed their deferral deadline
-  - [ ] 0.4 Document check result in Dev Agent Record
+- [x] Task 0: Retro Gate Check (AC: all)
+  - [x] 0.1 Open `_bmad-output/implementation-artifacts/deferred-items.md` and check for items with deadlines at or before Epic 4
+  - [x] 0.2 Verify item #9 (replace `confirm()` with AlertDialog) is addressed by Task 1
+  - [x] 0.3 Verify no other items have passed their deferral deadline
+  - [x] 0.4 Document check result in Dev Agent Record
 
 - [ ] Task 1: Shared ConfirmDialog component (AC: #1)
   - [ ] 1.1 Add shadcn/ui AlertDialog component: `npx shadcn@latest add alert-dialog` — this installs `@radix-ui/react-alert-dialog` and generates `src/components/ui/alert-dialog.tsx`
@@ -223,6 +223,12 @@ Modified files:
 {{agent_model_name_version}}
 
 ### Debug Log References
+
+**Task 0 — Retro Gate Check (2026-03-13):**
+- Item #9 (replace confirm() with AlertDialog): ✅ Addressed by Task 1 of this story
+- Items #11, #12, #13 have Epic 4 deadlines but are SM responsibilities during Story 4.1/4.2 creation — not overdue
+- Items #4–#8, #10: deadlines are Epic 5+ — no action needed now
+- No items have passed their deferral deadline. Gate check PASSED.
 
 ### Completion Notes List
 
