@@ -114,19 +114,20 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
     [partner.id, execUpdate],
   );
 
-  // onBlur handlers for text fields
+  // onBlur handlers for text fields — send value as-is so empty string clears to null in service
   const handleBlur = useCallback(
     (field: string, currentValue: string, originalValue: string | null) => {
       if (currentValue === (originalValue ?? "")) return;
-      autoSave(field, currentValue || undefined);
+      autoSave(field, currentValue);
     },
     [autoSave],
   );
 
-  // onChange handlers for selects
+  // onChange handlers for selects — "__none__" sentinel clears to empty string (→ null in service)
   const handleSelectChange = useCallback(
     (field: string, value: string) => {
-      autoSave(field, value || undefined);
+      const cleared = value === "__none__" ? "" : value;
+      autoSave(field, cleared);
     },
     [autoSave],
   );
@@ -303,16 +304,18 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
           <div>
             <Label>Currency</Label>
             <Select
-              value={defaultCurrency}
+              value={defaultCurrency || "__none__"}
               onValueChange={(v) => {
-                setDefaultCurrency(v ?? "");
-                handleSelectChange("defaultCurrency", v ?? "");
+                const val = v === "__none__" || !v ? "" : v;
+                setDefaultCurrency(val);
+                handleSelectChange("defaultCurrency", v ?? "__none__");
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select currency" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
                 {CURRENCIES.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
@@ -324,16 +327,18 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
           <div>
             <Label>Language</Label>
             <Select
-              value={defaultLanguage}
+              value={defaultLanguage || "__none__"}
               onValueChange={(v) => {
-                setDefaultLanguage(v ?? "");
-                handleSelectChange("defaultLanguage", v ?? "");
+                const val = v === "__none__" || !v ? "" : v;
+                setDefaultLanguage(val);
+                handleSelectChange("defaultLanguage", v ?? "__none__");
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select language" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
                 {SUPPORTED_LOCALES.map((l) => (
                   <SelectItem key={l} value={l}>
                     {l}
@@ -345,16 +350,18 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
           <div>
             <Label>BAS Category</Label>
             <Select
-              value={defaultBasCategoryCode}
+              value={defaultBasCategoryCode || "__none__"}
               onValueChange={(v) => {
-                setDefaultBasCategoryCode(v ?? "");
-                handleSelectChange("defaultBasCategoryCode", v ?? "");
+                const val = v === "__none__" || !v ? "" : v;
+                setDefaultBasCategoryCode(val);
+                handleSelectChange("defaultBasCategoryCode", v ?? "__none__");
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select BAS category" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
                 {basOptions.map((o) => (
                   <SelectItem key={o.code} value={o.code}>
                     {o.label}

@@ -45,9 +45,16 @@ export function toAuditData(record: unknown): Record<string, unknown> | null {
   if (!record) return null;
   const { id, ...fields } = record as Record<string, unknown>;
   return Object.fromEntries(
-    Object.entries(fields).filter(
-      ([_, v]) => v === null || typeof v !== "object" || v instanceof Date,
-    ),
+    Object.entries(fields).filter(([_, v]) => {
+      if (v === null || typeof v !== "object") return true;
+      if (v instanceof Date) return true;
+      // Keep arrays (e.g., types: string[], externalIdentifiers: JSONB[])
+      if (Array.isArray(v)) return true;
+      // Keep plain JSON objects (e.g., address JSONB) — skip Prisma relation objects
+      // Prisma relations have a constructor name other than "Object"
+      if (Object.getPrototypeOf(v) === Object.prototype) return true;
+      return false;
+    }),
   );
 }
 

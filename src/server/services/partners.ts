@@ -309,6 +309,11 @@ export async function deactivatePartner(
   if (!existing) {
     return { error: { code: "NOT_FOUND", message: `Partner not found: ${id}`, retryable: false } };
   }
+  if (!existing.isActive) {
+    return {
+      error: { code: "VALIDATION_ERROR", message: "Partner is already inactive", retryable: false },
+    };
+  }
 
   const updated = await tx.partner.update({
     where: { id },
@@ -335,6 +340,11 @@ export async function reactivatePartner(
   const existing = await tx.partner.findUnique({ where: { id } });
   if (!existing) {
     return { error: { code: "NOT_FOUND", message: `Partner not found: ${id}`, retryable: false } };
+  }
+  if (existing.isActive) {
+    return {
+      error: { code: "VALIDATION_ERROR", message: "Partner is already active", retryable: false },
+    };
   }
 
   const updated = await tx.partner.update({

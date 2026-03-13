@@ -39,8 +39,6 @@ type PartnerRow = {
   isActive: boolean;
 };
 
-type BasOption = { code: string; label: string };
-
 const TYPE_COLORS: Record<string, string> = {
   client: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   vendor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -67,10 +65,9 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 interface PartnerListProps {
   initialPartners: PartnerRow[];
-  basOptions: BasOption[];
 }
 
-export function PartnerList({ initialPartners, basOptions: _basOptions }: PartnerListProps) {
+export function PartnerList({ initialPartners }: PartnerListProps) {
   const [partners, setPartners] = useState<PartnerRow[]>(initialPartners);
   const [showInactive, setShowInactive] = useState(true);
   const [search, setSearch] = useState("");
