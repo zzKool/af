@@ -3,7 +3,7 @@
 Living document tracking all deferred technical debt, feature gaps, and process improvements.
 Updated after every code review and retrospective. Checked before every story creation.
 
-**Last updated:** 2026-03-13 (Story 4.0 implementation — item #9 resolved, all deadlines reviewed)
+**Last updated:** 2026-03-13 (Story 4.2 implementation — item #11 resolved)
 
 ---
 
@@ -18,7 +18,7 @@ Updated after every code review and retrospective. Checked before every story cr
 | 8 | Branch protection (requires GitHub Pro) | Epic 0 retro | Low | Zik | Before production deploy | PR protection for develop branch |
 | ~~9~~ | ~~Replace `confirm()` with shadcn AlertDialog for delete confirmations~~ | ~~Story 3.3 review~~ | ~~Low~~ | — | ~~Before Epic 5~~ | **RESOLVED** — See Resolved Items |
 | 10 | Bank format FK change test needs second seeded format | Story 3.3 review | Low | — | Before Epic 9 | "Update bankFormatId" test only verifies same format (only Nordea seeded). Story 9.1 adds more formats — add proper FK-change test then |
-| 11 | Test data factory pattern (`createTestPartner`, `createTestContract`, etc.) | Epic 3 retro party review | Medium | — | Before Story 4.2 | Partially addressed: `createTestPartner()` added in Story 4.1. Remaining factories (`createTestContract`, etc.) needed as entities are introduced. Pattern established in `src/server/db/test-fixtures.ts`. |
+| ~~11~~ | ~~Test data factory pattern (`createTestPartner`, `createTestContract`, etc.)~~ | ~~Epic 3 retro party review~~ | ~~Medium~~ | — | ~~Before Story 4.2~~ | **RESOLVED** — See Resolved Items |
 | ~~12~~ | ~~Soft-delete pattern decision (boolean `active` vs `deleted_at`, default query filtering, audit action naming, cascade to child entities)~~ | ~~Epic 3 retro party review~~ | ~~Medium~~ | — | ~~During Story 4.1 creation~~ | **RESOLVED** — See Resolved Items |
 | ~~13~~ | ~~Flag Story 4.1 as pattern-setter during creation~~ | ~~Epic 3 retro process improvement #3~~ | ~~Low~~ | ~~Bob (SM)~~ | ~~During Story 4.1 creation~~ | **RESOLVED** — See Resolved Items |
 
@@ -33,6 +33,7 @@ Updated after every code review and retrospective. Checked before every story cr
 | 3 | Run proxy.ts codemod (`middleware.ts` → `proxy.ts`) | Epic 1 retro | Story 3.0 | Already migrated — `src/proxy.ts` exists. Documented in `docs/middleware.md` |
 | 9 | Replace `confirm()` with shadcn AlertDialog for delete confirmations | Story 3.3 review | Story 4.0 Task 1 | Shared `<ConfirmDialog>` component built on Base UI AlertDialog. Replaced native `confirm()` in all 3 settings tabs (bank-accounts, vat-registrations, document-type-prefixes). Hook `useConfirmDialog` with async loading state, error toast, and accessible keyboard navigation. |
 | 12 | Soft-delete pattern decision | Epic 3 retro party review | Story 4.1 | Boolean `is_active` column. Audit actions `deactivate`/`reactivate`. UI ConfirmDialog for deactivation. Pattern documented in `docs/partner-crud-pattern.md`. |
+| 11 | Test data factory pattern | Epic 3 retro party review | Story 4.2 | `createTestPartner()` added in Story 4.1, `createTestContract()` added in Story 4.2. Pattern established in `src/server/db/test-fixtures.ts` with cleanup order respecting FK dependencies. |
 | 13 | Flag Story 4.1 as pattern-setter | Epic 3 retro process improvement #3 | Story 4.1 | Story explicitly flagged as pattern-setter. Documented CRUD, soft-delete, FK validation, entity page patterns in `docs/partner-crud-pattern.md`. |
 
 ---
