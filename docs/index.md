@@ -47,6 +47,8 @@ Page-specific documentation and patterns.
 - [[bas-categories]] — BAS kontoplan reference data, no-RLS shared data pattern, natural key, sparse preferences
 - [[vat-registrations]] — Multi-country VAT registration management, rate schedule JSONB, auto-save pattern
 - [[bank-accounts]] — Bank account configuration with CSV format library, two-table pattern, multi-currency accounts
+- [[document-type-prefixes]] — Configurable business key prefixes, seed-on-first-access, free-form document types
+- [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 
 ## Components
 
