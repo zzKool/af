@@ -5,6 +5,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { CURRENCIES } from "@/lib/constants";
 import {
   createBankAccount,
@@ -72,6 +74,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
   const { executeAsync: execCreate, isPending: isCreating } = useAction(createBankAccount);
   const { executeAsync: execUpdate } = useAction(updateBankAccount);
   const { executeAsync: execDelete } = useAction(deleteBankAccount);
+  const { dialogProps, confirm } = useConfirmDialog();
 
   // Ref to avoid stale closures in update callbacks
   const accountsRef = useRef(accounts);
@@ -166,26 +169,31 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
 
   // ─── Delete ───
   const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm("Delete this bank account? This cannot be undone.")) return;
-
-      setDeleting((prev) => new Set(prev).add(id));
-      const result = await execDelete({ id });
-      if (result) {
-        const err = actionError(result);
-        if (err) {
-          toast.error(err);
-        } else {
-          setAccounts((prev) => prev.filter((a) => a.id !== id));
-        }
-      }
-      setDeleting((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+    (id: string) => {
+      const account = accountsRef.current.find((a) => a.id === id);
+      const name = account?.accountAlias || account?.accountNumber || "this account";
+      confirm(
+        async () => {
+          setDeleting((prev) => new Set(prev).add(id));
+          try {
+            const result = await execDelete({ id });
+            if (result) {
+              const err = actionError(result);
+              if (err) throw new Error(err);
+              setAccounts((prev) => prev.filter((a) => a.id !== id));
+            }
+          } finally {
+            setDeleting((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          }
+        },
+        { description: `Delete "${name}" bank account? This cannot be undone.` },
+      );
     },
-    [execDelete],
+    [execDelete, confirm],
   );
 
   return (
@@ -234,6 +242,8 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
           Add Bank Account
         </Button>
       )}
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

@@ -187,5 +187,26 @@ Import from `@/server/test-utils/config-crud-helpers`:
 | Function | Purpose |
 |----------|---------|
 | `assertRlsIsolation(prisma, model, tenantAId, tenantBId)` | Verify tenant B sees 0 rows after tenant A creates data |
+| `assertCrossTableRlsIsolation(prisma, parentModel, tenantAId, tenantBId, includeRelation)` | Verify RLS isolation across FK-joined tables (Epic 4+) |
 | `assertAuditLogged(adminPool, tenantId, action, entityType, entityId?)` | Verify audit_logs entry exists |
 | `assertCrudOperations(operations)` | Run full create/read/update/delete cycle |
+
+### Cross-Table RLS Isolation (Epic 4+)
+
+For stories with inter-entity FK relationships (e.g., Partner → VatRegistration), use `assertCrossTableRlsIsolation`:
+
+```typescript
+describe("cross-table RLS isolation", () => {
+  it("tenant B cannot see tenant A's partners with included relations", async () => {
+    await assertCrossTableRlsIsolation(
+      prisma,
+      "partner",                    // parent model
+      tenantA.id,
+      tenantB.id,
+      "defaultVatRegistration",     // include relation name
+    );
+  });
+});
+```
+
+**Important:** FK constraints bypass RLS (PostgreSQL design). Service-level validation must verify FK targets belong to the same tenant before writes. See `docs/cross-table-rls.md` for full spike findings.

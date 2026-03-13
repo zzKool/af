@@ -31,7 +31,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "client",
-          include: ["src/components/**/*.test.tsx"],
+          include: ["src/components/**/*.test.tsx", "src/hooks/**/*.test.{ts,tsx}"],
           environment: "jsdom",
         },
       },

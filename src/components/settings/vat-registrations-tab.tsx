@@ -5,7 +5,9 @@ import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import {
   createVatRegistration,
   deleteVatRegistration,
@@ -67,6 +69,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
   const { executeAsync: execCreate, isPending: isCreating } = useAction(createVatRegistration);
   const { executeAsync: execUpdate } = useAction(updateVatRegistration);
   const { executeAsync: execDelete } = useAction(deleteVatRegistration);
+  const { dialogProps, confirm } = useConfirmDialog();
 
   // Ref to avoid stale closures in update callbacks
   const registrationsRef = useRef(registrations);
@@ -163,26 +166,31 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
 
   // ─── Delete ───
   const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm("Delete this VAT registration? This cannot be undone.")) return;
-
-      setDeleting((prev) => new Set(prev).add(id));
-      const result = await execDelete({ id });
-      if (result) {
-        const err = actionError(result);
-        if (err) {
-          toast.error(err);
-        } else {
-          setRegistrations((prev) => prev.filter((r) => r.id !== id));
-        }
-      }
-      setDeleting((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+    (id: string) => {
+      const reg = registrationsRef.current.find((r) => r.id === id);
+      const name = reg?.country || "this registration";
+      confirm(
+        async () => {
+          setDeleting((prev) => new Set(prev).add(id));
+          try {
+            const result = await execDelete({ id });
+            if (result) {
+              const err = actionError(result);
+              if (err) throw new Error(err);
+              setRegistrations((prev) => prev.filter((r) => r.id !== id));
+            }
+          } finally {
+            setDeleting((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          }
+        },
+        { description: `Delete "${name}" VAT registration? This cannot be undone.` },
+      );
     },
-    [execDelete],
+    [execDelete, confirm],
   );
 
   return (
@@ -229,6 +237,8 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
           Add Registration
         </Button>
       )}
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

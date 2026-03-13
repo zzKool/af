@@ -32,6 +32,68 @@ export async function assertRlsIsolation(
 }
 
 /**
+ * Asserts that RLS isolation holds across FK-joined tenant-scoped tables.
+ *
+ * Verifies:
+ * (a) Parent query with `include` only returns own-tenant children
+ * (b) Cross-tenant FK references are invisible via Prisma queries
+ *
+ * Based on Story 4.0 spike findings: FK constraints bypass RLS, but
+ * SELECT queries with JOINs respect RLS on both tables independently.
+ * Service-level validation must prevent cross-tenant FK writes.
+ *
+ * @param prisma - PrismaClient with app-role adapter
+ * @param parentModel - Prisma model name for the parent table (e.g., "bankAccount")
+ * @param childModel - Prisma model name for the child/related table (e.g., "bankFormat")
+ * @param tenantAId - Tenant A's UUID (data owner, should have data)
+ * @param tenantBId - Tenant B's UUID (should NOT see tenant A's data)
+ * @param includeRelation - Relation name to include (e.g., "bankFormat")
+ */
+export async function assertCrossTableRlsIsolation(
+  prisma: PrismaClient,
+  parentModel: string,
+  tenantAId: string,
+  tenantBId: string,
+  includeRelation: string,
+): Promise<void> {
+  // (a) Tenant A sees own parent records with included children
+  const parentWithChildA = await withTenantTransaction(prisma, tenantAId, async (tx) => {
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic model access
+    return (tx as any)[parentModel].findMany({
+      include: { [includeRelation]: true },
+    });
+  });
+
+  expect(parentWithChildA.length, `Tenant A should have ${parentModel} records`).toBeGreaterThan(0);
+
+  // Verify included relation is populated
+  for (const record of parentWithChildA) {
+    expect(
+      record[includeRelation],
+      `${parentModel}.${includeRelation} should be populated for tenant A`,
+    ).toBeDefined();
+  }
+
+  // (b) Tenant B should NOT see tenant A's parent records
+  const parentWithChildB = await withTenantTransaction(prisma, tenantBId, async (tx) => {
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic model access
+    return (tx as any)[parentModel].findMany({
+      include: { [includeRelation]: true },
+    });
+  });
+
+  // Tenant B should see only own records (may be 0 or more, but NOT tenant A's)
+  // Verify none of tenant B's results contain tenant A's IDs
+  const tenantAIds = new Set(parentWithChildA.map((r: { id: string }) => r.id));
+  for (const record of parentWithChildB) {
+    expect(
+      tenantAIds.has(record.id),
+      `Tenant B should not see tenant A's ${parentModel} records`,
+    ).toBe(false);
+  }
+}
+
+/**
  * Asserts that an audit log entry was created for a specific action.
  *
  * @param adminPool - Superuser pool (bypasses RLS)

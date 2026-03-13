@@ -95,7 +95,7 @@ export const DEFAULT_DOCUMENT_TYPE_PREFIXES: Record<string, string> = {
 };
 
 // Supported locales for user preferences
-export const SUPPORTED_LOCALES = ["sv-SE", "en-US", "en-GB", "fr-FR", "de-CH"] as const;
+export const SUPPORTED_LOCALES = ["sv-SE", "en-US", "en-GB", "fr-FR", "fr-CH", "de-CH"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 // App configuration constants (from architecture doc)
