@@ -2,7 +2,7 @@
 
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,7 +107,8 @@ function ContractEditForm({
   const handleBlur = useCallback(
     (field: string, currentValue: string, originalValue: string | null) => {
       if (currentValue === (originalValue ?? "")) return;
-      onAutoSave(contract.id, field, currentValue);
+      // Empty string → undefined for optional fields so Zod's .optional() accepts the clear
+      onAutoSave(contract.id, field, currentValue || undefined);
     },
     [contract.id, onAutoSave],
   );
@@ -606,9 +607,8 @@ export function ContractList({
                 </TableRow>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <>
+                  <Fragment key={row.id}>
                     <TableRow
-                      key={row.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() =>
                         setExpandedId(expandedId === row.original.id ? null : row.original.id)
@@ -621,7 +621,7 @@ export function ContractList({
                       ))}
                     </TableRow>
                     {expandedId === row.original.id && (
-                      <TableRow key={`${row.id}-edit`}>
+                      <TableRow>
                         <TableCell colSpan={columns.length} className="p-0">
                           <ContractEditForm
                             contract={row.original}
@@ -634,7 +634,7 @@ export function ContractList({
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))
               )}
             </TableBody>

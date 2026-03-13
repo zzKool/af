@@ -42,9 +42,16 @@ export const createContractSchema = contractBaseSchema.refine(
   },
 );
 
-export const updateContractSchema = contractBaseSchema.partial().omit({ partnerId: true }).extend({
-  id: z.string().uuid(),
-});
+export const updateContractSchema = contractBaseSchema
+  .partial()
+  .omit({ partnerId: true })
+  .extend({
+    id: z.string().uuid(),
+  })
+  .refine((data) => !data.startDate || !data.endDate || data.startDate <= data.endDate, {
+    message: "End date must be after start date",
+    path: ["endDate"],
+  });
 
 export type CreateContractInput = z.input<typeof createContractSchema>;
 export type UpdateContractInput = z.input<typeof updateContractSchema>;
