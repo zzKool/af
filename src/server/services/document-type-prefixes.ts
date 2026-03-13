@@ -14,7 +14,13 @@ type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppE
 export const prefixSchema = z
   .string()
   .transform((s) => s.toLowerCase())
-  .pipe(z.string().min(2).max(10).regex(/^[a-z0-9]+_$/, "Prefix must be lowercase alphanumeric ending with _"));
+  .pipe(
+    z
+      .string()
+      .min(2)
+      .max(10)
+      .regex(/^[a-z0-9]+_$/, "Prefix must be lowercase alphanumeric ending with _"),
+  );
 
 // Document type validation: non-empty, max 30 chars, lowercase alphanumeric + hyphens
 export const documentTypeSchema = z
@@ -23,7 +29,10 @@ export const documentTypeSchema = z
   .toLowerCase()
   .min(1)
   .max(30)
-  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Document type must be lowercase alphanumeric with optional hyphens");
+  .regex(
+    /^[a-z0-9]+(-[a-z0-9]+)*$/,
+    "Document type must be lowercase alphanumeric with optional hyphens",
+  );
 
 /**
  * Get all document-type prefixes for the tenant (RLS-scoped by middleware).
@@ -114,6 +123,34 @@ export async function isPrefixesSeeded(
     },
   });
   return config?.value === "true";
+}
+
+/**
+ * Get prefixes with seed-on-first-access orchestration.
+ * Single source of truth for: check seeded → seed if needed → return results.
+ * Used by both the server action and the SSR page component.
+ */
+export async function getDocumentTypePrefixesWithSeed(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+): Promise<
+  ServiceResult<
+    {
+      id: string;
+      documentType: string;
+      prefix: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }[]
+  >
+> {
+  const seeded = await isPrefixesSeeded(tx, caller);
+  if (!seeded) {
+    const seedResult = await seedDocumentTypePrefixes(tx, caller, audit);
+    if (seedResult.error) return { error: seedResult.error };
+  }
+  return getDocumentTypePrefixes(tx, caller);
 }
 
 /**

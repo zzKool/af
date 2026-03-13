@@ -18,16 +18,9 @@ export const getUserPreferences = authedAction.schema(z.object({})).action(async
 export const updateUserLocale = authedAction
   .schema(
     z.object({
-      locale: z
-        .enum(SUPPORTED_LOCALES)
-        .nullable(),
+      locale: z.enum(SUPPORTED_LOCALES).nullable(),
     }),
   )
   .action(async ({ ctx, parsedInput }) => {
-    return prefsService.updateUserLocale(
-      ctx.tx,
-      ctx.callerIdentity,
-      ctx.audit,
-      parsedInput.locale,
-    );
+    return prefsService.updateUserLocale(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.locale);
   });

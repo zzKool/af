@@ -11,15 +11,43 @@ type TabConfig = {
   label: string;
   href: string;
   roles: CallerIdentity["role"][];
+  separator?: boolean;
 };
 
 const SETTINGS_TABS: TabConfig[] = [
   { value: "company", label: "Company", href: "/settings/company", roles: ["owner"] },
-  { value: "bas-categories", label: "BAS Categories", href: "/settings/bas-categories", roles: ["owner"] },
-  { value: "vat-registrations", label: "VAT Registrations", href: "/settings/vat-registrations", roles: ["owner"] },
-  { value: "bank-accounts", label: "Bank Accounts", href: "/settings/bank-accounts", roles: ["owner"] },
-  { value: "document-prefixes", label: "Document Prefixes", href: "/settings/document-prefixes", roles: ["owner"] },
-  { value: "my-preferences", label: "My Preferences", href: "/settings/my-preferences", roles: ["owner", "accountant"] },
+  {
+    value: "bas-categories",
+    label: "BAS Categories",
+    href: "/settings/bas-categories",
+    roles: ["owner"],
+  },
+  {
+    value: "vat-registrations",
+    label: "VAT Registrations",
+    href: "/settings/vat-registrations",
+    roles: ["owner"],
+  },
+  {
+    value: "bank-accounts",
+    label: "Bank Accounts",
+    href: "/settings/bank-accounts",
+    roles: ["owner"],
+  },
+  {
+    value: "document-prefixes",
+    label: "Document Prefixes",
+    href: "/settings/document-prefixes",
+    roles: ["owner"],
+  },
+  // Visual separator — "My Preferences" is user-scoped, tabs above are tenant-scoped
+  {
+    value: "my-preferences",
+    label: "My Preferences",
+    href: "/settings/my-preferences",
+    roles: ["owner", "accountant"],
+    separator: true,
+  },
 ];
 
 export default async function SettingsPage() {
@@ -41,14 +69,11 @@ export default async function SettingsPage() {
       <Tabs defaultValue={defaultTab}>
         <TabsList>
           {visibleTabs.map((tab) => (
-            <TabsTrigger
-              key={tab.value}
-              value={tab.value}
-              nativeButton={false}
-              render={<Link href={tab.href} />}
-            >
-              {tab.label}
-            </TabsTrigger>
+            <span key={tab.value} className={tab.separator ? "ml-2 border-l pl-2" : undefined}>
+              <TabsTrigger value={tab.value} nativeButton={false} render={<Link href={tab.href} />}>
+                {tab.label}
+              </TabsTrigger>
+            </span>
           ))}
         </TabsList>
       </Tabs>

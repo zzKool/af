@@ -30,11 +30,7 @@ export function LocaleProvider({
     setLocaleState(newLocale);
   }, []);
 
-  return (
-    <LocaleContext.Provider value={{ locale, setLocale }}>
-      {children}
-    </LocaleContext.Provider>
-  );
+  return <LocaleContext.Provider value={{ locale, setLocale }}>{children}</LocaleContext.Provider>;
 }
 
 /**

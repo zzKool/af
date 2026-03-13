@@ -136,7 +136,8 @@ export function DocumentTypePrefixesTab({ initialPrefixes }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Business key pattern: <code className="text-xs">[prefix][date]_[BAS]_[partner]_[sequence].ext</code>
+        Business key pattern:{" "}
+        <code className="text-xs">[prefix][date]_[BAS]_[partner]_[sequence].ext</code>
       </p>
 
       {/* Prefix list */}

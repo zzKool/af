@@ -4,6 +4,7 @@ import { DocumentTypePrefixesTab } from "@/components/settings/document-type-pre
 import { getAuthContext } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
+import { createAuditEntry } from "@/server/services/audit";
 import * as prefixService from "@/server/services/document-type-prefixes";
 
 export default async function DocumentPrefixesSettingsPage() {
@@ -26,24 +27,11 @@ export default async function DocumentPrefixesSettingsPage() {
   };
 
   const prefixes = await withTenantTransaction(prisma, tenantId, async (tx) => {
-    // Seed-on-first-access: check flag → seed if needed → return results
-    const seeded = await prefixService.isPrefixesSeeded(tx, callerIdentity);
-    if (!seeded) {
-      const audit = {
-        log: async (params: {
-          action: "create" | "update" | "delete";
-          entityType: string;
-          entityId: string;
-          oldData?: Record<string, unknown> | null;
-          newData?: Record<string, unknown> | null;
-        }) => {
-          const { createAuditEntry } = await import("@/server/services/audit");
-          await createAuditEntry(tx, callerIdentity, params);
-        },
-      };
-      await prefixService.seedDocumentTypePrefixes(tx, callerIdentity, audit);
-    }
-    const result = await prefixService.getDocumentTypePrefixes(tx, callerIdentity);
+    const audit = {
+      log: async (params: Parameters<typeof createAuditEntry>[2]) =>
+        createAuditEntry(tx, callerIdentity, params),
+    };
+    const result = await prefixService.getDocumentTypePrefixesWithSeed(tx, callerIdentity, audit);
     return (result.data ?? []).map((p) => ({
       id: p.id,
       documentType: p.documentType,

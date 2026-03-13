@@ -6,14 +6,10 @@ import * as prefixService from "@/server/services/document-type-prefixes";
 
 /**
  * Get all document-type prefixes for the tenant — owner only.
- * Orchestrates seed-on-first-access: checks TenantConfig flag → seeds if needed → returns results.
+ * Delegates seed-on-first-access orchestration to service layer.
  */
 export const getDocumentTypePrefixes = ownerAction.schema(z.object({})).action(async ({ ctx }) => {
-  const seeded = await prefixService.isPrefixesSeeded(ctx.tx, ctx.callerIdentity);
-  if (!seeded) {
-    await prefixService.seedDocumentTypePrefixes(ctx.tx, ctx.callerIdentity, ctx.audit);
-  }
-  return prefixService.getDocumentTypePrefixes(ctx.tx, ctx.callerIdentity);
+  return prefixService.getDocumentTypePrefixesWithSeed(ctx.tx, ctx.callerIdentity, ctx.audit);
 });
 
 /**
@@ -48,13 +44,7 @@ export const updateDocumentTypePrefix = ownerAction
   )
   .action(async ({ ctx, parsedInput }) => {
     const { id, ...input } = parsedInput;
-    return prefixService.updateDocumentTypePrefix(
-      ctx.tx,
-      ctx.callerIdentity,
-      ctx.audit,
-      id,
-      input,
-    );
+    return prefixService.updateDocumentTypePrefix(ctx.tx, ctx.callerIdentity, ctx.audit, id, input);
   });
 
 /**

@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { SupportedLocale } from "@/lib/constants";
 import { SUPPORTED_LOCALES } from "@/lib/constants";
 import { formatDate, resolveLocale } from "@/lib/format-date";
 import { formatNumber } from "@/lib/format-number";
@@ -45,9 +46,11 @@ export function MyPreferencesTab({ initialLocale }: Props) {
       // Update context immediately (no page reload)
       setLocale(newLocale);
 
-      const result = await execUpdate({
-        locale: newLocale as typeof SUPPORTED_LOCALES[number] | null,
-      });
+      const localeValue =
+        newLocale !== null && SUPPORTED_LOCALES.includes(newLocale as SupportedLocale)
+          ? (newLocale as SupportedLocale)
+          : null;
+      const result = await execUpdate({ locale: localeValue });
       if (result) {
         if (result.serverError) {
           const se = result.serverError as { message?: string };
@@ -68,7 +71,10 @@ export function MyPreferencesTab({ initialLocale }: Props) {
   // Live preview data
   const previewLocale = resolveLocale(currentLocale);
   const previewDate = useMemo(() => formatDate(new Date(), previewLocale), [previewLocale]);
-  const previewNumber = useMemo(() => formatNumber(12500, previewLocale), [previewLocale]);
+  const previewNumber = useMemo(
+    () => formatNumber(12500, previewLocale, { minimumFractionDigits: 2 }),
+    [previewLocale],
+  );
 
   return (
     <div className="space-y-6">
