@@ -3,7 +3,7 @@
 Living document tracking all deferred technical debt, feature gaps, and process improvements.
 Updated after every code review and retrospective. Checked before every story creation.
 
-**Last updated:** 2026-03-12 (Story 3.3 Code Review)
+**Last updated:** 2026-03-13 (Story 4.0 creation — Epic 3 retro party review)
 
 ---
 
@@ -18,6 +18,9 @@ Updated after every code review and retrospective. Checked before every story cr
 | 8 | Branch protection (requires GitHub Pro) | Epic 0 retro | Low | Zik | Before production deploy | PR protection for develop branch |
 | 9 | Replace `confirm()` with shadcn AlertDialog for delete confirmations | Story 3.3 review | Low | — | Before Epic 5 | All 3 settings tabs (bank-accounts, vat-registrations, bas-categories) use native `confirm()`. Add shared AlertDialog component and update all tabs together for consistency |
 | 10 | Bank format FK change test needs second seeded format | Story 3.3 review | Low | — | Before Epic 9 | "Update bankFormatId" test only verifies same format (only Nordea seeded). Story 9.1 adds more formats — add proper FK-change test then |
+| 11 | Test data factory pattern (`createTestPartner`, `createTestContract`, etc.) | Epic 3 retro party review | Medium | — | Before Story 4.2 | Epic 4+ introduces relational entities requiring multi-table test fixtures. Without factories, each test file invents its own setup — leads to brittle, inconsistent fixtures by Epic 6 |
+| 12 | Soft-delete pattern decision (boolean `active` vs `deleted_at`, default query filtering, audit action naming, cascade to child entities) | Epic 3 retro party review | Medium | — | During Story 4.1 creation | Story 4.1 introduces first soft-delete. Decision needed before implementation, not during. SM should resolve during create-story. |
+| 13 | Flag Story 4.1 as pattern-setter during creation | Epic 3 retro process improvement #3 | Low | Bob (SM) | During Story 4.1 creation | Retro action item: Story 4.1 establishes partner CRUD, soft-delete, FK validation, entity list page patterns — needs explicit pattern-setter flag and minimal scope guidance |
 
 ---
 

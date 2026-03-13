@@ -66,16 +66,17 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: Tenant Configuration
-  epic-3: in-progress
+  epic-3: done
   3-0-epic-3-prep-sprint: done
   3-1-bas-category-management: done
   3-2-vat-registration-management: done
   3-3-bank-account-csv-format-configuration: done
   3-4-document-type-prefixes-personal-locale: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   # Epic 4: Partners & Contracts
-  epic-4: backlog
+  epic-4: in-progress
+  4-0-epic-4-prep-sprint: ready-for-dev
   4-1-partner-crud-defaults: backlog
   4-2-contract-project-management: backlog
   4-3-partner-entity-view: backlog
