@@ -187,7 +187,7 @@ Import from `@/server/test-utils/config-crud-helpers`:
 | Function | Purpose |
 |----------|---------|
 | `assertRlsIsolation(prisma, model, tenantAId, tenantBId)` | Verify tenant B sees 0 rows after tenant A creates data |
-| `assertCrossTableRlsIsolation(prisma, parentModel, childModel, tenantAId, tenantBId, includeRelation)` | Verify RLS isolation across FK-joined tables (Epic 4+) |
+| `assertCrossTableRlsIsolation(prisma, parentModel, tenantAId, tenantBId, includeRelation)` | Verify RLS isolation across FK-joined tables (Epic 4+) |
 | `assertAuditLogged(adminPool, tenantId, action, entityType, entityId?)` | Verify audit_logs entry exists |
 | `assertCrudOperations(operations)` | Run full create/read/update/delete cycle |
 
@@ -201,7 +201,6 @@ describe("cross-table RLS isolation", () => {
     await assertCrossTableRlsIsolation(
       prisma,
       "partner",                    // parent model
-      "defaultVatRegistration",     // child model
       tenantA.id,
       tenantB.id,
       "defaultVatRegistration",     // include relation name

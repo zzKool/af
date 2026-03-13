@@ -1,6 +1,6 @@
 # Story 4.0: Epic 4 Prep Sprint
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -107,7 +107,7 @@ so that Epic 4 stories (4.1–4.3) have proper UI patterns, automated formatting
 
 - **This is a housekeeping/infrastructure story** — similar to Story 3.0. Mix of UI component work (ConfirmDialog), tooling (husky), research (RLS spike), test utilities, and documentation.
 - **No new domain models, no new pages, no new server actions.** The ConfirmDialog is a shared UI component, not domain-specific.
-- **shadcn/ui AlertDialog** is the correct primitive — it's built on Radix UI's AlertDialog which handles focus management, keyboard navigation, and screen reader announcements. Current shadcn version: `shadcn@4.0.2`.
+- **shadcn/ui AlertDialog** is the correct primitive — it's built on Base UI's AlertDialog (`@base-ui/react/alert-dialog`) which handles focus management, keyboard navigation, and screen reader announcements. Current shadcn version: `shadcn@4.0.2`.
 - **husky + lint-staged** is the standard pre-commit hook approach for Node.js projects. Biome's `--write` flag auto-fixes formatting and some lint rules. The `--no-errors-on-unmatched` flag prevents failures when no matching files are staged.
 
 ### Recommended Execution Order
@@ -244,6 +244,7 @@ Claude Opus 4.6
 ### Change Log
 
 - 2026-03-13: Story 4.0 implementation complete — all 8 tasks done, 321 tests passing
+- 2026-03-13: Code review fixes — removed unused _childModel param from assertCrossTableRlsIsolation, simplified dialogProps type, added ConfirmDialog render tests (6), stabilized confirm callback identity, fixed Base UI doc reference, added fr-CH locale
 
 ### File List
 
@@ -251,22 +252,24 @@ New files:
 - .husky/pre-commit
 - src/components/ui/alert-dialog.tsx
 - src/components/ui/confirm-dialog.tsx
+- src/components/ui/confirm-dialog.test.tsx
 - src/hooks/use-confirm-dialog.ts
 - src/hooks/use-confirm-dialog.test.tsx
 - src/server/test-utils/cross-table-rls-spike.test.ts
 - docs/cross-table-rls.md
 
 Modified files:
-- package.json (husky, lint-staged, @testing-library/react, jsdom deps + lint-staged config)
+- package.json (husky, lint-staged, @testing-library/react, @testing-library/user-event, jsdom deps + lint-staged config)
 - package-lock.json
 - vitest.config.ts (added hooks test glob to client project)
 - src/components/ui/button.tsx (shadcn update — cosmetic)
 - src/components/settings/bank-accounts-tab.tsx (replace confirm() with ConfirmDialog)
 - src/components/settings/vat-registrations-tab.tsx (replace confirm() with ConfirmDialog)
 - src/components/settings/document-type-prefixes-tab.tsx (replace confirm() with ConfirmDialog)
-- src/server/test-utils/config-crud-helpers.ts (add assertCrossTableRlsIsolation)
+- src/server/test-utils/config-crud-helpers.ts (add assertCrossTableRlsIsolation, removed unused _childModel param)
+- src/lib/constants.ts (added fr-CH locale)
 - docs/story-creation-checklist.md (add Client-Side UI Checklist section)
-- docs/config-page-test-template.md (document cross-table RLS helper)
+- docs/config-page-test-template.md (document cross-table RLS helper, updated signature)
 - docs/index.md (add cross-table-rls.md link)
 - _bmad-output/implementation-artifacts/deferred-items.md (resolve item #9)
 - _bmad-output/implementation-artifacts/sprint-status.yaml (status updates)

@@ -52,7 +52,6 @@ export async function assertRlsIsolation(
 export async function assertCrossTableRlsIsolation(
   prisma: PrismaClient,
   parentModel: string,
-  _childModel: string,
   tenantAId: string,
   tenantBId: string,
   includeRelation: string,

@@ -76,7 +76,7 @@ development_status:
 
   # Epic 4: Partners & Contracts
   epic-4: in-progress
-  4-0-epic-4-prep-sprint: review
+  4-0-epic-4-prep-sprint: done
   4-1-partner-crud-defaults: backlog
   4-2-contract-project-management: backlog
   4-3-partner-entity-view: backlog

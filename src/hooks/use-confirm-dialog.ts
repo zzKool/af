@@ -22,19 +22,14 @@ export function useConfirmDialog(options: UseConfirmDialogOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [description, setDescription] = useState(options.description ?? "");
   const pendingAction = useRef<(() => Promise<void>) | null>(null);
+  const defaultDescriptionRef = useRef(options.description ?? "");
+  defaultDescriptionRef.current = options.description ?? "";
 
-  const confirm = useCallback(
-    (action: () => Promise<void>, opts?: ConfirmOptions) => {
-      pendingAction.current = action;
-      if (opts?.description) {
-        setDescription(opts.description);
-      } else {
-        setDescription(options.description ?? "");
-      }
-      setOpen(true);
-    },
-    [options.description],
-  );
+  const confirm = useCallback((action: () => Promise<void>, opts?: ConfirmOptions) => {
+    pendingAction.current = action;
+    setDescription(opts?.description ?? defaultDescriptionRef.current);
+    setOpen(true);
+  }, []);
 
   const handleConfirm = useCallback(async () => {
     const action = pendingAction.current;
@@ -63,9 +58,7 @@ export function useConfirmDialog(options: UseConfirmDialogOptions = {}) {
     [isLoading],
   );
 
-  const dialogProps: Omit<ConfirmDialogProps, "variant"> & {
-    variant?: ConfirmDialogProps["variant"];
-  } = {
+  const dialogProps: ConfirmDialogProps = {
     open,
     onOpenChange: handleOpenChange,
     title: options.title,

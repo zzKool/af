@@ -313,13 +313,6 @@ describe("assertCrossTableRlsIsolation helper", () => {
   test("verifies cross-table RLS isolation for bankAccount → bankFormat", async () => {
     // bankAccount (RLS) → bankFormat (app-level, no RLS)
     // Tenant A has a bank account, tenant B does not
-    await assertCrossTableRlsIsolation(
-      prisma,
-      "bankAccount",
-      "bankFormat",
-      tenantA.id,
-      tenantB.id,
-      "bankFormat",
-    );
+    await assertCrossTableRlsIsolation(prisma, "bankAccount", tenantA.id, tenantB.id, "bankFormat");
   });
 });
