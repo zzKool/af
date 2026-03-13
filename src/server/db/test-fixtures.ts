@@ -164,6 +164,62 @@ export async function createAuthenticatedContext(
 }
 
 /**
+ * Creates a test partner directly via SQL with tenant context set (RLS-aware).
+ */
+export async function createTestPartner(
+  pool: Pool,
+  tenantId: string,
+  createdBy: string,
+  overrides?: {
+    name?: string;
+    types?: string[];
+    orgNumber?: string;
+    defaultCurrency?: string;
+    isActive?: boolean;
+  },
+): Promise<{ id: string; name: string; types: string[] }> {
+  const partner = {
+    id: randomUUID(),
+    name: overrides?.name ?? `Partner ${randomUUID().slice(0, 8)}`,
+    types: overrides?.types ?? ["client"],
+    orgNumber: overrides?.orgNumber ?? null,
+    defaultCurrency: overrides?.defaultCurrency ?? null,
+    isActive: overrides?.isActive ?? true,
+  };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (!UUID_RE.test(tenantId)) {
+      throw new Error(`Invalid tenant ID format: ${tenantId}`);
+    }
+    await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
+    await client.query(
+      `INSERT INTO partners (id, tenant_id, name, types, org_number, default_currency, is_active, created_by, source, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'web', NOW())`,
+      [
+        partner.id,
+        tenantId,
+        partner.name,
+        partner.types,
+        partner.orgNumber,
+        partner.defaultCurrency,
+        partner.isActive,
+        createdBy,
+      ],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return partner;
+}
+
+/**
  * Cleans up all test data. Used in afterEach or afterAll hooks.
  */
 export async function cleanupTestData(pool: Pool): Promise<void> {
@@ -175,7 +231,7 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     // Set a dummy tenant_id so RLS doesn't block — but FORCE RLS means we
     // need to truncate using TRUNCATE which bypasses RLS
     await client.query(
-      "TRUNCATE ecb_rates, audit_logs, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
+      "TRUNCATE ecb_rates, audit_logs, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {
