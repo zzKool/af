@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { PrismaClient } from "@/generated/prisma/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
 import { cleanupTestData, createTestTenant, createTestUser } from "@/server/db/test-fixtures";
+import { assertCrossTableRlsIsolation } from "./config-crud-helpers";
 
 // ─── Setup ───────────────────────────────────────────────────
 
@@ -303,5 +304,22 @@ describe("Scenario 4: FK constraint cross-tenant referencing", () => {
       await adminPool.query("ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS fk_spike_vat_ref");
       await adminPool.query("ALTER TABLE bank_accounts DROP COLUMN IF EXISTS spike_vat_ref");
     }
+  });
+});
+
+// ─── Task 4: assertCrossTableRlsIsolation helper test ───────
+
+describe("assertCrossTableRlsIsolation helper", () => {
+  test("verifies cross-table RLS isolation for bankAccount → bankFormat", async () => {
+    // bankAccount (RLS) → bankFormat (app-level, no RLS)
+    // Tenant A has a bank account, tenant B does not
+    await assertCrossTableRlsIsolation(
+      prisma,
+      "bankAccount",
+      "bankFormat",
+      tenantA.id,
+      tenantB.id,
+      "bankFormat",
+    );
   });
 });
