@@ -38,7 +38,7 @@ let tenantA: { id: string };
 let tenantB: { id: string };
 let userA: { id: string };
 let userB: { id: string };
-let vatRegA: string; // vat registration ID for tenant A
+let _vatRegA: string; // vat registration ID for tenant A
 let bankAccountA: string; // bank account ID for tenant A
 let vatRegB: string; // vat registration ID for tenant B
 
@@ -74,7 +74,7 @@ beforeAll(async () => {
        VALUES ($1, $2, 'SE', 'SE123456789001', $3, 'system', NOW())`,
       [vatId, tenantA.id, userA.id],
     );
-    vatRegA = vatId;
+    _vatRegA = vatId;
 
     const baId = randomUUID();
     await clientA.query(
