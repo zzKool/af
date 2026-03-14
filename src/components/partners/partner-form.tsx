@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
+import { extractError } from "@/lib/extract-error";
 import {
   deactivatePartnerAction,
   reactivatePartnerAction,
@@ -58,22 +59,15 @@ interface PartnerFormProps {
   partner: PartnerData;
   basOptions: BasOption[];
   hideHeader?: boolean;
+  onNameSaved?: (name: string) => void;
 }
 
-function extractError(result: unknown): string | null {
-  if (!result || typeof result !== "object") return null;
-  const r = result as Record<string, unknown>;
-  if (r.serverError && typeof r.serverError === "object") {
-    return (r.serverError as { message?: string }).message ?? "An error occurred";
-  }
-  if (r.data && typeof r.data === "object" && (r.data as Record<string, unknown>).error) {
-    const err = (r.data as Record<string, unknown>).error as { message?: string };
-    return err.message ?? "An error occurred";
-  }
-  return null;
-}
-
-export function PartnerForm({ partner, basOptions, hideHeader = false }: PartnerFormProps) {
+export function PartnerForm({
+  partner,
+  basOptions,
+  hideHeader = false,
+  onNameSaved,
+}: PartnerFormProps) {
   const [name, setName] = useState(partner.name);
   const [orgNumber, setOrgNumber] = useState(partner.orgNumber ?? "");
   const [vatNumber, setVatNumber] = useState(partner.vatNumber ?? "");
@@ -117,11 +111,14 @@ export function PartnerForm({ partner, basOptions, hideHeader = false }: Partner
 
   // onBlur handlers for text fields — send value as-is so empty string clears to null in service
   const handleBlur = useCallback(
-    (field: string, currentValue: string, originalValue: string | null) => {
+    async (field: string, currentValue: string, originalValue: string | null) => {
       if (currentValue === (originalValue ?? "")) return;
-      autoSave(field, currentValue);
+      const ok = await autoSave(field, currentValue);
+      if (ok && field === "name" && onNameSaved) {
+        onNameSaved(currentValue);
+      }
     },
-    [autoSave],
+    [autoSave, onNameSaved],
   );
 
   // onChange handlers for selects — "__none__" sentinel clears to empty string (→ null in service)
@@ -477,7 +474,7 @@ export function PartnerForm({ partner, basOptions, hideHeader = false }: Partner
         </CardContent>
       </Card>
 
-      <ConfirmDialog {...dialogProps} />
+      {!hideHeader && <ConfirmDialog {...dialogProps} />}
     </div>
   );
 }

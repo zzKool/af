@@ -68,10 +68,16 @@ export async function getDashboardData(
   }
 
   // Fetch partner and contract counts (RLS-scoped)
-  const [partnerCount, activeContractCount] = await Promise.all([
-    tx.partner.count({ where: { isActive: true } }),
-    tx.contract.count({ where: { isActive: true } }),
-  ]);
+  let partnerCount = 0;
+  let activeContractCount = 0;
+  try {
+    [partnerCount, activeContractCount] = await Promise.all([
+      tx.partner.count({ where: { isActive: true } }),
+      tx.contract.count({ where: { isActive: true } }),
+    ]);
+  } catch {
+    // Graceful degradation — show dashboard without counts
+  }
 
   return {
     userName: user?.name ?? "User",

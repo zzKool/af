@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
+import { extractError } from "@/lib/extract-error";
 import { deactivatePartnerAction, reactivatePartnerAction } from "@/server/actions/partners";
 
 type BasOption = { code: string; label: string };
@@ -42,19 +43,6 @@ interface PartnerDetailTabsProps {
   defaultCurrency: string | null;
 }
 
-function extractError(result: unknown): string | null {
-  if (!result || typeof result !== "object") return null;
-  const r = result as Record<string, unknown>;
-  if (r.serverError && typeof r.serverError === "object") {
-    return (r.serverError as { message?: string }).message ?? "An error occurred";
-  }
-  if (r.data && typeof r.data === "object" && (r.data as Record<string, unknown>).error) {
-    const err = (r.data as Record<string, unknown>).error as { message?: string };
-    return err.message ?? "An error occurred";
-  }
-  return null;
-}
-
 export function PartnerDetailTabs({
   partner,
   contracts,
@@ -65,6 +53,7 @@ export function PartnerDetailTabs({
 }: PartnerDetailTabsProps) {
   const router = useRouter();
   const [isActive, setIsActive] = useState(partner.isActive);
+  const [displayName, setDisplayName] = useState(partner.name);
   const { executeAsync: execDeactivate } = useAction(deactivatePartnerAction);
   const { executeAsync: execReactivate } = useAction(reactivatePartnerAction);
 
@@ -88,10 +77,10 @@ export function PartnerDetailTabs({
         router.refresh();
       },
       {
-        description: `Deactivate "${partner.name}"? The partner will be hidden from active lists but retained for historical references.`,
+        description: `Deactivate "${displayName}"? The partner will be hidden from active lists but retained for historical references.`,
       },
     );
-  }, [confirm, execDeactivate, partner.id, partner.name, router]);
+  }, [confirm, execDeactivate, partner.id, displayName, router]);
 
   const handleReactivate = useCallback(async () => {
     const result = await execReactivate({ id: partner.id });
@@ -105,6 +94,10 @@ export function PartnerDetailTabs({
     router.refresh();
   }, [execReactivate, partner.id, router]);
 
+  const handleNameSaved = useCallback((name: string) => {
+    setDisplayName(name);
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Persistent Header */}
@@ -113,7 +106,7 @@ export function PartnerDetailTabs({
           <Link href="/partners" className="text-muted-foreground hover:text-foreground">
             &larr; Partners
           </Link>
-          <h1 className="text-2xl font-semibold">{partner.name}</h1>
+          <h1 className="text-2xl font-semibold">{displayName}</h1>
           <Badge variant={isActive ? "default" : "secondary"}>
             {isActive ? "Active" : "Inactive"}
           </Badge>
@@ -133,7 +126,7 @@ export function PartnerDetailTabs({
       <Tabs defaultValue="overview">
         <TabsList variant="line">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="contracts">Contracts ({activeContractCount})</TabsTrigger>
+          <TabsTrigger value="contracts">Contracts ({contracts.length})</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
@@ -163,10 +156,19 @@ export function PartnerDetailTabs({
             </div>
             <div>
               <dt className="text-muted-foreground">Created</dt>
-              <dd className="font-medium">{new Date(partner.createdAt).toLocaleDateString()}</dd>
+              <dd className="font-medium">
+                {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+                  new Date(partner.createdAt),
+                )}
+              </dd>
             </div>
           </dl>
-          <PartnerForm hideHeader partner={partner} basOptions={basOptions} />
+          <PartnerForm
+            hideHeader
+            partner={partner}
+            basOptions={basOptions}
+            onNameSaved={handleNameSaved}
+          />
         </TabsContent>
 
         <TabsContent value="contracts" className="pt-4">

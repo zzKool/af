@@ -1,6 +1,6 @@
 # Story 4.3: Partner Entity View
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -411,11 +411,13 @@ Claude Opus 4.6
 
 New files:
 - src/components/partners/partner-detail-tabs.tsx
+- src/lib/extract-error.ts
 - docs/entity-view-pattern.md
 
 Modified files:
 - src/app/(app)/partners/[id]/page.tsx
 - src/components/partners/partner-form.tsx
+- src/components/partners/contract-list.tsx
 - src/server/services/dashboard.ts
 - src/server/services/dashboard.test.ts
 - src/app/(app)/dashboard/page.tsx
@@ -426,3 +428,4 @@ Modified files:
 ## Change Log
 
 - 2026-03-14: Implemented Story 4.3 — Partner Entity View. Refactored partner detail page from flat layout to tabbed entity view with persistent header. Added dashboard partner/contract counts. Created entity-view-pattern documentation.
+- 2026-03-14: Code review fixes — (1) Fixed header name desync after auto-save via onNameSaved callback, (2) Added try/catch to dashboard count queries for graceful degradation, (3) Fixed tab label count mismatch (now shows total count matching visible rows), (4) Extracted extractError to shared utility src/lib/extract-error.ts, (5) Used Intl.DateTimeFormat for consistent date formatting, (6) Skipped ConfirmDialog render when hideHeader=true.

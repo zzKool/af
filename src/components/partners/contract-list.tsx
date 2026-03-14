@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { CURRENCIES, PAYMENT_TERMS } from "@/lib/constants";
+import { extractError } from "@/lib/extract-error";
 import {
   createContractAction,
   deactivateContractAction,
@@ -59,19 +60,6 @@ interface ContractListProps {
   vatRegistrations: VatOption[];
   employeePartners: EmployeeOption[];
   defaultCurrency: string | null;
-}
-
-function extractError(result: unknown): string | null {
-  if (!result || typeof result !== "object") return null;
-  const r = result as Record<string, unknown>;
-  if (r.serverError && typeof r.serverError === "object") {
-    return (r.serverError as { message?: string }).message ?? "An error occurred";
-  }
-  if (r.data && typeof r.data === "object" && (r.data as Record<string, unknown>).error) {
-    const err = (r.data as Record<string, unknown>).error as { message?: string };
-    return err.message ?? "An error occurred";
-  }
-  return null;
 }
 
 // ─────────────────────────────────────────────────────────────
