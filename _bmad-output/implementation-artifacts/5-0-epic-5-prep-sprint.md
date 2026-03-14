@@ -1,6 +1,6 @@
 # Story 5.0: Epic 5 Prep Sprint
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -243,14 +243,14 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
   - [x] 7.3 Update "Last updated" date
   - [x] 7.4 Update `docs/index.md` with links to new docs: `blob-storage.md`, `async-jobs.md`, `test-performance-baseline.md`, `auto-save-pattern.md`
 
-- [ ] Task 8: Verify everything (AC: all)
-  - [ ] 8.1 Run full test suite: `npm run test` — all existing 394+ tests + new tests pass
-  - [ ] 8.2 Run `npx biome check --write` then `npm run lint` — clean
-  - [ ] 8.3 Run `npm run build` — succeeds with Sentry integration
-  - [ ] 8.4 Run `npm run e2e` — no regressions
-  - [ ] 8.5 Verify `docker compose up -d` starts all services (db-dev, db-test, azurite)
-  - [ ] 8.6 Verify `npm run dev` starts without errors
-  - [ ] 8.7 Verify Inngest Dev Server connects to the app and discovers `processDocument` function
+- [x] Task 8: Verify everything (AC: all)
+  - [x] 8.1 Run full test suite: `npm run test` — all existing 394+ tests + new tests pass
+  - [x] 8.2 Run `npx biome check --write` then `npm run lint` — clean
+  - [x] 8.3 Run `npm run build` — succeeds with Sentry integration
+  - [x] 8.4 Run `npm run e2e` — no regressions
+  - [x] 8.5 Verify `docker compose up -d` starts all services (db-dev, db-test, azurite)
+  - [x] 8.6 Verify `npm run dev` starts without errors
+  - [x] 8.7 Verify Inngest Dev Server connects to the app and discovers `processDocument` function
 
 ## Dev Notes
 
@@ -428,6 +428,7 @@ Claude Opus 4.6
 - ✅ Task 5: Action metadata added to all 37 actions across 9 files. defineMetadataSchema on base client, logging middleware uses metadata.name. Tests updated and passing.
 - ✅ Task 6: Story creation checklist updated with 3 new UI items + Code Duplication Threshold. auto-save-pattern.md created with all 8 edge cases.
 - ✅ Task 7: Deferred items #4 and #6 moved to resolved. Item #15 (Inngest signing key) added. docs/index.md updated with new doc links.
+- ✅ Task 8: Full verification passed. 396 tests + 4 E2E, lint clean, build succeeds, Docker services running.
 
 ### File List
 
