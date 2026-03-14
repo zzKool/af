@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
 export default withSentryConfig(nextConfig, {
   // Only upload source maps in production CI builds
   sourcemaps: {
-    disable: process.env.NODE_ENV !== "production",
+    disable: process.env.NODE_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
   },
   // Suppress Sentry CLI logs unless debugging
   silent: true,

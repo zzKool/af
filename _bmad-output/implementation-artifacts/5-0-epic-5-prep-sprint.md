@@ -1,6 +1,6 @@
 # Story 5.0: Epic 5 Prep Sprint
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -430,6 +430,15 @@ Claude Opus 4.6
 - ✅ Task 7: Deferred items #4 and #6 moved to resolved. Item #15 (Inngest signing key) added. docs/index.md updated with new doc links.
 - ✅ Task 8: Full verification passed. 396 tests + 4 E2E, lint clean, build succeeds, Docker services running.
 
+### Code Review Fixes
+
+- Fixed stale `"action": "server_action"` example in `docs/observability.md` structured fields — updated to reflect metadata-based action names
+- Fixed CI source map upload attempted without auth token — `next.config.ts` now checks for `SENTRY_AUTH_TOKEN` presence
+- Added automated tests for Inngest context helpers — `src/server/inngest/context.test.ts` (6 tests: createSystemCaller identity, withInngestContext tx/caller/audit wiring)
+- Added Sentry.captureException NOT called assertion for ActionErrors in `action-client.test.ts`
+- Added `sprint-status.yaml` to File List (was missing)
+- Updated `docs/index.md` observability description to mention Sentry
+
 ### File List
 
 - `docs/test-performance-baseline.md` (new)
@@ -438,6 +447,7 @@ Claude Opus 4.6
 - `docs/blob-storage.md` (new)
 - `docker-compose.yml` (modified — added --skipApiVersionCheck to Azurite)
 - `src/server/inngest/context.ts` (new)
+- `src/server/inngest/context.test.ts` (new — code review: automated tests for context helpers)
 - `src/server/inngest/functions/process-document.ts` (new)
 - `src/app/api/inngest/route.ts` (modified — registered processDocument)
 - `docs/async-jobs.md` (new)
@@ -471,4 +481,5 @@ Claude Opus 4.6
 - `docs/story-creation-checklist.md` (modified — 3 new UI items + code duplication threshold)
 - `docs/auto-save-pattern.md` (new)
 - `_bmad-output/implementation-artifacts/deferred-items.md` (modified — #4, #6 resolved, #15 added)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — story 5.0 status)
 - `docs/index.md` (modified — new doc links)

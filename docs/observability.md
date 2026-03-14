@@ -40,11 +40,13 @@ Every business log entry from a Server Action includes:
   "tenantId": "uuid",
   "userId": "uuid",
   "requestId": "uuid",
-  "action": "server_action",
+  "action": "createPartner",
   "service": "defterfab",
   "environment": "production"
 }
 ```
+
+The `action` field contains the specific action name from `.metadata({ name })` defined on each Server Action (e.g., `"createPartner"`, `"updateSettings"`, `"getDashboardData"`). Falls back to `"unknown"` if metadata is missing.
 
 Additional fields like `entityType` and `entityId` should be added by service code when logging entity-specific operations.
 

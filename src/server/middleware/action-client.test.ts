@@ -13,8 +13,11 @@ vi.mock("next/headers", () => ({
 }));
 
 // Mock Sentry — returns a fake event ID
+const { mockCaptureException } = vi.hoisted(() => ({
+  mockCaptureException: vi.fn(() => "fake-sentry-event-id"),
+}));
 vi.mock("@sentry/nextjs", () => ({
-  captureException: vi.fn(() => "fake-sentry-event-id"),
+  captureException: mockCaptureException,
   setUser: vi.fn(),
   setContext: vi.fn(),
   setTag: vi.fn(),
@@ -52,6 +55,7 @@ beforeEach(async () => {
   resetRateLimit();
   mockHeaders = new Headers();
   mockLoggerError.mockClear();
+  mockCaptureException.mockClear();
 });
 
 afterAll(async () => {
@@ -195,10 +199,11 @@ describe("action-client integration", () => {
     );
   });
 
-  it("handleServerError does NOT call logger.error for ActionError (business errors)", async () => {
+  it("handleServerError does NOT call logger.error or Sentry for ActionError (business errors)", async () => {
     mockHeaders = new Headers(); // No cookies → UNAUTHORIZED ActionError
 
     await authedTestAction({});
     expect(mockLoggerError).not.toHaveBeenCalled();
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });
