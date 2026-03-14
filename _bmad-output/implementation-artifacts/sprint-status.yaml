@@ -85,7 +85,7 @@ development_status:
   # Epic 5: Document Management
   epic-5: in-progress
   5-0-epic-5-prep-sprint: done
-  5-1-document-upload-storage: review
+  5-1-document-upload-storage: done
   5-2-ocr-processing-extraction: backlog
   5-3-document-review-correction: backlog
   5-4-document-library-download: backlog

@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { FileUploadZone } from "@/components/domain/file-upload-zone";
+import { FormattedDate } from "@/components/domain/formatted-date";
 import { getAuthContext } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
@@ -93,7 +94,7 @@ export default async function DocumentsPage() {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {new Date(doc.createdAt).toLocaleDateString()}
+                      <FormattedDate date={doc.createdAt} />
                     </td>
                   </tr>
                 ))}

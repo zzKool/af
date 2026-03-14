@@ -1,6 +1,6 @@
 # Story 5.1: Document Upload & Storage
 
-Status: review
+Status: done
 
 ## Story
 
@@ -594,6 +594,9 @@ N/A
 - Nav filter tests updated (4 tests) for Documents now enabled for owner
 - Biome lint clean, TypeScript build clean
 - Prisma migration applied successfully with RLS policies
+- Code review fixes applied: 4 HIGH, 4 MEDIUM, 1 LOW issues resolved
+- Component tests expanded from 4 to 14 (added interaction, callback, error, reset tests)
+- Full test suite after review fixes: 453 tests (up from 437)
 
 ### File List
 
@@ -610,7 +613,8 @@ N/A
 - src/server/actions/documents.ts — Server Action with FormData + Inngest dispatch
 - src/server/db/test-fixtures.ts — cleanup + createTestDocument fixture
 - src/components/domain/file-upload-zone.tsx — drag-and-drop upload component
-- src/components/domain/file-upload-zone.test.tsx — 4 component tests
+- src/components/domain/file-upload-zone.test.tsx — 14 component tests
+- src/components/domain/formatted-date.tsx — locale-aware date formatting component
 - src/app/(app)/documents/page.tsx — documents page (owner-only)
 - src/app/(app)/documents/error.tsx — error boundary
 - src/server/inngest/functions/process-document.ts — real implementation (status update)
@@ -620,9 +624,12 @@ N/A
 - e2e/documents.spec.ts — 4 E2E tests
 - docs/document-upload.md — upload flow documentation
 - docs/index.md — wiki-link reference
+- package.json — file-type + zod-form-data dependencies
+- package-lock.json — lockfile update
 
 ### Change Log
 
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-03-14 | Story implemented — all tasks 0–9 complete, status set to review | Initial implementation of document upload & storage pipeline |
+| 2026-03-14 | Code review fixes: H1 inngest try/catch, H2 lazy storage init, H3 fail-closed role check, H4 AppError on DB failure, M1 locale-aware dates, M2 expanded component tests (4→14), M3 status guard in process-document, L1 null byte sanitization | Adversarial code review findings |

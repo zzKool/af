@@ -21,7 +21,11 @@ const uploadSchema = zfd.formData({
   prefixType: zfd.text(z.string().min(1)),
 });
 
-const storage = createStorageService();
+let _storage: ReturnType<typeof createStorageService> | null = null;
+function getStorage() {
+  if (!_storage) _storage = createStorageService();
+  return _storage;
+}
 const clock = createClock();
 
 export const uploadDocumentAction = authedAction
@@ -35,7 +39,7 @@ export const uploadDocumentAction = authedAction
       ctx.tx,
       ctx.callerIdentity,
       ctx.audit,
-      storage,
+      getStorage(),
       clock,
       fileBuffer,
       file.name,
@@ -43,15 +47,25 @@ export const uploadDocumentAction = authedAction
     );
 
     if (result.data) {
-      await inngest.send({
-        id: `doc-uploaded-${result.data.id}`,
-        name: "document/uploaded",
-        data: {
-          tenantId: ctx.callerIdentity.tenantId,
-          userId: ctx.callerIdentity.userId,
-          documentId: result.data.id,
-        },
-      });
+      try {
+        await inngest.send({
+          id: `doc-uploaded-${result.data.id}`,
+          name: "document/uploaded",
+          data: {
+            tenantId: ctx.callerIdentity.tenantId,
+            userId: ctx.callerIdentity.userId,
+            documentId: result.data.id,
+          },
+        });
+      } catch (err) {
+        // Log but don't fail the upload — document is already persisted.
+        // Inngest event can be retried manually or via a sweep job.
+        const { logger } = await import("@/server/logger");
+        logger.warn(
+          { documentId: result.data.id, err },
+          "Failed to dispatch document/uploaded event",
+        );
+      }
     }
 
     return result;

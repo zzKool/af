@@ -11,7 +11,7 @@ type FileValidationResult =
   | { valid: false; error: AppError };
 
 export function sanitizeFileName(name: string): string {
-  return name.replace(/[/\\]/g, "_").replace(/\.\./g, "_").trim().slice(0, 255);
+  return name.replace(/\0/g, "").replace(/[/\\]/g, "_").replace(/\.\./g, "_").trim().slice(0, 255);
 }
 
 export async function validateFile(

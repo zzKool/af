@@ -27,6 +27,11 @@ export const processDocument = inngest.createFunction(
           );
         }
 
+        // Only transition from 'uploaded' — prevent regressing later states on retry
+        if (document.status !== "uploaded") {
+          return { documentId, status: document.status, skipped: true };
+        }
+
         // Update status from 'uploaded' to 'processing'
         await tx.document.update({
           where: { id: documentId },

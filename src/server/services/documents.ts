@@ -34,8 +34,8 @@ export async function uploadDocument(
     documentType: string;
   }>
 > {
-  // Role check: only owners can upload
-  if (caller.role === "accountant") {
+  // Role check: only owners can upload (fail-closed for future roles)
+  if (caller.role !== "owner") {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
     };
@@ -109,8 +109,10 @@ export async function uploadDocument(
     });
   } catch (error) {
     // Orphan blob — log warning, blob cleanup is a future concern
-    logger.warn({ blobPath, blobUrl }, "Orphan blob: DB write failed after blob upload");
-    throw error;
+    logger.warn({ blobPath, blobUrl, error }, "Orphan blob: DB write failed after blob upload");
+    return {
+      error: { code: "INTERNAL_ERROR", message: "Document creation failed", retryable: true },
+    };
   }
 
   // Audit trail
