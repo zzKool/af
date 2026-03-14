@@ -29,8 +29,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     path: "/documents",
     label: "Documents",
     icon: "FileText",
-    roles: ["owner", "accountant"],
-    enabled: false,
+    roles: ["owner"],
+    enabled: true,
   },
   {
     path: "/journal",

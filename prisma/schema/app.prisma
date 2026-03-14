@@ -24,6 +24,7 @@ model Tenant {
   documentTypePrefixes DocumentTypePrefix[]
   partners             Partner[]
   contracts            Contract[]
+  documents            Document[]
 
   @@map("tenants")
 }
@@ -283,4 +284,32 @@ model Contract {
 
   @@index([tenantId, partnerId])
   @@map("contracts")
+}
+
+// Documents — per-tenant, full RLS, follows mandatory template
+// Stores uploaded business documents with automatic business key assignment
+// Status and documentType are VARCHAR with Zod validation (not PG enums)
+// ocrData: JSONB for raw Azure Document Intelligence response (Story 5.2)
+model Document {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  businessKey  String   @map("business_key") @db.VarChar(100)
+  fileName     String   @map("file_name") @db.VarChar(255)
+  blobUrl      String   @map("blob_url") @db.VarChar(500)
+  mimeType     String   @map("mime_type") @db.VarChar(50)
+  fileSize     Int      @map("file_size")
+  prefixType   String   @map("prefix_type") @db.VarChar(30)
+  documentType String   @map("document_type") @db.VarChar(20)
+  status       String   @default("uploaded") @map("status") @db.VarChar(20)
+  ocrData      Json?    @map("ocr_data") @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String   @map("created_by") @db.Uuid
+  source       String   @default("web")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status], map: "idx_documents_tenant_status")
+  @@index([tenantId, businessKey], map: "idx_documents_tenant_business_key")
+  @@map("documents")
 }

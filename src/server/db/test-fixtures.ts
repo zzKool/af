@@ -290,6 +290,73 @@ export async function createTestContract(
 }
 
 /**
+ * Creates a test document directly via SQL with tenant context set (RLS-aware).
+ */
+export async function createTestDocument(
+  pool: Pool,
+  tenantId: string,
+  createdBy: string,
+  overrides?: {
+    businessKey?: string;
+    fileName?: string;
+    blobUrl?: string;
+    mimeType?: string;
+    fileSize?: number;
+    prefixType?: string;
+    documentType?: string;
+    status?: string;
+  },
+): Promise<{ id: string; businessKey: string; fileName: string }> {
+  const doc = {
+    id: randomUUID(),
+    businessKey:
+      overrides?.businessKey ??
+      `exp_20260314_${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`,
+    fileName: overrides?.fileName ?? `test-doc-${randomUUID().slice(0, 8)}.pdf`,
+    blobUrl: overrides?.blobUrl ?? `${tenantId}/${randomUUID()}.pdf`,
+    mimeType: overrides?.mimeType ?? "application/pdf",
+    fileSize: overrides?.fileSize ?? 1024,
+    prefixType: overrides?.prefixType ?? "expense",
+    documentType: overrides?.documentType ?? "financial",
+    status: overrides?.status ?? "uploaded",
+  };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (!UUID_RE.test(tenantId)) {
+      throw new Error(`Invalid tenant ID format: ${tenantId}`);
+    }
+    await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
+    await client.query(
+      `INSERT INTO documents (id, tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type, document_type, status, created_by, source, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'web', NOW())`,
+      [
+        doc.id,
+        tenantId,
+        doc.businessKey,
+        doc.fileName,
+        doc.blobUrl,
+        doc.mimeType,
+        doc.fileSize,
+        doc.prefixType,
+        doc.documentType,
+        doc.status,
+        createdBy,
+      ],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return doc;
+}
+
+/**
  * Cleans up all test data. Used in afterEach or afterAll hooks.
  */
 export async function cleanupTestData(pool: Pool): Promise<void> {
@@ -300,9 +367,9 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     await client.query("BEGIN");
     // Set a dummy tenant_id so RLS doesn't block — but FORCE RLS means we
     // need to truncate using TRUNCATE which bypasses RLS
-    // contracts BEFORE partners (FK dependency)
+    // documents BEFORE partners, contracts BEFORE partners (FK dependency)
     await client.query(
-      "TRUNCATE ecb_rates, audit_logs, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
+      "TRUNCATE ecb_rates, audit_logs, documents, document_key_counters, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {

@@ -8,7 +8,12 @@ import {
 
 export interface StorageService {
   ensureContainer(): Promise<void>;
-  uploadBlob(blobPath: string, data: Buffer, mimeType: string): Promise<string>;
+  uploadBlob(
+    blobPath: string,
+    data: Buffer,
+    mimeType: string,
+    options?: { contentDisposition?: string },
+  ): Promise<string>;
   downloadBlob(blobPath: string): Promise<Buffer>;
   deleteBlob(blobPath: string): Promise<void>;
   generateSasUrl(blobPath: string, expiresInMinutes: number): Promise<string>;
@@ -46,10 +51,20 @@ export function createStorageService(
       await containerClient.createIfNotExists();
     },
 
-    async uploadBlob(blobPath: string, data: Buffer, mimeType: string): Promise<string> {
+    async uploadBlob(
+      blobPath: string,
+      data: Buffer,
+      mimeType: string,
+      options?: { contentDisposition?: string },
+    ): Promise<string> {
       const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
       await blockBlobClient.uploadData(data, {
-        blobHTTPHeaders: { blobContentType: mimeType },
+        blobHTTPHeaders: {
+          blobContentType: mimeType,
+          ...(options?.contentDisposition && {
+            blobContentDisposition: options.contentDisposition,
+          }),
+        },
       });
       return blockBlobClient.url;
     },

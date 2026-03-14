@@ -53,6 +53,7 @@ Page-specific documentation and patterns.
 - [[partner-crud-pattern]] — Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
+- [[document-upload-flow]] — Document upload pipeline, file validation, business key generation, status lifecycle
 
 ## Components
 
