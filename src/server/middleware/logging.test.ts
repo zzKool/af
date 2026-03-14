@@ -12,6 +12,10 @@ const { mockChild } = vi.hoisted(() => ({
   }),
 }));
 
+vi.mock("@sentry/nextjs", () => ({
+  setTag: vi.fn(),
+}));
+
 vi.mock("@/server/logger", () => ({
   logger: {
     child: mockChild,
@@ -23,12 +27,13 @@ import { loggingMiddleware } from "./logging";
 function callLoggingMiddleware(
   ctx: { userId: string; tenantId: string | null },
   next: (...args: unknown[]) => Promise<unknown> = vi.fn().mockResolvedValue({}),
+  metadata: { name: string } = { name: "testAction" },
 ) {
   return (loggingMiddleware as (...args: unknown[]) => Promise<unknown>)({
     clientInput: undefined,
     bindArgsClientInputs: [],
     ctx,
-    metadata: undefined,
+    metadata,
     next,
   });
 }
@@ -102,10 +107,10 @@ describe("loggingMiddleware", () => {
       vi.fn().mockResolvedValue({}),
     );
 
-    expect(mockLog.info).toHaveBeenCalledWith({ action: "server_action" }, "Action invoked");
+    expect(mockLog.info).toHaveBeenCalledWith({ action: "testAction" }, "Action invoked");
   });
 
-  it("logs action completion with duration", async () => {
+  it("logs action completion with duration and metadata name", async () => {
     const mockLog = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -118,11 +123,12 @@ describe("loggingMiddleware", () => {
     await callLoggingMiddleware(
       { userId: "user-1", tenantId: "tenant-1" },
       vi.fn().mockResolvedValue({}),
+      { name: "createPartner" },
     );
 
     expect(mockLog.info).toHaveBeenCalledTimes(2);
     expect(mockLog.info).toHaveBeenCalledWith(
-      { action: "server_action", durationMs: expect.any(Number) },
+      { action: "createPartner", durationMs: expect.any(Number) },
       "Action completed",
     );
   });

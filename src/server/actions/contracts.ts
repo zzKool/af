@@ -14,6 +14,7 @@ export const getContractsAction = ownerAction
       includeInactive: z.boolean().optional(),
     }),
   )
+  .metadata({ name: "getContracts" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.getContracts(ctx.tx, parsedInput.partnerId, parsedInput);
   });
@@ -23,6 +24,7 @@ export const getContractsAction = ownerAction
  */
 export const getContractAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "getContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.getContract(ctx.tx, parsedInput.id);
   });
@@ -32,6 +34,7 @@ export const getContractAction = ownerAction
  */
 export const createContractAction = ownerAction
   .schema(contractService.createContractSchema)
+  .metadata({ name: "createContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.createContract(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
   });
@@ -41,6 +44,7 @@ export const createContractAction = ownerAction
  */
 export const updateContractAction = ownerAction
   .schema(contractService.updateContractSchema)
+  .metadata({ name: "updateContract" })
   .action(async ({ ctx, parsedInput }) => {
     const { id, ...data } = parsedInput;
     return contractService.updateContract(ctx.tx, ctx.callerIdentity, ctx.audit, id, data);
@@ -51,6 +55,7 @@ export const updateContractAction = ownerAction
  */
 export const deactivateContractAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "deactivateContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.deactivateContract(
       ctx.tx,
@@ -65,6 +70,7 @@ export const deactivateContractAction = ownerAction
  */
 export const reactivateContractAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "reactivateContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.reactivateContract(
       ctx.tx,

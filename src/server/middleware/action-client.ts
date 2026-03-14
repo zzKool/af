@@ -1,5 +1,7 @@
 import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
+import * as Sentry from "@sentry/nextjs";
 import { createMiddleware, createSafeActionClient } from "next-safe-action";
+import { z } from "zod/v4";
 import type { TransactionClient } from "@/server/db/tenant-client";
 import { logger } from "@/server/logger";
 import { createAuditEntry } from "@/server/services/audit";
@@ -22,15 +24,17 @@ import { tenantMiddleware } from "./tenant";
  * - Other errors → INTERNAL_ERROR with retryable: false
  */
 const baseClient = createSafeActionClient({
+  defineMetadataSchema: () => z.object({ name: z.string() }),
   handleServerError: (error) => {
     if (error instanceof ActionError) {
       return error.appError;
     }
-    logger.error({ err: error }, "Unhandled Server Action error");
+    const sentryEventId = Sentry.captureException(error);
+    logger.error({ err: error, sentryEventId }, "Unhandled Server Action error");
     const retryable = error instanceof PrismaClientKnownRequestError;
     return {
       code: "INTERNAL_ERROR" as const,
-      message: "An unexpected error occurred",
+      message: `An unexpected error occurred. Reference: ${sentryEventId}`,
       retryable,
     };
   },
