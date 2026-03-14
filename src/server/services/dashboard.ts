@@ -24,6 +24,8 @@ export type DashboardData = {
   companyName: string | null;
   lastLoginAt: string | null;
   role: string;
+  partnerCount: number;
+  activeContractCount: number;
 };
 
 export async function getDashboardData(
@@ -65,10 +67,24 @@ export async function getDashboardData(
     // Graceful degradation — hide last login field
   }
 
+  // Fetch partner and contract counts (RLS-scoped)
+  let partnerCount = 0;
+  let activeContractCount = 0;
+  try {
+    [partnerCount, activeContractCount] = await Promise.all([
+      tx.partner.count({ where: { isActive: true } }),
+      tx.contract.count({ where: { isActive: true } }),
+    ]);
+  } catch {
+    // Graceful degradation — show dashboard without counts
+  }
+
   return {
     userName: user?.name ?? "User",
     companyName,
     lastLoginAt,
     role: caller.role,
+    partnerCount,
+    activeContractCount,
   };
 }

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/lib/constants";
+import { extractError } from "@/lib/extract-error";
 import {
   deactivatePartnerAction,
   reactivatePartnerAction,
@@ -29,7 +30,7 @@ type BasOption = { code: string; label: string };
 
 type ExternalIdentifier = { label: string; value: string };
 
-type PartnerData = {
+export type PartnerData = {
   id: string;
   name: string;
   orgNumber: string | null;
@@ -57,22 +58,16 @@ type AddressData = {
 interface PartnerFormProps {
   partner: PartnerData;
   basOptions: BasOption[];
+  hideHeader?: boolean;
+  onNameSaved?: (name: string) => void;
 }
 
-function extractError(result: unknown): string | null {
-  if (!result || typeof result !== "object") return null;
-  const r = result as Record<string, unknown>;
-  if (r.serverError && typeof r.serverError === "object") {
-    return (r.serverError as { message?: string }).message ?? "An error occurred";
-  }
-  if (r.data && typeof r.data === "object" && (r.data as Record<string, unknown>).error) {
-    const err = (r.data as Record<string, unknown>).error as { message?: string };
-    return err.message ?? "An error occurred";
-  }
-  return null;
-}
-
-export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
+export function PartnerForm({
+  partner,
+  basOptions,
+  hideHeader = false,
+  onNameSaved,
+}: PartnerFormProps) {
   const [name, setName] = useState(partner.name);
   const [orgNumber, setOrgNumber] = useState(partner.orgNumber ?? "");
   const [vatNumber, setVatNumber] = useState(partner.vatNumber ?? "");
@@ -116,11 +111,14 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
 
   // onBlur handlers for text fields — send value as-is so empty string clears to null in service
   const handleBlur = useCallback(
-    (field: string, currentValue: string, originalValue: string | null) => {
+    async (field: string, currentValue: string, originalValue: string | null) => {
       if (currentValue === (originalValue ?? "")) return;
-      autoSave(field, currentValue);
+      const ok = await autoSave(field, currentValue);
+      if (ok && field === "name" && onNameSaved) {
+        onNameSaved(currentValue);
+      }
     },
-    [autoSave],
+    [autoSave, onNameSaved],
   );
 
   // onChange handlers for selects — "__none__" sentinel clears to empty string (→ null in service)
@@ -204,26 +202,28 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/partners" className="text-muted-foreground hover:text-foreground">
-            &larr; Partners
-          </Link>
-          <h1 className="text-2xl font-semibold">{name}</h1>
-          <Badge variant={isActive ? "default" : "secondary"}>
-            {isActive ? "Active" : "Inactive"}
-          </Badge>
+      {!hideHeader && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/partners" className="text-muted-foreground hover:text-foreground">
+              &larr; Partners
+            </Link>
+            <h1 className="text-2xl font-semibold">{name}</h1>
+            <Badge variant={isActive ? "default" : "secondary"}>
+              {isActive ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+          {isActive ? (
+            <Button variant="destructive" size="sm" onClick={handleDeactivate}>
+              Deactivate
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleReactivate}>
+              Reactivate
+            </Button>
+          )}
         </div>
-        {isActive ? (
-          <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-            Deactivate
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={handleReactivate}>
-            Reactivate
-          </Button>
-        )}
-      </div>
+      )}
 
       {/* Basic Info */}
       <Card>
@@ -474,7 +474,7 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
         </CardContent>
       </Card>
 
-      <ConfirmDialog {...dialogProps} />
+      {!hideHeader && <ConfirmDialog {...dialogProps} />}
     </div>
   );
 }

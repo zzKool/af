@@ -36,7 +36,12 @@ function createMockPrisma(overrides: {
   } as unknown as PrismaClient;
 }
 
-function createMockTx(overrides: { companyName?: string | null; throwOnTenant?: boolean }) {
+function createMockTx(overrides: {
+  companyName?: string | null;
+  throwOnTenant?: boolean;
+  partnerCount?: number;
+  activeContractCount?: number;
+}) {
   return {
     tenant: {
       findUnique: overrides.throwOnTenant
@@ -49,13 +54,19 @@ function createMockTx(overrides: { companyName?: string | null; throwOnTenant?: 
                 : { name: "Acme AB" },
             ),
     },
+    partner: {
+      count: vi.fn().mockResolvedValue(overrides.partnerCount ?? 0),
+    },
+    contract: {
+      count: vi.fn().mockResolvedValue(overrides.activeContractCount ?? 0),
+    },
   } as unknown as TransactionClient;
 }
 
 describe("getDashboardData", () => {
   it("returns full dashboard data on happy path", async () => {
     const prisma = createMockPrisma({});
-    const tx = createMockTx({});
+    const tx = createMockTx({ partnerCount: 3, activeContractCount: 5 });
 
     const result = await getDashboardData(prisma, tx, mockCaller);
 
@@ -64,6 +75,8 @@ describe("getDashboardData", () => {
       companyName: "Acme AB",
       lastLoginAt: "2026-03-09T08:00:00.000Z",
       role: "owner",
+      partnerCount: 3,
+      activeContractCount: 5,
     });
   });
 
@@ -115,5 +128,27 @@ describe("getDashboardData", () => {
     });
 
     expect(result.role).toBe("accountant");
+  });
+
+  it("returns partner and contract counts", async () => {
+    const prisma = createMockPrisma({});
+    const tx = createMockTx({ partnerCount: 7, activeContractCount: 12 });
+
+    const result = await getDashboardData(prisma, tx, mockCaller);
+
+    expect(result.partnerCount).toBe(7);
+    expect(result.activeContractCount).toBe(12);
+    expect(tx.partner.count).toHaveBeenCalledWith({ where: { isActive: true } });
+    expect(tx.contract.count).toHaveBeenCalledWith({ where: { isActive: true } });
+  });
+
+  it("returns zero counts when no partners or contracts exist", async () => {
+    const prisma = createMockPrisma({});
+    const tx = createMockTx({ partnerCount: 0, activeContractCount: 0 });
+
+    const result = await getDashboardData(prisma, tx, mockCaller);
+
+    expect(result.partnerCount).toBe(0);
+    expect(result.activeContractCount).toBe(0);
   });
 });
