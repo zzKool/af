@@ -19,6 +19,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
+    "inngest:dev": "npx inngest-cli@latest dev",
     "prepare": "husky"
   },
   "dependencies": {

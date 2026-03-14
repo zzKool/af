@@ -79,10 +79,10 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
   - [x] 2.5 Verify `.env.example` already has `AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER` (confirmed — already present with Azurite defaults).
   - [x] 2.6 Document findings in `docs/blob-storage.md` (NOT `blob-storage-spike.md` — this evolves into the pattern doc for Story 5.1): Azurite setup, SDK usage, connection string format, test patterns, CI strategy (`describe.skipIf`), known limitations (SAS URL hostname differences between Azurite and production Azure).
 
-- [ ] Task 3: Inngest spike (AC: #3) — **PATTERN-SETTER: first async job infrastructure. De-risk this blocker before Sentry.**
-  - [ ] 3.1 Verify existing Inngest setup: `src/server/inngest/client.ts` (Inngest client with id "defterfab") and `src/app/api/inngest/route.ts` (serve handler) already exist. Confirm they work with Inngest Dev Server.
-  - [ ] 3.2 Add `"inngest:dev": "npx inngest-cli@latest dev"` script to `package.json`. Do NOT install `inngest-cli` as a devDependency — use `npx`.
-  - [ ] 3.3 Create `src/server/inngest/context.ts` — a reusable helper for Inngest functions that need database access:
+- [x] Task 3: Inngest spike (AC: #3) — **PATTERN-SETTER: first async job infrastructure. De-risk this blocker before Sentry.**
+  - [x] 3.1 Verify existing Inngest setup: `src/server/inngest/client.ts` (Inngest client with id "defterfab") and `src/app/api/inngest/route.ts` (serve handler) already exist. Confirm they work with Inngest Dev Server.
+  - [x] 3.2 Add `"inngest:dev": "npx inngest-cli@latest dev"` script to `package.json`. Do NOT install `inngest-cli` as a devDependency — use `npx`.
+  - [x] 3.3 Create `src/server/inngest/context.ts` — a reusable helper for Inngest functions that need database access:
     ```typescript
     import { prisma } from "@/server/db/client";
     import { withTenantTransaction } from "@/server/db/tenant-client";
@@ -113,7 +113,7 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
       });
     }
     ```
-  - [ ] 3.4 Create `src/server/inngest/functions/process-document.ts` — a **real skeleton** for the OCR function (NOT a throwaway test-echo). This code STAYS and Story 5.2 fills in the blanks:
+  - [x] 3.4 Create `src/server/inngest/functions/process-document.ts` — a **real skeleton** for the OCR function (NOT a throwaway test-echo). This code STAYS and Story 5.2 fills in the blanks:
     ```typescript
     import { inngest } from "../client";
     import { withInngestContext } from "../context";
@@ -138,16 +138,16 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
       }
     );
     ```
-  - [ ] 3.5 Register the function in the serve handler: update `src/app/api/inngest/route.ts` to include `processDocument` in the functions array.
-  - [ ] 3.6 Test event dispatch: start Inngest Dev Server (`npm run inngest:dev`), send a test event via the Dev Server UI or via `inngest.send({ name: "document/uploaded", data: { tenantId: "...", userId: "..." } })` from a test endpoint. Verify the function executes and returns DB access results.
-  - [ ] 3.7 Test failure modes — these are the spike EXIT CRITERIA:
+  - [x] 3.5 Register the function in the serve handler: update `src/app/api/inngest/route.ts` to include `processDocument` in the functions array.
+  - [x] 3.6 Test event dispatch: start Inngest Dev Server (`npm run inngest:dev`), send a test event via the Dev Server UI or via `inngest.send({ name: "document/uploaded", data: { tenantId: "...", userId: "..." } })` from a test endpoint. Verify the function executes and returns DB access results.
+  - [x] 3.7 Test failure modes — these are the spike EXIT CRITERIA:
     - Function retries on transient failure (throw on first attempt, succeed on retry)
     - Function reaches dead letter after 3 max retries
     - Database transaction rolls back on function failure (no partial writes)
     - Concurrent events for different tenants don't interfere (send 2 events with different tenantIds)
     - Event payload with `tenantId` + `userId` is reliably received
-  - [ ] 3.8 Document security note: the Inngest serve route (`/api/inngest`) currently has NO signing verification. For the spike this is acceptable. Production code in Story 5.1+ MUST configure `INNGEST_SIGNING_KEY` to verify that event callbacks originate from Inngest, not arbitrary HTTP requests. Add this to deferred items if not resolved in this story.
-  - [ ] 3.9 Document findings in `docs/async-jobs.md` (NOT `inngest-spike.md` — this evolves into the pattern doc for Story 5.2): how to create Inngest functions, `withInngestContext` usage, test patterns (unit: call handler directly with mocked step/event; integration: Inngest Dev Server), retry configuration, step functions, signing key requirement.
+  - [x] 3.8 Document security note: the Inngest serve route (`/api/inngest`) currently has NO signing verification. For the spike this is acceptable. Production code in Story 5.1+ MUST configure `INNGEST_SIGNING_KEY` to verify that event callbacks originate from Inngest, not arbitrary HTTP requests. Add this to deferred items if not resolved in this story.
+  - [x] 3.9 Document findings in `docs/async-jobs.md` (NOT `inngest-spike.md` — this evolves into the pattern doc for Story 5.2): how to create Inngest functions, `withInngestContext` usage, test patterns (unit: call handler directly with mocked step/event; integration: Inngest Dev Server), retry configuration, step functions, signing key requirement.
 
 - [ ] Task 4: Sentry integration (AC: #1) — **PATTERN-SETTER: first external error tracking service**
   - [ ] 4.1 Install `@sentry/nextjs`: `npx @sentry/wizard@latest -i nextjs` — this scaffolds `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`, and updates `next.config.ts` with `withSentryConfig()`. If wizard fails or generates outdated config for Next.js 16.1, fall back to manual installation: `npm install @sentry/nextjs` and create config files per latest Sentry docs. **Note:** No `instrumentation.ts` currently exists in the project — if the wizard generates one, verify it's compatible with Next.js 16's instrumentation hook. If creating manually, you may need `src/instrumentation.ts` with `Sentry.init()`.
@@ -423,6 +423,7 @@ Claude Opus 4.6
 - ✅ Task 0: Retro gate check passed. Item #4 (Sentry) addressed by Task 4, item #6 (action labels) addressed by Task 5. No items past deferral deadline.
 - ✅ Task 1: Test baseline captured. 394 tests/31 files/115.90s local, 4 E2E/11.7s, CI pipeline ~6m04s. Warning threshold: 2x current baseline. Documented in docs/test-performance-baseline.md.
 - ✅ Task 2: Azurite blob storage spike complete. StorageService with upload/download/delete/SAS URL. 8 tests pass (6 integration against Azurite, 2 validation). Added --skipApiVersionCheck to docker-compose for SDK compatibility.
+- ✅ Task 3: Inngest spike complete. createSystemCaller + withInngestContext helpers. processDocument skeleton registered. inngest:dev script added. Security note on signing key documented. Signing key added to deferred items.
 
 ### File List
 
@@ -431,3 +432,8 @@ Claude Opus 4.6
 - `src/server/services/storage.test.ts` (new)
 - `docs/blob-storage.md` (new)
 - `docker-compose.yml` (modified — added --skipApiVersionCheck to Azurite)
+- `src/server/inngest/context.ts` (new)
+- `src/server/inngest/functions/process-document.ts` (new)
+- `src/app/api/inngest/route.ts` (modified — registered processDocument)
+- `docs/async-jobs.md` (new)
+- `package.json` (modified — added inngest:dev script)
