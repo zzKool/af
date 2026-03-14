@@ -45,11 +45,11 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
   - [x] 0.4 Verify no other items have passed their deferral deadline
   - [x] 0.5 Document check result in Dev Agent Record
 
-- [ ] Task 1: Test performance baseline (AC: #6) — **MUST run before any code changes to capture clean baseline**
-  - [ ] 1.1 Run `npm run test` and capture total execution time. Record: number of tests, number of test files, total duration, slowest test suites.
-  - [ ] 1.2 Run `npm run e2e` and capture total execution time. Record: number of tests, total duration, slowest specs.
-  - [ ] 1.3 If CI pipeline exists, check recent CI run durations for test and E2E steps via `gh run list` and `gh run view`.
-  - [ ] 1.4 Document in `docs/test-performance-baseline.md`:
+- [x] Task 1: Test performance baseline (AC: #6) — **MUST run before any code changes to capture clean baseline**
+  - [x] 1.1 Run `npm run test` and capture total execution time. Record: number of tests, number of test files, total duration, slowest test suites.
+  - [x] 1.2 Run `npm run e2e` and capture total execution time. Record: number of tests, total duration, slowest specs.
+  - [x] 1.3 If CI pipeline exists, check recent CI run durations for test and E2E steps via `gh run list` and `gh run view`.
+  - [x] 1.4 Document in `docs/test-performance-baseline.md`:
     - Current baseline numbers (date, test count, duration)
     - Expected growth trajectory (Epic 5 adds ~30 tests per story based on Epic 4 average)
     - Warning threshold: flag if CI test step exceeds 2x current baseline
@@ -421,5 +421,8 @@ Claude Opus 4.6
 ### Completion Notes List
 
 - ✅ Task 0: Retro gate check passed. Item #4 (Sentry) addressed by Task 4, item #6 (action labels) addressed by Task 5. No items past deferral deadline.
+- ✅ Task 1: Test baseline captured. 394 tests/31 files/115.90s local, 4 E2E/11.7s, CI pipeline ~6m04s. Warning threshold: 2x current baseline. Documented in docs/test-performance-baseline.md.
 
 ### File List
+
+- `docs/test-performance-baseline.md` (new)
