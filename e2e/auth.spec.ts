@@ -15,11 +15,11 @@ test.describe("Owner authentication and navigation", () => {
 
     // Currently enabled routes (updated as epics enable more pages)
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Documents" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Partners" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
     // Not yet enabled — these appear as epics are completed
-    await expect(nav.getByRole("link", { name: "Documents" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Reconciliation" })).not.toBeVisible();

@@ -1,27 +1,39 @@
+import { NonRetriableError } from "inngest";
 import { inngest } from "../client";
 import { withInngestContext } from "../context";
 
 /**
  * Process an uploaded document (OCR, metadata extraction).
  *
- * Spike: proves DB access works using an existing table (partners).
- * Story 5.2 replaces the spike body with actual document processing.
+ * Story 5.1: Loads document, updates status to 'processing'.
+ * Story 5.2 will add actual Azure Document Intelligence OCR call.
  */
 export const processDocument = inngest.createFunction(
   { id: "process-document", retries: 3 },
   { event: "document/uploaded" },
   async ({ event, step }) => {
-    const { tenantId, userId } = event.data;
+    const { tenantId, userId, documentId } = event.data;
 
-    const result = await step.run("verify-db-access", async () => {
-      return withInngestContext(tenantId, userId, async (tx, caller) => {
-        // Read: proves RLS-scoped query works inside Inngest
-        const count = await tx.partner.count();
-        return {
-          tenantId,
-          partnerCount: count,
-          callerSource: caller.source,
-        };
+    const result = await step.run("update-status-to-processing", async () => {
+      return withInngestContext(tenantId, userId, async (tx, _caller, _audit) => {
+        // Load document by ID — if not found, the event was from a rolled-back transaction
+        const document = await tx.document.findUnique({
+          where: { id: documentId },
+        });
+
+        if (!document) {
+          throw new NonRetriableError(
+            `Document ${documentId} not found — likely from a rolled-back transaction`,
+          );
+        }
+
+        // Update status from 'uploaded' to 'processing'
+        await tx.document.update({
+          where: { id: documentId },
+          data: { status: "processing" },
+        });
+
+        return { documentId, status: "processing" };
       });
     });
 

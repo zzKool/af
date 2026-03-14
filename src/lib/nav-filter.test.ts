@@ -3,10 +3,10 @@ import { NAV_ITEMS, type NavItem } from "./constants";
 import { filterNavItems } from "./nav-filter";
 
 describe("filterNavItems", () => {
-  test("owner sees Dashboard, Partners, and Settings", () => {
+  test("owner sees Dashboard, Documents, Partners, and Settings", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
-    expect(labels).toEqual(["Dashboard", "Partners", "Settings"]);
+    expect(labels).toEqual(["Dashboard", "Documents", "Partners", "Settings"]);
   });
 
   test("accountant sees Dashboard and Settings (Partners is owner-only)", () => {
@@ -18,20 +18,16 @@ describe("filterNavItems", () => {
   test("disabled items are excluded even if role matches", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
-    expect(labels).not.toContain("Documents");
     expect(labels).not.toContain("Journal");
     expect(labels).not.toContain("Banking");
   });
 
-  test("future-enabled items appear for correct roles", () => {
-    const withDocuments: NavItem[] = NAV_ITEMS.map((item) =>
-      item.path === "/documents" ? { ...item, enabled: true } : item,
-    );
-    const ownerResult = filterNavItems(withDocuments, "owner");
+  test("Documents is visible to owner but not accountant", () => {
+    const ownerResult = filterNavItems(NAV_ITEMS, "owner");
     expect(ownerResult.map((i) => i.label)).toContain("Documents");
 
-    const accountantResult = filterNavItems(withDocuments, "accountant");
-    expect(accountantResult.map((i) => i.label)).toContain("Documents");
+    const accountantResult = filterNavItems(NAV_ITEMS, "accountant");
+    expect(accountantResult.map((i) => i.label)).not.toContain("Documents");
   });
 
   test("owner-only enabled items are not visible to accountant", () => {
@@ -58,9 +54,9 @@ describe("NAV_ITEMS configuration", () => {
     }
   });
 
-  test("Dashboard, Partners, and Settings are enabled", () => {
+  test("Dashboard, Documents, Partners, and Settings are enabled", () => {
     const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.label);
-    expect(enabled).toEqual(["Dashboard", "Partners", "Settings"]);
+    expect(enabled).toEqual(["Dashboard", "Documents", "Partners", "Settings"]);
   });
 
   test("all paths start with /", () => {
