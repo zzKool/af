@@ -199,8 +199,8 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
   - [x] 5.5 Update `src/server/middleware/logging.test.ts` to pass metadata in test invocations and assert specific action names in log output.
   - [x] 5.6 Verify all tests pass: `npm run test -- --reporter verbose`
 
-- [ ] Task 6: Client-side checklist + auto-save pattern doc (AC: #5)
-  - [ ] 6.1 Add 3 new mandatory items to `docs/story-creation-checklist.md` under "Client-Side UI Checklist > Mandatory Items". Include a 2-line code example for each:
+- [x] Task 6: Client-side checklist + auto-save pattern doc (AC: #5)
+  - [x] 6.1 Add 3 new mandatory items to `docs/story-creation-checklist.md` under "Client-Side UI Checklist > Mandatory Items". Include a 2-line code example for each:
     - **Empty-value clearing on blur** — Auto-save onBlur handlers must treat empty string as a valid value, not as "no change". When a user clears a text field, the empty value must be committed to the server.
       ```tsx
       // WRONG: if (value === field.current) return;  // "" === "" skips save
@@ -219,11 +219,11 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
       // In parent: const onNameSaved = () => router.refresh();
       ```
       - *Rationale: Story 4.3 — partner name in the persistent header became stale after auto-save updated the name in the form body.*
-  - [ ] 6.2 Add a "Code Duplication Threshold" section after the Client-Side UI Checklist:
+  - [x] 6.2 Add a "Code Duplication Threshold" section after the Client-Side UI Checklist:
     - Flag second copy as tech debt in the deferred items register
     - Extract to shared utility on third copy
     - *Rationale: Epic 4 retro — `extractError` was duplicated in Stories 4.1 and 4.2, only extracted to shared utility in Story 4.3. Second copy should have been flagged immediately.*
-  - [ ] 6.3 Create `docs/auto-save-pattern.md` — consolidate ALL 8 known auto-save edge cases into a single pattern reference document. This is the holistic "how to build auto-save forms" guide that Story 5.3 (document review with OCR correction) will need. Include:
+  - [x] 6.3 Create `docs/auto-save-pattern.md` — consolidate ALL 8 known auto-save edge cases into a single pattern reference document. This is the holistic "how to build auto-save forms" guide that Story 5.3 (document review with OCR correction) will need. Include:
     - Auto-save lifecycle: onBlur for text fields, onChange for selects
     - Edge case 1: Error handling — surface failures via toast, never swallow silently
     - Edge case 2: Stale closures — use refs or functional updates
@@ -426,6 +426,7 @@ Claude Opus 4.6
 - ✅ Task 3: Inngest spike complete. createSystemCaller + withInngestContext helpers. processDocument skeleton registered. inngest:dev script added. Security note on signing key documented. Signing key added to deferred items.
 - ✅ Task 4: Sentry integration complete. @sentry/nextjs configured with error-only tracking. Error handler captures exceptions with sentryEventId. Auth/logging middleware set Sentry context. Build and tests pass.
 - ✅ Task 5: Action metadata added to all 37 actions across 9 files. defineMetadataSchema on base client, logging middleware uses metadata.name. Tests updated and passing.
+- ✅ Task 6: Story creation checklist updated with 3 new UI items + Code Duplication Threshold. auto-save-pattern.md created with all 8 edge cases.
 
 ### File List
 
@@ -465,3 +466,5 @@ Claude Opus 4.6
 - `src/server/actions/document-type-prefixes.ts` (modified — .metadata() on 4 actions)
 - `src/server/actions/user-preferences.ts` (modified — .metadata() on 2 actions)
 - `src/server/actions/dashboard.ts` (modified — .metadata() on 1 action)
+- `docs/story-creation-checklist.md` (modified — 3 new UI items + code duplication threshold)
+- `docs/auto-save-pattern.md` (new)

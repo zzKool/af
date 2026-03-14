@@ -50,6 +50,34 @@ Stories that include client-side UI components must verify these items. Based on
 - [ ] **Confirm dialog for deletes** — Delete operations must use `<ConfirmDialog>` (from `src/components/ui/confirm-dialog.tsx`), never native `confirm()`. Include entity name in the confirmation description.
   - *Rationale: Native `confirm()` blocks the thread, is unstyled, and not accessible. Story 4.0 introduced the shared `ConfirmDialog` component as the standard.*
 
+- [ ] **Empty-value clearing on blur** — Auto-save onBlur handlers must treat empty string as a valid value, not as "no change". When a user clears a text field, the empty value must be committed to the server.
+  ```tsx
+  // WRONG: if (value === field.current) return;  // "" === "" skips save
+  // RIGHT: if (value === field.current && value !== "") return;
+  ```
+  - *Rationale: Story 4.1 — clearing a text field back to empty was ignored by onBlur, which treated "" as unchanged.*
+
+- [ ] **None option for optional selects** — Optional select dropdowns (currency, language, BAS category, etc.) must include a "None" or "—" option so users can un-select a previously chosen value. The None option should send `null` to the server.
+  ```tsx
+  <option value="">— None —</option>  // Always include for optional selects
+  // onChange handler: send null when value === ""
+  ```
+  - *Rationale: Story 4.1 — once a user selected a currency or language, there was no way to un-select it.*
+
+- [ ] **Header-sync for persistent headers** — When a form field (e.g., partner name) is displayed in both a persistent header and a form body, auto-save updates must propagate to the header. Use a callback (e.g., `onNameSaved`) that triggers `router.refresh()` or direct state update.
+  ```tsx
+  // In form: onSave={() => onNameSaved?.(newName)}
+  // In parent: const onNameSaved = () => router.refresh();
+  ```
+  - *Rationale: Story 4.3 — partner name in the persistent header became stale after auto-save updated the name in the form body.*
+
+## Code Duplication Threshold
+
+- **Second copy:** Flag as tech debt in the deferred items register immediately
+- **Third copy:** Extract to shared utility — do NOT proceed with a third duplication
+
+*Rationale: Epic 4 retro — `extractError` was duplicated in Stories 4.1 and 4.2, only extracted to shared utility in Story 4.3. Second copy should have been flagged immediately.*
+
 ## Pattern-Setter Flag
 
 Mark a story as **pattern-setter** when it's the first of its kind:
