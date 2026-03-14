@@ -313,8 +313,11 @@ describe("documents service", () => {
         );
       });
 
+      expect(uploaded.data).toBeDefined();
+      const docId = uploaded.data!.id;
+
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocument(tx, uploaded.data?.id);
+        return documentService.getDocument(tx, docId);
       });
 
       expect(result.data).toBeDefined();
