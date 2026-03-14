@@ -52,6 +52,7 @@ Page-specific documentation and patterns.
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 - [[partner-crud-pattern]] — Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
+- [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
 
 ## Components
 
