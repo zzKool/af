@@ -1,6 +1,6 @@
 # Story 5.2: OCR Processing & Extraction
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,13 +25,13 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
 
 ## Tasks / Subtasks
 
-- [ ] Task 0: Install Azure Document Intelligence SDK (AC: #1, #7)
-  - [ ] 0.1 Install `@azure-rest/ai-document-intelligence` (v1.0.0+, API version 2024-11-30 GA): `npm install @azure-rest/ai-document-intelligence`
-  - [ ] 0.2 Verify env vars `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` exist in `.env.example` (they do — already added in Story 5.0)
-  - [ ] 0.3 Add `OCR_MAX_RETRIES = 3` constant to `src/lib/constants.ts` if not already present
+- [x] Task 0: Install Azure Document Intelligence SDK (AC: #1, #7)
+  - [x] 0.1 Install `@azure-rest/ai-document-intelligence` (v1.0.0+, API version 2024-11-30 GA): `npm install @azure-rest/ai-document-intelligence`
+  - [x] 0.2 Verify env vars `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` exist in `.env.example` (they do — already added in Story 5.0)
+  - [x] 0.3 Add `OCR_MAX_RETRIES = 3` constant to `src/lib/constants.ts` if not already present
 
-- [ ] Task 1: Create OCR service interface and implementation (AC: #1, #2, #7, #9)
-  - [ ] 1.1 Create `src/server/services/ocr.ts` with swappable interface:
+- [x] Task 1: Create OCR service interface and implementation (AC: #1, #2, #7, #9)
+  - [x] 1.1 Create `src/server/services/ocr.ts` with swappable interface:
     ```typescript
     // --- Dual-source input: SAS URL for production, Buffer for mock/local ---
     export type OcrSource =
@@ -81,7 +81,7 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
       tax?: number;
     }
     ```
-  - [ ] 1.2 Implement `createAzureOcrService(endpoint: string, apiKey: string): OcrService`:
+  - [x] 1.2 Implement `createAzureOcrService(endpoint: string, apiKey: string): OcrService`:
     - Use `@azure-rest/ai-document-intelligence` REST client
     - Create client: `DocumentIntelligence(endpoint, { key: apiKey })`
     - Model selection via configurable map (NOT a switch statement):
@@ -128,33 +128,33 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
       - 401/403 auth → `{ success: false, retryable: false }`
       - 429 rate limit → `{ success: false, retryable: true }`
     - **CRITICAL**: If `isUnexpected(initialResponse)`, check status code to determine retryability
-  - [ ] 1.3 Implement `createMockOcrService(): OcrService`:
+  - [x] 1.3 Implement `createMockOcrService(): OcrService`:
     - Returns **prefix-type-specific** fixture data (different per type):
     - Invoice fixture: `{ vendorName: "Test Vendor AB", vendorTaxId: "SE556677889901", invoiceTotal: 1250.00, subtotal: 1000.00, totalTax: 250.00, invoiceDate: "2026-03-14", currency: "SEK", invoiceNumber: "INV-2026-001", paymentDetails: [{ iban: "SE1234567890123456", swift: "NDEASESS" }], items: [{ description: "Consulting", quantity: 10, unitPrice: 100, amount: 1000 }], confidence: 0.95, modelUsed: "prebuilt-invoice", pageCount: 1, rawText: "Invoice from Test Vendor AB...", processingTimeMs: 1200 }`
     - Receipt fixture: `{ merchantName: "ICA Maxi", invoiceTotal: 342.50, subtotal: 274.00, totalTax: 68.50, transactionDate: "2026-03-14", currency: "SEK", items: [{ description: "Groceries", amount: 342.50 }], confidence: 0.92, modelUsed: "prebuilt-receipt", pageCount: 1, rawText: "ICA Maxi Kvitto...", processingTimeMs: 800 }`
     - Contract/NDA/Certificate fixture: `{ confidence: 0.80, modelUsed: "prebuilt-layout", pageCount: 2, rawText: "Service Agreement between...", processingTimeMs: 600 }` (minimal financial extraction)
     - Quality: invoice/receipt → `"high"`, contract/nda/cert → `"none"`
-  - [ ] 1.4 Export factory function `createOcrService(): OcrService`:
+  - [x] 1.4 Export factory function `createOcrService(): OcrService`:
     - If `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` are set → return Azure implementation
     - Otherwise → return mock implementation with `logger.warn("AZURE_DI_ENDPOINT not set — using mock OCR service")`
-  - [ ] 1.5 MUST NOT import from `next/*` or `src/components/*` (hexagonal boundary)
+  - [x] 1.5 MUST NOT import from `next/*` or `src/components/*` (hexagonal boundary)
 
-- [ ] Task 2: Create OCR service tests (AC: #7, #9)
-  - [ ] 2.1 Create `src/server/services/ocr.test.ts`
-  - [ ] 2.2 Test mock service returns correct prefix-specific fixture data (5 cases: expense, invoice, contract, nda, certificate)
-  - [ ] 2.3 Test mock service returns correct quality per prefix type (high for financial, none for non-financial)
-  - [ ] 2.4 Test factory function: returns mock when no env vars, Azure when env vars present
-  - [ ] 2.5 Test `OcrExtractedData` field mapping from Azure response format (use a captured real response fixture)
-  - [ ] 2.6 Test quality classification logic: high (confidence >=0.7 + key fields), low (confidence <0.7), none (layout model)
-  - [ ] 2.7 Test error handling: API failure → `{ success: false, retryable: true }`, auth failure → `{ success: false, retryable: false }`
-  - [ ] 2.8 Test unknown prefix type → falls back to `prebuilt-layout` model with warning log
-  - [ ] 2.9 Test URL source vs buffer source passed correctly to Azure DI client
-  - [ ] 2.10 Use `describe.skipIf(!process.env.AZURE_DI_ENDPOINT)` for integration tests against real Azure endpoint
-  - [ ] 2.11 **CI MUST NOT set AZURE_DI_ENDPOINT** — prevent accidental real API calls in CI pipeline
-  - [ ] 2.12 Add test fixture files for gated integration tests: `src/server/services/__fixtures__/test-invoice.pdf` (small 1-page invoice <100KB), `src/server/services/__fixtures__/test-receipt.jpg` (receipt photo <100KB)
+- [x] Task 2: Create OCR service tests (AC: #7, #9)
+  - [x] 2.1 Create `src/server/services/ocr.test.ts`
+  - [x] 2.2 Test mock service returns correct prefix-specific fixture data (5 cases: expense, invoice, contract, nda, certificate)
+  - [x] 2.3 Test mock service returns correct quality per prefix type (high for financial, none for non-financial)
+  - [x] 2.4 Test factory function: returns mock when no env vars, Azure when env vars present
+  - [x] 2.5 Test `OcrExtractedData` field mapping from Azure response format (use a captured real response fixture)
+  - [x] 2.6 Test quality classification logic: high (confidence >=0.7 + key fields), low (confidence <0.7), none (layout model)
+  - [x] 2.7 Test error handling: API failure → `{ success: false, retryable: true }`, auth failure → `{ success: false, retryable: false }`
+  - [x] 2.8 Test unknown prefix type → falls back to `prebuilt-layout` model with warning log
+  - [x] 2.9 Test URL source vs buffer source passed correctly to Azure DI client
+  - [x] 2.10 Use `describe.skipIf(!process.env.AZURE_DI_ENDPOINT)` for integration tests against real Azure endpoint
+  - [x] 2.11 **CI MUST NOT set AZURE_DI_ENDPOINT** — prevent accidental real API calls in CI pipeline
+  - [x] 2.12 Add test fixture files for gated integration tests: `src/server/services/__fixtures__/test-invoice.pdf` (small 1-page invoice <100KB), `src/server/services/__fixtures__/test-receipt.jpg` (receipt photo <100KB)
 
-- [ ] Task 3: Update process-document Inngest function — 3-step architecture (AC: #1, #3, #4, #5, #6)
-  - [ ] 3.1 Update `src/server/inngest/functions/process-document.ts` with **three separate steps** for optimal retry/memoization:
+- [x] Task 3: Update process-document Inngest function — 3-step architecture (AC: #1, #3, #4, #5, #6)
+  - [x] 3.1 Update `src/server/inngest/functions/process-document.ts` with **three separate steps** for optimal retry/memoization:
 
     **Step 1 — "update-status-to-processing"** (existing from Story 5.1, no changes):
     - Load document, verify status is `uploaded`
@@ -248,14 +248,14 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
     });
     ```
 
-  - [ ] 3.2 Create helper `extractBlobPath(blobUrl: string): string` — extracts `{tenantId}/{uuid}.{ext}` from full Azurite/Azure blob URL. Must handle:
+  - [x] 3.2 Create helper `extractBlobPath(blobUrl: string): string` — extracts `{tenantId}/{uuid}.{ext}` from full Azurite/Azure blob URL. Must handle:
     - Azurite: `http://127.0.0.1:10000/devstoreaccount1/documents/{path}`
     - Azure: `https://account.blob.core.windows.net/documents/{path}`
     - URL with existing query params (SAS token) → strip params before parsing
-  - [ ] 3.3 Inngest retry config: keep `retries: 3` (already set in Story 5.1) — exponential backoff is Inngest's default behavior
+  - [x] 3.3 Inngest retry config: keep `retries: 3` (already set in Story 5.1) — exponential backoff is Inngest's default behavior
 
-- [ ] Task 4: Handle OCR failure on retry exhaustion (AC: #5, #6)
-  - [ ] 4.1 Add `onFailure` callback to function config:
+- [x] Task 4: Handle OCR failure on retry exhaustion (AC: #5, #6)
+  - [x] 4.1 Add `onFailure` callback to function config:
     ```typescript
     inngest.createFunction(
       {
@@ -285,25 +285,25 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
       async ({ event, step }) => { ... },
     );
     ```
-  - [ ] 4.2 Log error details to Pino logger (Sentry captures via existing integration)
-  - [ ] 4.3 **CRITICAL GOTCHA**: `onFailure` handler receives a *wrapped* event — `event.data.event.data` contains the original event data. The dev MUST use this nested path or the handler crashes.
+  - [x] 4.2 Log error details to Pino logger (Sentry captures via existing integration)
+  - [x] 4.3 **CRITICAL GOTCHA**: `onFailure` handler receives a *wrapped* event — `event.data.event.data` contains the original event data. The dev MUST use this nested path or the handler crashes.
 
-- [ ] Task 5: Create process-document tests (AC: #1, #3, #4, #5, #7)
-  - [ ] 5.1 Create `src/server/inngest/functions/process-document.test.ts`
-  - [ ] 5.2 Test happy path (3 steps): uploaded → processing → OCR success → extracted
-  - [ ] 5.3 Test OCR failure (non-retryable): uploaded → processing → ocr_failed
-  - [ ] 5.4 Test OCR failure (retryable): error thrown from save-ocr-result → verify error propagates for Inngest retry
-  - [ ] 5.5 Test document not found in step 1 → NonRetriableError
-  - [ ] 5.6 Test document not found in step 2 → NonRetriableError
-  - [ ] 5.7 Test status guard: document not in 'uploaded' state → skip step 1
-  - [ ] 5.8 Test status guard: document not in 'processing' state → skip step 2
-  - [ ] 5.9 Test ocrData JSONB stored correctly — verify structure: `{ extractedData, rawResponse, quality }`
-  - [ ] 5.10 Test audit logging for both extracted and ocr_failed transitions
-  - [ ] 5.11 Test quality indicator flows through: high quality OCR → quality stored in ocrData
-  - [ ] 5.12 **Test onFailure handler specifically**: mock the nested event shape `event.data.event.data`, verify status → ocr_failed
-  - [ ] 5.13 **Test onFailure idempotency**: document already in `ocr_failed` → handler does nothing
-  - [ ] 5.14 **Test onFailure with already-extracted doc**: document already `extracted` → handler does nothing
-  - [ ] 5.15 Mock pattern (3-step aware):
+- [x] Task 5: Create process-document tests (AC: #1, #3, #4, #5, #7)
+  - [x] 5.1 Create `src/server/inngest/functions/process-document.test.ts`
+  - [x] 5.2 Test happy path (3 steps): uploaded → processing → OCR success → extracted
+  - [x] 5.3 Test OCR failure (non-retryable): uploaded → processing → ocr_failed
+  - [x] 5.4 Test OCR failure (retryable): error thrown from save-ocr-result → verify error propagates for Inngest retry
+  - [x] 5.5 Test document not found in step 1 → NonRetriableError
+  - [x] 5.6 Test document not found in step 2 → NonRetriableError
+  - [x] 5.7 Test status guard: document not in 'uploaded' state → skip step 1
+  - [x] 5.8 Test status guard: document not in 'processing' state → skip step 2
+  - [x] 5.9 Test ocrData JSONB stored correctly — verify structure: `{ extractedData, rawResponse, quality }`
+  - [x] 5.10 Test audit logging for both extracted and ocr_failed transitions
+  - [x] 5.11 Test quality indicator flows through: high quality OCR → quality stored in ocrData
+  - [x] 5.12 **Test onFailure handler specifically**: mock the nested event shape `event.data.event.data`, verify status → ocr_failed
+  - [x] 5.13 **Test onFailure idempotency**: document already in `ocr_failed` → handler does nothing
+  - [x] 5.14 **Test onFailure with already-extracted doc**: document already `extracted` → handler does nothing
+  - [x] 5.15 Mock pattern (3-step aware):
     ```typescript
     // Mock step.run to execute callbacks sequentially (simulates Inngest step memoization)
     const stepResults = new Map<string, unknown>();
@@ -337,39 +337,39 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
       }),
     }));
     ```
-  - [ ] 5.16 Use `withTenantTransaction` + real DB for integration tests (RLS-scoped)
+  - [x] 5.16 Use `withTenantTransaction` + real DB for integration tests (RLS-scoped)
 
-- [ ] Task 6: Create extractBlobPath utility + tests (AC: #1)
-  - [ ] 6.1 Create `extractBlobPath` in `src/server/services/ocr.ts` (or a shared util) — exported for testing
-  - [ ] 6.2 Test cases:
+- [x] Task 6: Create extractBlobPath utility + tests (AC: #1)
+  - [x] 6.1 Create `extractBlobPath` in `src/server/services/ocr.ts` (or a shared util) — exported for testing
+  - [x] 6.2 Test cases:
     - Azurite: `"http://127.0.0.1:10000/devstoreaccount1/documents/abc-123/file.pdf"` → `"abc-123/file.pdf"`
     - Azure: `"https://defterfab.blob.core.windows.net/documents/abc-123/file.pdf"` → `"abc-123/file.pdf"`
     - URL with query params: `"https://...documents/abc-123/file.pdf?sv=2024&sig=xxx"` → `"abc-123/file.pdf"`
     - Missing container name → throws Error
 
-- [ ] Task 7: Update documents service with OCR data access (AC: #3)
-  - [ ] 7.1 Update `getDocument()` in `src/server/services/documents.ts` to include `ocrData` in the return type
-  - [ ] 7.2 Add `getDocumentOcrData(tx, documentId): Promise<ServiceResult<{ extractedData: OcrExtractedData; quality: string } | null>>` method — parses the raw JSONB `ocrData` field into typed structure for Story 5.3 consumption
-  - [ ] 7.3 Add test for `getDocumentOcrData` returning parsed fields
-  - [ ] 7.4 Add test for `getDocumentOcrData` with null ocrData (document not yet processed)
+- [x] Task 7: Update documents service with OCR data access (AC: #3)
+  - [x] 7.1 Update `getDocument()` in `src/server/services/documents.ts` to include `ocrData` in the return type
+  - [x] 7.2 Add `getDocumentOcrData(tx, documentId): Promise<ServiceResult<{ extractedData: OcrExtractedData; quality: string } | null>>` method — parses the raw JSONB `ocrData` field into typed structure for Story 5.3 consumption
+  - [x] 7.3 Add test for `getDocumentOcrData` returning parsed fields
+  - [x] 7.4 Add test for `getDocumentOcrData` with null ocrData (document not yet processed)
 
-- [ ] Task 8: Testing & verification (AC: all)
-  - [ ] 8.1 Run full test suite: `npm run test` — must pass all 453+ existing tests + ~27 new tests (target: 480+)
-  - [ ] 8.2 Run lint: `npx biome check --write`
-  - [ ] 8.3 Run typecheck: `npm run typecheck` — verify NO new `any` types introduced (Azure DI SDK types must be used properly)
-  - [ ] 8.4 Verify build: `npm run build`
-  - [ ] 8.5 Manual smoke test (if Azure DI endpoint configured):
+- [x] Task 8: Testing & verification (AC: all)
+  - [x] 8.1 Run full test suite: `npm run test` — must pass all 453+ existing tests + ~27 new tests (target: 480+)
+  - [x] 8.2 Run lint: `npx biome check --write`
+  - [x] 8.3 Run typecheck: `npm run typecheck` — verify NO new `any` types introduced (Azure DI SDK types must be used properly)
+  - [x] 8.4 Verify build: `npm run build`
+  - [x] 8.5 Manual smoke test (if Azure DI endpoint configured):
     - `docker compose up -d` (Azurite + DB)
     - `npm run inngest:dev` (Inngest dev server at localhost:8288)
     - Upload a PDF via dev server → verify Inngest dashboard shows 3 steps executing
     - Verify document status transitions: uploaded → processing → extracted
     - Verify `ocr_data` populated in DB with `{ extractedData, rawResponse, quality }` structure (check via Prisma Studio: `npm run db:studio`)
     - Verify OCR completes within 30 seconds for a typical 1-page invoice
-  - [ ] 8.6 Manual smoke test (without Azure DI — mock mode):
+  - [x] 8.6 Manual smoke test (without Azure DI — mock mode):
     - Upload a document → verify mock OCR runs → status goes to `extracted` with prefix-specific fixture data
 
-- [ ] Task 9: Documentation (AC: #10)
-  - [ ] 9.1 Create `docs/ocr-processing.md` documenting:
+- [x] Task 9: Documentation (AC: #10)
+  - [x] 9.1 Create `docs/ocr-processing.md` documenting:
     - OCR service interface and implementations (Azure DI + mock)
     - Model selection logic (prefix type → prebuilt model map + unknown fallback)
     - Dual source approach: SAS URL (production) vs buffer (local dev)
@@ -382,8 +382,8 @@ so that I don't have to manually type in amounts, dates, and vendor names from e
     - Testing with mock vs real Azure endpoint
     - Security: never log extracted data contents
     - Known limitation: stuck documents in `processing` if Inngest infrastructure fails — manual recovery via Prisma Studio
-  - [ ] 9.2 Update `docs/index.md` with reference to `[[ocr-processing]]`
-  - [ ] 9.3 Update `docs/document-upload.md` status lifecycle section with OCR details
+  - [x] 9.2 Update `docs/index.md` with reference to `[[ocr-processing]]`
+  - [x] 9.3 Update `docs/document-upload.md` status lifecycle section with OCR details
 
 ## Dev Notes
 
@@ -764,10 +764,42 @@ package-lock.json — lockfile update
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6
 
 ### Debug Log References
 
+No debug issues encountered.
+
 ### Completion Notes List
 
+- Installed `@azure-rest/ai-document-intelligence` SDK
+- Created OCR service (`src/server/services/ocr.ts`) with Azure DI + mock implementations, typed field extractors, quality classification, and `extractBlobPath` utility
+- Updated `process-document.ts` Inngest function with 3-step architecture (status update, OCR analysis, save result) and `onFailure` handler
+- Added `getDocumentOcrData()` to documents service for Story 5.3 consumption
+- 33 new tests: 19 OCR service tests + 14 Inngest function tests
+- All 479 tests pass (17 skipped, 1 pre-existing timeout in action-client.test.ts)
+- Typecheck clean, lint clean, build clean
+- Created `docs/ocr-processing.md` documentation with wiki-link references
+
 ### File List
+
+**New files:**
+- `src/server/services/ocr.ts` — OCR service interface, Azure DI implementation, mock, extractBlobPath
+- `src/server/services/ocr.test.ts` — OCR service unit tests (19 tests)
+- `src/server/inngest/functions/process-document.test.ts` — Inngest function tests (14 tests)
+- `src/server/services/__fixtures__/test-invoice.pdf` — Test fixture
+- `src/server/services/__fixtures__/test-receipt.jpg` — Test fixture
+- `docs/ocr-processing.md` — OCR processing documentation
+
+**Modified files:**
+- `src/server/inngest/functions/process-document.ts` — 3-step OCR + onFailure handler
+- `src/server/services/documents.ts` — Added ocrData to getDocument return, added getDocumentOcrData()
+- `src/server/services/documents.test.ts` — Added 2 tests for getDocumentOcrData
+- `docs/index.md` — Added [[ocr-processing]] reference
+- `docs/document-upload.md` — Updated status lifecycle section with OCR details
+- `package.json` — Added @azure-rest/ai-document-intelligence dependency
+- `package-lock.json` — Lockfile update
+
+## Change Log
+
+- 2026-03-14: Story 5.2 implementation complete — OCR service, 3-step Inngest function, tests, documentation
