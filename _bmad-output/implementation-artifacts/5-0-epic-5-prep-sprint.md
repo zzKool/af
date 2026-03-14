@@ -55,10 +55,10 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
     - Warning threshold: flag if CI test step exceeds 2x current baseline
     - Optimization strategies if threshold is hit (parallel test execution, test database pooling, fixture caching)
 
-- [ ] Task 2: Azurite + Azure Blob Storage spike (AC: #2) — **PATTERN-SETTER: first blob storage interaction. De-risk this blocker before Sentry.**
-  - [ ] 2.1 Verify Azurite service in `docker-compose.yml` starts correctly: `docker compose up azurite -d` — confirm ports 10000 (blob), 10001 (queue), 10002 (table) are accessible.
-  - [ ] 2.2 Install `@azure/storage-blob`: `npm install @azure/storage-blob`
-  - [ ] 2.3 Create `src/server/services/storage.ts` — a thin abstraction over `@azure/storage-blob`. The container name is **hardcoded internally** from `AZURE_STORAGE_CONTAINER` env var (architecture mandates a single container named `documents`). Interface:
+- [x] Task 2: Azurite + Azure Blob Storage spike (AC: #2) — **PATTERN-SETTER: first blob storage interaction. De-risk this blocker before Sentry.**
+  - [x] 2.1 Verify Azurite service in `docker-compose.yml` starts correctly: `docker compose up azurite -d` — confirm ports 10000 (blob), 10001 (queue), 10002 (table) are accessible.
+  - [x] 2.2 Install `@azure/storage-blob`: `npm install @azure/storage-blob`
+  - [x] 2.3 Create `src/server/services/storage.ts` — a thin abstraction over `@azure/storage-blob`. The container name is **hardcoded internally** from `AZURE_STORAGE_CONTAINER` env var (architecture mandates a single container named `documents`). Interface:
     ```typescript
     export interface StorageService {
       ensureContainer(): Promise<void>;
@@ -69,15 +69,15 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
     }
     ```
     Implementation uses `BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING)`. Service MUST NOT import from `next/*` (hexagonal boundary). Callers pass `blobPath` as `{tenantId}/{uuid}.{ext}` — the service does not know about tenants.
-  - [ ] 2.4 Create `src/server/services/storage.test.ts` — integration tests against Azurite. Guard with `describe.skipIf(!process.env.AZURE_STORAGE_CONNECTION_STRING)` so CI doesn't break (CI has no Azurite service). Tests:
+  - [x] 2.4 Create `src/server/services/storage.test.ts` — integration tests against Azurite. Guard with `describe.skipIf(!process.env.AZURE_STORAGE_CONNECTION_STRING)` so CI doesn't break (CI has no Azurite service). Tests:
     - Ensure container → success (idempotent)
     - Upload blob (small PDF fixture) → success, returns URL
     - Download blob → content matches uploaded data
     - Generate SAS URL → URL is valid and accessible
     - Delete blob → success, subsequent download throws/returns 404
     - Upload with tenant-prefixed path `/{tenantId}/{uuid}.pdf` → verifies path structure works
-  - [ ] 2.5 Verify `.env.example` already has `AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER` (confirmed — already present with Azurite defaults).
-  - [ ] 2.6 Document findings in `docs/blob-storage.md` (NOT `blob-storage-spike.md` — this evolves into the pattern doc for Story 5.1): Azurite setup, SDK usage, connection string format, test patterns, CI strategy (`describe.skipIf`), known limitations (SAS URL hostname differences between Azurite and production Azure).
+  - [x] 2.5 Verify `.env.example` already has `AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER` (confirmed — already present with Azurite defaults).
+  - [x] 2.6 Document findings in `docs/blob-storage.md` (NOT `blob-storage-spike.md` — this evolves into the pattern doc for Story 5.1): Azurite setup, SDK usage, connection string format, test patterns, CI strategy (`describe.skipIf`), known limitations (SAS URL hostname differences between Azurite and production Azure).
 
 - [ ] Task 3: Inngest spike (AC: #3) — **PATTERN-SETTER: first async job infrastructure. De-risk this blocker before Sentry.**
   - [ ] 3.1 Verify existing Inngest setup: `src/server/inngest/client.ts` (Inngest client with id "defterfab") and `src/app/api/inngest/route.ts` (serve handler) already exist. Confirm they work with Inngest Dev Server.
@@ -422,7 +422,12 @@ Claude Opus 4.6
 
 - ✅ Task 0: Retro gate check passed. Item #4 (Sentry) addressed by Task 4, item #6 (action labels) addressed by Task 5. No items past deferral deadline.
 - ✅ Task 1: Test baseline captured. 394 tests/31 files/115.90s local, 4 E2E/11.7s, CI pipeline ~6m04s. Warning threshold: 2x current baseline. Documented in docs/test-performance-baseline.md.
+- ✅ Task 2: Azurite blob storage spike complete. StorageService with upload/download/delete/SAS URL. 8 tests pass (6 integration against Azurite, 2 validation). Added --skipApiVersionCheck to docker-compose for SDK compatibility.
 
 ### File List
 
 - `docs/test-performance-baseline.md` (new)
+- `src/server/services/storage.ts` (new)
+- `src/server/services/storage.test.ts` (new)
+- `docs/blob-storage.md` (new)
+- `docker-compose.yml` (modified — added --skipApiVersionCheck to Azurite)
