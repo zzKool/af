@@ -29,7 +29,7 @@ type BasOption = { code: string; label: string };
 
 type ExternalIdentifier = { label: string; value: string };
 
-type PartnerData = {
+export type PartnerData = {
   id: string;
   name: string;
   orgNumber: string | null;
@@ -57,6 +57,7 @@ type AddressData = {
 interface PartnerFormProps {
   partner: PartnerData;
   basOptions: BasOption[];
+  hideHeader?: boolean;
 }
 
 function extractError(result: unknown): string | null {
@@ -72,7 +73,7 @@ function extractError(result: unknown): string | null {
   return null;
 }
 
-export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
+export function PartnerForm({ partner, basOptions, hideHeader = false }: PartnerFormProps) {
   const [name, setName] = useState(partner.name);
   const [orgNumber, setOrgNumber] = useState(partner.orgNumber ?? "");
   const [vatNumber, setVatNumber] = useState(partner.vatNumber ?? "");
@@ -204,26 +205,28 @@ export function PartnerForm({ partner, basOptions }: PartnerFormProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/partners" className="text-muted-foreground hover:text-foreground">
-            &larr; Partners
-          </Link>
-          <h1 className="text-2xl font-semibold">{name}</h1>
-          <Badge variant={isActive ? "default" : "secondary"}>
-            {isActive ? "Active" : "Inactive"}
-          </Badge>
+      {!hideHeader && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/partners" className="text-muted-foreground hover:text-foreground">
+              &larr; Partners
+            </Link>
+            <h1 className="text-2xl font-semibold">{name}</h1>
+            <Badge variant={isActive ? "default" : "secondary"}>
+              {isActive ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+          {isActive ? (
+            <Button variant="destructive" size="sm" onClick={handleDeactivate}>
+              Deactivate
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleReactivate}>
+              Reactivate
+            </Button>
+          )}
         </div>
-        {isActive ? (
-          <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-            Deactivate
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={handleReactivate}>
-            Reactivate
-          </Button>
-        )}
-      </div>
+      )}
 
       {/* Basic Info */}
       <Card>

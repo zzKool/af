@@ -1,8 +1,6 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { ContractList } from "@/components/partners/contract-list";
-import { PartnerForm } from "@/components/partners/partner-form";
-import { Separator } from "@/components/ui/separator";
+import { PartnerDetailTabs } from "@/components/partners/partner-detail-tabs";
 import { getAuthContext } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
@@ -65,8 +63,6 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     updatedAt: partnerResult.data.updatedAt.toISOString(),
   };
 
-  const isClient = partner.types.includes("client");
-
   // Serialize contracts for client component (Decimal → string, Date → string)
   const contracts = (contractsResult.data ?? []).map((c) => ({
     id: c.id,
@@ -94,19 +90,14 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <PartnerForm partner={partner} basOptions={basOptions} />
-      {isClient && (
-        <>
-          <Separator className="my-6" />
-          <ContractList
-            partnerId={partner.id}
-            contracts={contracts}
-            vatRegistrations={vatRegistrations}
-            employeePartners={employeePartners}
-            defaultCurrency={partner.defaultCurrency}
-          />
-        </>
-      )}
+      <PartnerDetailTabs
+        partner={partner}
+        contracts={contracts}
+        vatRegistrations={vatRegistrations}
+        employeePartners={employeePartners}
+        basOptions={basOptions}
+        defaultCurrency={partner.defaultCurrency}
+      />
     </div>
   );
 }
