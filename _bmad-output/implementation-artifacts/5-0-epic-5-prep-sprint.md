@@ -235,13 +235,13 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
     - Edge case 8: Confirm dialog for destructive saves — use ConfirmDialog
     - Reference implementations: `PartnerForm` (onBlur text), settings tabs (onChange select)
 
-- [ ] Task 7: Update deferred items register (AC: all)
-  - [ ] 7.1 Update `_bmad-output/implementation-artifacts/deferred-items.md`:
+- [x] Task 7: Update deferred items register (AC: all)
+  - [x] 7.1 Update `_bmad-output/implementation-artifacts/deferred-items.md`:
     - Move item #4 (Sentry integration) to Resolved section: "Story 5.0 Task 4 — @sentry/nextjs configured"
     - Move item #6 (generic action labels in Pino logs) to Resolved section: "Story 5.0 Task 5 — .metadata() on all actions, logging middleware uses action name"
-  - [ ] 7.2 Review all remaining active items: verify deadlines are still appropriate
-  - [ ] 7.3 Update "Last updated" date
-  - [ ] 7.4 Update `docs/index.md` with links to new docs: `blob-storage.md`, `async-jobs.md`, `test-performance-baseline.md`, `auto-save-pattern.md`
+  - [x] 7.2 Review all remaining active items: verify deadlines are still appropriate
+  - [x] 7.3 Update "Last updated" date
+  - [x] 7.4 Update `docs/index.md` with links to new docs: `blob-storage.md`, `async-jobs.md`, `test-performance-baseline.md`, `auto-save-pattern.md`
 
 - [ ] Task 8: Verify everything (AC: all)
   - [ ] 8.1 Run full test suite: `npm run test` — all existing 394+ tests + new tests pass
@@ -427,6 +427,7 @@ Claude Opus 4.6
 - ✅ Task 4: Sentry integration complete. @sentry/nextjs configured with error-only tracking. Error handler captures exceptions with sentryEventId. Auth/logging middleware set Sentry context. Build and tests pass.
 - ✅ Task 5: Action metadata added to all 37 actions across 9 files. defineMetadataSchema on base client, logging middleware uses metadata.name. Tests updated and passing.
 - ✅ Task 6: Story creation checklist updated with 3 new UI items + Code Duplication Threshold. auto-save-pattern.md created with all 8 edge cases.
+- ✅ Task 7: Deferred items #4 and #6 moved to resolved. Item #15 (Inngest signing key) added. docs/index.md updated with new doc links.
 
 ### File List
 
@@ -468,3 +469,5 @@ Claude Opus 4.6
 - `src/server/actions/dashboard.ts` (modified — .metadata() on 1 action)
 - `docs/story-creation-checklist.md` (modified — 3 new UI items + code duplication threshold)
 - `docs/auto-save-pattern.md` (new)
+- `_bmad-output/implementation-artifacts/deferred-items.md` (modified — #4, #6 resolved, #15 added)
+- `docs/index.md` (modified — new doc links)
