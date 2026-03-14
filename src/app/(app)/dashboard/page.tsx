@@ -18,7 +18,10 @@ export default async function DashboardPage() {
 
   // Empty for now — populated in Epic 8
   const actionItems: DashboardActionItem[] = [];
-  const pulseMetrics: BusinessPulseMetric[] = [];
+  const pulseMetrics: BusinessPulseMetric[] = [
+    { id: "partners", label: "Active Partners", value: String(data?.partnerCount ?? 0) },
+    { id: "contracts", label: "Active Contracts", value: String(data?.activeContractCount ?? 0) },
+  ];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
