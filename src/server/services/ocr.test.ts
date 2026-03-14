@@ -7,9 +7,7 @@ import {
   createMockOcrService,
   createOcrService,
   extractBlobPath,
-  MOCK_FIXTURES,
   MODEL_MAP,
-  type OcrResult,
   type OcrSource,
 } from "./ocr";
 
@@ -229,8 +227,8 @@ describe("extractBlobPath", () => {
 
 describe.skipIf(!process.env.AZURE_DI_ENDPOINT)("Azure DI integration", () => {
   it("analyzes a test invoice PDF", async () => {
-    const endpoint = process.env.AZURE_DI_ENDPOINT!;
-    const key = process.env.AZURE_DI_KEY!;
+    const endpoint = process.env.AZURE_DI_ENDPOINT ?? "";
+    const key = process.env.AZURE_DI_KEY ?? "";
     const service = createAzureOcrService(endpoint, key);
 
     const pdfPath = path.join(__dirname, "__fixtures__", "test-invoice.pdf");
@@ -246,8 +244,8 @@ describe.skipIf(!process.env.AZURE_DI_ENDPOINT)("Azure DI integration", () => {
   }, 30_000);
 
   it("analyzes a test receipt JPEG", async () => {
-    const endpoint = process.env.AZURE_DI_ENDPOINT!;
-    const key = process.env.AZURE_DI_KEY!;
+    const endpoint = process.env.AZURE_DI_ENDPOINT ?? "";
+    const key = process.env.AZURE_DI_KEY ?? "";
     const service = createAzureOcrService(endpoint, key);
 
     const jpgPath = path.join(__dirname, "__fixtures__", "test-receipt.jpg");
@@ -267,7 +265,7 @@ describe("createAzureOcrService", () => {
   // We test the Azure service by mocking the SDK module
   const mockPost = vi.fn();
   const mockPath = vi.fn(() => ({ post: mockPost }));
-  const mockClient = { path: mockPath };
+  const _mockClient = { path: mockPath };
 
   beforeEach(() => {
     vi.resetModules();
@@ -275,10 +273,9 @@ describe("createAzureOcrService", () => {
     mockPath.mockReset().mockReturnValue({ post: mockPost });
   });
 
-  it("passes URL source correctly to Azure DI", async () => {
-    // We can verify this by testing the mock OCR since Azure service
-    // internals are tested via integration tests. The URL vs buffer
-    // distinction is verified at the interface level.
+  it("accepts both URL and buffer source types via OcrService interface", async () => {
+    // Mock service accepts both source types (ignores source contents).
+    // Azure DI URL vs buffer body construction is covered by gated integration tests.
     const mock = createMockOcrService();
     const urlSource: OcrSource = { type: "url", url: "https://blob.url/doc.pdf" };
     const bufSource: OcrSource = {
@@ -290,7 +287,6 @@ describe("createAzureOcrService", () => {
     const result1 = await mock.analyzeDocument(urlSource, "invoice");
     const result2 = await mock.analyzeDocument(bufSource, "invoice");
 
-    // Both should succeed — mock ignores source type
     expect(result1.success).toBe(true);
     expect(result2.success).toBe(true);
   });

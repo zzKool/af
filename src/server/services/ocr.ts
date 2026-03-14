@@ -37,7 +37,6 @@ export interface OcrExtractedData {
   invoiceTotal?: number;
   subtotal?: number;
   totalTax?: number;
-  vatRate?: number;
   currency?: string;
   invoiceNumber?: string;
   merchantName?: string;
@@ -111,7 +110,6 @@ function classifyQuality(
     data.invoiceTotal !== undefined;
 
   if (confidence >= 0.7 && hasKeyField) return "high";
-  if (confidence < 0.7 || !hasKeyField) return "low";
   return "low";
 }
 
@@ -355,7 +353,7 @@ export function createMockOcrService(): OcrService {
 
       return {
         success: true,
-        data: { ...fixture.data },
+        data: structuredClone(fixture.data),
         rawResponse: { analyzeResult: { documents: [{ fields: {} }] } },
         quality: fixture.quality,
       };

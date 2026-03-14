@@ -1,4 +1,5 @@
 import { NonRetriableError } from "inngest";
+import { OCR_MAX_RETRIES } from "@/lib/constants";
 import { logger } from "@/server/logger";
 import {
   createOcrService,
@@ -22,7 +23,7 @@ import { withInngestContext } from "../context";
 export const processDocument = inngest.createFunction(
   {
     id: "process-document",
-    retries: 3,
+    retries: OCR_MAX_RETRIES,
     onFailure: async ({ event, error }) => {
       // CRITICAL: onFailure receives NESTED event — event.data.event.data, NOT event.data
       const { tenantId, userId, documentId } = event.data.event.data as {
@@ -95,7 +96,7 @@ export const processDocument = inngest.createFunction(
         let source: OcrSource;
 
         const isLocalBlob = doc.blobUrl.includes("127.0.0.1") || doc.blobUrl.includes("localhost");
-        const isRemoteOcr = !!process.env.AZURE_DI_ENDPOINT?.includes("azure");
+        const isRemoteOcr = !!process.env.AZURE_DI_ENDPOINT;
 
         if (isLocalBlob && isRemoteOcr) {
           // Local Azurite + remote Azure DI → must download buffer

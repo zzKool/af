@@ -1,6 +1,6 @@
 # Story 5.2: OCR Processing & Extraction
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -799,7 +799,9 @@ No debug issues encountered.
 - `docs/document-upload.md` — Updated status lifecycle section with OCR details
 - `package.json` — Added @azure-rest/ai-document-intelligence dependency
 - `package-lock.json` — Lockfile update
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — Story status updated
 
 ## Change Log
 
 - 2026-03-14: Story 5.2 implementation complete — OCR service, 3-step Inngest function, tests, documentation
+- 2026-03-15: Code review fixes — use OCR_MAX_RETRIES constant, remove unused vatRate field, remove dead code in classifyQuality, deep clone mock fixtures, simplify remote OCR detection, fix lint warnings
