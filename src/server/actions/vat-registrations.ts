@@ -9,9 +9,12 @@ import * as vatService from "@/server/services/vat-registrations";
  * Unlike BAS categories (authedAction for reference reads), VAT registrations
  * are tenant-private data, so ownerAction is correct for reads too.
  */
-export const getVatRegistrations = ownerAction.schema(z.object({})).action(async ({ ctx }) => {
-  return vatService.getVatRegistrations(ctx.tx, ctx.callerIdentity);
-});
+export const getVatRegistrations = ownerAction
+  .schema(z.object({}))
+  .metadata({ name: "getVatRegistrations" })
+  .action(async ({ ctx }) => {
+    return vatService.getVatRegistrations(ctx.tx, ctx.callerIdentity);
+  });
 
 /**
  * Create a new VAT registration — owner only.
@@ -24,6 +27,7 @@ export const createVatRegistration = ownerAction
       rateSchedule: vatService.rateScheduleSchema.optional(),
     }),
   )
+  .metadata({ name: "createVatRegistration" })
   .action(async ({ ctx, parsedInput }) => {
     return vatService.createVatRegistration(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
   });
@@ -40,6 +44,7 @@ export const updateVatRegistration = ownerAction
       rateSchedule: vatService.rateScheduleSchema.nullable().optional(),
     }),
   )
+  .metadata({ name: "updateVatRegistration" })
   .action(async ({ ctx, parsedInput }) => {
     const { id, ...input } = parsedInput;
     return vatService.updateVatRegistration(ctx.tx, ctx.callerIdentity, ctx.audit, id, input);
@@ -50,6 +55,7 @@ export const updateVatRegistration = ownerAction
  */
 export const deleteVatRegistration = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "deleteVatRegistration" })
   .action(async ({ ctx, parsedInput }) => {
     return vatService.deleteVatRegistration(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
   });

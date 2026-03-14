@@ -14,6 +14,7 @@ export const getPartnersAction = ownerAction
       search: z.string().optional(),
     }),
   )
+  .metadata({ name: "getPartners" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.getPartners(ctx.tx, parsedInput);
   });
@@ -23,6 +24,7 @@ export const getPartnersAction = ownerAction
  */
 export const getPartnerAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "getPartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.getPartner(ctx.tx, parsedInput.id);
   });
@@ -32,6 +34,7 @@ export const getPartnerAction = ownerAction
  */
 export const createPartnerAction = ownerAction
   .schema(partnerService.createPartnerSchema)
+  .metadata({ name: "createPartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.createPartner(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
   });
@@ -41,6 +44,7 @@ export const createPartnerAction = ownerAction
  */
 export const updatePartnerAction = ownerAction
   .schema(partnerService.updatePartnerSchema)
+  .metadata({ name: "updatePartner" })
   .action(async ({ ctx, parsedInput }) => {
     const { id, ...data } = parsedInput;
     return partnerService.updatePartner(ctx.tx, ctx.callerIdentity, ctx.audit, id, data);
@@ -51,6 +55,7 @@ export const updatePartnerAction = ownerAction
  */
 export const deactivatePartnerAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "deactivatePartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.deactivatePartner(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
   });
@@ -60,6 +65,7 @@ export const deactivatePartnerAction = ownerAction
  */
 export const reactivatePartnerAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "reactivatePartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.reactivatePartner(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
   });
@@ -69,6 +75,7 @@ export const reactivatePartnerAction = ownerAction
  */
 export const searchPartnersAction = ownerAction
   .schema(z.object({ query: z.string().min(1).max(100) }))
+  .metadata({ name: "searchPartners" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.searchPartners(ctx.tx, parsedInput.query);
   });

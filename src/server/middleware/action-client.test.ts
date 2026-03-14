@@ -62,29 +62,44 @@ afterAll(async () => {
 import { authedAction, ownerAction, publicAction } from "./action-client";
 
 // Create test actions for each chain
-const publicTestAction = publicAction.schema(z.object({})).action(async () => {
-  return { ok: true };
-});
+const publicTestAction = publicAction
+  .schema(z.object({}))
+  .metadata({ name: "publicTest" })
+  .action(async () => {
+    return { ok: true };
+  });
 
-const authedTestAction = authedAction.schema(z.object({})).action(async ({ ctx }) => {
-  return { ok: true, role: ctx.callerIdentity.role };
-});
+const authedTestAction = authedAction
+  .schema(z.object({}))
+  .metadata({ name: "authedTest" })
+  .action(async ({ ctx }) => {
+    return { ok: true, role: ctx.callerIdentity.role };
+  });
 
-const ownerTestAction = ownerAction.schema(z.object({})).action(async ({ ctx }) => {
-  return { ok: true, role: ctx.callerIdentity.role };
-});
+const ownerTestAction = ownerAction
+  .schema(z.object({}))
+  .metadata({ name: "ownerTest" })
+  .action(async ({ ctx }) => {
+    return { ok: true, role: ctx.callerIdentity.role };
+  });
 
 // Test action that throws an unhandled error (for handleServerError tests)
-const crashingAction = authedAction.schema(z.object({})).action(async () => {
-  throw new Error("Unexpected crash");
-});
-
-const prismaCrashingAction = authedAction.schema(z.object({})).action(async () => {
-  throw new PrismaClientKnownRequestError("Connection refused", {
-    code: "P1001",
-    clientVersion: "7.0.0",
+const crashingAction = authedAction
+  .schema(z.object({}))
+  .metadata({ name: "crashingTest" })
+  .action(async () => {
+    throw new Error("Unexpected crash");
   });
-});
+
+const prismaCrashingAction = authedAction
+  .schema(z.object({}))
+  .metadata({ name: "prismaCrashingTest" })
+  .action(async () => {
+    throw new PrismaClientKnownRequestError("Connection refused", {
+      code: "P1001",
+      clientVersion: "7.0.0",
+    });
+  });
 
 describe("action-client integration", () => {
   it("full chain: authenticated owner → action executes successfully", async () => {

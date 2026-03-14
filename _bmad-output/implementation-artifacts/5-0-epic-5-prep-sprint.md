@@ -161,16 +161,16 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
   - [x] 4.9 Add `SENTRY_DSN` to CI env vars in GitHub Actions workflow (`.github/workflows/ci.yml`) — use empty string for CI runs.
   - [x] 4.10 Verify: `npm run build` succeeds with Sentry integration (check `withSentryConfig()` composes with existing conditional `output: "standalone"`), `npm run dev` works with empty DSN (graceful no-op).
 
-- [ ] Task 5: Action name specificity in application logs (AC: #4) — resolves deferred item #6
-  - [ ] 5.1 **Understand the actual problem:** The generic `"server_action"` string is in `src/server/middleware/logging.ts` (Pino application logs), NOT in the audit trail. The audit system already uses type-safe action names (`"create" | "update" | "delete" | "deactivate" | "reactivate"` + `entityType`) via the `AuditLogger` union type. Do NOT modify the audit system — it's correct.
-  - [ ] 5.2 Define a metadata schema on the `next-safe-action` base client in `src/server/middleware/action-client.ts`:
+- [x] Task 5: Action name specificity in application logs (AC: #4) — resolves deferred item #6
+  - [x] 5.1 **Understand the actual problem:** The generic `"server_action"` string is in `src/server/middleware/logging.ts` (Pino application logs), NOT in the audit trail. The audit system already uses type-safe action names (`"create" | "update" | "delete" | "deactivate" | "reactivate"` + `entityType`) via the `AuditLogger` union type. Do NOT modify the audit system — it's correct.
+  - [x] 5.2 Define a metadata schema on the `next-safe-action` base client in `src/server/middleware/action-client.ts`:
     ```typescript
     const baseClient = createSafeActionClient({
       defineMetadataSchema: () => z.object({ name: z.string() }),
       handleServerError: (error) => { ... },
     });
     ```
-  - [ ] 5.3 Update every Server Action definition across **all 9 action files** to include `.metadata({ name: "..." })`. The name should match the export variable name without the `Action` suffix (e.g., `createPartnerAction` → `metadata({ name: "createPartner" })`). Files to update:
+  - [x] 5.3 Update every Server Action definition across **all 9 action files** to include `.metadata({ name: "..." })`. The name should match the export variable name without the `Action` suffix (e.g., `createPartnerAction` → `metadata({ name: "createPartner" })`). Files to update:
     - `src/server/actions/partners.ts` — getPartners, getPartner, createPartner, updatePartner, deactivatePartner, reactivatePartner
     - `src/server/actions/contracts.ts` — getContracts, createContract, updateContract, deactivateContract, reactivateContract
     - `src/server/actions/settings.ts` — getSettings, updateSettings
@@ -180,7 +180,7 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
     - `src/server/actions/document-type-prefixes.ts` — all CRUD actions
     - `src/server/actions/user-preferences.ts` — get, upsert
     - `src/server/actions/dashboard.ts` — getDashboard
-  - [ ] 5.4 Update `src/server/middleware/logging.ts` to use the metadata name:
+  - [x] 5.4 Update `src/server/middleware/logging.ts` to use the metadata name:
     ```typescript
     // Before:
     log.info({ action: "server_action" }, "Action invoked");
@@ -196,8 +196,8 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
       log.info({ action: actionName, durationMs }, "Action completed");
     });
     ```
-  - [ ] 5.5 Update `src/server/middleware/logging.test.ts` to pass metadata in test invocations and assert specific action names in log output.
-  - [ ] 5.6 Verify all tests pass: `npm run test -- --reporter verbose`
+  - [x] 5.5 Update `src/server/middleware/logging.test.ts` to pass metadata in test invocations and assert specific action names in log output.
+  - [x] 5.6 Verify all tests pass: `npm run test -- --reporter verbose`
 
 - [ ] Task 6: Client-side checklist + auto-save pattern doc (AC: #5)
   - [ ] 6.1 Add 3 new mandatory items to `docs/story-creation-checklist.md` under "Client-Side UI Checklist > Mandatory Items". Include a 2-line code example for each:
@@ -425,6 +425,7 @@ Claude Opus 4.6
 - ✅ Task 2: Azurite blob storage spike complete. StorageService with upload/download/delete/SAS URL. 8 tests pass (6 integration against Azurite, 2 validation). Added --skipApiVersionCheck to docker-compose for SDK compatibility.
 - ✅ Task 3: Inngest spike complete. createSystemCaller + withInngestContext helpers. processDocument skeleton registered. inngest:dev script added. Security note on signing key documented. Signing key added to deferred items.
 - ✅ Task 4: Sentry integration complete. @sentry/nextjs configured with error-only tracking. Error handler captures exceptions with sentryEventId. Auth/logging middleware set Sentry context. Build and tests pass.
+- ✅ Task 5: Action metadata added to all 37 actions across 9 files. defineMetadataSchema on base client, logging middleware uses metadata.name. Tests updated and passing.
 
 ### File List
 
@@ -451,3 +452,16 @@ Claude Opus 4.6
 - `.env.example` (modified — added SENTRY_DSN, SENTRY_AUTH_TOKEN)
 - `.github/workflows/ci.yml` (modified — added NEXT_PUBLIC_SENTRY_DSN env)
 - `docs/observability.md` (modified — Sentry status Active)
+- `src/server/middleware/action-client.ts` (modified — defineMetadataSchema)
+- `src/server/middleware/logging.ts` (modified — use metadata.name)
+- `src/server/middleware/logging.test.ts` (modified — pass metadata, assert action names)
+- `src/server/middleware/action-client.test.ts` (modified — add .metadata() to test actions)
+- `src/server/actions/partners.ts` (modified — .metadata() on 7 actions)
+- `src/server/actions/contracts.ts` (modified — .metadata() on 6 actions)
+- `src/server/actions/settings.ts` (modified — .metadata() on 3 actions)
+- `src/server/actions/bank-accounts.ts` (modified — .metadata() on 5 actions)
+- `src/server/actions/vat-registrations.ts` (modified — .metadata() on 4 actions)
+- `src/server/actions/bas-preferences.ts` (modified — .metadata() on 5 actions)
+- `src/server/actions/document-type-prefixes.ts` (modified — .metadata() on 4 actions)
+- `src/server/actions/user-preferences.ts` (modified — .metadata() on 2 actions)
+- `src/server/actions/dashboard.ts` (modified — .metadata() on 1 action)
