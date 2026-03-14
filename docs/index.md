@@ -76,3 +76,4 @@ Backend service documentation and API contracts.
 - [[auto-save-pattern]] — Comprehensive auto-save form pattern reference (8 edge cases)
 - [[blob-storage]] — Azure Blob Storage service, Azurite setup, test patterns
 - [[async-jobs]] — Inngest async job infrastructure, withInngestContext, retry patterns
+- [[ocr-processing]] — OCR service interface, Azure DI integration, 3-step Inngest architecture, quality classification
