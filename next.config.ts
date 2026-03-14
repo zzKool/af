@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -5,4 +6,13 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pino", "pino-http", "pino-pretty"],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Only upload source maps in production CI builds
+  sourcemaps: {
+    disable: process.env.NODE_ENV !== "production",
+  },
+  // Suppress Sentry CLI logs unless debugging
+  silent: true,
+  // Disable telemetry
+  telemetry: false,
+});

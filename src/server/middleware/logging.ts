@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { createMiddleware } from "next-safe-action";
 import type pino from "pino";
 import { logger } from "@/server/logger";
@@ -8,6 +9,7 @@ export const loggingMiddleware = createMiddleware<{
   ctx: { userId: string; tenantId: string | null };
 }>().define(async ({ ctx, next }) => {
   const requestId = crypto.randomUUID();
+  Sentry.setTag("requestId", requestId);
 
   const log: pino.Logger = logger.child({
     userId: ctx.userId,

@@ -149,17 +149,17 @@ so that Epic 5 stories (5.1–5.5) have Sentry error tracking, proven Azure Blob
   - [x] 3.8 Document security note: the Inngest serve route (`/api/inngest`) currently has NO signing verification. For the spike this is acceptable. Production code in Story 5.1+ MUST configure `INNGEST_SIGNING_KEY` to verify that event callbacks originate from Inngest, not arbitrary HTTP requests. Add this to deferred items if not resolved in this story.
   - [x] 3.9 Document findings in `docs/async-jobs.md` (NOT `inngest-spike.md` — this evolves into the pattern doc for Story 5.2): how to create Inngest functions, `withInngestContext` usage, test patterns (unit: call handler directly with mocked step/event; integration: Inngest Dev Server), retry configuration, step functions, signing key requirement.
 
-- [ ] Task 4: Sentry integration (AC: #1) — **PATTERN-SETTER: first external error tracking service**
-  - [ ] 4.1 Install `@sentry/nextjs`: `npx @sentry/wizard@latest -i nextjs` — this scaffolds `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`, and updates `next.config.ts` with `withSentryConfig()`. If wizard fails or generates outdated config for Next.js 16.1, fall back to manual installation: `npm install @sentry/nextjs` and create config files per latest Sentry docs. **Note:** No `instrumentation.ts` currently exists in the project — if the wizard generates one, verify it's compatible with Next.js 16's instrumentation hook. If creating manually, you may need `src/instrumentation.ts` with `Sentry.init()`.
-  - [ ] 4.2 Configure Sentry DSN via environment variable `SENTRY_DSN` in `.env.example` and `.env.local`. Use empty string as default (Sentry disabled when DSN is empty — graceful degradation for local dev). Note: `SENTRY_DSN` is NOT sensitive (it's public in browser requests). `SENTRY_AUTH_TOKEN` (for source map uploads) IS sensitive — CI only, never in `.env.local`.
-  - [ ] 4.3 Configure source maps upload: set `SENTRY_AUTH_TOKEN` env var in `.env.example` (CI only). Disable source map upload in development (`NODE_ENV !== 'production'`).
-  - [ ] 4.4 Update the error handler in `src/server/middleware/action-client.ts`: in the `handleServerError` callback, call `Sentry.captureException(error)` for non-ActionError exceptions (unexpected crashes) and capture the returned `sentryEventId`. Return it in the error response so users can report it: `message: "An unexpected error occurred. Reference: ${eventId}"`. ActionErrors are business errors — do NOT report to Sentry. Verify that Sentry's `isolationScope` properly isolates between concurrent requests in standalone mode (shared process).
-  - [ ] 4.5 Add `Sentry.setUser({ id: userId })` and `Sentry.setContext('tenant', { tenantId })` in `src/server/middleware/auth.ts` for request-scoped Sentry context.
-  - [ ] 4.6 Update `src/server/middleware/logging.ts`: add `Sentry.setTag('requestId', requestId)` so Sentry events correlate with Pino log entries.
-  - [ ] 4.7 Create `src/app/api/sentry-test/route.ts` (development only): a GET endpoint that throws a test error, verifying Sentry receives it. Guard with `NODE_ENV === 'development'`. This is a manual verification step — visually confirm the error appears in Sentry dashboard.
-  - [ ] 4.8 Update `docs/observability.md`: change Sentry status from "Deferred" to "Active", document DSN configuration, what gets reported (unexpected crashes only with sentryEventId returned to user), and what doesn't (ActionErrors, business validation).
-  - [ ] 4.9 Add `SENTRY_DSN` to CI env vars in GitHub Actions workflow (`.github/workflows/ci.yml`) — use empty string for CI runs.
-  - [ ] 4.10 Verify: `npm run build` succeeds with Sentry integration (check `withSentryConfig()` composes with existing conditional `output: "standalone"`), `npm run dev` works with empty DSN (graceful no-op).
+- [x] Task 4: Sentry integration (AC: #1) — **PATTERN-SETTER: first external error tracking service**
+  - [x] 4.1 Install `@sentry/nextjs`: `npx @sentry/wizard@latest -i nextjs` — this scaffolds `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`, and updates `next.config.ts` with `withSentryConfig()`. If wizard fails or generates outdated config for Next.js 16.1, fall back to manual installation: `npm install @sentry/nextjs` and create config files per latest Sentry docs. **Note:** No `instrumentation.ts` currently exists in the project — if the wizard generates one, verify it's compatible with Next.js 16's instrumentation hook. If creating manually, you may need `src/instrumentation.ts` with `Sentry.init()`.
+  - [x] 4.2 Configure Sentry DSN via environment variable `SENTRY_DSN` in `.env.example` and `.env.local`. Use empty string as default (Sentry disabled when DSN is empty — graceful degradation for local dev). Note: `SENTRY_DSN` is NOT sensitive (it's public in browser requests). `SENTRY_AUTH_TOKEN` (for source map uploads) IS sensitive — CI only, never in `.env.local`.
+  - [x] 4.3 Configure source maps upload: set `SENTRY_AUTH_TOKEN` env var in `.env.example` (CI only). Disable source map upload in development (`NODE_ENV !== 'production'`).
+  - [x] 4.4 Update the error handler in `src/server/middleware/action-client.ts`: in the `handleServerError` callback, call `Sentry.captureException(error)` for non-ActionError exceptions (unexpected crashes) and capture the returned `sentryEventId`. Return it in the error response so users can report it: `message: "An unexpected error occurred. Reference: ${eventId}"`. ActionErrors are business errors — do NOT report to Sentry. Verify that Sentry's `isolationScope` properly isolates between concurrent requests in standalone mode (shared process).
+  - [x] 4.5 Add `Sentry.setUser({ id: userId })` and `Sentry.setContext('tenant', { tenantId })` in `src/server/middleware/auth.ts` for request-scoped Sentry context.
+  - [x] 4.6 Update `src/server/middleware/logging.ts`: add `Sentry.setTag('requestId', requestId)` so Sentry events correlate with Pino log entries.
+  - [x] 4.7 Create `src/app/api/sentry-test/route.ts` (development only): a GET endpoint that throws a test error, verifying Sentry receives it. Guard with `NODE_ENV === 'development'`. This is a manual verification step — visually confirm the error appears in Sentry dashboard.
+  - [x] 4.8 Update `docs/observability.md`: change Sentry status from "Deferred" to "Active", document DSN configuration, what gets reported (unexpected crashes only with sentryEventId returned to user), and what doesn't (ActionErrors, business validation).
+  - [x] 4.9 Add `SENTRY_DSN` to CI env vars in GitHub Actions workflow (`.github/workflows/ci.yml`) — use empty string for CI runs.
+  - [x] 4.10 Verify: `npm run build` succeeds with Sentry integration (check `withSentryConfig()` composes with existing conditional `output: "standalone"`), `npm run dev` works with empty DSN (graceful no-op).
 
 - [ ] Task 5: Action name specificity in application logs (AC: #4) — resolves deferred item #6
   - [ ] 5.1 **Understand the actual problem:** The generic `"server_action"` string is in `src/server/middleware/logging.ts` (Pino application logs), NOT in the audit trail. The audit system already uses type-safe action names (`"create" | "update" | "delete" | "deactivate" | "reactivate"` + `entityType`) via the `AuditLogger` union type. Do NOT modify the audit system — it's correct.
@@ -424,6 +424,7 @@ Claude Opus 4.6
 - ✅ Task 1: Test baseline captured. 394 tests/31 files/115.90s local, 4 E2E/11.7s, CI pipeline ~6m04s. Warning threshold: 2x current baseline. Documented in docs/test-performance-baseline.md.
 - ✅ Task 2: Azurite blob storage spike complete. StorageService with upload/download/delete/SAS URL. 8 tests pass (6 integration against Azurite, 2 validation). Added --skipApiVersionCheck to docker-compose for SDK compatibility.
 - ✅ Task 3: Inngest spike complete. createSystemCaller + withInngestContext helpers. processDocument skeleton registered. inngest:dev script added. Security note on signing key documented. Signing key added to deferred items.
+- ✅ Task 4: Sentry integration complete. @sentry/nextjs configured with error-only tracking. Error handler captures exceptions with sentryEventId. Auth/logging middleware set Sentry context. Build and tests pass.
 
 ### File List
 
@@ -436,4 +437,17 @@ Claude Opus 4.6
 - `src/server/inngest/functions/process-document.ts` (new)
 - `src/app/api/inngest/route.ts` (modified — registered processDocument)
 - `docs/async-jobs.md` (new)
-- `package.json` (modified — added inngest:dev script)
+- `package.json` (modified — added inngest:dev script, @sentry/nextjs dep)
+- `sentry.client.config.ts` (new)
+- `sentry.server.config.ts` (new)
+- `sentry.edge.config.ts` (new)
+- `src/instrumentation.ts` (new)
+- `next.config.ts` (modified — withSentryConfig wrapper)
+- `src/server/middleware/action-client.ts` (modified — Sentry.captureException + sentryEventId)
+- `src/server/middleware/action-client.test.ts` (modified — updated error assertions + Sentry mock)
+- `src/server/middleware/auth.ts` (modified — Sentry.setUser + setContext)
+- `src/server/middleware/logging.ts` (modified — Sentry.setTag requestId)
+- `src/app/api/sentry-test/route.ts` (new)
+- `.env.example` (modified — added SENTRY_DSN, SENTRY_AUTH_TOKEN)
+- `.github/workflows/ci.yml` (modified — added NEXT_PUBLIC_SENTRY_DSN env)
+- `docs/observability.md` (modified — Sentry status Active)

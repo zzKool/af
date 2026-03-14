@@ -12,6 +12,14 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(async () => mockHeaders),
 }));
 
+// Mock Sentry — returns a fake event ID
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(() => "fake-sentry-event-id"),
+  setUser: vi.fn(),
+  setContext: vi.fn(),
+  setTag: vi.fn(),
+}));
+
 // Spy on logger.error to verify error handler logging
 const { mockLoggerError } = vi.hoisted(() => ({
   mockLoggerError: vi.fn(),
@@ -144,9 +152,9 @@ describe("action-client integration", () => {
     const result = await crashingAction({});
     expect(result?.serverError).toMatchObject({
       code: "INTERNAL_ERROR",
-      message: "An unexpected error occurred",
       retryable: false,
     });
+    expect(result?.serverError?.message).toMatch(/^An unexpected error occurred\. Reference: /);
   });
 
   it("handleServerError returns INTERNAL_ERROR with retryable: true for Prisma errors", async () => {
@@ -156,9 +164,9 @@ describe("action-client integration", () => {
     const result = await prismaCrashingAction({});
     expect(result?.serverError).toMatchObject({
       code: "INTERNAL_ERROR",
-      message: "An unexpected error occurred",
       retryable: true,
     });
+    expect(result?.serverError?.message).toMatch(/^An unexpected error occurred\. Reference: /);
   });
 
   it("handleServerError calls logger.error for unexpected errors", async () => {
@@ -167,7 +175,7 @@ describe("action-client integration", () => {
 
     await crashingAction({});
     expect(mockLoggerError).toHaveBeenCalledWith(
-      { err: expect.any(Error) },
+      { err: expect.any(Error), sentryEventId: expect.any(String) },
       "Unhandled Server Action error",
     );
   });

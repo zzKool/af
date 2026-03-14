@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import { createMiddleware } from "next-safe-action";
 import { getAuthContext } from "@/server/auth";
@@ -22,6 +23,9 @@ export const authMiddleware = createMiddleware<{
       retryable: false,
     });
   }
+
+  Sentry.setUser({ id: authCtx.userId });
+  Sentry.setContext("tenant", { tenantId: authCtx.tenantId });
 
   return next({
     ctx: {
