@@ -62,9 +62,11 @@ uploaded → processing → extracted → linked
 
 - `uploaded`: Initial state after successful upload
 - `processing`: Inngest function picks up the event (Story 5.1 sets this)
-- `extracted`: OCR completed successfully (Story 5.2)
-- `ocr_failed`: OCR processing failed (Story 5.2)
+- `extracted`: OCR completed successfully — `ocrData` JSONB populated with extracted fields, raw response, and quality indicator (Story 5.2)
+- `ocr_failed`: OCR processing failed after 3 retries or non-retryable error (Story 5.2). User sees "OCR unavailable — manual entry required"
 - `linked`: Document linked to a transaction (Story 7.1)
+
+See [[ocr-processing]] for OCR service details, 3-step Inngest architecture, and quality classification.
 
 ## Azure Blob Storage
 
