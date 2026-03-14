@@ -5,6 +5,7 @@ import { toAuditData } from "@/server/services/audit";
 import { generateBusinessKey } from "@/server/services/business-key";
 import type { Clock } from "@/server/services/clock";
 import { validateFile } from "@/server/services/file-validation";
+import type { OcrExtractedData } from "@/server/services/ocr";
 import type { StorageService } from "@/server/services/storage";
 import type { AppError } from "@/types/app-error";
 import type { AuditLogger } from "@/types/audit";
@@ -148,6 +149,8 @@ export async function getDocument(
     prefixType: string;
     documentType: string;
     status: string;
+    // biome-ignore lint/suspicious/noExplicitAny: Prisma JsonValue type
+    ocrData: any;
     createdAt: Date;
   }>
 > {
@@ -188,6 +191,27 @@ export async function getRecentDocuments(
     },
   });
   return { data: docs };
+}
+
+export async function getDocumentOcrData(
+  tx: TransactionClient,
+  documentId: string,
+): Promise<ServiceResult<{ extractedData: OcrExtractedData; quality: string } | null>> {
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { ocrData: true },
+  });
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+  if (!doc.ocrData) {
+    return { data: null };
+  }
+
+  const parsed = doc.ocrData as unknown as { extractedData: OcrExtractedData; quality: string };
+  return { data: { extractedData: parsed.extractedData, quality: parsed.quality } };
 }
 
 /** Reset container memoization (for testing) */

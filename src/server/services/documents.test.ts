@@ -336,4 +336,85 @@ describe("documents service", () => {
       expect(result.error?.code).toBe("NOT_FOUND");
     });
   });
+
+  describe("getDocumentOcrData", () => {
+    it("returns parsed OCR data when ocrData is populated", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId, userId } = owner.callerIdentity;
+
+      // Create a document and simulate OCR data being stored
+      const ocrPayload = {
+        extractedData: {
+          vendorName: "Test AB",
+          invoiceTotal: 1000,
+          confidence: 0.95,
+          modelUsed: "prebuilt-invoice",
+          pageCount: 1,
+          processingTimeMs: 1200,
+        },
+        rawResponse: { analyzeResult: {} },
+        quality: "high",
+      };
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const clock = createTestClock(new Date("2026-03-14T15:00:00Z"));
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const uploadResult = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          clock,
+          PDF_BUFFER,
+          "ocr-test.pdf",
+          "invoice",
+        );
+        expect(uploadResult.data).toBeDefined();
+
+        // Simulate OCR completion
+        await tx.document.update({
+          where: { id: uploadResult.data!.id },
+          data: { status: "extracted", ocrData: ocrPayload },
+        });
+
+        return uploadResult.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentOcrData(tx, docId);
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.extractedData.vendorName).toBe("Test AB");
+      expect(result.data?.quality).toBe("high");
+    });
+
+    it("returns null when ocrData is not yet populated", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const clock = createTestClock(new Date("2026-03-14T15:00:00Z"));
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const uploadResult = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          clock,
+          PDF_BUFFER,
+          "no-ocr.pdf",
+          "invoice",
+        );
+        expect(uploadResult.data).toBeDefined();
+        return uploadResult.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentOcrData(tx, docId);
+      });
+
+      expect(result.data).toBeNull();
+    });
+  });
 });
