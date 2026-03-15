@@ -10,7 +10,12 @@ import * as documentService from "@/server/services/documents";
 import { createStorageService } from "@/server/services/storage";
 
 // Type re-exports for component boundary compliance (components import types from actions, not services)
-export type { DocumentReviewData } from "@/server/services/documents";
+export type {
+  DocumentFilters,
+  DocumentListItem,
+  DocumentReviewData,
+  DocumentSort,
+} from "@/server/services/documents";
 export type { OcrExtractedData, OcrLineItem } from "@/server/services/ocr";
 
 const uploadSchema = zfd.formData({
@@ -167,4 +172,92 @@ export const refreshSignedUrlAction = authedAction
       getStorage(),
       parsedInput.documentId,
     );
+  });
+
+// --- Story 5.4: Document Library & Download ---
+
+const documentsQuerySchema = z.object({
+  filters: z
+    .object({
+      status: z.array(z.string()).optional(),
+      documentType: z.array(z.string()).optional(),
+      prefixType: z.array(z.string()).optional(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+      search: z.string().max(200).optional(),
+    })
+    .optional(),
+  sort: z
+    .object({
+      field: z.enum(["businessKey", "documentType", "status", "createdAt", "fileSize"]),
+      direction: z.enum(["asc", "desc"]),
+    })
+    .optional(),
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(10).max(100).default(25),
+});
+
+export const getDocumentsAction = authedAction
+  .schema(documentsQuerySchema)
+  .metadata({ name: "getDocuments" })
+  .action(async ({ ctx, parsedInput }) => {
+    return documentService.getDocuments(
+      ctx.tx,
+      ctx.callerIdentity,
+      parsedInput.filters ?? {},
+      parsedInput.sort ?? { field: "createdAt", direction: "desc" },
+      { page: parsedInput.page, pageSize: parsedInput.pageSize },
+    );
+  });
+
+export const getDocumentFilterOptionsAction = authedAction
+  .schema(z.object({}))
+  .metadata({ name: "getDocumentFilterOptions" })
+  .action(async ({ ctx }) => {
+    return documentService.getDocumentFilterOptions(ctx.tx, ctx.callerIdentity);
+  });
+
+export const getDocumentStatsAction = authedAction
+  .schema(z.object({}))
+  .metadata({ name: "getDocumentStats" })
+  .action(async ({ ctx }) => {
+    return documentService.getDocumentStats(ctx.tx, ctx.callerIdentity);
+  });
+
+const downloadSchema = z.object({ documentId: z.string().uuid() });
+
+export const getDocumentDownloadUrlAction = authedAction
+  .schema(downloadSchema)
+  .metadata({ name: "getDocumentDownloadUrl" })
+  .action(async ({ ctx, parsedInput }) => {
+    const doc = await ctx.tx.document.findUnique({
+      where: { id: parsedInput.documentId },
+      select: { blobUrl: true, fileName: true, documentType: true },
+    });
+
+    if (!doc) {
+      return {
+        error: {
+          code: "NOT_FOUND" as const,
+          message: `Document not found: ${parsedInput.documentId}`,
+          retryable: false,
+        },
+      };
+    }
+
+    // Accountant: financial documents only
+    if (ctx.callerIdentity.role === "accountant" && doc.documentType !== "financial") {
+      return {
+        error: {
+          code: "FORBIDDEN" as const,
+          message: "Access denied to non-financial documents",
+          retryable: false,
+        },
+      };
+    }
+
+    const { extractBlobPath } = await import("@/server/services/ocr");
+    const blobPath = extractBlobPath(doc.blobUrl);
+    const downloadUrl = await getStorage().generateDownloadUrl(blobPath, doc.fileName);
+    return { data: { downloadUrl } };
   });
