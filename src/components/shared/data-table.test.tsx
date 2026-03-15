@@ -1,7 +1,11 @@
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataTable } from "./data-table";
+
+afterEach(() => {
+  cleanup();
+});
 
 type TestRow = { id: string; name: string; value: number };
 
@@ -42,21 +46,21 @@ const defaultProps = {
 describe("DataTable", () => {
   it("renders column headers", () => {
     render(<DataTable {...defaultProps} />);
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Value")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Name" })).toBeDefined();
+    expect(screen.getByRole("columnheader", { name: "Value" })).toBeDefined();
   });
 
   it("renders data rows", () => {
     render(<DataTable {...defaultProps} />);
-    expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.getByText("Bob")).toBeInTheDocument();
-    expect(screen.getByText("Charlie")).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Alice" })).toBeDefined();
+    expect(screen.getByRole("cell", { name: "Bob" })).toBeDefined();
+    expect(screen.getByRole("cell", { name: "Charlie" })).toBeDefined();
   });
 
   it("clicking a sortable column header fires onSortingChange", () => {
     const onSortingChange = vi.fn();
     render(<DataTable {...defaultProps} onSortingChange={onSortingChange} />);
-    fireEvent.click(screen.getByText("Name"));
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
     expect(onSortingChange).toHaveBeenCalledWith([{ id: "name", desc: false }]);
   });
 
@@ -69,20 +73,21 @@ describe("DataTable", () => {
         onSortingChange={onSortingChange}
       />,
     );
-    fireEvent.click(screen.getByText("Name"));
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
     expect(onSortingChange).toHaveBeenCalledWith([{ id: "name", desc: true }]);
   });
 
   it("renders pagination controls", () => {
     render(<DataTable {...defaultProps} totalCount={100} pageSize={25} />);
-    expect(screen.getByText(/Page 1 of 4/)).toBeInTheDocument();
-    expect(screen.getByText("Previous")).toBeInTheDocument();
-    expect(screen.getByText("Next")).toBeInTheDocument();
+    expect(screen.getByText(/Page 1 of 4/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDefined();
   });
 
   it("pagination Previous is disabled on page 1", () => {
     render(<DataTable {...defaultProps} page={1} totalCount={100} />);
-    expect(screen.getByText("Previous")).toBeDisabled();
+    const prev = screen.getByRole("button", { name: "Previous" });
+    expect(prev.hasAttribute("disabled")).toBe(true);
   });
 
   it("pagination Next fires onPageChange", () => {
@@ -96,7 +101,7 @@ describe("DataTable", () => {
         onPageChange={onPageChange}
       />,
     );
-    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
 
@@ -109,14 +114,13 @@ describe("DataTable", () => {
         emptyState={<div>Custom empty state</div>}
       />,
     );
-    expect(screen.getByText("Custom empty state")).toBeInTheDocument();
+    expect(screen.getByText("Custom empty state")).toBeDefined();
   });
 
   it("renders loading skeleton rows when isLoading=true", () => {
     const { container } = render(
       <DataTable {...defaultProps} isLoading={true} data={[]} totalCount={0} />,
     );
-    // Skeleton rows rendered
     const skeletons = container.querySelectorAll('[class*="skeleton"], [data-slot]');
     expect(skeletons.length).toBeGreaterThan(0);
   });
@@ -124,7 +128,7 @@ describe("DataTable", () => {
   it("fires onRowClick when row is clicked", () => {
     const onRowClick = vi.fn();
     render(<DataTable {...defaultProps} onRowClick={onRowClick} />);
-    fireEvent.click(screen.getByText("Alice"));
+    fireEvent.click(screen.getByRole("cell", { name: "Alice" }));
     expect(onRowClick).toHaveBeenCalledWith(sampleData[0]);
   });
 });
