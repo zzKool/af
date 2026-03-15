@@ -1,6 +1,6 @@
 # Story 5.3: Document Review & Correction
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -317,11 +317,11 @@ Review state is tracked via `reviewedAt`/`reviewedBy` timestamps, orthogonal to 
       expect(final.data.corrections).toMatchObject({ vendorName: "Lufthansa", invoiceTotal: 12500 });
     });
     ```
-  - [ ] 7.3 Component tests:
+  - [x] 7.3 Component tests:
     - `src/components/domain/document-preview.test.tsx` — mock react-pdf module, test PDF/image render, zoom, rotation, loading, error states, page navigation
     - `src/components/domain/document-review-client.test.tsx` — quality badges x3, field pre-fill from resolvedData, auto-save on blur, classification change, read-only mode, Mark as Reviewed button states x4
     - `src/components/domain/line-items-section.test.tsx` — add row, delete row, amount auto-calc, total mismatch warning, empty items
-  - [ ] 7.4 E2E test — `e2e/document-review.spec.ts`:
+  - [x] 7.4 E2E test — `e2e/document-review.spec.ts`:
     - Golden path: upload → OCR → navigate to `/documents/{id}` → verify fields pre-filled → edit vendor → verify auto-saved → mark reviewed → verify status
     - Accessibility: `@axe-core/playwright` automated a11y scan
 
