@@ -54,6 +54,7 @@ Page-specific documentation and patterns.
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
 - [[document-upload-flow]] — Document upload pipeline, file validation, business key generation, status lifecycle
+- [[document-review]] — Document review & correction, corrections overlay, dual-pane UI, role-based access
 
 ## Components
 

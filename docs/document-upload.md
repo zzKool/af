@@ -82,4 +82,8 @@ See [[ocr-processing]] for OCR service details, 3-step Inngest architecture, and
 | Upload | Yes | No (FORBIDDEN) |
 | View page | Yes | No (redirected to dashboard) |
 
-Accountant gets read-only access in Story 5.4.
+Accountant gets read-only access to financial documents in the review workflow.
+
+## Next: Review Workflow
+
+After OCR extraction, documents are available for review at `/documents/[id]`. See [[document-review]] for the corrections overlay pattern, role-based access, and dual-pane review UI.
