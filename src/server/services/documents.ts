@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { SIGNED_URL_TTL_SECONDS } from "@/lib/constants";
 import type { TransactionClient } from "@/server/db/tenant-client";
 import { logger } from "@/server/logger";
 import { toAuditData } from "@/server/services/audit";
-import { generateBusinessKey } from "@/server/services/business-key";
+import { generateBusinessKey, getDocumentClassification } from "@/server/services/business-key";
 import type { Clock } from "@/server/services/clock";
 import { validateFile } from "@/server/services/file-validation";
-import type { OcrExtractedData } from "@/server/services/ocr";
+import { extractBlobPath, type OcrExtractedData } from "@/server/services/ocr";
 import type { StorageService } from "@/server/services/storage";
 import type { AppError } from "@/types/app-error";
 import type { AuditLogger } from "@/types/audit";
@@ -14,6 +15,38 @@ import type { CallerIdentity } from "@/types/caller-identity";
 // MUST NOT import from next/* or src/components/*
 
 type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppError };
+
+// --- Shared utility: resolve corrections over OCR data ---
+// Epic 7 match scoring imports this
+export function resolveDocumentData(
+  extractedData: OcrExtractedData | null,
+  corrections: Partial<OcrExtractedData> | null,
+): Partial<OcrExtractedData> {
+  if (!extractedData && !corrections) return {};
+  if (!extractedData) return corrections ?? {};
+  if (!corrections) return extractedData;
+  return { ...extractedData, ...corrections }; // shallow merge, arrays fully replaced
+}
+
+export type DocumentReviewData = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  prefixType: string;
+  documentType: string;
+  status: string;
+  createdAt: Date;
+  signedUrl: string;
+  extractedData: OcrExtractedData | null;
+  corrections: Partial<OcrExtractedData> | null;
+  resolvedData: Partial<OcrExtractedData>;
+  quality: string | null;
+  reviewedAt: Date | null;
+  reviewedBy: string | null;
+  readOnly: boolean;
+};
 
 let containerEnsured = false;
 
@@ -212,6 +245,253 @@ export async function getDocumentOcrData(
 
   const parsed = doc.ocrData as unknown as { extractedData: OcrExtractedData; quality: string };
   return { data: { extractedData: parsed.extractedData, quality: parsed.quality } };
+}
+
+// --- Story 5.3: Document Review & Correction ---
+
+export async function getDocumentForReview(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  storage: StorageService,
+  documentId: string,
+): Promise<ServiceResult<DocumentReviewData>> {
+  const doc = await tx.document.findUnique({ where: { id: documentId } });
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  // Role check: accountant can view financial only (read-only), owner sees all
+  const isAccountant = caller.role === "accountant";
+  if (isAccountant && doc.documentType !== "financial") {
+    return {
+      error: {
+        code: "FORBIDDEN",
+        message: "Access denied to non-financial documents",
+        retryable: false,
+      },
+    };
+  }
+
+  // Parse ocrData JSONB
+  let extractedData: OcrExtractedData | null = null;
+  let quality: string | null = null;
+  if (doc.ocrData) {
+    const parsed = doc.ocrData as unknown as {
+      extractedData: OcrExtractedData;
+      quality: string;
+    };
+    extractedData = parsed.extractedData ?? null;
+    quality = parsed.quality ?? null;
+  }
+
+  const corrections = (doc.corrections as Partial<OcrExtractedData>) ?? null;
+  const resolvedData = resolveDocumentData(extractedData, corrections);
+
+  // Generate signed URL
+  const blobPath = extractBlobPath(doc.blobUrl);
+  const signedUrl = await storage.generateSasUrl(blobPath, SIGNED_URL_TTL_SECONDS / 60);
+
+  return {
+    data: {
+      id: doc.id,
+      businessKey: doc.businessKey,
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      fileSize: doc.fileSize,
+      prefixType: doc.prefixType,
+      documentType: doc.documentType,
+      status: doc.status,
+      createdAt: doc.createdAt,
+      signedUrl,
+      extractedData,
+      corrections,
+      resolvedData,
+      quality,
+      reviewedAt: doc.reviewedAt,
+      reviewedBy: doc.reviewedBy,
+      readOnly: isAccountant,
+    },
+  };
+}
+
+export async function updateDocumentCorrections(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  documentId: string,
+  patch: Record<string, unknown>,
+): Promise<ServiceResult<{ corrections: Record<string, unknown> }>> {
+  // Owner-only (fail-closed)
+  if (caller.role !== "owner") {
+    return {
+      error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
+    };
+  }
+
+  // Atomic JSONB merge — concurrent-safe, bypasses Prisma read-then-write
+  // RLS CRITICAL: tenant_id = current_setting('app.tenant_id') is the safety net
+  const result = await tx.$queryRaw<{ corrections: unknown }[]>`
+    UPDATE documents
+    SET corrections = COALESCE(corrections, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb,
+        updated_at = NOW()
+    WHERE id = ${documentId}::uuid
+      AND tenant_id = current_setting('app.tenant_id')::uuid
+    RETURNING corrections
+  `;
+
+  if (result.length === 0) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  await audit.log({
+    action: "update",
+    entityType: "document",
+    entityId: documentId,
+    newData: { correctionsPatch: patch },
+  });
+
+  return { data: { corrections: result[0].corrections as Record<string, unknown> } };
+}
+
+export async function classifyDocument(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  documentId: string,
+  newPrefixType: string,
+): Promise<ServiceResult<{ documentType: string; prefixType: string }>> {
+  // Owner-only
+  if (caller.role !== "owner") {
+    return {
+      error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
+    };
+  }
+
+  const newDocumentType = getDocumentClassification(newPrefixType);
+  if (!newDocumentType) {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `Invalid document type: ${newPrefixType}`,
+        retryable: false,
+      },
+    };
+  }
+
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { status: true, documentType: true, prefixType: true },
+  });
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  // Block reclassification on linked status (future-proof for Epic 7)
+  if (doc.status === "linked") {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Cannot reclassify a linked document",
+        retryable: false,
+      },
+    };
+  }
+
+  // Update documentType and prefixType — NOT businessKey (immutable)
+  await tx.document.update({
+    where: { id: documentId },
+    data: { documentType: newDocumentType, prefixType: newPrefixType },
+  });
+
+  await audit.log({
+    action: "update",
+    entityType: "document",
+    entityId: documentId,
+    oldData: { documentType: doc.documentType, prefixType: doc.prefixType },
+    newData: { documentType: newDocumentType, prefixType: newPrefixType },
+  });
+
+  return { data: { documentType: newDocumentType, prefixType: newPrefixType } };
+}
+
+export async function markDocumentReviewed(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  clock: Clock,
+  documentId: string,
+): Promise<ServiceResult<{ reviewedAt: Date; reviewedBy: string }>> {
+  // Owner-only
+  if (caller.role !== "owner") {
+    return {
+      error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
+    };
+  }
+
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { id: true },
+  });
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  // Idempotent — calling on already-reviewed doc updates reviewedAt/reviewedBy
+  const reviewedAt = clock.now();
+  await tx.document.update({
+    where: { id: documentId },
+    data: { reviewedAt, reviewedBy: caller.userId },
+  });
+
+  await audit.log({
+    action: "update",
+    entityType: "document",
+    entityId: documentId,
+    newData: { reviewedAt: reviewedAt.toISOString(), reviewedBy: caller.userId },
+  });
+
+  return { data: { reviewedAt, reviewedBy: caller.userId } };
+}
+
+export async function refreshSignedUrl(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  storage: StorageService,
+  documentId: string,
+): Promise<ServiceResult<{ signedUrl: string }>> {
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { blobUrl: true, documentType: true },
+  });
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  // Accountant: financial only
+  if (caller.role === "accountant" && doc.documentType !== "financial") {
+    return {
+      error: {
+        code: "FORBIDDEN",
+        message: "Access denied to non-financial documents",
+        retryable: false,
+      },
+    };
+  }
+
+  const blobPath = extractBlobPath(doc.blobUrl);
+  const signedUrl = await storage.generateSasUrl(blobPath, SIGNED_URL_TTL_SECONDS / 60);
+
+  return { data: { signedUrl } };
 }
 
 /** Reset container memoization (for testing) */
