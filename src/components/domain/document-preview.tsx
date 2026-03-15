@@ -13,6 +13,19 @@ import { refreshSignedUrlAction } from "@/server/actions/documents";
 // LOCAL worker — NOT CDN (enterprise reliability)
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
+/** Route cross-origin Azurite URLs through our same-origin proxy to avoid CORS. */
+function proxyIfLocal(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") {
+      return `/api/blob-proxy?url=${encodeURIComponent(url)}`;
+    }
+  } catch {
+    // not a valid URL — return as-is
+  }
+  return url;
+}
+
 type DocumentPreviewProps = {
   signedUrl: string;
   mimeType: string;
@@ -20,7 +33,7 @@ type DocumentPreviewProps = {
 };
 
 export default function DocumentPreview({ signedUrl, mimeType, documentId }: DocumentPreviewProps) {
-  const [previewUrl, setPreviewUrl] = useState(signedUrl);
+  const [previewUrl, setPreviewUrl] = useState(proxyIfLocal(signedUrl));
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -37,7 +50,7 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
     const interval = setInterval(async () => {
       const result = await refreshSignedUrlAction({ documentId });
       if (result?.data?.data?.signedUrl) {
-        setPreviewUrl(result.data.data.signedUrl);
+        setPreviewUrl(proxyIfLocal(result.data.data.signedUrl));
       }
     }, SIGNED_URL_REFRESH_MS);
     return () => clearInterval(interval);
@@ -64,7 +77,9 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
   const handleRetry = useCallback(() => {
     setError(false);
     setLoading(true);
-    setPreviewUrl(`${signedUrl}&retry=${Date.now()}`);
+    const proxied = proxyIfLocal(signedUrl);
+    const sep = proxied.includes("?") ? "&" : "?";
+    setPreviewUrl(`${proxied}${sep}retry=${Date.now()}`);
   }, [signedUrl]);
 
   const handleRotate = useCallback(() => {
