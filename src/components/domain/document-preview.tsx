@@ -83,6 +83,18 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
     setZoom(1);
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!isPdf) return;
+      if (e.key === "ArrowLeft" && currentPage > 1) {
+        setCurrentPage((p) => p - 1);
+      } else if (e.key === "ArrowRight" && currentPage < numPages) {
+        setCurrentPage((p) => p + 1);
+      }
+    },
+    [isPdf, currentPage, numPages],
+  );
+
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 rounded-lg border bg-muted/50 p-8">
@@ -98,8 +110,9 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
     <div
       ref={containerRef}
       className="flex h-full flex-col"
-      role="application"
+      role="document"
       aria-label="Document preview"
+      onKeyDown={handleKeyDown}
     >
       {/* Controls */}
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">

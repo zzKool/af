@@ -19,6 +19,7 @@ type DocumentReviewFooterProps = {
 export function DocumentReviewFooter({
   documentId,
   reviewedAt: initialReviewedAt,
+  updatedAt,
   readOnly,
   saveStatus,
 }: DocumentReviewFooterProps) {
@@ -27,6 +28,10 @@ export function DocumentReviewFooter({
 
   const isSaving = Object.values(saveStatus).some((s) => s === "saving");
   const hasErrors = Object.values(saveStatus).some((s) => s === "error");
+
+  // State 4: modified since last review (updatedAt > reviewedAt)
+  const modifiedSinceReview =
+    reviewedAt && updatedAt && new Date(updatedAt).getTime() > new Date(reviewedAt).getTime();
 
   const handleMarkReviewed = useCallback(async () => {
     setIsSubmitting(true);
@@ -46,6 +51,35 @@ export function DocumentReviewFooter({
   }, [documentId]);
 
   const autoSaveLabel = isSaving ? "Saving..." : hasErrors ? "Save failed" : "Auto-saved";
+
+  // Determine button label and style based on 4 states
+  const getButtonConfig = () => {
+    if (modifiedSinceReview) {
+      // State 4: amber — modified since last review
+      return {
+        label: "Update Review (modified since last review)",
+        className:
+          "border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
+        variant: "outline" as const,
+      };
+    }
+    if (reviewedAt) {
+      // State 3: muted green — already reviewed
+      return {
+        label: "Reviewed",
+        className: "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300",
+        variant: "outline" as const,
+      };
+    }
+    // State 1 & 2: green — not yet reviewed
+    return {
+      label: "Mark as Reviewed",
+      className: "bg-green-600 hover:bg-green-700 text-white",
+      variant: "default" as const,
+    };
+  };
+
+  const buttonConfig = getButtonConfig();
 
   return (
     <div className="flex items-center justify-between border-t bg-muted/30 px-4 py-3">
@@ -69,14 +103,10 @@ export function DocumentReviewFooter({
         <Button
           onClick={handleMarkReviewed}
           disabled={isSubmitting || isSaving}
-          variant={reviewedAt ? "outline" : "default"}
-          className={
-            reviewedAt
-              ? "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300"
-              : "bg-green-600 hover:bg-green-700 text-white"
-          }
+          variant={buttonConfig.variant}
+          className={buttonConfig.className}
         >
-          {isSubmitting ? "Marking..." : reviewedAt ? "Update Review" : "Mark as Reviewed"}
+          {isSubmitting ? "Marking..." : buttonConfig.label}
         </Button>
       )}
     </div>

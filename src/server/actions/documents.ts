@@ -94,9 +94,19 @@ export const getDocumentForReviewAction = authedAction
     );
   });
 
+const jsonValue: z.ZodType = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValue),
+    z.record(z.string(), jsonValue),
+  ]),
+);
 const correctionsSchema = z.object({
   documentId: z.string().uuid(),
-  patch: z.record(z.string(), z.unknown()),
+  patch: z.record(z.string(), jsonValue),
 });
 
 export const updateDocumentCorrectionsAction = authedAction

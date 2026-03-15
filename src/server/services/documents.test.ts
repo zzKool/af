@@ -610,6 +610,56 @@ describe("documents service", () => {
 
       await assertAuditLogged(adminPool, tenantId, "update", "document", docId);
     });
+
+    it("concurrent correction saves don't lose data", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "concurrent.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      // Run two correction saves concurrently
+      const [r1, r2] = await Promise.all([
+        withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          return documentService.updateDocumentCorrections(tx, owner.callerIdentity, audit, docId, {
+            vendorName: "Lufthansa",
+          });
+        }),
+        withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          return documentService.updateDocumentCorrections(tx, owner.callerIdentity, audit, docId, {
+            invoiceTotal: 12500,
+          });
+        }),
+      ]);
+
+      expect(r1.data).toBeDefined();
+      expect(r2.data).toBeDefined();
+
+      // Verify both corrections are preserved (atomic JSONB merge, no lost updates)
+      mockGenerateSasUrl.mockResolvedValue("https://signed.url/doc");
+      const final = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentForReview(tx, owner.callerIdentity, mockStorage, docId);
+      });
+
+      expect(final.data?.corrections).toMatchObject({
+        vendorName: "Lufthansa",
+        invoiceTotal: 12500,
+      });
+    });
   });
 
   describe("classifyDocument", () => {

@@ -12,6 +12,25 @@ import { updateDocumentCorrectionsAction } from "@/server/actions/documents";
 import type { DocumentReviewData } from "@/server/services/documents";
 import type { OcrLineItem } from "@/server/services/ocr";
 
+const MAX_RETRIES = 3;
+
+async function saveWithRetry(
+  documentId: string,
+  patch: Record<string, unknown>,
+): Promise<string | null> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const result = await updateDocumentCorrectionsAction({ documentId, patch });
+    const error = extractError(result);
+    if (!error) return null;
+    if (attempt < MAX_RETRIES) {
+      await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** attempt, 8000)));
+    } else {
+      return error;
+    }
+  }
+  return "Save failed after retries";
+}
+
 const DocumentPreview = dynamic(() => import("@/components/domain/document-preview"), {
   ssr: false,
   loading: () => <div className="aspect-[3/4] animate-pulse rounded-lg bg-muted" />,
@@ -31,18 +50,13 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
     resetFromServer(data.resolvedData);
   }, [data.resolvedData, resetFromServer]);
 
-  // Auto-save field change handler
+  // Auto-save field change handler with retry
   const handleFieldChange = useCallback(
     async (field: string, value: unknown) => {
       setCorrection(field, value);
       setSaveStatus(field, "saving");
 
-      const result = await updateDocumentCorrectionsAction({
-        documentId: data.id,
-        patch: { [field]: value },
-      });
-
-      const error = extractError(result);
+      const error = await saveWithRetry(data.id, { [field]: value });
       if (error) {
         setSaveStatus(field, "error");
         toast.error(`Failed to save ${field}: ${error}`);
@@ -54,18 +68,13 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
     [data.id, setCorrection, setSaveStatus],
   );
 
-  // Line items save handler (full array replacement)
+  // Line items save handler (full array replacement) with retry
   const handleItemsChange = useCallback(
     async (items: OcrLineItem[]) => {
       setCorrections({ items });
       setSaveStatus("items", "saving");
 
-      const result = await updateDocumentCorrectionsAction({
-        documentId: data.id,
-        patch: { items },
-      });
-
-      const error = extractError(result);
+      const error = await saveWithRetry(data.id, { items });
       if (error) {
         setSaveStatus("items", "error");
         toast.error(`Failed to save line items: ${error}`);
@@ -121,6 +130,7 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
             documentId={data.id}
             reviewedAt={data.reviewedAt}
             reviewedBy={data.reviewedBy}
+            updatedAt={data.updatedAt}
             readOnly={data.readOnly}
             saveStatus={saveStatus}
           />

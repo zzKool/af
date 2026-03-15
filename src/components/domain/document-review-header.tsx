@@ -7,7 +7,7 @@ import type { DocumentReviewData } from "@/server/services/documents";
 
 const QUALITY_CONFIG: Record<string, { label: string; className: string }> = {
   high: {
-    label: "High Confidence",
+    label: "Review extracted data",
     className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   },
   low: {

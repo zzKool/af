@@ -43,6 +43,7 @@ export type DocumentReviewData = {
   corrections: Partial<OcrExtractedData> | null;
   resolvedData: Partial<OcrExtractedData>;
   quality: string | null;
+  updatedAt: Date;
   reviewedAt: Date | null;
   reviewedBy: string | null;
   readOnly: boolean;
@@ -311,6 +312,7 @@ export async function getDocumentForReview(
       corrections,
       resolvedData,
       quality,
+      updatedAt: doc.updatedAt,
       reviewedAt: doc.reviewedAt,
       reviewedBy: doc.reviewedBy,
       readOnly: isAccountant,
@@ -334,9 +336,18 @@ export async function updateDocumentCorrections(
 
   // Atomic JSONB merge — concurrent-safe, bypasses Prisma read-then-write
   // RLS CRITICAL: tenant_id = current_setting('app.tenant_id') is the safety net
+  let patchJson: string;
+  try {
+    patchJson = JSON.stringify(patch);
+  } catch {
+    return {
+      error: { code: "VALIDATION_ERROR", message: "Invalid correction data", retryable: false },
+    };
+  }
+
   const result = await tx.$queryRaw<{ corrections: unknown }[]>`
     UPDATE documents
-    SET corrections = COALESCE(corrections, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb,
+    SET corrections = COALESCE(corrections, '{}'::jsonb) || ${patchJson}::jsonb,
         updated_at = NOW()
     WHERE id = ${documentId}::uuid
       AND tenant_id = current_setting('app.tenant_id')::uuid
