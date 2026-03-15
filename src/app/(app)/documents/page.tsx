@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FileUploadZone } from "@/components/domain/file-upload-zone";
 import { FormattedDate } from "@/components/domain/formatted-date";
@@ -18,6 +19,24 @@ const STATUS_COLORS: Record<string, string> = {
   ocr_failed: "bg-destructive/10 text-destructive",
   linked: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
 };
+
+function getReviewBadge(doc: { status: string; reviewedAt: Date | null }) {
+  if ((doc.status === "extracted" || doc.status === "ocr_failed") && !doc.reviewedAt) {
+    return (
+      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+        Needs Review
+      </span>
+    );
+  }
+  if (doc.reviewedAt) {
+    return (
+      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+        Reviewed
+      </span>
+    );
+  }
+  return null;
+}
 
 export default async function DocumentsPage() {
   const hdrs = await headers();
@@ -78,13 +97,22 @@ export default async function DocumentsPage() {
                   <th className="px-3 py-2 text-left font-medium">Business Key</th>
                   <th className="px-3 py-2 text-left font-medium">File Name</th>
                   <th className="px-3 py-2 text-left font-medium">Status</th>
+                  <th className="px-3 py-2 text-left font-medium">Review</th>
                   <th className="px-3 py-2 text-left font-medium">Uploaded</th>
+                  <th className="px-3 py-2 text-left font-medium" />
                 </tr>
               </thead>
               <tbody>
                 {recentDocs.map((doc) => (
-                  <tr key={doc.id} className="border-b last:border-b-0">
-                    <td className="px-3 py-2 font-mono text-xs">{doc.businessKey}</td>
+                  <tr key={doc.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/documents/${doc.id}`}
+                        className="font-mono text-xs hover:underline"
+                      >
+                        {doc.businessKey}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2 truncate max-w-48">{doc.fileName}</td>
                     <td className="px-3 py-2">
                       <span
@@ -93,8 +121,19 @@ export default async function DocumentsPage() {
                         {doc.status}
                       </span>
                     </td>
+                    <td className="px-3 py-2">{getReviewBadge(doc)}</td>
                     <td className="px-3 py-2 text-muted-foreground">
                       <FormattedDate date={doc.createdAt} />
+                    </td>
+                    <td className="px-3 py-2">
+                      {(doc.status === "extracted" || doc.status === "ocr_failed") && (
+                        <Link
+                          href={`/documents/${doc.id}`}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Review
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}

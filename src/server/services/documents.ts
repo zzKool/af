@@ -208,6 +208,7 @@ export async function getRecentDocuments(
       status: string;
       documentType: string;
       createdAt: Date;
+      reviewedAt: Date | null;
     }[]
   >
 > {
@@ -221,6 +222,7 @@ export async function getRecentDocuments(
       status: true,
       documentType: true,
       createdAt: true,
+      reviewedAt: true,
     },
   });
   return { data: docs };
