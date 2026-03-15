@@ -11,6 +11,7 @@ import type { CallerIdentity } from "@/types/caller-identity";
 import { createAuditEntry } from "./audit";
 import { createTestClock } from "./clock";
 import * as documentService from "./documents";
+import { resolveDocumentData } from "./documents";
 
 // Mock next/headers
 let mockHeaders: Headers = new Headers();
@@ -20,7 +21,7 @@ vi.mock("next/headers", () => ({
 
 // Mock storage service
 const mockEnsureContainer = vi.fn();
-const mockUploadBlob = vi.fn().mockResolvedValue("https://blob.url/tenant/uuid.pdf");
+const mockUploadBlob = vi.fn().mockResolvedValue("https://blob.url/documents/tenant/uuid.pdf");
 const mockDeleteBlob = vi.fn();
 const mockGenerateSasUrl = vi.fn();
 
@@ -77,7 +78,7 @@ beforeEach(async () => {
   await cleanupTestData(adminPool);
   resetRateLimit();
   mockHeaders = new Headers();
-  mockUploadBlob.mockResolvedValue("https://blob.url/tenant/uuid.pdf");
+  mockUploadBlob.mockResolvedValue("https://blob.url/documents/tenant/uuid.pdf");
   mockEnsureContainer.mockResolvedValue(undefined);
   documentService._resetContainerEnsured();
 });
@@ -415,6 +416,597 @@ describe("documents service", () => {
       });
 
       expect(result.data).toBeNull();
+    });
+  });
+
+  // --- Story 5.3: Document Review & Correction ---
+
+  describe("resolveDocumentData", () => {
+    it("returns empty object when both null", () => {
+      expect(resolveDocumentData(null, null)).toEqual({});
+    });
+
+    it("returns corrections when extractedData is null", () => {
+      const corrections = { vendorName: "Test" };
+      expect(resolveDocumentData(null, corrections)).toEqual(corrections);
+    });
+
+    it("returns extractedData when corrections is null", () => {
+      const data = {
+        vendorName: "OCR",
+        confidence: 0.9,
+        modelUsed: "m",
+        pageCount: 1,
+        processingTimeMs: 100,
+      };
+      expect(resolveDocumentData(data, null)).toEqual(data);
+    });
+
+    it("merges corrections over extractedData (shallow)", () => {
+      const data = {
+        vendorName: "OCR",
+        invoiceTotal: 100,
+        confidence: 0.9,
+        modelUsed: "m",
+        pageCount: 1,
+        processingTimeMs: 100,
+      };
+      const corrections = { vendorName: "Corrected" };
+      const result = resolveDocumentData(data, corrections);
+      expect(result.vendorName).toBe("Corrected");
+      expect(result.invoiceTotal).toBe(100);
+    });
+
+    it("fully replaces arrays (items)", () => {
+      const data = {
+        items: [{ description: "Old", amount: 10 }],
+        confidence: 0.9,
+        modelUsed: "m",
+        pageCount: 1,
+        processingTimeMs: 100,
+      };
+      const corrections = {
+        items: [
+          { description: "New1", amount: 20 },
+          { description: "New2", amount: 30 },
+        ],
+      };
+      const result = resolveDocumentData(data, corrections);
+      expect(result.items).toHaveLength(2);
+      expect(result.items?.[0].description).toBe("New1");
+    });
+
+    it("returns corrections when extractedData is null and corrections has values", () => {
+      expect(resolveDocumentData(null, { vendorName: "Test" })).toEqual({ vendorName: "Test" });
+    });
+
+    it("returns empty object for null corrections", () => {
+      expect(resolveDocumentData(null, null)).toEqual({});
+    });
+
+    it("handles empty corrections object", () => {
+      const data = {
+        vendorName: "OCR",
+        confidence: 0.9,
+        modelUsed: "m",
+        pageCount: 1,
+        processingTimeMs: 100,
+      };
+      expect(resolveDocumentData(data, {})).toEqual(data);
+    });
+  });
+
+  describe("updateDocumentCorrections", () => {
+    it("merges correction patch into document", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.updateDocumentCorrections(tx, owner.callerIdentity, audit, docId, {
+          vendorName: "Corrected",
+        });
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.corrections).toMatchObject({ vendorName: "Corrected" });
+    });
+
+    it("forbids accountant from making corrections", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const { tenantId } = accountant.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, accountant.callerIdentity);
+        return documentService.updateDocumentCorrections(
+          tx,
+          accountant.callerIdentity,
+          audit,
+          docId,
+          { vendorName: "Hack" },
+        );
+      });
+
+      expect(result.error?.code).toBe("FORBIDDEN");
+    });
+
+    it("returns NOT_FOUND for missing document", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.updateDocumentCorrections(
+          tx,
+          owner.callerIdentity,
+          audit,
+          "00000000-0000-0000-0000-000000000000",
+          { vendorName: "X" },
+        );
+      });
+
+      expect(result.error?.code).toBe("NOT_FOUND");
+    });
+
+    it("logs audit trail for corrections", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.updateDocumentCorrections(tx, owner.callerIdentity, audit, docId, {
+          vendorName: "Corrected",
+        });
+      });
+
+      await assertAuditLogged(adminPool, tenantId, "update", "document", docId);
+    });
+  });
+
+  describe("classifyDocument", () => {
+    it("updates documentType and prefixType", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.classifyDocument(tx, owner.callerIdentity, audit, docId, "contract");
+      });
+
+      expect(result.data?.documentType).toBe("relationship");
+      expect(result.data?.prefixType).toBe("contract");
+    });
+
+    it("forbids accountant from classifying", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const { tenantId } = accountant.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, accountant.callerIdentity);
+        return documentService.classifyDocument(
+          tx,
+          accountant.callerIdentity,
+          audit,
+          docId,
+          "contract",
+        );
+      });
+
+      expect(result.error?.code).toBe("FORBIDDEN");
+    });
+
+    it("blocks reclassification on linked status", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        // Simulate linked status
+        await tx.document.update({ where: { id: r.data!.id }, data: { status: "linked" } });
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.classifyDocument(tx, owner.callerIdentity, audit, docId, "contract");
+      });
+
+      expect(result.error?.code).toBe("VALIDATION_ERROR");
+      expect(result.error?.message).toContain("linked");
+    });
+
+    it("logs audit trail for classification change", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.classifyDocument(tx, owner.callerIdentity, audit, docId, "invoice");
+      });
+
+      await assertAuditLogged(adminPool, tenantId, "update", "document", docId);
+    });
+  });
+
+  describe("markDocumentReviewed", () => {
+    it("sets reviewedAt and reviewedBy", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      const clock = createTestClock(new Date("2026-03-15T10:00:00Z"));
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.markDocumentReviewed(tx, owner.callerIdentity, audit, clock, docId);
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.reviewedAt).toBeInstanceOf(Date);
+      expect(result.data?.reviewedBy).toBe(owner.callerIdentity.userId);
+    });
+
+    it("is idempotent — re-review updates timestamp", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      const clock = createTestClock(new Date("2026-03-15T10:00:00Z"));
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      // First review
+      const r1 = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.markDocumentReviewed(tx, owner.callerIdentity, audit, clock, docId);
+      });
+
+      // Advance clock, re-review
+      clock.setTime(new Date("2026-03-15T12:00:00Z"));
+      const r2 = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.markDocumentReviewed(tx, owner.callerIdentity, audit, clock, docId);
+      });
+
+      expect(r2.data?.reviewedAt.getTime()).toBeGreaterThan(r1.data!.reviewedAt.getTime());
+    });
+
+    it("forbids accountant from marking reviewed", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const { tenantId } = accountant.callerIdentity;
+      const clock = createTestClock(new Date("2026-03-15T10:00:00Z"));
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, accountant.callerIdentity);
+        return documentService.markDocumentReviewed(
+          tx,
+          accountant.callerIdentity,
+          audit,
+          clock,
+          docId,
+        );
+      });
+
+      expect(result.error?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("getDocumentForReview", () => {
+    it("returns full review data with signed URL", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      mockGenerateSasUrl.mockResolvedValue("https://signed.url/doc");
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        // Simulate OCR completion
+        await tx.document.update({
+          where: { id: r.data!.id },
+          data: {
+            status: "extracted",
+            ocrData: {
+              extractedData: {
+                vendorName: "TestCo",
+                confidence: 0.9,
+                modelUsed: "m",
+                pageCount: 1,
+                processingTimeMs: 100,
+              },
+              quality: "high",
+            },
+          },
+        });
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentForReview(tx, owner.callerIdentity, mockStorage, docId);
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.signedUrl).toBe("https://signed.url/doc");
+      expect(result.data?.extractedData?.vendorName).toBe("TestCo");
+      expect(result.data?.quality).toBe("high");
+      expect(result.data?.readOnly).toBe(false);
+    });
+
+    it("returns merged resolvedData when corrections exist", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      mockGenerateSasUrl.mockResolvedValue("https://signed.url/doc");
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        await tx.document.update({
+          where: { id: r.data!.id },
+          data: {
+            status: "extracted",
+            ocrData: {
+              extractedData: {
+                vendorName: "OCR",
+                invoiceTotal: 100,
+                confidence: 0.9,
+                modelUsed: "m",
+                pageCount: 1,
+                processingTimeMs: 100,
+              },
+              quality: "high",
+            },
+            corrections: { vendorName: "Corrected" },
+          },
+        });
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentForReview(tx, owner.callerIdentity, mockStorage, docId);
+      });
+
+      expect(result.data?.resolvedData.vendorName).toBe("Corrected");
+      expect(result.data?.resolvedData.invoiceTotal).toBe(100);
+    });
+
+    it("blocks accountant from relationship documents", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const { tenantId } = accountant.callerIdentity;
+      mockGenerateSasUrl.mockResolvedValue("https://signed.url/doc");
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "contract",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentForReview(
+          tx,
+          accountant.callerIdentity,
+          mockStorage,
+          docId,
+        );
+      });
+
+      expect(result.error?.code).toBe("FORBIDDEN");
+    });
+
+    it("sets readOnly for accountant on financial documents", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const { tenantId } = accountant.callerIdentity;
+      mockGenerateSasUrl.mockResolvedValue("https://signed.url/doc");
+
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          "test.pdf",
+          "expense",
+        );
+        return r.data!.id;
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentForReview(
+          tx,
+          accountant.callerIdentity,
+          mockStorage,
+          docId,
+        );
+      });
+
+      expect(result.data?.readOnly).toBe(true);
     });
   });
 });
