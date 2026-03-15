@@ -77,3 +77,80 @@ export const getRecentDocumentsAction = authedAction
   .action(async ({ ctx }) => {
     return documentService.getRecentDocuments(ctx.tx);
   });
+
+// --- Story 5.3: Document Review & Correction ---
+
+const documentIdSchema = z.object({ documentId: z.string().uuid() });
+
+export const getDocumentForReviewAction = authedAction
+  .schema(documentIdSchema)
+  .metadata({ name: "getDocumentForReview" })
+  .action(async ({ ctx, parsedInput }) => {
+    return documentService.getDocumentForReview(
+      ctx.tx,
+      ctx.callerIdentity,
+      getStorage(),
+      parsedInput.documentId,
+    );
+  });
+
+const correctionsSchema = z.object({
+  documentId: z.string().uuid(),
+  patch: z.record(z.string(), z.unknown()),
+});
+
+export const updateDocumentCorrectionsAction = authedAction
+  .schema(correctionsSchema)
+  .metadata({ name: "updateDocumentCorrections" })
+  .action(async ({ ctx, parsedInput }) => {
+    return documentService.updateDocumentCorrections(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput.documentId,
+      parsedInput.patch,
+    );
+  });
+
+const classifySchema = z.object({
+  documentId: z.string().uuid(),
+  documentType: z.enum(["expense", "invoice", "contract", "nda", "certificate"]),
+});
+
+export const classifyDocumentAction = authedAction
+  .schema(classifySchema)
+  .metadata({ name: "classifyDocument" })
+  .action(async ({ ctx, parsedInput }) => {
+    return documentService.classifyDocument(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput.documentId,
+      parsedInput.documentType,
+    );
+  });
+
+export const markDocumentReviewedAction = authedAction
+  .schema(documentIdSchema)
+  .metadata({ name: "markDocumentReviewed" })
+  .action(async ({ ctx, parsedInput }) => {
+    return documentService.markDocumentReviewed(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      clock,
+      parsedInput.documentId,
+    );
+  });
+
+export const refreshSignedUrlAction = authedAction
+  .schema(documentIdSchema)
+  .metadata({ name: "refreshSignedUrl" })
+  .action(async ({ ctx, parsedInput }) => {
+    return documentService.refreshSignedUrl(
+      ctx.tx,
+      ctx.callerIdentity,
+      getStorage(),
+      parsedInput.documentId,
+    );
+  });
