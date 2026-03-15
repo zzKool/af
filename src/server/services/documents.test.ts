@@ -31,6 +31,7 @@ const mockStorage = {
   downloadBlob: vi.fn(),
   deleteBlob: mockDeleteBlob,
   generateSasUrl: mockGenerateSasUrl,
+  generateDownloadUrl: vi.fn().mockResolvedValue("https://blob.url/documents/download"),
 };
 
 // Mock logger

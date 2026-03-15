@@ -55,6 +55,10 @@ export async function upsertTablePreference(
   tableKey: string,
   preferences: Record<string, unknown>,
 ): Promise<ServiceResult<TablePreferenceData>> {
+  // Cast to satisfy Prisma InputJsonValue — Record<string, unknown> is always valid JSON
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma Json type requires compatible cast
+  const jsonPreferences = preferences as any;
+
   const result = await tx.tablePreference.upsert({
     where: {
       userId_tableKey: {
@@ -65,10 +69,10 @@ export async function upsertTablePreference(
     create: {
       userId: caller.userId,
       tableKey,
-      preferences,
+      preferences: jsonPreferences,
     },
     update: {
-      preferences,
+      preferences: jsonPreferences,
     },
   });
 

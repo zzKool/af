@@ -5,6 +5,7 @@ import {
   flexRender,
   getCoreRowModel,
   type SortingState,
+  type Updater,
   useReactTable,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -67,11 +68,18 @@ export function DataTable<TData>({
 }: DataTableProps<TData>) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // Wrap onSortingChange to handle TanStack's Updater<SortingState> pattern
+  function handleSortingChange(updaterOrValue: Updater<SortingState>) {
+    const newValue =
+      typeof updaterOrValue === "function" ? updaterOrValue(sorting) : updaterOrValue;
+    onSortingChange(newValue);
+  }
+
   const table = useReactTable({
     data,
     columns,
     state: { sorting },
-    onSortingChange,
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     manualPagination: true,

@@ -1,41 +1,83 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileUploadZone } from "@/components/domain/file-upload-zone";
-import { FormattedDate } from "@/components/domain/formatted-date";
+import { Suspense } from "react";
+import { DocumentLibraryClient } from "@/components/domain/document-library-client";
+import { DocumentUploadZone } from "@/components/domain/document-upload-zone";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { DocumentFilters, DocumentSort } from "@/server/actions/documents";
 import { getAuthContext } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
 import { createAuditEntry } from "@/server/services/audit";
 import { getDocumentTypePrefixesWithSeed } from "@/server/services/document-type-prefixes";
 import * as documentService from "@/server/services/documents";
+import * as tablePrefsService from "@/server/services/table-preferences";
 import type { AuditLogger } from "@/types/audit";
 import type { CallerIdentity } from "@/types/caller-identity";
 
-const STATUS_COLORS: Record<string, string> = {
-  uploaded: "bg-muted text-muted-foreground",
-  processing: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  extracted: "bg-muted text-muted-foreground",
-  ocr_failed: "bg-destructive/10 text-destructive",
-  linked: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-};
+function DocumentsLoading() {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-20" />
+      </div>
+      <Skeleton className="h-64 w-full" />
+    </div>
+  );
+}
 
-function getReviewBadge(doc: { status: string; reviewedAt: Date | null }) {
-  if ((doc.status === "extracted" || doc.status === "ocr_failed") && !doc.reviewedAt) {
-    return (
-      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-        Needs Review
-      </span>
-    );
+async function DocumentsContent({
+  role,
+  caller,
+}: {
+  role: "owner" | "accountant";
+  caller: CallerIdentity;
+}) {
+  const { filterOptions, tablePreference } = await withTenantTransaction(
+    prisma,
+    caller.tenantId,
+    async (tx) => {
+      const [filterOptsResult, tablePrefResult] = await Promise.all([
+        documentService.getDocumentFilterOptions(tx, caller),
+        tablePrefsService.getTablePreference(tx, caller, "documents"),
+      ]);
+
+      return {
+        filterOptions: filterOptsResult.data ?? {
+          statuses: [],
+          documentTypes: [],
+          prefixTypes: [],
+        },
+        tablePreference: tablePrefResult.data,
+      };
+    },
+  );
+
+  // Parse stored preferences
+  let initialPreferences: {
+    filters?: DocumentFilters;
+    sort?: DocumentSort;
+    pageSize?: number;
+  } | null = null;
+
+  if (tablePreference?.preferences) {
+    const prefs = tablePreference.preferences as Record<string, unknown>;
+    initialPreferences = {
+      filters: prefs.filters as DocumentFilters | undefined,
+      sort: prefs.sort as DocumentSort | undefined,
+      pageSize: typeof prefs.pageSize === "number" ? prefs.pageSize : undefined,
+    };
   }
-  if (doc.reviewedAt) {
-    return (
-      <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-        Reviewed
-      </span>
-    );
-  }
-  return null;
+
+  return (
+    <DocumentLibraryClient
+      filterOptions={filterOptions}
+      initialPreferences={initialPreferences}
+      role={role}
+    />
+  );
 }
 
 export default async function DocumentsPage() {
@@ -47,7 +89,6 @@ export default async function DocumentsPage() {
     where: { userId: auth.userId, organizationId: auth.tenantId },
   });
   const role: CallerIdentity["role"] = member?.role === "owner" ? "owner" : "accountant";
-  if (role !== "owner") redirect("/dashboard");
 
   const caller: CallerIdentity = {
     userId: auth.userId,
@@ -56,92 +97,36 @@ export default async function DocumentsPage() {
     source: "web",
   };
 
-  const { prefixes, recentDocs } = await withTenantTransaction(
-    prisma,
-    auth.tenantId,
-    async (tx) => {
+  // Load upload zone prefixes (owner only)
+  let prefixOptions: { documentType: string; prefix: string }[] = [];
+  if (role === "owner") {
+    const { prefixes } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
       const audit: AuditLogger = {
         log: async (params) => {
           await createAuditEntry(tx, caller, params);
         },
       };
-
       const prefixResult = await getDocumentTypePrefixesWithSeed(tx, caller, audit);
-      const docsResult = await documentService.getRecentDocuments(tx, 5);
-
-      return {
-        prefixes: prefixResult.data ?? [],
-        recentDocs: docsResult.data ?? [],
-      };
-    },
-  );
-
-  const prefixOptions = prefixes.map((p) => ({
-    documentType: p.documentType,
-    prefix: p.prefix,
-  }));
+      return { prefixes: prefixResult.data ?? [] };
+    });
+    prefixOptions = prefixes.map((p) => ({
+      documentType: p.documentType,
+      prefix: p.prefix,
+    }));
+  }
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-5xl p-6">
       <h1 className="mb-6 text-2xl font-semibold">Documents</h1>
 
-      <FileUploadZone prefixOptions={prefixOptions} />
+      {/* Upload zone — owner only (AC #8) */}
+      {role === "owner" && <DocumentUploadZone prefixOptions={prefixOptions} />}
 
-      {recentDocs.length > 0 && (
-        <div className="mt-8">
-          <h2 className="mb-3 text-lg font-medium">Recent uploads</h2>
-          <div className="rounded-lg border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-3 py-2 text-left font-medium">Business Key</th>
-                  <th className="px-3 py-2 text-left font-medium">File Name</th>
-                  <th className="px-3 py-2 text-left font-medium">Status</th>
-                  <th className="px-3 py-2 text-left font-medium">Review</th>
-                  <th className="px-3 py-2 text-left font-medium">Uploaded</th>
-                  <th className="px-3 py-2 text-left font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {recentDocs.map((doc) => (
-                  <tr key={doc.id} className="border-b last:border-b-0 hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <Link
-                        href={`/documents/${doc.id}`}
-                        className="font-mono text-xs hover:underline"
-                      >
-                        {doc.businessKey}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 truncate max-w-48">{doc.fileName}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[doc.status] ?? "bg-muted text-muted-foreground"}`}
-                      >
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">{getReviewBadge(doc)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      <FormattedDate date={doc.createdAt} />
-                    </td>
-                    <td className="px-3 py-2">
-                      {(doc.status === "extracted" || doc.status === "ocr_failed") && (
-                        <Link
-                          href={`/documents/${doc.id}`}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Review
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <div className="mt-8">
+        <Suspense fallback={<DocumentsLoading />}>
+          <DocumentsContent role={role} caller={caller} />
+        </Suspense>
+      </div>
     </div>
   );
 }
