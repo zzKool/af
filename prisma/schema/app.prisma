@@ -302,6 +302,9 @@ model Document {
   documentType String   @map("document_type") @db.VarChar(20)
   status       String   @default("uploaded") @map("status") @db.VarChar(20)
   ocrData      Json?    @map("ocr_data") @db.JsonB
+  corrections  Json?    @map("corrections") @db.JsonB
+  reviewedAt   DateTime? @map("reviewed_at") @db.Timestamptz
+  reviewedBy   String?  @map("reviewed_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
   createdBy    String   @map("created_by") @db.Uuid
