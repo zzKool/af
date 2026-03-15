@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormattedDate } from "@/components/domain/formatted-date";
 import { Badge } from "@/components/ui/badge";
-import type { DocumentReviewData } from "@/server/services/documents";
+import type { DocumentReviewData } from "@/server/actions/documents";
 
 const QUALITY_CONFIG: Record<string, { label: string; className: string }> = {
   high: {

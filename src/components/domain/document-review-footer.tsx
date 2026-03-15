@@ -14,6 +14,7 @@ type DocumentReviewFooterProps = {
   updatedAt?: Date;
   readOnly: boolean;
   saveStatus: Record<string, string>;
+  correctionsCount?: number;
 };
 
 export function DocumentReviewFooter({
@@ -22,6 +23,7 @@ export function DocumentReviewFooter({
   updatedAt,
   readOnly,
   saveStatus,
+  correctionsCount = 0,
 }: DocumentReviewFooterProps) {
   const [reviewedAt, setReviewedAt] = useState<Date | null>(initialReviewedAt);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,7 +75,10 @@ export function DocumentReviewFooter({
     }
     // State 1 & 2: green — not yet reviewed
     return {
-      label: "Mark as Reviewed",
+      label:
+        correctionsCount > 0
+          ? `Mark as Reviewed (${correctionsCount} corrections made)`
+          : "Mark as Reviewed",
       className: "bg-green-600 hover:bg-green-700 text-white",
       variant: "default" as const,
     };

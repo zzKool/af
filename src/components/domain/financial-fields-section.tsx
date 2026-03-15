@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CURRENCIES } from "@/lib/constants";
-import type { OcrExtractedData } from "@/server/services/ocr";
+import type { OcrExtractedData } from "@/server/actions/documents";
 
 type FinancialFieldsSectionProps = {
   resolvedData: Partial<OcrExtractedData>;

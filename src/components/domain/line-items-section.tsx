@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { OcrLineItem } from "@/server/services/ocr";
+import type { OcrLineItem } from "@/server/actions/documents";
 
 type LineItemsSectionProps = {
   items: OcrLineItem[];
@@ -23,6 +23,8 @@ export function LineItemsSection({
   const [, setDeletedItem] = useState<{ item: OcrLineItem; index: number } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const sectionRef = useRef<HTMLFieldSetElement>(null);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   const lineItemsTotal = items.reduce((sum, item) => sum + (item.amount ?? 0), 0);
   const headerTotal = invoiceTotal ?? 0;
@@ -86,12 +88,16 @@ export function LineItemsSection({
   );
 
   // Save full array when user leaves the section
+  // Uses ref + setTimeout to avoid stale closure: input onBlur fires setItems
+  // in the same tick as fieldset onBlur, so we defer to let React flush first
   const handleSectionBlur = useCallback(
     (e: React.FocusEvent) => {
       if (sectionRef.current?.contains(e.relatedTarget as Node)) return;
-      onItemsChange(items);
+      setTimeout(() => {
+        onItemsChange(itemsRef.current);
+      }, 0);
     },
-    [items, onItemsChange],
+    [onItemsChange],
   );
 
   return (
@@ -162,9 +168,9 @@ export function LineItemsSection({
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
-                      defaultValue={item.amount != null ? String(item.amount) : ""}
+                      value={item.amount != null ? String(item.amount) : ""}
                       disabled={readOnly}
-                      onBlur={(e) => updateItem(index, "amount", e.target.value)}
+                      onChange={(e) => updateItem(index, "amount", e.target.value)}
                     />
                   </td>
                   <td className="px-2 py-1">

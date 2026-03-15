@@ -110,6 +110,8 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
     <div
       ref={containerRef}
       className="flex h-full flex-col"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: document viewer needs focus for keyboard page navigation
+      tabIndex={0}
       role="document"
       aria-label="Document preview"
       onKeyDown={handleKeyDown}

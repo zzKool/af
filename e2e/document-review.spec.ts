@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 test.describe("Document review page — owner", () => {
@@ -41,6 +42,14 @@ test.describe("Document review page — owner", () => {
 
       // Auto-save status indicator should be present
       await expect(page.getByText(/Auto-saved|Saving|Save failed/)).toBeVisible();
+
+      // Verify document preview region with keyboard-accessible document role
+      await expect(page.locator("[role='document']")).toBeVisible();
+
+      // Verify financial or relationship form section is rendered
+      const financialHeading = page.getByText("Financial Details");
+      const rawTextArea = page.locator("textarea[readonly]");
+      await expect(financialHeading.or(rawTextArea).first()).toBeVisible();
     }
   });
 
@@ -57,6 +66,38 @@ test.describe("Document review page — owner", () => {
       // Click back link
       await page.getByText(/Back to Documents/).click();
       await expect(page).toHaveURL(/\/documents$/);
+    }
+  });
+
+  test("document review page passes automated accessibility checks", async ({ page }) => {
+    await page.goto("/documents");
+
+    const rows = page.locator("table tbody tr, [data-testid='document-row']");
+    const count = await rows.count();
+
+    if (count > 0) {
+      await rows.first().click();
+      await expect(page).toHaveURL(/\/documents\/[a-f0-9-]+/);
+      // Wait for content to load
+      await expect(page.getByText(/Back to Documents/)).toBeVisible();
+
+      const accessibilityScanResults = await new AxeBuilder({ page })
+        .exclude(".react-pdf__Document") // Exclude PDF canvas elements (third-party)
+        .analyze();
+
+      expect(accessibilityScanResults.violations).toEqual([]);
+    }
+  });
+
+  test("documents list shows review badges for extracted documents", async ({ page }) => {
+    await page.goto("/documents");
+
+    const rows = page.locator("table tbody tr");
+    const count = await rows.count();
+
+    if (count > 0) {
+      // Verify the review column header exists
+      await expect(page.getByRole("columnheader", { name: "Review" })).toBeVisible();
     }
   });
 });

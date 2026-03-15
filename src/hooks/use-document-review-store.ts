@@ -1,5 +1,5 @@
 import { createTenantStore } from "@/lib/stores/create-tenant-store";
-import type { OcrExtractedData } from "@/server/services/ocr";
+import type { OcrExtractedData } from "@/server/actions/documents";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 

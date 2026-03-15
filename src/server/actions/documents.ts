@@ -9,6 +9,10 @@ import { createClock } from "@/server/services/clock";
 import * as documentService from "@/server/services/documents";
 import { createStorageService } from "@/server/services/storage";
 
+// Type re-exports for component boundary compliance (components import types from actions, not services)
+export type { DocumentReviewData } from "@/server/services/documents";
+export type { OcrExtractedData, OcrLineItem } from "@/server/services/ocr";
+
 const uploadSchema = zfd.formData({
   file: zfd.file(
     z

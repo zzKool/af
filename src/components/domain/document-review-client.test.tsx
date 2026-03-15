@@ -78,7 +78,7 @@ vi.mock("@/components/domain/formatted-date", () => ({
   FormattedDate: ({ date }: { date: Date }) => <span>{new Date(date).toISOString()}</span>,
 }));
 
-import type { DocumentReviewData } from "@/server/services/documents";
+import type { DocumentReviewData } from "@/server/actions/documents";
 import { DocumentReviewClient } from "./document-review-client";
 
 function makeReviewData(overrides?: Partial<DocumentReviewData>): DocumentReviewData {

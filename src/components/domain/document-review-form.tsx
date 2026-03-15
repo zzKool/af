@@ -5,8 +5,7 @@ import { FinancialFieldsSection } from "@/components/domain/financial-fields-sec
 import { LineItemsSection } from "@/components/domain/line-items-section";
 import { PaymentDetailsSection } from "@/components/domain/payment-details-section";
 import { RelationshipFieldsSection } from "@/components/domain/relationship-fields-section";
-import type { DocumentReviewData } from "@/server/services/documents";
-import type { OcrExtractedData, OcrLineItem } from "@/server/services/ocr";
+import type { DocumentReviewData, OcrExtractedData, OcrLineItem } from "@/server/actions/documents";
 
 type DocumentReviewFormProps = {
   data: DocumentReviewData;

@@ -8,9 +8,11 @@ import { DocumentReviewForm } from "@/components/domain/document-review-form";
 import { DocumentReviewHeader } from "@/components/domain/document-review-header";
 import { useDocumentReviewStore } from "@/hooks/use-document-review-store";
 import { extractError } from "@/lib/extract-error";
-import { updateDocumentCorrectionsAction } from "@/server/actions/documents";
-import type { DocumentReviewData } from "@/server/services/documents";
-import type { OcrLineItem } from "@/server/services/ocr";
+import {
+  type DocumentReviewData,
+  type OcrLineItem,
+  updateDocumentCorrectionsAction,
+} from "@/server/actions/documents";
 
 const MAX_RETRIES = 3;
 
@@ -133,6 +135,7 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
             updatedAt={data.updatedAt}
             readOnly={data.readOnly}
             saveStatus={saveStatus}
+            correctionsCount={Object.keys(corrections).length}
           />
         </div>
       </div>

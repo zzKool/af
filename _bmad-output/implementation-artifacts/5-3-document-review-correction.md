@@ -1,6 +1,6 @@
 # Story 5.3: Document Review & Correction
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -649,15 +649,17 @@ None
 
 ### Completion Notes List
 
-- Tasks 0-6 and 8-10 completed; Task 7 partially complete (7.1-7.2 done, 7.3-7.4 deferred)
+- All tasks 0-10 completed including tests (7.1-7.4)
 - 35/35 document service tests passing (14 existing + 21 new incl. concurrency test)
+- Component tests: document-preview, document-review-client, line-items-section
+- E2E tests: navigation, preview, back link, accountant blocked, axe-core a11y scan
 - 502/511 tests passing in full suite (9 pre-existing failures in settings.test.ts due to Better Auth FK constraints — unrelated)
 - Build succeeds (with NEXT_OUTPUT_STANDALONE=false on Windows due to colon-in-filename issue)
 - TypeScript type-check clean
 - Biome lint clean on all new files
 - react-pdf v10 CSS import paths fixed (dist/Page/ not dist/esm/Page/)
-- Task 7.3 (component tests) and Task 7.4 (E2E test) NOT implemented — marked [ ] for future work
 - Code review fixes applied: JSON validation tightened, retry logic added, ARIA roles fixed, updatedAt/State 4 footer implemented, quality label corrected
+- Code review round 2: architecture boundary violations fixed (type re-exports from actions), line items stale closure + auto-calc visibility fixed, tabIndex added for keyboard a11y, footer State 2 with correction count implemented, E2E tests enhanced with axe-core
 
 ### File List
 
@@ -676,7 +678,11 @@ None
 - src/components/domain/relationship-fields-section.tsx
 - src/components/domain/document-classification-section.tsx
 - src/components/domain/document-review-footer.tsx
+- src/components/domain/document-preview.test.tsx
+- src/components/domain/document-review-client.test.tsx
+- src/components/domain/line-items-section.test.tsx
 - src/hooks/use-document-review-store.ts
+- e2e/document-review.spec.ts
 - docs/document-review.md
 
 **Modified files:**

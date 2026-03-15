@@ -11,7 +11,7 @@ vi.mock("sonner", () => ({
   toast: mockToast,
 }));
 
-import type { OcrLineItem } from "@/server/services/ocr";
+import type { OcrLineItem } from "@/server/actions/documents";
 import { LineItemsSection } from "./line-items-section";
 
 const sampleItems: OcrLineItem[] = [
@@ -138,7 +138,8 @@ describe("LineItemsSection", () => {
   });
 
   // --- Section blur triggers save ---
-  it("calls onItemsChange when focus leaves the section", () => {
+  it("calls onItemsChange when focus leaves the section", async () => {
+    vi.useFakeTimers();
     const { container } = render(<LineItemsSection {...defaultProps} />);
 
     const fieldset = container.querySelector("fieldset") as HTMLFieldSetElement;
@@ -146,6 +147,10 @@ describe("LineItemsSection", () => {
 
     // Simulate blur leaving the section (relatedTarget outside)
     fireEvent.blur(fieldset, { relatedTarget: document.body });
+
+    // handleSectionBlur uses setTimeout(0) to defer save until after React flushes
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     expect(defaultProps.onItemsChange).toHaveBeenCalledWith(sampleItems);
   });

@@ -87,7 +87,7 @@ development_status:
   5-0-epic-5-prep-sprint: done
   5-1-document-upload-storage: done
   5-2-ocr-processing-extraction: done
-  5-3-document-review-correction: review
+  5-3-document-review-correction: done
   5-4-document-library-download: backlog
   5-5-document-deletion-retention-enforcement: backlog
   epic-5-retrospective: optional
