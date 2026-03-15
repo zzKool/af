@@ -19,7 +19,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
-    "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/",
+    "postinstall": "mkdir -p public && cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/",
     "inngest:dev": "npx inngest-cli@latest dev",
     "prepare": "husky"
   },
