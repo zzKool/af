@@ -88,13 +88,44 @@ Organization: **Dev AB** (slug: `dev-ab`, org number: `556677-8899`)
 
 The seed is idempotent — safe to run multiple times.
 
-## 6. Start the dev server
+## 6. Set up Azurite CORS
+
+```bash
+npm run dev:setup
+```
+
+This configures CORS rules on Azurite so the browser can load document previews. Run once after `docker compose up -d` (persisted in the Azurite volume).
+
+## 7. Start the dev server
 
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) and sign in with one of the seed accounts above.
+
+## 8. Start the Inngest dev server
+
+In a **separate terminal**:
+
+```bash
+npm run inngest:dev
+```
+
+This starts the [Inngest](https://www.inngest.com/) dev server at [http://localhost:8288](http://localhost:8288), which processes background jobs (document OCR, etc.). Without it, uploaded documents will stay in "processing" state.
+
+The Inngest dashboard shows event history and function execution — useful for debugging.
+
+## Optional: Azure Document Intelligence (OCR)
+
+For real OCR extraction (instead of mock data), add these to `.env.local`:
+
+```env
+AZURE_DI_ENDPOINT=https://your-instance.cognitiveservices.azure.com
+AZURE_DI_KEY=your-api-key
+```
+
+Without these, uploads use a mock OCR service that returns fixture data.
 
 ## Other useful commands
 

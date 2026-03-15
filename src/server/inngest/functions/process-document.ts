@@ -83,39 +83,47 @@ export const processDocument = inngest.createFunction(
     });
 
     // Step 2: Run OCR analysis (expensive, memoized separately)
+    // NOTE: OCR runs OUTSIDE the RLS transaction to avoid the 5s interactive
+    // transaction timeout — Azure DI typically takes 10-15s.
     type OcrStepResult = OcrResult | { skipped: true; status: string };
-    const ocrResult: OcrStepResult = await step.run("run-ocr-analysis", async () => {
-      return withInngestContext<OcrStepResult>(tenantId, userId, async (tx, _caller, _audit) => {
-        const doc = await tx.document.findUnique({ where: { id: documentId } });
-        if (!doc) throw new NonRetriableError("Document not found");
-        if (doc.status !== "processing") return { skipped: true as const, status: doc.status };
+    const ocrResult: OcrStepResult = await step.run(
+      "run-ocr-analysis",
+      async (): Promise<OcrStepResult> => {
+        // 2a. Short transaction: read document and prepare OCR source
+        const prepared = await withInngestContext(tenantId, userId, async (tx) => {
+          const doc = await tx.document.findUnique({ where: { id: documentId } });
+          if (!doc) throw new NonRetriableError("Document not found");
+          if (doc.status !== "processing") return { skipped: true as const, status: doc.status };
 
-        // Determine source: SAS URL (production) or buffer (local dev fallback)
-        const storage = createStorageService();
-        const blobPath = extractBlobPath(doc.blobUrl);
-        let source: OcrSource;
+          const storage = createStorageService();
+          const blobPath = extractBlobPath(doc.blobUrl);
+          let source: OcrSource;
 
-        const isLocalBlob = doc.blobUrl.includes("127.0.0.1") || doc.blobUrl.includes("localhost");
-        const isRemoteOcr = !!process.env.AZURE_DI_ENDPOINT;
+          const isLocalBlob =
+            doc.blobUrl.includes("127.0.0.1") || doc.blobUrl.includes("localhost");
+          const isRemoteOcr = !!process.env.AZURE_DI_ENDPOINT;
 
-        if (isLocalBlob && isRemoteOcr) {
-          // Local Azurite + remote Azure DI → must download buffer
-          const fileBuffer = await storage.downloadBlob(blobPath);
-          source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
-        } else if (!isLocalBlob) {
-          // Cloud blob → use SAS URL (zero memory, Azure-to-Azure network)
-          const sasUrl = await storage.generateSasUrl(blobPath, 5);
-          source = { type: "url", url: sasUrl };
-        } else {
-          // Local blob + local/mock OCR → buffer is fine
-          const fileBuffer = await storage.downloadBlob(blobPath);
-          source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
-        }
+          if (isLocalBlob && isRemoteOcr) {
+            const fileBuffer = await storage.downloadBlob(blobPath);
+            source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
+          } else if (!isLocalBlob) {
+            const sasUrl = await storage.generateSasUrl(blobPath, 5);
+            source = { type: "url", url: sasUrl };
+          } else {
+            const fileBuffer = await storage.downloadBlob(blobPath);
+            source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
+          }
 
+          return { source, prefixType: doc.prefixType };
+        });
+
+        if ("skipped" in prepared && prepared.skipped)
+          return { skipped: true as const, status: prepared.status! };
+
+        // 2b. OCR call — outside transaction, no timeout concern
         const ocrService = createOcrService();
-        const result = await ocrService.analyzeDocument(source, doc.prefixType);
+        const result = await ocrService.analyzeDocument(prepared.source, prepared.prefixType);
 
-        // Log metrics ONLY — NEVER log ocrData contents (contains IBANs, tax IDs, amounts)
         logger.info(
           {
             documentId,
@@ -128,8 +136,8 @@ export const processDocument = inngest.createFunction(
         );
 
         return result;
-      });
-    });
+      },
+    );
 
     // Step 3: Save OCR result (cheap DB write, retryable without re-running OCR)
     await step.run("save-ocr-result", async () => {
