@@ -8,7 +8,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
 
   if (result?.data?.error?.code === "NOT_FOUND") notFound();
   if (result?.data?.error?.code === "FORBIDDEN") redirect("/documents");
-  if (result?.data?.error) redirect("/documents");
+  if (result?.data?.error || !result?.data?.data) redirect("/documents");
 
-  return <DocumentReviewClient data={result.data!.data!} />;
+  return <DocumentReviewClient data={result.data.data} />;
 }
