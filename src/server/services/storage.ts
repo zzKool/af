@@ -16,7 +16,16 @@ export interface StorageService {
   ): Promise<string>;
   downloadBlob(blobPath: string): Promise<Buffer>;
   deleteBlob(blobPath: string): Promise<void>;
-  generateSasUrl(blobPath: string, expiresInMinutes: number): Promise<string>;
+  generateSasUrl(
+    blobPath: string,
+    expiresInMinutes: number,
+    options?: { contentDisposition?: string },
+  ): Promise<string>;
+  generateDownloadUrl(
+    blobPath: string,
+    originalFileName: string,
+    expiresInMinutes?: number,
+  ): Promise<string>;
 }
 
 export function createStorageService(
@@ -79,7 +88,11 @@ export function createStorageService(
       await blockBlobClient.deleteIfExists();
     },
 
-    async generateSasUrl(blobPath: string, expiresInMinutes: number): Promise<string> {
+    async generateSasUrl(
+      blobPath: string,
+      expiresInMinutes: number,
+      options?: { contentDisposition?: string },
+    ): Promise<string> {
       const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
       const credential = getSharedKeyCredential();
 
@@ -89,11 +102,32 @@ export function createStorageService(
           blobName: blobPath,
           permissions: BlobSASPermissions.parse("r"),
           expiresOn: new Date(Date.now() + expiresInMinutes * 60 * 1000),
+          ...(options?.contentDisposition && {
+            contentDisposition: options.contentDisposition,
+          }),
         },
         credential,
       ).toString();
 
       return `${blockBlobClient.url}?${sasToken}`;
+    },
+
+    async generateDownloadUrl(
+      blobPath: string,
+      originalFileName: string,
+      expiresInMinutes = 5,
+    ): Promise<string> {
+      // Sanitize filename for Content-Disposition header safety
+      // Remove path traversal, control chars, and characters that break HTTP headers
+      const sanitized =
+        originalFileName
+          .replace(/[/\\]/g, "_") // path separators
+          .replace(/[^\x20-\x7E]/g, "_") // non-printable/non-ASCII
+          .replace(/["]/g, "_") // double quotes break header
+          .trim() || "download";
+
+      const contentDisposition = `attachment; filename="${sanitized}"`;
+      return this.generateSasUrl(blobPath, expiresInMinutes, { contentDisposition });
     },
   };
 }
