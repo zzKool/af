@@ -63,5 +63,8 @@ prisma/data/*.pdf
 # Ingestion docs
 prisma/data/PLUS*.csv
 
+# Generated public assets (copied by postinstall)
+public/pdf.worker.min.mjs
+
 # Vercel
 .vercel
