@@ -1,0 +1,146 @@
+import { Pool } from "pg";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { auth } from "@/server/auth";
+import { prisma } from "@/server/db/client";
+import { withTenantTransaction } from "@/server/db/tenant-client";
+import { cleanupTestData, createAuthenticatedContext } from "@/server/db/test-fixtures";
+import { resetRateLimit } from "@/server/middleware/rate-limit";
+import * as tablePrefsService from "./table-preferences";
+
+// Mock next/headers
+let mockHeaders: Headers = new Headers();
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => mockHeaders),
+}));
+
+const ADMIN_DATABASE_URL =
+  process.env.DATABASE_TEST_MIGRATION_URL ||
+  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+
+let adminPool: Pool;
+
+beforeAll(async () => {
+  adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+});
+
+beforeEach(async () => {
+  await cleanupTestData(adminPool);
+  resetRateLimit();
+  mockHeaders = new Headers();
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+afterAll(async () => {
+  await adminPool.end();
+});
+
+describe("table-preferences service", () => {
+  describe("getTablePreference", () => {
+    it("returns null when no preference exists", async () => {
+      const ctx = await createAuthenticatedContext(auth, "owner");
+      const tenantId = ctx.callerIdentity.tenantId;
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "documents");
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data).toBeNull();
+    });
+
+    it("returns preference when one exists", async () => {
+      const ctx = await createAuthenticatedContext(auth, "owner");
+      const tenantId = ctx.callerIdentity.tenantId;
+
+      // Create preference first
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
+          filters: { status: ["extracted"] },
+          sort: { field: "createdAt", direction: "desc" },
+        });
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "documents");
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data).not.toBeNull();
+      expect(result.data?.tableKey).toBe("documents");
+      expect(result.data?.preferences).toMatchObject({
+        filters: { status: ["extracted"] },
+      });
+    });
+  });
+
+  describe("upsertTablePreference", () => {
+    it("creates new preference when none exists", async () => {
+      const ctx = await createAuthenticatedContext(auth, "owner");
+      const tenantId = ctx.callerIdentity.tenantId;
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
+          filters: { status: ["uploaded"] },
+          pageSize: 50,
+        });
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.tableKey).toBe("documents");
+      expect(result.data?.preferences).toMatchObject({ pageSize: 50 });
+    });
+
+    it("updates existing preference on second call", async () => {
+      const ctx = await createAuthenticatedContext(auth, "owner");
+      const tenantId = ctx.callerIdentity.tenantId;
+
+      // First upsert
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
+          pageSize: 25,
+        });
+      });
+
+      // Second upsert — overwrites
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
+          pageSize: 50,
+        });
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.preferences).toMatchObject({ pageSize: 50 });
+    });
+
+    it("different tableKeys do not conflict", async () => {
+      const ctx = await createAuthenticatedContext(auth, "owner");
+      const tenantId = ctx.callerIdentity.tenantId;
+
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        await tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
+          filters: { status: ["extracted"] },
+        });
+        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "journal", {
+          filters: { type: ["expense"] },
+        });
+      });
+
+      const [docsResult, journalResult] = await withTenantTransaction(
+        prisma,
+        tenantId,
+        async (tx) => {
+          return Promise.all([
+            tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "documents"),
+            tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "journal"),
+          ]);
+        },
+      );
+
+      expect(docsResult.data?.preferences).toMatchObject({ filters: { status: ["extracted"] } });
+      expect(journalResult.data?.preferences).toMatchObject({ filters: { type: ["expense"] } });
+    });
+  });
+});

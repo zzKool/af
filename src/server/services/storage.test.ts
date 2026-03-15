@@ -59,6 +59,41 @@ describe.skipIf(!connectionString)("StorageService (Azurite)", () => {
     expect(body).toEqual(testData);
   });
 
+  it("generates SAS URL with contentDisposition parameter", async () => {
+    const sasUrl = await storage.generateSasUrl(testBlobPath, 5, {
+      contentDisposition: 'attachment; filename="test.pdf"',
+    });
+    expect(sasUrl).toContain(testBlobPath);
+    expect(sasUrl).toContain("sig=");
+    // Verify Content-Disposition header is present via HTTP fetch (Azurite integration)
+    const response = await fetch(sasUrl);
+    const cdHeader = response.headers.get("Content-Disposition");
+    expect(cdHeader).toContain("attachment");
+    expect(cdHeader).toContain("test.pdf");
+  });
+
+  it("generateDownloadUrl produces URL with correct Content-Disposition header", async () => {
+    const downloadUrl = await storage.generateDownloadUrl(testBlobPath, "invoice-2026.pdf", 5);
+    expect(downloadUrl).toContain(testBlobPath);
+    const response = await fetch(downloadUrl);
+    const cdHeader = response.headers.get("Content-Disposition");
+    expect(cdHeader).toContain("attachment");
+    expect(cdHeader).toContain("invoice-2026.pdf");
+  });
+
+  it("generateDownloadUrl sanitizes filename (no path traversal)", async () => {
+    const downloadUrl = await storage.generateDownloadUrl(
+      testBlobPath,
+      "../../../evil/path.pdf",
+      5,
+    );
+    const response = await fetch(downloadUrl);
+    const cdHeader = response.headers.get("Content-Disposition");
+    // Path separators should be replaced with underscores
+    expect(cdHeader).not.toContain("/");
+    expect(cdHeader).not.toContain("..");
+  });
+
   it("deletes blob successfully", async () => {
     await expect(storage.deleteBlob(testBlobPath)).resolves.toBeUndefined();
 
