@@ -4,9 +4,10 @@ import { z } from "zod/v4";
 import { zfd } from "zod-form-data";
 import { MAX_FILE_SIZE_MB } from "@/lib/constants";
 import { inngest } from "@/server/inngest/client";
-import { authedAction } from "@/server/middleware/action-client";
+import { authedAction, ownerAction } from "@/server/middleware/action-client";
 import { createClock } from "@/server/services/clock";
 import * as documentService from "@/server/services/documents";
+import { extractBlobPath } from "@/server/services/ocr";
 import { createStorageService } from "@/server/services/storage";
 
 // Type re-exports for component boundary compliance (components import types from actions, not services)
@@ -236,4 +237,39 @@ export const getDocumentDownloadUrlAction = authedAction
       getStorage(),
       parsedInput.documentId,
     );
+  });
+
+// --- Story 5.5: Document Deletion & Retention Enforcement ---
+
+const deleteDocumentSchema = z.object({
+  documentId: z.string().uuid(),
+});
+
+export const deleteDocumentAction = ownerAction
+  .schema(deleteDocumentSchema)
+  .metadata({ name: "deleteDocument" })
+  .action(async ({ parsedInput, ctx }) => {
+    const { documentId } = parsedInput;
+    const result = await documentService.deleteDocument(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      documentId,
+    );
+    if (result.error) return { error: result.error };
+
+    // Blob deletion after successful DB commit — outside transaction (AD3)
+    if (result.data?.blobUrl) {
+      try {
+        const blobPath = extractBlobPath(result.data.blobUrl);
+        await getStorage().deleteBlob(blobPath);
+      } catch (err) {
+        const { logger } = await import("@/server/logger");
+        logger.warn(
+          { err, documentId },
+          "Blob deletion failed after document delete — orphaned blob",
+        );
+      }
+    }
+    return { data: { businessKey: result.data?.businessKey } };
   });

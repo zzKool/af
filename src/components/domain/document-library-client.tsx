@@ -10,17 +10,30 @@ import {
   FileText,
   Link2,
   Loader2,
+  Trash2,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { DocumentLibraryFilters } from "@/components/domain/document-library-filters";
 import { DocumentStatsBar } from "@/components/domain/document-stats-bar";
 import { DataTable } from "@/components/shared/data-table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useDocumentLibraryStore } from "@/hooks/use-document-library-store";
 import type { DocumentFilters, DocumentListItem, DocumentSort } from "@/server/actions/documents";
 import {
+  deleteDocumentAction,
   getDocumentDownloadUrlAction,
   getDocumentStatsAction,
   getDocumentsAction,
@@ -136,6 +149,66 @@ function DownloadButton({ documentId }: { documentId: string }) {
     >
       <Download className="h-3.5 w-3.5" />
     </Button>
+  );
+}
+
+function DeleteButton({ documentId, businessKey }: { documentId: string; businessKey: string }) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const invalidate = useDocumentLibraryInvalidate();
+
+  function handleConfirm() {
+    startTransition(async () => {
+      const result = await deleteDocumentAction({ documentId });
+      // biome-ignore lint/suspicious/noExplicitAny: next-safe-action wrapping
+      if ((result?.data as any)?.error) {
+        // biome-ignore lint/suspicious/noExplicitAny: next-safe-action wrapping
+        toast.error((result?.data as any).error.message);
+      } else {
+        toast.success(`Document ${businessKey} deleted`);
+        invalidate();
+      }
+      setOpen(false);
+    });
+  }
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-destructive hover:text-destructive"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        title="Delete document"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        <span className="sr-only">Delete document</span>
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{businessKey}</strong> and remove the file from
+              storage. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirm}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -336,6 +409,7 @@ export function DocumentLibraryClient({
           >
             <Eye className="h-3.5 w-3.5" />
           </Link>
+          <DeleteButton documentId={row.original.id} businessKey={row.original.businessKey} />
         </div>
       ),
     },
