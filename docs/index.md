@@ -6,7 +6,7 @@ Secretary-General for solo Swedish AB business administration.
 
 Technical decisions, stack choices, and system design patterns.
 
-- [[architecture-decisions]] — Key architectural decisions and rationale
+- [[architecture-decisions]] — Post-commit side-effect pattern, future ADRs
 - [[tech-stack]] — Languages, frameworks, and library versions
 - [[data-model]] — Database schema, relationships, and RLS policies
 - [[prisma-rls-setup]] — Multi-tenant RLS with Prisma 7, tenant-aware client, migration workflow
@@ -26,6 +26,8 @@ Reusable code patterns and development conventions.
 - [[hexagonal-architecture]] — Import boundaries and service isolation
 - [[decimal-currency]] — Decimal arithmetic, currency formatting, boundary rule
 - [[clock-and-rates]] — Clock abstraction, timezone rules, ECB rate storage
+- [[ecb-rates]] — ECB SDMX API fetching service, XML parsing, gap detection
+- [[csv-parsing]] — Bank CSV parsing service, Nordea format, dedup hashing
 - [[zustand-stores]] — Tenant-scoped Zustand store pattern with auto-reset
 - [[middleware]] — Auth gating strategy (proxy.ts session cookie checks)
 
