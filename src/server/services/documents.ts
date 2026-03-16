@@ -566,6 +566,9 @@ export async function getDocuments(
   }
 
   if (filters.dateFrom || filters.dateTo) {
+    // NOTE: Date filter uses createdAt (upload date), not extractedDate (invoice/transaction date).
+    // The "Date" column in the UI shows extractedDate when available, creating a semantic mismatch.
+    // Fixing this properly requires an indexed extractedDate column (see story action item).
     where.createdAt = {};
     if (filters.dateFrom) {
       where.createdAt.gte = new Date(filters.dateFrom);
@@ -729,6 +732,39 @@ export async function getDocumentStats(
   }
 
   return { data: { totalCount, byStatus, byType, unreviewed } };
+}
+
+export async function getDocumentDownloadUrl(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  storage: StorageService,
+  documentId: string,
+): Promise<ServiceResult<{ downloadUrl: string }>> {
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { blobUrl: true, fileName: true, documentType: true },
+  });
+
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  // Accountant: financial documents only
+  if (caller.role === "accountant" && doc.documentType !== "financial") {
+    return {
+      error: {
+        code: "FORBIDDEN",
+        message: "Access denied to non-financial documents",
+        retryable: false,
+      },
+    };
+  }
+
+  const blobPath = extractBlobPath(doc.blobUrl);
+  const downloadUrl = await storage.generateDownloadUrl(blobPath, doc.fileName);
+  return { data: { downloadUrl } };
 }
 
 /** Reset container memoization (for testing) */

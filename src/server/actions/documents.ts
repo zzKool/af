@@ -230,34 +230,10 @@ export const getDocumentDownloadUrlAction = authedAction
   .schema(downloadSchema)
   .metadata({ name: "getDocumentDownloadUrl" })
   .action(async ({ ctx, parsedInput }) => {
-    const doc = await ctx.tx.document.findUnique({
-      where: { id: parsedInput.documentId },
-      select: { blobUrl: true, fileName: true, documentType: true },
-    });
-
-    if (!doc) {
-      return {
-        error: {
-          code: "NOT_FOUND" as const,
-          message: `Document not found: ${parsedInput.documentId}`,
-          retryable: false,
-        },
-      };
-    }
-
-    // Accountant: financial documents only
-    if (ctx.callerIdentity.role === "accountant" && doc.documentType !== "financial") {
-      return {
-        error: {
-          code: "FORBIDDEN" as const,
-          message: "Access denied to non-financial documents",
-          retryable: false,
-        },
-      };
-    }
-
-    const { extractBlobPath } = await import("@/server/services/ocr");
-    const blobPath = extractBlobPath(doc.blobUrl);
-    const downloadUrl = await getStorage().generateDownloadUrl(blobPath, doc.fileName);
-    return { data: { downloadUrl } };
+    return documentService.getDocumentDownloadUrl(
+      ctx.tx,
+      ctx.callerIdentity,
+      getStorage(),
+      parsedInput.documentId,
+    );
   });

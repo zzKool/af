@@ -1191,7 +1191,10 @@ describe("documents service", () => {
 
     it("accountant role forces financial-only filter (cannot retrieve relationship docs)", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
-      const accountant = await createAuthenticatedContext(auth, "accountant");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
       const tenantId = owner.callerIdentity.tenantId;
 
       await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
@@ -1249,7 +1252,10 @@ describe("documents service", () => {
 
     it("accountant sees only financial document types", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
-      const accountant = await createAuthenticatedContext(auth, "accountant");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
       const tenantId = owner.callerIdentity.tenantId;
 
       await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
@@ -1322,7 +1328,10 @@ describe("documents service", () => {
 
     it("accountant stats only count financial documents", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
-      const accountant = await createAuthenticatedContext(auth, "accountant");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
       const tenantId = owner.callerIdentity.tenantId;
 
       await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {

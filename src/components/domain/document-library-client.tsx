@@ -144,7 +144,6 @@ export function DocumentLibraryClient({
   initialPreferences,
   role,
 }: DocumentLibraryClientProps) {
-  const queryClient = useQueryClient();
   const filters = useDocumentLibraryStore((s) => s.filters);
   const sort = useDocumentLibraryStore((s) => s.sort);
   const page = useDocumentLibraryStore((s) => s.page);
@@ -158,29 +157,27 @@ export function DocumentLibraryClient({
   // Initialize store from server-side preferences (cross-session restore)
   const prefInitialized = useRef(false);
   useEffect(() => {
-    if (!prefInitialized.current && initialPreferences) {
+    if (!prefInitialized.current) {
+      // Always mark initialized — even with no preferences, so the debounced
+      // persistence effect fires on the first filter change for new users.
       prefInitialized.current = true;
-      const store = useDocumentLibraryStore.store;
-      if (initialPreferences.filters) {
-        store.setState({ filters: initialPreferences.filters });
-      }
-      if (initialPreferences.sort) {
-        store.setState({ sort: initialPreferences.sort });
-      }
-      if (initialPreferences.pageSize) {
-        store.setState({ pageSize: initialPreferences.pageSize });
+      if (initialPreferences) {
+        const store = useDocumentLibraryStore.store;
+        if (initialPreferences.filters) {
+          store.setState({ filters: initialPreferences.filters });
+        }
+        if (initialPreferences.sort) {
+          store.setState({ sort: initialPreferences.sort });
+        }
+        if (initialPreferences.pageSize) {
+          store.setState({ pageSize: initialPreferences.pageSize });
+        }
       }
     }
   }, [initialPreferences]);
 
   // Debounced preference persistence
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { upsertTablePreferenceAction } = useRef(
-    typeof window !== "undefined"
-      ? // biome-ignore lint/suspicious/noExplicitAny: dynamic import for SSR safety
-        { upsertTablePreferenceAction: null as any }
-      : { upsertTablePreferenceAction: null },
-  ).current;
 
   useEffect(() => {
     if (!prefInitialized.current) return;
@@ -311,10 +308,9 @@ export function DocumentLibraryClient({
       meta: { compactHidden: true },
     },
     {
-      id: "fileSize",
-      accessorKey: "fileSize",
+      id: "amount",
       header: "Amount",
-      enableSorting: true,
+      enableSorting: false,
       cell: ({ row }) => {
         const { extractedAmount, extractedCurrency } = row.original;
         if (!extractedAmount) return <span className="text-muted-foreground">—</span>;

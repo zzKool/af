@@ -1,8 +1,10 @@
-import type { TransactionClient } from "@/server/db/tenant-client";
+import type { PrismaClient } from "@/generated/prisma/client";
 import type { AppError } from "@/types/app-error";
 import type { CallerIdentity } from "@/types/caller-identity";
 
 // MUST NOT import from next/* or src/components/*
+// NOTE: Uses PrismaClient directly (not TransactionClient) — table_preferences is user-scoped,
+// not tenant-scoped, so it must not run inside a tenant RLS transaction (AD3).
 
 type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppError };
 
@@ -18,11 +20,11 @@ export type TablePreferenceData = {
  * User-scoped — no RLS, accessed by userId from auth context.
  */
 export async function getTablePreference(
-  tx: TransactionClient,
+  prisma: PrismaClient,
   caller: CallerIdentity,
   tableKey: string,
 ): Promise<ServiceResult<TablePreferenceData | null>> {
-  const pref = await tx.tablePreference.findUnique({
+  const pref = await prisma.tablePreference.findUnique({
     where: {
       userId_tableKey: {
         userId: caller.userId,
@@ -50,7 +52,7 @@ export async function getTablePreference(
  * User-scoped — no RLS, idempotent via unique(userId, tableKey).
  */
 export async function upsertTablePreference(
-  tx: TransactionClient,
+  prisma: PrismaClient,
   caller: CallerIdentity,
   tableKey: string,
   preferences: Record<string, unknown>,
@@ -59,7 +61,7 @@ export async function upsertTablePreference(
   // biome-ignore lint/suspicious/noExplicitAny: Prisma Json type requires compatible cast
   const jsonPreferences = preferences as any;
 
-  const result = await tx.tablePreference.upsert({
+  const result = await prisma.tablePreference.upsert({
     where: {
       userId_tableKey: {
         userId: caller.userId,

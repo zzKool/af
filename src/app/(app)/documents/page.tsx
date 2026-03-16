@@ -35,25 +35,20 @@ async function DocumentsContent({
   role: "owner" | "accountant";
   caller: CallerIdentity;
 }) {
-  const { filterOptions, tablePreference } = await withTenantTransaction(
-    prisma,
-    caller.tenantId,
-    async (tx) => {
-      const [filterOptsResult, tablePrefResult] = await Promise.all([
-        documentService.getDocumentFilterOptions(tx, caller),
-        tablePrefsService.getTablePreference(tx, caller, "documents"),
-      ]);
+  // table_preferences is user-scoped (no RLS) — fetch outside tenant transaction (AD3)
+  const [filterOptsResult, tablePrefResult] = await Promise.all([
+    withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      documentService.getDocumentFilterOptions(tx, caller),
+    ),
+    tablePrefsService.getTablePreference(prisma, caller, "documents"),
+  ]);
 
-      return {
-        filterOptions: filterOptsResult.data ?? {
-          statuses: [],
-          documentTypes: [],
-          prefixTypes: [],
-        },
-        tablePreference: tablePrefResult.data,
-      };
-    },
-  );
+  const filterOptions = filterOptsResult.data ?? {
+    statuses: [],
+    documentTypes: [],
+    prefixTypes: [],
+  };
+  const tablePreference = tablePrefResult.data;
 
   // Parse stored preferences
   let initialPreferences: {

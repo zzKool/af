@@ -90,7 +90,7 @@ export function DataTable<TData>({
   const useVirtualRows = rows.length > virtualizeAbove;
 
   const rowVirtualizer = useVirtualizer({
-    count: useVirtualRows ? rows.length : 0,
+    count: rows.length,
     getScrollElement: () => tableContainerRef.current,
     estimateSize: () => 40,
     overscan: 10,
@@ -172,27 +172,52 @@ export function DataTable<TData>({
                 </TableCell>
               </TableRow>
             ) : useVirtualRows ? (
-              // Virtualized rows
-              <>
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const row = rows[virtualRow.index];
-                  return (
-                    <TableRow
-                      key={row.id}
-                      data-index={virtualRow.index}
-                      style={{ transform: `translateY(${virtualRow.start}px)` }}
-                      className={onRowClick ? "cursor-pointer" : undefined}
-                      onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  );
-                })}
-              </>
+              // Virtualized rows — padding approach keeps valid HTML table structure
+              (() => {
+                const virtualItems = rowVirtualizer.getVirtualItems();
+                const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+                const paddingBottom =
+                  virtualItems.length > 0
+                    ? rowVirtualizer.getTotalSize() -
+                      (virtualItems[virtualItems.length - 1]?.end ?? 0)
+                    : 0;
+                return (
+                  <>
+                    {paddingTop > 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          style={{ height: paddingTop, padding: 0 }}
+                        />
+                      </TableRow>
+                    )}
+                    {virtualItems.map((virtualRow) => {
+                      const row = rows[virtualRow.index];
+                      return (
+                        <TableRow
+                          key={row.id}
+                          className={onRowClick ? "cursor-pointer" : undefined}
+                          onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })}
+                    {paddingBottom > 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          style={{ height: paddingBottom, padding: 0 }}
+                        />
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })()
             ) : (
               // Plain DOM rows
               rows.map((row) => (

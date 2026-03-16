@@ -2,7 +2,6 @@ import { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/server/db/test-fixtures";
 import { resetRateLimit } from "@/server/middleware/rate-limit";
 import * as tablePrefsService from "./table-preferences";
@@ -41,11 +40,12 @@ describe("table-preferences service", () => {
   describe("getTablePreference", () => {
     it("returns null when no preference exists", async () => {
       const ctx = await createAuthenticatedContext(auth, "owner");
-      const tenantId = ctx.callerIdentity.tenantId;
 
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "documents");
-      });
+      const result = await tablePrefsService.getTablePreference(
+        prisma,
+        ctx.callerIdentity,
+        "documents",
+      );
 
       expect(result.error).toBeUndefined();
       expect(result.data).toBeNull();
@@ -53,19 +53,18 @@ describe("table-preferences service", () => {
 
     it("returns preference when one exists", async () => {
       const ctx = await createAuthenticatedContext(auth, "owner");
-      const tenantId = ctx.callerIdentity.tenantId;
 
       // Create preference first
-      await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
-          filters: { status: ["extracted"] },
-          sort: { field: "createdAt", direction: "desc" },
-        });
+      await tablePrefsService.upsertTablePreference(prisma, ctx.callerIdentity, "documents", {
+        filters: { status: ["extracted"] },
+        sort: { field: "createdAt", direction: "desc" },
       });
 
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "documents");
-      });
+      const result = await tablePrefsService.getTablePreference(
+        prisma,
+        ctx.callerIdentity,
+        "documents",
+      );
 
       expect(result.error).toBeUndefined();
       expect(result.data).not.toBeNull();
@@ -79,14 +78,16 @@ describe("table-preferences service", () => {
   describe("upsertTablePreference", () => {
     it("creates new preference when none exists", async () => {
       const ctx = await createAuthenticatedContext(auth, "owner");
-      const tenantId = ctx.callerIdentity.tenantId;
 
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
+      const result = await tablePrefsService.upsertTablePreference(
+        prisma,
+        ctx.callerIdentity,
+        "documents",
+        {
           filters: { status: ["uploaded"] },
           pageSize: 50,
-        });
-      });
+        },
+      );
 
       expect(result.error).toBeUndefined();
       expect(result.data?.tableKey).toBe("documents");
@@ -95,21 +96,19 @@ describe("table-preferences service", () => {
 
     it("updates existing preference on second call", async () => {
       const ctx = await createAuthenticatedContext(auth, "owner");
-      const tenantId = ctx.callerIdentity.tenantId;
 
       // First upsert
-      await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
-          pageSize: 25,
-        });
+      await tablePrefsService.upsertTablePreference(prisma, ctx.callerIdentity, "documents", {
+        pageSize: 25,
       });
 
       // Second upsert — overwrites
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
-          pageSize: 50,
-        });
-      });
+      const result = await tablePrefsService.upsertTablePreference(
+        prisma,
+        ctx.callerIdentity,
+        "documents",
+        { pageSize: 50 },
+      );
 
       expect(result.error).toBeUndefined();
       expect(result.data?.preferences).toMatchObject({ pageSize: 50 });
@@ -117,27 +116,18 @@ describe("table-preferences service", () => {
 
     it("different tableKeys do not conflict", async () => {
       const ctx = await createAuthenticatedContext(auth, "owner");
-      const tenantId = ctx.callerIdentity.tenantId;
 
-      await withTenantTransaction(prisma, tenantId, async (tx) => {
-        await tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "documents", {
-          filters: { status: ["extracted"] },
-        });
-        return tablePrefsService.upsertTablePreference(tx, ctx.callerIdentity, "journal", {
-          filters: { type: ["expense"] },
-        });
+      await tablePrefsService.upsertTablePreference(prisma, ctx.callerIdentity, "documents", {
+        filters: { status: ["extracted"] },
+      });
+      await tablePrefsService.upsertTablePreference(prisma, ctx.callerIdentity, "journal", {
+        filters: { type: ["expense"] },
       });
 
-      const [docsResult, journalResult] = await withTenantTransaction(
-        prisma,
-        tenantId,
-        async (tx) => {
-          return Promise.all([
-            tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "documents"),
-            tablePrefsService.getTablePreference(tx, ctx.callerIdentity, "journal"),
-          ]);
-        },
-      );
+      const [docsResult, journalResult] = await Promise.all([
+        tablePrefsService.getTablePreference(prisma, ctx.callerIdentity, "documents"),
+        tablePrefsService.getTablePreference(prisma, ctx.callerIdentity, "journal"),
+      ]);
 
       expect(docsResult.data?.preferences).toMatchObject({ filters: { status: ["extracted"] } });
       expect(journalResult.data?.preferences).toMatchObject({ filters: { type: ["expense"] } });
