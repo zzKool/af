@@ -105,6 +105,59 @@ The component uses `manualSorting: true` and `manualPagination: true` — all da
 - `src/components/shared/data-table.tsx` — generic DataTable
 - `src/hooks/use-document-library-store.ts` — Zustand filter/sort/page store
 
+## Deletion & Linking Protection
+
+### Hard Delete Flow
+
+Owner-only operation enforced at two layers: `ownerAction` middleware + service role check.
+
+```
+Owner clicks delete icon (Trash2)
+  ↓
+AlertDialog opens — shows document businessKey
+  ↓
+Owner clicks "Delete"
+  ↓
+deleteDocumentAction({ documentId })         — ownerAction: RBAC + tenant context
+  ↓
+deleteDocument(tx, caller, audit, id)
+  ├─ status === 'linked' → audit(blocked) → BUSINESS_RULE_VIOLATION
+  └─ status !== 'linked' → audit(deleted) → tx.document.delete()
+  ↓
+[DB transaction commits]
+  ↓
+getStorage().deleteBlob(extractBlobPath(blobUrl))  — outside transaction
+  ├─ success → silent
+  └─ failure → logger.warn, orphaned blob (non-fatal)
+```
+
+Blob deletion order (AD3): DB record deleted first, blob deleted after commit. If blob deletion fails, the DB record is already gone (authoritative state), and the orphaned blob is logged at `warn` level for admin cleanup.
+
+### Linking Guard
+
+`status === 'linked'` is the permanent, unconditional deletion guard. No time window, no expiry. When a document is linked to a journal entry in Epic 7, its status is set to `"linked"`, making it undeleteable forever.
+
+Error shown to user: `"Cannot delete — document is linked to a journal entry"`
+
+Audit is recorded for **both** outcomes:
+- Successful delete: `{ action: 'delete', newData: { outcome: 'deleted' } }`
+- Blocked delete: `{ action: 'delete', newData: { outcome: 'blocked', reason: 'linked' } }`
+
+### Role-Based Delete Access
+
+| Role | Delete button visible | Server enforcement |
+|------|----------------------|--------------------|
+| Owner | Yes (all rows) | `ownerAction` + service role check |
+| Accountant | No | N/A (button not rendered) |
+
+### Key Files (Deletion)
+
+- `src/server/services/documents.ts` — `deleteDocument()` service
+- `src/server/actions/documents.ts` — `deleteDocumentAction` ownerAction
+- `src/components/domain/document-library-client.tsx` — `DeleteButton` with `AlertDialog`
+
+> **Epic 7 note:** Before `tx.document.delete()`, a junction table check must be added once document-transaction linking is implemented.
+
 ## Related
 
 - [[document-upload-flow]] — Upload pipeline and status lifecycle
