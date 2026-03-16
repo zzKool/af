@@ -48,9 +48,13 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
   // Signed URL auto-refresh at 80% TTL
   useEffect(() => {
     const interval = setInterval(async () => {
-      const result = await refreshSignedUrlAction({ documentId });
-      if (result?.data?.data?.signedUrl) {
-        setPreviewUrl(proxyIfLocal(result.data.data.signedUrl));
+      try {
+        const result = await refreshSignedUrlAction({ documentId });
+        if (result?.data?.data?.signedUrl) {
+          setPreviewUrl(proxyIfLocal(result.data.data.signedUrl));
+        }
+      } catch {
+        // Signed URL refresh failure is non-fatal — current URL stays active
       }
     }, SIGNED_URL_REFRESH_MS);
     return () => clearInterval(interval);

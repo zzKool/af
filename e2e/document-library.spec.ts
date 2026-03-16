@@ -12,9 +12,6 @@ test.describe("Document Library", () => {
 
   test("document table renders with column headers", async ({ page }) => {
     await page.goto("/documents");
-    // Wait for table to be visible (may be loading)
-    await page.waitForTimeout(1000);
-    // Filter bar should be visible
     await expect(page.getByPlaceholder("Search documents...")).toBeVisible();
   });
 
