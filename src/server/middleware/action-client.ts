@@ -12,6 +12,7 @@ import { authMiddleware } from "./auth";
 import { ActionError } from "./errors";
 import { loggingMiddleware } from "./logging";
 import { checkRateLimit, resetRateLimit } from "./rate-limit";
+import type { OnCommit } from "./tenant";
 import { tenantMiddleware } from "./tenant";
 
 /**
@@ -73,7 +74,7 @@ const rateLimitMiddleware = createMiddleware<{
  */
 const auditMiddleware = createMiddleware<{
   serverError: AppError;
-  ctx: { callerIdentity: CallerIdentity; tx: TransactionClient };
+  ctx: { callerIdentity: CallerIdentity; tx: TransactionClient; onCommit: OnCommit };
 }>().define(async ({ ctx, next }) => {
   const isNoOp = ctx.callerIdentity.source === "seed";
   const audit: AuditLogger = {

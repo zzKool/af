@@ -57,25 +57,15 @@ export const uploadDocumentAction = authedAction
     );
 
     if (result.data) {
-      try {
+      const documentId = result.data.id;
+      const { tenantId, userId } = ctx.callerIdentity;
+      ctx.onCommit(async () => {
         await inngest.send({
-          id: `doc-uploaded-${result.data.id}`,
+          id: `doc-uploaded-${documentId}`,
           name: "document/uploaded",
-          data: {
-            tenantId: ctx.callerIdentity.tenantId,
-            userId: ctx.callerIdentity.userId,
-            documentId: result.data.id,
-          },
+          data: { tenantId, userId, documentId },
         });
-      } catch (err) {
-        // Log but don't fail the upload — document is already persisted.
-        // Inngest event can be retried manually or via a sweep job.
-        const { logger } = await import("@/server/logger");
-        logger.warn(
-          { documentId: result.data.id, err },
-          "Failed to dispatch document/uploaded event",
-        );
-      }
+      });
     }
 
     return result;
@@ -258,22 +248,12 @@ export const deleteDocumentAction = ownerAction
     );
     if (result.error) return { error: result.error };
 
-    // TODO: Blob deletion runs inside the tenant middleware transaction (withTenantTransaction
-    // wraps the entire handler). AD3 requires this to happen AFTER commit. Acceptable for now
-    // since deleteBlob is fast and non-fatal, but a post-commit side-effect pattern should be
-    // introduced when more actions need this (same issue exists with inngest.send in upload).
     const { businessKey, blobUrl } = result.data;
     if (blobUrl) {
-      try {
+      ctx.onCommit(async () => {
         const blobPath = extractBlobPath(blobUrl);
         await getStorage().deleteBlob(blobPath);
-      } catch (err) {
-        const { logger } = await import("@/server/logger");
-        logger.warn(
-          { err, documentId },
-          "Blob deletion failed after document delete — orphaned blob",
-        );
-      }
+      });
     }
     return { data: { businessKey } };
   });

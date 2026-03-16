@@ -203,6 +203,110 @@ describe("tenantMiddleware", () => {
     expect(next).toHaveBeenCalled();
   });
 
+  it("provides onCommit in context", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      expect(ctx.onCommit).toBeDefined();
+      expect(typeof ctx.onCommit).toBe("function");
+      return {};
+    });
+
+    await callTenantMiddleware({ userId, tenantId }, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it("executes post-commit callbacks after successful transaction", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const callbackOrder: string[] = [];
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      ctx.onCommit(async () => {
+        callbackOrder.push("cb1");
+      });
+      ctx.onCommit(async () => {
+        callbackOrder.push("cb2");
+      });
+      return {};
+    });
+
+    await callTenantMiddleware({ userId, tenantId }, next);
+    expect(callbackOrder).toEqual(["cb1", "cb2"]);
+  });
+
+  it("does NOT execute post-commit callbacks if transaction rolls back", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const callbackExecuted = vi.fn();
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      ctx.onCommit(async () => {
+        callbackExecuted();
+      });
+      throw new Error("Simulated rollback");
+    });
+
+    await expect(callTenantMiddleware({ userId, tenantId }, next)).rejects.toThrow(
+      "Simulated rollback",
+    );
+    expect(callbackExecuted).not.toHaveBeenCalled();
+  });
+
+  it("failed callback does not prevent other callbacks from running", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const callbackOrder: string[] = [];
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      ctx.onCommit(async () => {
+        callbackOrder.push("cb1");
+        throw new Error("cb1 failed");
+      });
+      ctx.onCommit(async () => {
+        callbackOrder.push("cb2");
+      });
+      return {};
+    });
+
+    await callTenantMiddleware({ userId, tenantId }, next);
+    expect(callbackOrder).toEqual(["cb1", "cb2"]);
+  });
+
+  it("failed callback is logged at warn level", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const { logger } = await import("@/server/logger");
+    const warnSpy = vi.spyOn(logger, "warn");
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      ctx.onCommit(async () => {
+        throw new Error("side-effect failed");
+      });
+      return {};
+    });
+
+    await callTenantMiddleware({ userId, tenantId }, next);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Post-commit callback failed",
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("concurrent requests get isolated postCommitCallbacks arrays", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const results: string[][] = [[], []];
+
+    const makeNext = (index: number) =>
+      vi.fn().mockImplementation(async ({ ctx }) => {
+        ctx.onCommit(async () => {
+          results[index].push(`request-${index}`);
+        });
+        return {};
+      });
+
+    await Promise.all([
+      callTenantMiddleware({ userId, tenantId }, makeNext(0)),
+      callTenantMiddleware({ userId, tenantId }, makeNext(1)),
+    ]);
+
+    // Each request should only have its own callback result
+    expect(results[0]).toEqual(["request-0"]);
+    expect(results[1]).toEqual(["request-1"]);
+  });
+
   it("throws FORBIDDEN for unknown role (e.g. 'admin') via exhaustive match", async () => {
     const { userId, tenantId } = await setupOwner();
 
