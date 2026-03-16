@@ -258,10 +258,14 @@ export const deleteDocumentAction = ownerAction
     );
     if (result.error) return { error: result.error };
 
-    // Blob deletion after successful DB commit — outside transaction (AD3)
-    if (result.data?.blobUrl) {
+    // TODO: Blob deletion runs inside the tenant middleware transaction (withTenantTransaction
+    // wraps the entire handler). AD3 requires this to happen AFTER commit. Acceptable for now
+    // since deleteBlob is fast and non-fatal, but a post-commit side-effect pattern should be
+    // introduced when more actions need this (same issue exists with inngest.send in upload).
+    const { businessKey, blobUrl } = result.data;
+    if (blobUrl) {
       try {
-        const blobPath = extractBlobPath(result.data.blobUrl);
+        const blobPath = extractBlobPath(blobUrl);
         await getStorage().deleteBlob(blobPath);
       } catch (err) {
         const { logger } = await import("@/server/logger");
@@ -271,5 +275,5 @@ export const deleteDocumentAction = ownerAction
         );
       }
     }
-    return { data: { businessKey: result.data?.businessKey } };
+    return { data: { businessKey } };
   });

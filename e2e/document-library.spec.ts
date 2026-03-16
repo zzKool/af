@@ -59,21 +59,27 @@ test.describe("Document Library — delete flow", () => {
       buffer: pdfContent,
     });
 
-    // Wait for upload to complete and document to appear
+    // Wait for upload to complete and document to appear in table
     await expect(page.locator("table")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("e2e-delete-test.pdf")).toBeVisible({ timeout: 10000 });
 
-    const deleteBtn = page.getByTitle("Delete document").first();
+    // Target the delete button in the row containing our uploaded file
+    const row = page.locator("tr", { has: page.getByText("e2e-delete-test.pdf") });
+    const deleteBtn = row.getByTitle("Delete document");
     await expect(deleteBtn).toBeVisible({ timeout: 10000 });
 
     await deleteBtn.click();
 
-    // Confirm dialog appears with document key
+    // Confirm dialog appears with title and businessKey (AC #4)
     await expect(page.getByText("Delete document?")).toBeVisible();
+    // Dialog body should mention the document's businessKey (rendered as <strong>)
+    const dialogBody = page.locator("[role=alertdialog]");
+    await expect(dialogBody.locator("strong")).toBeVisible();
 
     // Confirm deletion
     await page.getByRole("button", { name: "Delete" }).click();
 
-    // Document should be gone
+    // Document should be gone from the table
     await expect(page.getByText("e2e-delete-test.pdf")).not.toBeVisible({ timeout: 10000 });
   });
 });
@@ -86,9 +92,11 @@ test.describe("Document Library — accountant view", () => {
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   });
 
-  test("accountant does not see upload zone", async ({ page }) => {
+  test("accountant does not see upload zone or delete buttons", async ({ page }) => {
     await page.goto("/documents");
     // Upload button should NOT be visible for accountant
     await expect(page.getByRole("button", { name: "Upload document" })).not.toBeVisible();
+    // Delete button should NOT be visible for accountant (AC #5)
+    await expect(page.getByTitle("Delete document")).not.toBeVisible();
   });
 });

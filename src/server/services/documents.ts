@@ -775,15 +775,15 @@ export async function deleteDocument(
   audit: AuditLogger,
   documentId: string,
 ): Promise<ServiceResult<{ businessKey: string; blobUrl: string }>> {
-  const doc = await tx.document.findUnique({ where: { id: documentId } });
-  if (!doc) {
-    return { error: { code: "NOT_FOUND", message: "Document not found", retryable: false } };
-  }
-
   if (caller.role !== "owner") {
     return {
       error: { code: "FORBIDDEN", message: "Only owners can delete documents", retryable: false },
     };
+  }
+
+  const doc = await tx.document.findUnique({ where: { id: documentId } });
+  if (!doc) {
+    return { error: { code: "NOT_FOUND", message: "Document not found", retryable: false } };
   }
 
   if (doc.status === "linked") {
