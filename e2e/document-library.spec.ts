@@ -81,7 +81,10 @@ test.describe("Document Library — delete flow", () => {
     // Wait for dialog to close (deletion complete)
     await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
-    // If we navigated away (dialog close + row click-through), go back
+    // WORKAROUND: Dialog confirm click sometimes propagates to the table row beneath,
+    // causing navigation to the document detail page. This is a UI event propagation bug
+    // that should be fixed in the delete button's stopPropagation handling.
+    // TODO: Fix in document-library-client.tsx and remove this workaround.
     if (!page.url().endsWith("/documents")) {
       await page.goto("/documents");
     }

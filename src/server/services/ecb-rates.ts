@@ -1,10 +1,12 @@
 import { XMLParser } from "fast-xml-parser";
 import { Prisma } from "@/generated/prisma/client";
 import { logger } from "@/server/logger";
-import type { Clock } from "./clock";
 
 // ECB SDMX API — daily exchange rates
-const ECB_API_BASE = process.env.ECB_API_BASE_URL || "https://data-api.ecb.europa.eu/service/data";
+const ECB_API_BASE = "https://data-api.ecb.europa.eu/service/data";
+
+/** Fetch timeout — prevents indefinite hang if ECB API is unresponsive */
+const FETCH_TIMEOUT_MS = 30_000;
 
 const DEFAULT_CURRENCY_PAIRS = ["EUR/SEK", "EUR/CHF", "EUR/USD"];
 
@@ -140,6 +142,7 @@ export async function fetchDailyRates(
 
   const response = await fetch(url, {
     headers: { Accept: "application/xml" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -157,17 +160,23 @@ export async function fetchDailyRates(
     const currencyPair = `EUR/${currency}`;
     const decimalRate = new Prisma.Decimal(rate);
 
-    const rowCount = await prisma.$executeRawUnsafe(
-      `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-      date,
-      currencyPair,
-      rate,
-    );
-
-    if (rowCount > 0) {
+    // Cannot use ON CONFLICT DO NOTHING — ecb_rates has PostgreSQL RULEs
+    // (immutability enforcement) which are incompatible with ON CONFLICT.
+    // Use try/catch to handle duplicate key gracefully instead.
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, $2, $3)`,
+        date,
+        currencyPair,
+        rate,
+      );
       inserted++;
-    } else {
-      skipped++;
+    } catch (err) {
+      if (err instanceof Error && /unique constraint|duplicate key/i.test(err.message)) {
+        skipped++;
+      } else {
+        throw err;
+      }
     }
 
     rates.push({ date, currencyPair, rate: decimalRate });

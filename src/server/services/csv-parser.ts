@@ -103,6 +103,14 @@ function resolveDescription(fields: Record<string, string>, primaryField: string
 }
 
 /**
+ * Decode a CSV buffer to text, stripping BOM if present.
+ */
+function decodeBuffer(file: Buffer, encoding: string): string {
+  const text = new TextDecoder(encoding).decode(file);
+  return text.replace(/^\uFEFF/, "");
+}
+
+/**
  * Validate a CSV buffer against a bank format configuration.
  */
 export function validateFormat(file: Buffer, config: BankFormatConfig): ValidationResult {
@@ -113,11 +121,7 @@ export function validateFormat(file: Buffer, config: BankFormatConfig): Validati
     return { valid: false, errors };
   }
 
-  // Decode from configured encoding
-  const text = new TextDecoder(config.encoding).decode(file);
-
-  // Strip BOM if present
-  const cleaned = text.replace(/^\uFEFF/, "");
+  const cleaned = decodeBuffer(file, config.encoding);
 
   if (cleaned.trim() === "") {
     errors.push("File is empty after decoding");
@@ -153,11 +157,7 @@ export function parse(file: Buffer, config: BankFormatConfig): ParseResult {
     return { rows: [], errors: validation.errors };
   }
 
-  // Decode from configured encoding
-  const text = new TextDecoder(config.encoding).decode(file);
-
-  // Strip BOM if present
-  const cleaned = text.replace(/^\uFEFF/, "");
+  const cleaned = decodeBuffer(file, config.encoding);
 
   const result = Papa.parse<string[]>(cleaned, {
     delimiter: config.delimiter,
@@ -174,9 +174,6 @@ export function parse(file: Buffer, config: BankFormatConfig): ParseResult {
 
   const { columns, trailingDelimiter, primaryDescriptionField, referenceField } =
     config.columnMapping;
-
-  // Build field lookup from column mapping
-  const fieldByIndex = new Map(columns.map((c) => [c.index, c.field]));
 
   for (let i = 0; i < dataRows.length; i++) {
     let row = dataRows[i];

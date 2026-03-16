@@ -32,7 +32,7 @@ message:GenericData → message:DataSet → generic:Series[]
 ## Rate Storage
 
 - **Table:** `ecb_rates` — immutable (PostgreSQL RULEs prevent UPDATE/DELETE)
-- **INSERT only:** `ON CONFLICT DO NOTHING` for idempotent inserts
+- **INSERT only:** try/catch on unique constraint for idempotent inserts (`ON CONFLICT` cannot be used with tables that have PostgreSQL RULEs)
 - **Schema:** `(date DATE, currency_pair TEXT, rate DECIMAL(18,6), fetched_at TIMESTAMPTZ)`
 - **Primary key:** `(date, currency_pair)` — one rate per day per pair
 

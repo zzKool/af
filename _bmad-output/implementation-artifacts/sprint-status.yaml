@@ -94,7 +94,7 @@ development_status:
 
   # Epic 6: Banking & Journal Entries
   epic-6: in-progress
-  6-0-epic-6-prep-sprint: in-progress
+  6-0-epic-6-prep-sprint: done
   6-1-ecb-exchange-rate-fetching-caching: backlog
   6-2-bank-csv-import-duplicate-detection: backlog
   6-3-manual-journal-entry-creation: backlog

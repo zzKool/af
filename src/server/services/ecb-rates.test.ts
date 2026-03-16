@@ -1,8 +1,15 @@
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import { MIGRATION_URL } from "../db/test-setup";
-import { buildEcbUrl, countWeekdaysBetween, detectGaps, getRate, parseEcbXml } from "./ecb-rates";
+import {
+  buildEcbUrl,
+  countWeekdaysBetween,
+  detectGaps,
+  fetchDailyRates,
+  getRate,
+  parseEcbXml,
+} from "./ecb-rates";
 
 // Admin pool — ecb_rates has no RLS, so we use admin for all operations.
 let adminPool: Pool;
@@ -280,6 +287,99 @@ describe("detectGaps", () => {
     );
 
     expect(gaps).toHaveLength(0);
+  });
+});
+
+describe("fetchDailyRates", () => {
+  const MOCK_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<message:GenericData xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message" xmlns:generic="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic">
+<message:DataSet>
+<generic:Series>
+<generic:SeriesKey>
+<generic:Value id="CURRENCY" value="SEK"/>
+</generic:SeriesKey>
+<generic:Obs>
+<generic:ObsDimension value="2026-03-14"/>
+<generic:ObsValue value="11.2345"/>
+</generic:Obs>
+</generic:Series>
+</message:DataSet>
+</message:GenericData>`;
+
+  it("fetches XML, parses, and inserts rates into DB", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(MOCK_XML, { status: 200, headers: { "Content-Type": "application/xml" } }),
+    );
+
+    // Delegate to real DB via adminPool (mimics Prisma.$executeRawUnsafe)
+    const prisma = {
+      $executeRawUnsafe: async (q: string, ...args: unknown[]) => {
+        await adminPool.query(q, args);
+        return 1;
+      },
+    };
+
+    const result = await fetchDailyRates(prisma, {
+      date: "2026-03-14",
+      currencyPairs: ["EUR/SEK"],
+    });
+
+    expect(result.inserted).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.rates).toHaveLength(1);
+    expect(result.rates[0].currencyPair).toBe("EUR/SEK");
+    expect(result.rates[0].rate.toString()).toBe("11.2345");
+
+    // Verify actually persisted in DB
+    const { rows } = await adminPool.query(
+      `SELECT rate::text FROM ecb_rates WHERE date = '2026-03-14' AND currency_pair = 'EUR/SEK'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].rate).toBe("11.234500");
+
+    vi.restoreAllMocks();
+  });
+
+  it("skips duplicate rates gracefully (unique constraint catch)", async () => {
+    await insertRate("2026-03-14", "EUR/SEK", "11.2345");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(MOCK_XML, { status: 200, headers: { "Content-Type": "application/xml" } }),
+    );
+
+    // Real DB will throw unique constraint error — service should catch it
+    const prisma = {
+      $executeRawUnsafe: async (q: string, ...args: unknown[]) => {
+        await adminPool.query(q, args);
+        return 1;
+      },
+    };
+
+    const result = await fetchDailyRates(prisma, {
+      date: "2026-03-14",
+      currencyPairs: ["EUR/SEK"],
+    });
+
+    expect(result.inserted).toBe(0);
+    expect(result.skipped).toBe(1);
+
+    vi.restoreAllMocks();
+  });
+
+  it("throws on non-OK HTTP response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Service Unavailable", { status: 503, statusText: "Service Unavailable" }),
+    );
+
+    const prisma = { $executeRawUnsafe: vi.fn() };
+
+    await expect(
+      fetchDailyRates(prisma, { date: "2026-03-14", currencyPairs: ["EUR/SEK"] }),
+    ).rejects.toThrow("ECB API error: 503 Service Unavailable");
+
+    expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
   });
 });
 
