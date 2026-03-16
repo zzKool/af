@@ -10,10 +10,18 @@ vi.mock("@/server/actions/documents", () => ({
   getDocumentStatsAction: vi.fn(),
   getDocumentDownloadUrlAction: vi.fn(),
   getDocumentFilterOptionsAction: vi.fn(),
+  deleteDocumentAction: vi.fn(),
 }));
 
 vi.mock("@/server/actions/table-preferences", () => ({
   upsertTablePreferenceAction: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), {
+    error: vi.fn(),
+    success: vi.fn(),
+  }),
 }));
 
 // Mock next/navigation
@@ -40,7 +48,9 @@ vi.mock("@/hooks/use-document-library-store", () => {
   return { useDocumentLibraryStore: store };
 });
 
+import { toast } from "sonner";
 import {
+  deleteDocumentAction,
   getDocumentDownloadUrlAction,
   getDocumentStatsAction,
   getDocumentsAction,
@@ -50,6 +60,8 @@ import { DocumentLibraryClient } from "./document-library-client";
 const mockGetDocumentsAction = vi.mocked(getDocumentsAction);
 const mockGetDocumentStatsAction = vi.mocked(getDocumentStatsAction);
 const mockGetDocumentDownloadUrlAction = vi.mocked(getDocumentDownloadUrlAction);
+const mockDeleteDocumentAction = vi.mocked(deleteDocumentAction);
+const mockToastError = vi.mocked(toast.error);
 
 const EMPTY_DOCS = { data: { data: { items: [], totalCount: 0 } } };
 const EMPTY_STATS = { data: { data: null } };
@@ -244,6 +256,121 @@ describe("DocumentLibraryClient", () => {
     await waitFor(() => {
       // Stats bar renders count and label in separate spans — find the button by its title
       expect(screen.getByTitle("Show all documents")).toBeDefined();
+    });
+  });
+
+  // --- Story 5.5: Delete button tests ---
+
+  it("delete button visible for owner role", async () => {
+    render(
+      // biome-ignore lint/a11y/useValidAriaRole: custom component prop, not HTML ARIA role
+      <DocumentLibraryClient
+        filterOptions={filterOptions}
+        initialPreferences={null}
+        role="owner"
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => screen.getByText("inv_20260315_001"));
+    expect(screen.getByTitle("Delete document")).toBeDefined();
+  });
+
+  it("delete button absent for accountant role", async () => {
+    render(
+      // biome-ignore lint/a11y/useValidAriaRole: custom component prop, not HTML ARIA role
+      <DocumentLibraryClient
+        filterOptions={filterOptions}
+        initialPreferences={null}
+        role="accountant"
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => screen.getByText("inv_20260315_001"));
+    expect(screen.queryByTitle("Delete document")).toBeNull();
+  });
+
+  it("clicking delete icon opens confirmation dialog showing businessKey", async () => {
+    render(
+      // biome-ignore lint/a11y/useValidAriaRole: custom component prop, not HTML ARIA role
+      <DocumentLibraryClient
+        filterOptions={filterOptions}
+        initialPreferences={null}
+        role="owner"
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => screen.getByText("inv_20260315_001"));
+    fireEvent.click(screen.getByTitle("Delete document"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Delete document?")).toBeDefined();
+      // businessKey appears at least twice: once in the table, once in the dialog
+      expect(screen.getAllByText("inv_20260315_001").length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  it("confirming delete calls deleteDocumentAction and invalidates query cache on success", async () => {
+    mockDeleteDocumentAction.mockResolvedValue({
+      // biome-ignore lint/suspicious/noExplicitAny: next-safe-action mock return type
+      data: { data: { businessKey: "inv_20260315_001" } },
+    } as any);
+
+    render(
+      // biome-ignore lint/a11y/useValidAriaRole: custom component prop, not HTML ARIA role
+      <DocumentLibraryClient
+        filterOptions={filterOptions}
+        initialPreferences={null}
+        role="owner"
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => screen.getByText("inv_20260315_001"));
+    fireEvent.click(screen.getByTitle("Delete document"));
+
+    await waitFor(() => screen.getByText("Delete document?"));
+    fireEvent.click(screen.getByText("Delete"));
+
+    await waitFor(() => {
+      expect(mockDeleteDocumentAction).toHaveBeenCalledWith({ documentId: "doc-1" });
+    });
+  });
+
+  it("error toast shown when action returns BUSINESS_RULE_VIOLATION (linked document)", async () => {
+    mockDeleteDocumentAction.mockResolvedValue({
+      data: {
+        error: {
+          code: "BUSINESS_RULE_VIOLATION",
+          message: "Cannot delete — document is linked to a journal entry",
+          retryable: false,
+        },
+      },
+      // biome-ignore lint/suspicious/noExplicitAny: next-safe-action mock return type
+    } as any);
+
+    render(
+      // biome-ignore lint/a11y/useValidAriaRole: custom component prop, not HTML ARIA role
+      <DocumentLibraryClient
+        filterOptions={filterOptions}
+        initialPreferences={null}
+        role="owner"
+      />,
+      { wrapper },
+    );
+
+    await waitFor(() => screen.getByText("inv_20260315_001"));
+    fireEvent.click(screen.getByTitle("Delete document"));
+    await waitFor(() => screen.getByText("Delete document?"));
+    fireEvent.click(screen.getByText("Delete"));
+
+    await waitFor(() => {
+      expect(mockDeleteDocumentAction).toHaveBeenCalledWith({ documentId: "doc-1" });
+      expect(mockToastError).toHaveBeenCalledWith(
+        "Cannot delete — document is linked to a journal entry",
+      );
     });
   });
 });

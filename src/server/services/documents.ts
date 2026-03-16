@@ -767,6 +767,57 @@ export async function getDocumentDownloadUrl(
   return { data: { downloadUrl } };
 }
 
+// --- Story 5.5: Document Deletion & Retention Enforcement ---
+
+export async function deleteDocument(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  documentId: string,
+): Promise<ServiceResult<{ businessKey: string; blobUrl: string }>> {
+  if (caller.role !== "owner") {
+    return {
+      error: { code: "FORBIDDEN", message: "Only owners can delete documents", retryable: false },
+    };
+  }
+
+  const doc = await tx.document.findUnique({ where: { id: documentId } });
+  if (!doc) {
+    return { error: { code: "NOT_FOUND", message: "Document not found", retryable: false } };
+  }
+
+  if (doc.status === "linked") {
+    await audit.log({
+      action: "delete",
+      entityType: "document",
+      entityId: documentId,
+      oldData: toAuditData(doc),
+      newData: { outcome: "blocked", reason: "linked" },
+    });
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: "Cannot delete — document is linked to a journal entry",
+        retryable: false,
+      },
+    };
+  }
+
+  // TODO: Epic 7 — Before tx.document.delete(), verify no junction table rows exist for this documentId
+  // once document-transaction linking is implemented.
+  await audit.log({
+    action: "delete",
+    entityType: "document",
+    entityId: documentId,
+    oldData: toAuditData(doc),
+    newData: { outcome: "deleted" },
+  });
+
+  await tx.document.delete({ where: { id: documentId } });
+
+  return { data: { businessKey: doc.businessKey, blobUrl: doc.blobUrl } };
+}
+
 /** Reset container memoization (for testing) */
 export function _resetContainerEnsured(): void {
   containerEnsured = false;

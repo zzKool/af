@@ -101,6 +101,11 @@ describe.skipIf(!connectionString)("StorageService (Azurite)", () => {
     await expect(storage.downloadBlob(testBlobPath)).rejects.toThrow();
   });
 
+  it("deleteBlob on non-existent path does not throw (deleteIfExists is idempotent)", async () => {
+    const nonExistentPath = `${randomUUID()}/${randomUUID()}.pdf`;
+    await expect(storage.deleteBlob(nonExistentPath)).resolves.toBeUndefined();
+  });
+
   it("uploads with tenant-prefixed path structure", async () => {
     const tenantPath = `${randomUUID()}/${randomUUID()}.pdf`;
     const data = Buffer.from("tenant-scoped content");

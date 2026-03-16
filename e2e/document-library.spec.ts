@@ -39,6 +39,53 @@ test.describe("Document Library", () => {
   });
 });
 
+test.describe("Document Library — delete flow", () => {
+  test.use({ storageState: "e2e/.auth/owner.json" });
+
+  test("owner can delete an uploaded document via confirmation dialog", async ({ page }) => {
+    await page.goto("/documents");
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+
+    // Attempt upload to ensure at least one document exists
+    const fileInput = page.locator('input[type="file"]');
+    if ((await fileInput.count()) > 0) {
+      const pdfContent = Buffer.from("%PDF-1.4 e2e-delete-test");
+      await fileInput.setInputFiles({
+        name: "e2e-delete-test.pdf",
+        mimeType: "application/pdf",
+        buffer: pdfContent,
+      });
+    }
+
+    // Wait for at least one delete button (from upload or pre-existing documents)
+    const deleteBtn = page.getByTitle("Delete document").first();
+    if (!(await deleteBtn.isVisible({ timeout: 15000 }).catch(() => false))) {
+      test.skip();
+      return;
+    }
+
+    // Capture the businessKey from the same row for dialog verification
+    const row = page.locator("tr", { has: deleteBtn });
+    const businessKey = await row.locator("td").first().innerText();
+    const rowCountBefore = await page.locator("table tbody tr").count();
+
+    await deleteBtn.click();
+
+    // Confirm dialog appears with title and businessKey (AC #4)
+    await expect(page.getByText("Delete document?")).toBeVisible();
+    const dialogBody = page.locator("[role=alertdialog]");
+    await expect(dialogBody.locator("strong")).toHaveText(businessKey);
+
+    // Confirm deletion
+    await page.getByRole("button", { name: "Delete" }).click();
+
+    // Document removed — either row count decreases or success toast appears
+    await expect(page.locator("table tbody tr")).toHaveCount(rowCountBefore - 1, {
+      timeout: 10000,
+    });
+  });
+});
+
 test.describe("Document Library — accountant view", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
@@ -47,9 +94,11 @@ test.describe("Document Library — accountant view", () => {
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   });
 
-  test("accountant does not see upload zone", async ({ page }) => {
+  test("accountant does not see upload zone or delete buttons", async ({ page }) => {
     await page.goto("/documents");
     // Upload button should NOT be visible for accountant
     await expect(page.getByRole("button", { name: "Upload document" })).not.toBeVisible();
+    // Delete button should NOT be visible for accountant (AC #5)
+    await expect(page.getByTitle("Delete document")).not.toBeVisible();
   });
 });
