@@ -8,13 +8,12 @@ test.describe("Document review page — owner", () => {
     await page.goto("/documents");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
 
-    // Click first document row if any exist
-    const rows = page.locator("table tbody tr, [data-testid='document-row']");
-    const count = await rows.count();
+    // Wait for actual data rows (not skeleton rows) by waiting for document links
+    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
-    if (count > 0) {
-      await rows.first().click();
-      // Should navigate to /documents/[id]
+    if (hasDocuments) {
+      await docLink.click();
       await expect(page).toHaveURL(/\/documents\/[a-f0-9-]+/);
 
       // Verify dual-pane layout elements
@@ -33,11 +32,11 @@ test.describe("Document review page — owner", () => {
   test("document detail page shows preview and form areas", async ({ page }) => {
     await page.goto("/documents");
 
-    const rows = page.locator("table tbody tr, [data-testid='document-row']");
-    const count = await rows.count();
+    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
-    if (count > 0) {
-      await rows.first().click();
+    if (hasDocuments) {
+      await docLink.click();
       await expect(page).toHaveURL(/\/documents\/[a-f0-9-]+/);
 
       // Auto-save status indicator should be present
@@ -56,11 +55,11 @@ test.describe("Document review page — owner", () => {
   test("document detail page has back navigation", async ({ page }) => {
     await page.goto("/documents");
 
-    const rows = page.locator("table tbody tr, [data-testid='document-row']");
-    const count = await rows.count();
+    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
-    if (count > 0) {
-      await rows.first().click();
+    if (hasDocuments) {
+      await docLink.click();
       await expect(page).toHaveURL(/\/documents\/[a-f0-9-]+/);
 
       // Click back link
@@ -72,11 +71,11 @@ test.describe("Document review page — owner", () => {
   test("document review page passes automated accessibility checks", async ({ page }) => {
     await page.goto("/documents");
 
-    const rows = page.locator("table tbody tr, [data-testid='document-row']");
-    const count = await rows.count();
+    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
-    if (count > 0) {
-      await rows.first().click();
+    if (hasDocuments) {
+      await docLink.click();
       await expect(page).toHaveURL(/\/documents\/[a-f0-9-]+/);
       // Wait for content to load
       await expect(page.getByText(/Back to Documents/)).toBeVisible();
@@ -89,26 +88,30 @@ test.describe("Document review page — owner", () => {
     }
   });
 
-  test("documents list shows review badges for extracted documents", async ({ page }) => {
+  test("documents list shows review status badges for extracted documents", async ({ page }) => {
     await page.goto("/documents");
 
-    const rows = page.locator("table tbody tr");
-    const count = await rows.count();
+    // Wait for table to load (non-skeleton content)
+    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
-    if (count > 0) {
-      // Verify the review column header exists
-      await expect(page.getByRole("columnheader", { name: "Review" })).toBeVisible();
+    if (hasDocuments) {
+      // Review status is embedded in the Status badge — look for "Needs Review" or "Reviewed"
+      const reviewBadge = page.getByText(/Needs Review|Reviewed/).first();
+      await expect(reviewBadge).toBeVisible();
     }
   });
 });
 
-test.describe("Document review page — accountant blocked", () => {
+test.describe("Document review page — accountant blocked from detail", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
-  test("accountant cannot access documents page", async ({ page }) => {
+  test("accountant can view documents list but has no view/edit link", async ({ page }) => {
     await page.goto("/documents");
-    // Accountant should be redirected away
-    await expect(page).not.toHaveURL(/\/documents/);
-    await expect(page).toHaveURL(/\/dashboard/);
+    // Story 5.4: accountants now have read-only access to the documents library
+    await expect(page).toHaveURL(/\/documents/);
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+    // No navigate-to-detail Eye link for accountants (actions column only has Download)
+    await expect(page.locator("table tbody tr td a[href^='/documents/']")).not.toBeVisible();
   });
 });

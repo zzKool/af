@@ -20,7 +20,8 @@ test.describe("Document Library", () => {
 
   test("filter bar shows status filter dropdown", async ({ page }) => {
     await page.goto("/documents");
-    await expect(page.getByRole("button", { name: /Status/ })).toBeVisible();
+    const filterBar = page.getByTestId("document-filters");
+    await expect(filterBar.getByRole("button", { name: /Status/ })).toBeVisible();
   });
 
   test("search input is visible and interactive", async ({ page }) => {

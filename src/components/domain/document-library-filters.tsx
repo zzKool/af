@@ -157,7 +157,7 @@ export function DocumentLibraryFilters({
   }, [filters.search]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2" data-testid="document-filters">
       {/* Search input */}
       <Input
         type="search"
