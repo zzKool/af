@@ -3,7 +3,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { auth } from "@/server/auth";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
-import { cleanupTestData, createAuthenticatedContext } from "@/server/db/test-fixtures";
+import {
+  cleanupTestData,
+  createAuthenticatedContext,
+  createTestDocument,
+} from "@/server/db/test-fixtures";
 import { resetRateLimit } from "@/server/middleware/rate-limit";
 import { assertAuditLogged } from "@/server/test-utils/config-crud-helpers";
 import type { AuditLogger } from "@/types/audit";
@@ -31,6 +35,7 @@ const mockStorage = {
   downloadBlob: vi.fn(),
   deleteBlob: mockDeleteBlob,
   generateSasUrl: mockGenerateSasUrl,
+  generateDownloadUrl: vi.fn().mockResolvedValue("https://blob.url/documents/download"),
 };
 
 // Mock logger
@@ -1057,6 +1062,294 @@ describe("documents service", () => {
       });
 
       expect(result.data?.readOnly).toBe(true);
+    });
+  });
+
+  // --- Story 5.4: Document Library tests ---
+
+  describe("getDocuments", () => {
+    it("returns empty result when no documents exist", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocuments(
+          tx,
+          owner.callerIdentity,
+          {},
+          { field: "createdAt", direction: "desc" },
+          { page: 1, pageSize: 25 },
+        );
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.items).toHaveLength(0);
+      expect(result.data?.totalCount).toBe(0);
+    });
+
+    it("returns documents with default sort (createdAt desc)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        businessKey: "exp_20260301_001",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        businessKey: "exp_20260302_001",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocuments(
+          tx,
+          owner.callerIdentity,
+          {},
+          { field: "createdAt", direction: "desc" },
+          { page: 1, pageSize: 25 },
+        );
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.totalCount).toBe(2);
+      expect(result.data?.items).toHaveLength(2);
+    });
+
+    it("filters by status", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "extracted",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocuments(
+          tx,
+          owner.callerIdentity,
+          { status: ["extracted"] },
+          { field: "createdAt", direction: "desc" },
+          { page: 1, pageSize: 25 },
+        );
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.totalCount).toBe(1);
+      expect(result.data?.items[0]?.status).toBe("extracted");
+    });
+
+    it("searches by businessKey (ILIKE)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        businessKey: "inv_20260315_001",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        businessKey: "exp_20260315_001",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocuments(
+          tx,
+          owner.callerIdentity,
+          { search: "inv_" },
+          { field: "createdAt", direction: "desc" },
+          { page: 1, pageSize: 25 },
+        );
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.totalCount).toBe(1);
+      expect(result.data?.items[0]?.businessKey).toContain("inv_");
+    });
+
+    it("applies pagination correctly (page 2)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      // Create 3 documents
+      for (let i = 0; i < 3; i++) {
+        await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId);
+      }
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocuments(
+          tx,
+          owner.callerIdentity,
+          {},
+          { field: "createdAt", direction: "desc" },
+          { page: 2, pageSize: 2 },
+        );
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.totalCount).toBe(3);
+      expect(result.data?.items).toHaveLength(1); // page 2 with pageSize 2 = 1 item
+    });
+
+    it("accountant role forces financial-only filter (cannot retrieve relationship docs)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        documentType: "financial",
+        prefixType: "invoice",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        documentType: "relationship",
+        prefixType: "contract",
+      });
+
+      // Accountant explicitly requests relationship docs — must be blocked server-side
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocuments(
+          tx,
+          accountant.callerIdentity,
+          { documentType: ["relationship"] }, // attempted override
+          { field: "createdAt", direction: "desc" },
+          { page: 1, pageSize: 25 },
+        );
+      });
+
+      expect(result.error).toBeUndefined();
+      // Relationship doc must NOT appear — server enforces financial-only
+      expect(result.data?.items.every((d) => d.documentType === "financial")).toBe(true);
+    });
+  });
+
+  describe("getDocumentFilterOptions", () => {
+    it("returns distinct filter values from actual data", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+        prefixType: "expense",
+        documentType: "financial",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "extracted",
+        prefixType: "invoice",
+        documentType: "financial",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentFilterOptions(tx, owner.callerIdentity);
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.statuses).toContain("uploaded");
+      expect(result.data?.statuses).toContain("extracted");
+      expect(result.data?.prefixTypes).toContain("expense");
+      expect(result.data?.prefixTypes).toContain("invoice");
+    });
+
+    it("accountant sees only financial document types", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        documentType: "financial",
+        prefixType: "expense",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        documentType: "relationship",
+        prefixType: "contract",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentFilterOptions(tx, accountant.callerIdentity);
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.documentTypes).not.toContain("relationship");
+      expect(result.data?.prefixTypes).not.toContain("contract");
+    });
+  });
+
+  describe("getDocumentStats", () => {
+    it("returns correct aggregate counts", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "extracted",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "ocr_failed",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentStats(tx, owner.callerIdentity);
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.totalCount).toBe(3);
+      expect(result.data?.byStatus["uploaded"]).toBe(1);
+      expect(result.data?.byStatus["extracted"]).toBe(1);
+      expect(result.data?.byStatus["ocr_failed"]).toBe(1);
+    });
+
+    it("counts unreviewed correctly (extracted + ocr_failed without reviewedAt)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "extracted",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "ocr_failed",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentStats(tx, owner.callerIdentity);
+      });
+
+      expect(result.error).toBeUndefined();
+      // extracted + ocr_failed without reviewedAt = 2 unreviewed
+      expect(result.data?.unreviewed).toBe(2);
+    });
+
+    it("accountant stats only count financial documents", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const tenantId = owner.callerIdentity.tenantId;
+
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        documentType: "financial",
+        status: "uploaded",
+      });
+      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        documentType: "relationship",
+        status: "uploaded",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocumentStats(tx, accountant.callerIdentity);
+      });
+
+      expect(result.error).toBeUndefined();
+      // Accountant should only see financial docs
+      expect(result.data?.totalCount).toBe(1);
     });
   });
 });

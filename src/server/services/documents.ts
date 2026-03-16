@@ -507,6 +507,266 @@ export async function refreshSignedUrl(
   return { data: { signedUrl } };
 }
 
+// --- Story 5.4: Document Library & Download ---
+
+export interface DocumentFilters {
+  status?: string[];
+  documentType?: string[];
+  prefixType?: string[];
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export interface DocumentSort {
+  field: "businessKey" | "documentType" | "status" | "createdAt" | "fileSize";
+  direction: "asc" | "desc";
+}
+
+export type DocumentListItem = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  prefixType: string;
+  documentType: string;
+  status: string;
+  createdAt: Date;
+  fileSize: number;
+  reviewedAt: Date | null;
+  extractedVendor: string | null;
+  extractedAmount: number | null;
+  extractedCurrency: string | null;
+  extractedDate: string | null;
+};
+
+export async function getDocuments(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  filters: DocumentFilters,
+  sort: DocumentSort,
+  pagination: { page: number; pageSize: number },
+): Promise<ServiceResult<{ items: DocumentListItem[]; totalCount: number }>> {
+  // Build where clause
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
+  const where: any = {};
+
+  // Accountant enforcement (AD5): force financial-only regardless of filter input
+  if (caller.role === "accountant") {
+    where.documentType = "financial";
+  } else if (filters.documentType?.length) {
+    where.documentType = { in: filters.documentType };
+  }
+
+  if (filters.status?.length) {
+    where.status = { in: filters.status };
+  }
+
+  if (filters.prefixType?.length) {
+    where.prefixType = { in: filters.prefixType };
+  }
+
+  if (filters.dateFrom || filters.dateTo) {
+    // NOTE: Date filter uses createdAt (upload date), not extractedDate (invoice/transaction date).
+    // The "Date" column in the UI shows extractedDate when available, creating a semantic mismatch.
+    // Fixing this properly requires an indexed extractedDate column (see story action item).
+    where.createdAt = {};
+    if (filters.dateFrom) {
+      where.createdAt.gte = new Date(filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      // Include the full day
+      const endDate = new Date(filters.dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      where.createdAt.lte = endDate;
+    }
+  }
+
+  if (filters.search) {
+    where.OR = [
+      { businessKey: { contains: filters.search, mode: "insensitive" } },
+      { fileName: { contains: filters.search, mode: "insensitive" } },
+    ];
+  }
+
+  // Map sort field to Prisma column name
+  const orderBy = { [sort.field]: sort.direction };
+
+  const [docs, totalCount] = await Promise.all([
+    tx.document.findMany({
+      where,
+      orderBy,
+      skip: (pagination.page - 1) * pagination.pageSize,
+      take: pagination.pageSize,
+      select: {
+        id: true,
+        businessKey: true,
+        fileName: true,
+        prefixType: true,
+        documentType: true,
+        status: true,
+        createdAt: true,
+        fileSize: true,
+        reviewedAt: true,
+        ocrData: true,
+        corrections: true,
+      },
+    }),
+    tx.document.count({ where }),
+  ]);
+
+  // Resolve extracted data for list display
+  const items: DocumentListItem[] = docs.map((doc) => {
+    let extractedData: OcrExtractedData | null = null;
+    if (doc.ocrData) {
+      const parsed = doc.ocrData as unknown as { extractedData: OcrExtractedData };
+      extractedData = parsed.extractedData ?? null;
+    }
+    const corrections = (doc.corrections as Partial<OcrExtractedData>) ?? null;
+    const resolved = resolveDocumentData(extractedData, corrections);
+
+    return {
+      id: doc.id,
+      businessKey: doc.businessKey,
+      fileName: doc.fileName,
+      prefixType: doc.prefixType,
+      documentType: doc.documentType,
+      status: doc.status,
+      createdAt: doc.createdAt,
+      fileSize: doc.fileSize,
+      reviewedAt: doc.reviewedAt,
+      extractedVendor: resolved.vendorName ?? resolved.merchantName ?? null,
+      extractedAmount: resolved.invoiceTotal ?? null,
+      extractedCurrency: resolved.currency ?? null,
+      extractedDate: resolved.invoiceDate ?? resolved.transactionDate ?? null,
+    };
+  });
+
+  return { data: { items, totalCount } };
+}
+
+export async function getDocumentFilterOptions(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+): Promise<ServiceResult<{ statuses: string[]; documentTypes: string[]; prefixTypes: string[] }>> {
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
+  const where: any = {};
+
+  // Accountant enforcement: only financial document types
+  if (caller.role === "accountant") {
+    where.documentType = "financial";
+  }
+
+  const [statuses, documentTypes, prefixTypes] = await Promise.all([
+    tx.document.findMany({
+      where,
+      distinct: ["status"],
+      select: { status: true },
+    }),
+    tx.document.findMany({
+      where,
+      distinct: ["documentType"],
+      select: { documentType: true },
+    }),
+    tx.document.findMany({
+      where,
+      distinct: ["prefixType"],
+      select: { prefixType: true },
+    }),
+  ]);
+
+  return {
+    data: {
+      statuses: statuses.map((s) => s.status),
+      documentTypes: documentTypes.map((d) => d.documentType),
+      prefixTypes: prefixTypes.map((p) => p.prefixType),
+    },
+  };
+}
+
+export async function getDocumentStats(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+): Promise<
+  ServiceResult<{
+    totalCount: number;
+    byStatus: Record<string, number>;
+    byType: Record<string, number>;
+    unreviewed: number;
+  }>
+> {
+  // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
+  const where: any = {};
+  if (caller.role === "accountant") {
+    where.documentType = "financial";
+  }
+
+  const [totalCount, statusGroups, typeGroups, unreviewed] = await Promise.all([
+    tx.document.count({ where }),
+    tx.document.groupBy({
+      by: ["status"],
+      where,
+      _count: true,
+    }),
+    tx.document.groupBy({
+      by: ["documentType"],
+      where,
+      _count: true,
+    }),
+    tx.document.count({
+      where: {
+        ...where,
+        status: { in: ["extracted", "ocr_failed"] },
+        reviewedAt: null,
+      },
+    }),
+  ]);
+
+  const byStatus: Record<string, number> = {};
+  for (const g of statusGroups) {
+    byStatus[g.status] = g._count;
+  }
+
+  const byType: Record<string, number> = {};
+  for (const g of typeGroups) {
+    byType[g.documentType] = g._count;
+  }
+
+  return { data: { totalCount, byStatus, byType, unreviewed } };
+}
+
+export async function getDocumentDownloadUrl(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  storage: StorageService,
+  documentId: string,
+): Promise<ServiceResult<{ downloadUrl: string }>> {
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { blobUrl: true, fileName: true, documentType: true },
+  });
+
+  if (!doc) {
+    return {
+      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+
+  // Accountant: financial documents only
+  if (caller.role === "accountant" && doc.documentType !== "financial") {
+    return {
+      error: {
+        code: "FORBIDDEN",
+        message: "Access denied to non-financial documents",
+        retryable: false,
+      },
+    };
+  }
+
+  const blobPath = extractBlobPath(doc.blobUrl);
+  const downloadUrl = await storage.generateDownloadUrl(blobPath, doc.fileName);
+  return { data: { downloadUrl } };
+}
+
 /** Reset container memoization (for testing) */
 export function _resetContainerEnsured(): void {
   containerEnsured = false;

@@ -25,9 +25,11 @@ test.describe("Documents page", () => {
 test.describe("Documents page — accountant access", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
-  test("accountant is redirected away from documents", async ({ page }) => {
+  test("accountant can view documents page (financial documents only, read-only)", async ({
+    page,
+  }) => {
     await page.goto("/documents");
-    await expect(page).not.toHaveURL(/\/documents/);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/documents/);
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   });
 });

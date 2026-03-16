@@ -113,6 +113,7 @@ Linked documents cannot be reclassified.
 ## Related
 
 - [[document-upload-flow]] — Upload pipeline and status lifecycle
+- [[document-library]] — Document library, paginated list, download
 - [[ocr-processing]] — OCR extraction and quality classification
 - [[auto-save-pattern]] — General auto-save form pattern reference
 - [[zustand-stores]] — Tenant-scoped store pattern

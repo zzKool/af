@@ -221,6 +221,20 @@ model UserPreference {
   @@map("user_preferences")
 }
 
+/// User-scoped table preferences (not tenant-scoped). Access controlled by userId from auth context, not RLS.
+/// Stores per-user per-table filter/sort/pagination preferences for cross-session persistence.
+model TablePreference {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tableKey    String   @map("table_key") @db.VarChar(50)
+  preferences Json     @map("preferences") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, tableKey])
+  @@map("table_preferences")
+}
+
 // Partners — per-tenant domain entity, full RLS, follows mandatory template
 // First domain entity CRUD (pattern-setter for Story 4.2+)
 // Soft-delete via is_active boolean (not deleted_at)

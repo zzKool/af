@@ -137,6 +137,7 @@ export function LineItemsSection({
                 >
                   <td className="px-2 py-1">
                     <Input
+                      id={`line-item-${index}-description`}
                       className="h-8 text-sm"
                       defaultValue={item.description ?? ""}
                       disabled={readOnly}
@@ -145,6 +146,7 @@ export function LineItemsSection({
                   </td>
                   <td className="px-2 py-1">
                     <Input
+                      id={`line-item-${index}-quantity`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="1"
@@ -155,6 +157,7 @@ export function LineItemsSection({
                   </td>
                   <td className="px-2 py-1">
                     <Input
+                      id={`line-item-${index}-unitPrice`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -165,6 +168,7 @@ export function LineItemsSection({
                   </td>
                   <td className="px-2 py-1">
                     <Input
+                      id={`line-item-${index}-amount`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -175,6 +179,7 @@ export function LineItemsSection({
                   </td>
                   <td className="px-2 py-1">
                     <Input
+                      id={`line-item-${index}-tax`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
