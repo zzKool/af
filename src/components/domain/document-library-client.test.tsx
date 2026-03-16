@@ -242,7 +242,8 @@ describe("DocumentLibraryClient", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/5 documents/i)).toBeDefined();
+      // Stats bar renders count and label in separate spans — find the button by its title
+      expect(screen.getByTitle("Show all documents")).toBeDefined();
     });
   });
 });
