@@ -39,6 +39,45 @@ test.describe("Document Library", () => {
   });
 });
 
+test.describe("Document Library — delete flow", () => {
+  test.use({ storageState: "e2e/.auth/owner.json" });
+
+  test("owner can delete an uploaded document via confirmation dialog", async ({ page }) => {
+    await page.goto("/documents");
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+
+    const fileInput = page.locator('input[type="file"]');
+    if ((await fileInput.count()) === 0) {
+      test.skip();
+      return;
+    }
+
+    const pdfContent = Buffer.from("%PDF-1.4 e2e-delete-test");
+    await fileInput.setInputFiles({
+      name: "e2e-delete-test.pdf",
+      mimeType: "application/pdf",
+      buffer: pdfContent,
+    });
+
+    // Wait for upload to complete and document to appear
+    await expect(page.locator("table")).toBeVisible({ timeout: 15000 });
+
+    const deleteBtn = page.getByTitle("Delete document").first();
+    await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+
+    await deleteBtn.click();
+
+    // Confirm dialog appears with document key
+    await expect(page.getByText("Delete document?")).toBeVisible();
+
+    // Confirm deletion
+    await page.getByRole("button", { name: "Delete" }).click();
+
+    // Document should be gone
+    await expect(page.getByText("e2e-delete-test.pdf")).not.toBeVisible({ timeout: 10000 });
+  });
+});
+
 test.describe("Document Library — accountant view", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 

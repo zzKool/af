@@ -1352,4 +1352,136 @@ describe("documents service", () => {
       expect(result.data?.totalCount).toBe(1);
     });
   });
+
+  // --- Story 5.5: Document Deletion & Retention Enforcement ---
+
+  describe("deleteDocument", () => {
+    it("deletes unlinked document and returns businessKey + blobUrl", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.deleteDocument(tx, owner.callerIdentity, audit, doc.id);
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.businessKey).toBe(doc.businessKey);
+      expect(result.data?.blobUrl).toBeDefined();
+
+      // Verify document is gone from DB
+      const gone = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocument(tx, doc.id);
+      });
+      expect(gone.error?.code).toBe("NOT_FOUND");
+    });
+
+    it("blocks deletion of linked document with BUSINESS_RULE_VIOLATION", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "linked",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.deleteDocument(tx, owner.callerIdentity, audit, doc.id);
+      });
+
+      expect(result.error).toBeDefined();
+      expect(result.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(result.error?.message).toContain("linked to a journal entry");
+
+      // Document must still exist
+      const still = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        return documentService.getDocument(tx, doc.id);
+      });
+      expect(still.data).toBeDefined();
+    });
+
+    it("returns NOT_FOUND for non-existent document", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.deleteDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          "00000000-0000-0000-0000-000000000000",
+        );
+      });
+
+      expect(result.error?.code).toBe("NOT_FOUND");
+    });
+
+    it("returns FORBIDDEN when caller is not owner", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const accountant = await createAuthenticatedContext(auth, "member", {
+        headers: owner.headers,
+        orgId: owner.callerIdentity.tenantId,
+      });
+      const { tenantId } = accountant.callerIdentity;
+
+      const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+      });
+
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, accountant.callerIdentity);
+        return documentService.deleteDocument(tx, accountant.callerIdentity, audit, doc.id);
+      });
+
+      expect(result.error?.code).toBe("FORBIDDEN");
+    });
+
+    it("records audit entry with outcome:deleted for successful delete", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "uploaded",
+      });
+
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.deleteDocument(tx, owner.callerIdentity, audit, doc.id);
+      });
+
+      const auditRow = await adminPool.query(
+        `SELECT new_data FROM audit_logs WHERE tenant_id = $1 AND action = 'delete' AND entity_type = 'document' AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+        [tenantId, doc.id],
+      );
+      expect(auditRow.rows.length).toBe(1);
+      expect(auditRow.rows[0].new_data.outcome).toBe("deleted");
+    });
+
+    it("records audit entry with outcome:blocked for linked document", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+
+      const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "linked",
+      });
+
+      await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.deleteDocument(tx, owner.callerIdentity, audit, doc.id);
+      });
+
+      const auditRow = await adminPool.query(
+        `SELECT new_data FROM audit_logs WHERE tenant_id = $1 AND action = 'delete' AND entity_type = 'document' AND entity_id = $2 ORDER BY created_at DESC LIMIT 1`,
+        [tenantId, doc.id],
+      );
+      expect(auditRow.rows.length).toBe(1);
+      expect(auditRow.rows[0].new_data.outcome).toBe("blocked");
+      expect(auditRow.rows[0].new_data.reason).toBe("linked");
+    });
+  });
 });
