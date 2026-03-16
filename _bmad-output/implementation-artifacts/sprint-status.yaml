@@ -83,17 +83,18 @@ development_status:
   epic-4-retrospective: done
 
   # Epic 5: Document Management
-  epic-5: in-progress
+  epic-5: done
   5-0-epic-5-prep-sprint: done
   5-1-document-upload-storage: done
   5-2-ocr-processing-extraction: done
   5-3-document-review-correction: done
   5-4-document-library-download: done
   5-5-document-deletion-retention-enforcement: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   # Epic 6: Banking & Journal Entries
-  epic-6: backlog
+  epic-6: in-progress
+  6-0-epic-6-prep-sprint: in-progress
   6-1-ecb-exchange-rate-fetching-caching: backlog
   6-2-bank-csv-import-duplicate-detection: backlog
   6-3-manual-journal-entry-creation: backlog
