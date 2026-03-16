@@ -52,6 +52,9 @@ test.describe("Document Library — delete flow", () => {
       return;
     }
 
+    // Count rows before upload to detect the new one
+    const rowCountBefore = await page.locator("table tbody tr").count();
+
     const pdfContent = Buffer.from("%PDF-1.4 e2e-delete-test");
     await fileInput.setInputFiles({
       name: "e2e-delete-test.pdf",
@@ -59,28 +62,31 @@ test.describe("Document Library — delete flow", () => {
       buffer: pdfContent,
     });
 
-    // Wait for upload to complete and document to appear in table
-    await expect(page.locator("table")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("e2e-delete-test.pdf")).toBeVisible({ timeout: 10000 });
+    // Wait for upload to complete — a new row appears (table sorted by createdAt desc)
+    await expect(page.locator("table tbody tr")).toHaveCount(rowCountBefore + 1, {
+      timeout: 15000,
+    });
 
-    // Target the delete button in the row containing our uploaded file
-    const row = page.locator("tr", { has: page.getByText("e2e-delete-test.pdf") });
-    const deleteBtn = row.getByTitle("Delete document");
-    await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+    // The newest document is the first row (createdAt desc sort)
+    const firstRow = page.locator("table tbody tr").first();
+    const deleteBtn = firstRow.getByTitle("Delete document");
+    await expect(deleteBtn).toBeVisible({ timeout: 5000 });
+
+    // Capture the businessKey from the first row for later verification
+    const businessKey = await firstRow.locator("td").first().innerText();
 
     await deleteBtn.click();
 
     // Confirm dialog appears with title and businessKey (AC #4)
     await expect(page.getByText("Delete document?")).toBeVisible();
-    // Dialog body should mention the document's businessKey (rendered as <strong>)
     const dialogBody = page.locator("[role=alertdialog]");
-    await expect(dialogBody.locator("strong")).toBeVisible();
+    await expect(dialogBody.locator("strong")).toHaveText(businessKey);
 
     // Confirm deletion
     await page.getByRole("button", { name: "Delete" }).click();
 
-    // Document should be gone from the table
-    await expect(page.getByText("e2e-delete-test.pdf")).not.toBeVisible({ timeout: 10000 });
+    // Row count should decrease back
+    await expect(page.locator("table tbody tr")).toHaveCount(rowCountBefore, { timeout: 10000 });
   });
 });
 
