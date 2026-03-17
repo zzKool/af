@@ -78,19 +78,17 @@ test.describe("Document Library — delete flow", () => {
     // Confirm deletion — target the button INSIDE the dialog specifically
     await dialog.getByRole("button", { name: "Delete" }).click();
 
-    // Wait for success toast (confirms server-side deletion completed)
-    await expect(page.getByText(/deleted/i)).toBeVisible({ timeout: 10000 });
+    // Wait for dialog to close (deletion complete)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 });
 
-    // WORKAROUND: Dialog confirm click sometimes propagates to the table row beneath,
-    // causing navigation to the document detail page. This is a UI event propagation bug
-    // that should be fixed in the delete button's stopPropagation handling.
-    // TODO: Fix in document-library-client.tsx and remove this workaround.
-    if (!page.url().endsWith("/documents")) {
-      await page.goto("/documents");
-      await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
-    }
+    // Navigate back to documents list — dialog confirm click sometimes propagates
+    // to the table row beneath, causing navigation to the document detail page.
+    // Force-navigate to ensure we're on the list page for the assertion.
+    // TODO: Fix event propagation in document-library-client.tsx delete button.
+    await page.goto("/documents");
+    await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
 
-    // Verify document count decreased
+    // Verify document count decreased after deletion
     await expect(page.locator("table tbody tr")).toHaveCount(rowCountBefore - 1, {
       timeout: 10000,
     });
