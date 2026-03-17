@@ -60,14 +60,13 @@ test.describe("Document Library — delete flow", () => {
       timeout: 15000,
     });
 
-    // Wait for the table to show at least one document with a delete button
-    const deleteBtn = page.getByTitle("Delete document").first();
-    await expect(deleteBtn).toBeVisible({ timeout: 15000 });
+    // Capture the uploaded document's filename in the table
+    const uploadedRow = page.locator("table tbody tr", { hasText: "e2e-delete-test" });
+    await expect(uploadedRow).toBeVisible({ timeout: 15000 });
 
-    // Record row count before deletion
-    const rowCountBefore = await page.locator("table tbody tr").count();
-
-    // Click delete — use stopPropagation via dispatchEvent to prevent row click
+    // Click delete on the uploaded document's row
+    const deleteBtn = uploadedRow.getByTitle("Delete document");
+    await expect(deleteBtn).toBeVisible({ timeout: 5000 });
     await deleteBtn.click();
 
     // Confirm dialog appears
@@ -89,10 +88,8 @@ test.describe("Document Library — delete flow", () => {
       await page.goto("/documents");
     }
 
-    // Verify document was removed — row count decreased
-    await expect(page.locator("table tbody tr")).toHaveCount(rowCountBefore - 1, {
-      timeout: 10000,
-    });
+    // Verify the specific uploaded document is no longer in the table
+    await expect(uploadedRow).not.toBeVisible({ timeout: 10000 });
   });
 });
 
