@@ -2,14 +2,22 @@ import { createMiddleware } from "next-safe-action";
 import type pino from "pino";
 import { prisma } from "@/server/db/client";
 import { withTenantTransaction } from "@/server/db/tenant-client";
+import { logger } from "@/server/logger";
 import type { AppError } from "@/types/app-error";
 import type { CallerIdentity } from "@/types/caller-identity";
 import { ActionError } from "./errors";
+
+export type OnCommit = (cb: () => Promise<void>) => void;
 
 /**
  * Tenant middleware for next-safe-action.
  * Validates user has access to the active tenant, builds CallerIdentity,
  * and wraps the handler inside withTenantTransaction so RLS is always active.
+ *
+ * Post-commit callbacks: Actions register side-effect callbacks via ctx.onCommit().
+ * These execute sequentially AFTER the DB transaction commits successfully.
+ * If the transaction rolls back, callbacks are never executed.
+ * If a callback fails, it is logged at warn level but does not throw.
  */
 export const tenantMiddleware = createMiddleware<{
   serverError: AppError;
@@ -63,8 +71,25 @@ export const tenantMiddleware = createMiddleware<{
     source: "web" as const,
   });
 
-  // Option A: middleware-managed transaction — handler runs inside RLS-scoped tx
-  return withTenantTransaction(prisma, tenantId, async (tx) => {
-    return next({ ctx: { callerIdentity, tx } });
+  // Per-request scoped — each request gets its own array (concurrent isolation)
+  const postCommitCallbacks: Array<() => Promise<void>> = [];
+  const onCommit: OnCommit = (cb) => {
+    postCommitCallbacks.push(cb);
+  };
+
+  // Middleware-managed transaction — handler runs inside RLS-scoped tx
+  const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+    return next({ ctx: { callerIdentity, tx, onCommit } });
   });
+
+  // Transaction committed — run side effects sequentially
+  for (const cb of postCommitCallbacks) {
+    try {
+      await cb();
+    } catch (err) {
+      logger.warn({ err }, "Post-commit callback failed");
+    }
+  }
+
+  return result;
 });

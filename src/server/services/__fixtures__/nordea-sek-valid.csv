@@ -1,0 +1,6 @@
+Booking date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;
+2025/01/15;-149,00;;;KORT KOP LIVSMEDEL AB;;;Groceries;12345,67;SEK;
+2025/01/14;-2500,00;;Skatteverket;Skatteverket;;/ROC/PMT-10026655-5681836;;9876,54;SEK;
+2025/01/13;25000,00;Employer AB;;Employer AB;Salary January;;;35376,54;SEK;
+2025/01/12;-89,50;;;KORT KOP CAFE ABC;;;;10376,54;SEK;
+2025/01/11;-1200,00;;Electric AB;Electric AB;;/ROC/PMT-20034567-1234567;Power bill;;SEK;

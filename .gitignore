@@ -60,8 +60,9 @@ yarn-error.log*
 prisma/data/*.xlsx
 prisma/data/*.pdf
 
-# Ingestion docs
+# Banking transaction CSVs (real financial data — local only, never commit)
 prisma/data/PLUS*.csv
+prisma/data/SPARKONTO*.csv
 
 # Generated public assets (copied by postinstall)
 public/pdf.worker.min.mjs

@@ -93,6 +93,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/defterfab_test
       DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
+      AZURE_STORAGE_CONTAINER: documents
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -125,6 +127,12 @@ jobs:
         run: npx prisma db seed
         env:
           DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      - name: Start Azurite blob storage
+        run: |
+          docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          npx wait-on tcp:10000 --timeout 10000
+      - name: Create Azurite blob container
+        run: node -e "const{BlobServiceClient}=require('@azure/storage-blob');BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING).getContainerClient(process.env.AZURE_STORAGE_CONTAINER).createIfNotExists().then(r=>console.log('Container ready:',r.succeeded?'created':'exists'))"
       - name: Start server and run E2E tests
         run: |
           npx next start -p 3000 > server.log 2>&1 &

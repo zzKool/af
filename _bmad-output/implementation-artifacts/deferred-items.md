@@ -3,7 +3,7 @@
 Living document tracking all deferred technical debt, feature gaps, and process improvements.
 Updated after every code review and retrospective. Checked before every story creation.
 
-**Last updated:** 2026-03-14 (Story 5.0 — items #4, #6 resolved; item #15 added)
+**Last updated:** 2026-03-17 (Story 6.0 — items #5, #7 re-deferred to Before Story 6.2; Tier 2 tasks deferred)
 
 ---
 
@@ -12,9 +12,9 @@ Updated after every code review and retrospective. Checked before every story cr
 | # | Item | Origin | Priority | Owner | Latest Safe Deferral | Rationale |
 |---|------|--------|----------|-------|---------------------|-----------|
 | ~~4~~ | ~~Sentry integration (`@sentry/nextjs`)~~ | ~~Epic 2, Story 2.4~~ | ~~Medium~~ | — | ~~Before Epic 5~~ | **RESOLVED** — See Resolved Items |
-| 5 | Error handler lacks request context (userId, tenantId) | Epic 2, Story 2.4 review | Medium | Charlie (Dev) | Before Epic 6 | Banking import errors need correlation for debugging |
+| 5 | Error handler lacks request context (userId, tenantId) | Epic 2, Story 2.4 review | Medium | Charlie (Dev) | Before Story 6.2 | Banking import errors need correlation for debugging. Story 6.0 Tier 2 deferred — re-deferred from "Before Epic 6" |
 | ~~6~~ | ~~`action: "server_action"` is generic in logs~~ | ~~Epic 2, Story 2.4 review~~ | ~~Low~~ | — | ~~Before Epic 5~~ | **RESOLVED** — See Resolved Items |
-| 7 | Decimal boundary lint rule (no `.toNumber()` on Prisma.Decimal) | Epic 2, Story 2.2 | Low | — | Before Epic 6 | Journal entries introduce real currency columns |
+| 7 | Decimal boundary lint rule (no `.toNumber()` on Prisma.Decimal) | Epic 2, Story 2.2 | Low | — | Before Story 6.2 | Journal entries introduce real currency columns. Story 6.0 Tier 2 deferred — re-deferred from "Before Epic 6" |
 | 8 | Branch protection (requires GitHub Pro) | Epic 0 retro | Low | Zik | Before production deploy | PR protection for develop branch |
 | ~~9~~ | ~~Replace `confirm()` with shadcn AlertDialog for delete confirmations~~ | ~~Story 3.3 review~~ | ~~Low~~ | — | ~~Before Epic 5~~ | **RESOLVED** — See Resolved Items |
 | 10 | Bank format FK change test needs second seeded format | Story 3.3 review | Low | — | Before Epic 9 | "Update bankFormatId" test only verifies same format (only Nordea seeded). Story 9.1 adds more formats — add proper FK-change test then |
