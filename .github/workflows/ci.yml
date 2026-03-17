@@ -90,15 +90,6 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-      azurite:
-        image: mcr.microsoft.com/azure-storage/azurite
-        ports:
-          - 10000:10000
-        options: >-
-          --health-cmd="nc -z 127.0.0.1 10000 || exit 1"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=5
     env:
       DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/defterfab_test
       DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
@@ -136,6 +127,10 @@ jobs:
         run: npx prisma db seed
         env:
           DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      - name: Start Azurite blob storage
+        run: |
+          docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          npx wait-on tcp:10000 --timeout 10000
       - name: Create Azurite blob container
         run: node -e "const{BlobServiceClient}=require('@azure/storage-blob');BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING).getContainerClient(process.env.AZURE_STORAGE_CONTAINER).createIfNotExists().then(r=>console.log('Container ready:',r.succeeded?'created':'exists'))"
       - name: Start server and run E2E tests
