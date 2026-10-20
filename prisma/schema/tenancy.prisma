@@ -36,6 +36,8 @@ model Tenant {
   settlementLines      SettlementLine[]
   normalbelopp         Normalbelopp[]
   trips                Trip[]
+  supplierInvoices     SupplierInvoice[]
+  supplierInvoiceLines SupplierInvoiceLine[]
   documents            Document[]
   links                Link[]
   numberSeries         NumberSeries[]

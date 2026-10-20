@@ -14,6 +14,8 @@ model Partner {
   defaultCurrency      String?  @map("default_currency")
   defaultLanguage      String?  @map("default_language")
   defaultBasCategoryCode String?  @map("default_bas_category_code")
+  /// a supplier's payment terms, the due-date default of its invoices (null = 30 days)
+  paymentTermsDays     Int?     @map("payment_terms_days")
   externalIdentifiers    Json     @default("[]") @map("external_identifiers")
   email                String?
   phone                String?

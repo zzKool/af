@@ -53,8 +53,9 @@ model ExpenseGroup {
   source      String           @default("web") @db.VarChar(20)
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  expenses Expense[]
-  trip     Trip?
+  expenses         Expense[]
+  trip             Trip?
+  supplierInvoices SupplierInvoice[]
 
   @@unique([tenantId, number], map: "expense_groups_tenant_number_key")
   @@map("expense_groups")
