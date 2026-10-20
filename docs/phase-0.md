@@ -27,7 +27,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 - [ ] **3. Structural moves** (specs under `specs/structure-*`, one PR each, run on partners / documents / settings)
   - [x] 3a feature folders + kernel; guard test for the import rules; `prisma/schema` split per module (PR #2) — see `docs/feature-folders.md`
   - [x] 3b module surfaces `index.ts` (server) + `ui.ts` (client), DTOs for partners/contracts, `…Action` naming, guard rules (PR #3)
-  - [ ] 3c `modules/linking` skeleton: `link` table, kinds, invariants, `linkable` registration; move v2 document links there
+  - [x] 3c `modules/linking`: `links` table + migration (RLS, CHECKs, delete trigger on documents), kinds matrix, allocation math (property-tested), service + actions, `Linkable` registry with partners/contracts/documents registered, guard rule (PR #4) — see `docs/linking.md`
   - [x] 3d `queries.ts` per module as the named read API; pages import surfaces only (PR #3). Real query implementations (`ListQuery`, distinct values) come with the reference slice (item 6/8)
 - [ ] **4. Kernel changes**
   - [ ] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup

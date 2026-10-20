@@ -42,7 +42,7 @@ src/
 prisma/schema/<m>.prisma   the module's models (one folder, Prisma multi-file schema) — see prisma/schema/README.md
 ```
 
-Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`.
+Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]).
 
 ## Rules enforced now (3a)
 - `kernel/*` never imports `modules/*` or `app/*`.
@@ -58,8 +58,10 @@ Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settin
 - Service functions that return rows return DTOs (`PartnerDto`, `ContractDto`, …), mapped inside the module.
 - Actions are `<verb><Entity>Action`; v2's unsuffixed actions were renamed in 3b.
 
+## Rules enforced since 3c
+- Only `src/modules/linking` writes the `links` table (guard); modules expose a `Linkable` and register it in `linking/linkables.ts`.
+
 ## Rules arriving with the next moves
-- **3c** — `modules/linking` owns the `link` table; modules register `linkable`.
 - **Reference slice (item 6)** — real `queries.ts` implementations (`ListQuery`, distinct values for DataTable headers) and the final file naming for single-entity modules (`service.ts` / `actions.ts`); until then `<entity>.ts` / `<entity>.actions.ts` stands.
 
 ## Where did it go? (v2 → 3a)

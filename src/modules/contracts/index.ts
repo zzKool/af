@@ -20,5 +20,6 @@ export {
   reactivateContractAction,
   updateContractAction,
 } from "./contracts.actions";
+export { contractLinkable } from "./linkable";
 export * from "./queries";
 export type * from "./types";

@@ -369,7 +369,7 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     // need to truncate using TRUNCATE which bypasses RLS
     // documents BEFORE partners, contracts BEFORE partners (FK dependency)
     await client.query(
-      "TRUNCATE ecb_rates, audit_logs, documents, document_key_counters, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
+      "TRUNCATE links, ecb_rates, audit_logs, documents, document_key_counters, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {

@@ -22,15 +22,17 @@ let pool: Pool;
 let prisma: PrismaClient;
 
 beforeAll(async () => {
-  // Run migrations using superuser (needs CREATE ROLE, ALTER TABLE etc.)
-  execSync("npx prisma migrate deploy", {
-    env: {
-      ...process.env,
-      DATABASE_URL: MIGRATION_URL,
-      DATABASE_MIGRATION_URL: MIGRATION_URL,
-    },
-    stdio: "pipe",
-  });
+  // Run migrations using superuser (needs CREATE ROLE, ALTER TABLE etc.).
+  // SKIP_MIGRATE_DEPLOY=1: the caller already applied prisma/migrations (environments without the Prisma engine).
+  if (!process.env.SKIP_MIGRATE_DEPLOY)
+    execSync("npx prisma migrate deploy", {
+      env: {
+        ...process.env,
+        DATABASE_URL: MIGRATION_URL,
+        DATABASE_MIGRATION_URL: MIGRATION_URL,
+      },
+      stdio: "pipe",
+    });
 
   // Create app pool using non-superuser role (RLS enforced)
   pool = new Pool({ connectionString: APP_URL });

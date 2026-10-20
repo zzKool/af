@@ -187,6 +187,22 @@ describe("Architecture guard: module surfaces (3b)", () => {
   });
 });
 
+describe("Architecture guard: linking owns the link table (3c)", () => {
+  test("only src/modules/linking writes links", () => {
+    const files = findFiles("src/kernel", [".ts", ".tsx"], TEST_FILE)
+      .concat(findFiles("src/modules", [".ts", ".tsx"], TEST_FILE))
+      .concat(findFiles("src/app", [".ts", ".tsx"], TEST_FILE))
+      .filter((f) => !f.startsWith("src/modules/linking/"));
+    for (const file of files) {
+      const content = readFileSync(file, "utf-8");
+      expect(
+        /\.link\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/.test(content),
+        `${file} writes the links table — only modules/linking may`,
+      ).toBe(false);
+    }
+  });
+});
+
 describe("Architecture guard: services are framework-free", () => {
   const serviceFiles = () =>
     findFiles("src/modules", [".ts"], TEST_FILE)

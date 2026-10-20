@@ -50,4 +50,5 @@ export {
   uploadDocumentAction,
 } from "./documents.actions";
 export * from "./jobs/process-document";
+export { documentLinkable } from "./linkable";
 export * from "./queries";
