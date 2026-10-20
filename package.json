@@ -19,7 +19,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
-    "postinstall": "mkdir -p public && cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/",
+    "postinstall": "node scripts/copy-pdf-worker.mjs && prisma generate",
     "inngest:dev": "npx inngest-cli@latest dev",
     "dev:setup": "npx tsx scripts/setup-azurite-cors.ts",
     "prepare": "husky"

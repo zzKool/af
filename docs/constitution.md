@@ -74,6 +74,16 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 
 ---
 
+## 3b. UI rules (details in `ui-conventions.md`)
+
+1. Full-width app layout: collapsible sidebar, dense content, no `max-w-*` on page containers.
+2. Three page archetypes only: list (DataTable + side panel), entity (header + tabs), work (split panes, keyboard first).
+3. Every list is the kernel `DataTable`: server-side paging/sort/filter, Excel-style typed header filters with server-side distinct values, state in the URL, column preferences per user. Modules declare column types; they never write filter UI.
+4. Numbers right-aligned in tabular figures with currency code; dates `yyyy-mm-dd`; dark mode via tokens.
+5. Every new page ships with a screenshot in the PR.
+
+---
+
 ## 4. Definition of done — the verify gate
 
 A PR merges to `main` only when:

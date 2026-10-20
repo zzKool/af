@@ -19,7 +19,8 @@
       "!dist",
       "!build",
       "!prisma/migrations",
-      "!src/generated"
+      "!src/generated",
+      "!.specify"
     ]
   },
   "formatter": {

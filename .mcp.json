@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless"]
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "postgres": {
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": {
+        "DATABASE_URI": "postgresql://defterfab:dev@localhost:5432/defterfab_dev"
+      }
+    }
+  }
+}
