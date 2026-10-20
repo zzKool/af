@@ -266,6 +266,7 @@ flowchart LR
 | What | dashboard; `EventLog` + `Notification` + preferences (991 lines) | business-pulse + action-items shell; FR29–31 |
 | Keeps | briefing since last visit; action items: documents to review, unlinked transactions, supplier invoices due, open liability to owner, rate gaps; accountant view; **owner cash-planning widget** (D14, Growth) |
 | Mechanism | notification system → audit-trail-driven briefing |
+| Status | **Built 2026-10-20**: the to-do list (bank lines to justify, documents to review, unlinked documents, supplier invoices overdue / due, client invoices overdue, the liability, receipts missing, ECB gaps, last month's package, last quarter's Swiss VAT) with counts, amounts and the page that resolves each; the pulse (balances, receivables, payables, owed to the owner, invoiced this year); the briefing from the audit trail since the last login — `docs/dashboard.md`. The cash-planning widget (D14) stays Growth. |
 
 ### 3.15 Reports, exports, declarations — harvest, reframed
 

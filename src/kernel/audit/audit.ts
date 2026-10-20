@@ -92,3 +92,27 @@ export async function getAuditLog(
     take: params.limit ?? 50,
   });
 }
+
+export type AuditActivity = { entityType: string; action: string; count: number };
+
+/**
+ * What happened since a moment, grouped by entity type and action — the dashboard's briefing ("since your last
+ * visit: 12 bank rows imported, 3 links created …"). Every write is audited, so the trail is the briefing.
+ */
+export async function activitySince(
+  tx: TransactionClient,
+  since: Date,
+  options: { excludeUserId?: string; limit?: number } = {},
+): Promise<AuditActivity[]> {
+  const rows = await tx.auditLog.groupBy({
+    by: ["entityType", "action"],
+    where: {
+      createdAt: { gt: since },
+      ...(options.excludeUserId ? { userId: { not: options.excludeUserId } } : {}),
+    },
+    _count: { _all: true },
+    orderBy: [{ entityType: "asc" }, { action: "asc" }],
+    take: options.limit ?? 50,
+  });
+  return rows.map((r) => ({ entityType: r.entityType, action: r.action, count: r._count._all }));
+}

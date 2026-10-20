@@ -63,6 +63,16 @@ page.tsx → actions/dashboard.ts → services/dashboard.ts → Prisma
 
 The dashboard service is an **intentional exception** to the single-client pattern because Better Auth's `user` and `session` tables have no `tenant_id` column.
 
+## The overview — `overview.ts` (v3, feature inventory §3.14)
+
+`dashboardOverview(tx, caller, today, since)` is computed on request from the modules' read models — nothing stored:
+
+- **To do** (`items`, the owner's; the accountant gets the month-end and the quarter only): bank lines to justify (`banking.listTransactions` on the main accounts, states open / partial → `/banking/inbox`), documents to review (`documents.getDocumentStats`), documents linked to nothing (`linking.unlinkedDocuments`), supplier invoices overdue / due within 14 days (`supplierInvoices.kpis`), client invoices overdue, the owner's liability and the company-paid expenses awaiting their row (`expenses.ledgerSnapshot`), expenses without a receipt, ECB days without a rate in the last 30 days (`rates.detectGaps`, ≥ 3 weekdays), last month's package not built / built with flags (`package.listBuilds` + `livePreview`), last quarter's Swiss VAT not declared / not paid (`exports.declaredOn`). Each item carries its count, the amount when there is one, and the page that resolves it (list pages take `?f.<col>=in:<value>` filters). Sorted high → medium → low.
+- **Business pulse** (`pulse`): the main accounts' balances as of their last booking date, receivables open per currency (Σ `remaining` of issued / sent / partially paid / overdue invoices), payables open (SEK, the supplier KPIs), owed to the owner (SEK), invoiced this year (SEK base, credit notes deducted).
+- **Briefing** (`briefing`): the audit trail since the last login grouped by entity type and action (`kernel/audit.activitySince`) — "2 bank transaction created, 1 invoice updated". Every write is audited, so the trail is the briefing; nothing else records events.
+
+Strings `dashboard.*` (en + fr); the widgets in `components/dashboard-widgets.tsx`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with every kind of item, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
+
 ## Toast Infrastructure
 
 [[Sonner]] is installed as the toast provider via `<Toaster />` in the root layout. No toast calls exist yet — first consumers arrive in Epic 3 mutations.
