@@ -634,7 +634,11 @@ describe("US5 — derived states and the list", () => {
 
       const search = await queries.listInvoices(tx, { ...q, search: "client va" }, "2026-02-10");
       expect(search.total).toBe(3);
-      const search2 = await queries.listInvoices(tx, { ...q, search: "VA26-INV-002" }, "2026-02-10");
+      const search2 = await queries.listInvoices(
+        tx,
+        { ...q, search: "VA26-INV-002" },
+        "2026-02-10",
+      );
       expect(search2.rows.map((r) => r.number)).toEqual(["VA26-INV-002"]);
 
       const states = await queries.distinctInvoiceValues(tx, "state", q, "2026-02-10");
