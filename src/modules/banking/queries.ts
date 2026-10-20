@@ -414,3 +414,52 @@ export async function accountBalances(tx: TransactionClient): Promise<AccountBal
   }
   return out;
 }
+
+// --- the accountant package's raw rows (specs/accountant-package/spec.md FR-002) ---
+
+export type RawPeriodRow = BankTransactionDto & {
+  accountLabel: string;
+  accountRole: BankAccountRole;
+  accountCurrency: string;
+  importFileName: string;
+  /** the account's CSV conventions — the package writes its statements the way the bank did */
+  delimiter: string;
+  decimalSeparator: string;
+};
+
+/**
+ * The bank rows of a period with their raw columns, account and source file, for the package's `bank-statements/`
+ * and its *Bank statement* sheet. `by: "booking"` selects on the booking date (the main accounts), `by: "import"`
+ * on the import's time (the savings export joins the package of the month it was imported in, D31).
+ * Ordered booking date ascending, then the file's row order — the deterministic order of R6.
+ */
+export async function rawRowsForPeriod(
+  tx: TransactionClient,
+  period: { from: string; to: string; by: "booking" | "import"; role?: BankAccountRole },
+): Promise<RawPeriodRow[]> {
+  const from = new Date(`${period.from}T00:00:00Z`);
+  const toExclusive = new Date(`${period.to}T00:00:00Z`);
+  toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
+  const rows = await tx.bankTransaction.findMany({
+    where: {
+      ...(period.by === "booking"
+        ? { bookingDate: { gte: from, lt: toExclusive } }
+        : { bankImport: { importedAt: { gte: from, lt: toExclusive } } }),
+      ...(period.role ? { bankAccount: { role: period.role } } : {}),
+    },
+    include: {
+      bankAccount: { include: { bankFormat: true } },
+      bankImport: { select: { fileName: true, importedAt: true } },
+    },
+    orderBy: [{ bookingDate: "asc" }, { bankImport: { importedAt: "asc" } }, { rowIndex: "asc" }],
+  });
+  return rows.map((r) => ({
+    ...toTransactionDto(r),
+    accountLabel: accountLabel(r.bankAccount),
+    accountRole: r.bankAccount.role as BankAccountRole,
+    accountCurrency: r.bankAccount.currency,
+    importFileName: r.bankImport.fileName,
+    delimiter: r.bankAccount.bankFormat.delimiter,
+    decimalSeparator: r.bankAccount.bankFormat.decimalSeparator,
+  }));
+}

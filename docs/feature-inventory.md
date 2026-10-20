@@ -274,6 +274,7 @@ flowchart LR
 | What | P&L, balance sheet, VAT report, SIE, Swiss VAT return prep with FTA form mapping | Epic 10 backlog |
 | Keeps | monthly accountant package (D13) with a generated summary; Swiss VAT quarterly prep (form-field mapping, H6); Swedish moms prep; SCB filters; management P&L from categories if cheap |
 | Mechanism | statutory statements and SIE → dropped; package = zip built from a read model |
+| Status | **Package built 2026-10-20**: `/package` with the months' live counts and flags (the month-end checklist), the build job (`package.build`), `Package_2026-06.zip` (`_v2` on rebuild) with the statements per account, every document under its business key, `summary.xlsx` and `notes.md`; the year package (D31) — `docs/accountant-package.md`, `specs/accountant-package/`. Declarations (Swiss VAT, moms) not yet. |
 
 ### 3.16 Settings — v2 minus prefixes
 

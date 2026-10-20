@@ -175,6 +175,12 @@ export async function uploadDocument(
  * module (`InvoiceAF_VA26-INV-001.pdf`, `Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv`), kind `financial`.
  * Same blob path convention and audit as an upload; the bytes are already trusted.
  */
+const GENERATED_EXTENSION = {
+  "application/pdf": "pdf",
+  "text/csv": "csv",
+  "application/zip": "zip",
+} as const;
+
 export async function storeGeneratedDocument(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -184,12 +190,12 @@ export async function storeGeneratedDocument(
     bytes: Buffer;
     businessKey: string;
     fileName: string;
-    /** a rendered PDF, or a bank statement CSV stored by the banking import */
-    mimeType: "application/pdf" | "text/csv";
+    /** a rendered PDF, a bank statement CSV stored by the banking import, or the accountant package's zip */
+    mimeType: "application/pdf" | "text/csv" | "application/zip";
     prefixType: string;
   },
 ): Promise<ServiceResult<{ id: string; businessKey: string; fileName: string }>> {
-  const ext = input.mimeType === "application/pdf" ? "pdf" : "csv";
+  const ext = GENERATED_EXTENSION[input.mimeType];
   const blobPath = `${caller.tenantId}/${randomUUID()}.${ext}`;
   if (!containerEnsured) {
     await storage.ensureContainer();
@@ -972,4 +978,61 @@ export async function deleteDocument(
 /** Reset container memoization (for testing) */
 export function _resetContainerEnsured(): void {
   containerEnsured = false;
+}
+
+// --- what another module needs to copy a document (the accountant package, FR-002) ---
+
+export type DocumentFile = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  status: string;
+  documentType: string;
+};
+
+/** The named documents in one go (missing ids are left out), in id order — plain facts, no blob path. */
+export async function documentsByIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<DocumentFile[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx.document.findMany({
+    where: { id: { in: [...ids] } },
+    select: {
+      id: true,
+      businessKey: true,
+      fileName: true,
+      mimeType: true,
+      fileSize: true,
+      status: true,
+      documentType: true,
+    },
+    orderBy: { id: "asc" },
+  });
+  return rows;
+}
+
+/**
+ * Readers for the documents' bytes, through the storage adapter — the package copies receipts and PDFs as stored.
+ * Looked up inside the transaction (RLS), downloaded outside it: each reader is a network round trip to call
+ * between transactions, never inside one. The blob path never leaves this module. Missing ids are left out.
+ */
+export async function documentReaders(
+  tx: TransactionClient,
+  storage: StorageService,
+  ids: readonly string[],
+): Promise<Map<string, () => Promise<Buffer>>> {
+  const out = new Map<string, () => Promise<Buffer>>();
+  if (ids.length === 0) return out;
+  const docs = await tx.document.findMany({
+    where: { id: { in: [...ids] } },
+    select: { id: true, blobUrl: true },
+  });
+  for (const doc of docs) {
+    const blobPath = extractBlobPath(doc.blobUrl);
+    out.set(doc.id, () => storage.downloadBlob(blobPath));
+  }
+  return out;
 }

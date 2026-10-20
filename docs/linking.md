@@ -73,7 +73,7 @@ The generic finder over the registry: a `Linkable` may add `facts(id)` (what the
 
 ## Surface
 
-- `index.ts`: `getLinksFor`, `isLinked`, `getAllocationStatus`, `linksWithLabels`, `createLink`, `removeLink`, the scorer and the suggestions, types, `registerLinkable` / `provideLinkables`, `isKindAllowed`, allocation math.
+- `index.ts`: `getLinksFor`, `isLinked`, `getAllocationStatus`, `linksWithLabels`, `linksTouching` (every link touching a set of ids of one type — the package's *Links* sheet), `createLink`, `removeLink`, the scorer and the suggestions, types, `registerLinkable` / `provideLinkables`, `isKindAllowed`, allocation math.
 - `ui.ts`: `SuggestionsSection`, `LinksList`; actions `createLinkAction`, `removeLinkAction`, `getLinksForAction`, `getLinksWithLabelsAction`, `getAllocationStatusAction`, `suggestionsForTransactionAction`, `suggestionsForEntityAction`, `searchLinkablesAction`, `applySuggestionAction`, `bulkApplyHighAction` + types; `InboxWorkbench`. The graph is a later read model.
 
 ## Tests
