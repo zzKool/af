@@ -65,6 +65,18 @@ const rows = await withTenantConnection(pool, tenantId, async (client) => {
 });
 ```
 
+## Schema ↔ migrations drift
+
+Migrations are hand-written here (RLS, grants, rules, partial indexes), so the Prisma schema must describe **exactly** what they create — column types (`@db.VarChar(n)`), `@default(now())` on `updated_at`, constraint names via `map:`, referential actions (`onDelete`/`onUpdate: NoAction` when the SQL has none), and every table the raw SQL uses (`DocumentKeyCounter`). Reconciled on 2026-10-20 after `migrate dev` tried to "repair" the database.
+
+Check before any schema change (expects "Already in sync"):
+
+```bash
+npx prisma migrate dev --create-only --name drift_check   # then delete the folder if it created one
+```
+
+Partial indexes (`idx_partners_tenant_org … WHERE org_number IS NOT NULL`) are declared as plain `@@unique(..., map:)` — Prisma cannot express the predicate, and Postgres unique indexes already allow multiple NULLs, so behaviour is identical.
+
 ## Adding New Tables
 
 1. Define model in `prisma/schema/app.prisma` following the [[conventions#prisma-model-template|mandatory template]]

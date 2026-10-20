@@ -84,14 +84,14 @@ model AuditLog {
 // BAS reference table — NO RLS, read-only, natural key
 // Not following mandatory template: this is app-level reference data, not tenant-scoped
 model BasCategory {
-  code           String   @id // "501" — 3-digit BAS group code (natural key, not UUID)
+  code           String   @id @db.VarChar(4) // "501" — 3-digit BAS group code (natural key, not UUID)
   name           String // "Lokalkostnader" — Swedish canonical
   nameEn         String?  @map("name_en") // "Premises costs" — from English 2025 file
   nameFr         String?  @map("name_fr") // "Frais de locaux" — AI-generated, Plan Comptable/IFRS
   className      String   @map("class_name") // "LOKALKOSTNADER" — stored uppercase per BAS standard
   classNum       Int      @map("class_num") // 5 — first digit of code
   isCommon       Boolean  @default(false) @map("is_common")
-  suggestedAlias String?  @map("suggested_alias") // "Lokal" — curated short label
+  suggestedAlias String?  @map("suggested_alias") @db.VarChar(10) // "Lokal" — curated short label
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   preferences TenantBasPreference[]
@@ -104,20 +104,21 @@ model BasCategory {
 model TenantBasPreference {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
-  basCode      String   @map("bas_code") // FK to BasCategory.code
+  basCode      String   @map("bas_code") @db.VarChar(4) // FK to BasCategory.code
   isFavorite   Boolean  @default(false) @map("is_favorite")
-  shortCode    String?  @map("short_code") // User-defined alias
+  shortCode    String?  @map("short_code") @db.VarChar(10) // User-defined alias
   translations Json?    @db.JsonB // { en?: string, sv?: string, fr?: string }
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy    String   @map("created_by") @db.Uuid
-  source       String   @default("web")
+  source       String   @default("web") @db.VarChar(20)
 
-  basCategory BasCategory @relation(fields: [basCode], references: [code])
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  basCategory BasCategory @relation(fields: [basCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([tenantId, basCode])
   @@index([tenantId, isFavorite])
+  @@index([tenantId, basCode])
   @@map("tenant_bas_preferences")
 }
 
@@ -132,9 +133,9 @@ model VatRegistration {
   vatNumber    String   @map("vat_number") @db.VarChar(50) // "SE556677889001", "CHE-123.456.789 MWST"
   rateSchedule Json?    @map("rate_schedule") @db.JsonB // { rates: [25, 12, 6] }
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy    String   @map("created_by") @db.Uuid
-  source       String   @default("web")
+  source       String   @default("web") @db.VarChar(20)
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contracts Contract[]
@@ -173,17 +174,17 @@ model BankAccount {
   tenantId      String   @map("tenant_id") @db.Uuid
   accountAlias  String?  @map("account_alias") @db.VarChar(100) // Optional friendly name
   accountNumber String   @map("account_number") @db.VarChar(50) // "211 53 13-5"
-  currency      String   @db.VarChar(3) // "SEK", "CHF", etc.
+  currency      String   @default("SEK") @db.VarChar(3) // "SEK", "CHF", etc.
   bankFormatId  String   @map("bank_format_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy     String   @map("created_by") @db.Uuid
-  source        String   @default("web")
+  source        String   @default("web") @db.VarChar(20)
 
   tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bankFormat BankFormat @relation(fields: [bankFormatId], references: [id])
+  bankFormat BankFormat @relation(fields: [bankFormatId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([tenantId, accountNumber, currency])
+  @@unique([tenantId, accountNumber, currency], map: "bank_accounts_tenant_account_currency_unique")
   @@index([tenantId])
   @@index([bankFormatId])
   @@map("bank_accounts")
@@ -199,13 +200,13 @@ model DocumentTypePrefix {
   documentType String   @map("document_type") @db.VarChar(30) // "expense", "invoice", "contract"
   prefix       String   @db.VarChar(10) // "exp_", "inv_", "ctrt_"
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy    String   @map("created_by") @db.Uuid
-  source       String   @default("web")
+  source       String   @default("web") @db.VarChar(20)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, documentType])
+  @@unique([tenantId, documentType], map: "document_type_prefixes_tenant_document_type_unique")
   @@map("document_type_prefixes")
 }
 
@@ -213,10 +214,10 @@ model DocumentTypePrefix {
 model UserPreference {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String   @unique @map("user_id") @db.Uuid // NO Prisma @relation — cross-schema FK, application-level enforcement
-  locale    String?  // BCP 47 tag (e.g., "sv-SE", "en-US"), null = use browser locale
-  source    String   @default("manual") // Always "manual" for user preferences — mandatory template compliance
+  locale    String?  @db.VarChar(10) // BCP 47 tag (e.g., "sv-SE", "en-US"), null = use browser locale
+  source    String   @default("manual") @db.VarChar(20) // Always "manual" for user preferences — mandatory template compliance
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("user_preferences")
 }
@@ -265,6 +266,7 @@ model Partner {
   contracts         Contract[] @relation("PartnerContracts")
   employeeContracts Contract[] @relation("EmployeeContracts")
 
+  @@unique([tenantId, orgNumber], map: "idx_partners_tenant_org") // created as a partial index (WHERE org_number IS NOT NULL) in the migration
   @@map("partners")
 }
 
@@ -329,4 +331,14 @@ model Document {
   @@index([tenantId, status], map: "idx_documents_tenant_status")
   @@index([tenantId, businessKey], map: "idx_documents_tenant_business_key")
   @@map("documents")
+}
+
+/// Per-tenant monthly counter behind business keys (raw SQL in business-key.ts). Replaced by number_series in v3 (D5/D6).
+model DocumentKeyCounter {
+  tenantId  String @map("tenant_id") @db.Uuid
+  yearMonth String @map("year_month") @db.Char(7)
+  nextVal   Int    @default(1) @map("next_val")
+
+  @@id([tenantId, yearMonth])
+  @@map("document_key_counters")
 }
