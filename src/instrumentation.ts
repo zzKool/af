@@ -13,6 +13,7 @@ export async function register() {
         invoices,
         { expenseJobs },
         { traktamenteJobs },
+        { packageJobs },
       ] = await Promise.all([
         import("@/kernel/jobs/queue"),
         import("@/modules/documents"),
@@ -21,11 +22,19 @@ export async function register() {
         import("@/modules/invoices"),
         import("@/modules/expenses"),
         import("@/modules/traktamente"),
+        import("@/modules/package"),
       ]);
       // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted)
       contracts.setRateUsage(invoices.rateUsageFromInvoiceLines);
       await startJobs(
-        [...documentJobs, ...rateJobs, ...invoices.invoiceJobs, ...expenseJobs, ...traktamenteJobs],
+        [
+          ...documentJobs,
+          ...rateJobs,
+          ...invoices.invoiceJobs,
+          ...expenseJobs,
+          ...traktamenteJobs,
+          ...packageJobs,
+        ],
         [...rateSchedules],
       );
     }

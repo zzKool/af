@@ -30,3 +30,20 @@ export async function countryOptions(
     year: r.year,
   }));
 }
+
+/** The per-diem breakdown documents of the given per-diem expenses: expense id → document id (the package copies them). */
+export async function perDiemDocumentsFor(
+  tx: TransactionClient,
+  expenseIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (expenseIds.length === 0) return new Map();
+  const trips = await tx.trip.findMany({
+    where: { perDiemExpenseId: { in: [...expenseIds] }, perDiemDocumentId: { not: null } },
+    select: { perDiemExpenseId: true, perDiemDocumentId: true },
+  });
+  const out = new Map<string, string>();
+  for (const t of trips) {
+    if (t.perDiemExpenseId && t.perDiemDocumentId) out.set(t.perDiemExpenseId, t.perDiemDocumentId);
+  }
+  return out;
+}

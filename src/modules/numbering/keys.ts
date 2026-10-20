@@ -11,6 +11,7 @@
 //   supplier doc SI213-Acc-01_2026-07-24_Skattepunkten_Office_Services_AB   {ref}_{date}_{vendor slug}
 //   settlement   ST26-001                 series ST{yy} (the refund's booking date), 3-digit sequence
 //   statement    Reimb_ST26-001_2026-03-31.pdf   the reimbursement statement PDF of a settlement
+//   package      Package_2026-06.zip, Package_2026-06_v2.zip, Package_2026.zip   the accountant package of a period
 //   upload       exp_20261020_001         provisional key of a raw upload: {kind}{yyyymmdd}_{seq in doc-{yyyymm}}
 
 export type UploadKind = "expense" | "invoice" | "contract" | "nda" | "certificate";
@@ -137,6 +138,13 @@ export function statementPdfKey(number: string, bookingDate: string): string {
   if (!/^ST\d{2}-\d{3,}$/.test(number)) throw new Error(`Not a settlement number: "${number}"`);
   assertIsoDate(bookingDate);
   return `Reimb_${number}_${bookingDate}.pdf`;
+}
+
+/** The accountant package of a period (D31): `Package_2026-06.zip`, `Package_2026-06_v2.zip`, `Package_2026.zip`. */
+export function packageKey(period: string, version: number): string {
+  if (!/^\d{4}(-\d{2})?$/.test(period)) throw new Error(`Not a package period: "${period}"`);
+  assertSeq(version);
+  return `Package_${period}${version > 1 ? `_v${version}` : ""}.zip`;
 }
 
 /** The stored PDF of an issued invoice, credit note or quote: `InvoiceAF_VA26-INV-001.pdf`. */

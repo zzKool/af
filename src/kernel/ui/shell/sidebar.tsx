@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Archive,
   ArrowLeftRight,
   BookOpen,
   FileText,
@@ -38,6 +39,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Receipt,
   Wallet,
   ReceiptText,
+  Archive,
   Settings,
 };
 

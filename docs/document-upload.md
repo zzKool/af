@@ -74,6 +74,7 @@ See [[ocr-processing]] for OCR service details, the resumable job, and quality c
 - Content-Disposition: `attachment` (XSS prevention — forces download, prevents inline rendering)
 - Container ensured once per process (memoized)
 - Orphan blobs logged as warnings if DB write fails after upload
+- Generated documents (`storeGeneratedDocument`: a rendered PDF, an imported bank statement CSV, the accountant package's zip) share the path convention; `documentsByIds` and `documentReaders` (readers to call outside a transaction) are how another module copies documents without seeing a blob path ([[accountant-package]])
 
 ## Role Access
 

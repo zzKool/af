@@ -1,8 +1,8 @@
 // Read API of the linking module.
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { getLinkable } from "./linkable";
-import { getLinksFor } from "./linking";
-import type { LinkDto, LinkEndpoint } from "./types";
+import { getLinksFor, toLinkDto } from "./linking";
+import type { LinkableType, LinkDto, LinkEndpoint } from "./types";
 
 export { getAllocationStatus, getLinksFor, isLinked } from "./linking";
 
@@ -19,4 +19,26 @@ export async function linksWithLabels(
       return { ...l, otherLabel: summary?.label ?? null };
     }),
   );
+}
+
+/**
+ * Every link touching any of `ids` of one type, in one query — the package's *Links* sheet and the document set of a
+ * period (specs/accountant-package/spec.md FR-002). Ordered by creation, the deterministic order of its R6.
+ */
+export async function linksTouching(
+  tx: TransactionClient,
+  type: LinkableType,
+  ids: readonly string[],
+): Promise<LinkDto[]> {
+  if (ids.length === 0) return [];
+  const rows = await tx.link.findMany({
+    where: {
+      OR: [
+        { fromType: type, fromId: { in: [...ids] } },
+        { toType: type, toId: { in: [...ids] } },
+      ],
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  return rows.map(toLinkDto);
 }

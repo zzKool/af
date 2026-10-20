@@ -4,6 +4,7 @@
 
 export { generateBusinessKey, getDocumentClassification, getUploadKinds } from "./business-key";
 export type {
+  DocumentFile,
   DocumentFilters,
   DocumentListItem,
   DocumentReviewData,
@@ -14,6 +15,8 @@ export {
   assignBusinessKey,
   classifyDocument,
   deleteDocument,
+  documentReaders,
+  documentsByIds,
   markDocumentReviewed,
   refreshSignedUrl,
   resolveDocumentData,

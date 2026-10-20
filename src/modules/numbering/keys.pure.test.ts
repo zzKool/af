@@ -12,6 +12,7 @@ import {
   invoicePdfKey,
   invoiceSeries,
   isUploadKind,
+  packageKey,
   quoteNumber,
   quoteSeries,
   settlementNumber,
@@ -86,6 +87,14 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(statementPdfKey("ST26-001", "2026-03-31")).toBe("Reimb_ST26-001_2026-03-31.pdf");
     expect(() => statementPdfKey("VA26-INV-001", "2026-03-31")).toThrow(/settlement number/);
     expect(() => expenseSeries(213, "Tr-1")).toThrow(/alias/);
+  });
+
+  it("package key: the period, `_v2` from the second build, the year", () => {
+    expect(packageKey("2026-06", 1)).toBe("Package_2026-06.zip");
+    expect(packageKey("2026-06", 2)).toBe("Package_2026-06_v2.zip");
+    expect(packageKey("2026", 1)).toBe("Package_2026.zip");
+    expect(() => packageKey("2026-6", 1)).toThrow(/period/);
+    expect(() => packageKey("2026-06", 0)).toThrow(/Sequence/);
   });
 
   it("provisional upload key keeps v2's prefixes", () => {

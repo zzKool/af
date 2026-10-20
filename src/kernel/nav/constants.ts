@@ -76,6 +76,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     enabled: true,
   },
   {
+    path: "/package",
+    label: "Package",
+    icon: "Archive",
+    roles: ["owner", "accountant"],
+    enabled: true,
+  },
+  {
     path: "/settings",
     label: "Settings",
     icon: "Settings",

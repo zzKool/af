@@ -1,0 +1,48 @@
+// Module package — the accountant package builds (D13, D17, D31; specs/accountant-package/spec.md).
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// `package_builds`: one row per build of a period — `2026-06` (a month) or `2026` (the year). The version counts up
+// per period (`Package_2026-06.zip`, `_v2`…); the zip is a generated document (validated UUID into documents).
+// The build is a job: queued → building → built | failed. A failed build stores nothing.
+
+enum PackageBuildStatus {
+  queued
+  building
+  built
+  failed
+
+  @@map("package_build_status")
+}
+
+model PackageBuild {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String             @map("tenant_id") @db.Uuid
+  /// `YYYY-MM` for a month, `YYYY` for the year package
+  period     String             @db.VarChar(7)
+  version    Int
+  status     PackageBuildStatus @default(queued)
+  /// the stored zip (documents module) once built
+  documentId String?            @map("document_id") @db.Uuid
+  /// the zip's business key (`Package_2026-06.zip`, `Package_2026-06_v2.zip`)
+  businessKey String            @map("business_key") @db.VarChar(100)
+  /// counts of what went in: { bankRows, invoices, supplierInvoices, expenses, settlements, documents }
+  counts     Json               @default("{}") @db.JsonB
+  /// the number of flags in notes.md (the month-end checklist's figure)
+  flags      Int                @default(0)
+  /// notes.md as built — previewed on the page without opening the zip
+  notes      String?
+  /// why a failed build failed
+  error      String?
+  builtAt    DateTime?          @map("built_at") @db.Timestamptz
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy  String             @map("created_by") @db.Uuid
+  source     String             @default("web") @db.VarChar(20)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, period, version], map: "package_builds_tenant_period_version_key")
+  @@index([tenantId, period], map: "package_builds_tenant_period_idx")
+  @@map("package_builds")
+}

@@ -40,6 +40,7 @@ model Tenant {
   supplierInvoiceLines SupplierInvoiceLine[]
   documents            Document[]
   links                Link[]
+  packageBuilds        PackageBuild[]
   numberSeries         NumberSeries[]
 
   @@map("tenants")
