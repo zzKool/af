@@ -55,6 +55,8 @@ export const updateBankAccountAction = ownerAction
       accountNumber: z.string().trim().min(1).max(50).optional(),
       currency: z.string().toUpperCase().length(3).optional(),
       bankFormatId: z.string().uuid().optional(),
+      iban: z.string().trim().max(34).nullable().optional(),
+      bic: z.string().trim().max(11).nullable().optional(),
     }),
   )
   .metadata({ name: "updateBankAccount" })

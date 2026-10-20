@@ -1,6 +1,6 @@
 # Invoices — quotes, invoices, credit notes
 
-Module `src/modules/invoices` · schema `prisma/schema/invoices.prisma` · migration `20261020230000_add_invoices` · spec `specs/invoices/` · decisions D7, D21, D22, D23, D25. **Part 1** (this page): model, totals, service, derived read model, list queries, linkable. **Part 2** (next PR): the sheet (edit / print), the print route, the PDF job, the pages.
+Module `src/modules/invoices` · schema `prisma/schema/invoices.prisma` · migrations `20261020230000_add_invoices`, `20261021000000_add_print_identity` · spec `specs/invoices/` · decisions D7, D21, D22, D23, D25. Part 1: model, totals, service, derived read model, list queries, linkable. Part 2: the sheet (edit / print), the print route, the PDF job, the pages.
 
 > One table for the three documents the owner sends a client. Typed states are facts someone set by hand (`draft → issued → sent`; a quote's `accepted` / `declined`). Paid, partially paid, overdue, credited, expired and converted are **derived** at read time — from the links' allocations, the issued credit notes, the dates. Issued documents are immutable; corrections are credit notes.
 
@@ -59,14 +59,32 @@ The list runs in two steps: Prisma filters the stored columns, then the derived 
 - Actions: reads on `authedAction` + `can(read, invoice)` (the accountant reads), writes on `ownerAction`.
 - Wiring (composition root `src/instrumentation.ts`): `contracts.setRateUsage(invoices.rateUsageFromInvoiceLines)` — a contract rate used by a line cannot be deleted (D24). `modules/linking/linkables.ts` registers `invoiceLinkable` (issued invoices and credit notes carry their total; quotes are never paid).
 
-## Part 2 plugs in here
+## The sheet — `components/invoice-sheet.tsx` (D7: one layout, two modes)
 
-- `issueInvoiceAction` → `ctx.onCommit(enqueue(renderPdfJob, {invoiceId}, {singletonKey}))`; the job renders `/print/invoice/[id]` through `kernel/pdf`, stores the PDF via the documents module (`InvoiceAF_{number}.pdf`) and sets `pdf_document_id` (the one column the lock still lets through, once).
-- `printed_parties.tenant.email/website/logoUrl` and `bank.iban/bic/bankName/accountHolder` are null until the identity fields exist (`tenants.email/website`, `bank_accounts.iban/bic/bank_name/account_holder`).
-- The sheet renders `vat_by_rate`, the treatment sentence, `printed_references`, `printed_parties`; strings `invoice.*` from the dictionary.
+`<InvoiceSheet mode="print" | "edit" doc={SheetDocument} slots?>` is the document: header (company / title + number), parties, meta (date, due date or *valid until*, period, references), the line table, totals (subtotal, discount when > 0, one VAT row per rate, total), the reverse-charge or export sentence when the treatment says so and VAT is 0, notes, the payment box (terms sentence, *please reference*, the bank account of the invoice currency), a footer repeated on every printed page. No hooks, no `"use client"`, no literal strings (`translator(doc.language)` — the **document's** language, not the user's). Print CSS lives in the component: `@page A4 20mm 15mm 25mm`, `thead` repeated, rows never split, the footer `position: fixed; bottom: 0` (a negative offset would add a blank page).
+
+Formatting (FR-010): `sheetMoney` = `formatCurrency` with the code in front (`CHF 25'944.00`, `SEK 24 000,00`), whole unit prices without decimals (`CHF 1'200`); `sheetQuantity` up to one decimal with the singular/plural unit label (`20 Jours`, `1 Day`); `sheetDate` = `dd MMMM yyyy` in the document language (`31 janvier 2026`).
+
+- **Edit mode** — `components/invoice-editor.tsx` (`"use client"`) owns the draft's state, fills the sheet's slots with inputs where the values sit (dates, period, references, lines with description / qty / unit price / line discount / VAT rate, header discount, notes, payment terms; language and VAT registration pickers under the title), shows live totals from the same `invoiceTotals` the server stores, and autosaves on blur through `updateDraftAction` (header + lines wholesale). The sheet document is built by `components/sheet-document.ts` (`toSheetDocument`).
+- **Print mode** — `/print/invoice/[id]` (`src/app/print/invoice/[id]/page.tsx`, server component, `requirePrintCaller`) and the issued document's page. `resolveSheetContext(tx, caller, id)` gathers the invoice with its derived state, the parties (the stored snapshot once issued, otherwise live from partner + tenant profile + the bank account of the currency), the VAT treatment, the related number, the number hint and the registrations.
+
+## The PDF — `jobs/render-pdf.ts`
+
+`issueInvoiceAction` commits, then `ctx.onCommit` enqueues `invoices.render-pdf` (exclusive by invoice id). The job: (1) checks the document is issued and has no PDF yet (idempotent across retries); (2) `renderPathToPdf("/print/invoice/{id}")` through `kernel/pdf` (~1 s); (3) `documents.storeGeneratedDocument` (status `generated`, business key `InvoiceAF_{number}.pdf`, kind financial) and sets `pdf_document_id` — the one column the lock trigger lets through, once. The page polls a few times until the *Download PDF* button appears; the download is the stored document's signed URL. Generated documents show read-only on the documents review page and cannot be deleted (they are the proof of an immutable record).
+
+What the PDF needs about the company: `tenants.email / website / phone` (Company profile) and `bank_accounts.iban / bic` (Bank accounts) — migration `20261021000000_add_print_identity`; the `printed_parties` snapshot carries them from issue on.
+
+## Pages
+
+- `/invoices` — `ListPage` + `InvoiceTable` (DataTable on `INVOICE_COLUMNS`: derived state chips, money in the row's currency, footer sums, client filter labelled by name, *New invoice* / *New quote*).
+- `/invoices/new?type=invoice|quote` — `NewInvoiceForm`: client → contract (loaded on change) → issue date, period label, period start → `createDraftAction` → the sheet.
+- `/invoices/[id]` — `EntityPage`: `InvoiceActions` in the header (state chip; drafts: *Issue* (confirm) / *Delete draft*; issued: *Mark as sent*, *Create credit note*, quotes: *Mark accepted / declined*, *Convert to invoice*; always *Copy to new draft*; *Download PDF · number* or *PDF is being generated…*), the sheet (editor while draft, print mode after), an aside with payment figures (paid / remaining / credited, the SEK base and its rate), related documents and the internal note.
+- Nav: *Invoices* for owner and accountant (reads only).
 
 ## Tests
 
-`totals.pure.test.ts` (15) · `derive.pure.test.ts` (5) · `invoices.test.ts` (13, DB): US1 scenarios incl. lock by direct SQL and 15 concurrent issues / rollback; US3 credit notes; US4 quotes; US5 derived states from links, list contract, RLS · `rates/ecb-rates.test.ts` `rateToBase` · `linking/allocation.pure.test.ts` tolerance.
+`totals.pure.test.ts` (15) · `derive.pure.test.ts` (5) · `invoices.test.ts` (13, DB): US1 scenarios incl. lock by direct SQL and 15 concurrent issues / rollback; US3 credit notes; US4 quotes; US5 derived states from links, list contract, RLS · `print.pure.test.tsx` (10): the fixture invoice in French (every `expectedPrintFr` string), English, VAT column rules, credit note, quote, treatment sentences, draft, formatting helpers · `pdf.test.tsx` (real Chromium): one-line invoice = one page, 60 lines = several · `e2e/invoices.spec.ts`: client → contract rate → draft pre-filled → 20 days autosaved → issue → number, locked sheet, PDF stored by the job → mark as sent → list · `rates/ecb-rates.test.ts` `rateToBase` · `linking/allocation.pure.test.ts` tolerance.
+
+Screenshots: `specs/invoices/screenshots/` (new form, draft sheet, issued sheet, list, PDF page 1).
 
 Related: [[contracts]] (`rateFor`), [[numbering]], [[linking]], [[pdf]], the `invoice-pdf` and `bas-accounting` skills, [[feature-inventory]] §3.5.

@@ -30,13 +30,13 @@
 
 ## Part 2 — `feat/invoices-sheet` (the document, print, PDF, pages)
 
-- [ ] T017 Migration `add_print_identity`: `tenants.email/website/phone`, `bank_accounts.iban/bic/bank_name/account_holder`; settings company-profile form + bank-accounts tab fields
-- [ ] T018 Dictionary keys `invoice.*` en + fr from `fixtures/invoice-strings.{en,fr}.json` (+ `_uiOnly` French written)
-- [ ] T019 `components/invoice-sheet.tsx` (`mode: edit | print`): header (logo, title+number, parties, meta), references, line table (edit: inline inputs, add/duplicate/delete, `Ctrl+Enter`), totals (VAT per rate, discount row when > 0), notes, payment box (terms sentence, bank details), reverse-charge / export sentence, footer; print CSS (`@page A4 20mm 15mm 25mm`, thead repeat, `tr break-inside: avoid`, fixed footer)
-- [ ] T020 `src/app/print/invoice/[id]/page.tsx` + `requirePrintCaller`; `jobs/render-pdf.ts` (`invoices.render-pdf`, exclusive by invoice id) → `renderPathToPdf` → `documents.storeGeneratedDocument(bytes, businessKey InvoiceAF_{n}.pdf, kind invoice_pdf)` → `pdf_document_id`; `issue` enqueues in `onCommit`; `instrumentation.ts` lists `invoiceJobs`
-- [ ] T021 Pages: `/invoices` (ListPage + `InvoiceTable`), `/invoices/new` (draft creation form: partner, contract, type, period), `/invoices/[id]` (EntityPage: sheet in edit mode for drafts with autosave, print mode for issued + actions: Issue / Mark as sent / Credit note / Convert / Copy / Download PDF / Delete draft); nav entry; `can()` subject `invoice` already exists
-- [ ] T022 Tests: `print.test.ts` (render print mode for `fixtures/sample-invoice.json` in fr + en → expected strings; VAT column rules; credit note / quote titles), PDF test through `kernel/pdf` (40 lines → 2 pages), `e2e/invoices.spec.ts` (new draft → line → issue → PDF link → mark sent)
-- [ ] T023 Screenshots of list, draft sheet, issued sheet, PDF page 1 → `specs/invoices/screenshots/`; `docs/invoices.md` part 2; PR
+- [x] T017 Migration `add_print_identity`: `tenants.email/website/phone`, `bank_accounts.iban/bic/bank_name/account_holder`; settings company-profile form + bank-accounts tab fields
+- [x] T018 Dictionary keys `invoice.*` en + fr from `fixtures/invoice-strings.{en,fr}.json` (+ `_uiOnly` French written)
+- [x] T019 `components/invoice-sheet.tsx` (`mode: edit | print`): header (logo, title+number, parties, meta), references, line table (edit: inline inputs, add/duplicate/delete, `Ctrl+Enter`), totals (VAT per rate, discount row when > 0), notes, payment box (terms sentence, bank details), reverse-charge / export sentence, footer; print CSS (`@page A4 20mm 15mm 25mm`, thead repeat, `tr break-inside: avoid`, fixed footer)
+- [x] T020 `src/app/print/invoice/[id]/page.tsx` + `requirePrintCaller`; `jobs/render-pdf.ts` (`invoices.render-pdf`, exclusive by invoice id) → `renderPathToPdf` → `documents.storeGeneratedDocument(bytes, businessKey InvoiceAF_{n}.pdf, kind invoice_pdf)` → `pdf_document_id`; `issue` enqueues in `onCommit`; `instrumentation.ts` lists `invoiceJobs`
+- [x] T021 Pages: `/invoices` (ListPage + `InvoiceTable`), `/invoices/new` (draft creation form: partner, contract, type, period), `/invoices/[id]` (EntityPage: sheet in edit mode for drafts with autosave, print mode for issued + actions: Issue / Mark as sent / Credit note / Convert / Copy / Download PDF / Delete draft); nav entry; `can()` subject `invoice` already exists
+- [x] T022 Tests: `print.test.ts` (render print mode for `fixtures/sample-invoice.json` in fr + en → expected strings; VAT column rules; credit note / quote titles), PDF test through `kernel/pdf` (40 lines → 2 pages), `e2e/invoices.spec.ts` (new draft → line → issue → PDF link → mark sent)
+- [x] T023 Screenshots of list, draft sheet, issued sheet, PDF page 1 → `specs/invoices/screenshots/`; `docs/invoices.md` part 2; PR
 
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.

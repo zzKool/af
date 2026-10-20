@@ -4,8 +4,10 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
+import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import * as invoiceService from "@/modules/invoices/invoices";
+import { renderInvoicePdfJob } from "@/modules/invoices/jobs/render-pdf";
 import {
   distinctInvoiceValues,
   getInvoice,
@@ -128,12 +130,30 @@ export const deleteDraftAction = ownerAction
     return invoiceService.deleteDraft(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
   });
 
-/** Issue: number, base amounts, declaration period, snapshot, lock. The PDF job is enqueued on commit (part 2). */
+/** Issue: number, base amounts, declaration period, snapshot, lock; the PDF job is enqueued once committed. */
 export const issueInvoiceAction = ownerAction
   .schema(invoiceService.issueSchema)
   .metadata({ name: "issueInvoice" })
   .action(async ({ ctx, parsedInput }) => {
-    return invoiceService.issue(ctx.tx, ctx.callerIdentity, ctx.audit, clock.now(), parsedInput);
+    const result = await invoiceService.issue(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      clock.now(),
+      parsedInput,
+    );
+    if (result.data) {
+      const { tenantId, userId } = ctx.callerIdentity;
+      const invoiceId = result.data.id;
+      ctx.onCommit(async () => {
+        await enqueue(
+          renderInvoicePdfJob,
+          { tenantId, userId, invoiceId },
+          { singletonKey: invoiceId },
+        );
+      });
+    }
+    return result;
   });
 
 export const markSentAction = ownerAction

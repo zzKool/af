@@ -12,6 +12,10 @@ export type TenantProfile = {
   name: string;
   orgNumber: string | null;
   address: string | null;
+  email: string | null;
+  website: string | null;
+  phone: string | null;
+  logoUrl: string | null;
   currency: string;
 };
 
@@ -19,6 +23,9 @@ export type UpdateTenantProfileInput = {
   name?: string;
   orgNumber?: string | null;
   address?: string | null;
+  email?: string | null;
+  website?: string | null;
+  phone?: string | null;
   currency?: string;
 };
 
@@ -30,13 +37,28 @@ export async function getTenantProfile(
   if (!tenant) {
     return { error: { code: "NOT_FOUND", message: "Tenant not found", retryable: false } };
   }
+  return { data: toProfile(tenant) };
+}
+
+function toProfile(t: {
+  name: string;
+  orgNumber: string | null;
+  address: string | null;
+  email: string | null;
+  website: string | null;
+  phone: string | null;
+  logoUrl: string | null;
+  currency: string;
+}): TenantProfile {
   return {
-    data: {
-      name: tenant.name,
-      orgNumber: tenant.orgNumber,
-      address: tenant.address,
-      currency: tenant.currency,
-    },
+    name: t.name,
+    orgNumber: t.orgNumber,
+    address: t.address,
+    email: t.email,
+    website: t.website,
+    phone: t.phone,
+    logoUrl: t.logoUrl,
+    currency: t.currency,
   };
 }
 
@@ -69,6 +91,9 @@ export async function updateTenantProfile(
       ...(input.name !== undefined && { name: input.name }),
       ...(input.orgNumber !== undefined && { orgNumber: input.orgNumber }),
       ...(input.address !== undefined && { address: input.address }),
+      ...(input.email !== undefined && { email: input.email }),
+      ...(input.website !== undefined && { website: input.website }),
+      ...(input.phone !== undefined && { phone: input.phone }),
       ...(input.currency !== undefined && { currency: input.currency }),
     },
   });
@@ -91,14 +116,7 @@ export async function updateTenantProfile(
     });
   }
 
-  return {
-    data: {
-      name: tenant.name,
-      orgNumber: tenant.orgNumber,
-      address: tenant.address,
-      currency: tenant.currency,
-    },
-  };
+  return { data: toProfile(tenant) };
 }
 
 export async function listTenantMembers(

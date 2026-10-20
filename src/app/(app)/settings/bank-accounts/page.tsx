@@ -29,6 +29,8 @@ export default async function BankAccountsSettingsPage() {
         accountNumber: a.accountNumber,
         currency: a.currency,
         bankFormatId: a.bankFormatId,
+        iban: a.iban,
+        bic: a.bic,
         bankFormat: {
           id: a.bankFormat.id,
           name: a.bankFormat.name,

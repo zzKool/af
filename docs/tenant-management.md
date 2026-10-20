@@ -67,3 +67,7 @@ Updating company name syncs both models:
 - `Organization.name` updated via base prisma client (auth tables have no RLS)
 
 The `TenantSwitcher` component reads from the Organization list (via Better Auth client hooks), which stays in sync.
+
+## Contact line (2026-10-20)
+
+`tenants.email`, `website`, `phone` (migration `20261021000000_add_print_identity`) — Company profile fields printed on invoices: the email under the address, `name • email • website` in the footer ([[invoices]]).

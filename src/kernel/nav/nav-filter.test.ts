@@ -3,16 +3,16 @@ import { NAV_ITEMS, type NavItem } from "@/kernel/nav/constants";
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 
 describe("filterNavItems", () => {
-  test("owner sees Dashboard, Documents, Partners, and Settings", () => {
+  test("owner sees Dashboard, Documents, Partners, Invoices, and Settings", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
-    expect(labels).toEqual(["Dashboard", "Documents", "Partners", "Settings"]);
+    expect(labels).toEqual(["Dashboard", "Documents", "Partners", "Invoices", "Settings"]);
   });
 
-  test("accountant sees Dashboard and Settings (Partners is owner-only)", () => {
+  test("accountant sees Dashboard, Invoices (read-only) and Settings (Partners is owner-only)", () => {
     const result = filterNavItems(NAV_ITEMS, "accountant");
     const labels = result.map((i) => i.label);
-    expect(labels).toEqual(["Dashboard", "Settings"]);
+    expect(labels).toEqual(["Dashboard", "Invoices", "Settings"]);
   });
 
   test("disabled items are excluded even if role matches", () => {
@@ -54,9 +54,9 @@ describe("NAV_ITEMS configuration", () => {
     }
   });
 
-  test("Dashboard, Documents, Partners, and Settings are enabled", () => {
+  test("Dashboard, Documents, Partners, Invoices, and Settings are enabled", () => {
     const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.label);
-    expect(enabled).toEqual(["Dashboard", "Documents", "Partners", "Settings"]);
+    expect(enabled).toEqual(["Dashboard", "Documents", "Partners", "Invoices", "Settings"]);
   });
 
   test("all paths start with /", () => {

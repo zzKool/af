@@ -25,6 +25,9 @@ model BankAccount {
   accountNumber String   @map("account_number") @db.VarChar(50) // "211 53 13-5"
   currency      String   @default("SEK") @db.VarChar(3) // "SEK", "CHF", etc.
   bankFormatId  String   @map("bank_format_id") @db.Uuid
+  /// printed in the invoice's payment box (the account of the invoice currency)
+  iban          String?  @db.VarChar(34)
+  bic           String?  @db.VarChar(11)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy     String   @map("created_by") @db.Uuid

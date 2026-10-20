@@ -19,6 +19,9 @@ type ProfileData = {
   name: string;
   orgNumber: string;
   address: string;
+  email: string;
+  website: string;
+  phone: string;
   currency: string;
 };
 
@@ -117,6 +120,38 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
           onChange={(e) => setData((prev) => ({ ...prev, address: e.target.value }))}
           onBlur={() => saveField("address", data.address)}
           placeholder="e.g., Testgatan 1, 111 22 Stockholm"
+        />
+      </FieldWrapper>
+
+      {/* Contact line — printed on invoices */}
+      <FieldWrapper
+        label="Email"
+        error={errors.email}
+        saving={savingField === "email"}
+        hint="Printed on invoices"
+      >
+        <Input
+          type="email"
+          value={data.email}
+          onChange={(e) => setData((prev) => ({ ...prev, email: e.target.value }))}
+          onBlur={() => saveField("email", data.email)}
+          placeholder="invoices@example.com"
+        />
+      </FieldWrapper>
+      <FieldWrapper label="Website" error={errors.website} saving={savingField === "website"}>
+        <Input
+          value={data.website}
+          onChange={(e) => setData((prev) => ({ ...prev, website: e.target.value }))}
+          onBlur={() => saveField("website", data.website)}
+          placeholder="https://example.com"
+        />
+      </FieldWrapper>
+      <FieldWrapper label="Phone" error={errors.phone} saving={savingField === "phone"}>
+        <Input
+          value={data.phone}
+          onChange={(e) => setData((prev) => ({ ...prev, phone: e.target.value }))}
+          onBlur={() => saveField("phone", data.phone)}
+          placeholder="+46 …"
         />
       </FieldWrapper>
 

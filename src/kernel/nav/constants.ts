@@ -48,7 +48,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     roles: ["owner"],
     enabled: false,
   },
-  { path: "/invoices", label: "Invoices", icon: "Receipt", roles: ["owner"], enabled: false },
+  {
+    path: "/invoices",
+    label: "Invoices",
+    icon: "Receipt",
+    roles: ["owner", "accountant"],
+    enabled: true,
+  },
   {
     path: "/settings",
     label: "Settings",

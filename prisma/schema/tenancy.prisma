@@ -7,6 +7,10 @@ model Tenant {
   name      String
   orgNumber String?  @map("org_number")
   address   String?
+  /// printed on invoices (D7): contact line and footer
+  email     String?  @db.VarChar(254)
+  website   String?  @db.VarChar(200)
+  phone     String?  @db.VarChar(30)
   currency  String   @default("SEK")
   logoUrl   String?  @map("logo_url")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
