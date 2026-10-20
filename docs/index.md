@@ -77,7 +77,7 @@ Page-specific documentation and patterns.
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
 - [[document-upload]] — Document upload pipeline, file validation, business key generation, status lifecycle
 - [[document-review]] — Document review & correction, corrections overlay, dual-pane UI, role-based access
-- [[document-library]] — Document library page, paginated table, filters, download, stats bar, DataTable component
+- [[document-library]] — the library on the kernel DataTable: the ListQuery read model (OCR facts as corrected, linked), the role base, Download / Delete, the upload zone
 
 ## Components
 

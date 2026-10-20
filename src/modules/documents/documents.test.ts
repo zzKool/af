@@ -1223,60 +1223,6 @@ describe("documents service", () => {
     });
   });
 
-  describe("getDocumentFilterOptions", () => {
-    it("returns distinct filter values from actual data", async () => {
-      const owner = await createAuthenticatedContext(auth, "owner");
-      const tenantId = owner.callerIdentity.tenantId;
-
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "uploaded",
-        prefixType: "expense",
-        documentType: "financial",
-      });
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "extracted",
-        prefixType: "invoice",
-        documentType: "financial",
-      });
-
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentFilterOptions(tx, owner.callerIdentity);
-      });
-
-      expect(result.error).toBeUndefined();
-      expect(result.data?.statuses).toContain("uploaded");
-      expect(result.data?.statuses).toContain("extracted");
-      expect(result.data?.prefixTypes).toContain("expense");
-      expect(result.data?.prefixTypes).toContain("invoice");
-    });
-
-    it("accountant sees only financial document types", async () => {
-      const owner = await createAuthenticatedContext(auth, "owner");
-      const accountant = await createAuthenticatedContext(auth, "member", {
-        headers: owner.headers,
-        orgId: owner.callerIdentity.tenantId,
-      });
-      const tenantId = owner.callerIdentity.tenantId;
-
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        documentType: "financial",
-        prefixType: "expense",
-      });
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        documentType: "relationship",
-        prefixType: "contract",
-      });
-
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentFilterOptions(tx, accountant.callerIdentity);
-      });
-
-      expect(result.error).toBeUndefined();
-      expect(result.data?.documentTypes).not.toContain("relationship");
-      expect(result.data?.prefixTypes).not.toContain("contract");
-    });
-  });
-
   describe("getDocumentStats", () => {
     it("returns correct aggregate counts", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");

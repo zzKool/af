@@ -29,7 +29,6 @@ export {
   classifyDocumentAction,
   deleteDocumentAction,
   getDocumentDownloadUrlAction,
-  getDocumentFilterOptionsAction,
   getDocumentForReviewAction,
   getDocumentStatsAction,
   getDocumentsAction,

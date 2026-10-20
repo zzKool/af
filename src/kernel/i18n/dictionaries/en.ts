@@ -934,6 +934,35 @@ export const en = {
   "dashboard.briefing.action.create": "created",
   "dashboard.briefing.action.update": "updated",
   "dashboard.briefing.action.delete": "deleted",
+
+  // --- documents library (D20) ---
+  "documents.title": "Documents",
+  "documents.meta": "{total} document(s) · {unreviewed} to review · {failed} OCR failed",
+  "documents.search": "Search key, file name, vendor…",
+  "documents.empty": "No documents match. Upload a receipt or an invoice above.",
+  "documents.blank": "(blank)",
+  "documents.col.businessKey": "Key",
+  "documents.col.fileName": "File",
+  "documents.col.prefixType": "Kind",
+  "documents.col.documentType": "Type",
+  "documents.col.status": "Status",
+  "documents.col.vendor": "Vendor",
+  "documents.col.amount": "Amount",
+  "documents.col.currency": "Currency",
+  "documents.col.documentDate": "Document date",
+  "documents.col.linked": "Linked",
+  "documents.col.mimeType": "MIME",
+  "documents.col.fileSize": "Size",
+  "documents.col.reviewedAt": "Reviewed",
+  "documents.col.createdAt": "Uploaded",
+  "documents.needsReview": "needs review",
+  "documents.linked": "Linked",
+  "documents.notLinked": "Not linked",
+  "documents.download": "Download",
+  "documents.delete": "Delete",
+  "documents.deleteConfirm":
+    "Delete {key}? The file is removed from storage; a linked document cannot be deleted.",
+  "documents.deleted": "{key} deleted",
 } as const;
 
 export type MessageKey = keyof typeof en;
