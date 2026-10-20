@@ -300,3 +300,41 @@ export function countWeekdaysBetween(from: Date, to: Date): number {
 
 // Export for testing
 export { parseEcbXml, buildEcbUrl };
+
+export type BaseRateResult = {
+  /** 1 unit of `from` = rate × `to`, 6 decimals */
+  rate: Prisma.Decimal;
+  /** `same_currency` | `ecb_daily` (both legs on the exact date) | `ecb_nearest` (a leg fell back to the nearest cached day) */
+  source: "same_currency" | "ecb_daily" | "ecb_nearest";
+  /** the day the rate actually comes from */
+  rateDate: string;
+};
+
+/**
+ * Conversion rate `from` → `to` on `date` from the ECB reference rates (EUR-based: X/Y = EUR/Y ÷ EUR/X).
+ * Used once, at issue, to write the SEK base of a non-SEK document (D3, D4). Null when a leg has no rate at all.
+ */
+export async function rateToBase(
+  db: { $queryRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown[]> },
+  date: string,
+  from: string,
+  to: string,
+): Promise<BaseRateResult | null> {
+  if (from === to) return { rate: new Prisma.Decimal(1), source: "same_currency", rateDate: date };
+  const leg = async (ccy: string) =>
+    ccy === "EUR"
+      ? { rate: new Prisma.Decimal(1), rateSource: "ecb_daily" as RateSource, actualDate: date }
+      : await getRate(db, date, `EUR/${ccy}`);
+  const [eurTo, eurFrom] = await Promise.all([leg(to), leg(from)]);
+  if (!eurTo || !eurFrom) return null;
+  const nearest = eurTo.rateSource === "cached" || eurFrom.rateSource === "cached";
+  return {
+    rate: eurTo.rate.div(eurFrom.rate).toDecimalPlaces(6, Prisma.Decimal.ROUND_HALF_UP),
+    source: nearest ? "ecb_nearest" : "ecb_daily",
+    rateDate: nearest
+      ? eurTo.rateSource === "cached"
+        ? eurTo.actualDate
+        : eurFrom.actualDate
+      : date,
+  };
+}

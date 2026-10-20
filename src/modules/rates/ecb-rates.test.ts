@@ -9,6 +9,7 @@ import {
   fetchDailyRates,
   getRate,
   parseEcbXml,
+  rateToBase,
 } from "@/modules/rates/ecb-rates";
 
 // Admin pool — ecb_rates has no RLS, so we use admin for all operations.
@@ -409,5 +410,39 @@ describe("Decimal rate multiplication proof", () => {
     expect(result.isNegative()).toBe(true);
     // -226.66 * 11.234567 = -2546.43...
     expect(result.toFixed(2)).toBe("-2546.43");
+  });
+});
+
+describe("rateToBase — the conversion written once at issue (D3/D4)", () => {
+  const db = {
+    $queryRawUnsafe: (q: string, ...a: unknown[]) => adminPool.query(q, a).then((r) => r.rows),
+  };
+
+  it("same currency → 1, same_currency", async () => {
+    const r = await rateToBase(db, "2026-01-31", "SEK", "SEK");
+    expect(r?.rate.toString()).toBe("1");
+    expect(r?.source).toBe("same_currency");
+  });
+
+  it("CHF → SEK crosses through EUR on the exact day", async () => {
+    await insertRate("2026-01-30", "EUR/SEK", "11.1000");
+    await insertRate("2026-01-30", "EUR/CHF", "0.9260");
+    const r = await rateToBase(db, "2026-01-30", "CHF", "SEK");
+    expect(r?.source).toBe("ecb_daily");
+    expect(r?.rateDate).toBe("2026-01-30");
+    expect(r?.rate.toFixed(6)).toBe("11.987041"); // 11.1 / 0.926
+    const eur = await rateToBase(db, "2026-01-30", "EUR", "SEK");
+    expect(eur?.rate.toFixed(4)).toBe("11.1000");
+    const toEur = await rateToBase(db, "2026-01-30", "SEK", "EUR");
+    expect(toEur?.rate.toFixed(6)).toBe("0.090090");
+  });
+
+  it("falls back to the nearest cached day (weekend issue date) and says so; null when a leg is missing", async () => {
+    await insertRate("2026-01-30", "EUR/SEK", "11.1000");
+    await insertRate("2026-01-30", "EUR/CHF", "0.9260");
+    const weekend = await rateToBase(db, "2026-01-31", "CHF", "SEK");
+    expect(weekend?.source).toBe("ecb_nearest");
+    expect(weekend?.rateDate).toBe("2026-01-30");
+    expect(await rateToBase(db, "2026-01-31", "USD", "SEK")).toBeNull();
   });
 });

@@ -27,3 +27,5 @@ export function canAllocate(
   if (c.lte(0)) return false;
   return remaining(amount, allocations).gte(c);
 }
+
+export { isSettled, settlementTolerance } from "@/kernel/money/settlement";

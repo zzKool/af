@@ -2,4 +2,4 @@
 // 3b/3d: declared here as named re-exports; extraction into standalone query implementations
 // (ListQuery, distinct values for DataTable headers) happens with the partners reference slice.
 
-export { detectGaps, getRate } from "./ecb-rates";
+export { detectGaps, getRate, rateToBase } from "./ecb-rates";

@@ -10,7 +10,7 @@ src/
     actions/         server-action middleware chain (action-client, auth, tenant, logging, rate-limit, errors)
     audit/           append-only audit trail + types
     auth/            Better Auth server + client, CallerIdentity (can() lands in item 4)
-    clock/           Clock abstraction
+    clock/           Clock abstraction, calendar-day arithmetic (addDays)
     db/              Prisma client, tenant-scoped client (RLS), test setup + fixtures
     errors/          AppError, extract-error
     guards/          architecture guard test
@@ -18,7 +18,7 @@ src/
     jobs/            pg-boss queue behind JobDefinition/ScheduleDefinition + withJobContext (see async-jobs)
     list-query/      ListQuery contract: types, URL codec, Prisma where/orderBy/distinct helpers, Zod schema (D20)
     logging/         pino logger
-    money/           currency + number formatting (Decimal at the boundary)
+    money/           currency + number formatting (Decimal at the boundary), settlement tolerance (D25)
     nav/             nav constants + role filter
     ocr/             Azure Document Intelligence adapter (+ fixtures)
     pdf/             Chromium renderer (playwright-core) + print tokens — see pdf
@@ -44,7 +44,7 @@ src/
 prisma/schema/<m>.prisma   the module's models (one folder, Prisma multi-file schema) — see prisma/schema/README.md
 ```
 
-Modules today: `partners` (the reference slice — see [[partners]]), `contracts` (rate history — see [[contracts]]), `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
+Modules today: `partners` (the reference slice — see [[partners]]), `contracts` (rate history — see [[contracts]]), `invoices` (see [[invoices]]), `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
 
 ## Rules enforced now (3a)
 - `kernel/*` never imports `modules/*` or `app/*`.
@@ -89,7 +89,7 @@ Modules today: `partners` (the reference slice — see [[partners]]), `contracts
 | `src/components/{domain,partners,settings}/*` | `src/modules/<m>/components/` |
 | `src/hooks/use-document-*-store.ts` | `src/modules/documents/stores/` |
 | `src/server/services/__fixtures__/*` | `src/modules/banking/__fixtures__/` (CSV), `src/kernel/ocr/__fixtures__/` (PDF, JPG) |
-| `prisma/schema/app.prisma` | `prisma/schema/{tenancy,audit,rates,settings,banking,documents,partners,contracts}.prisma` |
+| `prisma/schema/app.prisma` | `prisma/schema/{tenancy,audit,rates,settings,banking,documents,partners,contracts,linking,numbering,invoices}.prisma` |
 
 Vitest projects: `server` (DB-backed: `kernel/**` + `modules/**` tests), `pure` (`kernel/{money,i18n,nav,stores,errors,guards}`), `client` (all `*.test.tsx`, jsdom).
 

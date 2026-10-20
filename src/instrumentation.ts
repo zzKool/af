@@ -5,11 +5,16 @@ export async function register() {
     await import("../sentry.server.config");
 
     if (process.env.NEXT_PHASE !== "phase-production-build") {
-      const [{ startJobs }, { documentJobs }, { rateJobs, rateSchedules }] = await Promise.all([
-        import("@/kernel/jobs/queue"),
-        import("@/modules/documents"),
-        import("@/modules/rates"),
-      ]);
+      const [{ startJobs }, { documentJobs }, { rateJobs, rateSchedules }, contracts, invoices] =
+        await Promise.all([
+          import("@/kernel/jobs/queue"),
+          import("@/modules/documents"),
+          import("@/modules/rates"),
+          import("@/modules/contracts"),
+          import("@/modules/invoices"),
+        ]);
+      // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted)
+      contracts.setRateUsage(invoices.rateUsageFromInvoiceLines);
       await startJobs([...documentJobs, ...rateJobs], [...rateSchedules]);
     }
   }

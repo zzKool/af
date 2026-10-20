@@ -2,7 +2,13 @@
 // Importing it registers every module's linkable (see ./linkables).
 import "./linkables";
 
-export { canAllocate, remaining, sumAllocations } from "./allocation";
+export {
+  canAllocate,
+  isSettled,
+  remaining,
+  settlementTolerance,
+  sumAllocations,
+} from "./allocation";
 export { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 export type { Linkable } from "./linkable";
 export { _resetLinkables, getLinkable, listLinkableTypes, registerLinkable } from "./linkable";

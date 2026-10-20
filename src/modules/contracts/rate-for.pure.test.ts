@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { addDays } from "@/kernel/clock/calendar";
 import cases from "../../../specs/contracts/fixtures/rate-history-cases.json";
-import { addDays } from "./calendar";
 import { covers, overlaps, pickRate, rateState } from "./contract-rates";
 
 type Rate = { id: string; validFrom: string; validTo: string | null; rate: string };

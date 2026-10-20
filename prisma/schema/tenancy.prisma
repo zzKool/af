@@ -19,6 +19,8 @@ model Tenant {
   partners             Partner[]
   contracts            Contract[]
   contractRates        ContractRate[]
+  invoices             Invoice[]
+  invoiceLines         InvoiceLine[]
   documents            Document[]
   links                Link[]
   numberSeries         NumberSeries[]
