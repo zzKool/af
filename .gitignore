@@ -71,3 +71,4 @@ public/pdf.worker.min.mjs
 # Vercel
 .vercel
 backups/
+e2e-screenshots/

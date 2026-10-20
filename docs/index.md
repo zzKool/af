@@ -92,4 +92,5 @@ Backend service documentation and API contracts.
 - [[blob-storage]] — Azure Blob Storage service, Azurite setup, test patterns
 - [[async-jobs]] — pg-boss in-process queue (D17): JobDefinition, withJobContext, retries + dead letter, schedules with catch-up, pgboss schema migration
 - [[pdf]] — kernel/pdf: Chromium in the image, print routes + print tokens, renderPathToPdf / renderHtmlToPdf
+- [[verify-gate]] — what runs on a PR and on main (lint, typecheck, drift check, tests, build, e2e + page screenshots), flaky quarantine, DoD mapping
 - [[ocr-processing]] — OCR service interface, Azure DI integration, resumable process-document job, quality classification
