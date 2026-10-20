@@ -160,7 +160,7 @@ Audit is recorded for **both** outcomes:
 
 ## Related
 
-- [[document-upload-flow]] — Upload pipeline and status lifecycle
+- [[document-upload]] — Upload pipeline and status lifecycle
 - [[document-review]] — Document review & correction
 - [[blob-storage]] — Azure Blob Storage, SAS URL generation, Azurite
 - [[zustand-stores]] — Tenant-scoped store pattern

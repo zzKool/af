@@ -66,7 +66,7 @@ Page-specific documentation and patterns.
 - [[partner-crud-pattern]] — (v2 history) Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
-- [[document-upload-flow]] — Document upload pipeline, file validation, business key generation, status lifecycle
+- [[document-upload]] — Document upload pipeline, file validation, business key generation, status lifecycle
 - [[document-review]] — Document review & correction, corrections overlay, dual-pane UI, role-based access
 - [[document-library]] — Document library page, paginated table, filters, download, stats bar, DataTable component
 
