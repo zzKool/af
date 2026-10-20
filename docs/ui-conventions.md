@@ -1,6 +1,6 @@
 # UI conventions
 
-Version 1 · 2026-10-20 · Decisions D19 and D20 in [[feature-inventory]]. Applies to every page; the `DataTable` spec below is a kernel component (`kernel/ui`), built once in phase-0 item 8 and reused by every module.
+Version 2 · 2026-10-20 · Decisions D19 and D20 in [[feature-inventory]]. Applies to every page. **Built** (phase-0 item 8): the shell (`kernel/ui/shell`: sidebar, topbar, `ListPage` / `EntityPage` / `WorkPage` / `PageHeader`), the `DataTable` (`kernel/ui/data-table`) and the `ListQuery` contract (`kernel/list-query`), first used by [[partners]]. Still to come: column order/width persistence per user, footer sums on a first money column, virtualised body, the documents library migrated onto it.
 
 ## Layout — full width, dense, app not website
 
@@ -50,17 +50,22 @@ Every list in the app is one component. v1's `advanced-table/` (checkbox, column
 - Sticky header, virtualised body, loading skeleton, empty state with the active filters named.
 - Footer: row count of the filtered set, sum of money columns on the filtered set (server-side).
 
-### Contract
+### Contract (`src/kernel/list-query`)
 ```ts
-type ListQuery = { page; pageSize; sort: {col; dir}[]; filters: Record<col, Filter> }
-type Filter = { in: string[] } | { ilike; op } | { between: [a, b] } | { dates: { years; months; days } }
+type ListQuery = { page; pageSize; sort: { col; dir }[]; filters: Record<col, Filter>; search? }
+type Filter =
+  | { kind: "in"; values: (string | null)[] }                                  // enum, boolean, relation; null = blanks
+  | { kind: "text"; op: contains | startsWith | equals | empty | notEmpty; value? }
+  | { kind: "range"; min?; max?; empty? }                                       // number, money (decimal strings)
+  | { kind: "dates"; years?; months?; days?; from?; to?; empty? }               // hierarchy ∪, intersected with from/to
 queries.list(tx, q): { rows: Dto[]; total; sums? }
-queries.distinct(tx, col, q.filters): { value; count }[]
+queries.distinct(tx, col, q): { value; count }[]          // over the set filtered by the OTHER columns
+queries.dateHierarchy(tx, col, q): { years → months → days with counts; empty }
 ```
-Column definitions declare `type` and `filterable`; the component derives the filter UI from the type. Modules never write filter UI.
+- `codec.ts` — URL ⇄ ListQuery (`?page=2&size=50&sort=name:asc&q=acme&f.types=in:client|vendor&f.date=dates:2026|from=2026-01-01`), tolerant of garbage.
+- `prisma.ts` — `buildWhere(q, columns, { exceptColumn, base })`, `buildOrderBy`, `paginate`, `countDistinct`, `buildDateHierarchy`.
+- `schema.ts` — Zod `listQuerySchema` for the actions that serve header filters.
+- A module declares `COLUMNS: ColumnMap` (`{ type, field?, array?, searchable?, sum? }`) once in `queries.ts`; see [[partners]] for the reference implementation and its tests.
 
-### Build plan (phase-0 item 8)
-1. Port v1 filter components into `kernel/ui/data-table/` on top of v2's `DataTable` (TanStack Table v8).
-2. `ListQuery` → Prisma `where` helper in `kernel/db/list-query.ts` with tests per filter type.
-3. Reference use on `partners` (the reference slice), then `documents`.
-4. Screenshot of each filter type in the PR.
+### The component (`src/kernel/ui/data-table`)
+`<DataTable tableKey columns result state filterSource valueLabel rowHref|onRowClick selectable bulkActions toolbar emptyState />` with `state = useListQuery({ columns, defaultSort })`. Columns: `{ key, header, type, filterable?, sortable?, align?, width?, cell?, truncate?, defaultHidden?, alwaysVisible? }`. Header = sort button (shift-click adds a secondary key) + filter trigger (filled when active) → `TextFilter` / `RangeFilter` / `CheckboxFilter` / `DateFilter` popovers; chips above; footer with count, sums, page size, pager; Columns menu (visibility remembered per `tableKey`).

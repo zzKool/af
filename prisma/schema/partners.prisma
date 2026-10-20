@@ -6,6 +6,8 @@ model Partner {
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId             String   @map("tenant_id") @db.Uuid
   name                 String
+  /// 2–6 upper-case letters/digits; the invoice series key `{short_code}{yy}` (D5). Unique per tenant.
+  shortCode            String?  @map("short_code") @db.VarChar(6)
   orgNumber            String?  @map("org_number")
   vatNumber            String?  @map("vat_number")
   types                String[] @default([])
@@ -29,5 +31,6 @@ model Partner {
   employeeContracts Contract[] @relation("EmployeeContracts")
 
   @@unique([tenantId, orgNumber], map: "idx_partners_tenant_org") // created as a partial index (WHERE org_number IS NOT NULL) in the migration
+  @@unique([tenantId, shortCode], map: "idx_partners_tenant_short_code") // partial index (WHERE short_code IS NOT NULL)
   @@map("partners")
 }

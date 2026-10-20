@@ -62,7 +62,8 @@ Page-specific documentation and patterns.
 - [[bank-accounts]] — Bank account configuration with CSV format library, two-table pattern, multi-currency accounts
 - [[numbering]] — number_series (gap-free, row-locked) and the fixed key functions: invoice numbers, expense refs, upload keys (D5, D6)
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
-- [[partner-crud-pattern]] — Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
+- [[partners]] — the reference slice (phase-0 item 6): module layout, ListQuery read API, DataTable list page, entity page, the tests that define it
+- [[partner-crud-pattern]] — (v2 history) Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
 - [[document-upload-flow]] — Document upload pipeline, file validation, business key generation, status lifecycle

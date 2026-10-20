@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PartnerNotFound() {
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="p-4 md:p-6">
       <Card>
         <CardHeader>
           <CardTitle>Partner not found</CardTitle>

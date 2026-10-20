@@ -97,7 +97,7 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
   const resolvedData = { ...data.resolvedData, ...corrections };
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="p-4 md:p-6">
       <DocumentReviewHeader data={data} />
 
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">

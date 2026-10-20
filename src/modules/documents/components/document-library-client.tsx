@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Role } from "@/kernel/auth/caller-identity";
 import { canRole } from "@/kernel/auth/can";
-import { DataTable } from "@/kernel/ui/data-table";
+import { DataTable } from "@/kernel/ui/legacy-data-table";
 import { DocumentLibraryFilters } from "@/modules/documents/components/document-library-filters";
 import { DocumentStatsBar } from "@/modules/documents/components/document-stats-bar";
 import type {

@@ -1,7 +1,8 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { EntityPage } from "@/kernel/ui/shell/page";
 import * as contractService from "@/modules/contracts";
 import * as partnerService from "@/modules/partners";
 import { PartnerDetailTabs } from "@/modules/partners/ui";
@@ -72,7 +73,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
   }));
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <EntityPage>
       <PartnerDetailTabs
         partner={partner}
         contracts={contracts}
@@ -81,6 +82,6 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
         basOptions={basOptions}
         defaultCurrency={partner.defaultCurrency}
       />
-    </div>
+    </EntityPage>
   );
 }

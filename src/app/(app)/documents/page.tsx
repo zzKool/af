@@ -5,6 +5,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { ListPage } from "@/kernel/ui/shell/page";
 import type { DocumentFilters, DocumentSort } from "@/modules/documents";
 import * as documentService from "@/modules/documents";
 import { DocumentLibraryClient, DocumentUploadZone } from "@/modules/documents/ui";
@@ -84,17 +85,15 @@ export default async function DocumentsPage() {
     : [];
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <h1 className="mb-6 text-2xl font-semibold">Documents</h1>
-
+    <ListPage title="Documents">
       {/* Upload zone — owner only (AC #8) */}
       {canUpload && <DocumentUploadZone prefixOptions={prefixOptions} />}
 
-      <div className="mt-8">
+      <div className="mt-6">
         <Suspense fallback={<DocumentsLoading />}>
           <DocumentsContent role={role} caller={caller} />
         </Suspense>
       </div>
-    </div>
+    </ListPage>
   );
 }

@@ -17,7 +17,7 @@ export default async function MyPreferencesSettingsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="p-4 md:p-6">
       <h1 className="mb-6 text-2xl font-semibold">My Preferences</h1>
       <MyPreferencesTab initialLocale={userPref?.locale ?? null} />
     </div>

@@ -16,6 +16,8 @@ export type PartnerDto = {
   id: string;
   tenantId: string;
   name: string;
+  /** `VA` — the invoice series key is `{shortCode}{yy}` (D5). */
+  shortCode: string | null;
   orgNumber: string | null;
   vatNumber: string | null;
   types: string[];
@@ -36,5 +38,5 @@ export type PartnerDto = {
 /** Compact row for pickers and search results. */
 export type PartnerSummaryDto = Pick<
   PartnerDto,
-  "id" | "name" | "types" | "defaultCurrency" | "defaultBasCategoryCode"
+  "id" | "name" | "shortCode" | "types" | "defaultCurrency" | "defaultBasCategoryCode"
 >;

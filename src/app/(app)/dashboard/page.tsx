@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Compact welcome header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Welcome back, {userName}</h1>

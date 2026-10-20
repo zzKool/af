@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireCaller } from "@/kernel/auth/caller";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
+import { PageHeader } from "@/kernel/ui/shell/page";
 
 type TabConfig = {
   value: string;
@@ -50,8 +51,8 @@ export default async function SettingsPage() {
   const defaultTab = can(caller, "manage", "tenant_settings") ? "company" : "my-preferences";
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-6 text-2xl font-semibold">Settings</h1>
+    <div className="p-4 md:p-6">
+      <PageHeader title="Settings" className="mb-4" />
       <Tabs defaultValue={defaultTab}>
         <TabsList>
           {visibleTabs.map((tab) => (

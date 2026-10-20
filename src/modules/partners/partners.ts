@@ -33,8 +33,15 @@ const addressSchema = z
   })
   .optional();
 
+export const shortCodeSchema = z
+  .string()
+  .regex(/^[A-Z0-9]{2,6}$/, "2–6 upper-case letters or digits")
+  .optional()
+  .or(z.literal(""));
+
 export const createPartnerSchema = z.object({
   name: z.string().min(1).max(200),
+  shortCode: shortCodeSchema,
   orgNumber: z.string().max(20).optional(),
   vatNumber: z.string().max(20).optional(),
   types: z.array(partnerTypeSchema).min(1, "At least one type required"),
@@ -88,6 +95,7 @@ export function toPartnerDto(row: Partner): PartnerDto {
     id: row.id,
     tenantId: row.tenantId,
     name: row.name,
+    shortCode: row.shortCode,
     orgNumber: row.orgNumber,
     vatNumber: row.vatNumber,
     types: row.types,
@@ -188,6 +196,7 @@ export async function createPartner(
       data: {
         tenantId: caller.tenantId,
         name: data.name,
+        shortCode: data.shortCode || null,
         orgNumber: data.orgNumber || null,
         vatNumber: data.vatNumber || null,
         types: data.types,
@@ -223,7 +232,7 @@ export async function createPartner(
       return {
         error: {
           code: "DUPLICATE_ENTRY",
-          message: "A partner with this org number already exists in this tenant",
+          message: "A partner with this org number or short code already exists in this tenant",
           retryable: false,
         },
       };
@@ -318,6 +327,7 @@ export async function updatePartner(
   // biome-ignore lint/suspicious/noExplicitAny: dynamic update data construction
   const updateData: any = {};
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.shortCode !== undefined) updateData.shortCode = data.shortCode || null;
   if (data.orgNumber !== undefined) updateData.orgNumber = data.orgNumber || null;
   if (data.vatNumber !== undefined) updateData.vatNumber = data.vatNumber || null;
   if (data.types !== undefined) updateData.types = data.types;
@@ -356,7 +366,7 @@ export async function updatePartner(
       return {
         error: {
           code: "DUPLICATE_ENTRY",
-          message: "A partner with this org number already exists in this tenant",
+          message: "A partner with this org number or short code already exists in this tenant",
           retryable: false,
         },
       };
@@ -445,6 +455,7 @@ export async function searchPartners(
     select: {
       id: true,
       name: true,
+      shortCode: true,
       types: true,
       defaultCurrency: true,
       defaultBasCategoryCode: true,
