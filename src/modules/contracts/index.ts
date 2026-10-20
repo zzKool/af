@@ -40,3 +40,4 @@ export {
 export { contractLinkable } from "./linkable";
 export * from "./queries";
 export type * from "./types";
+export { RATE_UNITS } from "./types";

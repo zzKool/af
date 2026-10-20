@@ -1,0 +1,128 @@
+// Module invoices — quotes, invoices and credit notes on ONE table (D7, D21, D22, specs/invoices).
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// Typed states are hand-set facts only (draft / issued / sent; a quote's accepted / declined). Paid, partially
+// paid, overdue, credited, expired and converted are DERIVED at read time from links, credit notes and dates.
+// Issued documents are immutable: triggers in the migration refuse every change except status, sent_at,
+// decided_at, declaration_period, pdf_document_id. Corrections are credit notes.
+// Cross-module references (partner, contract, VAT registration, PDF document, rate source) are validated UUIDs,
+// never FKs (constitution §2); invoice ↔ lines and credit note ↔ original are intra-module FKs.
+
+enum InvoiceType {
+  quote
+  invoice
+  credit_note
+
+  @@map("invoice_type")
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  sent
+  accepted
+  declined
+
+  @@map("invoice_status")
+}
+
+model Invoice {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  type              InvoiceType
+  status            InvoiceStatus @default(draft)
+  /// `VA26-001` / `VA26-QT-001` / `VA26-CN-001` — assigned at issue, null while draft (D21)
+  number            String?       @db.VarChar(30)
+  partnerId         String        @map("partner_id") @db.Uuid
+  contractId        String?       @map("contract_id") @db.Uuid
+  vatRegistrationId String?       @map("vat_registration_id") @db.Uuid
+  /// credit note → the original invoice; invoice → the quote it was converted from
+  relatedInvoiceId  String?       @map("related_invoice_id") @db.Uuid
+  issueDate         DateTime      @map("issue_date") @db.Date
+  /// invoices and credit notes: due date; quotes: "valid until"
+  dueDate           DateTime?     @map("due_date") @db.Date
+  periodLabel       String?       @map("period_label") @db.VarChar(100)
+  periodStart       DateTime?     @map("period_start") @db.Date
+  periodEnd         DateTime?     @map("period_end") @db.Date
+  currency          String        @db.Char(3)
+  language          String        @default("en") @db.VarChar(5)
+  /// [{label, value}] — partner identifiers + contract references + per-document extras, as printed
+  printedReferences Json          @default("[]") @map("printed_references")
+  /// snapshot at issue: {tenant, partner, vatNumber, bank} exactly as printed — never re-read afterwards
+  printedParties    Json?         @map("printed_parties")
+  notes             String?
+  internalNote      String?       @map("internal_note")
+  paymentTermsText  String?       @map("payment_terms_text") @db.VarChar(1000)
+  /// header discount, percent only (D: fixture L — never silently ignored)
+  discountPercent   Decimal?      @map("discount_percent") @db.Decimal(5, 2)
+  subtotal          Decimal       @default(0) @db.Decimal(15, 2)
+  discountAmount    Decimal       @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  netAmount         Decimal       @default(0) @map("net_amount") @db.Decimal(15, 2)
+  vatAmount         Decimal       @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  totalAmount       Decimal       @default(0) @map("total_amount") @db.Decimal(15, 2)
+  /// [{rate, base, vat}] ascending by rate — VAT computed once per rate on the summed base
+  vatByRate         Json          @default("[]") @map("vat_by_rate")
+  baseCurrency      String        @default("SEK") @map("base_currency") @db.Char(3)
+  rateToBase        Decimal?      @map("rate_to_base") @db.Decimal(18, 6)
+  rateSource        String?       @map("rate_source") @db.VarChar(20)
+  rateDate          DateTime?     @map("rate_date") @db.Date
+  subtotalBase      Decimal?      @map("subtotal_base") @db.Decimal(15, 2)
+  vatBase           Decimal?      @map("vat_base") @db.Decimal(15, 2)
+  totalBase         Decimal?      @map("total_base") @db.Decimal(15, 2)
+  /// `CH 2026/Q1` — derived at issue for CH-registration documents, overridable afterwards (audited)
+  declarationPeriod String?       @map("declaration_period") @db.VarChar(12)
+  /// the stored PDF (documents module), set once by the render job
+  pdfDocumentId     String?       @map("pdf_document_id") @db.Uuid
+  issuedAt          DateTime?     @map("issued_at") @db.Timestamptz
+  sentAt            DateTime?     @map("sent_at") @db.Timestamptz
+  decidedAt         DateTime?     @map("decided_at") @db.Timestamptz
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy         String        @map("created_by") @db.Uuid
+  source            String        @default("web") @db.VarChar(20)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  related Invoice?      @relation("InvoiceRelated", fields: [relatedInvoiceId], references: [id], onDelete: Restrict)
+  derived Invoice[]     @relation("InvoiceRelated")
+  lines   InvoiceLine[]
+
+  // partial unique index (WHERE number IS NOT NULL) in the migration — drafts have no number
+  @@unique([tenantId, number], map: "invoices_tenant_number_key")
+  @@index([tenantId, partnerId], map: "idx_invoices_tenant_partner")
+  @@index([tenantId, type, status], map: "idx_invoices_tenant_type_status")
+  @@index([tenantId, issueDate(sort: Desc)], map: "idx_invoices_tenant_issue_date")
+  @@index([tenantId, declarationPeriod], map: "idx_invoices_tenant_declaration_period")
+  @@index([tenantId, relatedInvoiceId], map: "idx_invoices_tenant_related")
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  invoiceId       String    @map("invoice_id") @db.Uuid
+  lineNo          Int       @map("line_no")
+  description     String    @db.VarChar(5000)
+  quantity        Decimal   @db.Decimal(10, 4)
+  unit            RateUnit  @default(day)
+  unitPrice       Decimal   @map("unit_price") @db.Decimal(15, 2)
+  discountPercent Decimal?  @map("discount_percent") @db.Decimal(5, 2)
+  /// the line's discount as money (from the percent, or a fixed amount typed instead of a percent)
+  discountAmount  Decimal   @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  netAmount       Decimal   @map("net_amount") @db.Decimal(15, 2)
+  vatRate         Decimal   @map("vat_rate") @db.Decimal(5, 2)
+  vatAmount       Decimal   @map("vat_amount") @db.Decimal(15, 2)
+  periodStart     DateTime? @map("period_start") @db.Date
+  periodEnd       DateTime? @map("period_end") @db.Date
+  /// the contract_rate the unit price came from (provenance; validated UUID, no FK)
+  rateSourceId    String?   @map("rate_source_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, lineNo], map: "invoice_lines_invoice_line_no_key")
+  @@index([tenantId, rateSourceId], map: "idx_invoice_lines_tenant_rate_source")
+  @@map("invoice_lines")
+}

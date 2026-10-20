@@ -7,9 +7,9 @@ import type { ContractRate } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
-import { addDays } from "./calendar";
 import type { ContractRateDto, ContractRateWithState, RateState, RateUnit } from "./types";
 import { RATE_UNITS } from "./types";
 

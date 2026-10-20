@@ -22,6 +22,19 @@ import type { PartnerDto } from "./types";
 
 export { getPartner, getPartners, searchPartners } from "./partners";
 
+/** id → name for a set of partners (list pages of other modules label their partner column with it). */
+export async function partnerNames(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const rows = await tx.partner.findMany({
+    where: { id: { in: [...ids] } },
+    select: { id: true, name: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
 /** Columns the partners list can show, sort and filter. Keys are what the URL and the table use. */
 export const PARTNER_COLUMNS = {
   name: { type: "text", searchable: true },

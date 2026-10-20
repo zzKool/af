@@ -1,7 +1,13 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
-import { canAllocate, remaining, sumAllocations } from "./allocation";
+import {
+  canAllocate,
+  isSettled,
+  remaining,
+  settlementTolerance,
+  sumAllocations,
+} from "./allocation";
 
 // Money as 2-decimal strings in a realistic range; property tests must not depend on floating point.
 const money = fc.integer({ min: 1, max: 10_000_000 }).map((cents) => (cents / 100).toFixed(2));
@@ -47,5 +53,20 @@ describe("allocation arithmetic (pure)", () => {
     expect(canAllocate("100.00", [], "-1.00")).toBe(false);
     expect(canAllocate("100.00", ["99.99"], "0.01")).toBe(true);
     expect(canAllocate("100.00", ["99.99"], "0.02")).toBe(false);
+  });
+
+  it("settlement tolerance (D25): max(0.05, 0.5 %) — short payments inside it count as settled", () => {
+    expect(settlementTolerance("25944.00").toFixed(2)).toBe("129.72");
+    expect(settlementTolerance("5.00").toFixed(2)).toBe("0.05");
+    expect(settlementTolerance("10.00").toFixed(2)).toBe("0.05");
+    expect(isSettled("25944.00", ["25944.00"])).toBe(true);
+    expect(isSettled("25944.00", ["25934.00"])).toBe(true); // 10 CHF bank fee
+    expect(isSettled("25944.00", ["25800.00"])).toBe(false); // 144 short > 129.72
+    expect(isSettled("25944.00", ["20000.00", "5944.00"])).toBe(true);
+    expect(isSettled("25944.00", [])).toBe(false);
+    expect(isSettled("0.00", [])).toBe(true);
+    // the v1 fixture cases (payment-tolerance.json) under the new rule: 25943.94 was PARTIALLY_PAID, now paid
+    expect(isSettled("25944.00", ["25943.94"])).toBe(true);
+    expect(isSettled("25944.00", ["25900.00"])).toBe(true);
   });
 });
