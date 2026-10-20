@@ -76,7 +76,7 @@ Clicking a chip applies the corresponding filter to the table.
 
 ## DataTable Component
 
-The generic `DataTable<TData>` in `src/components/shared/data-table.tsx` is a shared component built on `@tanstack/react-table` + `@tanstack/react-virtual`.
+The generic `DataTable<TData>` in `src/kernel/ui/data-table.tsx` is a shared component built on `@tanstack/react-table` + `@tanstack/react-virtual`.
 
 Key props:
 - `columns` — TanStack column defs (passed from domain)
@@ -92,18 +92,18 @@ The component uses `manualSorting: true` and `manualPagination: true` — all da
 
 ## Key Files
 
-- `src/server/services/documents.ts` — `getDocuments`, `getDocumentFilterOptions`, `getDocumentStats`
-- `src/server/services/table-preferences.ts` — `getTablePreference`, `upsertTablePreference`
-- `src/server/actions/documents.ts` — `getDocumentsAction`, `getDocumentFilterOptionsAction`, `getDocumentStatsAction`, `getDocumentDownloadUrlAction`
-- `src/server/actions/table-preferences.ts` — `getTablePreferenceAction`, `upsertTablePreferenceAction`
-- `src/server/services/storage.ts` — `generateDownloadUrl` (SAS + Content-Disposition)
+- `src/modules/documents/documents.ts` — `getDocuments`, `getDocumentFilterOptions`, `getDocumentStats`
+- `src/modules/settings/table-preferences.ts` — `getTablePreference`, `upsertTablePreference`
+- `src/modules/documents/documents.actions.ts` — `getDocumentsAction`, `getDocumentFilterOptionsAction`, `getDocumentStatsAction`, `getDocumentDownloadUrlAction`
+- `src/modules/settings/table-preferences.actions.ts` — `getTablePreferenceAction`, `upsertTablePreferenceAction`
+- `src/kernel/storage/storage.ts` — `generateDownloadUrl` (SAS + Content-Disposition)
 - `src/app/(app)/documents/page.tsx` — Server Component entry
-- `src/components/domain/document-library-client.tsx` — main orchestrator
-- `src/components/domain/document-library-filters.tsx` — filter bar
-- `src/components/domain/document-stats-bar.tsx` — stats chips
-- `src/components/domain/document-upload-zone.tsx` — upload wrapper with cache invalidation
-- `src/components/shared/data-table.tsx` — generic DataTable
-- `src/hooks/use-document-library-store.ts` — Zustand filter/sort/page store
+- `src/modules/documents/components/document-library-client.tsx` — main orchestrator
+- `src/modules/documents/components/document-library-filters.tsx` — filter bar
+- `src/modules/documents/components/document-stats-bar.tsx` — stats chips
+- `src/modules/documents/components/document-upload-zone.tsx` — upload wrapper with cache invalidation
+- `src/kernel/ui/data-table.tsx` — generic DataTable
+- `src/modules/documents/stores/use-document-library-store.ts` — Zustand filter/sort/page store
 
 ## Deletion & Linking Protection
 
@@ -152,9 +152,9 @@ Audit is recorded for **both** outcomes:
 
 ### Key Files (Deletion)
 
-- `src/server/services/documents.ts` — `deleteDocument()` service
-- `src/server/actions/documents.ts` — `deleteDocumentAction` ownerAction
-- `src/components/domain/document-library-client.tsx` — `DeleteButton` with `AlertDialog`
+- `src/modules/documents/documents.ts` — `deleteDocument()` service
+- `src/modules/documents/documents.actions.ts` — `deleteDocumentAction` ownerAction
+- `src/modules/documents/components/document-library-client.tsx` — `DeleteButton` with `AlertDialog`
 
 > **Epic 7 note:** Before `tx.document.delete()`, a junction table check must be added once document-transaction linking is implemented.
 

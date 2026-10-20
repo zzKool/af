@@ -12,7 +12,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 - [x] Repo seeded from `defterfab` `develop` (history kept, `main` = v2 develop, BMAD stripped, CI on `main`, remote `defter` as read-only reference)
 
 ## Next — in order
-- [x] **0. GitHub repo** `zzKool/af` pushed (2026-10-20). Open: confirm CI green on `main`; branch protection when on GitHub Pro.
+- [x] **0. GitHub repo** `zzKool/af` pushed (2026-10-20); CI green on `main`. Open: branch protection when on GitHub Pro.
 - [ ] **1. Rename pass** — README, `docs/index.md` title, seed tenant name, Docker DB names (`defterfab_dev` → `af_dev`) with `.env.example` and CI in the same PR. Optional; do it before any migration lands.
 - [ ] **2. Tooling**
   - [x] Windows: postinstall replaced by `scripts/copy-pdf-worker.mjs` (no `cp`/`mkdir -p`)
@@ -22,9 +22,9 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] MCP in `.mcp.json`: Playwright (screenshots), Context7 + Microsoft Learn (Next 16 / Prisma 7 / Better Auth docs), Postgres (`postgres-mcp`, restricted, needs `uv`). Approve them on first Claude Code start in the repo.
   - [x] Skills in `.claude/skills/`: `server-action-pattern`, `module-slice` (draft, finalised after item 6), `invoice-pdf`, `test-conventions`, `bas-accounting`
   - [x] PR template with the definition-of-done checklist (`.github/pull_request_template.md`)
-  - [ ] First PR through the gate: `chore/phase-0-tooling` → `main`
+  - [x] First PR through the gate: `chore/phase-0-tooling` → `main` (#1, merged 2026-10-20)
 - [ ] **3. Structural moves** (specs under `specs/structure-*`, one PR each, run on partners / documents / settings)
-  - [ ] 3a feature folders + kernel; guard test for the import rules
+  - [x] 3a feature folders + kernel; guard test for the import rules; `prisma/schema` split per module (PR #2) — see `docs/feature-folders.md`
   - [ ] 3b DTOs on each module's `index.ts`, Prisma types stay inside
   - [ ] 3c `modules/linking` skeleton: `link` table, kinds, invariants, `linkable` registration; move v2 document links there
   - [ ] 3d `queries.ts` per module; pages stop importing services

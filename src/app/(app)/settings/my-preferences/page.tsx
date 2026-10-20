@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { MyPreferencesTab } from "@/components/settings/my-preferences-tab";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
+import { getAuthContext } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { MyPreferencesTab } from "@/modules/settings/components/my-preferences-tab";
 
 export default async function MyPreferencesSettingsPage() {
   const hdrs = await headers();

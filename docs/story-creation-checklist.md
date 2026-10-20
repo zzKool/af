@@ -96,4 +96,4 @@ Pattern-setter stories should:
 
 - Deferred items register: `_bmad-output/implementation-artifacts/deferred-items.md`
 - Config page test template: `docs/config-page-test-template.md`
-- Test helpers: `src/server/test-utils/config-crud-helpers.ts`
+- Test helpers: `src/kernel/test-utils/config-crud-helpers.ts`

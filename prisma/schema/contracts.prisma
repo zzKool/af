@@ -1,0 +1,31 @@
+// Module contracts
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+
+model Contract {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  name                String
+  partnerId           String    @map("partner_id") @db.Uuid
+  startDate           DateTime  @map("start_date") @db.Date
+  endDate             DateTime? @map("end_date") @db.Date
+  assignedEmployeeId  String?   @map("assigned_employee_id") @db.Uuid
+  billingRate         Decimal?  @map("billing_rate") @db.Decimal(15, 2)
+  currency            String?
+  paymentTerms        String?   @map("payment_terms")
+  vatRegistrationId   String?   @map("vat_registration_id") @db.Uuid
+  externalReferences  Json      @default("[]") @map("external_references")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy           String    @map("created_by") @db.Uuid
+  source              String    @default("web")
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  partner          Partner          @relation("PartnerContracts", fields: [partnerId], references: [id])
+  assignedEmployee Partner?         @relation("EmployeeContracts", fields: [assignedEmployeeId], references: [id])
+  vatRegistration  VatRegistration? @relation(fields: [vatRegistrationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, partnerId])
+  @@map("contracts")
+}

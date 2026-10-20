@@ -4,7 +4,7 @@ Authentication and session management using Better Auth 1.5 with organization-ba
 
 ## Better Auth Configuration
 
-Server-side configuration lives in `src/server/auth.ts`:
+Server-side configuration lives in `src/kernel/auth/auth.ts`:
 
 - **Prisma adapter** connects to PostgreSQL via the base Prisma client
 - **Email + password** authentication with minimum 8 character passwords
@@ -59,7 +59,7 @@ Story 1.4's `authMiddleware` will enrich this into a full `CallerIdentity` with 
 
 ## Auth Client (React)
 
-Client-side auth operations use `src/lib/auth-client.ts`:
+Client-side auth operations use `src/kernel/auth/auth-client.ts`:
 
 ```typescript
 import { authClient } from "@/lib/auth-client";
@@ -117,22 +117,22 @@ Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invit
 
 ## Adding New Auth Features
 
-1. Update Better Auth config in `src/server/auth.ts` (add plugins, options)
+1. Update Better Auth config in `src/kernel/auth/auth.ts` (add plugins, options)
 2. Run `npx auth generate` to regenerate schema additions
 3. Merge generated changes into `prisma/schema/auth.prisma` preserving conventions (`@db.Uuid`, `@db.Timestamptz`, `@map("snake_case")`)
 4. Run `npx prisma migrate dev --name <description>`
-5. Update client plugins in `src/lib/auth-client.ts` if needed
-6. Add tests in `src/server/auth.test.ts`
+5. Update client plugins in `src/kernel/auth/auth-client.ts` if needed
+6. Add tests in `src/kernel/auth/auth.test.ts`
 
 ## File Locations
 
 | File | Purpose |
 |------|---------|
-| `src/server/auth.ts` | Better Auth server config + `getAuthContext()` |
-| `src/lib/auth-client.ts` | Better Auth React client with organization plugin |
+| `src/kernel/auth/auth.ts` | Better Auth server config + `getAuthContext()` |
+| `src/kernel/auth/auth-client.ts` | Better Auth React client with organization plugin |
 | `src/app/api/auth/[...all]/route.ts` | Auth API route handler |
 | `src/app/(auth)/login/page.tsx` | Login page |
 | `src/app/(auth)/register/page.tsx` | Registration page |
 | `src/middleware.ts` | Route protection (cookie check) |
 | `prisma/schema/auth.prisma` | Auth schema (regenerated via `npx auth generate`) |
-| `src/server/auth.test.ts` | Auth integration tests |
+| `src/kernel/auth/auth.test.ts` | Auth integration tests |

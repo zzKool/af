@@ -1,0 +1,24 @@
+// Kernel — audit trail
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  action     String   // 'create' | 'update' | 'delete'
+  entityType String   @map("entity_type") // e.g., 'tenant_config', 'tenant'
+  entityId   String   @map("entity_id") // Plain String, not @db.Uuid — future entities may have non-UUID IDs
+  oldData    Json?    @map("old_data") @db.JsonB
+  newData    Json?    @map("new_data") @db.JsonB
+  source     String   // 'web' | 'mcp' | 'cli' | 'system'
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // NO updatedAt — audit logs are immutable
+  // NO tenant relation — audit_logs should not cascade-delete with tenant
+
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, userId])
+  @@map("audit_logs")
+}

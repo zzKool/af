@@ -58,7 +58,7 @@ All 10 original CSV fields are preserved as `rawFields` for future use (e.g., au
 
 ## Test Fixtures
 
-- **Synthetic (committed, run in CI):** `src/server/services/__fixtures__/nordea-*.csv`
+- **Synthetic (committed, run in CI):** `src/modules/banking/__fixtures__/nordea-*.csv`
   - `nordea-sek-valid.csv` — 5 rows, SEK, various patterns
   - `nordea-chf-valid.csv` — 1 row, CHF, `/ROC/` reference
   - `nordea-interest.csv` — 1 row, empty name, tests description chain

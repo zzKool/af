@@ -41,9 +41,9 @@ page.tsx (server) → withTenantTransaction → serialize all data
 
 ```
 src/app/(app)/partners/[id]/page.tsx     → Server component (data fetching, auth, RLS)
-src/components/partners/partner-detail-tabs.tsx → Client component (header + tabs + content)
-src/components/partners/partner-form.tsx  → Reused in Overview tab with hideHeader={true}
-src/components/partners/contract-list.tsx → Reused in Contracts tab unchanged
+src/modules/partners/components/partner-detail-tabs.tsx → Client component (header + tabs + content)
+src/modules/partners/components/partner-form.tsx  → Reused in Overview tab with hideHeader={true}
+src/modules/contracts/components/contract-list.tsx → Reused in Contracts tab unchanged
 ```
 
 ### Persistent Header

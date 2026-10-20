@@ -10,19 +10,24 @@ Rules in `docs/constitution.md` §2. Pattern reference until the reference slice
 ## Layout
 
 ```
+prisma/schema/<name>.prisma   models of this module only (Prisma multi-file schema: one folder, one file per module)
 src/modules/<name>/
-  schema.prisma        models of this module only (merged by prisma.config.ts)
-  service.ts           business logic; takes tx + CallerIdentity; returns ServiceResult
-  queries.ts           read API for pages and other modules; returns DTOs
-  actions.ts           thin Server Actions (see server-action-pattern)
+  <entity>.ts          service: business logic; takes tx + CallerIdentity; returns ServiceResult
+  <entity>.test.ts     Vitest, co-located, DB-backed (RLS on)
+  <entity>.actions.ts  thin Server Actions (see server-action-pattern)
+  queries.ts           read API for pages and other modules; returns DTOs            (from 3d)
   components/          React components of this module
-  linkable.ts          optional: { type, exists, summary, amount } registered with modules/linking
-  index.ts             the ONLY public surface: DTO types, queries, actions, linkable
-  *.test.ts            Vitest, co-located
+  stores/              client state (Zustand) of this module
+  jobs/                background handlers of this module
+  __fixtures__/        test fixtures
+  linkable.ts          optional: { type, exists, summary, amount } registered with modules/linking   (from 3c)
+  index.ts             the ONLY public surface: DTO types, queries, actions, linkable                (from 3b)
 docs/<name>.md         what the module does, decisions, how to extend
 specs/<name>/          spec.md, plan.md, tasks.md (spec-kit)
 e2e/<name>.spec.ts     Playwright happy path
 ```
+
+Single-entity modules may switch to `service.ts` / `actions.ts` once the reference slice (phase-0 item 6) settles it.
 
 ## Build order (one PR, or one PR per step for big modules)
 1. **Spec** — `specs/<name>/spec.md` from the inventory + Excel mapping; list DTOs and invariants.
@@ -33,7 +38,7 @@ e2e/<name>.spec.ts     Playwright happy path
 6. **Linkable** — if the entity can be linked, register it.
 7. **Components + page** — full-width layout, DataTable with header filters, entity view with tabs.
 8. **E2E** — one happy path.
-9. **Docs** — `docs/<name>.md`, link from `docs/index.md`; nav entry in `src/lib/constants.ts`.
+9. **Docs** — `docs/<name>.md`, link from `docs/index.md`; nav entry in `src/kernel/nav/constants.ts`.
 10. **Screenshots** in the PR.
 
 ## Guard rules you will hit

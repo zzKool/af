@@ -1,11 +1,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { DocumentTypePrefixesTab } from "@/components/settings/document-type-prefixes-tab";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
-import { createAuditEntry } from "@/server/services/audit";
-import * as prefixService from "@/server/services/document-type-prefixes";
+import { createAuditEntry } from "@/kernel/audit/audit";
+import { getAuthContext } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { DocumentTypePrefixesTab } from "@/modules/documents/components/document-type-prefixes-tab";
+import * as prefixService from "@/modules/documents/document-type-prefixes";
 
 export default async function DocumentPrefixesSettingsPage() {
   const hdrs = await headers();

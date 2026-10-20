@@ -124,7 +124,7 @@ const handleDeactivate = async () => {
 
 ## Reference Implementations
 
-- **Text field onBlur:** `PartnerForm` in `src/components/partners/partner-form.tsx`
+- **Text field onBlur:** `PartnerForm` in `src/modules/partners/components/partner-form.tsx`
 - **Select onChange:** Settings tabs (company, my-preferences)
 - **Confirm dialog:** Deactivate buttons in partner/contract entity views
 - **Header sync:** `PartnerEntityView` with `onNameSaved` callback

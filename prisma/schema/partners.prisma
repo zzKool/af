@@ -1,0 +1,33 @@
+// Module partners
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+
+model Partner {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String   @map("tenant_id") @db.Uuid
+  name                 String
+  orgNumber            String?  @map("org_number")
+  vatNumber            String?  @map("vat_number")
+  types                String[] @default([])
+  defaultCurrency      String?  @map("default_currency")
+  defaultLanguage      String?  @map("default_language")
+  defaultBasCategoryCode String?  @map("default_bas_category_code")
+  externalIdentifiers    Json     @default("[]") @map("external_identifiers")
+  email                String?
+  phone                String?
+  address              Json?
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy            String   @map("created_by") @db.Uuid
+  source               String   @default("web")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  basCategory BasCategory? @relation(fields: [defaultBasCategoryCode], references: [code])
+
+  contracts         Contract[] @relation("PartnerContracts")
+  employeeContracts Contract[] @relation("EmployeeContracts")
+
+  @@unique([tenantId, orgNumber], map: "idx_partners_tenant_org") // created as a partial index (WHERE org_number IS NOT NULL) in the migration
+  @@map("partners")
+}

@@ -8,6 +8,7 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 - [[feature-inventory]] — v1 vs v2 vs Excel: scope, decisions D1–D18, module verdicts, harvest list
 - [[excel-to-v3-mapping]] — The owner's tracking Excel mapped column by column to the v3 model
 - [[phase-0]] — Status board of the organisation work before the first business feature
+- [[feature-folders]] — The kernel / modules layout (3a): what lives where, rules enforced now, v2 → 3a path map
 
 ## Architecture
 
@@ -30,7 +31,7 @@ Reusable code patterns and development conventions.
 - [[conventions]] — Commit conventions, branching strategy, naming standards
 - [[server-actions]] — Middleware chain, RBAC, error handling, and testing guide
 - [[error-handling]] — Typed error codes and response patterns
-- [[hexagonal-architecture]] — Import boundaries and service isolation
+- [[hexagonal-architecture]] — Import boundaries and service isolation (paths updated for the 3a layout; see [[feature-folders]])
 - [[decimal-currency]] — Decimal arithmetic, currency formatting, boundary rule
 - [[clock-and-rates]] — Clock abstraction, timezone rules, ECB rate storage
 - [[ecb-rates]] — ECB SDMX API fetching service, XML parsing, gap detection

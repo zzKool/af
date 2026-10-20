@@ -101,8 +101,8 @@ Because the query runs within `withTenantTransaction`, RLS automatically filters
 
 ## Test Verification
 
-Spike tests are in `src/server/test-utils/cross-table-rls-spike.test.ts`. Run with:
+Spike tests are in `src/kernel/test-utils/cross-table-rls-spike.test.ts`. Run with:
 
 ```bash
-npx vitest run src/server/test-utils/cross-table-rls-spike.test.ts
+npx vitest run src/kernel/test-utils/cross-table-rls-spike.test.ts
 ```

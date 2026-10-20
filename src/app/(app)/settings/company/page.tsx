@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { CompanyProfileForm } from "@/components/domain/company-profile-form";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
+import { getAuthContext } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { CompanyProfileForm } from "@/modules/settings/components/company-profile-form";
 
 export default async function CompanySettingsPage() {
   const hdrs = await headers();

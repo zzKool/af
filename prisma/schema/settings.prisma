@@ -1,0 +1,86 @@
+// Module settings — BAS preferences, VAT registrations, user and table preferences
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+
+model BasCategory {
+  code           String   @id @db.VarChar(4) // "501" — 3-digit BAS group code (natural key, not UUID)
+  name           String // "Lokalkostnader" — Swedish canonical
+  nameEn         String?  @map("name_en") // "Premises costs" — from English 2025 file
+  nameFr         String?  @map("name_fr") // "Frais de locaux" — AI-generated, Plan Comptable/IFRS
+  className      String   @map("class_name") // "LOKALKOSTNADER" — stored uppercase per BAS standard
+  classNum       Int      @map("class_num") // 5 — first digit of code
+  isCommon       Boolean  @default(false) @map("is_common")
+  suggestedAlias String?  @map("suggested_alias") @db.VarChar(10) // "Lokal" — curated short label
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  preferences TenantBasPreference[]
+  partners    Partner[]
+
+  @@map("bas_categories")
+}
+
+model TenantBasPreference {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  basCode      String   @map("bas_code") @db.VarChar(4) // FK to BasCategory.code
+  isFavorite   Boolean  @default(false) @map("is_favorite")
+  shortCode    String?  @map("short_code") @db.VarChar(10) // User-defined alias
+  translations Json?    @db.JsonB // { en?: string, sv?: string, fr?: string }
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String   @map("created_by") @db.Uuid
+  source       String   @default("web") @db.VarChar(20)
+
+  basCategory BasCategory @relation(fields: [basCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenantId, basCode])
+  @@index([tenantId, isFavorite])
+  @@index([tenantId, basCode])
+  @@map("tenant_bas_preferences")
+}
+
+model VatRegistration {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  country      String   @db.VarChar(2) // ISO 3166-1 alpha-2: "SE", "CH", "DE"
+  vatNumber    String   @map("vat_number") @db.VarChar(50) // "SE556677889001", "CHE-123.456.789 MWST"
+  rateSchedule Json?    @map("rate_schedule") @db.JsonB // { rates: [25, 12, 6] }
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String   @map("created_by") @db.Uuid
+  source       String   @default("web") @db.VarChar(20)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contracts Contract[]
+
+  @@unique([tenantId, country, vatNumber])
+  @@index([tenantId])
+  @@map("vat_registrations")
+}
+
+/// User-scoped (not tenant-scoped). Access controlled by userId from auth context, not RLS.
+model UserPreference {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid // NO Prisma @relation — cross-schema FK, application-level enforcement
+  locale    String?  @db.VarChar(10) // BCP 47 tag (e.g., "sv-SE", "en-US"), null = use browser locale
+  source    String   @default("manual") @db.VarChar(20) // Always "manual" for user preferences — mandatory template compliance
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("user_preferences")
+}
+
+/// User-scoped table preferences (not tenant-scoped). Access controlled by userId from auth context, not RLS.
+/// Stores per-user per-table filter/sort/pagination preferences for cross-session persistence.
+model TablePreference {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tableKey    String   @map("table_key") @db.VarChar(50)
+  preferences Json     @map("preferences") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, tableKey])
+  @@map("table_preferences")
+}

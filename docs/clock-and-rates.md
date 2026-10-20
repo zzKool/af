@@ -4,7 +4,7 @@ Testable time abstraction and immutable ECB rate cache for DefterFab.
 
 ## Clock Interface
 
-`src/server/services/clock.ts` exports a `Clock` interface used by all time-dependent service code.
+`src/kernel/clock/clock.ts` exports a `Clock` interface used by all time-dependent service code.
 
 ```typescript
 interface Clock {

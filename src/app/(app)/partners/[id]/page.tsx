@@ -1,14 +1,14 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { PartnerDetailTabs } from "@/components/partners/partner-detail-tabs";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
-import * as basService from "@/server/services/bas-preferences";
-import * as contractService from "@/server/services/contracts";
-import * as partnerService from "@/server/services/partners";
-import * as vatService from "@/server/services/vat-registrations";
-import type { CallerIdentity } from "@/types/caller-identity";
+import { getAuthContext } from "@/kernel/auth/auth";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import * as contractService from "@/modules/contracts/contracts";
+import { PartnerDetailTabs } from "@/modules/partners/components/partner-detail-tabs";
+import * as partnerService from "@/modules/partners/partners";
+import * as basService from "@/modules/settings/bas-preferences";
+import * as vatService from "@/modules/settings/vat-registrations";
 
 export default async function PartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
