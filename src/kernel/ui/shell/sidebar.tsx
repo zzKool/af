@@ -10,6 +10,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   Receipt,
+  ReceiptText,
   Settings,
   Users,
   Wallet,
@@ -36,6 +37,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   ArrowLeftRight,
   Receipt,
   Wallet,
+  ReceiptText,
   Settings,
 };
 

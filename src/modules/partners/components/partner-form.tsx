@@ -40,6 +40,7 @@ export type PartnerData = {
   defaultCurrency: string | null;
   defaultLanguage: string | null;
   defaultBasCategoryCode: string | null;
+  paymentTermsDays?: number | null;
   externalIdentifiers: unknown;
   email: string | null;
   phone: string | null;
@@ -78,6 +79,9 @@ export function PartnerForm({
   const [defaultLanguage, setDefaultLanguage] = useState(partner.defaultLanguage ?? "");
   const [defaultBasCategoryCode, setDefaultBasCategoryCode] = useState(
     partner.defaultBasCategoryCode ?? "",
+  );
+  const [paymentTermsDays, setPaymentTermsDays] = useState(
+    partner.paymentTermsDays != null ? String(partner.paymentTermsDays) : "",
   );
   const [email, setEmail] = useState(partner.email ?? "");
   const [phone, setPhone] = useState(partner.phone ?? "");
@@ -383,6 +387,27 @@ export function PartnerForm({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="paymentTermsDays">Payment terms (days)</Label>
+            <Input
+              id="paymentTermsDays"
+              type="number"
+              min={0}
+              max={365}
+              placeholder="30"
+              value={paymentTermsDays}
+              onChange={(e) => setPaymentTermsDays(e.target.value)}
+              onBlur={() => {
+                const next = paymentTermsDays.trim() === "" ? null : Number(paymentTermsDays);
+                if (next === (partner.paymentTermsDays ?? null)) return;
+                void autoSave("paymentTermsDays", next);
+              }}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              The due date of this supplier's invoices defaults to the invoice date plus these days
+              (30 when blank).
+            </p>
           </div>
         </CardContent>
       </Card>

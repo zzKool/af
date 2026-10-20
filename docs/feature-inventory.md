@@ -175,6 +175,7 @@ Verdict legend: **v2** keep v2 code · **harvest** rebuild on v2 foundation from
 | What | `SupplierInvoice` + lines + payments, posted to ledger | none |
 | Keeps | a payable: document (OCR-reviewed) + partner + invoice number + due date + amount + currency + status unpaid / paid; due-date view on the dashboard; link to the paying bank transaction; VAT amount for declarations |
 | Mechanism | ledger posting → category + link; lines only when a VAT split needs them; "paid" derived from the link, never typed |
+| Status | **Built 2026-10-21**: model, `SI{group}-{alias}-{seq}` keys on the shared counter, partner payment terms, derived status with days overdue, payments as `justifies` links (same currency) or a D-g attach (the bank's base), cancel / uncancel, copy last, the stored-VAT read model, the list with KPIs, the panel, the new dialog, the group section, e2e — `docs/supplier-invoices.md`, `specs/supplier-invoices/`. |
 
 ### 3.7 Expenses, groups, reimbursement — harvest + Excel rules
 

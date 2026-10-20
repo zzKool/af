@@ -44,7 +44,7 @@ src/
 prisma/schema/<m>.prisma   the module's models (one folder, Prisma multi-file schema) — see prisma/schema/README.md
 ```
 
-Modules today: `partners` (the reference slice — see [[partners]]), `contracts` (rate history — see [[contracts]]), `invoices` (see [[invoices]]), `banking` (import, rules, transfer pairs — see [[banking]]), `journal` (see [[journal]]), `expenses` (see [[expenses]]), `traktamente` (see [[traktamente]]), `documents`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
+Modules today: `partners` (the reference slice — see [[partners]]), `contracts` (rate history — see [[contracts]]), `invoices` (see [[invoices]]), `banking` (import, rules, transfer pairs — see [[banking]]), `journal` (see [[journal]]), `expenses` (see [[expenses]]), `traktamente` (see [[traktamente]]), `supplier-invoices` (see [[supplier-invoices]]), `documents`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
 
 ## Rules enforced now (3a)
 - `kernel/*` never imports `modules/*` or `app/*`.
@@ -89,7 +89,7 @@ Modules today: `partners` (the reference slice — see [[partners]]), `contracts
 | `src/components/{domain,partners,settings}/*` | `src/modules/<m>/components/` |
 | `src/hooks/use-document-*-store.ts` | `src/modules/documents/stores/` |
 | `src/server/services/__fixtures__/*` | `src/modules/banking/__fixtures__/` (CSV), `src/kernel/ocr/__fixtures__/` (PDF, JPG) |
-| `prisma/schema/app.prisma` | `prisma/schema/{tenancy,audit,rates,settings,banking,journal,documents,partners,contracts,linking,numbering,invoices,expenses,traktamente}.prisma` |
+| `prisma/schema/app.prisma` | `prisma/schema/{tenancy,audit,rates,settings,banking,journal,documents,partners,contracts,linking,numbering,invoices,expenses,traktamente,supplier-invoices}.prisma` |
 
 Vitest projects: `server` (DB-backed: `kernel/**` + `modules/**` tests), `pure` (`kernel/{money,i18n,nav,stores,errors,guards}`), `client` (all `*.test.tsx`, jsdom).
 

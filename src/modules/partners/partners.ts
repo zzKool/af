@@ -48,6 +48,8 @@ export const createPartnerSchema = z.object({
   defaultCurrency: z.enum(["SEK", "CHF", "EUR", "USD"]).optional(),
   defaultLanguage: z.string().optional(),
   defaultBasCategoryCode: z.string().optional(),
+  /** a supplier's payment terms — the due-date default of its invoices (null = 30 days) */
+  paymentTermsDays: z.number().int().min(0).max(365).nullable().optional(),
   externalIdentifiers: z.array(externalIdentifierSchema).max(5).default([]),
   email: z.string().email().max(254).optional().or(z.literal("")),
   phone: z.string().max(30).optional(),
@@ -102,6 +104,7 @@ export function toPartnerDto(row: Partner): PartnerDto {
     defaultCurrency: row.defaultCurrency,
     defaultLanguage: row.defaultLanguage,
     defaultBasCategoryCode: row.defaultBasCategoryCode,
+    paymentTermsDays: row.paymentTermsDays,
     externalIdentifiers: (row.externalIdentifiers as ExternalIdentifier[] | null) ?? [],
     email: row.email,
     phone: row.phone,
@@ -203,6 +206,7 @@ export async function createPartner(
         defaultCurrency: data.defaultCurrency || null,
         defaultLanguage: data.defaultLanguage || null,
         defaultBasCategoryCode: data.defaultBasCategoryCode || null,
+        paymentTermsDays: data.paymentTermsDays ?? null,
         // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
         externalIdentifiers: (data.externalIdentifiers ?? []) as any,
         email: data.email || null,
@@ -335,6 +339,7 @@ export async function updatePartner(
   if (data.defaultLanguage !== undefined) updateData.defaultLanguage = data.defaultLanguage || null;
   if (data.defaultBasCategoryCode !== undefined)
     updateData.defaultBasCategoryCode = data.defaultBasCategoryCode || null;
+  if (data.paymentTermsDays !== undefined) updateData.paymentTermsDays = data.paymentTermsDays;
   if (data.externalIdentifiers !== undefined)
     updateData.externalIdentifiers = data.externalIdentifiers;
   if (data.email !== undefined) updateData.email = data.email || null;

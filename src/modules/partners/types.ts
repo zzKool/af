@@ -24,6 +24,7 @@ export type PartnerDto = {
   defaultCurrency: string | null;
   defaultLanguage: string | null;
   defaultBasCategoryCode: string | null;
+  paymentTermsDays: number | null;
   externalIdentifiers: ExternalIdentifier[];
   email: string | null;
   phone: string | null;
