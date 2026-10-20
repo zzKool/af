@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 // the transfer proposal, "create rule from this". Self-loading from the transaction id (the same panel opens
 // from the list and from an import's "show the new rows").
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ type Detail = Omit<TransactionDetail, "transaction" | "entry" | "links" | "impor
 const money = (amount: string, currency: string) =>
   `${formatCurrency(amount, currency as Currency)} ${currency}`;
 
+/** The workbench's side panel (a `Sheet`) around the detail view. */
 export function TransactionPanel({
   transactionId,
   onClose,
@@ -66,6 +67,53 @@ export function TransactionPanel({
   canWrite: boolean;
   /** something was saved — the list behind the panel should refresh */
   onChanged?: () => void;
+}) {
+  return (
+    <Sheet open={!!transactionId} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent data-testid="transaction-panel">
+        {transactionId && (
+          <TransactionDetailView
+            transactionId={transactionId}
+            categories={categories}
+            partners={partners}
+            canWrite={canWrite}
+            onChanged={onChanged}
+            header={(title, description) => (
+              <SheetHeader>
+                <SheetTitle className="flex flex-wrap items-center gap-2">{title}</SheetTitle>
+                <SheetDescription>{description}</SheetDescription>
+              </SheetHeader>
+            )}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * One bank row in full — the row as the bank said it, the journal entry, the suggestions, the links, the transfer
+ * proposal, "create rule from this". Self-loading from the id; the side panel and the inbox's right pane share it.
+ */
+export function TransactionDetailView({
+  transactionId,
+  categories,
+  partners,
+  canWrite,
+  onChanged,
+  header,
+  openSearchKey = 0,
+}: {
+  transactionId: string;
+  categories: CategoryOption[];
+  partners: PartnerOption[];
+  canWrite: boolean;
+  /** something was saved — the list behind the panel should refresh */
+  onChanged?: () => void;
+  /** how the host frames the title line (the Sheet's header, or a plain heading) */
+  header: (title: ReactNode, description: ReactNode) => ReactNode;
+  /** bump it to open "Link to…" with the keyboard (the inbox's `l`) */
+  openSearchKey?: number;
 }) {
   const t = useT();
   const router = useRouter();
@@ -130,178 +178,175 @@ export function TransactionPanel({
     : [];
 
   return (
-    <Sheet open={!!transactionId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent data-testid="transaction-panel">
-        {tx && detail ? (
-          <>
-            <SheetHeader>
-              <SheetTitle className="flex flex-wrap items-center gap-2">
-                <span className="tabular-nums">{tx.bookingDate}</span>
-                <span
-                  className={`tabular-nums ${tx.amount.startsWith("-") ? "" : "text-green-700 dark:text-green-400"}`}
-                  data-testid="panel-amount"
-                >
-                  {money(tx.amount, tx.currency)}
-                </span>
-                <Badge
-                  variant="outline"
-                  className={STATE_STYLE[detail.state]}
-                  data-testid="panel-state"
-                >
-                  {t(`banking.state.${detail.state}`)}
-                </Badge>
-              </SheetTitle>
-              <SheetDescription>
-                {detail.accountLabel} · {tx.description}
-              </SheetDescription>
-            </SheetHeader>
+    <div className="flex flex-col gap-6" data-testid="transaction-detail">
+      {tx && detail ? (
+        <>
+          {header(
+            <>
+              <span className="tabular-nums">{tx.bookingDate}</span>
+              <span
+                className={`tabular-nums ${tx.amount.startsWith("-") ? "" : "text-green-700 dark:text-green-400"}`}
+                data-testid="panel-amount"
+              >
+                {money(tx.amount, tx.currency)}
+              </span>
+              <Badge
+                variant="outline"
+                className={STATE_STYLE[detail.state]}
+                data-testid="panel-state"
+              >
+                {t(`banking.state.${detail.state}`)}
+              </Badge>
+            </>,
+            <>
+              {detail.accountLabel} · {tx.description}
+            </>,
+          )}
 
-            {detail.transfers.length > 0 && canWrite && (
-              <section className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950">
-                <h3 className="mb-1 font-medium">{t("banking.panel.transfer")}</h3>
-                {detail.transfers.map((p) => (
-                  <div key={p.to.id} className="flex flex-wrap items-center justify-between gap-2">
+          {detail.transfers.length > 0 && canWrite && (
+            <section className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900 dark:bg-blue-950">
+              <h3 className="mb-1 font-medium">{t("banking.panel.transfer")}</h3>
+              {detail.transfers.map((p) => (
+                <div key={p.to.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
                     <div>
-                      <div>
-                        {t("banking.panel.transferReason", {
-                          from: money(p.from.amount, p.from.currency),
-                          to: money(p.to.amount, p.to.currency),
-                          implied: p.implied.replace(/0+$/, "").replace(/\.$/, ""),
-                        })}
-                      </div>
-                      {p.ecb && (
-                        <div className="text-xs text-muted-foreground">
-                          {t("banking.panel.transferEcb", {
-                            ecb: p.ecb.replace(/0+$/, "").replace(/\.$/, ""),
-                            deviation: p.deviationPercent ?? "0",
-                          })}
-                          {p.hints.length ? ` · ${p.hints.join(", ")}` : ""}
-                        </div>
-                      )}
+                      {t("banking.panel.transferReason", {
+                        from: money(p.from.amount, p.from.currency),
+                        to: money(p.to.amount, p.to.currency),
+                        implied: p.implied.replace(/0+$/, "").replace(/\.$/, ""),
+                      })}
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => void acceptPair(p.from.id, p.to.id)}
-                      disabled={accepting}
-                      data-testid="accept-transfer"
-                    >
-                      {t("banking.panel.acceptTransfer")}
-                    </Button>
+                    {p.ecb && (
+                      <div className="text-xs text-muted-foreground">
+                        {t("banking.panel.transferEcb", {
+                          ecb: p.ecb.replace(/0+$/, "").replace(/\.$/, ""),
+                          deviation: p.deviationPercent ?? "0",
+                        })}
+                        {p.hints.length ? ` · ${p.hints.join(", ")}` : ""}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </section>
-            )}
-
-            <section>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-medium">{t("banking.panel.journal")}</h3>
-                {canWrite && detail.entry && (
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={() => setRuleOpen(true)}
-                    data-testid="create-rule"
+                    onClick={() => void acceptPair(p.from.id, p.to.id)}
+                    disabled={accepting}
+                    data-testid="accept-transfer"
                   >
-                    {t("banking.panel.createRule")}
+                    {t("banking.panel.acceptTransfer")}
                   </Button>
-                )}
-              </div>
-              {detail.entry ? (
-                <>
-                  <p className="mb-2 text-xs text-muted-foreground tabular-nums">
-                    {t("banking.panel.base", {
-                      base: formatCurrency(detail.entry.amountBase, "SEK"),
-                      rate: detail.entry.rate,
-                      source: t(`journal.rateSource.${detail.entry.rateSource}`),
-                    })}
-                    {detail.entry.bankImplicitRate
-                      ? ` · ${t("banking.panel.implicitRate", { rate: detail.entry.bankImplicitRate.replace(/0+$/, "").replace(/\.$/, "") })}`
-                      : ""}
-                  </p>
-                  <CategoriseForm
-                    entry={detail.entry}
-                    categories={categories}
-                    partners={partners}
-                    canWrite={canWrite}
-                    onSaved={(e) =>
-                      entrySaved({
-                        ...e,
-                        createdAt: String(e.createdAt),
-                        updatedAt: String(e.updatedAt),
-                      })
-                    }
-                  />
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">—</p>
+                </div>
+              ))}
+            </section>
+          )}
+
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-medium">{t("banking.panel.journal")}</h3>
+              {canWrite && detail.entry && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRuleOpen(true)}
+                  data-testid="create-rule"
+                >
+                  {t("banking.panel.createRule")}
+                </Button>
               )}
-            </section>
-
-            {/* what this row could justify — the scored candidates, "Link to…" (specs/linking) */}
-            {detail.state !== "no_document" && (
-              <SuggestionsSection
-                target={{ bankTransactionId: tx.id }}
-                canWrite={canWrite}
-                onLinked={changed}
-                refreshKey={version}
-              />
+            </div>
+            {detail.entry ? (
+              <>
+                <p className="mb-2 text-xs text-muted-foreground tabular-nums">
+                  {t("banking.panel.base", {
+                    base: formatCurrency(detail.entry.amountBase, "SEK"),
+                    rate: detail.entry.rate,
+                    source: t(`journal.rateSource.${detail.entry.rateSource}`),
+                  })}
+                  {detail.entry.bankImplicitRate
+                    ? ` · ${t("banking.panel.implicitRate", { rate: detail.entry.bankImplicitRate.replace(/0+$/, "").replace(/\.$/, "") })}`
+                    : ""}
+                </p>
+                <CategoriseForm
+                  entry={detail.entry}
+                  categories={categories}
+                  partners={partners}
+                  canWrite={canWrite}
+                  onSaved={(e) =>
+                    entrySaved({
+                      ...e,
+                      createdAt: String(e.createdAt),
+                      updatedAt: String(e.updatedAt),
+                    })
+                  }
+                />
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">—</p>
             )}
+          </section>
 
-            <section>
-              <h3 className="mb-2 text-sm font-medium">{t("banking.panel.links")}</h3>
-              <LinksList
-                self={{ type: "bank_transaction", id: tx.id }}
-                links={detail.links}
-                canWrite={canWrite}
-                fallbackCurrency={tx.currency}
-                onChanged={changed}
-              />
-            </section>
+          {/* what this row could justify — the scored candidates, "Link to…" (specs/linking) */}
+          {detail.state !== "no_document" && (
+            <SuggestionsSection
+              target={{ bankTransactionId: tx.id }}
+              canWrite={canWrite}
+              onLinked={changed}
+              refreshKey={version}
+              openSearchKey={openSearchKey}
+            />
+          )}
 
-            <section>
-              <h3 className="mb-2 text-sm font-medium">{t("banking.panel.raw")}</h3>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                {raw.map(([k, v]) => (
-                  <div key={k} className="contents">
-                    <dt className="text-muted-foreground">{k}</dt>
-                    <dd className="break-words">{v ?? "—"}</dd>
-                  </div>
-                ))}
-                <dt className="text-muted-foreground">{t("banking.col.counterparty")}</dt>
-                <dd className="font-mono text-xs">{tx.counterpartyKey}</dd>
-                {detail.import && (
-                  <>
-                    <dt className="text-muted-foreground">{t("banking.panel.import")}</dt>
-                    <dd>{detail.import.fileName}</dd>
-                  </>
-                )}
-              </dl>
-            </section>
+          <section>
+            <h3 className="mb-2 text-sm font-medium">{t("banking.panel.links")}</h3>
+            <LinksList
+              self={{ type: "bank_transaction", id: tx.id }}
+              links={detail.links}
+              canWrite={canWrite}
+              fallbackCurrency={tx.currency}
+              onChanged={changed}
+            />
+          </section>
 
-            {canWrite && detail.entry && (
-              <RuleDialog
-                open={ruleOpen}
-                onOpenChange={setRuleOpen}
-                fromTransactionId={tx.id}
-                initial={{
-                  name: tx.counterpartyKey,
-                  matchPattern: tx.counterpartyKey,
-                  basCode: detail.entry.basCode,
-                  partnerId: detail.entry.partnerId,
-                  noDocumentNeeded: detail.entry.noDocumentNeeded,
-                }}
-                categories={categories}
-                partners={partners}
-                onSaved={changed}
-              />
-            )}
-          </>
-        ) : (
-          <SheetHeader>
-            <SheetTitle>…</SheetTitle>
-          </SheetHeader>
-        )}
-      </SheetContent>
-    </Sheet>
+          <section>
+            <h3 className="mb-2 text-sm font-medium">{t("banking.panel.raw")}</h3>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+              {raw.map(([k, v]) => (
+                <div key={k} className="contents">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="break-words">{v ?? "—"}</dd>
+                </div>
+              ))}
+              <dt className="text-muted-foreground">{t("banking.col.counterparty")}</dt>
+              <dd className="font-mono text-xs">{tx.counterpartyKey}</dd>
+              {detail.import && (
+                <>
+                  <dt className="text-muted-foreground">{t("banking.panel.import")}</dt>
+                  <dd>{detail.import.fileName}</dd>
+                </>
+              )}
+            </dl>
+          </section>
+
+          {canWrite && detail.entry && (
+            <RuleDialog
+              open={ruleOpen}
+              onOpenChange={setRuleOpen}
+              fromTransactionId={tx.id}
+              initial={{
+                name: tx.counterpartyKey,
+                matchPattern: tx.counterpartyKey,
+                basCode: detail.entry.basCode,
+                partnerId: detail.entry.partnerId,
+                noDocumentNeeded: detail.entry.noDocumentNeeded,
+              }}
+              categories={categories}
+              partners={partners}
+              onSaved={changed}
+            />
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">…</p>
+      )}
+    </div>
   );
 }

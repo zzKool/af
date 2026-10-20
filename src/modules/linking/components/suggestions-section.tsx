@@ -5,7 +5,7 @@
 // below it *Link to…*, a search over every registered linkable for the cases nothing was suggested.
 // Self-loading from the endpoint; the owner links, the accountant sees.
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ export function SuggestionsSection({
   canWrite,
   onLinked,
   refreshKey = 0,
+  openSearchKey = 0,
 }: {
   target: SuggestionsTarget;
   canWrite: boolean;
@@ -85,6 +86,8 @@ export function SuggestionsSection({
   onLinked?: () => void;
   /** bump it when the host changed the links some other way (an unlink) — the suggestions reload */
   refreshKey?: number;
+  /** bump it to open "Link to…" and focus its search (a keyboard shortcut on a work page) */
+  openSearchKey?: number;
 }) {
   const t = useT();
   const ids = useId();
@@ -124,6 +127,15 @@ export function SuggestionsSection({
     setSelf("row" in d ? d.row : d.entity);
     setAllocations(Object.fromEntries(list.map((s) => [s.candidate.id, s.allocation ?? ""])));
   }, [bankTransactionId, endpointType, endpointId, loadForRow, loadForEntity]);
+
+  // react to a new key only — a row selected after an earlier `l` must not open the search by itself
+  const seenSearchKey = useRef(openSearchKey);
+  useEffect(() => {
+    if (openSearchKey !== seenSearchKey.current) {
+      seenSearchKey.current = openSearchKey;
+      setSearchOpen(true);
+    }
+  }, [openSearchKey]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is the host's signal to reload
   useEffect(() => {

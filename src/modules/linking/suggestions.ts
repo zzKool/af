@@ -79,7 +79,7 @@ async function allocatedBy(
 }
 
 /** Facts + what is still open on them; entities with nothing left (within the tolerance) are dropped. */
-async function withRemaining(
+export async function withRemaining(
   tx: TransactionClient,
   side: "to" | "from",
   facts: Omit<EntityFacts, "remaining">[],

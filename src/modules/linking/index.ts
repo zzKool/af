@@ -9,6 +9,7 @@ export {
   settlementTolerance,
   sumAllocations,
 } from "./allocation";
+export { INBOX_LIMIT, type InboxRow, inboxRows, unlinkedDocuments } from "./inbox";
 export { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 export type { Linkable } from "./linkable";
 export {

@@ -241,6 +241,12 @@ function searchHit(row: TransactionListRow, term: string): boolean {
   ].some((v) => (v ?? "").toLowerCase().includes(t));
 }
 
+/** The ids of the main accounts (SEK / CHF) — what the inbox and the settle page consider. */
+export async function listMainAccountIds(tx: TransactionClient): Promise<string[]> {
+  const rows = await tx.bankAccount.findMany({ where: { role: "main" }, select: { id: true } });
+  return rows.map((r) => r.id);
+}
+
 export async function listTransactions(
   tx: TransactionClient,
   q: ListQuery,

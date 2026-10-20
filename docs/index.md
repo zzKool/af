@@ -9,7 +9,7 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 - [[excel-to-v3-mapping]] — The owner's tracking Excel mapped column by column to the v3 model
 - [[phase-0]] — Status board of the organisation work before the first business feature
 - [[feature-folders]] — The kernel / modules layout (3a): what lives where, rules enforced now, v2 → 3a path map
-- [[linking]] — The single link table (3c): kinds matrix, invariants in service and database, how a module becomes linkable; the one scorer and the suggestions both ways (candidates through the registry, apply / bulk apply, *Link to…*), on the banking panel and the invoice page
+- [[linking]] — The single link table (3c): kinds matrix, invariants in service and database, how a module becomes linkable; the one scorer and the suggestions both ways (candidates through the registry, apply / bulk apply, *Link to…*), on the banking panel and the invoice page; the inbox work page with the keyboard and *Apply HIGH*
 - [[authorization]] — `can()` and the role table (4.2): roles, actions, subjects, where checks live
 
 ## Architecture

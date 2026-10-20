@@ -12,6 +12,11 @@ export type Linkable = {
   summary(tx: TransactionClient, id: string): Promise<LinkableSummary | null>;
   /** What the scorer needs about one entity (suggestions the other way round); null when it does not exist. */
   facts?(tx: TransactionClient, id: string): Promise<Omit<EntityFacts, "remaining"> | null>;
+  /** The same for many ids in one go (the inbox); missing ids are left out. */
+  factsMany?(
+    tx: TransactionClient,
+    ids: readonly string[],
+  ): Promise<Omit<EntityFacts, "remaining">[]>;
   /** The entities a bank row of `direction` could justify, dated inside the window (cap `limit`). */
   candidates?(tx: TransactionClient, q: CandidateQuery): Promise<Omit<EntityFacts, "remaining">[]>;
   /** The entities whose label or texts contain `q` — the "Link to…" picker (cap `limit`). */
