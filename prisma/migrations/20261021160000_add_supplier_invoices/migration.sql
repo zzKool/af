@@ -56,7 +56,9 @@ CREATE TABLE "supplier_invoices" (
 );
 CREATE UNIQUE INDEX "supplier_invoices_tenant_key_key" ON "supplier_invoices"("tenant_id", "key");
 CREATE UNIQUE INDEX "supplier_invoices_group_alias_seq_key" ON "supplier_invoices"("group_id", "alias", "seq");
-CREATE UNIQUE INDEX "supplier_invoices_tenant_partner_number_key" ON "supplier_invoices"("tenant_id", "partner_id", lower(btrim("invoice_number")));
+-- exact duplicates are refused here; the case- and space-insensitive rule is the service's (`checkDuplicateNumber`), the
+-- schema cannot declare an expression index and the drift check would flag one
+CREATE UNIQUE INDEX "supplier_invoices_tenant_partner_number_key" ON "supplier_invoices"("tenant_id", "partner_id", "invoice_number");
 CREATE INDEX "supplier_invoices_tenant_id_due_date_idx" ON "supplier_invoices"("tenant_id", "due_date");
 CREATE INDEX "supplier_invoices_tenant_id_invoice_date_idx" ON "supplier_invoices"("tenant_id", "invoice_date" DESC);
 CREATE INDEX "supplier_invoices_tenant_id_partner_id_idx" ON "supplier_invoices"("tenant_id", "partner_id");

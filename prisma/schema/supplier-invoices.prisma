@@ -58,7 +58,7 @@ model SupplierInvoice {
 
   @@unique([tenantId, key], map: "supplier_invoices_tenant_key_key")
   @@unique([groupId, alias, seq], map: "supplier_invoices_group_alias_seq_key")
-  /// expression index on lower(trim(invoice_number)) in the migration — declared here for the drift check
+  /// exact duplicates; the case- and space-insensitive rule is the service's (no expression index: the drift check)
   @@unique([tenantId, partnerId, invoiceNumber], map: "supplier_invoices_tenant_partner_number_key")
   @@index([tenantId, dueDate])
   @@index([tenantId, invoiceDate(sort: Desc)])

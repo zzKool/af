@@ -8,7 +8,7 @@ Module `src/modules/supplier-invoices` · schema `prisma/schema/supplier-invoice
 
 ```
 supplier_invoices        group_id (FK → expense_groups) · key (`SI213-Acc-01`, unique) · seq · alias (snapshot)
-                         partner_id (validated UUID, type vendor) · invoice_number (unique per tenant + partner, lower(btrim))
+                         partner_id (validated UUID, type vendor) · invoice_number (unique per tenant + partner; case- and space-insensitive in the service)
                          invoice_date · due_date (≥ invoice_date) · due_date_defaulted · currency
                          amount_net · vat_amount (≥ 0) · amount_total (= net + VAT ± 0.01, > 0)
                          amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | bank | manual · rate_date?
