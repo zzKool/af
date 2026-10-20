@@ -1,0 +1,69 @@
+# Expenses — groups, payment sources, the owner's liability, settlements, the reimbursement statement
+
+Module `src/modules/expenses` · schema `prisma/schema/expenses.prisma` · migration `20261021120000_add_expenses_and_traktamente` · spec `specs/expenses/` (harvest, spec, plan, tasks) · decisions D26, D27, D28. Part 1: model, keys, bases, derived status, ledger, settlements, statement job, linkables, queries. Part 2: the pages (`/expenses`, the group page with the trip panel — [[traktamente]] — the settle page, the statement print route).
+
+> An expense is one cost the company bears outside supplier invoices: a receipt, the per-diem of a trip, a Swiss VAT payment. It lives in a **group** (`213 — Travel to CH in March 2026`), carries a **key** that is the receipt's file name (`Ex213-Tr-01`), an **SEK base** and a **payer** (`AF SEK`, `AF CHF`, `Private SE`, `Private CH`). What the owner paid privately is a liability of the company in SEK; a refund transaction **settles** a chosen set of those expenses; the residual stays open. *Paid / awaiting link / to refund / partially refunded / refunded* are **derived**, never typed.
+
+## Model
+
+```
+expense_groups     number (series `expense_group`, never reused) · description · kind ∈ trip | batch
+payment_sources    label (unique) · kind ∈ bank_account | private · bank_account_id? (validated UUID) · currency · is_active · owner_user_id?
+expenses           group_id (FK) · key (`Ex213-Tr-01`, unique) · seq · alias (snapshot) · kind ∈ receipt | per_diem | vat_payment
+                   date · description · bas_code · amount (> 0) · currency · vat_amount? · vat_registration_id?
+                   amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | bank | manual · rate_date?
+                   base_provisional · paid_amount? / paid_currency? (the bank row's, once attached) · payment_source_id (FK)
+                   document_missing · note?
+settlements        number (`ST26-001`, series `ST{yy}`) · bank_transaction_id (validated; one active per row) · payment_source_id (FK)
+                   refund_amount / refund_currency (the row's) · refund_base (|its journal base|) · allocated_base
+                   exchange_difference_base · rounding_base · exchange_difference_bas_code? · note? · status ∈ active | cancelled
+                   cancelled_at? · statement_document_id? (set once by the job) · statement_superseded
+settlement_lines   settlement_id (FK CASCADE) · expense_id (FK RESTRICT) · allocated_base (> 0) · note? (the rounding note)
+```
+
+Triggers: `expenses_lock_when_settled` (amount, currency, date, base, rate, paid_*, payer, group, key never change once a settlement line references the expense; the key, seq and alias never change at all), `settlements_lock` (number and money written once; `statement_document_id` NULL → value; a cancelled settlement stays cancelled), `block_delete_when_linked` on both; no DELETE grant on `settlements`. RLS everywhere. `settlement_lines` are intra-module allocations — not links: the settlement owns its lines, the bank row links `settles` to the settlement.
+
+## Keys and bases — `expenses.ts`
+
+- The key: `nextInSeries(expenseSeries(group, alias))` → `exg-213-Tr` → `Ex213-Tr-01` ([[numbering]]). The alias is the category's short code (`settings.basAlias`: the tenant's short code, else the curated suggestion; a category without one is refused with a pointer to Settings → BAS). It is a **snapshot**: changing the category later never changes the key. The counter is taken after validation, inside the transaction — a rollback hands it back, a delete never does.
+- The base: private → `rates.rateToBase` of the expense date (`ecb_daily`, or `ecb_nearest` with the actual date; SEK → 1 `same_currency`; a typed rate → `manual`). Company-paid → the same ECB estimate flagged `base_provisional` until `attachBankTransaction` copies the bank row: `paid_amount / paid_currency` = the row's, `amount_base / rate` = the row's journal values, `rate_source = bank`, plus a `justifies` link bank_transaction → expense allocating the paid amount in the paid currency (D26: a 45.00 CHF receipt on the SEK card → paid 523.17 SEK, base 523.17). `detachBankTransaction` removes the links and restores the estimate. The row must be outgoing and on the payer's account.
+- From a document (D27): `createExpense({documentId})` renames the uploaded receipt to `Ex213-Tr-01_2026-03-10_` (`documents.assignBusinessKey`, the file keeps its extension) and links `created_from` expense → document; one origin per document. A later failure in that chain throws `RollbackError`.
+- `updateExpense`: description, category, note, `document_missing`, VAT facts always; amount / currency / date / payer / rate only while the expense is **open** (no settlement line, no `justifies` / `settles` link) — the base is recomputed. `deleteExpense`: open expenses only. `createPerDiemExpense` / `replacePerDiemExpense`: what [[traktamente]] writes (kind `per_diem`, SEK, the private SEK source; replaced only while open).
+- Groups (`groups.ts`): number from `expense_group`, deletion refused while expenses exist, a group with a trip stays a trip group. Payment sources (`payment-sources.ts`): the four created on first use (`ensureDefaultSources`: `AF {currency}` per main bank account, `Private SE`, `Private CH`) and by the seed; deactivated, never deleted.
+
+## Status and the ledger — `status.ts`, `queries.ts`
+
+`deriveExpenseStatus({paidByPrivate, amountBase, allocatedBase, paidAmount, justifiedAmount})`: company-paid → `paid` when the bank row's allocation covers the paid amount (kernel settlement tolerance), else `awaiting_link`; private → `refunded` when `open ≤ 0.50 SEK` (`OPEN_BASE_TOLERANCE_SEK`, the Swedish 50-öre rounding), `partially_refunded` when some of the base is allocated, else `to_refund`. `open = amount_base − Σ active settlement lines`.
+
+`ledgerSnapshot(tx)`: per private source and in total — `openBase`, `allocatedBase`, `openCount` — plus the count of company-paid expenses still awaiting their bank row (the package's `notes.md`, the dashboard's action item). `openPrivateExpenses(sourceId?)` is the settle page's left column.
+
+`EXPENSE_COLUMNS` + `listExpenses` / `distinctExpenseValues` / `expenseDateHierarchy` (two-step list: stored columns in SQL, then group, payer, BAS label, Σ lines, Σ justifies, document joined over the set; derived filters / search / sort / page / sums in memory, cap 20 000). `getExpenseDetail` (status, document, links with the other side's label, the settlements it took part in), `listGroups` / `getGroupDetail` (totals per currency and in SEK, open base, `hasTrip`), `listSettlements`, `settleableTransactions` (outgoing rows on main accounts not settling anything), `resolveStatement`.
+
+## Settlements — `fifo.ts`, `settlements.ts`
+
+Pure (`fifo.ts`, property-tested): `fifoAllocate(open, refundBase)` — expense date then key, `min(open, remaining)` each, stops when the refund is used up; `settlementDifference(lines, refundBase)` — Σ lines − refund base: within 0.50 SEK it is **rounding** (`roundingBase`, the note `Rounding adjustment: SEK 0.30 (Swedish 50-öre rounding tolerance)` on the last line), beyond it an **exchange difference** the owner confirms (`exchangeDifferenceBase`, positive = the company settled more liability than it paid — 3960; negative never happens: the lines then simply do not reach the refund and `unallocatedOnTransaction` says by how much).
+
+`proposeSettlement({bankTransactionId, paymentSourceId?, expenseIds?})` (nothing written) → the refund row (outgoing, main account, not already settling; its journal base) and the FIFO lines over the open private expenses (of the source / the ticked ids). `confirmSettlement` validates every line against what is open (an expense of another payer, a company-paid expense, a duplicate line, more than open → refused with the matching message; an unconfirmed exchange difference → *Allocations exceed the refund by 65.00 SEK — confirm the exchange difference*), takes `ST{yy}-nnn` (`settlementSeries` of the booking date), writes the row and its lines in FIFO order, links `settles` bank_transaction → settlement (allocation = |refund amount| in the refund currency), audits; the action enqueues `expenses.render-statement` on commit. `cancelSettlement`: status `cancelled`, the `settles` link removed, the balances reopen, the number stays, the statement is flagged `statement_superseded` and kept (retention, D26).
+
+The owner's fixture (`specs/expenses/fixtures/owner-flow-settlement.json`): 6 450 + 1 620 + 2 695 SEK of private CHF receipts; variant A −9 700 SEK → 6 450 / 1 620 / 1 630, residual 1 065; variant B −1 000 CHF at 10.70 → all three closed, +65.00 confirmed; variant C at 10.7647 → 0.30 rounding.
+
+## The statement — `statement.ts`, `jobs/render-statement.ts`
+
+`resolveStatement(tx, caller, id)` → number, company, payee, the refund row, the lines (key, date, description, group, category, amount, base, allocated, what stays open after every active settlement), the totals, the residual. The job `expenses.render-statement` (registered in `instrumentation.ts`): only active settlements without a statement; renders `/print/settlement/[id]` through `kernel/pdf` (the renderer is injectable for tests), stores `Reimb_ST26-001_2026-03-31.pdf` through `documents.storeGeneratedDocument` (`generated`, financial, prefix `expense`), sets `statement_document_id` once (the lock refuses a second), links `justifies` bank_transaction → document — the justification the refund never had. Idempotent across retries. The print route and `StatementSheet` come with part 2.
+
+## Linkables and surface
+
+`expenseLinkable` (amount = `paid_amount ?? amount`, currency likewise — the `justifies` target of a company-paid link, the `created_from` source), `settlementLinkable` (|refund amount| in the refund currency — the `settles` target). Registration in `modules/linking/linkables.ts` is now **lazy** (`provideLinkables` + namespace imports): every module imports linking, so the graph is cyclic and a direct read at import time could see `undefined`.
+
+- `index.ts`: services, schemas, pure helpers, queries, actions, job, linkables, DTOs.
+- `ui.ts`: actions + types (components with part 2).
+- Actions: reads on `authedAction` + `can(read, expense | settlement)` (the accountant reads everything); groups / sources / expenses / attach / detach / confirm / cancel on `ownerAction`. `ensurePaymentSourcesAction` creates the four on first use.
+- New elsewhere: `documents.assignBusinessKey`, `settings.basAlias` / `basAliases`, `banking.getBankTransaction` (the bare row + account label / role), `numbering.expenseSeries` (replaces `expenseGroupSeries`), `settlementSeries` / `settlementNumber` / `statementPdfKey`.
+
+## Tests
+
+`fifo.pure.test.ts` (fixture variants, status derivation, 200-run property) · `expenses.test.ts` (DB: fixture keys and bases, nearest / SEK / missing / manual rates, company-paid attach / detach and refusals, from-document key + `created_from` + exclusivity, deletes and the group guard, 20 concurrent creations, the lock trigger by SQL, the list / distinct / sums / groups / ledger, RLS) · `settlements.test.ts` (DB: the ledger before, variants A / B / C on imported Nordea rows, refusals, cancel and the next number, the statement job with a stubbed renderer, `resolveStatement`).
+
+Seed: the four payment sources, `Tr` / `Rep` / `Lokal` / `IT` short codes, the 2025 normalbelopp subset (`prisma/seed.ts`).
+
+Related: [[traktamente]], [[banking]], [[journal]], [[linking]], [[numbering]], [[documents]], [[feature-inventory]] §3.7, the `bas-accounting` skill.

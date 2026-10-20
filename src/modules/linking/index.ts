@@ -11,7 +11,13 @@ export {
 } from "./allocation";
 export { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 export type { Linkable } from "./linkable";
-export { _resetLinkables, getLinkable, listLinkableTypes, registerLinkable } from "./linkable";
+export {
+  _resetLinkables,
+  getLinkable,
+  listLinkableTypes,
+  provideLinkables,
+  registerLinkable,
+} from "./linkable";
 export { createLink, removeLink, toLinkDto } from "./linking";
 export {
   createLinkAction,

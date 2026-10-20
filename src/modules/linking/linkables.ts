@@ -1,19 +1,23 @@
 // Registration of every module's linkable. Importing this file (done by index.ts and the actions) is what
 // makes an entity type known to the linking module. New module → add one line here.
-import { bankTransactionLinkable } from "@/modules/banking";
-import { contractLinkable } from "@/modules/contracts";
-import { documentLinkable } from "@/modules/documents";
-import { invoiceLinkable } from "@/modules/invoices";
-import { journalEntryLinkable } from "@/modules/journal";
-import { partnerLinkable } from "@/modules/partners";
-import { registerLinkable } from "./linkable";
+// Namespace imports + a thunk: the bindings are read on first use, after every module finished loading
+// (each module imports linking, so the graph is cyclic and a direct read here could see `undefined`).
+import * as banking from "@/modules/banking";
+import * as contracts from "@/modules/contracts";
+import * as documents from "@/modules/documents";
+import * as expenses from "@/modules/expenses";
+import * as invoices from "@/modules/invoices";
+import * as journal from "@/modules/journal";
+import * as partners from "@/modules/partners";
+import { provideLinkables } from "./linkable";
 
-for (const l of [
-  partnerLinkable,
-  contractLinkable,
-  documentLinkable,
-  invoiceLinkable,
-  bankTransactionLinkable,
-  journalEntryLinkable,
-])
-  registerLinkable(l);
+provideLinkables(() => [
+  partners.partnerLinkable,
+  contracts.contractLinkable,
+  documents.documentLinkable,
+  invoices.invoiceLinkable,
+  banking.bankTransactionLinkable,
+  journal.journalEntryLinkable,
+  expenses.expenseLinkable,
+  expenses.settlementLinkable,
+]);

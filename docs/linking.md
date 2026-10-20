@@ -51,13 +51,13 @@ export const invoiceLinkable: Linkable = {
   summary: async (tx, id) => { const i = await tx.invoice.findUnique({ where: { id } }); return i && { type: "invoice", id, label: i.number, amount: i.total.toString(), currency: i.currency }; },
 };
 ```
-Export it from the module's `index.ts`, add one line in `src/modules/linking/linkables.ts`, add the type to `LinkableType` and to the matrix in `kinds.ts`, and add the delete trigger to the table's migration. `amount`/`currency` non-null → the entity can receive allocations.
+Export it from the module's `index.ts`, add one line in `src/modules/linking/linkables.ts`, add the type to `LinkableType` and to the matrix in `kinds.ts`, and add the delete trigger to the table's migration. `amount`/`currency` non-null → the entity can receive allocations. Registration is **lazy** (`provideLinkables` with namespace imports, resolved on the first `getLinkable`): every module imports linking, so the import graph is cyclic and a direct read of `module.xLinkable` at import time could see `undefined` depending on which file a test loaded first.
 
 ## Surface
 
-- `index.ts`: `getLinksFor`, `isLinked`, `getAllocationStatus`, `createLink`, `removeLink`, types, `registerLinkable`, `isKindAllowed`, allocation math.
+- `index.ts`: `getLinksFor`, `isLinked`, `getAllocationStatus`, `createLink`, `removeLink`, types, `registerLinkable` / `provideLinkables`, `isKindAllowed`, allocation math.
 - `ui.ts`: actions `createLinkAction`, `removeLinkAction`, `getLinksForAction`, `getAllocationStatusAction` + types. No components yet — the workbench, suggestions (H3) and graph (H13-adjacent) are phase-1 read models.
 
 ## Tests
 
-`allocation.pure.test.ts` (fast-check, no DB) · `linking.test.ts` (DB, RLS on): link + audit, rejections, `created_from` exclusivity (service and index), allocations and remaining, remove, delete trigger, cross-tenant isolation (fake linkables) · the source-side invariant and the real `bank_transaction` / `journal_entry` linkables in `modules/banking/import.test.ts` and `modules/journal/journal.test.ts`.
+`allocation.pure.test.ts` (fast-check, no DB) · `linking.test.ts` (DB, RLS on): link + audit, rejections, `created_from` exclusivity (service and index), allocations and remaining, remove, delete trigger, cross-tenant isolation (fake linkables) · the source-side invariant and the real `bank_transaction` / `journal_entry` linkables in `modules/banking/import.test.ts` and `modules/journal/journal.test.ts`; `expense` / `settlement` in `modules/expenses/*.test.ts`.

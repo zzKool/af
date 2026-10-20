@@ -1,0 +1,340 @@
+// Traktamente — specs/traktamente US3 (the per-diem expense), US4 (the rate table: paste, copy, delete guard)
+// against the real database, on the owner's 19.5-day trip.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { Pool } from "pg";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRateLimit } from "@/kernel/actions/rate-limit";
+import { cleanupTestData } from "@/kernel/db/test-fixtures";
+import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import * as expenses from "@/modules/expenses";
+import {
+  importRows,
+  noopAudit,
+  type Owner,
+  realAudit,
+  run,
+  seedRates,
+  setupOwner,
+} from "@/modules/expenses/__fixtures__/harness";
+import { countryOptions } from "./queries";
+import {
+  copyRatesFromYear,
+  deleteRate,
+  listRates,
+  parseSkatteverketCsv,
+  pasteSkatteverketCsv,
+  rateYears,
+  upsertRate,
+} from "./rates";
+import { createOrReplacePerDiemExpense, previewPerDiem, toInstant, upsertTrip } from "./trip";
+
+let mockHeaders: Headers = new Headers();
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
+vi.mock("@/kernel/logging/logger", () => ({
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+const FIXTURES = join(__dirname, "..", "..", "..", "specs", "traktamente", "fixtures");
+const ADMIN_DATABASE_URL =
+  process.env.DATABASE_TEST_MIGRATION_URL ||
+  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+let adminPool: Pool;
+let nordeaFormatId: string;
+let owner: Owner;
+
+beforeAll(async () => {
+  adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+  const r = await adminPool.query(`SELECT id FROM bank_formats WHERE name = 'Nordea CSV (Sweden)'`);
+  nordeaFormatId = r.rows[0].id;
+});
+beforeEach(async () => {
+  await cleanupTestData(adminPool);
+  await adminPool.query("TRUNCATE ecb_rates");
+  resetRateLimit();
+  mockHeaders = new Headers();
+  await seedRates(adminPool);
+  owner = await setupOwner(adminPool, nordeaFormatId);
+  await run(owner.caller, async (tx) => {
+    await upsertRate(tx, owner.caller, noopAudit, {
+      year: 2026,
+      countryCode: "CH",
+      countryNameSv: "Schweiz",
+      countryNameEn: "Switzerland",
+      dayAmount: "1402",
+      rateSource: "test",
+    });
+    await upsertRate(tx, owner.caller, noopAudit, {
+      year: 2026,
+      countryCode: "SE",
+      countryNameSv: "Sverige",
+      dayAmount: "290",
+      nightAmount: "145",
+      mealBreakfast: "58",
+      mealLunch: "102",
+      mealDinner: "102",
+      mealAll: "261",
+    });
+  });
+});
+afterAll(async () => {
+  await adminPool.end();
+});
+
+async function tripGroup() {
+  const g = await run(owner.caller, (tx) =>
+    expenses.createGroup(tx, owner.caller, noopAudit, {
+      description: "Travel to CH in March 2026",
+    }),
+  );
+  return g.data!;
+}
+
+const ownerTrip = (groupId: string) => ({
+  groupId,
+  departureAt: "2026-03-02T09:00",
+  returnAt: "2026-03-21T17:00",
+  countryCode: "ch",
+  agency: "SBB",
+  lunches: 18,
+});
+
+describe("US3 — the per-diem expense", () => {
+  it("the trip is saved with its snapshot, the group becomes a trip group, the expense is written in the group", async () => {
+    const g = await tripGroup();
+    expect(g.kind).toBe("batch");
+    const saved = await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, realAudit(tx, owner.caller), ownerTrip(g.id)),
+    );
+    expect(saved.error).toBeUndefined();
+    expect(saved.data?.computeError).toBeNull();
+    expect(saved.data?.trip).toMatchObject({ countryCode: "CH", lunches: 18, agency: "SBB" });
+    expect(saved.data?.trip.computed).toMatchObject({ days: 19.5, total: "18506.40" });
+    await assertAuditLogged(
+      adminPool,
+      owner.caller.tenantId,
+      "create",
+      "trip",
+      saved.data!.trip.id,
+    );
+
+    const written = await run(owner.caller, (tx) =>
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+    );
+    expect(written.error).toBeUndefined();
+    expect(written.data?.expense).toMatchObject({
+      key: "Ex213-Tr-01",
+      kind: "per_diem",
+      date: "2026-03-21",
+      description: "Traktamente CH 19.5 days",
+      amount: "18506.40",
+      currency: "SEK",
+      amountBase: "18506.40",
+      rate: "1",
+      rateSource: "same_currency",
+      paymentSourceId: owner.sources.privateSe.id,
+      documentMissing: false,
+    });
+    expect(written.data?.expense.note).toContain("18 lunch(es)");
+    expect(written.data?.trip.perDiemExpenseId).toBe(written.data?.expense.id);
+    await run(owner.caller, async (tx) => {
+      expect((await expenses.getGroup(tx, g.id)).data?.kind).toBe("trip");
+      const detail = await expenses.getExpenseDetail(tx, written.data!.expense.id);
+      expect(detail.data?.status).toBe("to_refund");
+      const groups = await expenses.listGroups(tx);
+      expect(groups[0]).toMatchObject({ hasTrip: true, openBase: "18506.40" });
+    });
+  });
+
+  it("recompute: same inputs → same expense; changed meals → the open expense is replaced; settled → refused", async () => {
+    const g = await tripGroup();
+    await run(owner.caller, (tx) => upsertTrip(tx, owner.caller, noopAudit, ownerTrip(g.id)));
+    const first = (
+      await run(owner.caller, (tx) =>
+        createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
+          groupId: g.id,
+          basCode: "580",
+        }),
+      )
+    ).data!;
+    const same = (
+      await run(owner.caller, (tx) =>
+        createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
+          groupId: g.id,
+          basCode: "580",
+        }),
+      )
+    ).data!;
+    expect(same.expense.id).toBe(first.expense.id);
+    expect(same.expense.amount).toBe("18506.40");
+
+    await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, { ...ownerTrip(g.id), lunches: 0, dinners: 2 }),
+    );
+    const changed = (
+      await run(owner.caller, (tx) =>
+        createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
+          groupId: g.id,
+          basCode: "580",
+        }),
+      )
+    ).data!;
+    expect(changed.expense.id).toBe(first.expense.id);
+    expect(changed.expense.amount).toBe("26357.60"); // 27 339 − 2 × 490.70
+    expect(changed.expense.key).toBe("Ex213-Tr-01");
+    await run(owner.caller, async (tx) => {
+      expect(
+        (await expenses.listExpenses(tx, { page: 1, pageSize: 10, sort: [], filters: {} })).total,
+      ).toBe(1);
+    });
+
+    // settle it → the next recompute is refused
+    const [rowId] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-31", amount: "-26357.60", name: "Zikrija" },
+      ]),
+    );
+    const settled = await run(owner.caller, (tx) =>
+      expenses.confirmSettlement(tx, owner.caller, noopAudit, {
+        bankTransactionId: rowId,
+        paymentSourceId: owner.sources.privateSe.id,
+        lines: [{ expenseId: first.expense.id, allocatedBase: "26357.60" }],
+      }),
+    );
+    expect(settled.error).toBeUndefined();
+    await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, { ...ownerTrip(g.id), lunches: 1 }),
+    );
+    const refused = await run(owner.caller, (tx) =>
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+    );
+    expect(refused.error?.message).toMatch(/is settled — a correction is a new per-diem expense/);
+  });
+
+  it("a missing rate year is named; a day trip writes nothing; the preview is live", async () => {
+    const g = await tripGroup();
+    const saved = await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, {
+        ...ownerTrip(g.id),
+        departureAt: "2025-12-30T08:00",
+        returnAt: "2026-01-02T21:00",
+        lunches: 0,
+      }),
+    );
+    expect(saved.data?.computeError?.message).toBe("No travel allowance rate for CH in 2025");
+    expect(saved.data?.trip.computed).toBeNull();
+    const refused = await run(owner.caller, (tx) =>
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+    );
+    expect(refused.error?.details).toEqual({ countryCode: "CH", year: 2025 });
+
+    await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, {
+        ...ownerTrip(g.id),
+        departureAt: "2026-03-10T08:00",
+        returnAt: "2026-03-10T17:00",
+        lunches: 0,
+      }),
+    );
+    await run(owner.caller, async (tx) => {
+      const preview = await previewPerDiem(tx, g.id);
+      expect(preview.data).toMatchObject({ days: 0, total: "0.00", reason: "no overnight stay" });
+      const none = await createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
+        groupId: g.id,
+        basCode: "580",
+      });
+      expect(none.error?.message).toMatch(/Nothing is tax-free: no overnight stay/);
+      const tooMany = await upsertTrip(tx, owner.caller, noopAudit, {
+        ...ownerTrip(g.id),
+        lunches: 40,
+      });
+      expect(tooMany.data?.computeError?.message).toMatch(/Lunches \(40\) exceed the 20 days/);
+      const backwards = await upsertTrip(tx, owner.caller, noopAudit, {
+        ...ownerTrip(g.id),
+        departureAt: "2026-03-21T17:00",
+        returnAt: "2026-03-02T09:00",
+      });
+      expect(backwards.error?.message).toMatch(/after the departure/);
+    });
+  });
+
+  it("local times are stored as Stockholm instants (summer and winter)", () => {
+    expect(toInstant("2026-03-02T09:00").toISOString()).toBe("2026-03-02T08:00:00.000Z");
+    expect(toInstant("2026-07-01T12:30").toISOString()).toBe("2026-07-01T10:30:00.000Z");
+    expect(toInstant("2026-10-25T02:30").toISOString()).toMatch(/^2026-10-25T0[01]:30:00.000Z$/);
+    expect(toInstant("2026-03-02T09:00:00+01:00").toISOString()).toBe("2026-03-02T08:00:00.000Z");
+  });
+});
+
+describe("US4 — the rate table", () => {
+  it("parses Skatteverket's CSV: amounts in, references skipped, decimal comma accepted", () => {
+    const text = readFileSync(join(FIXTURES, "skatteverket-csv-sample.csv"), "utf8");
+    const parsed = parseSkatteverketCsv(text);
+    expect(parsed.rows).toEqual([
+      { year: 2025, countryCode: "AL", countryNameSv: "Albanien", dayAmount: "345" },
+      { year: 2025, countryCode: "CH", countryNameSv: "Schweiz", dayAmount: "1402" },
+    ]);
+    expect(parsed.skipped).toEqual([
+      { line: 4, text: "2025;Färöarna;;Se Danmark", reason: "no country code" },
+    ]);
+    const noYear = parseSkatteverketCsv("Tyskland;DE;774,50\nDanmark;DK;Se Sverige", 2026);
+    expect(noYear.rows).toEqual([
+      { year: 2026, countryCode: "DE", countryNameSv: "Tyskland", dayAmount: "774.50" },
+    ]);
+    expect(noYear.skipped[0].reason).toMatch(/not an amount/);
+  });
+
+  it("paste: dry run counts, the real run upserts (existing meal amounts kept); copy a year never overwrites; the delete guard", async () => {
+    const text = readFileSync(join(FIXTURES, "skatteverket-csv-sample.csv"), "utf8");
+    await run(owner.caller, async (tx) => {
+      const dry = await pasteSkatteverketCsv(tx, owner.caller, noopAudit, { text, dryRun: true });
+      expect(dry.data).toMatchObject({ created: 0, updated: 0 });
+      expect(dry.data?.rows).toHaveLength(2);
+      expect(await rateYears(tx)).toEqual([2026]);
+      const real = await pasteSkatteverketCsv(tx, owner.caller, realAudit(tx, owner.caller), {
+        text,
+      });
+      expect(real.data).toMatchObject({ created: 2, updated: 0 });
+      const rows2025 = await listRates(tx, 2025);
+      expect(rows2025.map((r) => [r.countryCode, r.dayAmount, r.rateSource])).toEqual([
+        ["AL", "345.00", "skatteverket-csv"],
+        ["CH", "1402.00", "skatteverket-csv"],
+      ]);
+      // a second paste of SE keeps the meal amounts
+      await pasteSkatteverketCsv(tx, owner.caller, noopAudit, { text: "2026;Sverige;SE;300" });
+      const se = (await listRates(tx, 2026)).find((r) => r.countryCode === "SE");
+      expect(se).toMatchObject({ dayAmount: "300.00", mealAll: "261.00", nightAmount: "145.00" });
+
+      const copied = await copyRatesFromYear(tx, owner.caller, noopAudit, {
+        fromYear: 2025,
+        toYear: 2026,
+      });
+      expect(copied.data).toEqual({ copied: 1, skipped: 1 }); // AL copied, CH exists
+      const al = (await listRates(tx, 2026)).find((r) => r.countryCode === "AL");
+      expect(al).toMatchObject({ dayAmount: "345.00", rateSource: "copied from 2025" });
+      const ch = (await listRates(tx, 2026)).find((r) => r.countryCode === "CH");
+      expect(ch?.dayAmount).toBe("1402.00");
+      expect(await rateYears(tx)).toEqual([2026, 2025]);
+      expect((await countryOptions(tx, 2026, "en")).map((c) => c.name)).toEqual([
+        "Albanien",
+        "Switzerland",
+        "Sverige",
+      ]);
+      const empty = await pasteSkatteverketCsv(tx, owner.caller, noopAudit, { text: "x;y" });
+      expect(empty.error?.message).toMatch(/No rate rows/);
+    });
+
+    // a trip in 2026 to CH → the CH 2026 row stays; the AL row goes
+    const g = await tripGroup();
+    await run(owner.caller, (tx) => upsertTrip(tx, owner.caller, noopAudit, ownerTrip(g.id)));
+    await run(owner.caller, async (tx) => {
+      const rows = await listRates(tx, 2026);
+      const ch = rows.find((r) => r.countryCode === "CH")!;
+      const al = rows.find((r) => r.countryCode === "AL")!;
+      expect((await deleteRate(tx, owner.caller, noopAudit, ch.id)).error?.message).toMatch(
+        /used by 1 trip/,
+      );
+      expect((await deleteRate(tx, owner.caller, noopAudit, al.id)).data?.deleted).toBe(true);
+    });
+  });
+});

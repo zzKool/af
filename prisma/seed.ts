@@ -280,6 +280,92 @@ async function seed() {
       });
     }
     console.log(`  ✓ BAS categories activated (${toActivate.length} new)`);
+
+    // the owner's aliases on the categories his expense keys use (Ex213-Tr-01, Ex213-Rep-01)
+    for (const [code, shortCode] of [
+      ["580", "Tr"],
+      ["583", "Rep"],
+      ["501", "Lokal"],
+      ["654", "IT"],
+    ] as const) {
+      if (!known.has(code) && !(await tx.basCategory.findUnique({ where: { code } }))) continue;
+      await tx.tenantBasPreference.upsert({
+        where: { tenantId_basCode: { tenantId: orgId, basCode: code } },
+        update: { shortCode },
+        create: {
+          tenantId: orgId,
+          basCode: code,
+          shortCode,
+          createdBy: ownerUserId,
+          source: "seed",
+        },
+      });
+    }
+
+    // the four payment sources (specs/expenses US2): the two main accounts, the owner's private cards
+    const mainAccounts = await tx.bankAccount.findMany({
+      where: { tenantId: orgId, role: "main" },
+      select: { id: true, currency: true },
+    });
+    const sources = [
+      ...mainAccounts.map((a) => ({
+        label: `AF ${a.currency}`,
+        kind: "bank_account" as const,
+        bankAccountId: a.id,
+        currency: a.currency,
+      })),
+      { label: "Private SE", kind: "private" as const, bankAccountId: null, currency: "SEK" },
+      { label: "Private CH", kind: "private" as const, bankAccountId: null, currency: "CHF" },
+    ];
+    for (const src of sources) {
+      await tx.paymentSource.upsert({
+        where: { tenantId_label: { tenantId: orgId, label: src.label } },
+        update: {},
+        create: { ...src, tenantId: orgId, createdBy: ownerUserId, source: "seed" },
+      });
+    }
+    console.log(`  ✓ Payment sources seeded (${sources.length})`);
+
+    // Skatteverket's normalbelopp — the 2025 subset v1 carried (specs/traktamente/fixtures/normalbelopp.csv),
+    // flagged v1-seed: the owner verifies and pastes the current year's CSV
+    const normalbelopp = [
+      ["SE", "Sverige", "Sweden", "290", "145"],
+      ["DE", "Tyskland", "Germany", "774", null],
+      ["GB", "Storbritannien och Nordirland", "United Kingdom", "958", null],
+      ["FR", "Frankrike", "France", "774", null],
+      ["NL", "Nederländerna", "Netherlands", "774", null],
+      ["NO", "Norge", "Norway", "1043", null],
+      ["DK", "Danmark", "Denmark", "774", null],
+      ["FI", "Finland", "Finland", "542", null],
+      ["US", "USA", "United States", "889", null],
+      ["CH", "Schweiz", "Switzerland", "1402", null],
+    ] as const;
+    for (const [countryCode, sv, en, dayAmount, nightAmount] of normalbelopp) {
+      const meals =
+        countryCode === "SE"
+          ? { mealBreakfast: "58", mealLunch: "102", mealDinner: "102", mealAll: "261" }
+          : {};
+      await tx.normalbelopp.upsert({
+        where: { tenantId_year_countryCode: { tenantId: orgId, year: 2025, countryCode } },
+        update: {},
+        create: {
+          tenantId: orgId,
+          year: 2025,
+          countryCode,
+          countryNameSv: sv,
+          countryNameEn: en,
+          dayAmount,
+          nightAmount,
+          ...meals,
+          rateSource: "v1-seed",
+          createdBy: ownerUserId,
+          source: "seed",
+        },
+      });
+    }
+    console.log(
+      `  ✓ Normalbelopp 2025 seeded (${normalbelopp.length} countries, v1-seed — verify)`,
+    );
   });
 
   console.log("\n🌱 Seed complete!");

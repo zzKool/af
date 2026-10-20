@@ -286,6 +286,23 @@ export type TransactionDetail = {
   import: BankImportDto | null;
 };
 
+/** The bare row with its account label — what another module needs to copy a bank fact (the expenses attach, the settlement). */
+export async function getBankTransaction(
+  tx: TransactionClient,
+  id: string,
+): Promise<(BankTransactionDto & { accountLabel: string; accountRole: BankAccountRole }) | null> {
+  const row = await tx.bankTransaction.findUnique({
+    where: { id },
+    include: { bankAccount: true },
+  });
+  if (!row) return null;
+  return {
+    ...toTransactionDto(row),
+    accountLabel: accountLabel(row.bankAccount),
+    accountRole: row.bankAccount.role as BankAccountRole,
+  };
+}
+
 export async function getTransaction(
   tx: TransactionClient,
   id: string,

@@ -1,0 +1,70 @@
+// Module traktamente — Skatteverket's normalbelopp table and the trip of a trip group (D29; specs/traktamente/spec.md)
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// `normalbelopp`: one row per (year, country) — the tax-free day amount, the night amount (default half), and for
+// Sweden the fixed krona meal amounts. Entered by the owner (copy last year, paste Skatteverket's CSV).
+// `trips`: the one trip of an expense group of kind `trip` — departure / return, country, meals paid separately
+// as counts, the computed breakdown snapshot and the per-diem expense it wrote (validated UUID into expenses).
+
+model Normalbelopp {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  year          Int
+  /// ISO-3166 alpha-2, upper case
+  countryCode   String   @map("country_code") @db.Char(2)
+  countryNameSv String   @map("country_name_sv") @db.VarChar(100)
+  countryNameEn String?  @map("country_name_en") @db.VarChar(100)
+  /// the tax-free amount of a full day, SEK
+  dayAmount     Decimal  @map("day_amount") @db.Decimal(10, 2)
+  /// a night without paid lodging; null = half the day amount
+  nightAmount   Decimal? @map("night_amount") @db.Decimal(10, 2)
+  /// Sweden only: Skatteverket's fixed krona deductions per meal (abroad uses 15 / 35 / 35 / 85 %)
+  mealBreakfast Decimal? @map("meal_breakfast") @db.Decimal(10, 2)
+  mealLunch     Decimal? @map("meal_lunch") @db.Decimal(10, 2)
+  mealDinner    Decimal? @map("meal_dinner") @db.Decimal(10, 2)
+  mealAll       Decimal? @map("meal_all") @db.Decimal(10, 2)
+  /// where the figure came from: `skatteverket-csv`, `copied from 2025`, `manual`, `v1-seed`
+  rateSource    String   @map("rate_source") @db.VarChar(60)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy     String   @map("created_by") @db.Uuid
+  source        String   @default("web") @db.VarChar(20)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, year, countryCode], map: "normalbelopp_tenant_year_country_key")
+  @@map("normalbelopp")
+}
+
+model Trip {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                  String    @map("tenant_id") @db.Uuid
+  /// the expense group of kind `trip` (one trip per group)
+  groupId                   String    @unique(map: "trips_group_id_key") @map("group_id") @db.Uuid
+  departureAt               DateTime  @map("departure_at") @db.Timestamptz
+  returnAt                  DateTime  @map("return_at") @db.Timestamptz
+  countryCode               String    @map("country_code") @db.Char(2)
+  agency                    String?   @db.VarChar(100)
+  breakfasts                Int       @default(0)
+  lunches                   Int       @default(0)
+  dinners                   Int       @default(0)
+  /// nights the company did not pay a hotel for (night allowance); default 0, no UI prominence (D29)
+  nightsWithoutPaidLodging  Int       @default(0) @map("nights_without_paid_lodging")
+  /// 0.7 from three months, 0.5 from two years — an override, collapsed in the UI
+  longStayFactor            Decimal?  @map("long_stay_factor") @db.Decimal(3, 2)
+  /// the last computed breakdown (PerDiemResult), for the panel and the statement
+  computed                  Json?     @db.JsonB
+  /// the per_diem expense written from this trip (validated UUID into expenses)
+  perDiemExpenseId          String?   @map("per_diem_expense_id") @db.Uuid
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy                 String    @map("created_by") @db.Uuid
+  source                    String    @default("web") @db.VarChar(20)
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group  ExpenseGroup @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenantId, countryCode])
+  @@map("trips")
+}
