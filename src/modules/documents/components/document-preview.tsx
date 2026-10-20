@@ -175,7 +175,8 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
       </div>
 
       {/* Preview area */}
-      <div className="flex-1 overflow-auto p-4">
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (axe scrollable-region-focusable) */}
+      <div className="flex-1 overflow-auto p-4" tabIndex={0}>
         {loading && (
           <div className="flex h-full items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />

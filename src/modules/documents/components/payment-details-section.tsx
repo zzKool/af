@@ -14,7 +14,7 @@ export function PaymentDetailsSection({ paymentDetails }: PaymentDetailsSectionP
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium">Payment Details</h3>
+      <h2 className="text-sm font-medium">Payment Details</h2>
       {detail.iban && (
         <div className="space-y-1">
           <Label htmlFor="iban">IBAN</Label>

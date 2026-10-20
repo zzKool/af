@@ -64,7 +64,7 @@ export function DocumentClassificationSection({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium">Classification</h3>
+      <h2 className="text-sm font-medium">Classification</h2>
 
       <div className="space-y-1">
         <Label htmlFor="category">Category</Label>

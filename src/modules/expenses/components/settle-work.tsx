@@ -342,15 +342,16 @@ export function SettleWork({
             </li>
           </ul>
           {over && (
-            <div className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 id={`${ids}-exchange`}
                 checked={confirmExchange}
                 onCheckedChange={(c) => setConfirmExchange(c === true)}
                 data-testid="confirm-exchange"
+                aria-label={t("expenses.settle.confirmExchange")}
               />
-              <label htmlFor={`${ids}-exchange`}>{t("expenses.settle.confirmExchange")}</label>
-            </div>
+              <span>{t("expenses.settle.confirmExchange")}</span>
+            </label>
           )}
           <div>
             <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">

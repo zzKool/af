@@ -210,7 +210,11 @@ export function PackageWorkbench({
                 </TableHead>
                 <TableHead className="w-16 text-right">{t("package.col.flags")}</TableHead>
                 <TableHead className="w-32">{t("package.col.package")}</TableHead>
-                {canBuild && <TableHead className="w-24" />}
+                {canBuild && (
+                  <TableHead className="w-24">
+                    <span className="sr-only">{t("package.build")}</span>
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -317,7 +321,11 @@ export function PackageWorkbench({
         )}
       </div>
 
-      <aside className="flex flex-col gap-4" data-testid="package-preview">
+      <section
+        className="flex flex-col gap-4"
+        aria-label={t("package.preview.notes")}
+        data-testid="package-preview"
+      >
         {selectedRow ? (
           <>
             <h2 className="text-sm font-medium">
@@ -397,7 +405,7 @@ export function PackageWorkbench({
         ) : (
           <p className="text-sm text-muted-foreground">—</p>
         )}
-      </aside>
+      </section>
     </div>
   );
 }

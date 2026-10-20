@@ -600,17 +600,16 @@ export function SupplierInvoicePanel({
                       }}
                     />
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2 text-sm">
                     <Checkbox
                       id={`${ids}-missing`}
                       checked={si.documentMissing}
                       onCheckedChange={(c) => void save({ documentMissing: c === true })}
                       disabled={saving}
+                      aria-label={t("supplierInvoices.form.documentMissing")}
                     />
-                    <label htmlFor={`${ids}-missing`}>
-                      {t("supplierInvoices.form.documentMissing")}
-                    </label>
-                  </div>
+                    <span>{t("supplierInvoices.form.documentMissing")}</span>
+                  </label>
                 </div>
               ) : (
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">

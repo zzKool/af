@@ -16,7 +16,7 @@ export function Topbar({ tenantName, userLabel }: { tenantName: string; userLabe
     return { href, label, last: i === segments.length - 1 };
   });
   return (
-    <div className="flex h-10 shrink-0 items-center gap-3 border-b bg-background px-4 text-sm">
+    <header className="flex h-10 shrink-0 items-center gap-3 border-b bg-background px-4 text-sm">
       <nav
         aria-label="Breadcrumb"
         className="flex min-w-0 items-center gap-1 text-muted-foreground"
@@ -39,6 +39,6 @@ export function Topbar({ tenantName, userLabel }: { tenantName: string; userLabe
         <span className="text-muted-foreground/50">·</span>
         <span className="truncate">{userLabel}</span>
       </div>
-    </div>
+    </header>
   );
 }

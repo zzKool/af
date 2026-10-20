@@ -442,16 +442,15 @@ export function NewSupplierInvoiceDialog({
               </SelectContent>
             </Select>
             {documentId === NONE && (
-              <div className="mt-2 flex items-center gap-2 text-sm">
+              <label className="mt-2 flex items-center gap-2 text-sm">
                 <Checkbox
                   id={`${ids}-missing`}
                   checked={documentMissing}
                   onCheckedChange={(c) => setDocumentMissing(c === true)}
+                  aria-label={t("supplierInvoices.form.documentMissing")}
                 />
-                <label htmlFor={`${ids}-missing`}>
-                  {t("supplierInvoices.form.documentMissing")}
-                </label>
-              </div>
+                <span>{t("supplierInvoices.form.documentMissing")}</span>
+              </label>
             )}
           </div>
           <div className="sm:col-span-2">
