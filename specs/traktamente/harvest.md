@@ -159,6 +159,8 @@ Calculator — v1 had **no tests**; v3 property/unit tests from `fixtures/day-co
 What the Excel does better than v1: meals as a count of lunches per trip; 19.5 days as one quantity; the allowance as a row of the trip group next to the receipts, so the accountant sees it with the flight and the hotel. What v1 did better than the Excel: the day count from timestamps (no hand counting), the rate table per year, the breakdown stored as a snapshot, the "rate missing" guidance. v3 keeps both.
 
 ## 9. Open questions for the owner
+
+> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (B14, D-f → D29). The questions below are kept as the record of what was asked.
 1. **Rate year for a trip over New Year** (R22, §4.3): per-day year (v3 proposal) or the departure year for the whole trip (v1's reading of Skatteverket)? Ask the accountant; it only matters for the Christmas–January trip.
 2. **Night allowance**: do you ever sleep in lodging the company did not pay (friends, own flat)? If never, drop `nights_without_paid_lodging` from the UI (keep the column at 0). Also confirm with the accountant whether the long-stay factor applies to the night amount (v3 proposal: no).
 3. **Day trips**: v1 paid a full/half day for a same-day trip; Skatteverket's tax-free rule needs an overnight. v3 computes 0. Do you want an explicit "taxable per diem" option for day trips (it would be salary, not a tax-free expense) or simply nothing?

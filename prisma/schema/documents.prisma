@@ -2,25 +2,6 @@
 // Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
 // enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
 
-// DEPRECATED (4.4, D6): the configurable prefix engine is gone — keys are fixed functions in
-// src/modules/numbering and counters live in number_series. Table kept until the drop migration is
-// approved (constitution: ask before a migration that drops data). Nothing reads or writes it.
-model DocumentTypePrefix {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId     String   @map("tenant_id") @db.Uuid
-  documentType String   @map("document_type") @db.VarChar(30) // "expense", "invoice", "contract"
-  prefix       String   @db.VarChar(10) // "exp_", "inv_", "ctrt_"
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  createdBy    String   @map("created_by") @db.Uuid
-  source       String   @default("web") @db.VarChar(20)
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, documentType], map: "document_type_prefixes_tenant_document_type_unique")
-  @@map("document_type_prefixes")
-}
-
 model Document {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
@@ -46,16 +27,4 @@ model Document {
   @@index([tenantId, status], map: "idx_documents_tenant_status")
   @@index([tenantId, businessKey], map: "idx_documents_tenant_business_key")
   @@map("documents")
-}
-
-/// Per-tenant monthly counter behind business keys (raw SQL in business-key.ts). Replaced by number_series in v3 (D5/D6).
-// DEPRECATED (4.4): superseded by number_series (`doc-yyyy-mm`), counters carried over by the
-// add_number_series migration. Dropped together with DocumentTypePrefix.
-model DocumentKeyCounter {
-  tenantId  String @map("tenant_id") @db.Uuid
-  yearMonth String @map("year_month") @db.Char(7)
-  nextVal   Int    @default(1) @map("next_val")
-
-  @@id([tenantId, yearMonth])
-  @@map("document_key_counters")
 }

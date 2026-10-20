@@ -1,7 +1,8 @@
 // Module linking — the single link table (constitution §2, D18).
 // Only src/modules/linking writes rows here. Endpoints are polymorphic (type + id) — no cross-table FKs
 // (RLS blocks them); existence is validated through each module's registered `linkable`.
-// `kind` is constrained by a CHECK in the migration: justifies | transfer | settles | belongs_to.
+// `kind` is constrained by a CHECK in the migration: justifies | transfer | settles | belongs_to | created_from
+// (created_from is exclusive on both ends — partial unique indexes, 20261020190000).
 // Links are immutable (no updated_at): an allocation change is remove + create, both audited.
 
 model Link {
@@ -22,6 +23,11 @@ model Link {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, fromType, fromId, toType, toId, kind], map: "links_tenant_endpoints_kind_key")
+  // The two below are PARTIAL unique indexes (WHERE kind = 'created_from', migration 20261020190000):
+  // one origin per document, one document per entity (D27). Declared so the drift check knows them;
+  // Prisma cannot express the predicate, so never use them as findUnique keys — they are not unique in general.
+  @@unique([tenantId, toType, toId], map: "links_created_from_origin_key")
+  @@unique([tenantId, fromType, fromId], map: "links_created_from_entity_key")
   @@index([tenantId, fromType, fromId], map: "idx_links_from")
   @@index([tenantId, toType, toId], map: "idx_links_to")
   @@map("links")

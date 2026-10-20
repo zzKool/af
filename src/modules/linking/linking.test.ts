@@ -72,6 +72,20 @@ const fakeTransactionLinkable: Linkable = {
   },
 };
 
+/** A fake expense (no amount needed here) — stands in for the expenses module in created_from tests. */
+const fakeExpenses = new Set<string>();
+const fakeExpenseLinkable: Linkable = {
+  type: "expense",
+  async exists(_tx, id) {
+    return fakeExpenses.has(id);
+  },
+  async summary(_tx, id) {
+    return fakeExpenses.has(id)
+      ? { type: "expense", id, label: `expense ${id.slice(0, 8)}`, amount: null, currency: null }
+      : null;
+  },
+};
+
 const uuid = () => crypto.randomUUID();
 
 beforeAll(async () => {
@@ -89,11 +103,13 @@ beforeEach(async () => {
     documentLinkable,
     fakeInvoiceLinkable,
     fakeTransactionLinkable,
+    fakeExpenseLinkable,
   ]) {
     registerLinkable(l);
   }
   fakeInvoices.clear();
   fakeTransactions.clear();
+  fakeExpenses.clear();
 });
 
 afterAll(async () => {
@@ -180,6 +196,72 @@ describe("linking service", () => {
         ).error?.code,
       ).toBe("NOT_FOUND");
     });
+  });
+
+  it("created_from (D27): a document becomes exactly one entity and an entity has one origin", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const doc1 = await createTestDocument(adminPool, tenantId, userId);
+    const doc2 = await createTestDocument(adminPool, tenantId, userId);
+    const e1 = uuid();
+    const e2 = uuid();
+    fakeExpenses.add(e1).add(e2);
+    const link = (expenseId: string, documentId: string) => ({
+      from: { type: "expense" as const, id: expenseId },
+      to: { type: "document" as const, id: documentId },
+      kind: "created_from" as const,
+    });
+
+    await withTenantTransaction(prisma, tenantId, async (tx) => {
+      const caller = owner.callerIdentity;
+      expect(
+        (await linking.createLink(tx, caller, noopAudit, link(e1, doc1.id))).error,
+      ).toBeUndefined();
+
+      // the same document cannot become a second entity
+      const second = await linking.createLink(tx, caller, noopAudit, link(e2, doc1.id));
+      expect(second.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(second.error?.message).toMatch(/already became/);
+
+      // the same entity cannot have a second origin
+      const secondOrigin = await linking.createLink(tx, caller, noopAudit, link(e1, doc2.id));
+      expect(secondOrigin.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(secondOrigin.error?.message).toMatch(/already created from/);
+
+      // another pair is fine; the direction is fixed (entity → document); no allocation on this kind
+      expect(
+        (await linking.createLink(tx, caller, noopAudit, link(e2, doc2.id))).error,
+      ).toBeUndefined();
+      expect(
+        (
+          await linking.createLink(tx, caller, noopAudit, {
+            from: { type: "document", id: doc1.id },
+            to: { type: "expense", id: e2 },
+            kind: "created_from",
+          })
+        ).error?.code,
+      ).toBe("BUSINESS_RULE_VIOLATION");
+      expect(
+        (
+          await linking.createLink(tx, caller, noopAudit, {
+            ...link(e2, doc1.id),
+            allocatedAmount: "10.00",
+          })
+        ).error?.code,
+      ).toBe("BUSINESS_RULE_VIOLATION");
+
+      const fromDoc = await linking.getLinksFor(tx, { type: "document", id: doc1.id });
+      expect(fromDoc.data?.map((l) => [l.kind, l.from.id])).toEqual([["created_from", e1]]);
+    });
+
+    // the partial unique index holds even when the service is bypassed
+    await expect(
+      adminPool.query(
+        `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+         VALUES ($1, 'supplier_invoice', $2, 'document', $3, 'created_from', $4)`,
+        [tenantId, uuid(), doc1.id, userId],
+      ),
+    ).rejects.toThrow(/links_created_from_origin_key/);
   });
 
   it("allocations never exceed the target amount; remaining is reported", async () => {

@@ -236,6 +236,8 @@ Decisions applied: D19 (full-width list archetype), D20 (one kernel `DataTable`,
 Build order (phase-0 item 8): `kernel/db/list-query.ts` + tests → filter components on v2 `DataTable` → `partners` reference use (`queries.list`, `queries.distinct`) → `documents` library migrated (its Zustand filter store becomes URL-backed) → screenshots in the PR.
 
 ## 9. Open questions for the owner
+
+> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (D-h → D20). The questions below are kept as the record of what was asked.
 - Q1 Apply-on-close vs apply-on-each-tick for checkbox and date filters: each tick = one server round-trip (list + distinct). Proposal: live row count in the dropdown, data refreshes on `Apply`/close. OK?
 - Q2 Date presets: `Today · This month · Last month · This quarter · This year · Custom range`. Keep v1's `Last 2 months`? Add `Last 12 months` for the accountant package views?
 - Q3 CSV export for the accountant: comma-separated UTF-8 with BOM (Excel-fr on Swiss/French locales expects `;` and `,` decimals). Pick one: `,` + `.` (machine-friendly, v1) or follow the user's locale (`;` + `,`)? Proposal: `,`/`.` always, and the accountant package (H12) writes `.xlsx` anyway.

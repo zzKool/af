@@ -18,6 +18,9 @@ const MATRIX: Record<LinkKind, Pair> = {
     from: ["document", "invoice", "supplier_invoice", "expense"],
     to: ["partner", "contract"],
   },
+  // what a document became (D27): the expense or supplier invoice created from a reviewed document.
+  // One origin per document and one document per entity — partial unique indexes in the migration.
+  created_from: { from: ["expense", "supplier_invoice"], to: ["document"] },
 };
 
 export function isKindAllowed(kind: LinkKind, from: LinkableType, to: LinkableType): boolean {
@@ -27,3 +30,6 @@ export function isKindAllowed(kind: LinkKind, from: LinkableType, to: LinkableTy
 
 /** Kinds that carry an allocated amount against the `to` entity's amount. */
 export const ALLOCATING_KINDS: readonly LinkKind[] = ["justifies", "settles"];
+
+/** Kinds where each endpoint may take part in at most one link of that kind (one origin, one outcome). */
+export const EXCLUSIVE_KINDS: readonly LinkKind[] = ["created_from"];

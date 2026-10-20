@@ -1,8 +1,14 @@
 // Public DTOs of the linking module. Plain types only — never Prisma types (constitution §2).
 
 /** Relationship kinds — the CHECK constraint on `links.kind` mirrors this list. New kinds are a migration. */
-export type LinkKind = "justifies" | "transfer" | "settles" | "belongs_to";
-export const LINK_KINDS: readonly LinkKind[] = ["justifies", "transfer", "settles", "belongs_to"];
+export type LinkKind = "justifies" | "transfer" | "settles" | "belongs_to" | "created_from";
+export const LINK_KINDS: readonly LinkKind[] = [
+  "justifies",
+  "transfer",
+  "settles",
+  "belongs_to",
+  "created_from",
+];
 
 /**
  * Entity types that can take part in a link. The string is the contract between modules and the link
