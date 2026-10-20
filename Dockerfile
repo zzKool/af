@@ -9,6 +9,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# `npm ci --ignore-scripts` skipped the postinstall: the pdf.js worker into public/ and the Prisma client
+RUN node scripts/copy-pdf-worker.mjs
 RUN npx prisma generate
 RUN npm run build
 
