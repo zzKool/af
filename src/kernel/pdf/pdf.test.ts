@@ -39,7 +39,9 @@ describe.skipIf(!executable)("kernel/pdf (Chromium)", () => {
       }
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(
-        PAGE(`<h1>Invoice VA26-001</h1><p>tenant ${payload.tenantId} / user ${payload.userId}</p>`),
+        PAGE(
+          `<h1>Invoice VA26-INV-001</h1><p>tenant ${payload.tenantId} / user ${payload.userId}</p>`,
+        ),
       );
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

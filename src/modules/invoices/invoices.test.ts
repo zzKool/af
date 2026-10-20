@@ -202,7 +202,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
     const hint = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
       queries.nextNumberHint(tx, "invoice", "VA", "2026-01-31"),
     );
-    expect(hint).toBe("VA26-001");
+    expect(hint).toBe("VA26-INV-001");
   });
 
   it("issue: number, base amounts at the ECB rate of the issue date, declaration period, snapshot, lock (scenario 3)", async () => {
@@ -216,7 +216,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
     const inv = issued.data as NonNullable<typeof issued.data>;
     expect(inv).toMatchObject({
       status: "issued",
-      number: "VA26-001",
+      number: "VA26-INV-001",
       issuedAt: NOW,
       rateToBase: "11.987041",
       rateSource: "ecb_nearest", // 2026-01-31 is a Saturday → Friday's rate, and it says so
@@ -237,7 +237,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
     const second = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
       invoices.issue(tx, caller, noopAudit, NOW, { id: d2.id }),
     );
-    expect(second.data?.number).toBe("VA26-002");
+    expect(second.data?.number).toBe("VA26-INV-002");
     await assertAuditLogged(adminPool, caller.tenantId, "update", "invoice", inv.id);
   });
 
@@ -382,21 +382,21 @@ describe("US1 — draft and issue a monthly invoice", () => {
     );
     const numbers = results.map((r) => r.data?.number).sort();
     expect(numbers).toEqual(
-      Array.from({ length: 15 }, (_, i) => `VA26-${String(i + 1).padStart(3, "0")}`),
+      Array.from({ length: 15 }, (_, i) => `VA26-INV-${String(i + 1).padStart(3, "0")}`),
     );
 
     const d16 = await januaryDraft(caller, w);
     await expect(
       withTenantTransaction(prisma, caller.tenantId, async (tx) => {
         const r = await invoices.issue(tx, caller, noopAudit, NOW, { id: d16.id });
-        expect(r.data?.number).toBe("VA26-016");
+        expect(r.data?.number).toBe("VA26-INV-016");
         throw new Error("rollback");
       }),
     ).rejects.toThrow("rollback");
     const again = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
       invoices.issue(tx, caller, noopAudit, NOW, { id: d16.id }),
     );
-    expect(again.data?.number).toBe("VA26-016");
+    expect(again.data?.number).toBe("VA26-INV-016");
   });
 });
 
@@ -417,7 +417,7 @@ describe("US3 — credit notes", () => {
         status: "draft",
         relatedInvoiceId: d.id,
         totalAmount: "25944.00",
-        internalNote: "Credit note for VA26-001",
+        internalNote: "Credit note for VA26-INV-001",
       });
       expect(draft.data?.lines[0].description).toBe("Credit: Consulting Services");
       // before it is issued the original is untouched
@@ -479,7 +479,7 @@ describe("US3 — credit notes", () => {
 });
 
 describe("US4 — quotes", () => {
-  it("quote: valid until +30, VA26-QT-001, no declaration period; accept; convert; converted state (scenarios 1–3)", async () => {
+  it("quote: valid until +30, VA26-QUO-001, no declaration period; accept; convert; converted state (scenarios 1–3)", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const w = await world(caller);
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
@@ -494,7 +494,7 @@ describe("US4 — quotes", () => {
       });
       expect(q.data?.dueDate).toBe("2026-02-14");
       const issued = await invoices.issue(tx, caller, noopAudit, NOW, { id: q.data?.id as string });
-      expect(issued.data).toMatchObject({ number: "VA26-QT-001", declarationPeriod: null });
+      expect(issued.data).toMatchObject({ number: "VA26-QUO-001", declarationPeriod: null });
       const id = issued.data?.id as string;
 
       expect((await queries.getInvoice(tx, id, "2026-03-01")).data?.state).toBe("expired");
@@ -518,11 +518,11 @@ describe("US4 — quotes", () => {
       await invoices.issue(tx, caller, noopAudit, NOW, { id: converted.data?.id as string });
       expect((await queries.getInvoice(tx, id, TODAY)).data).toMatchObject({
         state: "converted",
-        convertedTo: "VA26-001",
+        convertedTo: "VA26-INV-001",
       });
       // money never settles a quote; the related list shows the invoice
       const related = await queries.relatedDocuments(tx, id);
-      expect(related.map((r) => r.number)).toEqual(["VA26-001"]);
+      expect(related.map((r) => r.number)).toEqual(["VA26-INV-001"]);
     });
   });
 
@@ -623,19 +623,23 @@ describe("US5 — derived states and the list", () => {
         { ...q, filters: { state: { kind: "in", values: ["paid"] } } },
         "2026-02-10",
       );
-      expect(paid.rows.map((r) => r.number)).toEqual(["VA26-001"]);
+      expect(paid.rows.map((r) => r.number)).toEqual(["VA26-INV-001"]);
 
       const byNumber = await queries.listInvoices(
         tx,
         { ...q, sort: [{ col: "number", dir: "asc" }] },
         "2026-02-10",
       );
-      expect(byNumber.rows.map((r) => r.number)).toEqual(["VA26-001", "VA26-002", null]); // blanks last
+      expect(byNumber.rows.map((r) => r.number)).toEqual(["VA26-INV-001", "VA26-INV-002", null]); // blanks last
 
       const search = await queries.listInvoices(tx, { ...q, search: "client va" }, "2026-02-10");
       expect(search.total).toBe(3);
-      const search2 = await queries.listInvoices(tx, { ...q, search: "VA26-002" }, "2026-02-10");
-      expect(search2.rows.map((r) => r.number)).toEqual(["VA26-002"]);
+      const search2 = await queries.listInvoices(
+        tx,
+        { ...q, search: "VA26-INV-002" },
+        "2026-02-10",
+      );
+      expect(search2.rows.map((r) => r.number)).toEqual(["VA26-INV-002"]);
 
       const states = await queries.distinctInvoiceValues(tx, "state", q, "2026-02-10");
       expect(states.map((s) => s.value).sort()).toEqual(["draft", "paid", "sent"]);
@@ -657,7 +661,7 @@ describe("US5 — derived states and the list", () => {
         { ...q, filters: { remaining: { kind: "range", min: "1" } } },
         "2026-02-10",
       );
-      expect(remaining.rows.map((r) => r.number)).toEqual(["VA26-002"]);
+      expect(remaining.rows.map((r) => r.number)).toEqual(["VA26-INV-002"]);
     });
   });
 
