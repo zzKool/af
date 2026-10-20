@@ -1,5 +1,5 @@
 // Cross-platform postinstall: copy the pdf.js worker into public/ (Windows has no cp/mkdir -p).
-import { mkdirSync, copyFileSync, existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 const src = join("node_modules", "pdfjs-dist", "build", "pdf.worker.min.mjs");
