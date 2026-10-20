@@ -6,6 +6,7 @@ import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { EntityPage } from "@/kernel/ui/shell/page";
+import { declaredOn } from "@/modules/exports";
 import { relatedDocuments, resolveSheetContext } from "@/modules/invoices";
 import {
   InvoiceActions,
@@ -25,14 +26,15 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const ctx = await resolveSheetContext(tx, auth, id, today);
     if (!ctx) return null;
-    const [related, partner] = await Promise.all([
+    const [related, partner, declared] = await Promise.all([
       relatedDocuments(tx, id),
       getPartner(tx, ctx.invoice.partnerId),
+      declaredOn(tx, ctx.invoice.declarationPeriod),
     ]);
-    return { ctx, related, partner: partner.data ?? null };
+    return { ctx, related, partner: partner.data ?? null, declared };
   });
   if (!data) notFound();
-  const { ctx, related, partner } = data;
+  const { ctx, related, partner, declared } = data;
   const inv = ctx.invoice;
   const canWrite = can(auth, "update", "invoice");
   const title =
@@ -42,7 +44,30 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <EntityPage
       title={title}
-      meta={`${partner?.name ?? ""} · ${inv.currency} ${inv.totalAmount}${inv.declarationPeriod ? ` · ${inv.declarationPeriod}` : ""}`}
+      meta={
+        <>
+          {`${partner?.name ?? ""} · ${inv.currency} ${inv.totalAmount}`}
+          {inv.declarationPeriod && (
+            <>
+              {" · "}
+              <Link href={`/exports?period=${encodeURIComponent(inv.declarationPeriod)}`}>
+                {inv.declarationPeriod}
+              </Link>
+              {/* "declared" is derived (D-e): the quarter has a declaration row */}
+              {declared && (
+                <span
+                  className="ml-1 text-green-700 dark:text-green-400"
+                  data-testid="invoice-declared"
+                >
+                  {declared.paidAt
+                    ? `· declared ${declared.declaredAt}, paid ${declared.paidAt}`
+                    : `· declared ${declared.declaredAt}`}
+                </span>
+              )}
+            </>
+          )}
+        </>
+      }
       back={<Link href="/invoices">← Invoices</Link>}
       actions={
         <InvoiceActions

@@ -3,7 +3,7 @@ import { NAV_ITEMS, type NavItem } from "@/kernel/nav/constants";
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 
 describe("filterNavItems", () => {
-  test("owner sees Dashboard, Documents, Journal, Banking, Partners, Invoices, Expenses, Supplier invoices, Package, and Settings", () => {
+  test("owner sees Dashboard, Documents, Journal, Banking, Partners, Invoices, Expenses, Supplier invoices, Package, Declarations, and Settings", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
     expect(labels).toEqual([
@@ -16,6 +16,7 @@ describe("filterNavItems", () => {
       "Expenses",
       "Supplier invoices",
       "Package",
+      "Declarations",
       "Settings",
     ]);
   });
@@ -31,6 +32,7 @@ describe("filterNavItems", () => {
       "Expenses",
       "Supplier invoices",
       "Package",
+      "Declarations",
       "Settings",
     ]);
   });
@@ -73,7 +75,7 @@ describe("NAV_ITEMS configuration", () => {
     }
   });
 
-  test("Dashboard, Documents, Journal, Banking, Partners, Invoices, Expenses, Supplier invoices, Package, and Settings are enabled", () => {
+  test("Dashboard, Documents, Journal, Banking, Partners, Invoices, Expenses, Supplier invoices, Package, Declarations, and Settings are enabled", () => {
     const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.label);
     expect(enabled).toEqual([
       "Dashboard",
@@ -85,6 +87,7 @@ describe("NAV_ITEMS configuration", () => {
       "Expenses",
       "Supplier invoices",
       "Package",
+      "Declarations",
       "Settings",
     ]);
   });

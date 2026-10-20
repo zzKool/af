@@ -4,6 +4,7 @@ import {
   Archive,
   ArrowLeftRight,
   BookOpen,
+  FileSpreadsheet,
   FileText,
   Landmark,
   LayoutDashboard,
@@ -40,6 +41,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Wallet,
   ReceiptText,
   Archive,
+  FileSpreadsheet,
   Settings,
 };
 
