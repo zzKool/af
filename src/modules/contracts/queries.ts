@@ -2,4 +2,10 @@
 // 3b/3d: declared here as named re-exports; extraction into standalone query implementations
 // (ListQuery, distinct values for DataTable headers) happens with the partners reference slice.
 
+export {
+  currentRatesFor,
+  listContractRates,
+  listContractRatesFor,
+  rateFor,
+} from "./contract-rates";
 export { getContract, getContracts } from "./contracts";

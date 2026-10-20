@@ -233,7 +233,6 @@ export async function createTestContract(
     startDate?: string;
     endDate?: string;
     assignedEmployeeId?: string;
-    billingRate?: string;
     currency?: string;
     paymentTerms?: string;
     vatRegistrationId?: string;
@@ -246,7 +245,6 @@ export async function createTestContract(
     startDate: overrides?.startDate ?? "2026-01-01",
     endDate: overrides?.endDate ?? null,
     assignedEmployeeId: overrides?.assignedEmployeeId ?? null,
-    billingRate: overrides?.billingRate ?? null,
     currency: overrides?.currency ?? null,
     paymentTerms: overrides?.paymentTerms ?? null,
     vatRegistrationId: overrides?.vatRegistrationId ?? null,
@@ -261,8 +259,8 @@ export async function createTestContract(
     }
     await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
     await client.query(
-      `INSERT INTO contracts (id, tenant_id, name, partner_id, start_date, end_date, assigned_employee_id, billing_rate, currency, payment_terms, vat_registration_id, is_active, created_by, source, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'web', NOW())`,
+      `INSERT INTO contracts (id, tenant_id, name, partner_id, start_date, end_date, assigned_employee_id, currency, payment_terms, vat_registration_id, is_active, created_by, source, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'web', NOW())`,
       [
         contract.id,
         tenantId,
@@ -271,7 +269,6 @@ export async function createTestContract(
         contract.startDate,
         contract.endDate,
         contract.assignedEmployeeId,
-        contract.billingRate,
         contract.currency,
         contract.paymentTerms,
         contract.vatRegistrationId,
@@ -370,7 +367,7 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     // need to truncate using TRUNCATE which bypasses RLS
     // documents BEFORE partners, contracts BEFORE partners (FK dependency)
     await client.query(
-      "TRUNCATE number_series, links, ecb_rates, audit_logs, documents, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
+      "TRUNCATE number_series, links, ecb_rates, audit_logs, documents, contract_rates, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {

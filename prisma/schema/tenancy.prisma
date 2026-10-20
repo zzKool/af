@@ -18,6 +18,7 @@ model Tenant {
   bankAccounts         BankAccount[]
   partners             Partner[]
   contracts            Contract[]
+  contractRates        ContractRate[]
   documents            Document[]
   links                Link[]
   numberSeries         NumberSeries[]

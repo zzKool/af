@@ -1,12 +1,12 @@
 import { z } from "zod/v4";
-import { Prisma } from "@/generated/prisma/browser";
 import type { Contract } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
-import type { ContractDto, ExternalReference } from "./types";
+import { currentRatesFor } from "./contract-rates";
+import type { ContractDto, CurrentRate, ExternalReference } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -25,11 +25,6 @@ const contractBaseSchema = z.object({
   startDate: z.string().date(), // ISO date string "YYYY-MM-DD"
   endDate: z.string().date().optional(),
   assignedEmployeeId: z.string().uuid().optional(),
-  billingRate: z
-    .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Invalid rate format — use digits with up to 2 decimal places")
-    .refine((v) => Number.parseFloat(v) >= 0, "Rate must be non-negative")
-    .optional(),
   currency: z.enum(["SEK", "CHF", "EUR", "USD"]).optional(),
   paymentTerms: z.string().max(50).optional(),
   vatRegistrationId: z.string().uuid().optional(),
@@ -60,7 +55,7 @@ export type UpdateContractInput = z.input<typeof updateContractSchema>;
 
 // --- DTO mapping (Prisma rows never leave the module) ---
 
-export function toContractDto(row: Contract): ContractDto {
+export function toContractDto(row: Contract, currentRate: CurrentRate | null = null): ContractDto {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -69,7 +64,7 @@ export function toContractDto(row: Contract): ContractDto {
     startDate: row.startDate,
     endDate: row.endDate,
     assignedEmployeeId: row.assignedEmployeeId,
-    billingRate: row.billingRate ? row.billingRate.toString() : null,
+    currentRate,
     currency: row.currency,
     paymentTerms: row.paymentTerms,
     vatRegistrationId: row.vatRegistrationId,
@@ -84,10 +79,20 @@ export function toContractDto(row: Contract): ContractDto {
 
 // --- Service Functions ---
 
+function toCurrentRate(
+  r: { id: string; rate: string; unit: CurrentRate["unit"] } | undefined,
+): CurrentRate | null {
+  return r ? { id: r.id, rate: r.rate, unit: r.unit } : null;
+}
+
+/**
+ * Contracts of a partner, newest first. `today` (clock.today()) drives the derived `currentRate` (D24) — pass it
+ * from the action or page; when omitted the DTOs carry `currentRate: null` (writes don't need it).
+ */
 export async function getContracts(
   tx: TransactionClient,
   partnerId: string,
-  options?: { includeInactive?: boolean },
+  options?: { includeInactive?: boolean; today?: string },
 ): Promise<ServiceResult<ContractDto[]>> {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic where clause construction
   const where: any = { partnerId };
@@ -98,18 +103,27 @@ export async function getContracts(
     where,
     orderBy: { startDate: "desc" },
   });
-  return { data: contracts.map(toContractDto) };
+  const current = options?.today
+    ? await currentRatesFor(
+        tx,
+        contracts.map((c) => c.id),
+        options.today,
+      )
+    : new Map();
+  return { data: contracts.map((c) => toContractDto(c, toCurrentRate(current.get(c.id)))) };
 }
 
 export async function getContract(
   tx: TransactionClient,
   id: string,
+  options?: { today?: string },
 ): Promise<ServiceResult<ContractDto>> {
   const contract = await tx.contract.findUnique({ where: { id } });
   if (!contract) {
     return { error: { code: "NOT_FOUND", message: `Contract not found: ${id}`, retryable: false } };
   }
-  return { data: toContractDto(contract) };
+  const current = options?.today ? await currentRatesFor(tx, [id], options.today) : new Map();
+  return { data: toContractDto(contract, toCurrentRate(current.get(id))) };
 }
 
 export async function createContract(
@@ -171,24 +185,6 @@ export async function createContract(
     }
   }
 
-  // Validate billing rate if provided
-  if (data.billingRate !== undefined) {
-    const rateResult = z
-      .string()
-      .regex(/^\d+(\.\d{1,2})?$/)
-      .refine((v) => Number.parseFloat(v) >= 0)
-      .safeParse(data.billingRate);
-    if (!rateResult.success) {
-      return {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid billing rate format",
-          retryable: false,
-        },
-      };
-    }
-  }
-
   // Validate date range
   if (data.endDate && data.startDate > data.endDate) {
     return {
@@ -222,7 +218,6 @@ export async function createContract(
       startDate: new Date(data.startDate),
       endDate: data.endDate ? new Date(data.endDate) : null,
       assignedEmployeeId: data.assignedEmployeeId || null,
-      billingRate: data.billingRate ? new Prisma.Decimal(data.billingRate) : null,
       currency: data.currency || null,
       paymentTerms: data.paymentTerms || null,
       vatRegistrationId: data.vatRegistrationId || null,
@@ -284,24 +279,6 @@ export async function updateContract(
     }
   }
 
-  // Validate billing rate if provided
-  if (data.billingRate !== undefined && data.billingRate !== null) {
-    const rateResult = z
-      .string()
-      .regex(/^\d+(\.\d{1,2})?$/)
-      .refine((v) => Number.parseFloat(v) >= 0)
-      .safeParse(data.billingRate);
-    if (!rateResult.success) {
-      return {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid billing rate format",
-          retryable: false,
-        },
-      };
-    }
-  }
-
   // Validate date range if dates are changing
   const startDate = data.startDate ?? existing.startDate.toISOString().split("T")[0];
   const endDate =
@@ -338,8 +315,6 @@ export async function updateContract(
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
   if (data.assignedEmployeeId !== undefined)
     updateData.assignedEmployeeId = data.assignedEmployeeId || null;
-  if (data.billingRate !== undefined)
-    updateData.billingRate = data.billingRate ? new Prisma.Decimal(data.billingRate) : null;
   if (data.currency !== undefined) updateData.currency = data.currency || null;
   if (data.paymentTerms !== undefined) updateData.paymentTerms = data.paymentTerms || null;
   if (data.vatRegistrationId !== undefined)

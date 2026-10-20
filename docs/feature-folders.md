@@ -14,7 +14,7 @@ src/
     db/              Prisma client, tenant-scoped client (RLS), test setup + fixtures
     errors/          AppError, extract-error
     guards/          architecture guard test
-    i18n/            locale, date formatting, LocaleProvider, FormattedDate
+    i18n/            locale, date formatting, LocaleProvider, FormattedDate; dictionaries/{en,fr}.ts + translate() / useT() (UI strings)
     jobs/            pg-boss queue behind JobDefinition/ScheduleDefinition + withJobContext (see async-jobs)
     list-query/      ListQuery contract: types, URL codec, Prisma where/orderBy/distinct helpers, Zod schema (D20)
     logging/         pino logger
@@ -44,7 +44,7 @@ src/
 prisma/schema/<m>.prisma   the module's models (one folder, Prisma multi-file schema) — see prisma/schema/README.md
 ```
 
-Modules today: `partners` (the reference slice — see [[partners]]), `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
+Modules today: `partners` (the reference slice — see [[partners]]), `contracts` (rate history — see [[contracts]]), `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
 
 ## Rules enforced now (3a)
 - `kernel/*` never imports `modules/*` or `app/*`.

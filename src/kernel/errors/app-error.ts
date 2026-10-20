@@ -12,6 +12,8 @@ export type AppError = {
   code: ErrorCode;
   message: string;
   retryable: boolean;
+  /** Optional structured facts behind the message (ids, dates, counts) so a client can render it in its own language. */
+  details?: Record<string, string | number>;
 };
 
 /** Result of a service call: either data or an AppError — services never throw for business errors. */

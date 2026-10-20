@@ -10,7 +10,6 @@ model Contract {
   startDate           DateTime  @map("start_date") @db.Date
   endDate             DateTime? @map("end_date") @db.Date
   assignedEmployeeId  String?   @map("assigned_employee_id") @db.Uuid
-  billingRate         Decimal?  @map("billing_rate") @db.Decimal(15, 2)
   currency            String?
   paymentTerms        String?   @map("payment_terms")
   vatRegistrationId   String?   @map("vat_registration_id") @db.Uuid
@@ -25,7 +24,40 @@ model Contract {
   partner          Partner          @relation("PartnerContracts", fields: [partnerId], references: [id])
   assignedEmployee Partner?         @relation("EmployeeContracts", fields: [assignedEmployeeId], references: [id])
   vatRegistration  VatRegistration? @relation(fields: [vatRegistrationId], references: [id], onDelete: SetNull)
+  rates            ContractRate[]
 
   @@index([tenantId, partnerId])
   @@map("contracts")
+}
+
+/// Billing unit of a rate (D24). One value today; a new unit is `ALTER TYPE rate_unit ADD VALUE` + a label.
+enum RateUnit {
+  day
+
+  @@map("rate_unit")
+}
+
+/// Dated rate of a contract (D24, specs/contracts). Intervals are inclusive on both ends and never overlap:
+/// CHECK (valid_to >= valid_from) and EXCLUDE USING gist (contract_id WITH =, daterange(valid_from, valid_to, '[]') WITH &&)
+/// live in the migration (Prisma cannot express them). No currency column — the contract's currency is the one.
+/// The former contracts.billing_rate was carried over as one open rate per contract (migration 20261020220000).
+model ContractRate {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  contractId String    @map("contract_id") @db.Uuid
+  validFrom  DateTime  @map("valid_from") @db.Date
+  validTo    DateTime? @map("valid_to") @db.Date
+  rate       Decimal   @db.Decimal(15, 2)
+  unit       RateUnit  @default(day)
+  note       String?   @db.VarChar(500)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy  String    @map("created_by") @db.Uuid
+  source     String    @default("web") @db.VarChar(20)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, contractId, validFrom(sort: Desc)], map: "idx_contract_rates_contract_valid_from")
+  @@map("contract_rates")
 }

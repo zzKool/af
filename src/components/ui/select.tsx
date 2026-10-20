@@ -2,10 +2,36 @@
 
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-const Select = SelectPrimitive.Root;
+/** Base UI's Select.Value prints the raw value unless Root knows the items — collect them from <SelectItem> children. */
+function collectItems(children: React.ReactNode, out: Record<string, React.ReactNode>): void {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    const props = child.props as { value?: unknown; children?: React.ReactNode };
+    if (child.type === SelectItem && typeof props.value === "string") {
+      out[props.value] = props.children;
+      return;
+    }
+    if (props.children) collectItems(props.children, out);
+  });
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: Base UI's Root is generic over the value type; the wrapper only adds `items`
+function Select({ children, items, ...props }: SelectPrimitive.Root.Props<any, boolean>) {
+  const derived = React.useMemo(() => {
+    if (items) return items;
+    const out: Record<string, React.ReactNode> = {};
+    collectItems(children, out);
+    return out;
+  }, [children, items]);
+  return (
+    <SelectPrimitive.Root items={derived} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

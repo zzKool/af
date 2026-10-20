@@ -2,7 +2,11 @@
 
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
+import { createClock } from "@/kernel/clock/clock";
+import * as rateService from "@/modules/contracts/contract-rates";
 import * as contractService from "@/modules/contracts/contracts";
+
+const clock = createClock();
 
 /**
  * Get all contracts for a partner — owner only.
@@ -16,7 +20,10 @@ export const getContractsAction = ownerAction
   )
   .metadata({ name: "getContracts" })
   .action(async ({ ctx, parsedInput }) => {
-    return contractService.getContracts(ctx.tx, parsedInput.partnerId, parsedInput);
+    return contractService.getContracts(ctx.tx, parsedInput.partnerId, {
+      ...parsedInput,
+      today: clock.today(),
+    });
   });
 
 /**
@@ -26,7 +33,7 @@ export const getContractAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
   .metadata({ name: "getContract" })
   .action(async ({ ctx, parsedInput }) => {
-    return contractService.getContract(ctx.tx, parsedInput.id);
+    return contractService.getContract(ctx.tx, parsedInput.id, { today: clock.today() });
   });
 
 /**
@@ -78,4 +85,38 @@ export const reactivateContractAction = ownerAction
       ctx.audit,
       parsedInput.id,
     );
+  });
+
+// --- Rates (D24) ---
+
+/** Rates of one contract, newest first, with the derived state — owner only. */
+export const getContractRatesAction = ownerAction
+  .schema(z.object({ contractId: z.string().uuid() }))
+  .metadata({ name: "getContractRates" })
+  .action(async ({ ctx, parsedInput }) => {
+    return rateService.listContractRates(ctx.tx, parsedInput.contractId, clock.today());
+  });
+
+/** Add a rate; an open-ended one closes the previous open rate on the day before — owner only. */
+export const createContractRateAction = ownerAction
+  .schema(rateService.createContractRateSchema)
+  .metadata({ name: "createContractRate" })
+  .action(async ({ ctx, parsedInput }) => {
+    return rateService.createContractRate(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
+  });
+
+/** Edit dates, amount or note of a rate — owner only. */
+export const updateContractRateAction = ownerAction
+  .schema(rateService.updateContractRateSchema)
+  .metadata({ name: "updateContractRate" })
+  .action(async ({ ctx, parsedInput }) => {
+    return rateService.updateContractRate(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
+  });
+
+/** Delete a rate no invoice line uses — owner only. */
+export const deleteContractRateAction = ownerAction
+  .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "deleteContractRate" })
+  .action(async ({ ctx, parsedInput }) => {
+    return rateService.deleteContractRate(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
   });

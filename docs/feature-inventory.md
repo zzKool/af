@@ -157,6 +157,7 @@ Verdict legend: **v2** keep v2 code · **harvest** rebuild on v2 foundation from
 | What | `ClientRate` effective-dated (`lib/rates/lookup.ts`); `Project` budgets; `PriceList` / `PricingRule` / `ServiceCatalog` | `Contract`: client, date range, employee, rate, currency, payment terms, VAT rule, labelled external reference (PO) |
 | Keeps | currency per contract (CHF / EUR / SEK), payment terms, PO and other labelled references, **rate history** (`ContractRate` valid_from / valid_to; 1 000 in 2025, 1 200 in 2026), rate stored immutably on each invoice line |
 | Mechanism | price lists, pricing rules, service catalog, project budgets → dropped; one contract with dated rates |
+| Status | **Built 2026-10-20** (phase 1, first slice): `contract_rates` with the exclusion constraint, `rateFor`, derived current rate, Rates section, en/fr — `docs/contracts.md`, `specs/contracts/`. `billing_rate` carried over and dropped (D24). |
 
 ### 3.5 Quotes and invoices — harvest
 
