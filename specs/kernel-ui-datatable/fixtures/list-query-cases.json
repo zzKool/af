@@ -1,0 +1,202 @@
+{
+  "_about": "v3 ListQuery examples (ui-conventions.md contract, extended by harvest §3.1/§4.8): each case gives the Filter object, its URL form and the SQL predicate the kernel/db/list-query helper must produce. Parameters are shown inline for readability; the helper binds them.",
+  "filterCases": [
+    {
+      "col": "status",
+      "filter": { "in": ["open", "sent"] },
+      "url": "f.status=in:open,sent",
+      "sql": "status IN ('open','sent')"
+    },
+    {
+      "col": "country",
+      "filter": { "in": ["CH", null] },
+      "url": "f.country=in:CH,~",
+      "sql": "(country IN ('CH') OR country IS NULL)"
+    },
+    {
+      "col": "country",
+      "filter": { "in": [null] },
+      "url": "f.country=in:~",
+      "sql": "country IS NULL"
+    },
+    {
+      "col": "status",
+      "filter": { "in": [] },
+      "url": "",
+      "sql": "",
+      "_note": "empty in = no filter, not 'match nothing'"
+    },
+    {
+      "col": "name",
+      "filter": { "op": "contains", "value": "nordea" },
+      "url": "f.name=contains:nordea",
+      "sql": "name ILIKE '%nordea%'"
+    },
+    {
+      "col": "name",
+      "filter": { "op": "contains", "value": "100%_a\\b" },
+      "url": "f.name=contains:100%25_a%5Cb",
+      "sql": "name ILIKE '%100\\%\\_a\\\\b%' ESCAPE '\\'"
+    },
+    {
+      "col": "name",
+      "filter": { "op": "startsWith", "value": "Vaud" },
+      "url": "f.name=startsWith:Vaud",
+      "sql": "name ILIKE 'Vaud%'"
+    },
+    {
+      "col": "name",
+      "filter": { "op": "equals", "value": "Vaudoise" },
+      "url": "f.name=equals:Vaudoise",
+      "sql": "lower(name) = lower('Vaudoise')"
+    },
+    {
+      "col": "note",
+      "filter": { "op": "empty" },
+      "url": "f.note=empty",
+      "sql": "(note IS NULL OR note = '')"
+    },
+    {
+      "col": "amount",
+      "filter": { "between": ["0", "1000"] },
+      "url": "f.amount=between:0,1000",
+      "sql": "amount BETWEEN 0 AND 1000"
+    },
+    {
+      "col": "amount",
+      "filter": { "between": [null, "1000"] },
+      "url": "f.amount=between:,1000",
+      "sql": "amount <= 1000"
+    },
+    {
+      "col": "amount",
+      "filter": { "between": ["0.01", null] },
+      "url": "f.amount=between:0.01,",
+      "sql": "amount >= 0.01"
+    },
+    {
+      "col": "amount",
+      "filter": { "gt": "0" },
+      "url": "f.amount=gt:0",
+      "sql": "amount > 0",
+      "_note": "preset '> 0'"
+    },
+    {
+      "col": "amount",
+      "filter": { "lt": "0" },
+      "url": "f.amount=lt:0",
+      "sql": "amount < 0",
+      "_note": "preset '< 0'"
+    },
+    {
+      "col": "amount",
+      "filter": { "eq": "131271.18" },
+      "url": "f.amount=eq:131271.18",
+      "sql": "amount = 131271.18",
+      "_note": "Decimal compare; '131271.18' never parsed to float"
+    },
+    {
+      "col": "amount",
+      "filter": { "empty": true },
+      "url": "f.amount=empty",
+      "sql": "amount IS NULL"
+    },
+    {
+      "col": "date",
+      "filter": { "dates": { "years": [2025], "months": ["2026-03"], "days": ["2026-01-15"] } },
+      "url": "f.date=dates:2025,2026-03,2026-01-15",
+      "sql": "(date BETWEEN '2025-01-01' AND '2025-12-31' OR date BETWEEN '2026-01-15' AND '2026-01-15' OR date BETWEEN '2026-03-01' AND '2026-03-31')"
+    },
+    {
+      "col": "date",
+      "filter": { "between": ["2026-10-01", "2026-10-31"] },
+      "url": "f.date=between:2026-10-01,2026-10-31",
+      "sql": "date BETWEEN '2026-10-01' AND '2026-10-31'",
+      "_note": "preset 'This month'"
+    },
+    {
+      "col": "is_reviewed",
+      "filter": { "in": ["true"] },
+      "url": "f.is_reviewed=in:true",
+      "sql": "is_reviewed = true"
+    },
+    {
+      "col": "partner_id",
+      "filter": { "in": ["8f1c…", "2a77…"] },
+      "url": "f.partner_id=in:8f1c…,2a77…",
+      "sql": "partner_id IN ('8f1c…','2a77…')",
+      "_note": "relation column: ids in the query, names in the distinct list"
+    }
+  ],
+  "sortAndPage": [
+    {
+      "url": "sort=date:desc&page=2&size=50",
+      "query": { "sort": [{ "col": "date", "dir": "desc" }], "page": 2, "pageSize": 50 },
+      "sql": "ORDER BY date DESC, id ASC LIMIT 50 OFFSET 50",
+      "_note": "id tiebreaker always appended for stable paging"
+    },
+    {
+      "url": "sort=partner:asc,date:desc",
+      "query": { "sort": [{ "col": "partner", "dir": "asc" }, { "col": "date", "dir": "desc" }] }
+    },
+    {
+      "url": "",
+      "query": { "sort": "column defs default", "page": 1, "pageSize": "table default (25)" }
+    }
+  ],
+  "malformed": [
+    { "url": "f.amount=between:abc,10", "effect": "amount filter dropped, others kept, no error" },
+    { "url": "f.nope=in:x", "effect": "unknown column ignored" },
+    {
+      "url": "f.date=dates:2026-13",
+      "effect": "invalid key dropped from the list; if list becomes empty the filter is dropped"
+    },
+    { "url": "page=0", "effect": "page clamped to 1" },
+    { "url": "size=5000", "effect": "pageSize clamped to 100" }
+  ],
+  "distinctNarrowing": {
+    "_note": "distinct(col, filters) applies every filter except filters[col]; counts over that set; order count desc, value asc; blanks as value null",
+    "rows": [
+      { "id": 1, "type": "client", "country": "CH" },
+      { "id": 2, "type": "client", "country": "CH" },
+      { "id": 3, "type": "supplier", "country": "CH" },
+      { "id": 4, "type": "supplier", "country": "SE" },
+      { "id": 5, "type": "supplier", "country": null },
+      { "id": 6, "type": "employee", "country": "SE" }
+    ],
+    "filters": { "country": { "in": ["CH"] } },
+    "distinctType": [{ "value": "client", "count": 2 }, { "value": "supplier", "count": 1 }],
+    "distinctCountry": [
+      { "value": "CH", "count": 3 },
+      { "value": "SE", "count": 2 },
+      { "value": null, "count": 1 }
+    ],
+    "listTotal": 3,
+    "cap": 500,
+    "truncatedShape": {
+      "values": "top 500 by count",
+      "truncated": true,
+      "hint": "search to narrow"
+    },
+    "searchParam": {
+      "q": "nor",
+      "sql": "value ILIKE 'nor%' first, then ILIKE '%nor%'",
+      "appliesNarrowing": true
+    }
+  },
+  "sums": {
+    "_note": "queries.list returns sums for money columns over the whole filtered set, as Decimal strings per currency",
+    "example": { "amount": { "SEK": "131271.18", "CHF": "-9093.63" } }
+  },
+  "tablePreferences": {
+    "key": "partners",
+    "json": {
+      "visibility": { "vat_number": false },
+      "order": ["name", "type", "country", "created_at"],
+      "widths": { "name": 320 },
+      "density": "comfortable"
+    },
+    "notPersisted": ["filters", "sort", "page", "selection"],
+    "debounceMs": 2000
+  }
+}

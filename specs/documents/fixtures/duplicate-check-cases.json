@@ -1,0 +1,266 @@
+{
+  "_about": "Duplicate detection constants, strings and scenarios from af_core lib/documents/duplicate-entity-detection.ts, app/api/documents/route.ts (upload 409), lib/validation/__tests__/malware-scanner.test.ts (hash cases) and app/api/partners/match/route.ts (partner scoring). Scenarios are written as data with the v1 result and, where v3 differs, the v3 result.",
+  "constants": {
+    "hashAlgorithm": "sha256",
+    "hashEncoding": "hex",
+    "fuzzyAmountTolerance": 0.01,
+    "fuzzyDateToleranceDays": 7,
+    "maxMatchesPerStrategy": 5,
+    "confidenceOrder": ["HIGH", "MEDIUM", "LOW"],
+    "strategiesByEntityType": {
+      "SUPPLIER_INVOICE": ["EXACT_MATCH", "CONTENT_HASH", "FUZZY_MATCH"],
+      "EXPENSE_CLAIM": ["CONTENT_HASH"],
+      "COMPANY_PURCHASE": ["CONTENT_HASH"]
+    }
+  },
+  "hashCases": [
+    {
+      "input": "Hello, World!",
+      "expected": "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f"
+    },
+    { "input": "", "expected": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" },
+    {
+      "property": "same bytes → same hash; different bytes → different hash; 64 lowercase hex chars"
+    }
+  ],
+  "uploadDuplicate": {
+    "status": 409,
+    "error": "Duplicate document detected",
+    "message": "A document with identical content already exists. Use ?force=true to upload anyway.",
+    "duplicatePayloadFields": [
+      "id",
+      "fileName",
+      "uploadedAt",
+      "uploadedBy",
+      "documentType",
+      "linkedEntityType",
+      "linkedEntityId"
+    ],
+    "forceParam": "force=true",
+    "cardStrings": {
+      "title": "Duplicate Document Detected",
+      "body": "A document with identical content already exists:",
+      "uploadedLine": "Uploaded {date} by {user}",
+      "linkedLine": "Linked to {entity type}",
+      "useExisting": "Use Existing Document",
+      "uploadAnyway": "Upload Anyway"
+    }
+  },
+  "reasonStrings": {
+    "EXACT_MATCH": "Invoice #{invoiceNumber} from {partnerName} already exists",
+    "CONTENT_HASH_SUPPLIER_INVOICE": "This exact document was already used to create Supplier Invoice #{number}",
+    "CONTENT_HASH_EXPENSE_CLAIM": "This exact document was already used to create Expense Claim #{number}",
+    "CONTENT_HASH_COMPANY_PURCHASE": "This exact document was already used to create Company Purchase #{number}",
+    "FUZZY_MATCH": "Similar invoice exists: #{invoiceNumber} for {totalAmount.toFixed(2)} on {invoiceDate yyyy-mm-dd}"
+  },
+  "entityScenarios": {
+    "existingSupplierInvoices": [
+      {
+        "id": "si-1",
+        "partnerId": "p-nordea",
+        "partnerName": "Nordea",
+        "invoiceNumber": "F-2026-0042",
+        "invoiceDate": "2026-03-10",
+        "totalAmount": "1000.00",
+        "currency": "SEK",
+        "documentHash": "h-aaa"
+      },
+      {
+        "id": "si-2",
+        "partnerId": "p-acc",
+        "partnerName": "Accountant AB",
+        "invoiceNumber": "9160",
+        "invoiceDate": "2026-02-01",
+        "totalAmount": "4500.00",
+        "currency": "SEK",
+        "documentHash": "h-bbb"
+      },
+      {
+        "id": "si-3",
+        "partnerId": "p-nordea",
+        "partnerName": "Nordea",
+        "invoiceNumber": "F-2026-0050",
+        "invoiceDate": "2026-04-10",
+        "totalAmount": "1000.00",
+        "currency": "CHF",
+        "documentHash": "h-ccc"
+      }
+    ],
+    "cases": [
+      {
+        "case": "exact-hit",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "invoiceNumber": "F-2026-0042",
+        "amount": 999,
+        "date": "2026-05-01",
+        "documentHash": "h-new",
+        "expectV1": [{ "type": "EXACT_MATCH", "confidence": "HIGH", "existingEntityId": "si-1" }]
+      },
+      {
+        "case": "exact-normalised",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "invoiceNumber": " f-2026-0042 ",
+        "documentHash": "h-new",
+        "expectV1": [],
+        "expectV3": [{ "type": "exact", "confidence": "high", "existingEntityId": "si-1" }]
+      },
+      {
+        "case": "hash-hit",
+        "entityType": "SUPPLIER_INVOICE",
+        "documentHash": "h-bbb",
+        "expectV1": [
+          {
+            "type": "CONTENT_HASH",
+            "confidence": "HIGH",
+            "existingEntityId": "si-2",
+            "existingDocumentId": "doc-of-h-bbb"
+          }
+        ]
+      },
+      {
+        "case": "hash-other-kind",
+        "entityType": "EXPENSE_CLAIM",
+        "documentHash": "h-bbb",
+        "expectV1": [],
+        "_note": "h-bbb created a SUPPLIER_INVOICE, not an EXPENSE_CLAIM; v1 filters linkedEntityType = requested type. v3 (Q): report it anyway as 'already became a supplier invoice'."
+      },
+      {
+        "case": "fuzzy-hit",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "amount": 1005,
+        "date": "2026-03-15",
+        "currency": "SEK",
+        "documentHash": "h-new",
+        "expectV1": [{ "type": "FUZZY_MATCH", "confidence": "MEDIUM", "existingEntityId": "si-1" }]
+      },
+      {
+        "case": "fuzzy-amount-out",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "amount": 1015,
+        "date": "2026-03-15",
+        "currency": "SEK",
+        "documentHash": "h-new",
+        "expectV1": []
+      },
+      {
+        "case": "fuzzy-date-out",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "amount": 1000,
+        "date": "2026-03-18",
+        "currency": "SEK",
+        "documentHash": "h-new",
+        "expectV1": []
+      },
+      {
+        "case": "fuzzy-date-edge",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "amount": 1000,
+        "date": "2026-03-17",
+        "currency": "SEK",
+        "documentHash": "h-new",
+        "expectV1": [{ "type": "FUZZY_MATCH", "confidence": "MEDIUM", "existingEntityId": "si-1" }],
+        "_note": "7 days inclusive"
+      },
+      {
+        "case": "fuzzy-currency",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "amount": 1000,
+        "date": "2026-04-12",
+        "currency": "SEK",
+        "documentHash": "h-new",
+        "expectV1": [{ "type": "FUZZY_MATCH", "confidence": "MEDIUM", "existingEntityId": "si-3" }],
+        "expectV3": [],
+        "_note": "v1 ignored currency (si-3 is CHF); v3 compares it"
+      },
+      {
+        "case": "dedupe-order",
+        "entityType": "SUPPLIER_INVOICE",
+        "partnerId": "p-nordea",
+        "invoiceNumber": "F-2026-0042",
+        "amount": 1000,
+        "date": "2026-03-10",
+        "currency": "SEK",
+        "documentHash": "h-aaa",
+        "expectV1": [{ "type": "EXACT_MATCH", "confidence": "HIGH", "existingEntityId": "si-1" }],
+        "_note": "si-1 would match A, B and C; reported once, from A"
+      },
+      {
+        "case": "no-partner-from-inbox",
+        "entityType": "SUPPLIER_INVOICE",
+        "invoiceNumber": "F-2026-0042",
+        "amount": 1000,
+        "date": "2026-03-10",
+        "documentHash": "h-new",
+        "expectV1": [],
+        "_note": "v1 inbox never sends partnerId → only the hash strategy runs"
+      }
+    ],
+    "uiRule": "block with the panel when any match has confidence HIGH; MEDIUM-only proceeds silently in v1 (v3: inline warning)"
+  },
+  "partnerMatch": {
+    "weights": {
+      "vatExact": 100,
+      "nameExact": 80,
+      "nameContains": 60,
+      "nameLevenshtein": "40 - 10 * distance, distance <= 3",
+      "addressContains": 20,
+      "rolePerMatch": 10
+    },
+    "confidencePercent": "min(100, round(score / 140 * 100))",
+    "bestMatchThresholdPercent": 60,
+    "cases": [
+      {
+        "query": {
+          "name": "Nordea Bank Abp",
+          "vatNumber": "SE 5560 1234-01",
+          "roles": ["SUPPLIER"]
+        },
+        "partner": {
+          "name": "Nordea Bank Abp",
+          "vatNumber": "SE556012340 1",
+          "roles": ["SUPPLIER"]
+        },
+        "expectScore": 190,
+        "expectPercent": 100
+      },
+      {
+        "query": { "name": "Nordea", "roles": ["SUPPLIER"] },
+        "partner": { "name": "Nordea Bank Abp", "roles": ["SUPPLIER"] },
+        "expectScore": 70,
+        "expectPercent": 50
+      },
+      {
+        "query": { "name": "Nordea Bank Abq", "roles": ["SUPPLIER"] },
+        "partner": { "name": "Nordea Bank Abp", "roles": ["SUPPLIER"] },
+        "expectScore": 40,
+        "expectPercent": 29,
+        "_note": "distance 1 → 30, + role 10"
+      },
+      {
+        "query": { "name": "Microsoft Ireland", "roles": ["SUPPLIER"] },
+        "partner": { "name": "Microsoft Ireland", "roles": ["CUSTOMER"] },
+        "expectScore": 80,
+        "expectPercent": 57
+      },
+      {
+        "query": { "name": "OpenAI", "address": "548 Market St" },
+        "partner": { "name": "OpenAI, LLC", "address": "548 Market St, San Francisco" },
+        "expectScore": 80,
+        "expectPercent": 57
+      },
+      {
+        "query": { "name": "Totally Different" },
+        "partner": { "name": "Nordea Bank Abp" },
+        "expectScore": 0,
+        "excluded": true
+      }
+    ]
+  }
+}

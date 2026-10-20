@@ -1,0 +1,120 @@
+{
+  "_about": "Owner's rate history (feature-inventory §3.4: 1 000 CHF in 2025, 1 200 CHF in 2026) and lookup cases derived from v1 lib/rates/lookup.ts semantics (validFrom <= d AND (validTo IS NULL OR validTo >= d), latest validFrom wins). Dates are calendar days, both bounds inclusive.",
+  "contract": {
+    "partnerShort": "VA",
+    "currency": "CHF",
+    "unit": "day",
+    "defaultLineDescription": "Consulting Services"
+  },
+  "rates": [
+    {
+      "id": "r2025",
+      "validFrom": "2025-01-01",
+      "validTo": "2025-12-31",
+      "rate": "1000.00",
+      "note": "2025 rate"
+    },
+    {
+      "id": "r2026",
+      "validFrom": "2026-01-01",
+      "validTo": null,
+      "rate": "1200.00",
+      "note": "2026 rate, open"
+    }
+  ],
+  "lookupCases": [
+    {
+      "case": "inside-open",
+      "date": "2026-03-15",
+      "expectRateId": "r2026",
+      "expectRate": "1200.00"
+    },
+    {
+      "case": "inside-closed",
+      "date": "2025-06-30",
+      "expectRateId": "r2025",
+      "expectRate": "1000.00"
+    },
+    {
+      "case": "from-inclusive",
+      "date": "2026-01-01",
+      "expectRateId": "r2026",
+      "expectRate": "1200.00"
+    },
+    {
+      "case": "to-inclusive",
+      "date": "2025-12-31",
+      "expectRateId": "r2025",
+      "expectRate": "1000.00"
+    },
+    { "case": "before-first", "date": "2024-12-31", "expectRateId": null, "expectRate": null }
+  ],
+  "gapScenario": {
+    "rates": [
+      { "id": "a", "validFrom": "2025-01-01", "validTo": "2025-06-30", "rate": "1000.00" },
+      { "id": "b", "validFrom": "2025-09-01", "validTo": null, "rate": "1100.00" }
+    ],
+    "cases": [
+      { "case": "gap", "date": "2025-07-15", "expectRateId": null },
+      { "case": "after-gap", "date": "2025-09-01", "expectRateId": "b" }
+    ]
+  },
+  "overlapScenarioV1Only": {
+    "_note": "v1 allowed this; latest validFrom wins. v3 rejects the insert of the second row (overlap guard), so the lookup case is a property test only.",
+    "rates": [
+      { "id": "x", "validFrom": "2025-01-01", "validTo": null, "rate": "1000.00" },
+      { "id": "y", "validFrom": "2025-06-01", "validTo": "2025-12-31", "rate": "1050.00" }
+    ],
+    "cases": [{ "case": "overlap-latest-wins", "date": "2025-07-01", "expectRateId": "y" }]
+  },
+  "autoCloseScenario": {
+    "before": [{ "id": "open2025", "validFrom": "2025-01-01", "validTo": null, "rate": "1000.00" }],
+    "insert": { "validFrom": "2026-01-01", "validTo": null, "rate": "1200.00" },
+    "expectAfterV1": [{ "id": "open2025", "validTo": "2026-01-01" }],
+    "expectAfterV3": [{ "id": "open2025", "validTo": "2025-12-31" }]
+  },
+  "invoicePeriodCases": [
+    {
+      "case": "january-2026",
+      "periodLabel": "2026 January",
+      "periodStart": "2026-01-01",
+      "periodEnd": "2026-01-31",
+      "days": 20,
+      "expectRate": "1200.00",
+      "expectNet": "24000.00"
+    },
+    {
+      "case": "december-2025",
+      "periodLabel": "2025 December",
+      "periodStart": "2025-12-01",
+      "periodEnd": "2025-12-31",
+      "days": 18,
+      "expectRate": "1000.00",
+      "expectNet": "18000.00"
+    },
+    {
+      "case": "spanning-change",
+      "periodLabel": "2025-12-15 to 2026-01-15",
+      "periodStart": "2025-12-15",
+      "periodEnd": "2026-01-15",
+      "days": 20,
+      "expectProposal": "split",
+      "expectRates": ["1000.00", "1200.00"]
+    }
+  ],
+  "validationCases": [
+    {
+      "case": "validTo-before-validFrom",
+      "validFrom": "2026-01-10",
+      "validTo": "2026-01-05",
+      "expectError": "Valid To date must be after Valid From date"
+    },
+    {
+      "case": "zero-rate",
+      "validFrom": "2026-01-01",
+      "rate": "0",
+      "expectError": "A valid amount is required"
+    },
+    { "case": "missing-validFrom", "rate": "1200.00", "expectError": "Valid from is required" }
+  ]
+}

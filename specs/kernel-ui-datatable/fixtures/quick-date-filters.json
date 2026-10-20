@@ -1,0 +1,72 @@
+{
+  "_about": "v1 quick date filters from components/advanced-table/utils.ts getQuickDateFilters() (order as rendered in the date dropdown), the documents-inbox quick filters (types/document-inbox.ts), and the v3 preset proposal. 'now' is captured once; ranges are inclusive calendar days in local time.",
+  "v1TablePresets": [
+    { "value": "today", "label": "Today", "from": "today", "to": "today" },
+    {
+      "value": "current-month",
+      "label": "Current Month",
+      "from": "first day of current month",
+      "to": "last day of current month"
+    },
+    {
+      "value": "last-month",
+      "label": "Last Month",
+      "from": "first day of previous month",
+      "to": "last day of previous month"
+    },
+    {
+      "value": "last-2-months",
+      "label": "Last 2 Months",
+      "from": "first day of month − 2",
+      "to": "now"
+    },
+    { "value": "current-year", "label": "Current Year", "from": "Jan 1", "to": "Dec 31" }
+  ],
+  "v1TablePresetSemantics": "selects every EXISTING day of the data within the range as individual day keys (years and months sets cleared); nothing selected when the data has no day in the range",
+  "v1InboxQuickFilters": [
+    { "value": "all", "label": "All Time" },
+    { "value": "today", "label": "Today", "from": "start of today", "to": "now" },
+    {
+      "value": "this_week",
+      "label": "This Week",
+      "from": "start of today − getDay() days (Sunday start)",
+      "to": "now"
+    },
+    { "value": "this_month", "label": "This Month", "from": "first of month", "to": "now" },
+    {
+      "value": "last_30_days",
+      "label": "Last 30 Days",
+      "from": "start of today − 30 days",
+      "to": "now"
+    }
+  ],
+  "examplesWithNow": {
+    "now": "2026-10-20T14:30:00+02:00",
+    "today": ["2026-10-20", "2026-10-20"],
+    "current-month": ["2026-10-01", "2026-10-31"],
+    "last-month": ["2026-09-01", "2026-09-30"],
+    "last-2-months": ["2026-08-01", "2026-10-20"],
+    "current-year": ["2026-01-01", "2026-12-31"],
+    "this_week(v1 Sunday start)": ["2026-10-18", "2026-10-20"],
+    "this_week(v3 ISO Monday)": ["2026-10-19", "2026-10-20"],
+    "last_30_days": ["2026-09-20", "2026-10-20"]
+  },
+  "v3Presets": [
+    { "value": "today", "label": "Today", "between": ["today", "today"] },
+    { "value": "thisMonth", "label": "This month", "between": ["first of month", "last of month"] },
+    {
+      "value": "lastMonth",
+      "label": "Last month",
+      "between": ["first of previous month", "last of previous month"]
+    },
+    {
+      "value": "thisQuarter",
+      "label": "This quarter",
+      "between": ["first day of calendar quarter", "last day of calendar quarter"]
+    },
+    { "value": "thisYear", "label": "This year", "between": ["Jan 1", "Dec 31"] },
+    { "value": "custom", "label": "Custom range…", "between": ["picked", "picked"] }
+  ],
+  "v3PresetSemantics": "writes a single { between: [from, to] } filter (URL: between:2026-10-01,2026-10-31); never expands to day keys; week and quarter follow ISO / calendar via Clock (Europe/Stockholm)",
+  "v3MonthLabels": "from the user's locale (Intl.DateTimeFormat month:'long'), not the English MONTH_NAMES"
+}

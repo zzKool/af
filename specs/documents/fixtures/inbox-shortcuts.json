@@ -1,0 +1,118 @@
+{
+  "_about": "Keyboard map of af_core app/dashboard/documents/inbox/InboxClient.tsx (handler l.771–938, help modal l.1727–1785). 'ignoredWhen' applies to the whole handler.",
+  "ignoredWhen": [
+    "event target is INPUT, TEXTAREA or SELECT",
+    "duplicate panel open and key is not Escape"
+  ],
+  "shortcuts": [
+    {
+      "keys": ["?"],
+      "section": "General",
+      "help": "Toggle this help",
+      "action": "toggle shortcuts help"
+    },
+    {
+      "keys": ["Esc"],
+      "section": "Navigation",
+      "help": "Close sidebar / Clear selection",
+      "action": "first of: close help, cancel duplicate panel, close side panel, clear selection"
+    },
+    {
+      "keys": ["j", "↓"],
+      "section": "Navigation",
+      "help": "Next document",
+      "action": "focus next row (wrap to first) and open it in the side panel",
+      "condition": "rows > 0"
+    },
+    {
+      "keys": ["k", "↑"],
+      "section": "Navigation",
+      "help": "Previous document",
+      "action": "focus previous row (wrap to last) and open it",
+      "condition": "rows > 0"
+    },
+    {
+      "keys": ["x"],
+      "section": "Selection",
+      "help": "Toggle selection on focused document",
+      "action": "toggle checkbox of focused row",
+      "condition": "a row is focused"
+    },
+    {
+      "keys": ["a"],
+      "section": "Selection",
+      "help": "Select all visible documents",
+      "action": "select all visible rows, or deselect all when all are selected"
+    },
+    {
+      "keys": ["o"],
+      "section": "Actions",
+      "help": "Run OCR (Invoice model)",
+      "action": "run OCR with INVOICE model on the open row",
+      "condition": "open row is pending"
+    },
+    {
+      "keys": ["i"],
+      "section": "Actions",
+      "help": "Create Supplier Invoice",
+      "action": "duplicate check then create supplier invoice from the open row",
+      "condition": "open row is ready"
+    },
+    {
+      "keys": ["e"],
+      "section": "Actions",
+      "help": "Create Expense Claim",
+      "action": "duplicate check then create expense claim",
+      "condition": "open row is ready"
+    },
+    {
+      "keys": ["l"],
+      "section": "Actions",
+      "help": "Link to entity",
+      "action": "open link modal for the selection, else for the open row",
+      "condition": "selection or open row"
+    },
+    {
+      "keys": ["d"],
+      "section": "Actions",
+      "help": "Archive selected/focused",
+      "action": "archive selection if any, else the open row",
+      "condition": "not on the archived tab / row not archived"
+    },
+    {
+      "keys": ["r"],
+      "section": "General",
+      "help": "Refresh list",
+      "action": "restore selection when on the archived tab with a selection, else refresh the list"
+    },
+    {
+      "keys": ["z"],
+      "section": "Actions",
+      "help": "Undo last action",
+      "action": "pop undo stack and run the inverse",
+      "condition": "stack not empty"
+    },
+    {
+      "keys": ["Enter"],
+      "section": "Suggestions",
+      "help": "Apply top HIGH confidence suggestion",
+      "action": "create & link with the top candidate",
+      "condition": "open row is ready and top candidate confidence is HIGH"
+    },
+    {
+      "keys": ["1", "2", "3"],
+      "section": "Suggestions",
+      "help": "Apply nth suggestion",
+      "action": "create & link with candidate n",
+      "condition": "open row is ready and candidate n exists"
+    }
+  ],
+  "helpSections": ["Navigation", "Selection", "Actions", "Suggestions", "General"],
+  "v3Additions": [
+    { "keys": ["u"], "action": "alias of z (ui-conventions: u = undo)" },
+    {
+      "keys": ["Enter"],
+      "action": "open the row (ui-conventions: enter = open) — conflicts with v1 'apply top suggestion'; owner to decide (Q5)"
+    }
+  ]
+}

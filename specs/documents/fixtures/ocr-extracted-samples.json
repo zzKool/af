@@ -1,0 +1,118 @@
+{
+  "_about": "OCR extractedData shapes as consumed by the v1 inbox (types/document-inbox.ts OcrExtractedData), the wizard (useWizardState.setOcrResult) and create-entity (route.ts entityData). Payloads copied from the v1 tests.",
+  "fields": {
+    "invoiceModel": [
+      "vendorName",
+      "invoiceId",
+      "invoiceDate",
+      "dueDate",
+      "invoiceTotal",
+      "subTotal",
+      "totalTax",
+      "currencyCode",
+      "lineItems[] {description, quantity, unitPrice, amount, taxAmount}"
+    ],
+    "receiptModel": [
+      "merchantName",
+      "transactionDate",
+      "total",
+      "subtotal",
+      "totalTax",
+      "currencyCode",
+      "receiptType",
+      "items[] {description, quantity, price, totalPrice}"
+    ]
+  },
+  "resolution": {
+    "amount": "invoiceTotal ?? total",
+    "vatAmount": "totalTax",
+    "subtotal": "subTotal ?? subtotal",
+    "currency": "currencyCode ?? 'SEK'",
+    "counterparty": "vendorName ?? merchantName",
+    "date": "invoiceDate ?? transactionDate",
+    "invoiceNumber": "invoiceId",
+    "title": "override ?? vendorName ?? merchantName ?? fileName",
+    "dueDateDefault": "today + 30 days when missing (v1: Date.now() + 30d, not invoiceDate + 30d); v3: invoice date + partner/contract payment terms"
+  },
+  "samples": [
+    {
+      "name": "ocr-invoice-basic",
+      "source": "app/api/documents/[id]/create-entity/__tests__/route.test.ts mockOcrResult",
+      "modelType": "INVOICE",
+      "extractedData": {
+        "vendorName": "Test Supplier",
+        "invoiceId": "INV-001",
+        "invoiceTotal": 1500.0,
+        "totalTax": 300.0,
+        "currencyCode": "SEK",
+        "invoiceDate": "2024-01-15",
+        "dueDate": "2024-02-15"
+      },
+      "expectSupplierInvoice": {
+        "invoiceNumber": "INV-001",
+        "totalAmount": 1500.0,
+        "vatAmount": 300.0,
+        "currency": "SEK",
+        "invoiceDate": "2024-01-15",
+        "dueDate": "2024-02-15",
+        "lines": [{ "description": "Test Supplier", "quantity": 1 }]
+      }
+    },
+    {
+      "name": "ocr-invoice-wizard",
+      "source": "components/documents/wizard/hooks/__tests__/useWizardState.test.ts",
+      "modelType": "INVOICE",
+      "extractedData": {
+        "invoiceTotal": 1500.5,
+        "totalTax": 300.1,
+        "currencyCode": "EUR",
+        "invoiceId": "INV-2024-001",
+        "invoiceDate": "2024-01-15",
+        "dueDate": "2024-02-15",
+        "vendorName": "Test Vendor",
+        "lineItems": []
+      },
+      "expectForm": {
+        "amount": 1500.5,
+        "vatAmount": 300.1,
+        "currency": "EUR",
+        "invoiceNumber": "INV-2024-001",
+        "date": "2024-01-15",
+        "dueDate": "2024-02-15"
+      }
+    },
+    {
+      "name": "ocr-receipt-minimal",
+      "source": "shape per types/document-inbox.ts",
+      "modelType": "RECEIPT",
+      "extractedData": {
+        "merchantName": "SBB CFF FFS",
+        "transactionDate": "2026-03-11",
+        "total": 48.6,
+        "currencyCode": "CHF",
+        "receiptType": "Transport"
+      },
+      "expectForm": {
+        "amount": 48.6,
+        "currency": "CHF",
+        "date": "2026-03-11",
+        "counterparty": "SBB CFF FFS"
+      }
+    },
+    {
+      "name": "ocr-no-amount",
+      "modelType": "INVOICE",
+      "extractedData": { "vendorName": "Unknown" },
+      "expect": {
+        "suggestions": { "candidates": [], "error": "No amount in OCR data" },
+        "wizardCanProceedFromDetails": false
+      }
+    }
+  ],
+  "qualityThresholds": {
+    "high": { "avgConfidence": ">= 0.8", "populatedRatio": ">= 0.7" },
+    "medium": { "avgConfidence": ">= 0.5", "populatedRatio": ">= 0.5" },
+    "low": "otherwise",
+    "badge": "{label} {round(avgConfidence*100)}%"
+  }
+}

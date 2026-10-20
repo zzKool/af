@@ -1,0 +1,366 @@
+{
+  "_source": "Worked examples of af_core lib/validation/invoices.ts calculateLineTotals (L382-416) and calculateInvoiceTotals (L421-486), and of app/api/invoices/[id]/credit-note/route.ts (L94-131). Rounding = Math.round(x*100)/100 at each line field, then at each invoice field. Amounts are strings to keep them exact for Decimal-based tests. Cases K and L document v1 edge behaviour that v3 must change.",
+  "cases": [
+    {
+      "id": "A-standard-month",
+      "note": "The owner's normal invoice: one line, days x contract rate, Swiss client, 8.1 %",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "20",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "24000.00",
+          "discountAmount": "0.00",
+          "netAmount": "24000.00",
+          "vatAmount": "1944.00",
+          "totalAmount": "25944.00"
+        }
+      ],
+      "expected": {
+        "subtotal": "24000.00",
+        "discountAmount": "0.00",
+        "netAmount": "24000.00",
+        "vatAmount": "1944.00",
+        "totalAmount": "25944.00",
+        "vatBreakdown": [{ "rate": "8.1", "amount": "1944.00" }]
+      }
+    },
+    {
+      "id": "B-half-day",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "0.5",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "600.00",
+          "discountAmount": "0.00",
+          "netAmount": "600.00",
+          "vatAmount": "48.60",
+          "totalAmount": "648.60"
+        }
+      ],
+      "expected": {
+        "subtotal": "600.00",
+        "discountAmount": "0.00",
+        "netAmount": "600.00",
+        "vatAmount": "48.60",
+        "totalAmount": "648.60",
+        "vatBreakdown": [{ "rate": "8.1", "amount": "48.60" }]
+      }
+    },
+    {
+      "id": "C-line-discount-percent",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "20",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1",
+          "discountType": "PERCENTAGE",
+          "discountPercent": "10"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "24000.00",
+          "discountAmount": "2400.00",
+          "netAmount": "21600.00",
+          "vatAmount": "1749.60",
+          "totalAmount": "23349.60"
+        }
+      ],
+      "expected": {
+        "subtotal": "21600.00",
+        "discountAmount": "0.00",
+        "netAmount": "21600.00",
+        "vatAmount": "1749.60",
+        "totalAmount": "23349.60",
+        "vatBreakdown": [{ "rate": "8.1", "amount": "1749.60" }]
+      }
+    },
+    {
+      "id": "D-line-discount-fixed",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "20",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1",
+          "discountType": "FIXED",
+          "discountFixed": "500.00"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "24000.00",
+          "discountAmount": "500.00",
+          "netAmount": "23500.00",
+          "vatAmount": "1903.50",
+          "totalAmount": "25403.50"
+        }
+      ],
+      "expected": {
+        "subtotal": "23500.00",
+        "discountAmount": "0.00",
+        "netAmount": "23500.00",
+        "vatAmount": "1903.50",
+        "totalAmount": "25403.50",
+        "vatBreakdown": [{ "rate": "8.1", "amount": "1903.50" }]
+      }
+    },
+    {
+      "id": "E-invoice-discount-percent-two-lines",
+      "note": "Invoice-level discount is applied to the subtotal; VAT is scaled by netAmount/subtotal (0.95) per line, then summed",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "20",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1"
+        },
+        {
+          "description": "Workshop",
+          "quantity": "2",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1"
+        }
+      ],
+      "invoiceDiscount": { "discountType": "PERCENTAGE", "discountPercent": "5" },
+      "expectedLines": [
+        {
+          "grossAmount": "24000.00",
+          "discountAmount": "0.00",
+          "netAmount": "24000.00",
+          "vatAmount": "1944.00",
+          "totalAmount": "25944.00"
+        },
+        {
+          "grossAmount": "2400.00",
+          "discountAmount": "0.00",
+          "netAmount": "2400.00",
+          "vatAmount": "194.40",
+          "totalAmount": "2594.40"
+        }
+      ],
+      "expected": {
+        "subtotal": "26400.00",
+        "discountAmount": "1320.00",
+        "netAmount": "25080.00",
+        "vatAmount": "2031.48",
+        "totalAmount": "27111.48",
+        "vatBreakdown": [{ "rate": "8.1", "amount": "2031.48" }]
+      }
+    },
+    {
+      "id": "F-two-vat-rates",
+      "note": "vatBreakdown sorted by rate ascending; rows with amount 0 are dropped",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "10",
+          "quantityType": "DAY",
+          "unitPrice": "1000.00",
+          "vatRate": "8.1"
+        },
+        {
+          "description": "Printed handbook",
+          "quantity": "1",
+          "quantityType": "UNIT",
+          "unitPrice": "200.00",
+          "vatRate": "2.6"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "10000.00",
+          "discountAmount": "0.00",
+          "netAmount": "10000.00",
+          "vatAmount": "810.00",
+          "totalAmount": "10810.00"
+        },
+        {
+          "grossAmount": "200.00",
+          "discountAmount": "0.00",
+          "netAmount": "200.00",
+          "vatAmount": "5.20",
+          "totalAmount": "205.20"
+        }
+      ],
+      "expected": {
+        "subtotal": "10200.00",
+        "discountAmount": "0.00",
+        "netAmount": "10200.00",
+        "vatAmount": "815.20",
+        "totalAmount": "11015.20",
+        "vatBreakdown": [{ "rate": "2.6", "amount": "5.20" }, { "rate": "8.1", "amount": "810.00" }]
+      }
+    },
+    {
+      "id": "G-rounding",
+      "note": "999.99 x 0.081 = 80.99919 -> 81.00; total 1080.98919 -> 1080.99; invoice total = net + rounded line VAT, consistent here",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Support",
+          "quantity": "3",
+          "quantityType": "HOUR",
+          "unitPrice": "333.33",
+          "vatRate": "8.1"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "999.99",
+          "discountAmount": "0.00",
+          "netAmount": "999.99",
+          "vatAmount": "81.00",
+          "totalAmount": "1080.99"
+        }
+      ],
+      "expected": {
+        "subtotal": "999.99",
+        "discountAmount": "0.00",
+        "netAmount": "999.99",
+        "vatAmount": "81.00",
+        "totalAmount": "1080.99",
+        "vatBreakdown": [{ "rate": "8.1", "amount": "81.00" }]
+      }
+    },
+    {
+      "id": "H-zero-vat-sek",
+      "note": "0 % lines: no VAT row printed, VAT column hidden when the partner default is 0/null; v3 prints the reverse-charge text instead (open question Q4)",
+      "currency": "SEK",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "5",
+          "quantityType": "DAY",
+          "unitPrice": "12000.00",
+          "vatRate": "0"
+        }
+      ],
+      "invoiceDiscount": null,
+      "expectedLines": [
+        {
+          "grossAmount": "60000.00",
+          "discountAmount": "0.00",
+          "netAmount": "60000.00",
+          "vatAmount": "0.00",
+          "totalAmount": "60000.00"
+        }
+      ],
+      "expected": {
+        "subtotal": "60000.00",
+        "discountAmount": "0.00",
+        "netAmount": "60000.00",
+        "vatAmount": "0.00",
+        "totalAmount": "60000.00",
+        "vatBreakdown": []
+      }
+    },
+    {
+      "id": "I-credit-note-full",
+      "note": "Full credit of case A. v1 stores POSITIVE amounts with documentType CREDIT_NOTE and prints a '-' prefix; number VA26-001b in v1, CN-VA26-001 in v3",
+      "documentType": "CREDIT_NOTE",
+      "relatedTo": "A-standard-month",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Credit: Consulting Services",
+          "quantity": "20",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1"
+        }
+      ],
+      "expected": {
+        "subtotal": "24000.00",
+        "discountAmount": "0.00",
+        "netAmount": "24000.00",
+        "vatAmount": "1944.00",
+        "totalAmount": "25944.00"
+      }
+    },
+    {
+      "id": "J-credit-note-partial",
+      "note": "API-only in v1 (UI always credits in full): creditQuantity 5 of 20 on case C; original line discount scaled by 5/20",
+      "documentType": "CREDIT_NOTE",
+      "relatedTo": "C-line-discount-percent",
+      "currency": "CHF",
+      "creditLines": [{ "originalLine": 0, "creditQuantity": "5" }],
+      "expectedLines": [
+        {
+          "grossAmount": "6000.00",
+          "discountAmount": "600.00",
+          "netAmount": "5400.00",
+          "vatAmount": "437.40",
+          "totalAmount": "5837.40"
+        }
+      ],
+      "expected": { "subtotal": "5400.00", "vatAmount": "437.40", "totalAmount": "5837.40" }
+    },
+    {
+      "id": "K-line-fixed-discount-exceeds-gross",
+      "note": "v1 accepts this and produces a negative line (bug). v3: reject with a validation error (discount <= gross)",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Fee",
+          "quantity": "1",
+          "quantityType": "FIXED",
+          "unitPrice": "100.00",
+          "vatRate": "8.1",
+          "discountType": "FIXED",
+          "discountFixed": "150.00"
+        }
+      ],
+      "v1Result": { "netAmount": "-50.00", "vatAmount": "-4.05", "totalAmount": "-54.05" },
+      "v3Expected": "validation error: line discount exceeds line amount"
+    },
+    {
+      "id": "L-invoice-fixed-discount-ignored",
+      "note": "v1 schema accepts discountType FIXED at invoice level but calculateInvoiceTotals only handles PERCENTAGE -> discount silently 0 (bug). v3: invoice-level discount is PERCENTAGE only, or FIXED is implemented; not silently ignored",
+      "currency": "CHF",
+      "lines": [
+        {
+          "description": "Consulting Services",
+          "quantity": "20",
+          "quantityType": "DAY",
+          "unitPrice": "1200.00",
+          "vatRate": "8.1"
+        }
+      ],
+      "invoiceDiscount": { "discountType": "FIXED", "discountPercent": null },
+      "v1Result": { "discountAmount": "0.00", "totalAmount": "25944.00" },
+      "v3Expected": "either a validation error or a real fixed discount; never silently ignored"
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "_about": "User-visible strings of the v1 inbox (InboxClient.tsx, inbox/page.tsx), the upload duplicate card (UploadStep.tsx), the wizard stepper (DocumentProcessingWizard.tsx), entity type choices (EntityDetailsStep.tsx, EntityCreationPanel.tsx) and the link modal (LinkEntityModal.tsx). English only; fr equivalents are in harvest.md §5.4.",
+  "inbox": {
+    "title": "Document Inbox",
+    "subtitle": "{total} documents need attention",
+    "refresh": "Refresh",
+    "shortcutsButtonTitle": "Keyboard shortcuts (?)",
+    "quickFiltersLabel": "Quick filters:",
+    "columns": {
+      "document": "Document",
+      "type": "Type",
+      "extracted": "Extracted Data",
+      "status": "Status",
+      "uploaded": "Uploaded",
+      "view": "View Document"
+    },
+    "ocrChip": { "INVOICE": "Invoice OCR", "RECEIPT": "Receipt OCR" },
+    "duplicateLine": "Duplicate of {fileName}",
+    "matchBadge": "{confidence} Match",
+    "stuck": "Processing seems stuck",
+    "selected": "{n} selected",
+    "bulk": {
+      "invoiceOcr": "Invoice OCR",
+      "receiptOcr": "Receipt OCR",
+      "archive": "Archive",
+      "link": "Link",
+      "restore": "Restore",
+      "undo": "Undo"
+    },
+    "undoBar": "Undo: {description}",
+    "undoHint": "Press Z to undo",
+    "panel": {
+      "type": "Type",
+      "size": "Size",
+      "uploaded": "Uploaded",
+      "status": "Status",
+      "ocrData": "OCR Extracted Data",
+      "vendor": "Vendor",
+      "merchant": "Merchant",
+      "invoiceNo": "Invoice #",
+      "amount": "Amount",
+      "date": "Date",
+      "ocrError": "OCR Error",
+      "matching": "Matching Transactions",
+      "noMatching": "No matching transactions found.",
+      "score": "Score: {score}",
+      "createAndLink": "Create & Link",
+      "duplicateTitle": "Possible Duplicate Detected",
+      "viewNumber": "View #{number}",
+      "createAnyway": "Create Anyway",
+      "cancel": "Cancel",
+      "runInvoiceOcr": "Run Invoice OCR",
+      "runReceiptOcr": "Run Receipt OCR",
+      "createSupplierInvoice": "Create Supplier Invoice",
+      "createExpenseClaim": "Create Expense Claim",
+      "createCompanyPurchase": "Create Company Purchase",
+      "linkToEntity": "Link to Entity",
+      "viewFull": "View Full Details",
+      "archive": "Archive",
+      "duplicateInfo": "This appears to be a duplicate of another document.",
+      "viewOriginal": "View Original"
+    },
+    "empty": {
+      "allTitle": "Great, you're all caught up!",
+      "allBody": "No documents need attention right now.",
+      "allLink": "Upload Documents →",
+      "tabTitle": "No documents in this view",
+      "archived": "No archived documents.",
+      "duplicates": "No duplicate documents detected.",
+      "other": "All documents have been processed.",
+      "errorTitle": "Failed to load inbox",
+      "errorBody": "There was an error loading the document inbox.",
+      "errorLink": "Go to Documents →",
+      "loading": "Loading inbox..."
+    },
+    "toasts": {
+      "ocrStarted": "OCR started ({model})",
+      "ocrStartedBulk": "OCR started for {n} documents",
+      "ocrStartedBulkFailed": "OCR started for {n} documents, {m} failed",
+      "archived": "Archived {n} documents",
+      "archivedFailed": "Archived {n} documents, {m} failed",
+      "archivedOne": "Document archived",
+      "restored": "Restored {n} documents",
+      "restoredFailed": "Restored {n} documents, {m} failed",
+      "linked": "Document linked successfully",
+      "createdLinked": "Created {entityNumber} and linked to transaction",
+      "undone": "Undone: {description}",
+      "errFetch": "Failed to fetch documents",
+      "errOcr": "Failed to start OCR",
+      "errArchive": "Failed to archive",
+      "errArchiveDocs": "Failed to archive documents",
+      "errRestore": "Failed to restore",
+      "errRestoreDocs": "Failed to restore documents",
+      "errUndo": "Failed to undo action",
+      "errSuggestion": "Failed to apply suggestion",
+      "errNoOcr": "No OCR data available"
+    },
+    "statusBadges": {
+      "archived": "Archived",
+      "ready": "Ready",
+      "processing": "Processing",
+      "ocrFailed": "OCR Failed",
+      "needsOcr": "Needs OCR"
+    },
+    "help": {
+      "title": "Keyboard Shortcuts",
+      "sections": ["Navigation", "Selection", "Actions", "Suggestions", "General"]
+    }
+  },
+  "serverErrors": {
+    "alreadyLinked": "Document is already linked to an entity",
+    "partnerRequired": "Partner is required for supplier invoice",
+    "invoiceNumberRequired": "Invoice number is required",
+    "categoryRequired": "Category is required for expense claim",
+    "ownDocumentsOnly": "You can only create entities from your own documents",
+    "archiveOwnOnly": "You can only archive documents you uploaded",
+    "ocrAlreadyDone": "Document already processed with this model. Use force=true to re-run.",
+    "ocrInvalidModel": "Invalid modelType. Must be INVOICE or RECEIPT",
+    "bulkMax": "Maximum {n} documents per request",
+    "uploadDuplicate": "Duplicate document detected",
+    "uploadDuplicateMessage": "A document with identical content already exists. Use ?force=true to upload anyway.",
+    "wizardLinkWarning": "Entity created but bank transaction linking failed. You can link it manually later."
+  },
+  "wizard": {
+    "steps": [
+      { "id": "upload", "label": "Upload", "description": "Select file & type" },
+      { "id": "review", "label": "Review", "description": "OCR extraction" },
+      { "id": "details", "label": "Details", "description": "Entity information" },
+      { "id": "match", "label": "Match", "description": "Bank transaction" },
+      { "id": "done", "label": "Done", "description": "Complete" }
+    ],
+    "receiptEntityTypes": [
+      {
+        "value": "COMPANY_PURCHASE",
+        "label": "Company Purchase",
+        "description": "Corporate expense paid by company"
+      },
+      {
+        "value": "EXPENSE_CLAIM",
+        "label": "Expense Claim",
+        "description": "Personal expense to be reimbursed"
+      }
+    ],
+    "panelTabs": [
+      { "type": "SUPPLIER_INVOICE", "label": "Supplier Invoice", "hint": "(Invoice from vendor)" },
+      {
+        "type": "EXPENSE_CLAIM",
+        "label": "Expense Claim",
+        "hint": "(I paid → need reimbursement)"
+      },
+      {
+        "type": "COMPANY_PURCHASE",
+        "label": "Company Purchase",
+        "hint": "(Company card → just document)"
+      }
+    ],
+    "supplierMatch": { "bestMatch": "Best Match ({pct}% confidence)" }
+  },
+  "linkModal": {
+    "entityTypes": [
+      { "value": "BANK_TRANSACTION", "label": "Bank Transaction" },
+      { "value": "SUPPLIER_INVOICE", "label": "Supplier Invoice" },
+      { "value": "INVOICE", "label": "Client Invoice" },
+      { "value": "EXPENSE_CLAIM", "label": "Expense Claim" }
+    ],
+    "linkTypes": [
+      {
+        "value": "SUPPORTING",
+        "label": "Supporting",
+        "description": "Supporting documentation",
+        "default": true
+      },
+      {
+        "value": "ORIGINAL",
+        "label": "Original",
+        "description": "Original document for this entity"
+      },
+      { "value": "RECEIPT", "label": "Receipt", "description": "Receipt or proof of payment" },
+      {
+        "value": "CORRESPONDENCE",
+        "label": "Correspondence",
+        "description": "Related correspondence"
+      }
+    ],
+    "searchPlaceholder": "Search {entity type}s..."
+  },
+  "documentTypeLabels": {
+    "EXPENSE_RECEIPT": "Expense Receipt",
+    "SUPPLIER_INVOICE": "Supplier Invoice",
+    "CLIENT_INVOICE": "Client Invoice",
+    "BANK_STATEMENT": "Bank Statement",
+    "CONTRACT": "Contract",
+    "TAX_DOCUMENT": "Tax Document",
+    "CORRESPONDENCE": "Correspondence",
+    "OTHER": "Other"
+  }
+}

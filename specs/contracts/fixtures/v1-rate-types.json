@@ -1,0 +1,41 @@
+{
+  "_about": "v1 ClientRate.serviceType values as offered by app/dashboard/partners/[id]/rates/new/page.tsx (RATE_TYPES) and the mapping to InvoiceLineV2.quantityType in components/invoices/InvoiceV2Document.tsx (serviceTypeToQuantityType). Reference only — v3 bills in days (D11).",
+  "rateTypes": [
+    { "value": "DAY", "label": "Daily Rate", "placeholder": "1200" },
+    { "value": "HOUR", "label": "Hourly Rate", "placeholder": "150" },
+    { "value": "UNIT", "label": "Per Unit", "placeholder": "100" },
+    { "value": "FIXED", "label": "Fixed Price", "placeholder": "5000" },
+    { "value": "SESSION", "label": "Per Session", "placeholder": "500" },
+    { "value": "KM", "label": "Per Kilometer", "placeholder": "0.70" },
+    { "value": "MONTH", "label": "Monthly Rate", "placeholder": "15000" }
+  ],
+  "legacyServiceTypes": ["Daily", "Hourly", "Fixed"],
+  "serviceTypeToQuantityType": {
+    "DAY": "DAY",
+    "HOUR": "HOUR",
+    "UNIT": "UNIT",
+    "FIXED": "FIXED",
+    "SESSION": "SESSION",
+    "KM": "KM",
+    "MONTH": "MONTH",
+    "DAILY": "DAY",
+    "HOURLY": "HOUR",
+    "_default": "DAY"
+  },
+  "v1DerivedAmountConstants": {
+    "_note": "Invented in the create form; not owner rules. hoursPerDay=8, daysPerMonth=22, hoursPerMonth=176.",
+    "HOUR": { "dailyRate": "amount * 8", "hourlyRate": "amount" },
+    "DAY": { "dailyRate": "amount", "hourlyRate": "amount / 8" },
+    "MONTH": { "dailyRate": "amount / 22", "hourlyRate": "amount / 176" },
+    "other": { "dailyRate": "amount", "hourlyRate": null }
+  },
+  "partnerPageStateLabels": {
+    "current": "Current",
+    "expired": "Expired",
+    "future": "Future",
+    "openValidTo": "Present",
+    "partnerWide": "Partner-wide",
+    "empty": "No rates defined yet",
+    "createFirst": "Create First Rate"
+  }
+}

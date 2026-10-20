@@ -1,0 +1,165 @@
+{
+  "_source": "Fixture for the print-mode snapshot tests (invoice-pdf skill: one snapshot per language). Shape follows the v3 content checklist; values follow the owner's Excel conventions (docs/excel-to-v3-mapping.md sheet 2: VA26-001, Consulting Services, 2026 January, 20 days x 1 200 CHF, 8.1 %). Every identifier that is not the owner's own convention is a placeholder (0000...).",
+  "tenant": {
+    "name": "AnalyticsFab AB",
+    "orgNumber": "559000-0000",
+    "address": {
+      "street": "Placeholder street 1",
+      "postalCode": "000 00",
+      "city": "Stockholm",
+      "country": "Sweden"
+    },
+    "email": "invoices@example.com",
+    "website": "https://example.com",
+    "logo": "analyticsfab-logo-full.svg",
+    "vatRegistrations": [
+      { "country": "SE", "vatNumber": "SE559000000001" },
+      {
+        "country": "CH",
+        "vatNumber": "CHE-000.000.000 TVA",
+        "rateSchedule": [
+          {
+            "validFrom": "2018-01-01",
+            "validTo": "2023-12-31",
+            "standard": "7.7",
+            "reduced": "2.5",
+            "accommodation": "3.7"
+          },
+          {
+            "validFrom": "2024-01-01",
+            "validTo": null,
+            "standard": "8.1",
+            "reduced": "2.6",
+            "accommodation": "3.8"
+          }
+        ]
+      }
+    ],
+    "bankAccounts": [
+      {
+        "currency": "SEK",
+        "bank": "Nordea",
+        "accountHolder": "AnalyticsFab AB",
+        "iban": "SE00 0000 0000 0000 0000 0000",
+        "bic": "NDEASESS"
+      },
+      {
+        "currency": "CHF",
+        "bank": "Nordea",
+        "accountHolder": "AnalyticsFab AB",
+        "iban": "SE00 0000 0000 0000 0000 0001",
+        "bic": "NDEASESS"
+      }
+    ],
+    "defaultPaymentTermsDays": 30
+  },
+  "partner": {
+    "name": "Client VA SA",
+    "shortCode": "VA",
+    "address": {
+      "street": "Rue Exemple 10",
+      "postalCode": "1000",
+      "city": "Lausanne",
+      "country": "CH"
+    },
+    "defaultCurrency": "CHF",
+    "defaultLanguage": "fr",
+    "externalIdentifiers": [{ "label": "N° Fournisseur", "value": "000000" }]
+  },
+  "contract": {
+    "name": "BI consulting 2026",
+    "currency": "CHF",
+    "paymentTerms": "30 days",
+    "vatRegistration": "CH",
+    "externalReferences": [{ "label": "Bon de commande", "value": "4500000000" }],
+    "rates": [
+      { "validFrom": "2025-01-01", "validTo": "2025-12-31", "rate": "1000.00" },
+      { "validFrom": "2026-01-01", "validTo": null, "rate": "1200.00" }
+    ]
+  },
+  "invoice": {
+    "number": "VA26-001",
+    "type": "invoice",
+    "issueDate": "2026-01-31",
+    "dueDate": "2026-03-02",
+    "periodLabel": "2026 January",
+    "currency": "CHF",
+    "language": "fr",
+    "vatRegistration": "CH",
+    "declarationPeriod": "CH 2026/Q1",
+    "lines": [
+      {
+        "description": "Consulting Services",
+        "quantity": "20",
+        "unit": "DAY",
+        "rate": "1200.00",
+        "vatRate": "8.1",
+        "netAmount": "24000.00",
+        "vatAmount": "1944.00"
+      }
+    ],
+    "discount": null,
+    "subtotal": "24000.00",
+    "vatByRate": [{ "rate": "8.1", "base": "24000.00", "vat": "1944.00" }],
+    "total": "25944.00",
+    "notes": null,
+    "paymentTermsText": null,
+    "sekBase": {
+      "rate": "11.98",
+      "rateSource": "ECB",
+      "rateDate": "2026-01-31",
+      "subtotal": "287520.00",
+      "vat": "23289.12",
+      "total": "310809.12"
+    },
+    "pdfBusinessKey": "InvoiceAF_VA26-001.pdf"
+  },
+  "creditNote": {
+    "number": "CN-VA26-001",
+    "type": "credit_note",
+    "relatedInvoice": "VA26-001",
+    "issueDate": "2026-02-10",
+    "currency": "CHF",
+    "language": "fr",
+    "lines": [
+      {
+        "description": "Credit: Consulting Services",
+        "quantity": "2",
+        "unit": "DAY",
+        "rate": "1200.00",
+        "vatRate": "8.1",
+        "netAmount": "2400.00",
+        "vatAmount": "194.40"
+      }
+    ],
+    "subtotal": "2400.00",
+    "total": "2594.40",
+    "pdfBusinessKey": "InvoiceAF_CN-VA26-001.pdf"
+  },
+  "expectedPrintFr": {
+    "title": "Facture VA26-001",
+    "metaLeft": ["invoices@example.com", "N° org.: 559000-0000", "N° TVA: CHE-000.000.000 TVA"],
+    "metaRight": [
+      "Date: 31 janvier 2026",
+      "Date d'échéance: 02 mars 2026",
+      "Période: 2026 January",
+      "Bon de commande: 4500000000",
+      "N° Fournisseur: 000000"
+    ],
+    "tableHeader": ["Description", "Qté", "Prix unitaire", "Montant"],
+    "tableRow": ["Consulting Services", "20 Jours", "CHF 1'200", "CHF 24'000.00"],
+    "vatColumnShown": false,
+    "totals": [
+      ["Sous-total", "CHF 24'000.00"],
+      ["TVA (8.1%)", "CHF 1'944.00"],
+      ["Total", "CHF 25'944.00"]
+    ],
+    "payment": "Paiement dû dans les 30 jours ouvrables à compter de la date de facturation. Veuillez indiquer le numéro de facture VA26-001.",
+    "bank": [
+      ["Banque", "Nordea"],
+      ["Titulaire du compte", "AnalyticsFab AB"],
+      ["IBAN", "SE00 0000 0000 0000 0000 0001"],
+      ["BIC/SWIFT", "NDEASESS"]
+    ]
+  }
+}

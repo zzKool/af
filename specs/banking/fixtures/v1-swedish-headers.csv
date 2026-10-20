@@ -1,0 +1,9 @@
+Bokföringsdatum,Belopp,Valuta,Saldo,Avsändare,Mottagare,Namn,Övriga uppgifter,Meddelande
+2025-01-15,-1500.00,SEK,45000.00,Företagskonto,Leverantör AB,Inköp av förbrukningsvaror,Faktura 2025-001,Betalning för kontorsmaterial
+2025-01-16,25000.00,SEK,70000.00,Kund Företag,Företagskonto,Konsulttjänster,Faktura VG25-042,Månatlig rådgivning
+2025-01-17,-3200.00,SEK,66800.00,Företagskonto,Städföretaget,Städning,Månatlig städning,Kontorsstädning för januari
+2025-01-18,-850.00,SEK,65950.00,Företagskonto,Åklagarmyndigheten,Avgift,Årsavgift,Förening årsavgift 2025
+2025-01-20,15000.00,SEK,80950.00,Köpare AB,Företagskonto,Projektkonsultation,Projekt Älvsjö,Delbetalning fas 1
+2025-01-22,-2400.00,SEK,78550.00,Företagskonto,Försäkringsbolag,Företagsförsäkring,Kvartal Q1,Kvartalsvis företagsförsäkring
+2025-01-25,8500.00,SEK,87050.00,Beställare Växjö,Företagskonto,IT-tjänster,Faktura IT-2025-03,Systemutveckling för kund i Växjö
+2025-01-28,-450.00,SEK,86600.00,Företagskonto,Tryckeriet,Trycksaker,Visitkort 500st,Nya visitkort åt personal

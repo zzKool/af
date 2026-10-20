@@ -1,0 +1,181 @@
+{
+  "_about": "Inbox queue rules from af_core app/api/documents/inbox/route.ts and types/document-inbox.ts, as data, plus the v3 mapping onto v2's document statuses (docs/document-upload.md). Dates in cases are relative to a fixed 'now'.",
+  "limits": {
+    "pageSizeDefault": 50,
+    "pageSizeMax": 100,
+    "bulkArchiveMax": 50,
+    "bulkRestoreMax": 50,
+    "bulkLinkMax": 50,
+    "bulkOcrMax": 20,
+    "suggestionsBatchMax": 50,
+    "suggestionsMaxCandidates": 5,
+    "suggestionsShown": 3,
+    "ocrStuckAfterMs": 300000,
+    "toastAutoDismissMs": 4000,
+    "autoRefreshIntervalMs": 10000,
+    "ocrRefreshDelayMs": 2000
+  },
+  "tabs": [
+    { "value": "all", "label": "All", "countKey": "total" },
+    { "value": "pending", "label": "Pending", "countKey": "pending", "default": true },
+    { "value": "ready", "label": "Ready", "countKey": "ready" },
+    { "value": "duplicates", "label": "Duplicates", "countKey": "duplicates" },
+    { "value": "archived", "label": "Archived", "countKey": "archived" }
+  ],
+  "quickDateFilters": [
+    { "value": "all", "label": "All Time", "from": null, "to": null },
+    { "value": "today", "label": "Today", "from": "startOfToday", "to": "now" },
+    {
+      "value": "this_week",
+      "label": "This Week",
+      "from": "startOfToday - getDay() days (Sunday start)",
+      "to": "now",
+      "v3": "ISO week, Monday start, via Clock"
+    },
+    { "value": "this_month", "label": "This Month", "from": "first of month", "to": "now" },
+    {
+      "value": "last_30_days",
+      "label": "Last 30 Days",
+      "from": "startOfToday - 30 days",
+      "to": "now"
+    }
+  ],
+  "sortOptions": [
+    { "value": "date", "label": "Upload Date", "v1": "uploadedAt (server)" },
+    {
+      "value": "amount",
+      "label": "Amount",
+      "v1": "in-memory on latestOcr.extractedData.invoiceTotal || total (page only)",
+      "v3": "server-side on resolved amount"
+    },
+    {
+      "value": "quality",
+      "label": "OCR Quality",
+      "v1": "ocrProcessedAt as proxy",
+      "v3": "dropped or server-side on quality"
+    }
+  ],
+  "v1Membership": {
+    "base": "tenantId = me AND deletedAt IS NULL (USER role: AND uploadedBy = my email)",
+    "pending": "linkedEntityId IS NULL AND status NOT IN (ARCHIVED, DELETED) AND ((ocrProcessed = false AND processingStatus IN (UNPROCESSED, null)) OR processingStatus IN (OCR_PENDING, OCR_PROCESSING) OR (EXISTS ocrResult.status = FAILED AND processingStatus != OCR_COMPLETE))",
+    "ready": "processingStatus = OCR_COMPLETE AND linkedEntityId IS NULL AND status NOT IN (ARCHIVED, DELETED)",
+    "duplicates": "inbox rows (all) whose contentHash count among tenant non-deleted documents > 1",
+    "archived": "status = ARCHIVED",
+    "all": "linkedEntityId IS NULL AND status NOT IN (ARCHIVED, DELETED)",
+    "counts": {
+      "total": "pending + ready",
+      "note": "counts ignore documentType/date/search filters"
+    }
+  },
+  "v1PendingSubState": [
+    {
+      "when": "ocrProcessed = false AND ocrResultCount = 0",
+      "subState": "needs_ocr",
+      "badge": "Needs OCR"
+    },
+    {
+      "when": "latestOcr.status = PROCESSING",
+      "subState": "ocr_processing",
+      "badge": "Processing"
+    },
+    { "when": "latestOcr.status = FAILED", "subState": "ocr_failed", "badge": "OCR Failed" },
+    { "when": "otherwise", "subState": "needs_ocr", "badge": "Needs OCR" }
+  ],
+  "v3StateMapping": [
+    {
+      "v2Status": "uploaded",
+      "archivedAt": null,
+      "hasLink": false,
+      "inboxState": "pending.needs_ocr"
+    },
+    {
+      "v2Status": "processing",
+      "archivedAt": null,
+      "hasLink": false,
+      "inboxState": "pending.ocr_processing"
+    },
+    {
+      "v2Status": "processing",
+      "updatedAtAgeMs": 400000,
+      "archivedAt": null,
+      "hasLink": false,
+      "inboxState": "pending.ocr_processing",
+      "stuck": true
+    },
+    {
+      "v2Status": "ocr_failed",
+      "archivedAt": null,
+      "hasLink": false,
+      "inboxState": "pending.ocr_failed"
+    },
+    { "v2Status": "extracted", "archivedAt": null, "hasLink": false, "inboxState": "ready" },
+    {
+      "v2Status": "extracted",
+      "archivedAt": null,
+      "hasLink": true,
+      "inboxState": null,
+      "_note": "linked → not in inbox"
+    },
+    { "v2Status": "linked", "archivedAt": null, "hasLink": true, "inboxState": null },
+    {
+      "v2Status": "extracted",
+      "archivedAt": "2026-10-01T10:00:00Z",
+      "hasLink": false,
+      "inboxState": "archived"
+    }
+  ],
+  "countsExample": {
+    "documents": [
+      { "id": "d1", "state": "pending.needs_ocr", "hash": "h1" },
+      { "id": "d2", "state": "pending.ocr_failed", "hash": "h2" },
+      { "id": "d3", "state": "ready", "hash": "h1" },
+      { "id": "d4", "state": "ready", "hash": "h3" },
+      { "id": "d5", "state": "archived", "hash": "h4" },
+      {
+        "id": "d6",
+        "state": null,
+        "hash": "h1",
+        "_note": "linked, out of inbox, still counts toward hash multiplicity"
+      }
+    ],
+    "expect": { "pending": 2, "ready": 2, "total": 4, "duplicates": 2, "archived": 1 },
+    "duplicateOf": {
+      "d1": null,
+      "d3": "d1",
+      "_note": "oldest uploadedAt with hash h1 is d1 (d1 < d3 < d6)"
+    }
+  },
+  "archiveRestoreRules": {
+    "archive": {
+      "sets": "status = ARCHIVED",
+      "skipsAlreadyArchived": "counted as success",
+      "singleIdUserGuard": "You can only archive documents you uploaded",
+      "event": "DOCUMENT_ARCHIVED { previousStatus }"
+    },
+    "restore": {
+      "only": "status = ARCHIVED",
+      "newStatus": "READY, or APPROVED when linkedEntityId is set",
+      "nonArchived": "counted as success"
+    },
+    "v3": {
+      "archive": "archived_at = now, archived_by = caller; audited",
+      "restore": "archived_at = null; audited",
+      "undo": "inverse action with the ids that succeeded"
+    }
+  },
+  "undoStack": {
+    "entry": {
+      "action": "archive | restore",
+      "documentIds": "ids",
+      "description": "Archived {n} document(s) | Restored {n} document(s) | Archived 1 document"
+    },
+    "trigger": [
+      "z key",
+      "Undo button in bulk bar",
+      "Undo: {description} bar when nothing selected"
+    ],
+    "toast": "Undone: {description}",
+    "notUndoable": ["OCR", "link", "create entity"],
+    "lifetime": "page session (lost on reload)"
+  }
+}

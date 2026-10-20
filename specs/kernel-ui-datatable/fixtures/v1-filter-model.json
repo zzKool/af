@@ -1,0 +1,129 @@
+{
+  "_about": "v1 advanced-table filter model as data: value shapes, filter-function semantics, chrome strings, density, formats. From components/advanced-table/{types,DataTable,checkbox-filter,number-range-filter,date-hierarchy-filter,utils}.ts(x) and lib/utils/date.ts.",
+  "filterTypes": {
+    "text": {
+      "value": "string",
+      "clearWhen": "'' or undefined",
+      "filterFn": "TanStack includesString (case-insensitive contains)",
+      "placeholder": "Search..."
+    },
+    "select": {
+      "value": "string[]",
+      "clearWhen": "[]",
+      "filterFn": "arrIncludesSome",
+      "nullMarker": "__NULL__",
+      "nullLabel": "Blank",
+      "nullMatches": ["null", "undefined", "''"],
+      "options": "string[] | {value,label}[] supplied by the page"
+    },
+    "number": {
+      "value": "[min|null, max|null]",
+      "clearWhen": "both null",
+      "filterFn": "inNumberRange",
+      "inclusive": true,
+      "oneSided": true,
+      "labels": { "min": "Min", "max": "Max" },
+      "placeholder": "Enter value",
+      "inputStep": "any"
+    },
+    "date": {
+      "value": "{ years: Set<number>, months: Set<'YYYY-MM'>, days: Set<'YYYY-MM-DD'> }",
+      "clearWhen": "all three empty",
+      "filterFn": "dateInHierarchy",
+      "predicate": "year ∈ years OR monthKey ∈ months OR dayKey ∈ days",
+      "keysTimezone": "local",
+      "dateValues": "Date[] supplied by the page (loaded rows, or all distinct dates for exchange rates)"
+    }
+  },
+  "activeRules": {
+    "text": "non-empty string",
+    "select": "array length > 0",
+    "number": "min != null or max != null",
+    "date": "any set non-empty"
+  },
+  "checkboxList": {
+    "searchPlaceholder": "Search...",
+    "selectAllLabel": "Select All",
+    "selectAllSemantics": "if every visible option is selected → onChange([]) (clears all) else onChange(visible option values) (replaces selection)",
+    "indeterminate": "selected.length > 0 and not all visible selected",
+    "emptyLabel": "No options found",
+    "maxHeight": "16rem (max-h-64)",
+    "counts": false
+  },
+  "dateTree": {
+    "order": "years desc, months desc, days desc",
+    "collapsedByDefault": true,
+    "monthNames": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ],
+    "quickFiltersTitle": "Quick Filters",
+    "emptyLabel": "No dates available",
+    "maxHeight": "24rem (max-h-96)",
+    "counts": false
+  },
+  "dropdown": {
+    "width": "18rem (w-72)",
+    "maxHeight": "70vh",
+    "position": "fixed, top = header bottom + 4px, left = th left; repositioned on scroll",
+    "closeOn": ["outside mousedown"],
+    "escapeCloses": false,
+    "header": { "sortAsc": "Sort ascending", "sortDesc": "Sort descending", "clear": "Clear" }
+  },
+  "toolbar": {
+    "activeFilters": "{n} filter active | {n} filters active",
+    "export": "Export CSV",
+    "columns": "Columns",
+    "columnsMenuTitle": "Toggle Columns",
+    "density": "Density",
+    "densityOptions": {
+      "compact": "py-1 px-3",
+      "comfortable": "py-2 px-4",
+      "spacious": "py-4 px-6"
+    },
+    "densityDefault": "comfortable",
+    "defaultExportFilename": "export.csv"
+  },
+  "body": {
+    "empty": "No data found",
+    "loading": "Loading...",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more...",
+    "footer": "Showing {filtered} of {total} rows",
+    "footerRecords": "Showing {rows} of {totalRecords} records",
+    "selectedRow": "bg-blue-50 + border-l-4 border-blue-500",
+    "headerCell": "uppercase text-xs tracking-wider whitespace-nowrap"
+  },
+  "csvExport": {
+    "rows": "filtered rows in memory",
+    "columns": "visible columns except 'actions'",
+    "header": "columnDef.header if string else column id",
+    "cell": "row[col.id] raw; null/undefined → ''; wrap in quotes only when the value contains a comma; no escaping of quotes or newlines",
+    "mime": "text/csv"
+  },
+  "formats": {
+    "date": { "ch-fr|de-CH": "dd.MM.yyyy", "default": "yyyy-MM-dd (from toISOString, UTC)" },
+    "number": {
+      "ch-fr|de-CH": "12'433.2500 (apostrophe thousands, fixed decimals)",
+      "default": "en-US toLocaleString with fixed decimals",
+      "defaultDecimals": 4
+    }
+  },
+  "persistence": {
+    "where": "user_settings.advancedTablePreferences (NVARCHAR(MAX) JSON string, one blob per user, not per table)",
+    "shape": "{ columnFilters, sorting, columnVisibility, density }",
+    "debounceMs": 1000,
+    "knownIssue": "Set values inside date filters serialise to {} and reload empty",
+    "urlState": false
+  }
+}
