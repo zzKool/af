@@ -1,10 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
-import { createAuditEntry } from "@/kernel/audit/audit";
-import type { AuditLogger } from "@/kernel/audit/types";
 import { auth } from "@/kernel/auth/auth";
-import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { createTestClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
@@ -16,19 +13,6 @@ let mockHeaders: Headers = new Headers();
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => mockHeaders),
 }));
-
-const _noopAudit: AuditLogger = { log: async () => {} };
-
-function createRealAuditLogger(
-  tx: import("@/kernel/db/tenant-client").TransactionClient,
-  caller: CallerIdentity,
-): AuditLogger {
-  return {
-    log: async (params) => {
-      await createAuditEntry(tx, caller, params);
-    },
-  };
-}
 
 const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL ||
@@ -86,8 +70,7 @@ describe("business-key", () => {
       const tenantId = owner.callerIdentity.tenantId;
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "expense", testClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "expense", testClock);
       });
 
       expect(result.error).toBeUndefined();
@@ -102,26 +85,23 @@ describe("business-key", () => {
       const tenantId = owner.callerIdentity.tenantId;
 
       const result1 = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "expense", testClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "expense", testClock);
       });
 
       const result2 = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "expense", testClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "expense", testClock);
       });
 
       expect(result1.data?.businessKey).toContain("_001");
       expect(result2.data?.businessKey).toContain("_002");
     });
 
-    it("returns error for unknown prefix type", async () => {
+    it("returns error for an unknown document kind", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const tenantId = owner.callerIdentity.tenantId;
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "unknown", testClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "unknown", testClock);
       });
 
       expect(result.error).toBeDefined();
@@ -135,8 +115,7 @@ describe("business-key", () => {
       const tenantId = owner.callerIdentity.tenantId;
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "expense", lateNightClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "expense", lateNightClock);
       });
 
       expect(result.data).toBeDefined();
@@ -153,14 +132,12 @@ describe("business-key", () => {
 
       // Generate in March
       const marchResult = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "expense", marchClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "expense", marchClock);
       });
 
       // Generate in April — counter should reset
       const aprilResult = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return generateBusinessKey(tx, owner.callerIdentity, audit, "expense", aprilClock);
+        return generateBusinessKey(tx, owner.callerIdentity, "expense", aprilClock);
       });
 
       expect(marchResult.data?.businessKey).toContain("_001");

@@ -60,7 +60,7 @@ Page-specific documentation and patterns.
 - [[bas-categories]] — BAS kontoplan reference data, no-RLS shared data pattern, natural key, sparse preferences
 - [[vat-registrations]] — Multi-country VAT registration management, rate schedule JSONB, auto-save pattern
 - [[bank-accounts]] — Bank account configuration with CSV format library, two-table pattern, multi-currency accounts
-- [[document-type-prefixes]] — Configurable business key prefixes, seed-on-first-access, free-form document types
+- [[numbering]] — number_series (gap-free, row-locked) and the fixed key functions: invoice numbers, expense refs, upload keys (D5, D6)
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 - [[partner-crud-pattern]] — Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK

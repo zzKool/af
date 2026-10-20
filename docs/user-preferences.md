@@ -56,5 +56,5 @@ The locale is **not** used for currency formatting. Currency formatting follows 
 ## Related
 
 - [[decimal-currency]] — Currency formatting (currency-driven, not locale-driven)
-- [[document-type-prefixes]] — Tenant-scoped prefixes (different scoping from user preferences)
+- [[numbering]] — fixed key functions and number_series (tenant-scoped counters, no settings)
 - [[dashboard]] — First page to use locale for date display

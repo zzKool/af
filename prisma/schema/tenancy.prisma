@@ -21,6 +21,7 @@ model Tenant {
   contracts            Contract[]
   documents            Document[]
   links                Link[]
+  numberSeries         NumberSeries[]
 
   @@map("tenants")
 }

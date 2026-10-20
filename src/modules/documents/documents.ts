@@ -108,7 +108,7 @@ export async function uploadDocument(
   }
 
   // Generate business key
-  const keyResult = await generateBusinessKey(tx, caller, audit, prefixType, clock);
+  const keyResult = await generateBusinessKey(tx, caller, prefixType, clock);
   if (keyResult.error) return { error: keyResult.error };
 
   // Create DB record

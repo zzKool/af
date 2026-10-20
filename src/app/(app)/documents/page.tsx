@@ -1,7 +1,5 @@
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { createAuditEntry } from "@/kernel/audit/audit";
-import type { AuditLogger } from "@/kernel/audit/types";
 import { requireCaller } from "@/kernel/auth/caller";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
@@ -10,6 +8,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import type { DocumentFilters, DocumentSort } from "@/modules/documents";
 import * as documentService from "@/modules/documents";
 import { DocumentLibraryClient, DocumentUploadZone } from "@/modules/documents/ui";
+import { UPLOAD_KIND_PREFIX } from "@/modules/numbering";
 import * as tablePrefsService from "@/modules/settings";
 
 function DocumentsLoading() {
@@ -74,27 +73,15 @@ async function DocumentsContent({
 
 export default async function DocumentsPage() {
   const caller = await requireCaller();
-  const auth = caller;
   const role = caller.role;
   const canUpload = can(caller, "create", "financial_document");
 
-  // Load upload zone prefixes (owner only)
-  let prefixOptions: { documentType: string; prefix: string }[] = [];
-  if (canUpload) {
-    const { prefixes } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-      const audit: AuditLogger = {
-        log: async (params) => {
-          await createAuditEntry(tx, caller, params);
-        },
-      };
-      const prefixResult = await documentService.getDocumentTypePrefixesWithSeed(tx, caller, audit);
-      return { prefixes: prefixResult.data ?? [] };
-    });
-    prefixOptions = prefixes.map((p) => ({
-      documentType: p.documentType,
-      prefix: p.prefix,
-    }));
-  }
+  // The upload form offers the fixed document kinds (D6: no prefix settings).
+  const prefixOptions = canUpload
+    ? documentService
+        .getUploadKinds()
+        .map((kind) => ({ documentType: kind, prefix: UPLOAD_KIND_PREFIX[kind] }))
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl p-6">

@@ -33,7 +33,7 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup — 2026-10-20, see `docs/async-jobs.md`
   - [x] `kernel/auth/can()` with the role table (superadmin, owner, accountant, editor), `requireCaller()` for pages, guard rule — every inline role check replaced (PR #5)
   - [x] `kernel/pdf`: Chromium in the image, print-mode rendering, one Dockerfile stage — 2026-10-20, see `docs/pdf.md`
-  - [ ] `number_series` + fixed business-key functions; remove `DocumentTypePrefix` + settings page
+  - [x] `number_series` + fixed business-key functions; `DocumentTypePrefix` engine + settings page removed — 2026-10-20, see `docs/numbering.md`. **Open: the DROP of `document_type_prefixes` + `document_key_counters` waits for your OK (data-dropping migration).**
   - [x] `docker-compose.prod.yml` (same image, no bind mounts, `.env.prod`) + `scripts/backup.sh` (PR #5)
 - [ ] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6
 - [ ] **6. Reference slice**: rebuild `partners` in the module layout by hand → extract `module-slice` skill

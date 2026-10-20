@@ -1,13 +1,21 @@
-import type { AuditLogger } from "@/kernel/audit/types";
+// Provisional business key of a raw upload — a fixed function (D6), no prefix table (4.4).
+// `exp_20261020_001`: kind prefix + upload date + sequence in the month's `doc-yyyy-mm` series.
+// A document gets its final key when it becomes something: an expense receipt (`Ex213-Tr-01_…_`),
+// an issued invoice (`InvoiceAF_VA26-001.pdf`) — those functions live in modules/numbering too.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { AppError } from "@/kernel/errors/app-error";
-import { getDocumentTypePrefixesWithSeed } from "@/modules/documents/document-type-prefixes";
+import type { ServiceResult } from "@/kernel/errors/app-error";
+import {
+  isUploadKind,
+  nextInSeries,
+  UPLOAD_KINDS,
+  type UploadKind,
+  uploadDocumentKey,
+  uploadSeries,
+} from "@/modules/numbering";
 
-type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppError };
-
-const CLASSIFICATION_MAP: Record<string, "financial" | "relationship"> = {
+const CLASSIFICATION_MAP: Record<UploadKind, "financial" | "relationship"> = {
   expense: "financial",
   invoice: "financial",
   contract: "relationship",
@@ -18,58 +26,35 @@ const CLASSIFICATION_MAP: Record<string, "financial" | "relationship"> = {
 export function getDocumentClassification(
   prefixType: string,
 ): "financial" | "relationship" | undefined {
-  return CLASSIFICATION_MAP[prefixType];
+  return isUploadKind(prefixType) ? CLASSIFICATION_MAP[prefixType] : undefined;
+}
+
+/** What the upload form offers: the fixed kinds (was the tenant's prefix rows). */
+export function getUploadKinds(): UploadKind[] {
+  return [...UPLOAD_KINDS];
 }
 
 export async function generateBusinessKey(
   tx: TransactionClient,
   caller: CallerIdentity,
-  audit: AuditLogger,
   prefixType: string,
   clock: Clock,
 ): Promise<ServiceResult<{ businessKey: string; documentType: "financial" | "relationship" }>> {
-  const classification = getDocumentClassification(prefixType);
-  if (!classification) {
+  if (!isUploadKind(prefixType)) {
     return {
       error: {
         code: "VALIDATION_ERROR",
-        message: `Unknown prefix type: "${prefixType}". Configure in Settings > Document Prefixes`,
+        message: `Unknown document kind "${prefixType}" (expected one of ${UPLOAD_KINDS.join(", ")})`,
         retryable: false,
       },
     };
   }
-
-  // Look up the prefix string for this prefix type
-  const prefixResult = await getDocumentTypePrefixesWithSeed(tx, caller, audit);
-  if (prefixResult.error) return { error: prefixResult.error };
-
-  const prefixEntry = prefixResult.data.find((p) => p.documentType === prefixType);
-  if (!prefixEntry) {
-    return {
-      error: {
-        code: "VALIDATION_ERROR",
-        message: `Document type prefix not configured for "${prefixType}". Configure in Settings > Document Prefixes`,
-        retryable: false,
-      },
-    };
-  }
-
-  const dateStr = clock.today().replace(/-/g, "");
-  const yearMonth = clock.currentPeriod();
-
-  // Atomic counter increment
-  const result = await tx.$queryRawUnsafe<{ next_val: number }[]>(
-    `INSERT INTO document_key_counters (tenant_id, year_month, next_val)
-     VALUES ($1, $2, 1)
-     ON CONFLICT (tenant_id, year_month)
-     DO UPDATE SET next_val = document_key_counters.next_val + 1
-     RETURNING next_val`,
-    caller.tenantId,
-    yearMonth,
-  );
-
-  const seqNum = result[0].next_val;
-  const businessKey = `${prefixEntry.prefix}${dateStr}_${String(seqNum).padStart(3, "0")}`;
-
-  return { data: { businessKey, documentType: classification } };
+  const today = clock.today();
+  const seq = await nextInSeries(tx, caller, uploadSeries(today));
+  return {
+    data: {
+      businessKey: uploadDocumentKey(prefixType, today, seq),
+      documentType: CLASSIFICATION_MAP[prefixType],
+    },
+  };
 }

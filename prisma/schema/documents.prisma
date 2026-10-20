@@ -2,6 +2,9 @@
 // Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
 // enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
 
+// DEPRECATED (4.4, D6): the configurable prefix engine is gone — keys are fixed functions in
+// src/modules/numbering and counters live in number_series. Table kept until the drop migration is
+// approved (constitution: ask before a migration that drops data). Nothing reads or writes it.
 model DocumentTypePrefix {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
@@ -46,6 +49,8 @@ model Document {
 }
 
 /// Per-tenant monthly counter behind business keys (raw SQL in business-key.ts). Replaced by number_series in v3 (D5/D6).
+// DEPRECATED (4.4): superseded by number_series (`doc-yyyy-mm`), counters carried over by the
+// add_number_series migration. Dropped together with DocumentTypePrefix.
 model DocumentKeyCounter {
   tenantId  String @map("tenant_id") @db.Uuid
   yearMonth String @map("year_month") @db.Char(7)
