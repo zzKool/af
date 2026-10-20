@@ -78,7 +78,7 @@ What the PDF needs about the company: `tenants.email / website / phone` (Company
 
 - `/invoices` — `ListPage` + `InvoiceTable` (DataTable on `INVOICE_COLUMNS`: derived state chips, money in the row's currency, footer sums, client filter labelled by name, *New invoice* / *New quote*).
 - `/invoices/new?type=invoice|quote` — `NewInvoiceForm`: client → contract (loaded on change) → issue date, period label, period start → `createDraftAction` → the sheet.
-- `/invoices/[id]` — `EntityPage`: `InvoiceActions` in the header (state chip; drafts: *Issue* (confirm) / *Delete draft*; issued: *Mark as sent*, *Create credit note*, quotes: *Mark accepted / declined*, *Convert to invoice*; always *Copy to new draft*; *Download PDF · number* or *PDF is being generated…*), the sheet (editor while draft, print mode after), an aside with payment figures (paid / remaining / credited, the SEK base and its rate), related documents and the internal note.
+- `/invoices/[id]` — `EntityPage`: `InvoiceActions` in the header (state chip; drafts: *Issue* (confirm) / *Delete draft*; issued: *Mark as sent*, *Create credit note*, quotes: *Mark accepted / declined*, *Convert to invoice*; always *Copy to new draft*; *Download PDF · number* or *PDF is being generated…*), the sheet (editor while draft, print mode after), an aside with payment figures (paid / remaining / credited, the SEK base and its rate), the **bank rows** that pay it (`InvoiceLinks`: the links with *Unlink* and the suggested rows with *Link* — [[linking]]), related documents and the internal note.
 - Nav: *Invoices* for owner and accountant (reads only).
 
 ## Tests

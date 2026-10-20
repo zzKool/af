@@ -145,11 +145,21 @@ function resolveDescription(fields: Record<string, string>, primaryField: string
 }
 
 /**
- * Decode a CSV buffer to text, stripping BOM if present.
+ * Decode a CSV buffer to text. The format says ISO-8859-1, but Nordea's real exports arrive as UTF-8 with a BOM
+ * (seen 2026-10 on the owner's file: decoded as Latin-1 the BOM became `ï»¿Date` and the header was refused), so
+ * the bytes decide: a BOM or a clean UTF-8 decode with multi-byte characters → UTF-8, else the format's encoding.
  */
-function decodeBuffer(file: Buffer, encoding: string): string {
-  const text = new TextDecoder(encoding).decode(file);
-  return text.replace(/^﻿/, "");
+export function decodeBuffer(file: Buffer, encoding: string): string {
+  const hasBom = file.length >= 3 && file[0] === 0xef && file[1] === 0xbb && file[2] === 0xbf;
+  if (hasBom) return new TextDecoder("utf-8").decode(file.subarray(3));
+  if (file.some((b) => b >= 0x80)) {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(file);
+    } catch {
+      // not valid UTF-8 — Latin-1 after all
+    }
+  }
+  return new TextDecoder(encoding).decode(file).replace(/^\uFEFF/, "");
 }
 
 function parseRaw(cleaned: string, config: BankFormatConfig): string[][] {

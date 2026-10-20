@@ -7,7 +7,7 @@ Reference: [Story 3.3 verified spec](_bmad-output/implementation-artifacts/3-3-b
 - **Delimiter:** `;` (semicolon)
 - **Decimal separator:** `,` (comma)
 - **Date format:** `YYYY/MM/DD`
-- **Encoding:** ISO-8859-1
+- **Encoding:** the bytes decide — a UTF-8 BOM or a clean UTF-8 decode with multi-byte characters → UTF-8, otherwise the format's ISO-8859-1. Nordea's real exports arrive as UTF-8 with a BOM (owner's file, 2026-10); the older synthetic fixtures are Latin-1; both parse.
 - **Headers:** Yes (first row)
 - **Trailing delimiter:** Yes (empty field after last semicolon)
 - **10 columns:** date, amount, sender, recipient, name, details, message, notes, balance, currency
@@ -24,7 +24,7 @@ When `name` (primary description field, index 4) is empty:
 
 ## Encoding Handling
 
-- Uses Node.js built-in `TextDecoder('iso-8859-1')` — no external library
+- Uses Node.js built-in `TextDecoder` (`utf-8` with `fatal: true` to sniff, else the format's encoding) — no external library
 - Pre-decode Buffer to string BEFORE passing to `papaparse`
 - Preserves Swedish characters: `ä` (0xE4), `ö` (0xF6), `å` (0xE5)
 - Preserves special characters: `´` (acute accent 0xB4, as in `Skattepunkten´s`)

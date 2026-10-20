@@ -10,6 +10,7 @@ import { relatedDocuments, resolveSheetContext } from "@/modules/invoices";
 import {
   InvoiceActions,
   InvoiceEditor,
+  InvoiceLinks,
   InvoiceSheet,
   toSheetDocument,
 } from "@/modules/invoices/ui";
@@ -92,8 +93,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           {inv.status !== "draft" && (
             <div className="rounded-lg border p-3">
               <div className="text-xs font-medium text-muted-foreground">Payment</div>
-              <div>
-                Paid {inv.allocated} · Remaining {inv.remaining}
+              <div data-testid="invoice-payment">
+                Paid {inv.allocated} · Remaining{" "}
+                <span data-testid="invoice-remaining">{inv.remaining}</span>
               </div>
               {Number(inv.credited) > 0 && <div>Credited {inv.credited}</div>}
               {inv.totalBase && (
@@ -103,6 +105,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 </div>
               )}
             </div>
+          )}
+          {inv.status !== "draft" && inv.type !== "quote" && (
+            <InvoiceLinks invoiceId={inv.id} currency={inv.currency} canWrite={canWrite} />
           )}
           {related.length > 0 && (
             <div className="rounded-lg border p-3">

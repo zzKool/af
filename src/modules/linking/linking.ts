@@ -28,7 +28,7 @@ export function toLinkDto(row: Link): LinkDto {
     from: { type: row.fromType as LinkableType, id: row.fromId },
     to: { type: row.toType as LinkableType, id: row.toId },
     kind: row.kind as LinkKind,
-    allocatedAmount: row.allocatedAmount ? row.allocatedAmount.toString() : null,
+    allocatedAmount: row.allocatedAmount ? row.allocatedAmount.toFixed(2) : null,
     currency: row.currency,
     note: row.note,
     createdAt: row.createdAt,

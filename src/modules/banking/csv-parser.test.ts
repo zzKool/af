@@ -185,6 +185,30 @@ describe("CSV parser — encoding", () => {
     expect(result.rows[0].rawFields.details).toContain("\u00C5"); // Å
   });
 
+  it("decodes the owner's real export: UTF-8 with a BOM, although the format says ISO-8859-1", () => {
+    const header =
+      "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
+    const row =
+      "2026/07/28;-198,52;;;;Kortköp 260727 OPENAI *CHATGPT SUBS;OPENAI *CHATGPT 6482;;1514,76;SEK;";
+    const utf8WithBom = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(`${header}\n${row}\n`, "utf8"),
+    ]);
+    const result = parse(utf8WithBom, NORDEA_CONFIG); // ISO-8859-1 config
+    expect(result.errors).toEqual([]);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.description).toBe("Kortköp 260727 OPENAI *CHATGPT SUBS");
+    // UTF-8 without a BOM decodes the same way; Latin-1 bytes still take the format's encoding
+    const utf8 = Buffer.from(`${header}\n${row}\n`, "utf8");
+    expect(parse(utf8, NORDEA_CONFIG).rows[0]?.description).toBe(
+      "Kortköp 260727 OPENAI *CHATGPT SUBS",
+    );
+    const latin1 = Buffer.from(`${header}\n${row}\n`, "latin1");
+    expect(parse(latin1, NORDEA_CONFIG).rows[0]?.description).toBe(
+      "Kortköp 260727 OPENAI *CHATGPT SUBS",
+    );
+  });
+
   it("handles BOM prefix gracefully", () => {
     // BOM file is UTF-8 encoded, but we use ISO-8859-1 decoder
     // which should still work for ASCII-range content

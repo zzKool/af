@@ -2,9 +2,12 @@
 
 import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
+import { can } from "@/kernel/auth/can";
 import "./linkables"; // make sure every module's linkable is registered before a link is validated
 import * as linkingService from "./linking";
-import { LINK_KINDS } from "./types";
+import { linksWithLabels } from "./queries";
+import * as suggestions from "./suggestions";
+import { LINK_KINDS, type LinkableType } from "./types";
 
 const endpointSchema = z.object({
   type: z.enum([
@@ -60,3 +63,79 @@ export const removeLinkAction = ownerAction
   .action(async ({ ctx, parsedInput }) =>
     linkingService.removeLink(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id),
   );
+
+// --- suggestions (specs/linking/spec.md) — the accountant sees them, the owner applies ---
+
+const forbidden = {
+  error: { code: "FORBIDDEN" as const, message: "Not allowed to read links", retryable: false },
+};
+
+export const getLinksWithLabelsAction = authedAction
+  .schema(endpointSchema)
+  .metadata({ name: "getLinksWithLabels" })
+  .action(async ({ ctx, parsedInput }) => ({ data: await linksWithLabels(ctx.tx, parsedInput) }));
+
+export const suggestionsForTransactionAction = authedAction
+  .schema(z.object({ bankTransactionId: z.string().uuid() }))
+  .metadata({ name: "suggestionsForTransaction" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return suggestions.suggestionsForTransaction(ctx.tx, parsedInput.bankTransactionId);
+  });
+
+export const suggestionsForEntityAction = authedAction
+  .schema(endpointSchema)
+  .metadata({ name: "suggestionsForEntity" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return suggestions.suggestionsForEntity(ctx.tx, parsedInput);
+  });
+
+export const searchLinkablesAction = authedAction
+  .schema(
+    z.object({
+      q: z.string().max(200),
+      types: z.array(endpointSchema.shape.type).optional(),
+    }),
+  )
+  .metadata({ name: "searchLinkables" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return {
+      data: await suggestions.searchLinkables(
+        ctx.tx,
+        parsedInput.q,
+        parsedInput.types as LinkableType[] | undefined,
+      ),
+    };
+  });
+
+export const applySuggestionAction = ownerAction
+  .schema(
+    z.object({
+      bankTransactionId: z.string().uuid(),
+      to: endpointSchema,
+      allocatedAmount: z
+        .string()
+        .regex(/^\d+(\.\d{1,2})?$/)
+        .nullable()
+        .optional(),
+      note: z.string().max(500).nullable().optional(),
+    }),
+  )
+  .metadata({ name: "applySuggestion" })
+  .action(async ({ ctx, parsedInput }) =>
+    suggestions.applySuggestion(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
+
+export const bulkApplyHighAction = ownerAction
+  .schema(z.object({ bankTransactionIds: z.array(z.string().uuid()).min(1).max(200) }))
+  .metadata({ name: "bulkApplyHigh" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await suggestions.bulkApplyHigh(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput.bankTransactionIds,
+    ),
+  }));

@@ -68,3 +68,74 @@ export type AllocationStatus = {
   allocated: string;
   remaining: string;
 };
+
+// --- suggestions (specs/linking/spec.md FR-001–FR-004) ---
+
+/** Which bank rows pay an entity: receivables are paid by incoming rows, everything else by outgoing ones. */
+export type FlowDirection = "incoming" | "outgoing";
+
+/**
+ * What the scorer needs to know about an entity — or about a bank row seen from the other side. Supplied by
+ * the owning module through `Linkable.facts` / `Linkable.candidates`; the linking module adds `remaining`.
+ */
+export type EntityFacts = {
+  type: LinkableType;
+  id: string;
+  label: string;
+  /** what a link allocates against (absolute), in `currency` */
+  amount: string;
+  currency: string;
+  /** the SEK base both sides already carry (D3) — the cross-currency comparison; null when unknown */
+  amountBase: string | null;
+  /** ISO date that anchors the ± window: issue date, invoice date, expense date, booking date */
+  date: string;
+  /** the number or key that may appear in a bank row's text (`VA26-INV-001`, `Ex213-Tr-01`, `9160`) */
+  reference: string | null;
+  partnerName: string | null;
+  /** free text the other side's reference / name is searched in */
+  texts: string[];
+  /** words of the entity (a receipt's description, a vendor) that may appear in a bank row's text */
+  keywords?: string[];
+  direction: FlowDirection;
+  /** what is still open after the existing allocations (set by the linking module) */
+  remaining: string;
+};
+
+export type CandidateQuery = {
+  direction: FlowDirection;
+  /** ISO dates, inclusive */
+  dateFrom: string;
+  dateTo: string;
+  limit: number;
+};
+
+export type Confidence = "HIGH" | "MEDIUM" | "LOW";
+
+export type MatchResult = {
+  score: number;
+  confidence: Confidence;
+  reasons: string[];
+  /** a number, key or partner name of the entity was found in the row's text */
+  reference: boolean;
+  crossCurrency: boolean;
+};
+
+export type Suggestion = MatchResult & {
+  candidate: EntityFacts;
+  /** `min(remaining on the row, remaining on the entity)` in the target currency; null when cross-currency */
+  allocation: string | null;
+};
+
+export type SkipReason =
+  | "NO_CANDIDATES"
+  | "LOW_CONFIDENCE"
+  | "AMBIGUOUS"
+  | "CURRENCY_MISMATCH"
+  | "OVER_ALLOCATION"
+  | "ALREADY_LINKED";
+
+export type BulkApplyResult = {
+  applied: { bankTransactionId: string; to: LinkEndpoint; allocatedAmount: string }[];
+  skipped: { bankTransactionId: string; reason: SkipReason; detail: string }[];
+  failed: { bankTransactionId: string; message: string }[];
+};
