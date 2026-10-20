@@ -13,20 +13,37 @@ export type Linkable = {
 };
 
 const registry = new Map<LinkableType, Linkable>();
+/** The modules' linkables, resolved on first use — module graphs are cyclic (every module imports linking). */
+let provider: (() => Linkable[]) | null = null;
 
 export function registerLinkable(linkable: Linkable): void {
   registry.set(linkable.type, linkable);
 }
 
+/** Lazy registration (linkables.ts): the thunk reads live module bindings, so import order never matters. */
+export function provideLinkables(thunk: () => Linkable[]): void {
+  provider = thunk;
+}
+
+function flush(): void {
+  if (!provider) return;
+  const thunk = provider;
+  provider = null;
+  for (const l of thunk()) if (!registry.has(l.type)) registry.set(l.type, l);
+}
+
 export function getLinkable(type: LinkableType): Linkable | undefined {
+  flush();
   return registry.get(type);
 }
 
 export function listLinkableTypes(): LinkableType[] {
+  flush();
   return [...registry.keys()];
 }
 
 /** Test seam: forget every registration (tests register fakes). */
 export function _resetLinkables(): void {
+  provider = null;
   registry.clear();
 }

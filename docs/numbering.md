@@ -18,13 +18,15 @@ prisma/schema/numbering.prisma   number_series(tenant_id, series, next_value, up
 | quote number | `quoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-QUO` | `VA26-QUO-007` |
 | credit note | `creditNoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-CN` | `VA27-CN-001` |
 | invoice / quote / credit-note PDF | `invoicePdfKey(number)` | `InvoiceAF_VA26-INV-001.pdf` |
-| expense ref | `expenseRef(groupNumber, basAlias, seq)` — series `exg-{group}` | `Ex213-Tr-01` |
+| expense ref | `expenseRef(groupNumber, basAlias, seq)` — series `exg-{group}-{alias}` (`expenseSeries`): one counter per group **and** alias — `Ex213-Tr-01`, `Ex213-Tr-02`, `Ex213-Rep-01` | `Ex213-Tr-01` |
 | expense receipt key | `expenseDocumentKey(ref, documentDate)` | `Ex213-Tr-01_2026-03-11_` |
-| supplier invoice ref | `supplierInvoiceRef(groupNumber, basAlias, seq)` — series `exg-{group}` (shared with expenses) | `SI213-Acc-01` |
+| supplier invoice ref | `supplierInvoiceRef(groupNumber, basAlias, seq)` — series `exg-{group}-{alias}` (the same scheme; an `SI` with the same alias in the same group shares the counter, D28) | `SI213-Acc-01` |
 | supplier invoice document key | `supplierInvoiceDocumentKey(ref, documentDate, vendorName)` — vendor slug appended (`fileSlug`) | `SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB` |
+| settlement number | `settlementNumber(bookingDate, seq)` — series `ST{yy}` of the refund's booking date | `ST26-001` |
+| reimbursement statement PDF | `statementPdfKey(number, bookingDate)` | `Reimb_ST26-001_2026-03-31.pdf` |
 | raw upload (provisional) | `uploadDocumentKey(kind, date, seq)` — series `doc-{yyyy-mm}` | `exp_20261020_001` |
 
-Series keys (`invoiceSeries`, `quoteSeries`, `creditNoteSeries`, `expenseGroupSeries`, `uploadSeries`) are what `number_series` is keyed by. Sequences are 3 digits (2 for group refs) and simply grow past that. Year = the **issue date's** year, never the clock.
+Series keys (`invoiceSeries`, `quoteSeries`, `creditNoteSeries`, `expenseSeries`, `settlementSeries`, `uploadSeries`) are what `number_series` is keyed by. Sequences are 3 digits (2 for group refs) and simply grow past that. Year = the **issue date's** year, never the clock.
 
 ## Taking a number
 

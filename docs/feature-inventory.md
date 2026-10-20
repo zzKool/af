@@ -202,6 +202,10 @@ flowchart LR
 - Cross-currency refund (CHF expenses, SEK refund) nets in SEK base; the rounding goes to an exchange-difference category.
 - The settlement generates a **reimbursement statement PDF** listing the expenses refunded — the justification document the refund transaction never had.
 
+| | |
+|---|---|
+| Status | **Built 2026-10-20** (part 1): groups, the four payment sources, expenses with keys per (group, alias), ECB / bank bases, derived status, the ledger, FIFO settlements with rounding / exchange difference, the statement job, linkables, the list read model — `docs/expenses.md`, `specs/expenses/`. Part 2 (pages) next. |
+
 ### 3.8 Traktamente — harvest calculator, own module
 
 | | v1 | v2 |
@@ -209,6 +213,7 @@ flowchart LR
 | What | `TravelAllowance` + rate importer (478 lines) + calculator (385) | none |
 | Keeps | per-country, per-year normalbelopp table; trip = group with departure / return timestamps and country; **day count with the half-day rule** (departure after 12:00 / return before 19:00); meals paid separately entered per trip → deduction; night allowance; result = one `per_diem` expense in the group, refunded through the settlement flow |
 | Mechanism | rate importer → a one-screen yearly table you maintain from Skatteverket's list |
+| Status | **Built 2026-10-20** (part 1, with expenses): the normalbelopp table (CSV paste, copy a year), the pure calculator on the harvest's fixtures (half-day rule per calendar day, meals as counts, D29), the trip, the `per_diem` expense — `docs/traktamente.md`, `specs/traktamente/`. The panel, the settings tab and the breakdown PDF with part 2. |
 
 ### 3.9 Documents and OCR — v2 + v1 extras
 

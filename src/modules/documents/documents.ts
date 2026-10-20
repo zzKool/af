@@ -233,6 +233,61 @@ export async function storeGeneratedDocument(
   return { data: { id: record.id, businessKey: record.businessKey, fileName: record.fileName } };
 }
 
+/**
+ * The final business key of a document that became something (D27): the expense created from a receipt renames it
+ * `Ex213-Tr-01_2026-03-10_` (the provisional `exp_20261020_001` goes). Only an uploaded / processed document is
+ * renamed — a generated one carries its producer's key from the start. The file name keeps its extension.
+ */
+export async function assignBusinessKey(
+  tx: TransactionClient,
+  _caller: CallerIdentity,
+  audit: AuditLogger,
+  documentId: string,
+  businessKey: string,
+): Promise<ServiceResult<{ id: string; businessKey: string; fileName: string }>> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/.test(businessKey)) {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `Not a business key: "${businessKey}"`,
+        retryable: false,
+      },
+    };
+  }
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { id: true, businessKey: true, fileName: true, status: true },
+  });
+  if (!doc) {
+    return { error: { code: "NOT_FOUND", message: "Document not found", retryable: false } };
+  }
+  if (doc.status === "generated") {
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: "A generated document keeps the key its producer gave it",
+        retryable: false,
+      },
+    };
+  }
+  const dot = doc.fileName.lastIndexOf(".");
+  const ext = dot > 0 ? doc.fileName.slice(dot) : "";
+  const fileName = `${businessKey}${ext}`;
+  const updated = await tx.document.update({
+    where: { id: documentId },
+    data: { businessKey, fileName },
+    select: { id: true, businessKey: true, fileName: true },
+  });
+  await audit.log({
+    action: "update",
+    entityType: "document",
+    entityId: documentId,
+    oldData: { businessKey: doc.businessKey, fileName: doc.fileName },
+    newData: { businessKey, fileName },
+  });
+  return { data: updated };
+}
+
 export async function getDocument(
   tx: TransactionClient,
   documentId: string,

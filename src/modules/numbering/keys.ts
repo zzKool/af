@@ -9,6 +9,8 @@
 //   expense doc  Ex213-Tr-01_2026-03-11_  the receipt's business key = {ref}_{document date}_
 //   supplier inv SI213-Acc-01             SI{group number}-{BAS alias}-{seq}, same per-group counter
 //   supplier doc SI213-Acc-01_2026-07-24_Skattepunkten_Office_Services_AB   {ref}_{date}_{vendor slug}
+//   settlement   ST26-001                 series ST{yy} (the refund's booking date), 3-digit sequence
+//   statement    Reimb_ST26-001_2026-03-31.pdf   the reimbursement statement PDF of a settlement
 //   upload       exp_20261020_001         provisional key of a raw upload: {kind}{yyyymmdd}_{seq in doc-{yyyymm}}
 
 export type UploadKind = "expense" | "invoice" | "contract" | "nda" | "certificate";
@@ -84,10 +86,25 @@ export function uploadSeries(date: string): string {
   return `doc-${date.slice(0, 7)}`;
 }
 
-/** Expense sequence series: one per expense group — `exg-213`. */
-export function expenseGroupSeries(groupNumber: number): string {
+function assertBasAlias(basAlias: string): void {
+  if (!/^[A-Za-z]{1,6}$/.test(basAlias))
+    throw new Error(`BAS alias must be letters, got "${basAlias}"`);
+}
+
+/**
+ * Expense / supplier-invoice sequence series: one per (group, BAS alias) — `exg-213-Tr` — so the two `Tr`
+ * receipts of group 213 are `Ex213-Tr-01` and `-02` while its first meal is `Ex213-Rep-01` (D28: an `SI` in the
+ * same group with the same alias shares the counter).
+ */
+export function expenseSeries(groupNumber: number, basAlias: string): string {
   assertSeq(groupNumber);
-  return `exg-${groupNumber}`;
+  assertBasAlias(basAlias);
+  return `exg-${groupNumber}-${basAlias}`;
+}
+
+/** Reimbursement statements: one yearly series — `ST26` (the refund's booking date picks the year). */
+export function settlementSeries(bookingDate: string): string {
+  return `ST${yy(bookingDate)}`;
 }
 
 // --- formatted numbers and keys ---
@@ -110,6 +127,18 @@ export function creditNoteNumber(partnerShortCode: string, issueDate: string, se
   return formatSeriesNumber(creditNoteSeries(partnerShortCode, issueDate), seq);
 }
 
+/** `ST26-001` — the settlement number: yearly series + 3-digit sequence. */
+export function settlementNumber(bookingDate: string, seq: number): string {
+  return formatSeriesNumber(settlementSeries(bookingDate), seq);
+}
+
+/** The reimbursement statement PDF of a settlement: `Reimb_ST26-001_2026-03-31.pdf`. */
+export function statementPdfKey(number: string, bookingDate: string): string {
+  if (!/^ST\d{2}-\d{3,}$/.test(number)) throw new Error(`Not a settlement number: "${number}"`);
+  assertIsoDate(bookingDate);
+  return `Reimb_${number}_${bookingDate}.pdf`;
+}
+
 /** The stored PDF of an issued invoice, credit note or quote: `InvoiceAF_VA26-INV-001.pdf`. */
 export function invoicePdfKey(number: string): string {
   if (!/^[A-Z0-9-]+-\d{3,}$/.test(number)) throw new Error(`Not a document number: "${number}"`);
@@ -119,8 +148,7 @@ export function invoicePdfKey(number: string): string {
 function groupRef(prefix: "Ex" | "SI", groupNumber: number, basAlias: string, seq: number): string {
   assertSeq(groupNumber);
   assertSeq(seq);
-  if (!/^[A-Za-z]{1,6}$/.test(basAlias))
-    throw new Error(`BAS alias must be letters, got "${basAlias}"`);
+  assertBasAlias(basAlias);
   return `${prefix}${groupNumber}-${basAlias}-${pad(seq, 2)}`;
 }
 

@@ -4,8 +4,8 @@ import {
   creditNoteNumber,
   creditNoteSeries,
   expenseDocumentKey,
-  expenseGroupSeries,
   expenseRef,
+  expenseSeries,
   fileSlug,
   formatSeriesNumber,
   invoiceNumber,
@@ -14,6 +14,9 @@ import {
   isUploadKind,
   quoteNumber,
   quoteSeries,
+  settlementNumber,
+  settlementSeries,
+  statementPdfKey,
   supplierInvoiceDocumentKey,
   supplierInvoiceRef,
   UPLOAD_KIND_PREFIX,
@@ -56,7 +59,8 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(expenseRef(213, "Tr", 1)).toBe("Ex213-Tr-01");
     expect(expenseRef(233, "Tr", 2)).toBe("Ex233-Tr-02");
     expect(expenseDocumentKey("Ex213-Tr-01", "2026-03-11")).toBe("Ex213-Tr-01_2026-03-11_");
-    expect(expenseGroupSeries(213)).toBe("exg-213");
+    expect(expenseSeries(213, "Tr")).toBe("exg-213-Tr");
+    expect(expenseSeries(213, "Rep")).toBe("exg-213-Rep");
     expect(() => expenseDocumentKey("213-Tr-01", "2026-03-11")).toThrow();
     expect(() => expenseDocumentKey("SI213-Acc-01", "2026-03-11")).toThrow(/expense ref/);
   });
@@ -74,6 +78,14 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(fileSlug("  ")).toBe("");
     expect(() => supplierInvoiceDocumentKey("Ex213-Acc-01", "2026-07-24", "X")).toThrow(/supplier/);
     expect(() => supplierInvoiceDocumentKey("SI213-Acc-01", "2026-07-24", "***")).toThrow(/Vendor/);
+  });
+
+  it("settlement number and the statement PDF key", () => {
+    expect(settlementSeries("2026-03-31")).toBe("ST26");
+    expect(settlementNumber("2026-03-31", 1)).toBe("ST26-001");
+    expect(statementPdfKey("ST26-001", "2026-03-31")).toBe("Reimb_ST26-001_2026-03-31.pdf");
+    expect(() => statementPdfKey("VA26-INV-001", "2026-03-31")).toThrow(/settlement number/);
+    expect(() => expenseSeries(213, "Tr-1")).toThrow(/alias/);
   });
 
   it("provisional upload key keeps v2's prefixes", () => {

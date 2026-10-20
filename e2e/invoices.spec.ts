@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectToast, trackToasts } from "./fixtures/toasts";
 
 // The owner's monthly invoice (specs/invoices US1 + US2): client with a contract rate → new draft pre-filled
 // from the contract → 20 days → issue → number assigned, sheet locked, PDF stored by the job → mark as sent.
@@ -10,13 +11,14 @@ test.describe("Invoices", () => {
   const shortCode = `I${stamp.slice(-4)}`;
 
   test("draft from a contract, issue, PDF, mark as sent", async ({ page }) => {
+    await trackToasts(page);
     // client + contract + rate
     await page.goto("/partners");
     await page.getByRole("button", { name: "Add partner" }).click();
     await page.getByRole("textbox", { name: "Name" }).fill(client);
     await page.getByRole("textbox", { name: "Short code" }).fill(shortCode);
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByText("Partner created")).toBeVisible();
+    await expectToast(page, "Partner created");
     await page.getByRole("link", { name: client }).click();
     await expect(page).toHaveURL(/\/partners\/[0-9a-f-]+$/);
     await page.getByRole("tab", { name: /Contracts/ }).click();
@@ -24,14 +26,14 @@ test.describe("Invoices", () => {
     await page.getByLabel("Name").fill("Consulting");
     await page.getByLabel("Start Date").fill("2026-01-01");
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByText("Contract created")).toBeVisible();
+    await expectToast(page, "Contract created");
     await page.getByText("Consulting", { exact: true }).click();
     const rates = page.getByTestId("contract-rates");
     await rates.getByRole("button", { name: "Add rate" }).click();
     await rates.locator("form").getByLabel("Valid from").fill("2026-01-01");
     await rates.locator("form").getByLabel(/^Rate/).fill("1200");
     await rates.locator("form").getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByText("Rate added").last()).toBeVisible();
+    await expectToast(page, "Rate added");
 
     // new draft — the contract fills the line
     await page.goto("/invoices/new?type=invoice");
@@ -56,7 +58,7 @@ test.describe("Invoices", () => {
     // issue → number, locked sheet, PDF from the job
     await page.getByRole("button", { name: "Issue" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Issue" }).click();
-    await expect(page.getByText(`${shortCode}26-INV-001 issued`)).toBeVisible();
+    await expectToast(page, `${shortCode}26-INV-001 issued`);
     await expect(page.getByTestId("sheet-number")).toHaveText(`${shortCode}26-INV-001`);
     await expect(page.getByTestId("invoice-state")).toHaveText("Issued");
     await expect(page.getByLabel("Qty")).toHaveCount(0); // print mode: no inputs
@@ -64,7 +66,7 @@ test.describe("Invoices", () => {
 
     // mark as sent
     await page.getByRole("button", { name: "Mark as sent" }).click();
-    await expect(page.getByText("Marked as sent")).toBeVisible();
+    await expectToast(page, "Marked as sent");
     await expect(page.getByTestId("invoice-state")).toHaveText("Sent");
 
     // the list shows it with its derived state

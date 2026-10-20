@@ -3,6 +3,8 @@
 // (ListQuery, distinct values for DataTable headers) happens with the partners reference slice.
 
 export {
+  basAlias,
+  basAliases,
   basLabels,
   getBasCategories,
   getBasCategory,

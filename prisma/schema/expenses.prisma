@@ -1,0 +1,205 @@
+// Module expenses — groups, payment sources, expenses, settlements (D26, D27, D28; specs/expenses/spec.md)
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// An expense is one cost the company bears outside supplier invoices: a receipt, the per-diem of a trip, a Swiss
+// VAT payment. It belongs to a group (`213 — Travel to CH in March 2026`), carries a key that is the receipt's file
+// name (`Ex213-Tr-01`) and names who paid (`payment_sources`: the two main bank accounts or the owner's private cards).
+// Money facts (amount, currency, date, SEK base, rate, what the bank actually paid) are locked once a settlement line
+// references the expense (trigger `expenses_lock_when_settled`). Paid / awaiting link / to refund / partially refunded /
+// refunded are DERIVED from `settlement_lines` and `links` — never stored. A settlement is one refund transaction
+// settling a chosen set of private expenses; its lines are intra-module allocations in SEK base; the bank row links
+// `settles` to it and the reimbursement statement PDF is a generated document (`statement_document_id`, validated UUID).
+
+enum ExpenseGroupKind {
+  trip
+  batch
+
+  @@map("expense_group_kind")
+}
+
+enum PaymentSourceKind {
+  bank_account
+  private
+
+  @@map("payment_source_kind")
+}
+
+enum ExpenseKind {
+  receipt
+  per_diem
+  vat_payment
+
+  @@map("expense_kind")
+}
+
+enum SettlementStatus {
+  active
+  cancelled
+
+  @@map("settlement_status")
+}
+
+/// `213 — Travel to CH in March 2026`: the folder a receipt goes into. Number from number_series `expense_group`, never reused.
+model ExpenseGroup {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  number      Int
+  description String           @db.VarChar(200)
+  kind        ExpenseGroupKind @default(batch)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy   String           @map("created_by") @db.Uuid
+  source      String           @default("web") @db.VarChar(20)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+  trip     Trip?
+
+  @@unique([tenantId, number], map: "expense_groups_tenant_number_key")
+  @@map("expense_groups")
+}
+
+/// Who paid: a main bank account (`AF SEK`, `AF CHF` — bank_account_id is a validated UUID) or a private instrument of the owner (`Private SE`, `Private CH`).
+model PaymentSource {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  label         String            @db.VarChar(60)
+  kind          PaymentSourceKind
+  /// the banking module's account (validated UUID, no FK); null for private sources
+  bankAccountId String?           @map("bank_account_id") @db.Uuid
+  currency      String            @db.Char(3)
+  isActive      Boolean           @default(true) @map("is_active")
+  /// the member whose liability a private source is (null = the owner); keeps an employee dimension possible
+  ownerUserId   String?           @map("owner_user_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy     String            @map("created_by") @db.Uuid
+  source        String            @default("web") @db.VarChar(20)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses    Expense[]
+  settlements Settlement[]
+
+  @@unique([tenantId, label], map: "payment_sources_tenant_label_key")
+  @@map("payment_sources")
+}
+
+model Expense {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  groupId           String        @map("group_id") @db.Uuid
+  /// `Ex213-Tr-01` — group number, BAS alias snapshot, sequence per (group, alias) from number_series `exg-213-Tr`
+  key               String        @db.VarChar(30)
+  seq               Int
+  /// the category's short code at creation — the key never changes when the category does
+  alias             String        @db.VarChar(6)
+  kind              ExpenseKind   @default(receipt)
+  date              DateTime      @db.Date
+  description       String        @db.VarChar(200)
+  /// 3-digit BAS group (bas_categories.code), validated at write
+  basCode           String        @map("bas_code") @db.VarChar(4)
+  /// the receipt's amount, positive, in its currency
+  amount            Decimal       @db.Decimal(15, 2)
+  currency          String        @db.Char(3)
+  /// Swiss input VAT on the receipt, recorded for the declaration prep (exports)
+  vatAmount         Decimal?      @map("vat_amount") @db.Decimal(15, 2)
+  vatRegistrationId String?       @map("vat_registration_id") @db.Uuid
+  /// SEK base: ECB of the date for private expenses; the bank row's journal base once a company-paid expense is attached
+  amountBase        Decimal       @map("amount_base") @db.Decimal(15, 2)
+  rate              Decimal       @db.Decimal(18, 6)
+  /// same_currency | ecb_daily | ecb_nearest | bank | manual
+  rateSource        String        @map("rate_source") @db.VarChar(20)
+  rateDate          DateTime?     @map("rate_date") @db.Date
+  /// company-paid and not yet attached to its bank row: the base is the ECB estimate
+  baseProvisional   Boolean       @default(false) @map("base_provisional")
+  /// what the bank row says the company paid (a 45.00 CHF receipt on the SEK card → 523.17 SEK), once attached
+  paidAmount        Decimal?      @map("paid_amount") @db.Decimal(15, 2)
+  paidCurrency      String?       @map("paid_currency") @db.Char(3)
+  paymentSourceId   String        @map("payment_source_id") @db.Uuid
+  /// no receipt exists (the owner says so) — the row shows *missing* until a document is linked
+  documentMissing   Boolean       @default(false) @map("document_missing")
+  note              String?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy         String        @map("created_by") @db.Uuid
+  source            String        @default("web") @db.VarChar(20)
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group           ExpenseGroup     @relation(fields: [groupId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  paymentSource   PaymentSource    @relation(fields: [paymentSourceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  settlementLines SettlementLine[]
+
+  @@unique([tenantId, key], map: "expenses_tenant_key_key")
+  @@unique([groupId, alias, seq], map: "expenses_group_alias_seq_key")
+  @@index([tenantId, date(sort: Desc)])
+  @@index([tenantId, groupId])
+  @@index([tenantId, paymentSourceId])
+  @@index([tenantId, basCode])
+  @@map("expenses")
+}
+
+/// One refund transaction settling a set of private expenses — `ST26-001`. Money columns written once (trigger `settlements_lock`); cancel keeps the row and its number.
+model Settlement {
+  id                        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                  String           @map("tenant_id") @db.Uuid
+  number                    String           @db.VarChar(20)
+  /// the refund's bank transaction (validated UUID through banking); one active settlement per transaction (partial unique index)
+  bankTransactionId         String           @map("bank_transaction_id") @db.Uuid
+  paymentSourceId           String           @map("payment_source_id") @db.Uuid
+  /// the bank row's signed amount and currency
+  refundAmount              Decimal          @map("refund_amount") @db.Decimal(15, 2)
+  refundCurrency            String           @map("refund_currency") @db.Char(3)
+  /// |the bank row's journal base| in SEK
+  refundBase                Decimal          @map("refund_base") @db.Decimal(15, 2)
+  allocatedBase             Decimal          @map("allocated_base") @db.Decimal(15, 2)
+  /// Σ lines − refund base when the owner confirmed it (cross-currency refunds): > 0 a gain (3960), < 0 a loss (7960)
+  exchangeDifferenceBase    Decimal          @default(0) @map("exchange_difference_base") @db.Decimal(15, 2)
+  /// the same difference when it is within the 0.50 SEK tolerance — rounding, no confirmation
+  roundingBase              Decimal          @default(0) @map("rounding_base") @db.Decimal(15, 2)
+  exchangeDifferenceBasCode String?          @map("exchange_difference_bas_code") @db.VarChar(4)
+  note                      String?
+  status                    SettlementStatus @default(active)
+  cancelledAt               DateTime?        @map("cancelled_at") @db.Timestamptz
+  /// the reimbursement statement PDF (validated UUID), set once by the job
+  statementDocumentId       String?          @map("statement_document_id") @db.Uuid
+  /// the statement no longer describes the ledger (the settlement was cancelled); the document stays (retention)
+  statementSuperseded       Boolean          @default(false) @map("statement_superseded")
+  createdAt                 DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy                 String           @map("created_by") @db.Uuid
+  source                    String           @default("web") @db.VarChar(20)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentSource PaymentSource    @relation(fields: [paymentSourceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  lines         SettlementLine[]
+
+  @@unique([tenantId, number], map: "settlements_tenant_number_key")
+  /// partial: WHERE status = 'active' (migration) — declared here for the drift check
+  @@unique([bankTransactionId], map: "settlements_active_transaction_key")
+  @@index([tenantId, bankTransactionId])
+  @@index([tenantId, status])
+  @@map("settlements")
+}
+
+/// An allocation of a settlement to one of its expenses, in SEK base. Intra-module (not a link): the settlement owns its lines.
+model SettlementLine {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  settlementId  String   @map("settlement_id") @db.Uuid
+  expenseId     String   @map("expense_id") @db.Uuid
+  allocatedBase Decimal  @map("allocated_base") @db.Decimal(15, 2)
+  /// `Rounding adjustment: SEK 0.30 (Swedish 50-öre rounding tolerance)`
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdBy     String   @map("created_by") @db.Uuid
+  source        String   @default("web") @db.VarChar(20)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  expense    Expense    @relation(fields: [expenseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([settlementId, expenseId], map: "settlement_lines_settlement_expense_key")
+  @@index([tenantId, expenseId])
+  @@map("settlement_lines")
+}

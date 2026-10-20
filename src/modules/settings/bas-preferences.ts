@@ -48,6 +48,32 @@ export async function getBasCategory(
   return c;
 }
 
+/**
+ * The short code the owner's keys carry (`Tr` in `Ex213-Tr-01`): the tenant's own short code for the category,
+ * else the curated suggestion; null when neither exists — the caller refuses and points to Settings → BAS.
+ */
+export async function basAliases(
+  tx: TransactionClient,
+  codes: readonly string[],
+): Promise<Map<string, string | null>> {
+  const unique = [...new Set(codes)];
+  if (unique.length === 0) return new Map();
+  const rows = await tx.basCategory.findMany({
+    where: { code: { in: unique } },
+    select: { code: true, suggestedAlias: true },
+  });
+  const prefs = await tx.tenantBasPreference.findMany({
+    where: { basCode: { in: unique } },
+    select: { basCode: true, shortCode: true },
+  });
+  const own = new Map(prefs.map((p) => [p.basCode, p.shortCode?.trim() || null]));
+  return new Map(rows.map((r) => [r.code, own.get(r.code) ?? r.suggestedAlias?.trim() ?? null]));
+}
+
+export async function basAlias(tx: TransactionClient, code: string): Promise<string | null> {
+  return (await basAliases(tx, [code])).get(code) ?? null;
+}
+
 /** Labels for a set of BAS codes (`657 · Bankkostnader`), for list rows and filter options. */
 export async function basLabels(
   tx: TransactionClient,
