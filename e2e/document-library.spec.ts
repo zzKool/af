@@ -60,8 +60,13 @@ test.describe("Document Library — delete flow", () => {
       timeout: 15000,
     });
 
-    // Wait for the table to show at least one document with a delete button
-    const deleteBtn = page.getByTitle("Delete document").first();
+    // The uploaded document's own delete button — the row shows the business key, not the file name, so pick
+    // an "Uploaded" row (generated PDFs and bank statements may sit above it and are not deletable)
+    const deleteBtn = page
+      .getByRole("row")
+      .filter({ hasText: "Uploaded" })
+      .first()
+      .getByTitle("Delete document");
     await expect(deleteBtn).toBeVisible({ timeout: 15000 });
 
     // Click delete

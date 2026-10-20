@@ -44,8 +44,19 @@ type BankAccount = {
   bic: string | null;
   currency: string;
   bankFormatId: string;
+  /** main (monthly accountant package) or savings (yearly) — D13/D31 */
+  role: "main" | "savings";
   bankFormat: BankFormat;
 };
+
+type EditableField =
+  | "accountAlias"
+  | "accountNumber"
+  | "currency"
+  | "bankFormatId"
+  | "iban"
+  | "bic"
+  | "role";
 
 type Props = {
   initialAccounts: BankAccount[];
@@ -113,6 +124,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
             accountAlias: input.accountAlias || null,
             accountNumber: input.accountNumber,
             currency: input.currency,
+            role: "main",
             bankFormatId: input.bankFormatId,
             iban: null,
             bic: null,
@@ -128,11 +140,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
 
   // ─── Update (auto-save) ───
   const handleUpdateField = useCallback(
-    async (
-      id: string,
-      field: "accountAlias" | "accountNumber" | "currency" | "bankFormatId" | "iban" | "bic",
-      value: string | null,
-    ) => {
+    async (id: string, field: EditableField, value: string | null) => {
       const account = accountsRef.current.find((a) => a.id === id);
       if (!account) return;
 
@@ -264,11 +272,7 @@ function AccountCard({
 }: {
   account: BankAccount;
   bankFormats: BankFormat[];
-  onUpdateField: (
-    id: string,
-    field: "accountAlias" | "accountNumber" | "currency" | "bankFormatId" | "iban" | "bic",
-    value: string | null,
-  ) => void;
+  onUpdateField: (id: string, field: EditableField, value: string | null) => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
@@ -406,6 +410,31 @@ function AccountCard({
                   {c}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Role — main (monthly package) / savings (yearly package), D13/D31 */}
+        <div>
+          <Label
+            htmlFor={`ba-role-${account.id}`}
+            className="text-[10px] text-muted-foreground uppercase"
+          >
+            Role
+          </Label>
+          <Select
+            value={account.role}
+            onValueChange={(value) => {
+              if (!value) return;
+              onUpdateField(account.id, "role", value);
+            }}
+          >
+            <SelectTrigger id={`ba-role-${account.id}`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="main">Main (monthly package)</SelectItem>
+              <SelectItem value="savings">Savings (yearly package)</SelectItem>
             </SelectContent>
           </Select>
         </div>

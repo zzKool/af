@@ -7,6 +7,10 @@ const PAGES: Record<string, string> = {
   dashboard: "/dashboard",
   partners: "/partners",
   invoices: "/invoices",
+  banking: "/banking",
+  "banking-rules": "/banking/rules",
+  "banking-imports": "/banking/imports",
+  journal: "/journal",
   documents: "/documents",
   settings: "/settings",
 };

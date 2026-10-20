@@ -252,7 +252,7 @@ export function DataTable<Row extends { id: string }>({
 
       <FilterChips
         query={query}
-        columns={columns}
+        columns={allColumns}
         valueLabel={valueLabel}
         onRemove={(c) => applyFilter(c, null)}
         onClearAll={() => {
@@ -423,7 +423,7 @@ export function DataTable<Row extends { id: string }>({
         </span>
         {result.sums &&
           Object.entries(result.sums).map(([col, sum]) => {
-            const column = columns.find((c) => c.key === col);
+            const column = allColumns.find((c) => c.key === col);
             return (
               <span key={col} className="tabular-nums">
                 Σ {column?.header ?? col}:{" "}

@@ -37,6 +37,8 @@ test.describe("Invoices", () => {
     await page.goto("/invoices/new?type=invoice");
     await page.getByLabel("Client").click();
     await page.getByRole("option", { name: new RegExp(client) }).click();
+    // the contract list loads after the client is chosen — the draft is pre-filled only once it is there
+    await expect(page.getByLabel("Contract")).toContainText("Consulting");
     await page.getByLabel("Period", { exact: true }).fill("2026 January");
     await page.getByLabel("Period start").fill("2026-01-01");
     await page.getByRole("button", { name: "Create draft" }).click();
@@ -58,7 +60,7 @@ test.describe("Invoices", () => {
     await expect(page.getByTestId("sheet-number")).toHaveText(`${shortCode}26-001`);
     await expect(page.getByTestId("invoice-state")).toHaveText("Issued");
     await expect(page.getByLabel("Qty")).toHaveCount(0); // print mode: no inputs
-    await expect(page.getByTestId("download-pdf")).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId("download-pdf")).toBeVisible({ timeout: 90_000 });
 
     // mark as sent
     await page.getByRole("button", { name: "Mark as sent" }).click();

@@ -1,6 +1,6 @@
 # Banking — Nordea import, transactions, categorisation rules, transfer pairs
 
-Module `src/modules/banking` · schema `prisma/schema/banking.prisma` · migration `20261021100000_add_banking_import_and_journal` · spec `specs/banking/` (harvest, spec, plan, tasks) · decisions D3, D13, D18, D25, D31. Part 1: model, parser edits, import, rules, transfer pairs, linkables, queries. Part 2 (next PR): the workbench, imports, rules and journal pages.
+Module `src/modules/banking` · schema `prisma/schema/banking.prisma` · migration `20261021100000_add_banking_import_and_journal` · spec `specs/banking/` (harvest, spec, plan, tasks) · decisions D3, D13, D18, D25, D31. Part 1: model, parser edits, import, rules, transfer pairs, linkables, queries. Part 2: the workbench, the imports and rules pages (the journal page in [[journal]]).
 
 > A bank transaction is one CSV row, kept verbatim and never updated. The owner's facts about it — BAS category, partner, note, *no document needed* — live on its [[journal]] entry. *Open / partially linked / linked / no document needed* are **derived** from the links and the journal flag. Rules set facts, never a status; transfer pairs are `transfer` links.
 
@@ -71,6 +71,17 @@ Pure `transferCandidates(a, others, ecbRate)`: another own account, opposite sig
 - `ui.ts`: actions + types (components come with part 2).
 - Actions (`banking.actions.ts`): reads on `authedAction` + `can(read, bank_transaction)` (the accountant reads); `importCsvAction` (FormData: file + account), `detectAccountAction`, `deleteImportAction`, rule CRUD / test / apply / from-transaction, `proposeTransfersAction`, `acceptTransferAction` on `ownerAction`.
 - `modules/linking/linkables.ts` registers `bankTransactionLinkable` and `journalEntryLinkable`.
+
+## Pages (part 2)
+
+- `/banking` — `ListPage` + `TransactionTable` (DataTable on `TRANSACTION_COLUMNS`: state chips, money in the row's currency, footer sums of `amount` and `amountBase`, account / category / partner / import filters labelled by name) with the account balance chips above it (click = filter on that account). A row opens the **side panel** (`TransactionPanel`, a `Sheet`): the row as the bank said it, the journal entry (`CategoriseForm` from the journal module — saved on change, the saved entry shown at once), the links with the other side's label, the transfer proposal with *Accept as transfer*, *Create rule from this* (the `RuleDialog` pre-filled from the counterparty key and the entry's facts, `learned`). Toolbar: *Import CSV* (`ImportDialog`: file → the account pre-selected from the file name and the first row's currency (`detectAccountAction`) → summary with the period, the rules applied and *Show the new rows* = the list filtered on that import), *Imports*, *Rules*.
+- `/banking/imports` — `ImportsTable`: file (link to its rows), account, period, counts, date, delete (refused while linked).
+- `/banking/rules` — `RulesTable`: priority order, new / edit (`RuleDialog`, regex behind *Advanced*, *Test* = matches over the newest uncategorised rows), delete, *Apply rules* (dry run preview → *Apply now*).
+- Settings → Bank accounts gains the *Role* select (main / savings).
+- Nav: *Banking* for owner and accountant (reads: the panel is read-only, no import / rules / accept). Strings `banking.*` en + fr.
+- Kernel kit additions for these pages: `components/ui/dialog.tsx` and `components/ui/sheet.tsx` (Base UI, same shape as `alert-dialog.tsx`); the DataTable now labels filter chips and footer sums by header even for hidden columns.
+
+E2E `e2e/banking.spec.ts` (SEK only — CI has no ECB rates): the July sample → fee rule applied → categorise the OpenAI row by hand → *create rule from this* → the savings file (interest rule) and the SEK leg → accept the transfer pair → rules, journal and imports pages. Screenshots: `specs/banking/screenshots/` (import dialog, summary, workbench, panel, rule dialog, transfer proposal / accepted, journal, rules, imports).
 
 ## Tests
 
