@@ -1,15 +1,17 @@
 import { headers } from "next/headers";
 import { formatDateTime } from "@/kernel/i18n/format-date";
 import { resolveLocale } from "@/kernel/i18n/locale";
-import { ActionItemsWidget } from "@/modules/dashboard/components/action-items-widget";
-import { BusinessPulseWidget } from "@/modules/dashboard/components/business-pulse-widget";
-import { getDashboardData } from "@/modules/dashboard/dashboard.actions";
-import type { BusinessPulseMetric, DashboardActionItem } from "@/modules/dashboard/types";
+import {
+  type BusinessPulseMetric,
+  type DashboardActionItem,
+  getDashboardDataAction,
+} from "@/modules/dashboard";
+import { ActionItemsWidget, BusinessPulseWidget } from "@/modules/dashboard/ui";
 
 export default async function DashboardPage() {
   const hdrs = await headers();
   const locale = resolveLocale(hdrs.get("accept-language"));
-  const result = await getDashboardData({});
+  const result = await getDashboardDataAction({});
 
   const data = result?.data;
   const userName = data?.userName ?? "User";

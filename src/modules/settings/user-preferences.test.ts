@@ -39,8 +39,8 @@ afterAll(async () => {
 
 // Import actions after mocks
 import {
-  getUserPreferences as getPrefsAction,
-  updateUserLocale as updateLocaleAction,
+  getUserPreferencesAction as getPrefsAction,
+  updateUserLocaleAction as updateLocaleAction,
 } from "@/modules/settings/user-preferences.actions";
 
 // ─────────────────────────────────────────────────────────────

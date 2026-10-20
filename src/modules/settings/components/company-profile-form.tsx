@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompanyAvatar } from "@/kernel/ui/company-avatar";
-import { updateTenantProfile } from "@/modules/settings/settings.actions";
+import { updateTenantProfileAction } from "@/modules/settings/settings.actions";
 
 type ProfileData = {
   name: string;
@@ -30,7 +30,7 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
   const [savingField, setSavingField] = useState<string | null>(null);
   const previousData = useRef(initialData);
 
-  const { executeAsync } = useAction(updateTenantProfile);
+  const { executeAsync } = useAction(updateTenantProfileAction);
 
   const saveField = useCallback(
     async (field: keyof ProfileData, value: string) => {

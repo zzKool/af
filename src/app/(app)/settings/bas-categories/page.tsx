@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { BasCategoriesTab } from "@/modules/settings/components/bas-categories-tab";
+import { BasCategoriesTab } from "@/modules/settings/ui";
 
 export default async function BasCategoriesSettingsPage() {
   const hdrs = await headers();

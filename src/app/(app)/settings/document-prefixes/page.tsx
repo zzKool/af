@@ -4,8 +4,8 @@ import { createAuditEntry } from "@/kernel/audit/audit";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { DocumentTypePrefixesTab } from "@/modules/documents/components/document-type-prefixes-tab";
-import * as prefixService from "@/modules/documents/document-type-prefixes";
+import * as prefixService from "@/modules/documents";
+import { DocumentTypePrefixesTab } from "@/modules/documents/ui";
 
 export default async function DocumentPrefixesSettingsPage() {
   const hdrs = await headers();

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { CompanyProfileForm } from "@/modules/settings/components/company-profile-form";
+import { CompanyProfileForm } from "@/modules/settings/ui";
 
 export default async function CompanySettingsPage() {
   const hdrs = await headers();

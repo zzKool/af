@@ -13,7 +13,7 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   deleteDocumentAction: vi.fn(),
 }));
 
-vi.mock("@/modules/settings/table-preferences.actions", () => ({
+vi.mock("@/modules/settings", () => ({
   upsertTablePreferenceAction: vi.fn(),
 }));
 

@@ -60,9 +60,9 @@ afterAll(async () => {
 
 // Import actions after mocks
 import {
-  activateBasCategories,
-  getBasCategories,
-  getTenantBasPreferences,
+  activateBasCategoriesAction,
+  getBasCategoriesAction,
+  getTenantBasPreferencesAction,
 } from "@/modules/settings/bas-preferences.actions";
 
 // ─────────────────────────────────────────────────────────────
@@ -501,7 +501,7 @@ describe("bas preferences actions", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const result = await getBasCategories({});
+    const result = await getBasCategoriesAction({});
     expect(result?.serverError).toBeUndefined();
     expect(result?.data?.data?.length).toBeGreaterThan(400);
   });
@@ -510,7 +510,7 @@ describe("bas preferences actions", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const result = await activateBasCategories({ codes: ["501"] });
+    const result = await activateBasCategoriesAction({ codes: ["501"] });
     expect(result?.serverError).toBeUndefined();
   });
 
@@ -522,14 +522,14 @@ describe("bas preferences actions", () => {
     });
     mockHeaders = member.headers;
 
-    const result = await activateBasCategories({ codes: ["501"] });
+    const result = await activateBasCategoriesAction({ codes: ["501"] });
     expect(result?.serverError).toBeDefined();
     expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("unauthenticated cannot read preferences (UNAUTHORIZED)", async () => {
     mockHeaders = new Headers();
-    const result = await getTenantBasPreferences({});
+    const result = await getTenantBasPreferencesAction({});
     expect(result?.serverError).toBeDefined();
     expect(result?.serverError).toMatchObject({ code: "UNAUTHORIZED" });
   });

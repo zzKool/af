@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import * as bankService from "@/modules/banking/bank-accounts";
-import { BankAccountsTab } from "@/modules/banking/components/bank-accounts-tab";
+import * as bankService from "@/modules/banking";
+import { BankAccountsTab } from "@/modules/banking/ui";
 
 export default async function BankAccountsSettingsPage() {
   const hdrs = await headers();

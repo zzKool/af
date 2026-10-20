@@ -9,7 +9,7 @@ import * as vatService from "@/modules/settings/vat-registrations";
  * Unlike BAS categories (authedAction for reference reads), VAT registrations
  * are tenant-private data, so ownerAction is correct for reads too.
  */
-export const getVatRegistrations = ownerAction
+export const getVatRegistrationsAction = ownerAction
   .schema(z.object({}))
   .metadata({ name: "getVatRegistrations" })
   .action(async ({ ctx }) => {
@@ -19,7 +19,7 @@ export const getVatRegistrations = ownerAction
 /**
  * Create a new VAT registration — owner only.
  */
-export const createVatRegistration = ownerAction
+export const createVatRegistrationAction = ownerAction
   .schema(
     z.object({
       country: z.string().trim().toUpperCase().length(2),
@@ -36,7 +36,7 @@ export const createVatRegistration = ownerAction
  * Update an existing VAT registration — owner only.
  * Country is immutable after creation — not in schema.
  */
-export const updateVatRegistration = ownerAction
+export const updateVatRegistrationAction = ownerAction
   .schema(
     z.object({
       id: z.string().uuid(),
@@ -53,7 +53,7 @@ export const updateVatRegistration = ownerAction
 /**
  * Delete a VAT registration — owner only.
  */
-export const deleteVatRegistration = ownerAction
+export const deleteVatRegistrationAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
   .metadata({ name: "deleteVatRegistration" })
   .action(async ({ ctx, parsedInput }) => {

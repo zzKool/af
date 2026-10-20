@@ -9,9 +9,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
-  createDocumentTypePrefix,
-  deleteDocumentTypePrefix,
-  updateDocumentTypePrefix,
+  createDocumentTypePrefixAction,
+  deleteDocumentTypePrefixAction,
+  updateDocumentTypePrefixAction,
 } from "@/modules/documents/document-type-prefixes.actions";
 
 // ─────────────────────────────────────────────────────────────
@@ -57,9 +57,11 @@ export function DocumentTypePrefixesTab({ initialPrefixes }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
 
-  const { executeAsync: execCreate, isPending: isCreating } = useAction(createDocumentTypePrefix);
-  const { executeAsync: execUpdate } = useAction(updateDocumentTypePrefix);
-  const { executeAsync: execDelete } = useAction(deleteDocumentTypePrefix);
+  const { executeAsync: execCreate, isPending: isCreating } = useAction(
+    createDocumentTypePrefixAction,
+  );
+  const { executeAsync: execUpdate } = useAction(updateDocumentTypePrefixAction);
+  const { executeAsync: execDelete } = useAction(deleteDocumentTypePrefixAction);
   const { dialogProps, confirm } = useConfirmDialog();
 
   const prefixesRef = useRef(prefixes);

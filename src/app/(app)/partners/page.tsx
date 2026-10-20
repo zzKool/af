@@ -4,8 +4,8 @@ import { getAuthContext } from "@/kernel/auth/auth";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { PartnerList } from "@/modules/partners/components/partner-list";
-import * as partnerService from "@/modules/partners/partners";
+import * as partnerService from "@/modules/partners";
+import { PartnerList } from "@/modules/partners/ui";
 
 export default async function PartnersPage() {
   const hdrs = await headers();

@@ -1,3 +1,5 @@
+> **Policy since phase-0 (2026-10-20):** pull requests run lint, typecheck, unit tests and the production build (~3–4 min). E2E runs on every push to `main` and on manual dispatch (`workflow_dispatch`); a red E2E on `main` is fixed forward in the next PR.
+
 # CI/CD Pipeline
 
 ## Pipeline Overview

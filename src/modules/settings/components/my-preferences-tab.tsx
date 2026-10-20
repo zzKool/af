@@ -15,7 +15,7 @@ import { useLocale } from "@/kernel/i18n/locale-provider";
 import { formatNumber } from "@/kernel/money/format-number";
 import type { SupportedLocale } from "@/kernel/nav/constants";
 import { SUPPORTED_LOCALES } from "@/kernel/nav/constants";
-import { updateUserLocale } from "@/modules/settings/user-preferences.actions";
+import { updateUserLocaleAction } from "@/modules/settings/user-preferences.actions";
 
 type Props = {
   initialLocale: string | null;
@@ -33,7 +33,7 @@ const BROWSER_DEFAULT_VALUE = "__browser__";
 
 export function MyPreferencesTab({ initialLocale }: Props) {
   const { locale, setLocale } = useLocale();
-  const { executeAsync: execUpdate } = useAction(updateUserLocale);
+  const { executeAsync: execUpdate } = useAction(updateUserLocaleAction);
 
   const currentLocale = locale ?? initialLocale;
   const selectValue = currentLocale ?? BROWSER_DEFAULT_VALUE;

@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { DocumentReviewClient } from "@/modules/documents/components/document-review-client";
-import { getDocumentForReviewAction } from "@/modules/documents/documents.actions";
+import { getDocumentForReviewAction } from "@/modules/documents";
+import { DocumentReviewClient } from "@/modules/documents/ui";
 
 export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

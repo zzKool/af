@@ -15,7 +15,7 @@ import {
 } from "@/kernel/db/test-fixtures";
 import { assertAuditLogged, assertRlsIsolation } from "@/kernel/test-utils/config-crud-helpers";
 import * as contractService from "@/modules/contracts/contracts";
-import * as partnerService from "@/modules/partners/partners";
+import * as partnerService from "@/modules/partners";
 
 /** No-op audit logger for tests that don't care about audit */
 const noopAudit: AuditLogger = { log: async () => {} };
@@ -817,9 +817,7 @@ describe("contract actions RBAC", () => {
     mockHeaders = owner.headers;
 
     // Need a client partner first
-    const partnerResult = await (
-      await import("@/modules/partners/partners.actions")
-    ).createPartnerAction({
+    const partnerResult = await (await import("@/modules/partners")).createPartnerAction({
       name: "Action Client",
       types: ["client"],
     });
@@ -838,9 +836,7 @@ describe("contract actions RBAC", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const partnerResult = await (
-      await import("@/modules/partners/partners.actions")
-    ).createPartnerAction({
+    const partnerResult = await (await import("@/modules/partners")).createPartnerAction({
       name: "Readable Client",
       types: ["client"],
     });

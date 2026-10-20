@@ -57,8 +57,8 @@ afterAll(async () => {
 
 // Import actions after mocks
 import {
-  createDocumentTypePrefix as createAction,
-  getDocumentTypePrefixes as getAction,
+  createDocumentTypePrefixAction as createAction,
+  getDocumentTypePrefixesAction as getAction,
 } from "@/modules/documents/document-type-prefixes.actions";
 
 // ─────────────────────────────────────────────────────────────

@@ -18,9 +18,9 @@ import {
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
-  createBankAccount,
-  deleteBankAccount,
-  updateBankAccount,
+  createBankAccountAction,
+  deleteBankAccountAction,
+  updateBankAccountAction,
 } from "@/modules/banking/bank-accounts.actions";
 
 // ─────────────────────────────────────────────────────────────
@@ -71,9 +71,9 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
 
-  const { executeAsync: execCreate, isPending: isCreating } = useAction(createBankAccount);
-  const { executeAsync: execUpdate } = useAction(updateBankAccount);
-  const { executeAsync: execDelete } = useAction(deleteBankAccount);
+  const { executeAsync: execCreate, isPending: isCreating } = useAction(createBankAccountAction);
+  const { executeAsync: execUpdate } = useAction(updateBankAccountAction);
+  const { executeAsync: execDelete } = useAction(deleteBankAccountAction);
   const { dialogProps, confirm } = useConfirmDialog();
 
   // Ref to avoid stale closures in update callbacks

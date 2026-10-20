@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { VatRegistrationsTab } from "@/modules/settings/components/vat-registrations-tab";
+import { VatRegistrationsTab } from "@/modules/settings/ui";
 
 export default async function VatRegistrationsSettingsPage() {
   const hdrs = await headers();

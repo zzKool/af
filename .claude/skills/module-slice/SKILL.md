@@ -15,13 +15,15 @@ src/modules/<name>/
   <entity>.ts          service: business logic; takes tx + CallerIdentity; returns ServiceResult
   <entity>.test.ts     Vitest, co-located, DB-backed (RLS on)
   <entity>.actions.ts  thin Server Actions (see server-action-pattern)
-  queries.ts           read API for pages and other modules; returns DTOs            (from 3d)
+  queries.ts           read API for pages and other modules; returns DTOs
   components/          React components of this module
   stores/              client state (Zustand) of this module
   jobs/                background handlers of this module
   __fixtures__/        test fixtures
   linkable.ts          optional: { type, exists, summary, amount } registered with modules/linking   (from 3c)
-  index.ts             the ONLY public surface: DTO types, queries, actions, linkable                (from 3b)
+  types.ts             DTOs — plain types, never Prisma; mappers (toXDto) next to the service
+  index.ts             SERVER surface: types, queries, services, actions, jobs, linkable
+  ui.ts                CLIENT surface: components, stores, actions, types
 docs/<name>.md         what the module does, decisions, how to extend
 specs/<name>/          spec.md, plan.md, tasks.md (spec-kit)
 e2e/<name>.spec.ts     Playwright happy path
@@ -42,7 +44,9 @@ Single-entity modules may switch to `service.ts` / `actions.ts` once the referen
 10. **Screenshots** in the PR.
 
 ## Guard rules you will hit
-- importing another module's `service.ts` → use its `index.ts`
+- importing another module's files → use `@/modules/<m>` (server) or `@/modules/<m>/ui` (client)
+- a `"use client"` file importing `@/modules/<m>` → use `/ui`
+- a service returning a Prisma row type → add a DTO in `types.ts` + mapper
 - importing `next/*` in service or queries → move it to the action or page
 - `role ===` anywhere → use `can()`
 - `.toNumber()` outside components → format at the display boundary

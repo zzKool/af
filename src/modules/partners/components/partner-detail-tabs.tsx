@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
-import { ContractList } from "@/modules/contracts/components/contract-list";
+import { ContractList } from "@/modules/contracts/ui";
 import { type PartnerData, PartnerForm } from "@/modules/partners/components/partner-form";
 import {
   deactivatePartnerAction,
