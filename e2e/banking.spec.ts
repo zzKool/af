@@ -99,7 +99,14 @@ test.describe("Banking", () => {
     await page.goto("/journal");
     await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("657");
     await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("831");
+    // the three imports of this journey are listed (other journeys import too — CI runs two workers)
     await page.goto("/banking/imports");
-    await expect(page.getByTestId("import-row")).toHaveCount(3);
+    for (const name of [
+      "PLUSGIROKONTO FTG 123 45 67-8 - 2026-07-31 09.12.01.csv",
+      "SPARKONTO FÖRETAG 1234 56 78901 - 2026-12-31 10.00.00.csv",
+      "PLUSGIROKONTO FTG 123 45 67-8 - 2026-01-05 08.00.00.csv",
+    ]) {
+      await expect(page.getByTestId("import-row").filter({ hasText: name })).toHaveCount(1);
+    }
   });
 });
