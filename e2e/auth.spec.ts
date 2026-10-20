@@ -18,11 +18,11 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Documents" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Partners" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Invoices" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
     // Not yet enabled — these appear as epics are completed
-    await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
-    await expect(nav.getByRole("link", { name: "Banking" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Reconciliation" })).not.toBeVisible();
   });
 });
@@ -40,15 +40,15 @@ test.describe("Accountant authentication and navigation", () => {
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     await expect(nav).toBeVisible();
 
-    // Accountant sees Dashboard, Invoices (read-only) and Settings (My Preferences tab)
+    // Accountant sees Dashboard, Journal, Banking, Invoices (read-only) and Settings (My Preferences tab)
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Invoices" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
     // Owner-only and not-yet-enabled links are NOT visible
     await expect(nav.getByRole("link", { name: "Documents" })).not.toBeVisible();
-    await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
-    await expect(nav.getByRole("link", { name: "Banking" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Partners" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Reconciliation" })).not.toBeVisible();
   });

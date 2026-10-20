@@ -157,14 +157,43 @@ function DownloadButton({ documentId }: { documentId: string }) {
   );
 }
 
-function DeleteButton({ documentId, businessKey }: { documentId: string; businessKey: string }) {
-  const [open, setOpen] = useState(false);
+/** The trash icon of a row — asks the library to confirm (one dialog for the table, so a row re-render never closes it). */
+function DeleteButton({ onRequest }: { onRequest: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7 text-destructive hover:text-destructive"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRequest();
+      }}
+      title="Delete document"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+      <span className="sr-only">Delete document</span>
+    </Button>
+  );
+}
+
+type DeleteTarget = { id: string; businessKey: string };
+
+/** The one delete confirmation of the library — its state lives in the client, not in the row. */
+function DeleteDocumentDialog({
+  target,
+  onClose,
+}: {
+  target: DeleteTarget | null;
+  onClose: () => void;
+}) {
   const [isPending, startTransition] = useTransition();
   const invalidate = useDocumentLibraryInvalidate();
 
   function handleConfirm() {
+    if (!target) return;
+    const { id, businessKey } = target;
     startTransition(async () => {
-      const result = await deleteDocumentAction({ documentId });
+      const result = await deleteDocumentAction({ documentId: id });
       // biome-ignore lint/suspicious/noExplicitAny: next-safe-action wrapping
       if ((result?.data as any)?.error) {
         // biome-ignore lint/suspicious/noExplicitAny: next-safe-action wrapping
@@ -173,50 +202,35 @@ function DeleteButton({ documentId, businessKey }: { documentId: string; busines
         toast.success(`Document ${businessKey} deleted`);
         invalidate();
       }
-      setOpen(false);
+      onClose();
     });
   }
 
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-destructive hover:text-destructive"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-        title="Delete document"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        <span className="sr-only">Delete document</span>
-      </Button>
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete document?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <strong>{businessKey}</strong> and remove the file from
-              storage. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              onClick={(e) => {
-                e.preventDefault();
-                handleConfirm();
-              }}
-              disabled={isPending}
-            >
-              {isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    <AlertDialog open={!!target} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete document?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete <strong>{target?.businessKey}</strong> and remove the file
+            from storage. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            onClick={(e) => {
+              e.preventDefault();
+              handleConfirm();
+            }}
+            disabled={isPending}
+          >
+            {isPending ? "Deleting…" : "Delete"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -234,6 +248,7 @@ export function DocumentLibraryClient({
   const setPage = useDocumentLibraryStore((s) => s.setPage);
   const setPageSize = useDocumentLibraryStore((s) => s.setPageSize);
   const clearFilters = useDocumentLibraryStore((s) => s.clearFilters);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   // Initialize store from server-side preferences (cross-session restore)
   const prefInitialized = useRef(false);
@@ -415,7 +430,11 @@ export function DocumentLibraryClient({
           >
             <Eye className="h-3.5 w-3.5" />
           </Link>
-          <DeleteButton documentId={row.original.id} businessKey={row.original.businessKey} />
+          <DeleteButton
+            onRequest={() =>
+              setDeleteTarget({ id: row.original.id, businessKey: row.original.businessKey })
+            }
+          />
         </div>
       ),
     },
@@ -494,6 +513,7 @@ export function DocumentLibraryClient({
           window.location.href = `/documents/${row.id}`;
         }}
       />
+      <DeleteDocumentDialog target={deleteTarget} onClose={() => setDeleteTarget(null)} />
     </div>
   );
 }

@@ -241,6 +241,45 @@ async function seed() {
       });
     }
     console.log("  ✓ Categorisation rules seeded (bank fees, savings interest)");
+
+    // the owner's working BAS set: the common groups plus the ones his aliases point to (Excel Sheet 3)
+    const wanted = new Set([
+      ...(await tx.basCategory.findMany({ where: { isCommon: true }, select: { code: true } })).map(
+        (c) => c.code,
+      ),
+      "501",
+      "570",
+      "654",
+      "657",
+      "631",
+      "721",
+      "831",
+      "263",
+    ]);
+    const known = new Set(
+      (
+        await tx.basCategory.findMany({
+          where: { code: { in: [...wanted] } },
+          select: { code: true },
+        })
+      ).map((c) => c.code),
+    );
+    const active = new Set(
+      (await tx.tenantBasPreference.findMany({ select: { basCode: true } })).map((p) => p.basCode),
+    );
+    const toActivate = [...wanted].filter((c) => known.has(c) && !active.has(c));
+    if (toActivate.length) {
+      await tx.tenantBasPreference.createMany({
+        data: toActivate.map((code) => ({
+          tenantId: orgId,
+          basCode: code,
+          isFavorite: ["654", "657", "570", "501"].includes(code),
+          createdBy: ownerUserId,
+          source: "seed",
+        })),
+      });
+    }
+    console.log(`  ✓ BAS categories activated (${toActivate.length} new)`);
   });
 
   console.log("\n🌱 Seed complete!");

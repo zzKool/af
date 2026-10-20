@@ -37,9 +37,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Journal",
     icon: "BookOpen",
     roles: ["owner", "accountant"],
-    enabled: false,
+    enabled: true,
   },
-  { path: "/banking", label: "Banking", icon: "Landmark", roles: ["owner"], enabled: false },
+  {
+    path: "/banking",
+    label: "Banking",
+    icon: "Landmark",
+    roles: ["owner", "accountant"],
+    enabled: true,
+  },
   { path: "/partners", label: "Partners", icon: "Users", roles: ["owner"], enabled: true },
   {
     path: "/reconciliation",

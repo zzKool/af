@@ -26,6 +26,7 @@ export {
   listJournalEntriesAction,
 } from "./journal.actions";
 export { journalEntryLinkable } from "./linkable";
+export { categoryOptions, partnerOptions } from "./options";
 export * from "./queries";
 export type * from "./types";
 export { JOURNAL_SOURCES, RATE_SOURCES } from "./types";

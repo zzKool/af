@@ -1,6 +1,6 @@
 # Journal — the categorised ledger of financial facts
 
-Module `src/modules/journal` · schema `prisma/schema/journal.prisma` · migration `20261021100000_add_banking_import_and_journal` · spec `specs/journal/spec.md` · decisions D1, D2, D3. Part 1: model, service, queries, linkable. Part 2 (next PR): the `/journal` page and the categorise form shared with the banking workbench.
+Module `src/modules/journal` · schema `prisma/schema/journal.prisma` · migration `20261021100000_add_banking_import_and_journal` · spec `specs/journal/spec.md` · decisions D1, D2, D3. Part 1: model, service, queries, linkable. Part 2: the `/journal` page and the categorise form shared with the banking workbench.
 
 > One entry per bank transaction (created by the [[banking]] import) or typed by hand. The money facts — amount, currency, SEK base, rate, rate source, date, description — are written once; the owner's facts — BAS category, partner, note, *no document needed* — change freely and never get overwritten by a rule. Not a ledger: no debit / credit, no posting, no fiscal year. The accountant books; the journal is what she and the owner read.
 
@@ -35,6 +35,10 @@ Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_
 - `ui.ts`: actions + types.
 - Actions: reads on `authedAction` + `can(read, journal_entry)`; `createManualEntryAction`, `categoriseEntryAction`, `deleteManualEntryAction` on `ownerAction`.
 - Linkable: manual entries carry `|amount|` and can be the source of a `justifies` link; bank entries are reached through their transaction.
+
+## Page (part 2)
+
+`/journal` — `ListPage` + `JournalTable` (DataTable on `JOURNAL_COLUMNS`: source, description, category, partner, amount in its currency, SEK base with the footer sum, flag, note; rate / rate source / bank rate / categorised-by hidden by default). A row opens the side panel with the `CategoriseForm` (category from the tenant's active BAS set — favourites first, `657 · Bankkostnader (alias)` — partner, note, *no document needed*; saved on change) and, for manual entries, *Delete entry*. *New entry* (`ManualEntryDialog`): date, description, signed amount, currency, optional typed rate, category, partner, note. `options.ts` (`categoryOptions`, `partnerOptions`) feeds these lists server-side. Nav: *Journal* for owner and accountant (reads). Strings `journal.*` en + fr.
 
 ## Tests
 

@@ -127,12 +127,13 @@ test.describe("Document review page — owner", () => {
 test.describe("Document review page — accountant blocked from detail", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
-  test("accountant can view documents list but has no view/edit link", async ({ page }) => {
+  test("accountant can view the documents list but cannot upload", async ({ page }) => {
     await page.goto("/documents");
-    // Story 5.4: accountants now have read-only access to the documents library
+    // Story 5.4: accountants have read-only access to the (financial) documents library — the list shows,
+    // the upload zone does not. The rows may carry detail links (generated PDFs and bank statements are
+    // financial), so the assertion is on the write surface, not on the links.
     await expect(page).toHaveURL(/\/documents/);
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
-    // No navigate-to-detail Eye link for accountants (actions column only has Download)
-    await expect(page.locator("table tbody tr td a[href^='/documents/']")).not.toBeVisible();
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
   });
 });

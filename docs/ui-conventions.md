@@ -1,6 +1,6 @@
 # UI conventions
 
-Version 2 · 2026-10-20 · Decisions D19 and D20 in [[feature-inventory]]. Applies to every page. **Built** (phase-0 item 8): the shell (`kernel/ui/shell`: sidebar, topbar, `ListPage` / `EntityPage` / `WorkPage` / `PageHeader`), the `DataTable` (`kernel/ui/data-table`) and the `ListQuery` contract (`kernel/list-query`), first used by [[partners]]. Still to come: column order/width persistence per user, footer sums on a first money column, virtualised body, the documents library migrated onto it.
+Version 2 · 2026-10-20 · Decisions D19 and D20 in [[feature-inventory]]. Applies to every page. **Built** (phase-0 item 8): the shell (`kernel/ui/shell`: sidebar, topbar, `ListPage` / `EntityPage` / `WorkPage` / `PageHeader`), the `DataTable` (`kernel/ui/data-table`) and the `ListQuery` contract (`kernel/list-query`), first used by [[partners]]. Still to come: column order/width persistence per user, virtualised body, the documents library migrated onto it. The list page's **side panel** is `components/ui/sheet.tsx` (first used by the banking workbench and the journal); forms that interrupt (import, rule, manual entry) use `components/ui/dialog.tsx`.
 
 ## Layout — full width, dense, app not website
 

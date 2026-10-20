@@ -33,12 +33,12 @@
 - [x] T018 Docs: `docs/banking.md`, `docs/journal.md`, `docs/linking.md` (source-side invariant, new linkables), `docs/feature-folders.md`, `docs/index.md`, inventory §3.10 / §3.12 status lines (the `banking.*` / `journal.*` dictionary keys come with the pages in part 2 — services return English messages with `details`)
 
 ## Part 2 — `feat/banking-pages` (pages, dialogs, e2e, screenshots)
-- [ ] T019 `banking/components/transaction-table.tsx` (DataTable, state chips, money in row currency, footer sums, account filter labelled by alias, category labelled `657 · Bankkostnader`), `transaction-panel.tsx` (raw columns, categorise form, links, transfer proposal + accept, *Create rule from this*), `import-dialog.tsx` (file → detected account → confirm → summary)
-- [ ] T020 `banking/components/imports-table.tsx` + delete; `rules-table.tsx` + `rule-dialog.tsx` (create / edit, regex behind *advanced*, *Test* count) + *Apply rules* (dry run → apply)
-- [ ] T021 `journal/components/categorise-form.tsx` (shared), `journal-table.tsx`, `manual-entry-dialog.tsx`
-- [ ] T022 Pages `/banking`, `/banking/imports`, `/banking/rules`, `/journal`; nav entries (owner + accountant); `nav-filter.test.ts`, `e2e/auth.spec.ts` updated
-- [ ] T023 `e2e/banking.spec.ts`: import the July sample → rows + fee rule applied → categorise one → create rule from it → import the CHF pair file → accept the transfer → journal shows the base; `e2e/screenshots.spec.ts` + screenshots in `specs/banking/screenshots/`
-- [ ] T024 Docs pages sections; definition-of-done checklist in the PR
+- [x] T019 `banking/components/transaction-table.tsx` (DataTable, state chips, money in row currency, footer sums, account filter labelled by alias, category labelled `657 · Bankkostnader`), `transaction-panel.tsx` (raw columns, categorise form, links, transfer proposal + accept, *Create rule from this*), `import-dialog.tsx` (file → detected account → confirm → summary)
+- [x] T020 `banking/components/imports-table.tsx` + delete; `rules-table.tsx` + `rule-dialog.tsx` (create / edit, regex behind *advanced*, *Test* count) + *Apply rules* (dry run → apply)
+- [x] T021 `journal/components/categorise-form.tsx` (shared), `journal-table.tsx`, `manual-entry-dialog.tsx`
+- [x] T022 Pages `/banking`, `/banking/imports`, `/banking/rules`, `/journal`; nav entries (owner + accountant); `nav-filter.test.ts`, `e2e/auth.spec.ts` updated
+- [x] T023 `e2e/banking.spec.ts`: import the July sample → rows + fee rule applied → categorise one → create rule from it → import the CHF pair file → accept the transfer → journal shows the base; `e2e/screenshots.spec.ts` + screenshots in `specs/banking/screenshots/`
+- [x] T024 Docs pages sections; definition-of-done checklist in the PR
 
 ## Dependencies
 
