@@ -676,3 +676,56 @@ export async function inputVatForPeriod(
     count: rows.length,
   };
 }
+
+export type InputVatSource = {
+  id: string;
+  key: string;
+  partnerName: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  currency: string;
+  amountNet: string;
+  vatAmount: string;
+  /** D23: flagged by hand when a purchase falls under CH acquisition tax (ref 383); never set by default */
+  acquisition: boolean;
+};
+
+/** The non-cancelled invoices under a registration by invoice date, one row each — the return's drill-down (ref 400). */
+export async function inputVatSources(
+  tx: TransactionClient,
+  input: { registrationId: string; from: string; to: string },
+): Promise<InputVatSource[]> {
+  const rows = await tx.supplierInvoice.findMany({
+    where: {
+      vatRegistrationId: input.registrationId,
+      cancelled: false,
+      invoiceDate: {
+        gte: new Date(`${input.from}T00:00:00Z`),
+        lte: new Date(`${input.to}T00:00:00Z`),
+      },
+    },
+    orderBy: [{ invoiceDate: "asc" }, { key: "asc" }],
+    select: {
+      id: true,
+      key: true,
+      partnerId: true,
+      invoiceNumber: true,
+      invoiceDate: true,
+      currency: true,
+      amountNet: true,
+      vatAmount: true,
+    },
+  });
+  const names = await partners.partnerNames(tx, [...new Set(rows.map((r) => r.partnerId))]);
+  return rows.map((r) => ({
+    id: r.id,
+    key: r.key,
+    partnerName: names.get(r.partnerId) ?? "",
+    invoiceNumber: r.invoiceNumber,
+    invoiceDate: r.invoiceDate.toISOString().slice(0, 10),
+    currency: r.currency,
+    amountNet: r.amountNet.toFixed(2),
+    vatAmount: r.vatAmount.toFixed(2),
+    acquisition: false,
+  }));
+}

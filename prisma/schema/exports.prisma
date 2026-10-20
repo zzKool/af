@@ -1,0 +1,36 @@
+// Module exports — declarations prepared from the read models (D23; specs/exports/spec.md).
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// `swiss_vat_declarations`: the minimal record per CH registration and quarter (`CH 2026/Q2`): the manual refs
+// of the FTA form the owner types (220, 225, 280, 383, 405, 410, 415, 420), the figures as declared (snapshot
+// once declared), declared on / paid on, the `vat_payment` expense that paid it (validated UUID into expenses).
+// "Declared" on an invoice is derived: its period has a row with `declared_at`.
+
+model SwissVatDeclaration {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  /// the CH registration (settings module) — validated UUID
+  vatRegistrationId String    @map("vat_registration_id") @db.Uuid
+  /// `CH 2026/Q2`
+  period            String    @db.VarChar(12)
+  /// the manual refs as typed: { "220": "0.00", … }
+  manual            Json      @default("{}") @db.JsonB
+  /// the computed refs at the moment of declaring (null while a draft)
+  snapshot          Json?     @db.JsonB
+  declaredAt        DateTime? @map("declared_at") @db.Date
+  paidAt            DateTime? @map("paid_at") @db.Date
+  /// the `vat_payment` expense (expenses module) — validated UUID
+  paymentExpenseId  String?   @map("payment_expense_id") @db.Uuid
+  note              String?
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy         String    @map("created_by") @db.Uuid
+  source            String    @default("web") @db.VarChar(20)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, vatRegistrationId, period], map: "swiss_vat_declarations_tenant_registration_period_key")
+  @@index([tenantId, period], map: "swiss_vat_declarations_tenant_period_idx")
+  @@map("swiss_vat_declarations")
+}

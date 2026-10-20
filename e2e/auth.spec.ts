@@ -21,6 +21,7 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Expenses" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Supplier invoices" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Package" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Declarations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
@@ -49,6 +50,7 @@ test.describe("Accountant authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Invoices", exact: true })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Package" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Declarations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
     // Owner-only and not-yet-enabled links are NOT visible

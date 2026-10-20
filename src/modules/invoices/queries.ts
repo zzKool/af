@@ -20,7 +20,13 @@ import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
 import { deriveState, remainingAmount } from "./derive";
 import { toInvoiceDto } from "./invoices";
-import type { InvoiceDerived, InvoiceListRow, InvoiceType, InvoiceWithDerived } from "./types";
+import type {
+  InvoiceDerived,
+  InvoiceDto,
+  InvoiceListRow,
+  InvoiceType,
+  InvoiceWithDerived,
+} from "./types";
 
 const D = Prisma.Decimal;
 
@@ -313,4 +319,42 @@ export async function invoiceDateHierarchy(
   return buildDateHierarchy(
     rows.map((r) => r[column as keyof InvoiceListRow] as Date | string | null),
   );
+}
+
+/**
+ * The issued invoices and credit notes stored under a declaration period (`CH 2026/Q2`), with their lines and the
+ * client's name — what the Swiss VAT return reads (D23: membership by the stored period, so a correction of a past
+ * quarter is a visible override). Ordered by number.
+ */
+export async function invoicesForDeclaration(
+  tx: TransactionClient,
+  period: string,
+): Promise<(InvoiceDto & { partnerName: string })[]> {
+  const rows = await tx.invoice.findMany({
+    where: {
+      declarationPeriod: period,
+      status: { not: "draft" },
+      type: { in: ["invoice", "credit_note"] },
+    },
+    include: { lines: { orderBy: { lineNo: "asc" } } },
+    orderBy: [{ number: "asc" }],
+  });
+  const names = await partners.partnerNames(tx, [...new Set(rows.map((r) => r.partnerId))]);
+  return rows.map((r) => ({
+    ...toInvoiceDto(r),
+    partnerName: names.get(r.partnerId) ?? "",
+  }));
+}
+
+/** The declaration periods any issued document carries, newest first — the return page's period list. */
+export async function declarationPeriods(tx: TransactionClient): Promise<string[]> {
+  const rows = await tx.invoice.findMany({
+    where: { declarationPeriod: { not: null }, status: { not: "draft" } },
+    distinct: ["declarationPeriod"],
+    select: { declarationPeriod: true },
+  });
+  return rows
+    .flatMap((r) => (r.declarationPeriod ? [r.declarationPeriod] : []))
+    .sort()
+    .reverse();
 }

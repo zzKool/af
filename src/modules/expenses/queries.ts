@@ -586,3 +586,46 @@ export async function candidateDocuments(
     .filter((d) => !taken.has(d.id))
     .map((d) => ({ id: d.id, businessKey: d.businessKey, fileName: d.fileName, status: d.status }));
 }
+
+export type ExpenseVatSource = {
+  id: string;
+  key: string;
+  description: string;
+  date: string;
+  currency: string;
+  amount: string;
+  vatAmount: string;
+};
+
+/** The expenses carrying VAT under a registration, by date — the Swiss return's drill-down (ref 400, D23). */
+export async function inputVatSources(
+  tx: TransactionClient,
+  input: { registrationId: string; from: string; to: string },
+): Promise<ExpenseVatSource[]> {
+  const rows = await tx.expense.findMany({
+    where: {
+      vatRegistrationId: input.registrationId,
+      vatAmount: { not: null },
+      date: { gte: new Date(`${input.from}T00:00:00Z`), lte: new Date(`${input.to}T00:00:00Z`) },
+    },
+    orderBy: [{ date: "asc" }, { key: "asc" }],
+    select: {
+      id: true,
+      key: true,
+      description: true,
+      date: true,
+      currency: true,
+      amount: true,
+      vatAmount: true,
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    key: r.key,
+    description: r.description,
+    date: r.date.toISOString().slice(0, 10),
+    currency: r.currency,
+    amount: r.amount.toFixed(2),
+    vatAmount: (r.vatAmount ?? new D(0)).toFixed(2),
+  }));
+}

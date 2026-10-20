@@ -41,6 +41,7 @@ model Tenant {
   documents            Document[]
   links                Link[]
   packageBuilds        PackageBuild[]
+  swissVatDeclarations SwissVatDeclaration[]
   numberSeries         NumberSeries[]
 
   @@map("tenants")
