@@ -2,7 +2,7 @@
 // Implementations live in the owning module (e.g. src/modules/partners/linkable.ts) and are registered
 // in src/modules/linking/linkables.ts. The linking module never imports a module's internals.
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { LinkableSummary, LinkableType } from "./types";
+import type { CandidateQuery, EntityFacts, LinkableSummary, LinkableType } from "./types";
 
 export type Linkable = {
   type: LinkableType;
@@ -10,6 +10,16 @@ export type Linkable = {
   exists(tx: TransactionClient, id: string): Promise<boolean>;
   /** Human-readable summary for lists, suggestions and the graph; null when the entity does not exist. */
   summary(tx: TransactionClient, id: string): Promise<LinkableSummary | null>;
+  /** What the scorer needs about one entity (suggestions the other way round); null when it does not exist. */
+  facts?(tx: TransactionClient, id: string): Promise<Omit<EntityFacts, "remaining"> | null>;
+  /** The entities a bank row of `direction` could justify, dated inside the window (cap `limit`). */
+  candidates?(tx: TransactionClient, q: CandidateQuery): Promise<Omit<EntityFacts, "remaining">[]>;
+  /** The entities whose label or texts contain `q` — the "Link to…" picker (cap `limit`). */
+  search?(
+    tx: TransactionClient,
+    q: string,
+    limit: number,
+  ): Promise<Omit<EntityFacts, "remaining">[]>;
 };
 
 const registry = new Map<LinkableType, Linkable>();

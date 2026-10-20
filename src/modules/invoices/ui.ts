@@ -3,6 +3,7 @@
 
 export { InvoiceActions } from "./components/invoice-actions";
 export { type EditorInvoice, InvoiceEditor } from "./components/invoice-editor";
+export { InvoiceLinks } from "./components/invoice-links";
 export type { SheetDocument, SheetLine, SheetSlots } from "./components/invoice-sheet";
 export { InvoiceSheet, sheetDate, sheetMoney, sheetQuantity } from "./components/invoice-sheet";
 export { type InvoiceRow, InvoiceTable, STATE_STYLE } from "./components/invoice-table";

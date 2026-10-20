@@ -24,6 +24,7 @@ import { acceptTransferAction, getTransactionAction } from "@/modules/banking/ba
 import type { TransactionDetail } from "@/modules/banking/queries";
 import type { TransactionState } from "@/modules/banking/types";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "@/modules/journal/ui";
+import { LinksList, SuggestionsSection } from "@/modules/linking/ui";
 import { RuleDialog } from "./rule-dialog";
 
 export const STATE_STYLE: Record<TransactionState, string> = {
@@ -70,6 +71,7 @@ export function TransactionPanel({
   const router = useRouter();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [ruleOpen, setRuleOpen] = useState(false);
+  const [version, setVersion] = useState(0);
   const { executeAsync: load } = useAction(getTransactionAction);
   const { executeAsync: accept, isPending: accepting } = useAction(acceptTransferAction);
 
@@ -92,6 +94,7 @@ export function TransactionPanel({
 
   function changed() {
     void reload();
+    setVersion((v) => v + 1);
     onChanged?.();
     router.refresh();
   }
@@ -234,29 +237,25 @@ export function TransactionPanel({
               )}
             </section>
 
+            {/* what this row could justify — the scored candidates, "Link to…" (specs/linking) */}
+            {detail.state !== "no_document" && (
+              <SuggestionsSection
+                target={{ bankTransactionId: tx.id }}
+                canWrite={canWrite}
+                onLinked={changed}
+                refreshKey={version}
+              />
+            )}
+
             <section>
               <h3 className="mb-2 text-sm font-medium">{t("banking.panel.links")}</h3>
-              {detail.links.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("banking.panel.noLinks")}</p>
-              ) : (
-                <ul className="divide-y rounded-md border text-sm">
-                  {detail.links.map((l) => (
-                    <li key={l.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                      <span className="truncate">
-                        <Badge variant="outline" className="mr-2">
-                          {l.kind}
-                        </Badge>
-                        {l.otherLabel ?? `${l.to.type} ${l.to.id}`}
-                      </span>
-                      {l.allocatedAmount && (
-                        <span className="shrink-0 tabular-nums">
-                          {money(l.allocatedAmount, l.currency ?? tx.currency)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <LinksList
+                self={{ type: "bank_transaction", id: tx.id }}
+                links={detail.links}
+                canWrite={canWrite}
+                fallbackCurrency={tx.currency}
+                onChanged={changed}
+              />
             </section>
 
             <section>
