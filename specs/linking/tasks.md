@@ -12,5 +12,5 @@
 
 ## Part 2 — `feat/linking-inbox`
 
-- [ ] T006 `/banking/inbox` work page: the rows needing attention sorted by confidence then date, the detail on the right, `j` / `k` / `Enter` / `1`–`9` / `l` / `c` / `u` / `?`, the bulk bar with *Apply HIGH* and its applied / skipped report.
-- [ ] T007 Unlinked documents view (financial documents that became nothing and justify nothing), nav, e2e, screenshots, docs.
+- [x] T006 `/banking/inbox` work page: the rows needing attention sorted by confidence then date, the detail on the right, `j` / `k` / `Enter` / `1`–`9` / `l` / `c` / `u` / `?`, the bulk bar with *Apply HIGH* and its applied / skipped report.
+- [x] T007 Unlinked documents view (financial documents that became nothing and justify nothing), nav, e2e, screenshots, docs.

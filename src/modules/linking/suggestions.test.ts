@@ -20,8 +20,10 @@ import {
   setupOwner,
 } from "@/modules/expenses/__fixtures__/harness";
 import * as invoices from "@/modules/invoices";
+import * as journal from "@/modules/journal";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { inboxRows, unlinkedDocuments } from "./inbox";
 import { getAllocationStatus, getLinksFor, removeLink } from "./linking";
 import {
   applySuggestion,
@@ -501,5 +503,64 @@ describe("US3 — bulk apply HIGH with the skip reasons", () => {
     );
     expect(r.skipped[0]?.reason).toBe("AMBIGUOUS");
     expect(r.skipped[0]?.detail).toMatch(/similar scores/);
+  });
+});
+
+describe("US3 — the inbox read model", () => {
+  it("lists the main-account rows needing attention, best candidate first; no-document rows stay out", async () => {
+    const { invoice } = await issuedInvoice(owner.caller);
+    const [paid, fee, other] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+        { date: "2026-03-13", amount: "3100.00", name: "SOMEONE ELSE" },
+        {
+          date: "2026-03-12",
+          amount: "25000.00",
+          name: "VAUDOISE ASSURANCES",
+          message: invoice.number ?? "",
+        },
+        { date: "2026-03-16", amount: "-7.70", details: "AVGIFTER NORDEA" },
+      ]).then((ids) => [ids[1], ids[2], ids[0]]),
+    );
+    // the fee row needs no document (the seeded rule did it) — flag it by hand here: the harness has no rules
+    await run(owner.caller, async (tx) => {
+      const entry = (await journal.entriesForSources(tx, "bank_transaction", [fee as string])).get(
+        fee as string,
+      );
+      if (!entry) throw new Error("no entry");
+      const r = await journal.categorise(tx, owner.caller, noopAudit, entry.id, {
+        noDocumentNeeded: true,
+      });
+      expect(r.error).toBeUndefined();
+    });
+    const rows = await run(owner.caller, (tx) => inboxRows(tx));
+    expect(rows.map((r) => [r.row.id, r.top?.confidence ?? null])).toEqual([
+      [paid, "HIGH"],
+      [other, "LOW"],
+    ]);
+    expect(rows[0]?.top?.candidate.id).toBe(invoice.id);
+    expect(rows[0]?.top?.allocation).toBe("25000.00");
+    expect(rows[0]?.state).toBe("open");
+
+    // a document that became nothing shows on the documents tab, with its OCR facts
+    const docId = await run(owner.caller, async (tx) => {
+      const doc = await tx.document.create({
+        data: {
+          tenantId: owner.caller.tenantId,
+          businessKey: "Up26-03-0002",
+          fileName: "hotel.pdf",
+          blobUrl: "https://blob.test/y",
+          mimeType: "application/pdf",
+          fileSize: 10,
+          prefixType: "expense",
+          documentType: "financial",
+          status: "uploaded",
+          createdBy: owner.caller.userId,
+        },
+      });
+      return doc.id;
+    });
+    const docs = await run(owner.caller, (tx) => unlinkedDocuments(tx));
+    expect(docs.map((d) => d.id)).toEqual([docId]);
+    expect(docs[0]).toMatchObject({ type: "document", amount: "0.00", remaining: "0.00" });
   });
 });

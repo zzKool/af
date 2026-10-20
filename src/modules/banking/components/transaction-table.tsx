@@ -353,6 +353,15 @@ export function TransactionTable({
               size="sm"
               variant="outline"
               nativeButton={false}
+              render={<Link href="/banking/inbox" />}
+              data-testid="go-inbox"
+            >
+              {t("banking.nav.inbox")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
               render={<Link href="/banking/imports" />}
             >
               {t("banking.nav.imports")}

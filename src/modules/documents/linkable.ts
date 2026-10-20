@@ -19,7 +19,7 @@ type Row = {
   corrections: unknown;
 };
 
-const ROW_SELECT = {
+export const ROW_SELECT = {
   id: true,
   businessKey: true,
   fileName: true,
@@ -38,7 +38,7 @@ function resolved(r: Row): Partial<OcrExtractedData> {
   );
 }
 
-function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
+export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
   const d = resolved(r);
   const amount =
     d.invoiceTotal !== undefined && d.invoiceTotal !== null ? Number(d.invoiceTotal) : 0;
@@ -60,7 +60,10 @@ function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
 }
 
 /** Documents that became nothing (no `created_from`) and justify nothing yet. */
-async function unlinkedIds(tx: TransactionClient, ids: readonly string[]): Promise<Set<string>> {
+export async function unlinkedIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
   const links = await tx.link.findMany({
     where: {
@@ -131,3 +134,24 @@ export const documentLinkable: Linkable = {
     return rows.map(documentFacts);
   },
 };
+
+/** Financial uploads that became nothing and justify nothing (the linking inbox's documents tab), newest first. */
+export async function unlinkedFinancialDocuments(
+  tx: TransactionClient,
+  limit = 200,
+): Promise<Omit<EntityFacts, "remaining">[]> {
+  const rows = await tx.document.findMany({
+    where: { documentType: "financial", status: { notIn: ["generated", "processing"] } },
+    select: ROW_SELECT,
+    orderBy: { createdAt: "desc" },
+    take: limit * 2,
+  });
+  const free = await unlinkedIds(
+    tx,
+    rows.map((r) => r.id),
+  );
+  return rows
+    .filter((r) => free.has(r.id))
+    .slice(0, limit)
+    .map(documentFacts);
+}

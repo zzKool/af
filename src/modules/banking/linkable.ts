@@ -100,6 +100,14 @@ export const bankTransactionLinkable: Linkable = {
     const [f] = await toFacts(tx, [t]);
     return f ?? null;
   },
+  async factsMany(tx: TransactionClient, ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await tx.bankTransaction.findMany({
+      where: { id: { in: [...ids] } },
+      select: ROW_SELECT,
+    });
+    return toFacts(tx, rows);
+  },
   /** Main-account rows of the direction, booked inside the window, newest first. */
   async candidates(tx: TransactionClient, q: CandidateQuery) {
     const rows = await tx.bankTransaction.findMany({
