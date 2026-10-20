@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createTenantStore } from "@/kernel/stores/create-tenant-store";
 import {
-  activateBasCategories,
-  deactivateBasCategory,
-  updateBasPreference,
+  activateBasCategoriesAction,
+  deactivateBasCategoryAction,
+  updateBasPreferenceAction,
 } from "@/modules/settings/bas-preferences.actions";
 
 // ─────────────────────────────────────────────────────────────
@@ -89,9 +89,9 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
   const [quickStartCodes, setQuickStartCodes] = useState<Set<string>>(new Set());
   const [savingCodes, setSavingCodes] = useState<Set<string>>(new Set());
 
-  const { executeAsync: execActivate } = useAction(activateBasCategories);
-  const { executeAsync: execDeactivate } = useAction(deactivateBasCategory);
-  const { executeAsync: execUpdate } = useAction(updateBasPreference);
+  const { executeAsync: execActivate } = useAction(activateBasCategoriesAction);
+  const { executeAsync: execDeactivate } = useAction(deactivateBasCategoryAction);
+  const { executeAsync: execUpdate } = useAction(updateBasPreferenceAction);
 
   // Filter categories by search
   const filteredCategories = useMemo(() => {

@@ -8,7 +8,7 @@ import * as prefixService from "@/modules/documents/document-type-prefixes";
  * Get all document-type prefixes for the tenant — owner only.
  * Delegates seed-on-first-access orchestration to service layer.
  */
-export const getDocumentTypePrefixes = ownerAction
+export const getDocumentTypePrefixesAction = ownerAction
   .schema(z.object({}))
   .metadata({ name: "getDocumentTypePrefixes" })
   .action(async ({ ctx }) => {
@@ -18,7 +18,7 @@ export const getDocumentTypePrefixes = ownerAction
 /**
  * Create a new document-type prefix — owner only.
  */
-export const createDocumentTypePrefix = ownerAction
+export const createDocumentTypePrefixAction = ownerAction
   .schema(
     z.object({
       documentType: prefixService.documentTypeSchema,
@@ -39,7 +39,7 @@ export const createDocumentTypePrefix = ownerAction
  * Update an existing document-type prefix — owner only.
  * Only prefix field can be updated (documentType is immutable).
  */
-export const updateDocumentTypePrefix = ownerAction
+export const updateDocumentTypePrefixAction = ownerAction
   .schema(
     z.object({
       id: z.string().uuid(),
@@ -55,7 +55,7 @@ export const updateDocumentTypePrefix = ownerAction
 /**
  * Delete a document-type prefix — owner only.
  */
-export const deleteDocumentTypePrefix = ownerAction
+export const deleteDocumentTypePrefixAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
   .metadata({ name: "deleteDocumentTypePrefix" })
   .action(async ({ ctx, parsedInput }) => {

@@ -18,6 +18,7 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] Windows: postinstall replaced by `scripts/copy-pdf-worker.mjs` (no `cp`/`mkdir -p`)
   - [x] Prisma schema reconciled with the hand-written migrations (`migrate dev` no longer proposes a repair migration) — see `docs/prisma-rls-setup.md`
   - [ ] CI: add a drift check step (`prisma migrate diff --from-migrations … --to-schema-datamodel … --exit-code`) so this cannot regress
+  - [x] CI cost: E2E only on `main` pushes + manual dispatch; PRs run lint/typecheck/unit/build (PR #3)
   - [ ] spec-kit: `uv tool install specify-cli`, then in `C:\af`: `specify init --here --integration claude` (or `specify init . --integration claude`), then `/speckit-constitution` fed from `docs/constitution.md`
   - [x] MCP in `.mcp.json`: Playwright (screenshots), Context7 + Microsoft Learn (Next 16 / Prisma 7 / Better Auth docs), Postgres (`postgres-mcp`, restricted, needs `uv`). Approve them on first Claude Code start in the repo.
   - [x] Skills in `.claude/skills/`: `server-action-pattern`, `module-slice` (draft, finalised after item 6), `invoice-pdf`, `test-conventions`, `bas-accounting`
@@ -25,9 +26,9 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] First PR through the gate: `chore/phase-0-tooling` → `main` (#1, merged 2026-10-20)
 - [ ] **3. Structural moves** (specs under `specs/structure-*`, one PR each, run on partners / documents / settings)
   - [x] 3a feature folders + kernel; guard test for the import rules; `prisma/schema` split per module (PR #2) — see `docs/feature-folders.md`
-  - [ ] 3b DTOs on each module's `index.ts`, Prisma types stay inside
+  - [x] 3b module surfaces `index.ts` (server) + `ui.ts` (client), DTOs for partners/contracts, `…Action` naming, guard rules (PR #3)
   - [ ] 3c `modules/linking` skeleton: `link` table, kinds, invariants, `linkable` registration; move v2 document links there
-  - [ ] 3d `queries.ts` per module; pages stop importing services
+  - [x] 3d `queries.ts` per module as the named read API; pages import surfaces only (PR #3). Real query implementations (`ListQuery`, distinct values) come with the reference slice (item 6/8)
 - [ ] **4. Kernel changes**
   - [ ] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup
   - [ ] `kernel/auth/can()` with the role map (superadmin, owner, accountant, editor); guard rule

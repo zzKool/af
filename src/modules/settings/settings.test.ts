@@ -53,13 +53,13 @@ afterAll(async () => {
 
 // Import actions after mocks are set up
 import {
-  getTenantProfile,
-  listTenantMembers,
-  updateTenantProfile,
+  getTenantProfileAction,
+  listTenantMembersAction,
+  updateTenantProfileAction,
 } from "@/modules/settings/settings.actions";
 
 describe("settings service", () => {
-  it("getTenantProfile returns tenant data", async () => {
+  it("getTenantProfileAction returns tenant data", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     const result = await withTenantTransaction(
@@ -76,7 +76,7 @@ describe("settings service", () => {
     expect(typeof result.data?.name).toBe("string");
   });
 
-  it("updateTenantProfile updates and returns new data", async () => {
+  it("updateTenantProfileAction updates and returns new data", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     const result = await withTenantTransaction(
@@ -100,7 +100,7 @@ describe("settings service", () => {
     });
   });
 
-  it("updateTenantProfile syncs Organization name", async () => {
+  it("updateTenantProfileAction syncs Organization name", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
@@ -116,7 +116,7 @@ describe("settings service", () => {
     expect(org?.name).toBe("Synced Name");
   });
 
-  it("getTenantProfile returns NOT_FOUND for non-existent tenant", async () => {
+  it("getTenantProfileAction returns NOT_FOUND for non-existent tenant", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const fakeCaller = {
       ...owner.callerIdentity,
@@ -182,7 +182,7 @@ describe("settings actions", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const result = await getTenantProfile({});
+    const result = await getTenantProfileAction({});
     expect(result?.serverError).toBeUndefined();
     expect(result?.data?.data).toBeDefined();
     expect(result?.data?.data?.currency).toBe("SEK");
@@ -192,7 +192,7 @@ describe("settings actions", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const result = await updateTenantProfile({ name: "Action Updated" });
+    const result = await updateTenantProfileAction({ name: "Action Updated" });
     expect(result?.serverError).toBeUndefined();
     expect(result?.data?.data?.name).toBe("Action Updated");
   });
@@ -205,7 +205,7 @@ describe("settings actions", () => {
     });
     mockHeaders = accountant.headers;
 
-    const result = await getTenantProfile({});
+    const result = await getTenantProfileAction({});
     expect(result?.serverError).toBeDefined();
     expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
   });
@@ -213,7 +213,7 @@ describe("settings actions", () => {
   it("unauthenticated → UNAUTHORIZED", async () => {
     mockHeaders = new Headers();
 
-    const result = await getTenantProfile({});
+    const result = await getTenantProfileAction({});
     expect(result?.serverError).toBeDefined();
     expect(result?.serverError).toMatchObject({ code: "UNAUTHORIZED" });
   });
@@ -222,7 +222,7 @@ describe("settings actions", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const result = await listTenantMembers({});
+    const result = await listTenantMembersAction({});
     expect(result?.serverError).toBeUndefined();
     expect(result?.data?.data).toBeDefined();
     expect(Array.isArray(result?.data?.data)).toBe(true);
@@ -231,7 +231,7 @@ describe("settings actions", () => {
 });
 
 describe("audit behavioral tests", () => {
-  it("updateTenantProfile produces an audit entry with correct fields", async () => {
+  it("updateTenantProfileAction produces an audit entry with correct fields", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {

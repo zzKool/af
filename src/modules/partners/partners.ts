@@ -1,9 +1,11 @@
 import { z } from "zod/v4";
+import type { Partner } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import type { ExternalIdentifier, PartnerAddress, PartnerDto, PartnerSummaryDto } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -79,12 +81,37 @@ async function validateBasCategoryFK(
   return null;
 }
 
+// --- DTO mapping (Prisma rows never leave the module) ---
+
+export function toPartnerDto(row: Partner): PartnerDto {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    name: row.name,
+    orgNumber: row.orgNumber,
+    vatNumber: row.vatNumber,
+    types: row.types,
+    defaultCurrency: row.defaultCurrency,
+    defaultLanguage: row.defaultLanguage,
+    defaultBasCategoryCode: row.defaultBasCategoryCode,
+    externalIdentifiers: (row.externalIdentifiers as ExternalIdentifier[] | null) ?? [],
+    email: row.email,
+    phone: row.phone,
+    address: (row.address as PartnerAddress | null) ?? null,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy,
+    source: row.source,
+  };
+}
+
 // --- Service Functions ---
 
 export async function getPartners(
   tx: TransactionClient,
   options?: { includeInactive?: boolean; search?: string; types?: string[] },
-): Promise<ServiceResult<Awaited<ReturnType<typeof tx.partner.findMany>>>> {
+): Promise<ServiceResult<PartnerDto[]>> {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic where clause construction
   const where: any = {};
   if (!options?.includeInactive) {
@@ -104,18 +131,18 @@ export async function getPartners(
     where,
     orderBy: { name: "asc" },
   });
-  return { data: partners };
+  return { data: partners.map(toPartnerDto) };
 }
 
 export async function getPartner(
   tx: TransactionClient,
   id: string,
-): Promise<ServiceResult<Awaited<ReturnType<typeof tx.partner.findUnique>>>> {
+): Promise<ServiceResult<PartnerDto>> {
   const partner = await tx.partner.findUnique({ where: { id } });
   if (!partner) {
     return { error: { code: "NOT_FOUND", message: `Partner not found: ${id}`, retryable: false } };
   }
-  return { data: partner };
+  return { data: toPartnerDto(partner) };
 }
 
 export async function createPartner(
@@ -406,17 +433,7 @@ export async function searchPartners(
   tx: TransactionClient,
   query: string,
   limit = 20,
-): Promise<
-  ServiceResult<
-    {
-      id: string;
-      name: string;
-      types: string[];
-      defaultCurrency: string | null;
-      defaultBasCategoryCode: string | null;
-    }[]
-  >
-> {
+): Promise<ServiceResult<PartnerSummaryDto[]>> {
   const partners = await tx.partner.findMany({
     where: {
       isActive: true,

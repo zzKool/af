@@ -37,7 +37,7 @@ function imports(content: string): string[] {
 }
 
 const TEST_FILE = /\.(test|spec)\.tsx?$/;
-const SERVER_FILE = /\/(components|stores)\/|\.tsx$|\.actions\.ts$/; // what is NOT a service/query file
+const SERVER_FILE = /\/(components|stores)\/|\.tsx$|\.actions\.ts$|\/(index|ui|queries|types)\.ts$/; // what is NOT a service file
 
 describe("Architecture guard: GRANT ALL in migrations", () => {
   const migrationsDir = join(process.cwd(), "prisma/migrations");
@@ -119,6 +119,70 @@ describe("Architecture guard: layering (kernel ← modules ← app)", () => {
       "src/components/shared",
     ]) {
       expect(findFiles(legacy, [".ts", ".tsx"]).length, `${legacy} still has files`).toBe(0);
+    }
+  });
+});
+
+describe("Architecture guard: module surfaces (3b)", () => {
+  const moduleOf = (file: string) => file.match(/^src\/modules\/([^/]+)\//)?.[1] ?? null;
+  const allSrc = () =>
+    findFiles("src/app", [".ts", ".tsx"], TEST_FILE)
+      .concat(findFiles("src/modules", [".ts", ".tsx"], TEST_FILE))
+      .concat(findFiles("src/kernel", [".ts", ".tsx"], TEST_FILE));
+
+  test("outside a module, only its index (@/modules/<m>) or ui (@/modules/<m>/ui) surface is imported", () => {
+    for (const file of allSrc()) {
+      const own = moduleOf(file);
+      for (const spec of imports(readFileSync(file, "utf-8"))) {
+        const m = spec.match(/^@\/modules\/([^/"]+)(\/.*)?$/);
+        if (!m || m[1] === own) continue;
+        expect(
+          m[2] === undefined || m[2] === "/ui",
+          `${file} imports ${spec} — use @/modules/${m[1]} or @/modules/${m[1]}/ui`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  test("client components never import a module's server surface", () => {
+    for (const file of allSrc()) {
+      const content = readFileSync(file, "utf-8");
+      if (!/^\s*["']use client["']/m.test(content)) continue;
+      for (const spec of imports(content)) {
+        expect(
+          /^@\/modules\/[^/"]+(\/index)?$/.test(spec),
+          `client component ${file} imports server surface ${spec} — use @/modules/<m>/ui`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  test("every module has index.ts and ui.ts; ui exports only components/actions/types; index never exports components", () => {
+    const modules = readdirSync("src/modules", { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+    expect(modules.length).toBeGreaterThan(0);
+    for (const m of modules) {
+      const index = `src/modules/${m}/index.ts`;
+      const ui = `src/modules/${m}/ui.ts`;
+      expect(existsSync(index), `${index} missing`).toBe(true);
+      expect(existsSync(ui), `${ui} missing`).toBe(true);
+      for (const spec of imports(readFileSync(ui, "utf-8"))) {
+        expect(
+          /^\.\/components\/|^\.\/types$|\.actions$/.test(spec),
+          `${ui} exports ${spec} — ui.ts may only export components, actions and types (stores stay internal)`,
+        ).toBe(true);
+      }
+      for (const spec of imports(readFileSync(index, "utf-8"))) {
+        expect(/^\.\/(components|stores)\//.test(spec), `${index} exports ${spec}`).toBe(false);
+      }
+      for (const surface of [index, ui, `src/modules/${m}/types.ts`]) {
+        if (!existsSync(surface)) continue;
+        expect(
+          readFileSync(surface, "utf-8").includes("@/generated/prisma"),
+          `${surface} references Prisma types`,
+        ).toBe(false);
+      }
     }
   });
 });

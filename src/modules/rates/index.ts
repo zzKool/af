@@ -1,0 +1,7 @@
+// Server surface of the module: DTO types, read API (queries), services (writes, schemas, helpers), actions, jobs.
+// The ONLY path other modules and src/app may import for server-side code (constitution §2).
+// Never import this file from a client component — use ./ui for components and stores.
+
+export type { DateGap, EcbRateFetchResult, RateLookupResult, RateSource } from "./ecb-rates";
+export { countWeekdaysBetween, fetchDailyRates } from "./ecb-rates";
+export * from "./queries";

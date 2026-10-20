@@ -9,7 +9,7 @@ import * as basService from "@/modules/settings/bas-preferences";
  * Any authenticated user can read — broader access than ownerAction
  * since any user may need category names for display.
  */
-export const getBasCategories = authedAction
+export const getBasCategoriesAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "getBasCategories" })
   .action(async ({ ctx }) => {
@@ -21,7 +21,7 @@ export const getBasCategories = authedAction
  * Get tenant's BAS preferences (RLS-scoped).
  * Any authenticated user can read their tenant's preferences.
  */
-export const getTenantBasPreferences = authedAction
+export const getTenantBasPreferencesAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "getTenantBasPreferences" })
   .action(async ({ ctx }) => {
@@ -31,7 +31,7 @@ export const getTenantBasPreferences = authedAction
 /**
  * Activate BAS categories for the tenant — owner only.
  */
-export const activateBasCategories = ownerAction
+export const activateBasCategoriesAction = ownerAction
   .schema(z.object({ codes: z.array(z.string().min(1).max(4)) }))
   .metadata({ name: "activateBasCategories" })
   .action(async ({ ctx, parsedInput }) => {
@@ -46,7 +46,7 @@ export const activateBasCategories = ownerAction
 /**
  * Deactivate a BAS category for the tenant — owner only.
  */
-export const deactivateBasCategory = ownerAction
+export const deactivateBasCategoryAction = ownerAction
   .schema(z.object({ basCode: z.string().min(1).max(4) }))
   .metadata({ name: "deactivateBasCategory" })
   .action(async ({ ctx, parsedInput }) => {
@@ -61,7 +61,7 @@ export const deactivateBasCategory = ownerAction
 /**
  * Update a BAS preference (favorite, short code, translations) — owner only.
  */
-export const updateBasPreference = ownerAction
+export const updateBasPreferenceAction = ownerAction
   .schema(
     z.object({
       basCode: z.string().min(1).max(4),

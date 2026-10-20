@@ -8,7 +8,7 @@ import * as bankService from "@/modules/banking/bank-accounts";
  * Get all bank CSV formats (app-level reference data).
  * Any authenticated user can read — same pattern as getBasCategories.
  */
-export const getBankFormats = authedAction
+export const getBankFormatsAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "getBankFormats" })
   .action(async ({ ctx }) => {
@@ -20,7 +20,7 @@ export const getBankFormats = authedAction
  * Get all bank accounts for the tenant — owner only.
  * Tenant-private data, so ownerAction is correct for reads too.
  */
-export const getBankAccounts = ownerAction
+export const getBankAccountsAction = ownerAction
   .schema(z.object({}))
   .metadata({ name: "getBankAccounts" })
   .action(async ({ ctx }) => {
@@ -30,7 +30,7 @@ export const getBankAccounts = ownerAction
 /**
  * Create a new bank account — owner only.
  */
-export const createBankAccount = ownerAction
+export const createBankAccountAction = ownerAction
   .schema(
     z.object({
       accountAlias: z.string().trim().max(100).optional(),
@@ -47,7 +47,7 @@ export const createBankAccount = ownerAction
 /**
  * Update an existing bank account — owner only.
  */
-export const updateBankAccount = ownerAction
+export const updateBankAccountAction = ownerAction
   .schema(
     z.object({
       id: z.string().uuid(),
@@ -66,7 +66,7 @@ export const updateBankAccount = ownerAction
 /**
  * Delete a bank account — owner only.
  */
-export const deleteBankAccount = ownerAction
+export const deleteBankAccountAction = ownerAction
   .schema(z.object({ id: z.string().uuid() }))
   .metadata({ name: "deleteBankAccount" })
   .action(async ({ ctx, parsedInput }) => {

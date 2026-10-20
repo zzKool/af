@@ -1,6 +1,6 @@
 # AF — constitution
 
-Version 1.1 · 2026-10-20 · The rules every spec, agent and PR in this repo obeys. (1.1: layout amended for Prisma's single schema folder and the shadcn `components/ui` location — item 3a.) Changes to this file are PRs of their own.
+Version 1.2 · 2026-10-20 · The rules every spec, agent and PR in this repo obeys. (1.1: layout amended for Prisma's single schema folder and the shadcn `components/ui` location — item 3a. 1.2: two module surfaces `index.ts` / `ui.ts`, `queries.ts` as the named read API, `…Action` naming — items 3b/3d.) Changes to this file are PRs of their own.
 
 Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mapping.md` (business rules), `phase-0.md` (current todo).
 
@@ -38,7 +38,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 
 ### Import rules — enforced by `architecture.guard.test.ts`
 - `kernel/*` imports nothing from `modules/*` or `app/*`. *(enforced since 3a)*
-- `modules/<a>` imports `kernel/*` and `modules/<b>/index.ts` only. Never another module's internals. *(index.ts rule enforced from 3b; until then direct file imports between modules are tolerated)*
+- `modules/<a>` imports `kernel/*` and `modules/<b>` (index) or `modules/<b>/ui` only. Never another module's internals. *(enforced since 3b)*
 - `modules/*/service.ts` and `queries.ts` never import `next/*`, `react`, or `components/*`.
 - `app/*` and `components/*` never import `service.ts` directly: reads go through `queries.ts`, writes through `actions.ts`.
 - Role and permission checks happen only through `kernel/auth/can()`. No `role === 'owner'` anywhere else.
@@ -46,7 +46,13 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - `.toNumber()` on a Decimal appears only in `components/*` (display boundary). Lint rule.
 
 ### Module contract
-- `index.ts` is the only public surface: typed DTOs, never Prisma types.
+- Two public surfaces, because Next.js bundles server and client code differently:
+  - `index.ts` — **server surface**: DTO types, `queries.ts` (read API), services (writes, schemas, helpers), actions, jobs. Never imported from a client component.
+  - `ui.ts` — **client surface**: components, actions (client-safe references), DTO types. Never re-exports services or stores (hooks stay module-internal; a server page may import `ui.ts`).
+  Outside the module only `@/modules/<m>` and `@/modules/<m>/ui` may be imported (guard-enforced).
+- DTOs are plain types in `types.ts`, never Prisma types; Prisma rows are mapped (`toPartnerDto`) before they leave the module. Money crosses as a decimal string; dates stay `Date` on the server surface and are serialised at the page boundary.
+- `queries.ts` names the module's read API. Pages and other modules read through it (via `index.ts`); writes go through actions → services.
+- Server actions are named `<verb><Entity>Action` (`createPartnerAction`), never the same name as the service function.
 - Services take a tenant-scoped `tx` (RLS session set) and a `CallerIdentity`; return `ServiceResult<T>`; never throw for business errors.
 - Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod, call the service, return `{ data | error: AppError }`.
 - Every mutation on a financial or linked entity writes an audit row with source provenance.

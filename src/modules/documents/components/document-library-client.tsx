@@ -262,9 +262,7 @@ export function DocumentLibraryClient({
     if (!prefInitialized.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      const { upsertTablePreferenceAction: upsert } = await import(
-        "@/modules/settings/table-preferences.actions"
-      );
+      const { upsertTablePreferenceAction: upsert } = await import("@/modules/settings/ui");
       await upsert({ tableKey: "documents", preferences: { filters, sort, pageSize } });
     }, 2000);
     return () => {

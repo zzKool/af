@@ -1,10 +1,12 @@
 import { z } from "zod/v4";
 import { Prisma } from "@/generated/prisma/browser";
+import type { Contract } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import type { ContractDto, ExternalReference } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -56,13 +58,37 @@ export const updateContractSchema = contractBaseSchema
 export type CreateContractInput = z.input<typeof createContractSchema>;
 export type UpdateContractInput = z.input<typeof updateContractSchema>;
 
+// --- DTO mapping (Prisma rows never leave the module) ---
+
+export function toContractDto(row: Contract): ContractDto {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    name: row.name,
+    partnerId: row.partnerId,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    assignedEmployeeId: row.assignedEmployeeId,
+    billingRate: row.billingRate ? row.billingRate.toString() : null,
+    currency: row.currency,
+    paymentTerms: row.paymentTerms,
+    vatRegistrationId: row.vatRegistrationId,
+    externalReferences: (row.externalReferences as ExternalReference[] | null) ?? [],
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy,
+    source: row.source,
+  };
+}
+
 // --- Service Functions ---
 
 export async function getContracts(
   tx: TransactionClient,
   partnerId: string,
   options?: { includeInactive?: boolean },
-): Promise<ServiceResult<Awaited<ReturnType<typeof tx.contract.findMany>>>> {
+): Promise<ServiceResult<ContractDto[]>> {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic where clause construction
   const where: any = { partnerId };
   if (!options?.includeInactive) {
@@ -72,18 +98,18 @@ export async function getContracts(
     where,
     orderBy: { startDate: "desc" },
   });
-  return { data: contracts };
+  return { data: contracts.map(toContractDto) };
 }
 
 export async function getContract(
   tx: TransactionClient,
   id: string,
-): Promise<ServiceResult<Awaited<ReturnType<typeof tx.contract.findUnique>>>> {
+): Promise<ServiceResult<ContractDto>> {
   const contract = await tx.contract.findUnique({ where: { id } });
   if (!contract) {
     return { error: { code: "NOT_FOUND", message: `Contract not found: ${id}`, retryable: false } };
   }
-  return { data: contract };
+  return { data: toContractDto(contract) };
 }
 
 export async function createContract(

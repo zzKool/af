@@ -21,6 +21,7 @@ authedAction | ownerAction          export async function doX(
 ```
 
 ## Rules
+0. Name: `<verb><Entity>Action` (`createPartnerAction`); the service function keeps the plain name (`createPartner`). Both are exported from the module's `index.ts`; the action also from `ui.ts`.
 1. Validation with Zod in the action; reject unknown fields. The service trusts its input type.
 2. Permission check: `can(caller, "update", "invoice")` at the top of the service. Nowhere else.
 3. Business errors are returned: `{ error: { code, message, retryable } }`. Never `throw` from an action.

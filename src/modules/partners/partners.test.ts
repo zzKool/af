@@ -10,7 +10,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
 import { assertAuditLogged, assertRlsIsolation } from "@/kernel/test-utils/config-crud-helpers";
 import * as partnerService from "@/modules/partners/partners";
-import * as basService from "@/modules/settings/bas-preferences";
+import * as basService from "@/modules/settings";
 
 /** No-op audit logger for tests that don't care about audit */
 const noopAudit: AuditLogger = { log: async () => {} };

@@ -65,10 +65,10 @@ afterAll(async () => {
 
 // Import actions after mocks
 import {
-  createVatRegistration as createVatAction,
-  deleteVatRegistration as deleteVatAction,
-  getVatRegistrations as getVatAction,
-  updateVatRegistration as updateVatAction,
+  createVatRegistrationAction as createVatAction,
+  deleteVatRegistrationAction as deleteVatAction,
+  getVatRegistrationsAction as getVatAction,
+  updateVatRegistrationAction as updateVatAction,
 } from "@/modules/settings/vat-registrations.actions";
 
 // ─────────────────────────────────────────────────────────────

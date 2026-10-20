@@ -9,7 +9,7 @@ import * as dashboardService from "@/modules/dashboard/dashboard";
  * Fetch dashboard data — authedAction (not ownerAction — accountant needs access too).
  * Uses dual Prisma client: base `prisma` for auth tables, `ctx.tx` for tenant-scoped data.
  */
-export const getDashboardData = authedAction
+export const getDashboardDataAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "getDashboardData" })
   .action(async ({ ctx }) => {

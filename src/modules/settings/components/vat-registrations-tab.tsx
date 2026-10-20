@@ -9,9 +9,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
-  createVatRegistration,
-  deleteVatRegistration,
-  updateVatRegistration,
+  createVatRegistrationAction,
+  deleteVatRegistrationAction,
+  updateVatRegistrationAction,
 } from "@/modules/settings/vat-registrations.actions";
 
 // ─────────────────────────────────────────────────────────────
@@ -66,9 +66,11 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
 
-  const { executeAsync: execCreate, isPending: isCreating } = useAction(createVatRegistration);
-  const { executeAsync: execUpdate } = useAction(updateVatRegistration);
-  const { executeAsync: execDelete } = useAction(deleteVatRegistration);
+  const { executeAsync: execCreate, isPending: isCreating } = useAction(
+    createVatRegistrationAction,
+  );
+  const { executeAsync: execUpdate } = useAction(updateVatRegistrationAction);
+  const { executeAsync: execDelete } = useAction(deleteVatRegistrationAction);
   const { dialogProps, confirm } = useConfirmDialog();
 
   // Ref to avoid stale closures in update callbacks

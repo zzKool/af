@@ -66,9 +66,9 @@ afterAll(async () => {
 
 // Import actions after mocks
 import {
-  createBankAccount as createAction,
-  getBankAccounts as getAccountsAction,
-  getBankFormats as getFormatsAction,
+  createBankAccountAction as createAction,
+  getBankAccountsAction as getAccountsAction,
+  getBankFormatsAction as getFormatsAction,
 } from "@/modules/banking/bank-accounts.actions";
 
 // ─────────────────────────────────────────────────────────────

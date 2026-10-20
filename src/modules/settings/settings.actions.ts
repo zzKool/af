@@ -14,7 +14,7 @@ const updateProfileSchema = z.object({
 /**
  * Read tenant profile — owner only.
  */
-export const getTenantProfile = ownerAction
+export const getTenantProfileAction = ownerAction
   .schema(z.object({}))
   .metadata({ name: "getTenantProfile" })
   .action(async ({ ctx }) => {
@@ -25,7 +25,7 @@ export const getTenantProfile = ownerAction
  * Update tenant profile — owner only.
  * VALIDATE FIRST, WRITE SECOND — never return AppError after a DB write.
  */
-export const updateTenantProfile = ownerAction
+export const updateTenantProfileAction = ownerAction
   .schema(updateProfileSchema)
   .metadata({ name: "updateTenantProfile" })
   .action(async ({ ctx, parsedInput }) => {
@@ -35,7 +35,7 @@ export const updateTenantProfile = ownerAction
 /**
  * List tenant members — owner only.
  */
-export const listTenantMembers = ownerAction
+export const listTenantMembersAction = ownerAction
   .schema(z.object({}))
   .metadata({ name: "listTenantMembers" })
   .action(async ({ ctx }) => {

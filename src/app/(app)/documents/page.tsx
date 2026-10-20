@@ -8,12 +8,10 @@ import { getAuthContext } from "@/kernel/auth/auth";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { DocumentLibraryClient } from "@/modules/documents/components/document-library-client";
-import { DocumentUploadZone } from "@/modules/documents/components/document-upload-zone";
-import { getDocumentTypePrefixesWithSeed } from "@/modules/documents/document-type-prefixes";
-import * as documentService from "@/modules/documents/documents";
-import type { DocumentFilters, DocumentSort } from "@/modules/documents/documents.actions";
-import * as tablePrefsService from "@/modules/settings/table-preferences";
+import type { DocumentFilters, DocumentSort } from "@/modules/documents";
+import * as documentService from "@/modules/documents";
+import { DocumentLibraryClient, DocumentUploadZone } from "@/modules/documents/ui";
+import * as tablePrefsService from "@/modules/settings";
 
 function DocumentsLoading() {
   return (
@@ -101,7 +99,7 @@ export default async function DocumentsPage() {
           await createAuditEntry(tx, caller, params);
         },
       };
-      const prefixResult = await getDocumentTypePrefixesWithSeed(tx, caller, audit);
+      const prefixResult = await documentService.getDocumentTypePrefixesWithSeed(tx, caller, audit);
       return { prefixes: prefixResult.data ?? [] };
     });
     prefixOptions = prefixes.map((p) => ({

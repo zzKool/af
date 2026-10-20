@@ -8,7 +8,7 @@ import * as prefsService from "@/modules/settings/user-preferences";
 /**
  * Get user preferences — any authenticated user can read their own preferences.
  */
-export const getUserPreferences = authedAction
+export const getUserPreferencesAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "getUserPreferences" })
   .action(async ({ ctx }) => {
@@ -18,7 +18,7 @@ export const getUserPreferences = authedAction
 /**
  * Update user locale — any authenticated user can update their own locale.
  */
-export const updateUserLocale = authedAction
+export const updateUserLocaleAction = authedAction
   .schema(
     z.object({
       locale: z.enum(SUPPORTED_LOCALES).nullable(),

@@ -25,9 +25,13 @@ src/
     test-utils/      shared test helpers
     ui/              DataTable, providers, confirm dialog, company avatar; ui/shell = sidebar + tenant switcher
   modules/<m>/       one feature module each
+    index.ts                 SERVER surface: types, queries, services, actions, jobs — the only server import path from outside
+    ui.ts                    CLIENT surface: components, actions, types — importable from pages and client components; stores stay internal
+    types.ts                 DTOs (plain types, never Prisma); mappers live next to the service
+    queries.ts               the module's read API (named re-exports today; real query implementations with the reference slice)
     <entity>.ts              service (framework-free; tx + CallerIdentity → ServiceResult)
     <entity>.test.ts         co-located Vitest (DB-backed, RLS on)
-    <entity>.actions.ts      thin Server Actions
+    <entity>.actions.ts      thin Server Actions, named <verb><Entity>Action
     components/              React components of the module
     stores/                  client state (Zustand) of the module
     jobs/                    background handlers of the module
@@ -47,11 +51,16 @@ Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settin
 - Services (everything in a module that is not `components/`, `stores/`, `.tsx` or `.actions.ts`; kernel adapters likewise) never import `next/*`, `react`, or components.
 - No `console.*` in server code; no `GRANT ALL` in migrations.
 
+## Rules enforced since 3b / 3d
+- Outside a module, only `@/modules/<m>` (server) or `@/modules/<m>/ui` (client) is imported — pages included.
+- A file with `"use client"` never imports a server surface.
+- `ui.ts` exports only `components/`, `*.actions` and `types` (never stores — hooks would enter the server graph of a page importing it); `index.ts` never exports components; `index.ts`, `ui.ts`, `types.ts` never mention `@/generated/prisma`.
+- Service functions that return rows return DTOs (`PartnerDto`, `ContractDto`, …), mapped inside the module.
+- Actions are `<verb><Entity>Action`; v2's unsuffixed actions were renamed in 3b.
+
 ## Rules arriving with the next moves
-- **3b** — each module exposes `index.ts` (DTOs, never Prisma types); cross-module imports go through it only. Until then modules may import each other's files directly.
 - **3c** — `modules/linking` owns the `link` table; modules register `linkable`.
-- **3d** — `queries.ts` per module; pages stop importing services directly.
-- **Reference slice (item 6)** — final file naming for single-entity modules (`service.ts` / `queries.ts` / `actions.ts`); until then the 3a naming `<entity>.ts` / `<entity>.actions.ts` stands.
+- **Reference slice (item 6)** — real `queries.ts` implementations (`ListQuery`, distinct values for DataTable headers) and the final file naming for single-entity modules (`service.ts` / `actions.ts`); until then `<entity>.ts` / `<entity>.actions.ts` stands.
 
 ## Where did it go? (v2 → 3a)
 
