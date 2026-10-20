@@ -1,6 +1,8 @@
 # Numbering — `number_series` and the fixed key functions
 
-Decisions D5 and D6 (2026-10-20, phase-0 item 4.4): invoice numbers and business keys are **fixed functions**, counters are **one table**, and there is **no prefix or numbering settings page**. v2's `document_type_prefixes` engine and `document_key_counters` are gone from the code (the two tables are dropped by a separate, approved migration).
+Decisions D5, D6, D21 and D28 (2026-10-20, phase-0 item 4.4 + the owner's answers): invoice numbers and business keys are **fixed functions**, counters are **one table**, and there is **no prefix or numbering settings page**. v2's `document_type_prefixes` engine and `document_key_counters` are gone — code and tables (D30).
+
+The owner's one rule for client documents: **client code and year first, then a type marker when it is not an invoice, then the number** — `VA26-001`, `VA26-QT-001`, `VA26-CN-001`. Files sort by client and year in any explorer, and each type has its own gap-free counter.
 
 ## Module `src/modules/numbering`
 
@@ -13,14 +15,16 @@ prisma/schema/numbering.prisma   number_series(tenant_id, series, next_value, up
 | What | Function | Example |
 |---|---|---|
 | invoice number | `invoiceNumber(shortCode, issueDate, seq)` — series `{short code}{yy}` | `VA26-001` |
-| quote number | `quoteNumber(issueDate, seq)` — series `QUO{yy}` | `QUO26-007` |
-| credit note | `creditNoteNumber(shortCode, issueDate, seq)` — series `CN-{short code}{yy}` | `CN-VA27-001` |
-| invoice PDF document | `invoicePdfKey(number)` | `InvoiceAF_VA26-001.pdf` |
+| quote number | `quoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-QT` | `VA26-QT-007` |
+| credit note | `creditNoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-CN` | `VA27-CN-001` |
+| invoice / quote / credit-note PDF | `invoicePdfKey(number)` | `InvoiceAF_VA26-001.pdf` |
 | expense ref | `expenseRef(groupNumber, basAlias, seq)` — series `exg-{group}` | `Ex213-Tr-01` |
 | expense receipt key | `expenseDocumentKey(ref, documentDate)` | `Ex213-Tr-01_2026-03-11_` |
+| supplier invoice ref | `supplierInvoiceRef(groupNumber, basAlias, seq)` — series `exg-{group}` (shared with expenses) | `SI213-Acc-01` |
+| supplier invoice document key | `supplierInvoiceDocumentKey(ref, documentDate, vendorName)` — vendor slug appended (`fileSlug`) | `SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB` |
 | raw upload (provisional) | `uploadDocumentKey(kind, date, seq)` — series `doc-{yyyy-mm}` | `exp_20261020_001` |
 
-Series keys (`invoiceSeries`, `quoteSeries`, `creditNoteSeries`, `expenseGroupSeries`, `uploadSeries`) are what `number_series` is keyed by. Sequences are 3 digits (2 for expense refs) and simply grow past that.
+Series keys (`invoiceSeries`, `quoteSeries`, `creditNoteSeries`, `expenseGroupSeries`, `uploadSeries`) are what `number_series` is keyed by. Sequences are 3 digits (2 for group refs) and simply grow past that. Year = the **issue date's** year, never the clock.
 
 ## Taking a number
 
@@ -41,6 +45,6 @@ The Excel the owner ran the company on used exactly these conventions by hand. v
 
 ## Migration notes
 
-`20261020150000_add_number_series` creates the table and **carries the monthly upload counters over** (`document_key_counters.next_val + 1 → number_series('doc-yyyy-mm')`) so no provisional key is reused. `document_type_prefixes` and `document_key_counters` are no longer read or written; their Prisma models stay (marked deprecated) until the drop migration lands.
+`20261020150000_add_number_series` creates the table and **carries the monthly upload counters over** (`document_key_counters.next_val + 1 → number_series('doc-yyyy-mm')`) so no provisional key is reused. `20261020200000_drop_v2_prefix_tables` then drops `document_type_prefixes` and `document_key_counters` (D30, owner's OK 2026-10-20).
 
 Related: [[document-upload]] (provisional keys), the `invoice-pdf` skill (issue lifecycle), the `bas-accounting` skill (aliases), [[excel-to-v3-mapping]].

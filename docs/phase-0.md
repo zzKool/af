@@ -33,7 +33,7 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup — 2026-10-20, see `docs/async-jobs.md`
   - [x] `kernel/auth/can()` with the role table (superadmin, owner, accountant, editor), `requireCaller()` for pages, guard rule — every inline role check replaced (PR #5)
   - [x] `kernel/pdf`: Chromium in the image, print-mode rendering, one Dockerfile stage — 2026-10-20, see `docs/pdf.md`
-  - [x] `number_series` + fixed business-key functions; `DocumentTypePrefix` engine + settings page removed — 2026-10-20, see `docs/numbering.md`. **Open: the DROP of `document_type_prefixes` + `document_key_counters` waits for your OK (data-dropping migration).**
+  - [x] `number_series` + fixed business-key functions; `DocumentTypePrefix` engine + settings page removed — 2026-10-20, see `docs/numbering.md`. The two v2 tables dropped on your OK the same day (`20261020200000_drop_v2_prefix_tables`, D30).
   - [x] `docker-compose.prod.yml` (same image, no bind mounts, `.env.prod`) + `scripts/backup.sh` (PR #5)
 - [x] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6 — 2026-10-20: `specs/<module>/harvest.md` for invoices (H1 H2 H6), banking (H3 H4 H11), contracts (H5), documents (H7), expenses (H8), traktamente (H9), supplier-invoices (H10), accountant-package (H12), kernel-ui-datatable (H13); open questions in each §9 — **answer them before the module's `/speckit-specify`**
 - [x] **6. Reference slice**: `partners` on the full module layout (ListQuery `queries.ts`, DataTable list page, entity page, short code) → `module-slice` skill finalised — 2026-10-20, see `docs/partners.md`
@@ -43,8 +43,8 @@ Status board for everything before the first business feature. Tick, don't rewri
 Then phase 1: contracts frozen for the batch → parallel agents on invoices / banking + journal / expenses + traktamente / supplier invoices → linking → exports → dashboard.
 
 ## Open points
-Consolidated in [[open-questions]] (blocking B1–B15, the rest during the build). Of these, **B15** is the only one that blocks a merged PR's follow-up (the drop migration); the others gate each module's spec.
+Consolidated in [[open-questions]] (blocking B1–B15, the rest during the build) — **all answered 2026-10-20**, recorded as D21–D32 in [[feature-inventory]]; nothing gates a module spec any more.
 
 ## Open points (non-blocking, from before the harvest)
-- Settlement allocation default: FIFO by expense date with manual override — confirm.
-- Exchange-difference category on cross-currency settlements — ask the accountant.
+- Settlement allocation default: FIFO by expense date with manual override — confirmed (D26).
+- Exchange-difference category on cross-currency settlements — BAS 3960/7960 (D26), the accountant confirms the pair.

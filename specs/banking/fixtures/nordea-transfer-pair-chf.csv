@@ -1,2 +1,2 @@
-Booking date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;
-2026/06/02;-9093,63;;;TRANSFER TO OWN ACCOUNT SEK;Currency exchange CHF/SEK;;;15120,37;CHF;
+Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;
+2026/07/08;-20000,00;;123 45 67-8;;CHANGE CHFSEK 999999-5;CHANGE CHFSEK;;98765,10;CHF;

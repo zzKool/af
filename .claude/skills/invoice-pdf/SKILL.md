@@ -17,7 +17,7 @@ Decisions: D5, D7, D12 in `docs/feature-inventory.md`. Business fields: `docs/ex
 Drafts have no number. Issued invoices are immutable; corrections are credit notes.
 
 ## Numbering
-`number_series(tenant_id, series, next_value)` row-locked in the issue transaction. Series key `{partner.short_code}{yy}` → `VA26-001`. Quotes `QUO-`, credit notes `CN-`. Gap-free per series, no reset UI, no settings.
+`number_series(tenant_id, series, next_value)` row-locked in the issue transaction. Series key `{partner.short_code}{yy}` → `VA26-001`; quotes `{short}{yy}-QT` → `VA26-QT-001`; credit notes `{short}{yy}-CN` → `VA26-CN-001` (D21: client code and year first, then the type marker). Three counters per client-year, each gap-free; no reset UI, no settings. Functions in `src/modules/numbering/keys.ts`.
 
 ## Content checklist
 - tenant: name, org number, address, logo, VAT numbers of the registration used, bank details (IBAN/BIC per currency)

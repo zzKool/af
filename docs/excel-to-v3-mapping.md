@@ -35,7 +35,7 @@ Source: three Nordea CSVs (SEK main, CHF main, savings), consolidated into one s
 | Reason | you | `journal_entry.note` |
 | Green fill | you | derived: linked / awaiting document / no document needed |
 | Grey italic `AVGIFTER NORDEA` | you | BAS category *bank fees*, flag `no_document_needed` |
-| Grey italic `CHANGE CHFSEK` (−9 093.63 CHF ↔ +131 271.18 SEK) | you | link kind `transfer` between two own-account transactions; the pair carries the bank implicit rate (11.98); no document needed |
+| Grey italic `CHANGE CHFSEK` (−20 000.00 CHF ↔ +237 740.00 SEK, the owner's anonymised July 2026 example) | you | link kind `transfer` between two own-account transactions; the pair carries the bank implicit rate (237 740 ÷ 20 000 = 11.887); no document needed. Nordea's wording: `Additional details` = `CHANGE CHFSEK <ref>`, `Message` = `CHANGE CHFSEK` (D25) |
 | Yellow `SALARY`, `SKATTEVERKET` | you | BAS categories salary / social charges + tax; recurring manual-entry templates |
 
 Observations

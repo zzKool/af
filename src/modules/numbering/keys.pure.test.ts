@@ -6,19 +6,23 @@ import {
   expenseDocumentKey,
   expenseGroupSeries,
   expenseRef,
+  fileSlug,
   formatSeriesNumber,
   invoiceNumber,
   invoicePdfKey,
   invoiceSeries,
   isUploadKind,
   quoteNumber,
+  quoteSeries,
+  supplierInvoiceDocumentKey,
+  supplierInvoiceRef,
   UPLOAD_KIND_PREFIX,
   uploadDocumentKey,
   uploadSeries,
   yy,
 } from "./keys";
 
-describe("fixed key functions (D5, D6) — the Excel conventions", () => {
+describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", () => {
   it("invoice: {short code}{yy}-{nnn}", () => {
     expect(invoiceSeries("VA", "2026-10-20")).toBe("VA26");
     expect(invoiceNumber("VA", "2026-10-20", 1)).toBe("VA26-001");
@@ -26,15 +30,25 @@ describe("fixed key functions (D5, D6) — the Excel conventions", () => {
     expect(invoiceNumber("XYY", "2026-01-05", 2)).toBe("XYY26-002");
   });
 
-  it("quote and credit note series", () => {
-    expect(quoteNumber("2026-03-01", 7)).toBe("QUO26-007");
-    expect(creditNoteSeries("VA", "2027-02-02")).toBe("CN-VA27");
-    expect(creditNoteNumber("VA", "2027-02-02", 1)).toBe("CN-VA27-001");
+  it("quote and credit note: client code + year first, then the type marker (D21)", () => {
+    expect(quoteSeries("VA", "2026-03-01")).toBe("VA26-QT");
+    expect(quoteNumber("VA", "2026-03-01", 7)).toBe("VA26-QT-007");
+    expect(creditNoteSeries("VA", "2027-02-02")).toBe("VA27-CN");
+    expect(creditNoteNumber("VA", "2027-02-02", 1)).toBe("VA27-CN-001");
+    // three independent counters per client-year: an invoice, a quote and a credit note can all be 001
+    expect(
+      new Set([
+        invoiceSeries("VA", "2026-01-01"),
+        quoteSeries("VA", "2026-01-01"),
+        creditNoteSeries("VA", "2026-01-01"),
+      ]).size,
+    ).toBe(3);
   });
 
   it("invoice PDF document key", () => {
     expect(invoicePdfKey("VA26-001")).toBe("InvoiceAF_VA26-001.pdf");
-    expect(invoicePdfKey("CN-VA27-001")).toBe("InvoiceAF_CN-VA27-001.pdf");
+    expect(invoicePdfKey("VA27-CN-001")).toBe("InvoiceAF_VA27-CN-001.pdf");
+    expect(invoicePdfKey("VA26-QT-012")).toBe("InvoiceAF_VA26-QT-012.pdf");
     expect(() => invoicePdfKey("draft")).toThrow();
   });
 
@@ -44,6 +58,22 @@ describe("fixed key functions (D5, D6) — the Excel conventions", () => {
     expect(expenseDocumentKey("Ex213-Tr-01", "2026-03-11")).toBe("Ex213-Tr-01_2026-03-11_");
     expect(expenseGroupSeries(213)).toBe("exg-213");
     expect(() => expenseDocumentKey("213-Tr-01", "2026-03-11")).toThrow();
+    expect(() => expenseDocumentKey("SI213-Acc-01", "2026-03-11")).toThrow(/expense ref/);
+  });
+
+  it("supplier invoice ref and document key carry the vendor name (D28)", () => {
+    expect(supplierInvoiceRef(213, "Acc", 1)).toBe("SI213-Acc-01");
+    expect(
+      supplierInvoiceDocumentKey(
+        "SI213-Acc-01",
+        "2026-07-24",
+        "Skattepunkten´s Office Services AB",
+      ),
+    ).toBe("SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB");
+    expect(fileSlug("Café Müller & Söhne GmbH")).toBe("Cafe_Muller_Sohne_GmbH");
+    expect(fileSlug("  ")).toBe("");
+    expect(() => supplierInvoiceDocumentKey("Ex213-Acc-01", "2026-07-24", "X")).toThrow(/supplier/);
+    expect(() => supplierInvoiceDocumentKey("SI213-Acc-01", "2026-07-24", "***")).toThrow(/Vendor/);
   });
 
   it("provisional upload key keeps v2's prefixes", () => {

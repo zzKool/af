@@ -1,6 +1,6 @@
 # Linking — the single link table
 
-Module `src/modules/linking` · schema `prisma/schema/linking.prisma` · migration `20261020060000_add_links` · phase-0 item 3c · decision D18.
+Module `src/modules/linking` · schema `prisma/schema/linking.prisma` · migrations `20261020060000_add_links`, `20261020190000_add_created_from_link_kind` · phase-0 item 3c · decisions D18, D27.
 
 > Linking is the product (constitution §1.2). The `links` table is the one source of truth for relationships between documents, bank transactions, journal entries, invoices, supplier invoices, expenses, settlements, partners and contracts. Everything above it — suggestions, the graph, the accountant package — is a read model.
 
@@ -8,7 +8,7 @@ Module `src/modules/linking` · schema `prisma/schema/linking.prisma` · migrati
 
 ```
 links (tenant_id, from_type, from_id, to_type, to_id, kind, allocated_amount, currency, note, created_at, created_by, source)
-  kind ∈ justifies | transfer | settles | belongs_to   (CHECK constraint)
+  kind ∈ justifies | transfer | settles | belongs_to | created_from   (CHECK constraint)
   unique (tenant, from, to, kind) · RLS tenant_isolation · immutable rows (change = remove + create, both audited)
 ```
 
@@ -20,8 +20,11 @@ Endpoints are polymorphic (`type` + `id`) — no cross-table foreign keys (RLS b
 | `transfer` | bank_transaction ↔ bank_transaction (`CHANGE CHFSEK` pairs) | no |
 | `settles` | bank_transaction → settlement (owner reimbursement) | yes |
 | `belongs_to` | document / invoice / supplier_invoice / expense → partner / contract | no |
+| `created_from` | expense / supplier_invoice → document ("what this document became", D27) | no — and exclusive: one origin per document, one document per entity |
 
 The matrix lives in `kinds.ts`; a new linkable type is one line there plus a `Linkable` in its module.
+
+**Why "what a document became" is a link and not a column (D27).** A `became_type/became_id` pair on `documents` plus a `document_id` on every entity would be the same fact stored twice, with its own delete guard, its own audit and its own "show me everything connected to this" query. As a `created_from` link it gets all three from the one table, the document review screen reads *became expense Ex213-Tr-01* from `getLinksFor`, and the graph / package read models see it like any other edge. The exclusivity (a document becomes one thing) is a partial unique index, so it holds even for a direct SQL insert.
 
 ## Invariants — where each one lives
 
@@ -32,6 +35,7 @@ The matrix lives in `kinds.ts`; a new linkable type is one line there plus a `Li
 | kind accepts the pair | `isKindAllowed` | `links_kind_check` |
 | allocation > 0, currency matches the target, Σ allocations ≤ target amount | `canAllocate` (property-tested in `allocation.pure.test.ts`) | `links_allocation_positive_check`, `links_allocation_currency_check` |
 | no self-link, no duplicate | explicit check / `DUPLICATE_ENTRY` | `links_not_self_check`, unique index |
+| `created_from` is exclusive on both ends | `EXCLUSIVE_KINDS` pre-check (`already became …` / `already created from …`) | partial unique indexes `links_created_from_origin_key`, `links_created_from_entity_key` |
 | a linked document is never hard-deleted | `deleteDocument` translates the trigger into `BUSINESS_RULE_VIOLATION` | trigger `documents_block_delete_when_linked` (`block_delete_when_linked('document')`) — reuse it for every linkable table |
 | every link / unlink is audited | `audit.log` create/delete with the endpoints | — |
 
@@ -55,4 +59,4 @@ Export it from the module's `index.ts`, add one line in `src/modules/linking/lin
 
 ## Tests
 
-`allocation.pure.test.ts` (fast-check, no DB) · `linking.test.ts` (DB, RLS on): link + audit, rejections, allocations and remaining, remove, delete trigger, cross-tenant isolation. Fake linkables with amounts stand in for invoices and bank transactions until those modules exist.
+`allocation.pure.test.ts` (fast-check, no DB) · `linking.test.ts` (DB, RLS on): link + audit, rejections, `created_from` exclusivity (service and index), allocations and remaining, remove, delete trigger, cross-tenant isolation. Fake linkables with amounts stand in for invoices and bank transactions until those modules exist.

@@ -1,16 +1,19 @@
-// Business keys and document numbers are FIXED FUNCTIONS (D5, D6) — no prefix settings, no pattern
-// engine. The Excel conventions, verbatim:
+// Business keys and document numbers are FIXED FUNCTIONS (D5, D6, D21, D28) — no prefix settings, no
+// pattern engine. The owner's conventions, verbatim — every client document starts with the client code
+// and the year, then a type marker when it is not an invoice, then the sequence:
 //   invoice      VA26-001                 series {partner short code}{yy}, 3-digit sequence
-//   quote        QUO26-001                series QUO{yy}
-//   credit note  CN-VA26-001              series CN-{partner short code}{yy}
-//   invoice PDF  InvoiceAF_VA26-001.pdf   the document that stores the issued invoice
+//   quote        VA26-QT-001              series {partner short code}{yy}-QT
+//   credit note  VA26-CN-001              series {partner short code}{yy}-CN
+//   invoice PDF  InvoiceAF_VA26-001.pdf   the document that stores the issued invoice / quote / credit note
 //   expense ref  Ex213-Tr-01              Ex{group number}-{BAS alias}-{seq within group, 2 digits}
 //   expense doc  Ex213-Tr-01_2026-03-11_  the receipt's business key = {ref}_{document date}_
+//   supplier inv SI213-Acc-01             SI{group number}-{BAS alias}-{seq}, same per-group counter
+//   supplier doc SI213-Acc-01_2026-07-24_Skattepunkten_Office_Services_AB   {ref}_{date}_{vendor slug}
 //   upload       exp_20261020_001         provisional key of a raw upload: {kind}{yyyymmdd}_{seq in doc-{yyyymm}}
 
 export type UploadKind = "expense" | "invoice" | "contract" | "nda" | "certificate";
 
-/** Replaces the v2 document_type_prefixes table — the same strings, now constants. */
+/** The v2 per-tenant prefix table, now constants (D6; the table was dropped, D30). */
 export const UPLOAD_KIND_PREFIX: Record<UploadKind, string> = {
   expense: "exp_",
   invoice: "inv_",
@@ -59,13 +62,14 @@ export function invoiceSeries(partnerShortCode: string, issueDate: string): stri
   return `${partnerShortCode}${yy(issueDate)}`;
 }
 
-export function quoteSeries(issueDate: string): string {
-  return `QUO${yy(issueDate)}`;
+/** `VA26-QT` — quotes have their own counter per client-year (D21). */
+export function quoteSeries(partnerShortCode: string, issueDate: string): string {
+  return `${invoiceSeries(partnerShortCode, issueDate)}-QT`;
 }
 
+/** `VA26-CN` — credit notes have their own counter per client-year; the invoice series stays gap-free (D21). */
 export function creditNoteSeries(partnerShortCode: string, issueDate: string): string {
-  assertShortCode(partnerShortCode);
-  return `CN-${partnerShortCode}${yy(issueDate)}`;
+  return `${invoiceSeries(partnerShortCode, issueDate)}-CN`;
 }
 
 /** Upload counter series: one per month — `doc-2026-10`. */
@@ -92,8 +96,8 @@ export function invoiceNumber(partnerShortCode: string, issueDate: string, seq: 
   return formatSeriesNumber(invoiceSeries(partnerShortCode, issueDate), seq);
 }
 
-export function quoteNumber(issueDate: string, seq: number): string {
-  return formatSeriesNumber(quoteSeries(issueDate), seq);
+export function quoteNumber(partnerShortCode: string, issueDate: string, seq: number): string {
+  return formatSeriesNumber(quoteSeries(partnerShortCode, issueDate), seq);
 }
 
 export function creditNoteNumber(partnerShortCode: string, issueDate: string, seq: number): string {
@@ -106,20 +110,59 @@ export function invoicePdfKey(number: string): string {
   return `InvoiceAF_${number}.pdf`;
 }
 
-/** `Ex213-Tr-01` — group number, BAS alias (short code), sequence within the group. */
-export function expenseRef(groupNumber: number, basAlias: string, seq: number): string {
+function groupRef(prefix: "Ex" | "SI", groupNumber: number, basAlias: string, seq: number): string {
   assertSeq(groupNumber);
   assertSeq(seq);
   if (!/^[A-Za-z]{1,6}$/.test(basAlias))
     throw new Error(`BAS alias must be letters, got "${basAlias}"`);
-  return `Ex${groupNumber}-${basAlias}-${pad(seq, 2)}`;
+  return `${prefix}${groupNumber}-${basAlias}-${pad(seq, 2)}`;
 }
+
+/** `Ex213-Tr-01` — group number, BAS alias (short code), sequence within the group. */
+export function expenseRef(groupNumber: number, basAlias: string, seq: number): string {
+  return groupRef("Ex", groupNumber, basAlias, seq);
+}
+
+/** `SI213-Acc-01` — a supplier invoice in the same group, same counter, SI prefix (D28). */
+export function supplierInvoiceRef(groupNumber: number, basAlias: string, seq: number): string {
+  return groupRef("SI", groupNumber, basAlias, seq);
+}
+
+const GROUP_REF = /^(Ex|SI)\d+-[A-Za-z]{1,6}-\d{2,}$/;
 
 /** `Ex213-Tr-01_2026-03-11_` — the receipt's business key (and stored filename stem). */
 export function expenseDocumentKey(ref: string, documentDate: string): string {
-  if (!/^Ex\d+-[A-Za-z]{1,6}-\d{2,}$/.test(ref)) throw new Error(`Not an expense ref: "${ref}"`);
+  if (!GROUP_REF.test(ref) || !ref.startsWith("Ex"))
+    throw new Error(`Not an expense ref: "${ref}"`);
   assertIsoDate(documentDate);
   return `${ref}_${documentDate}_`;
+}
+
+/** File-name-safe slug of a vendor name: `Skattepunkten's Office Services AB` → `Skattepunkten_Office_Services_AB`. */
+export function fileSlug(name: string): string {
+  return name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+}
+
+/**
+ * `SI213-Acc-01_2026-07-24_Skattepunkten_Office_Services_AB` — the supplier invoice's business key:
+ * the vendor name is in the file name because the owner browses the documents in a file explorer (D28).
+ */
+export function supplierInvoiceDocumentKey(
+  ref: string,
+  documentDate: string,
+  vendorName: string,
+): string {
+  if (!GROUP_REF.test(ref) || !ref.startsWith("SI"))
+    throw new Error(`Not a supplier invoice ref: "${ref}"`);
+  assertIsoDate(documentDate);
+  const slug = fileSlug(vendorName);
+  if (!slug) throw new Error("Vendor name must contain at least one letter or digit");
+  return `${ref}_${documentDate}_${slug}`;
 }
 
 /** `exp_20261020_001` — provisional key of a raw upload before it becomes an expense, invoice, … */

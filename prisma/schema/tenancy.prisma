@@ -16,7 +16,6 @@ model Tenant {
   basPreferences       TenantBasPreference[]
   vatRegistrations     VatRegistration[]
   bankAccounts         BankAccount[]
-  documentTypePrefixes DocumentTypePrefix[]
   partners             Partner[]
   contracts            Contract[]
   documents            Document[]

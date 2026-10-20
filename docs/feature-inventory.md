@@ -32,7 +32,7 @@ v1's budget went into features, v2's into foundations. v3 = v2's foundations + v
 | D2 | BAS kontoplan = categorisation, not a ledger. Aliases (`Tr`, `Ut`, `Rep`, `Off`, `Acc`, `Evnt`, `Vat`) are the BAS short codes. | PRD + Excel |
 | D3 | Dual-amount storage: object currency + SEK base + rate + rate source on every financial entry. | PRD |
 | D4 | Exchange rates: ECB daily reference (today's Excel uses Riksbank via Power Query; equivalent). Bank implicit rate captured on transfer pairs. | Q1 |
-| D5 | Document numbering: `number_series(tenant, series, next)` row-locked at issue; invoice series = `{client short}{yy}` (`VA26-001`); prefixes fixed; no settings UI. | discussion + Excel |
+| D5 | Document numbering: `number_series(tenant, series, next)` row-locked at issue; invoice series = `{client short}{yy}` (`VA26-001`); prefixes fixed; no settings UI. Quote and credit-note series: D21. | discussion + Excel |
 | D6 | Business keys kept as **one fixed function** `Ex{group}-{alias}-{seq}_{date}_` / `InvoiceAF_{number}.pdf`; configurable pattern engine dropped. | Excel |
 | D7 | One invoice model. Invoice form = invoice layout (edit / print modes of one component); PDF via Chromium from the print mode; PDF stored as a document at issue, downloadable forever. No sending from the app; "mark as sent". | 3.5, Q7 |
 | D8 | Supplier invoices are a **separate module** (payable: document + partner + due date + unpaid state), not expense rows. | your correction |
@@ -48,6 +48,18 @@ v1's budget went into features, v2's into foundations. v3 = v2's foundations + v
 | D18 | Linking module owns the single `link` table; every other module registers as linkable; suggestions, graph and exports are read models. Invariants in DB and service. | your §10 |
 | D19 | Layout: full-width app layout (collapsible sidebar, dense content, three page archetypes: list / entity / work). v2's centred `max-w-5xl` pages are replaced. See `ui-conventions.md`. | your UI feedback |
 | D20 | Tables: one kernel `DataTable` with Excel-style typed header filters — server-side distinct values with counts, date hierarchy year→month→day, number ranges, text operators — state in the URL, column prefs per user. v1 `advanced-table` is the behaviour reference. See `ui-conventions.md`. | your UI feedback |
+| D21 | Document numbers always start with the client code and year: invoices `VA26-001`, quotes `VA26-QT-001`, credit notes `VA26-CN-001` — one gap-free counter per client × year × type. Supersedes the `QUO26` / `CN-VA26` series of D5. | open-questions B1 |
+| D22 | Quotes live in the invoice table (`type = quote`), valid 30 days by default, convert = copy into an invoice draft, PDF stored at issue. PDF money format `CHF 25'944.00` in every language, 2 decimals. | B2, B3 |
+| D23 | Swiss VAT on invoices: reverse-charge sentence printed automatically for EU-business clients under the SE registration; CH-registration invoices to non-Swiss clients print the export line; declaration period derived from the issue date and overridable per invoice; every issued invoice counts. Acquisition tax (383) not applied by default (foreign SaaS is Swedish reverse charge, booked by the accountant), per-supplier-invoice flag if ever needed. Minimal `swiss_vat_declaration` record per quarter so "declared" is derived on each invoice. | B4, D-c, D-e |
+| D24 | Contract rates: the rate valid on `period_start` applies (a change inside the period splits the line); the previous rate closes on `valid_from − 1`, overlaps rejected; `billing_rate` derived. Unit: enum `rate_unit` with the single value `day` on rate and invoice line — new units are an enum migration, never a code path. One contract per currency. | B5, B6, D-j |
+| D25 | Banking: dedup key `sha256(account, date, amount, currency, sender, recipient, name, additional details, message)` + in-file occurrence index; `Balance` (end-of-day only) and `Own notes` excluded; `Date` and `Booking date` headers both accepted; rules match `Name`, `Additional details` and `Message`. Transfer pairs: `CHANGE CHFSEK` in details and message, CHF row negative, SEK row positive, implied rate = SEK ÷ CHF. Short-payment tolerance `delta ≤ max(0.05, 0.5 %)` → bank fees. Receipt allocation currency = invoice currency (DB constraint). | B7, B8, B9, D-a |
+| D26 | Expenses: settlements FIFO by expense date with per-row override, residual stays open; exchange difference on cross-currency settlements → BAS 3960/7960 (accountant confirms); card-FX expense = receipt amount in its currency + the bank row's SEK as base (rate source `bank`). Swiss VAT payments are expenses of kind `vat_payment`; no mileage; superseded statements kept with a flag. | B10, B11, D-e |
+| D27 | "What a document became" is a link: kind `created_from` (expense / supplier_invoice → document), one origin per document (partial unique index), no fields on the document. One `links` table for every relationship stays the architecture (D18). | B12 |
+| D28 | Supplier invoices: business key `SI{group}-{alias}-{seq}` (`SI213-Acc-01`), same per-group counter as expenses, stored file `{key}_{date}_{vendor}.pdf`; CH input VAT reclaimed (400) for purchases under the CH registration; no paying-account constraint (card = SEK account, FX like D26); cancel-not-delete in retention; "copy last month". | B13, D-g |
+| D29 | Traktamente: rate year and half-day rule per calendar day; day trips nothing tax-free; meals as counts; night allowance dropped from the UI; the per-diem breakdown is its own PDF document. | B14, D-f |
+| D30 | `document_type_prefixes` and `document_key_counters` dropped (migration `20261020200000_drop_v2_prefix_tables`). | B15 |
+| D31 | Accountant package: `.xlsx` summary only; an invoice issued in June and paid in July appears in both months; no OCR line-item sheet; the savings CSV joins the package of the month it is imported in (December or January); a **year package** = the same generator over 12 months. | D-b, D-i |
+| D32 | Documents: identical upload → `Use existing` (primary) / `Upload anyway` (owner); fuzzy duplicate ±1 % / ±7 days / same partner + currency, "Create anyway" on HIGH needs a note; OCR quality two levels; archive only inbox rows; keyboard map `j k x a o i e l d r z u ? Enter 1-3`. | D-d |
 
 ---
 
@@ -319,6 +331,4 @@ v3: v2's constraints, v1's appetite, the Excel's rules, and one guard — a sett
 
 ## 7. Remaining open points
 
-None blocking. Two to settle when the spec is written:
-1. Settlement allocation default — FIFO by expense date, with manual override (proposed).
-2. Exchange-difference handling on cross-currency settlements — a dedicated BAS category (proposed), to confirm with the accountant.
+None. The harvest questions (B1–B15, D-a–D-j) were answered on 2026-10-20 and are D21–D32 above; the full question / answer / decision table is `open-questions.md`. Two items still wait for the accountant's confirmation, not for a decision: the BAS pair for exchange differences on settlements (D26) and whether any purchase ever falls under CH acquisition tax (D23).
