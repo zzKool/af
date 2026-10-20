@@ -74,6 +74,23 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      # Hand-written migrations are the truth and the schema must describe them (constitution §3.1):
+      # diff the migrated database against prisma/schema; any difference fails the job and is posted
+      # as an annotation so it can be read without opening the logs.
+      - name: Schema ↔ migrations drift check
+        run: |
+          set +e
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema --exit-code > drift.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" = "0" ]; then echo "no drift"; exit 0; fi
+          title="Schema drift"; [ "$code" != "2" ] && title="Drift check failed (exit $code)"
+          echo "::error title=${title}::$(sed ':a;N;$!ba;s/\n/%0A/g' drift.txt | cut -c1-4000)"
+          cat drift.txt
+          exit 1
+        env:
+          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+          DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
       - run: npm run test
 
   build-and-e2e:
