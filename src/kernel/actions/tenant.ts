@@ -2,6 +2,7 @@ import { createMiddleware } from "next-safe-action";
 import type pino from "pino";
 import { ActionError } from "@/kernel/actions/errors";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { roleFromMembership } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
@@ -46,23 +47,15 @@ export const tenantMiddleware = createMiddleware<{
     });
   }
 
-  // Defensive exhaustive role match
-  let role: CallerIdentity["role"];
-  switch (member.role) {
-    case "owner":
-      role = "owner";
-      break;
-    case "member":
-      role = "accountant";
-      break;
-    default:
-      ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role");
-      throw new ActionError({
-        code: "FORBIDDEN",
-        message: `Unknown role: ${member.role}`,
-        retryable: false,
-      });
+  if (!["owner", "member", "editor"].includes(member.role)) {
+    ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role");
+    throw new ActionError({
+      code: "FORBIDDEN",
+      message: `Unknown role: ${member.role}`,
+      retryable: false,
+    });
   }
+  const role: CallerIdentity["role"] = roleFromMembership(member.role);
 
   const callerIdentity: CallerIdentity = Object.freeze({
     userId,

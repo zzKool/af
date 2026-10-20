@@ -1,7 +1,4 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/kernel/auth/auth";
-import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { LocaleProvider } from "@/kernel/i18n/locale-provider";
@@ -13,16 +10,8 @@ export default async function AppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const hdrs = await headers();
-  const auth = await getAuthContext(hdrs);
-  if (!auth) redirect("/login");
-  if (!auth.tenantId) redirect("/login");
-
-  // Resolve role for sidebar filtering (mirrors tenant middleware logic)
-  const member = await prisma.member.findFirst({
-    where: { userId: auth.userId, organizationId: auth.tenantId },
-  });
-  const role: CallerIdentity["role"] = member?.role === "owner" ? "owner" : "accountant";
+  const auth = await requireCaller();
+  const role = auth.role;
 
   // Fetch all tenants the user belongs to — reads from Tenant model (source of truth for business data).
   // Uses per-tenant RLS-scoped transactions since tenants table has FORCE ROW LEVEL SECURITY.

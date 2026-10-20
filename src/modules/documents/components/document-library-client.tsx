@@ -26,6 +26,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import type { Role } from "@/kernel/auth/caller-identity";
+import { canRole } from "@/kernel/auth/can";
 import { DataTable } from "@/kernel/ui/data-table";
 import { DocumentLibraryFilters } from "@/modules/documents/components/document-library-filters";
 import { DocumentStatsBar } from "@/modules/documents/components/document-stats-bar";
@@ -59,7 +61,7 @@ interface InitialPreferences {
 interface DocumentLibraryClientProps {
   filterOptions: FilterOptions;
   initialPreferences: InitialPreferences | null;
-  role: "owner" | "accountant";
+  role: Role;
 }
 
 // Status config — icon + color + label (AC #6)
@@ -419,18 +421,18 @@ export function DocumentLibraryClient({
     },
   ];
 
-  // Filter out action column for accountant (read-only, download only — no edit)
-  const visibleColumns =
-    role === "accountant"
-      ? columns
-          .filter((c) => c.id !== "actions")
-          .concat({
-            id: "actions",
-            header: "",
-            enableSorting: false,
-            cell: ({ row }) => <DownloadButton documentId={row.original.id} />,
-          })
-      : columns;
+  // Roles that cannot edit documents get a download-only actions column
+  const readOnly = !canRole(role, "update", "financial_document");
+  const visibleColumns = readOnly
+    ? columns
+        .filter((c) => c.id !== "actions")
+        .concat({
+          id: "actions",
+          header: "",
+          enableSorting: false,
+          cell: ({ row }) => <DownloadButton documentId={row.original.id} />,
+        })
+    : columns;
 
   const items = docsData?.items ?? [];
   const totalCount = docsData?.totalCount ?? 0;
@@ -440,28 +442,27 @@ export function DocumentLibraryClient({
     Array.isArray(v) ? v.length > 0 : !!v,
   );
 
-  const emptyState =
-    role === "accountant" ? (
-      <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
-        <FileText className="h-10 w-10 opacity-30" />
-        <p className="text-sm">No financial documents have been uploaded for this period yet.</p>
-        <p className="text-xs">The business owner will upload documents as they arrive.</p>
-      </div>
-    ) : hasActiveFilters ? (
-      <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
-        <span className="text-2xl">🔍</span>
-        <p className="text-sm">No documents match your filters.</p>
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
-          Clear all filters
-        </Button>
-      </div>
-    ) : (
-      <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
-        <FileText className="h-10 w-10 opacity-30" />
-        <p className="text-sm font-medium">No documents uploaded yet.</p>
-        <p className="text-xs">Drop files above to get started.</p>
-      </div>
-    );
+  const emptyState = readOnly ? (
+    <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+      <FileText className="h-10 w-10 opacity-30" />
+      <p className="text-sm">No financial documents have been uploaded for this period yet.</p>
+      <p className="text-xs">The business owner will upload documents as they arrive.</p>
+    </div>
+  ) : hasActiveFilters ? (
+    <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+      <span className="text-2xl">🔍</span>
+      <p className="text-sm">No documents match your filters.</p>
+      <Button variant="ghost" size="sm" onClick={clearFilters}>
+        Clear all filters
+      </Button>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+      <FileText className="h-10 w-10 opacity-30" />
+      <p className="text-sm font-medium">No documents uploaded yet.</p>
+      <p className="text-xs">Drop files above to get started.</p>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">

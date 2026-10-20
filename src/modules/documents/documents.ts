@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { can, documentSubject } from "@/kernel/auth/can";
 import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
@@ -69,8 +70,7 @@ export async function uploadDocument(
     documentType: string;
   }>
 > {
-  // Role check: only owners can upload (fail-closed for future roles)
-  if (caller.role !== "owner") {
+  if (!can(caller, "create", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
     };
@@ -266,7 +266,7 @@ export async function getDocumentForReview(
   }
 
   // Role check: accountant can view financial only (read-only), owner sees all
-  const isAccountant = caller.role === "accountant";
+  const isAccountant = !can(caller, "read", "relationship_document");
   if (isAccountant && doc.documentType !== "financial") {
     return {
       error: {
@@ -328,7 +328,7 @@ export async function updateDocumentCorrections(
   patch: Record<string, unknown>,
 ): Promise<ServiceResult<{ corrections: Record<string, unknown> }>> {
   // Owner-only (fail-closed)
-  if (caller.role !== "owner") {
+  if (!can(caller, "update", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
     };
@@ -378,7 +378,7 @@ export async function classifyDocument(
   newPrefixType: string,
 ): Promise<ServiceResult<{ documentType: string; prefixType: string }>> {
   // Owner-only
-  if (caller.role !== "owner") {
+  if (!can(caller, "update", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
     };
@@ -441,7 +441,7 @@ export async function markDocumentReviewed(
   documentId: string,
 ): Promise<ServiceResult<{ reviewedAt: Date; reviewedBy: string }>> {
   // Owner-only
-  if (caller.role !== "owner") {
+  if (!can(caller, "update", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
     };
@@ -491,7 +491,7 @@ export async function refreshSignedUrl(
   }
 
   // Accountant: financial only
-  if (caller.role === "accountant" && doc.documentType !== "financial") {
+  if (!can(caller, "read", documentSubject(doc.documentType))) {
     return {
       error: {
         code: "FORBIDDEN",
@@ -550,8 +550,8 @@ export async function getDocuments(
   // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
   const where: any = {};
 
-  // Accountant enforcement (AD5): force financial-only regardless of filter input
-  if (caller.role === "accountant") {
+  // Roles without relationship-document access are forced to financial-only regardless of filter input
+  if (!can(caller, "read", "relationship_document")) {
     where.documentType = "financial";
   } else if (filters.documentType?.length) {
     where.documentType = { in: filters.documentType };
@@ -651,8 +651,8 @@ export async function getDocumentFilterOptions(
   // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
   const where: any = {};
 
-  // Accountant enforcement: only financial document types
-  if (caller.role === "accountant") {
+  // Roles without relationship-document access see financial document types only
+  if (!can(caller, "read", "relationship_document")) {
     where.documentType = "financial";
   }
 
@@ -696,7 +696,7 @@ export async function getDocumentStats(
 > {
   // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
   const where: any = {};
-  if (caller.role === "accountant") {
+  if (!can(caller, "read", "relationship_document")) {
     where.documentType = "financial";
   }
 
@@ -752,7 +752,7 @@ export async function getDocumentDownloadUrl(
   }
 
   // Accountant: financial documents only
-  if (caller.role === "accountant" && doc.documentType !== "financial") {
+  if (!can(caller, "read", documentSubject(doc.documentType))) {
     return {
       error: {
         code: "FORBIDDEN",
@@ -775,7 +775,7 @@ export async function deleteDocument(
   audit: AuditLogger,
   documentId: string,
 ): Promise<ServiceResult<{ businessKey: string; blobUrl: string }>> {
-  if (caller.role !== "owner") {
+  if (!can(caller, "delete", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Only owners can delete documents", retryable: false },
     };

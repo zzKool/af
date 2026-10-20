@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { roleFromMembership } from "@/kernel/auth/can";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -156,7 +157,7 @@ export async function createAuthenticatedContext(
   const callerIdentity: CallerIdentity = Object.freeze({
     userId: signUp.user.id,
     tenantId: orgId,
-    role: role === "owner" ? "owner" : "accountant",
+    role: roleFromMembership(role),
     source: "web" as const,
   });
 

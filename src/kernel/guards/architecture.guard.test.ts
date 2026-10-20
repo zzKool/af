@@ -203,6 +203,30 @@ describe("Architecture guard: linking owns the link table (3c)", () => {
   });
 });
 
+describe("Architecture guard: authorisation goes through can() (item 4.2)", () => {
+  test("no role comparison outside src/kernel/auth", () => {
+    const files = findFiles(
+      "src/kernel",
+      [".ts", ".tsx"],
+      /\.(test|spec)\.tsx?$|test-fixtures\.ts$|\/auth\//,
+    )
+      .concat(findFiles("src/modules", [".ts", ".tsx"], TEST_FILE))
+      .concat(findFiles("src/app", [".ts", ".tsx"], TEST_FILE));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const lines = readFileSync(file, "utf-8").split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith("//") || line.startsWith("*")) continue;
+        expect(
+          /\brole\s*(===|!==|==|!=)\s*["']/.test(line) || /\.role\s*(===|!==|==|!=)/.test(line),
+          `role comparison in ${file} line ${i + 1}: ${line} — use can() / canRole() / isTenantAdmin()`,
+        ).toBe(false);
+      }
+    }
+  });
+});
+
 describe("Architecture guard: services are framework-free", () => {
   const serviceFiles = () =>
     findFiles("src/modules", [".ts"], TEST_FILE)

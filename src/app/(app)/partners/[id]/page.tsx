@@ -1,7 +1,5 @@
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { getAuthContext } from "@/kernel/auth/auth";
-import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import * as contractService from "@/modules/contracts";
@@ -11,22 +9,8 @@ import * as settingsService from "@/modules/settings";
 
 export default async function PartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const hdrs = await headers();
-  const auth = await getAuthContext(hdrs);
-  if (!auth?.tenantId) redirect("/login");
-
-  const member = await prisma.member.findFirst({
-    where: { userId: auth.userId, organizationId: auth.tenantId },
-  });
-  const role: CallerIdentity["role"] = member?.role === "owner" ? "owner" : "accountant";
-  if (role !== "owner") redirect("/dashboard");
-
-  const callerIdentity: CallerIdentity = {
-    userId: auth.userId,
-    tenantId: auth.tenantId,
-    role,
-    source: "web",
-  };
+  const callerIdentity = await requireCaller({ action: "manage", subject: "partner" });
+  const auth = callerIdentity;
 
   const { partnerResult, basPrefsResult, contractsResult, vatResult, employeesResult } =
     await withTenantTransaction(prisma, auth.tenantId, async (tx) => {

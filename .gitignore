@@ -16,6 +16,7 @@ build/
 # Environment variables
 .env*
 !.env.example
+!.env.prod.example
 
 # Generated code
 src/generated/
@@ -69,3 +70,4 @@ public/pdf.worker.min.mjs
 
 # Vercel
 .vercel
+backups/

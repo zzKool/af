@@ -1,23 +1,11 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { getAuthContext } from "@/kernel/auth/auth";
-import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import * as partnerService from "@/modules/partners";
 import { PartnerList } from "@/modules/partners/ui";
 
 export default async function PartnersPage() {
-  const hdrs = await headers();
-  const auth = await getAuthContext(hdrs);
-  if (!auth?.tenantId) redirect("/login");
-
-  // Owner-only page — check role
-  const member = await prisma.member.findFirst({
-    where: { userId: auth.userId, organizationId: auth.tenantId },
-  });
-  const role: CallerIdentity["role"] = member?.role === "owner" ? "owner" : "accountant";
-  if (role !== "owner") redirect("/dashboard");
+  const auth = await requireCaller({ action: "manage", subject: "partner" });
 
   const partnersResult = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     return partnerService.getPartners(tx, { includeInactive: true });
