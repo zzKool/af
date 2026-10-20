@@ -69,3 +69,13 @@ queries.dateHierarchy(tx, col, q): { years → months → days with counts; empt
 
 ### The component (`src/kernel/ui/data-table`)
 `<DataTable tableKey columns result state filterSource valueLabel rowHref|onRowClick selectable bulkActions toolbar emptyState />` with `state = useListQuery({ columns, defaultSort })`. Columns: `{ key, header, type, filterable?, sortable?, align?, width?, cell?, truncate?, defaultHidden?, alwaysVisible? }`. Header = sort button (shift-click adds a secondary key) + filter trigger (filled when active) → `TextFilter` / `RangeFilter` / `CheckboxFilter` / `DateFilter` popovers; chips above; footer with count, sums, page size, pager; Columns menu (visibility remembered per `tableKey`).
+
+## i18n — UI strings
+
+English is the key set: `src/kernel/i18n/dictionaries/en.ts` (`as const`); every other dictionary is `Record<MessageKey, string>` typed against it (`fr.ts` today; `sv.ts` later = one file + one line in `translate.ts`, no code change). Keys are `<module>.<area>.<name>`; `{name}` placeholders are filled by the caller.
+
+- Client components: `const t = useT(); t("contracts.rates.title")` — the language comes from `LocaleProvider` (user preference, else the browser), `fr-CH` → fr, anything without a dictionary → en.
+- Server components, PDFs, jobs: `translate(locale, key, params)` or `translator(locale)`.
+- Services return English messages (logs, tests, API) and, when a client may want to re-render them, `AppError.details` with the facts (`{from, to}`, `{n}`); the component picks the key.
+- A module adds its keys to **both** dictionaries in the same PR (`translate.pure.test.ts` fails on a missing key). Dictionaries are a shared file (constitution §5): one PR at a time.
+- Partners / documents / settings still carry English literals from v2 — migrate them when a page is next touched, not in bulk.

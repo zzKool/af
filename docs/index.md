@@ -64,7 +64,8 @@ Page-specific documentation and patterns.
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 - [[partners]] — the reference slice (phase-0 item 6): module layout, ListQuery read API, DataTable list page, entity page, the tests that define it
 - [[partner-crud-pattern]] — (v2 history) Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
-- [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
+- [[contracts]] — contract rate history (D24): non-overlapping dated rates, `rateFor(contract, date)`, derived current rate, auto-close, the Rates section; first module on the kernel string dictionary
+- [[contract-pattern]] — (v2 history) Child entity pattern, dual self-referential FK; its Decimal `billing_rate` pipeline is superseded by [[contracts]]
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
 - [[document-upload]] — Document upload pipeline, file validation, business key generation, status lifecycle
 - [[document-review]] — Document review & correction, corrections overlay, dual-pane UI, role-based access

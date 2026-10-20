@@ -55,7 +55,9 @@ const { partner, contracts, vatRegs, employees, basPrefs } =
 
 ## 2. Decimal Money Field Pipeline
 
-`billing_rate` is the first Decimal(15,2) money field. The pipeline:
+> **Superseded (2026-10-20, D24):** `contracts.billing_rate` was dropped — the rate is a dated history in `contract_rates` and the contract's current rate is derived; see [[contracts]]. The pipeline below still describes how a Decimal money field crosses the layers (now `contract_rates.rate`).
+
+`billing_rate` was the first Decimal(15,2) money field. The pipeline:
 
 ```
 Form (string) → Zod (string) → Service (Prisma.Decimal) → DB (DECIMAL(15,2)) → Serialized (string) → Component (display)

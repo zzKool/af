@@ -109,7 +109,6 @@ describe("contract service", () => {
         startDate: "2026-01-01",
         endDate: "2026-12-31",
         assignedEmployeeId: employeeId,
-        billingRate: "1500.00",
         currency: "SEK",
         paymentTerms: "NET_30",
         externalReferences: [{ label: "Purchase Order", value: "PO-2026-1138" }],
@@ -125,7 +124,6 @@ describe("contract service", () => {
     });
     expect(contracts.data?.length).toBe(1);
     expect(contracts.data?.[0].name).toBe("Consulting Agreement");
-    expect(contracts.data?.[0].billingRate?.toString()).toBe("1500");
     expect(contracts.data?.[0].currency).toBe("SEK");
     expect(contracts.data?.[0].paymentTerms).toBe("NET_30");
   });
@@ -151,11 +149,11 @@ describe("contract service", () => {
     });
     expect(fetched.data?.name).toBe("Minimal Contract");
     expect(fetched.data?.endDate).toBeNull();
-    expect(fetched.data?.billingRate).toBeNull();
+    expect(fetched.data?.currentRate).toBeNull();
     expect(fetched.data?.isActive).toBe(true);
   });
 
-  it("update: change contract name and billing rate", async () => {
+  it("update: change contract name", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;
     const clientId = await createClientPartner(tenantId, owner.callerIdentity);
@@ -165,7 +163,6 @@ describe("contract service", () => {
         partnerId: clientId,
         name: "Old Name",
         startDate: "2026-01-01",
-        billingRate: "100.00",
       });
     });
     const id = created.data!.id;
@@ -174,7 +171,6 @@ describe("contract service", () => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
       return contractService.updateContract(tx, owner.callerIdentity, audit, id, {
         name: "New Name",
-        billingRate: "200.50",
       });
     });
 
@@ -185,7 +181,6 @@ describe("contract service", () => {
       return contractService.getContract(tx, id);
     });
     expect(fetched.data?.name).toBe("New Name");
-    expect(fetched.data?.billingRate?.toString()).toBe("200.5");
   });
 
   it("list: filters by partnerId and returns ordered by startDate DESC", async () => {
@@ -403,75 +398,7 @@ describe("contract validation", () => {
     expect(result.error?.message).toContain("End date");
   });
 
-  it("billing rate: invalid string → VALIDATION_ERROR", async () => {
-    const owner = await createAuthenticatedContext(auth, "owner");
-    const tenantId = owner.callerIdentity.tenantId;
-    const clientId = await createClientPartner(tenantId, owner.callerIdentity);
-
-    const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return contractService.createContract(tx, owner.callerIdentity, noopAudit, {
-        partnerId: clientId,
-        name: "Bad Rate",
-        startDate: "2026-01-01",
-        billingRate: "abc",
-      });
-    });
-
-    expect(result.error?.code).toBe("VALIDATION_ERROR");
-  });
-
-  it("billing rate: negative → VALIDATION_ERROR", async () => {
-    const owner = await createAuthenticatedContext(auth, "owner");
-    const tenantId = owner.callerIdentity.tenantId;
-    const clientId = await createClientPartner(tenantId, owner.callerIdentity);
-
-    const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return contractService.createContract(tx, owner.callerIdentity, noopAudit, {
-        partnerId: clientId,
-        name: "Negative Rate",
-        startDate: "2026-01-01",
-        billingRate: "-100.00",
-      });
-    });
-
-    expect(result.error?.code).toBe("VALIDATION_ERROR");
-  });
-
-  it("billing rate: more than 2 decimal places → VALIDATION_ERROR", async () => {
-    const owner = await createAuthenticatedContext(auth, "owner");
-    const tenantId = owner.callerIdentity.tenantId;
-    const clientId = await createClientPartner(tenantId, owner.callerIdentity);
-
-    const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return contractService.createContract(tx, owner.callerIdentity, noopAudit, {
-        partnerId: clientId,
-        name: "Too Many Decimals",
-        startDate: "2026-01-01",
-        billingRate: "100.123",
-      });
-    });
-
-    expect(result.error?.code).toBe("VALIDATION_ERROR");
-  });
-
-  it("billing rate: zero → success", async () => {
-    const owner = await createAuthenticatedContext(auth, "owner");
-    const tenantId = owner.callerIdentity.tenantId;
-    const clientId = await createClientPartner(tenantId, owner.callerIdentity);
-
-    const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return contractService.createContract(tx, owner.callerIdentity, noopAudit, {
-        partnerId: clientId,
-        name: "Zero Rate",
-        startDate: "2026-01-01",
-        billingRate: "0",
-      });
-    });
-
-    expect(result.error).toBeUndefined();
-  });
-
-  it("billing rate: null (optional) → success", async () => {
+  it("no rate at creation → currentRate null (rates live in the history, D24)", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;
     const clientId = await createClientPartner(tenantId, owner.callerIdentity);
@@ -488,7 +415,7 @@ describe("contract validation", () => {
     const fetched = await withTenantTransaction(prisma, tenantId, async (tx) => {
       return contractService.getContract(tx, result.data!.id);
     });
-    expect(fetched.data?.billingRate).toBeNull();
+    expect(fetched.data?.currentRate).toBeNull();
   });
 
   it("inactive partner creation guard → VALIDATION_ERROR", async () => {
@@ -999,7 +926,6 @@ describe("cross-service integration", () => {
         partnerId,
         name: "Integration Contract",
         startDate: "2026-01-01",
-        billingRate: "500.00",
       });
     });
     const contractId = contractResult.data!.id;
@@ -1031,7 +957,6 @@ describe("cross-service integration", () => {
     const updateResult = await withTenantTransaction(prisma, tenantId, async (tx) => {
       return contractService.updateContract(tx, owner.callerIdentity, noopAudit, contractId, {
         name: "Updated After Deactivation",
-        billingRate: "750.00",
       });
     });
     expect(updateResult.error).toBeUndefined();
@@ -1057,7 +982,6 @@ describe("createTestContract fixture", () => {
       partner.id,
       {
         name: "Fixture Contract",
-        billingRate: "999.50",
         currency: "EUR",
       },
     );
@@ -1070,7 +994,6 @@ describe("createTestContract fixture", () => {
       return contractService.getContract(tx, contract.id);
     });
     expect(fetched.data?.name).toBe("Fixture Contract");
-    expect(fetched.data?.billingRate?.toString()).toBe("999.5");
     expect(fetched.data?.currency).toBe("EUR");
   });
 });

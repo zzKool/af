@@ -26,7 +26,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { extractError } from "@/kernel/errors/extract-error";
-import { CURRENCIES, PAYMENT_TERMS } from "@/kernel/nav/constants";
+import { useT } from "@/kernel/i18n/use-t";
+import { formatCurrency } from "@/kernel/money/format-currency";
+import { CURRENCIES, type Currency, PAYMENT_TERMS } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createContractAction,
@@ -34,19 +36,23 @@ import {
   reactivateContractAction,
   updateContractAction,
 } from "@/modules/contracts/contracts.actions";
+import type { CurrentRate } from "@/modules/contracts/types";
+import { type ContractRateRow, ContractRates } from "./contract-rates";
 
 type ExternalReference = { label: string; value: string };
 
 type VatOption = { id: string; label: string };
 type EmployeeOption = { id: string; name: string };
 
-type ContractRow = {
+export type ContractRow = {
   id: string;
   name: string;
   startDate: string;
   endDate: string | null;
   assignedEmployeeId: string | null;
-  billingRate: string | null;
+  /** Derived on the server from the rate history (D24) — refreshed here after every rate change. */
+  currentRate: CurrentRate | null;
+  rates: ContractRateRow[];
   currency: string | null;
   paymentTerms: string | null;
   vatRegistrationId: string | null;
@@ -72,6 +78,7 @@ function ContractEditForm({
   onAutoSave,
   onDeactivate,
   onReactivate,
+  onRatesChange,
 }: {
   contract: ContractRow;
   vatRegistrations: VatOption[];
@@ -79,11 +86,12 @@ function ContractEditForm({
   onAutoSave: (id: string, field: string, value: unknown) => Promise<boolean>;
   onDeactivate: (contract: ContractRow) => void;
   onReactivate: (contract: ContractRow) => void;
+  onRatesChange: (contractId: string, rates: ContractRateRow[]) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(contract.name);
   const [startDate, setStartDate] = useState(contract.startDate);
   const [endDate, setEndDate] = useState(contract.endDate ?? "");
-  const [billingRate, setBillingRate] = useState(contract.billingRate ?? "");
   const [currency, setCurrency] = useState(contract.currency ?? "");
   const [paymentTerms, setPaymentTerms] = useState(contract.paymentTerms ?? "");
   const [assignedEmployeeId, setAssignedEmployeeId] = useState(contract.assignedEmployeeId ?? "");
@@ -146,20 +154,19 @@ function ContractEditForm({
           />
         </div>
         <div>
-          <Label>Billing Rate</Label>
-          <Input
-            type="text"
-            value={billingRate}
-            onChange={(e) => setBillingRate(e.target.value)}
-            onBlur={() => handleBlur("billingRate", billingRate, contract.billingRate)}
-            placeholder="e.g., 1500.00 per day"
-          />
+          <Label>{t("contracts.currentRate")}</Label>
+          <p className="flex h-9 items-center text-sm tabular-nums" data-testid="current-rate">
+            {contract.currentRate
+              ? `${formatCurrency(contract.currentRate.rate, (contract.currency ?? "CHF") as Currency)} ${contract.currency ?? ""} / ${t(`contracts.rates.unit.${contract.currentRate.unit}`)}`
+              : t("contracts.currentRate.none")}
+          </p>
         </div>
         <div>
           <Label>Currency</Label>
           <Select
             value={currency || "__none__"}
             onValueChange={(v) => handleSelectChange("currency", v, setCurrency)}
+            disabled={contract.rates.length > 0 && !!contract.currency}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select currency" />
@@ -173,6 +180,11 @@ function ContractEditForm({
               ))}
             </SelectContent>
           </Select>
+          {contract.rates.length > 0 && !!contract.currency && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("contracts.currency.lockedHint")}
+            </p>
+          )}
         </div>
         <div>
           <Label>Payment Terms</Label>
@@ -313,6 +325,14 @@ function ContractEditForm({
         )}
       </div>
 
+      {/* Rates (D24) */}
+      <ContractRates
+        contractId={contract.id}
+        currency={contract.currency}
+        rates={contract.rates}
+        onRatesChange={onRatesChange}
+      />
+
       {/* Actions */}
       <div className="flex gap-2 pt-2">
         {contract.isActive ? (
@@ -339,6 +359,7 @@ export function ContractList({
   employeePartners,
   defaultCurrency,
 }: ContractListProps) {
+  const t = useT();
   const [contracts, setContracts] = useState<ContractRow[]>(initialContracts);
   const [showInactive, setShowInactive] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -389,7 +410,8 @@ export function ContractList({
           startDate: newStartDate,
           endDate: null,
           assignedEmployeeId: null,
-          billingRate: null,
+          currentRate: null,
+          rates: [],
           currency: defaultCurrency,
           paymentTerms: null,
           vatRegistrationId: null,
@@ -420,6 +442,23 @@ export function ContractList({
     },
     [execUpdate],
   );
+
+  const handleRatesChange = useCallback((contractId: string, rates: ContractRateRow[]) => {
+    const current = rates.find((r) => r.state === "current");
+    setContracts((prev) =>
+      prev.map((c) =>
+        c.id === contractId
+          ? {
+              ...c,
+              rates,
+              currentRate: current
+                ? { id: current.id, rate: current.rate, unit: current.unit }
+                : null,
+            }
+          : c,
+      ),
+    );
+  }, []);
 
   const handleDeactivate = useCallback(
     (contract: ContractRow) => {
@@ -474,13 +513,13 @@ export function ContractList({
         },
       },
       {
-        id: "billingRate",
-        header: "Billing Rate",
+        id: "currentRate",
+        header: t("contracts.currentRate"),
         cell: ({ row }) => {
-          const rate = row.original.billingRate;
+          const rate = row.original.currentRate;
           const curr = row.original.currency;
           if (!rate) return "—";
-          return `${Number(rate).toFixed(2)} ${curr ?? ""}`.trim();
+          return `${formatCurrency(rate.rate, (curr ?? "CHF") as Currency)} ${curr ?? ""}`.trim();
         },
       },
       {
@@ -498,7 +537,7 @@ export function ContractList({
         ),
       },
     ],
-    [],
+    [t],
   );
 
   const table = useReactTable({
@@ -618,6 +657,7 @@ export function ContractList({
                             onAutoSave={handleAutoSave}
                             onDeactivate={handleDeactivate}
                             onReactivate={handleReactivate}
+                            onRatesChange={handleRatesChange}
                           />
                         </TableCell>
                       </TableRow>
