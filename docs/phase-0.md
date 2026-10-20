@@ -42,6 +42,9 @@ Status board for everything before the first business feature. Tick, don't rewri
 
 Then phase 1: contracts frozen for the batch → parallel agents on invoices / banking + journal / expenses + traktamente / supplier invoices → linking → exports → dashboard.
 
-## Open points (non-blocking)
+## Open points
+Consolidated in [[open-questions]] (blocking B1–B15, the rest during the build). Of these, **B15** is the only one that blocks a merged PR's follow-up (the drop migration); the others gate each module's spec.
+
+## Open points (non-blocking, from before the harvest)
 - Settlement allocation default: FIFO by expense date with manual override — confirm.
 - Exchange-difference category on cross-currency settlements — ask the accountant.
