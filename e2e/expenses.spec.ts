@@ -110,6 +110,7 @@ test.describe("Expenses", () => {
           "latin1",
         ),
       });
+      await expect(page.getByTestId("import-account")).toContainText(/Plusgirokonto|Sparkonto/);
       await page.getByTestId("import-run").click();
       await expect(page.getByTestId("import-summary")).toContainText("1 imported", {
         timeout: 20_000,
