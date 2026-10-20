@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSystemCaller } from "@/kernel/jobs/context";
 
-// Mock dependencies for withInngestContext
+// Mock dependencies for withJobContext
 vi.mock("@/kernel/db/client", () => ({
   prisma: {},
 }));
@@ -17,7 +17,7 @@ vi.mock("@/kernel/audit/audit", () => ({
 }));
 
 // Import after mocks
-const { withInngestContext } = await import("@/kernel/jobs/context");
+const { withJobContext } = await import("@/kernel/jobs/context");
 
 describe("createSystemCaller", () => {
   it("returns CallerIdentity with source 'system' and role 'owner'", () => {
@@ -37,12 +37,12 @@ describe("createSystemCaller", () => {
   });
 });
 
-describe("withInngestContext", () => {
+describe("withJobContext", () => {
   it("calls withTenantTransaction with prisma and tenantId", async () => {
     const fakeTx = { partner: { count: vi.fn() } };
     mockWithTenantTransaction.mockImplementation(async (_prisma, _tenantId, cb) => cb(fakeTx));
 
-    await withInngestContext("tenant-1", "user-1", async () => "result");
+    await withJobContext("tenant-1", "user-1", async () => "result");
 
     expect(mockWithTenantTransaction).toHaveBeenCalledWith(
       expect.anything(), // prisma
@@ -59,7 +59,7 @@ describe("withInngestContext", () => {
     let receivedCaller: unknown;
     let receivedAudit: unknown;
 
-    await withInngestContext("tenant-1", "user-1", async (tx, caller, audit) => {
+    await withJobContext("tenant-1", "user-1", async (tx, caller, audit) => {
       receivedTx = tx;
       receivedCaller = caller;
       receivedAudit = audit;
@@ -81,7 +81,7 @@ describe("withInngestContext", () => {
     mockWithTenantTransaction.mockImplementation(async (_prisma, _tenantId, cb) => cb(fakeTx));
     mockCreateAuditEntry.mockResolvedValue(undefined);
 
-    await withInngestContext("tenant-1", "user-1", async (_tx, _caller, audit) => {
+    await withJobContext("tenant-1", "user-1", async (_tx, _caller, audit) => {
       await audit.log({
         action: "create",
         entityType: "Document",
@@ -108,7 +108,7 @@ describe("withInngestContext", () => {
     const fakeTx = {};
     mockWithTenantTransaction.mockImplementation(async (_prisma, _tenantId, cb) => cb(fakeTx));
 
-    const result = await withInngestContext("tenant-1", "user-1", async () => ({
+    const result = await withJobContext("tenant-1", "user-1", async () => ({
       processed: true,
       count: 42,
     }));

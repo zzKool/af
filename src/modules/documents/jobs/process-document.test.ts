@@ -1,4 +1,3 @@
-import { NonRetriableError } from "inngest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock logger
@@ -54,40 +53,15 @@ vi.mock("@/kernel/ocr/ocr", () => ({
   },
 }));
 
-// Mock Inngest client
-vi.mock("@/kernel/jobs/client", () => ({
-  inngest: {
-    createFunction: (config: Record<string, unknown>, trigger: unknown, handler: unknown) => ({
-      config,
-      trigger,
-      handler,
-      onFailure: config.onFailure,
-    }),
-  },
-}));
-
 // Import after mocks
-const { processDocument } = await import("@/modules/documents/jobs/process-document");
+const { processDocumentJob } = await import("@/modules/documents/jobs/process-document");
 
-// Helper: create mock step that executes callbacks sequentially
-function createMockStep() {
-  const stepResults = new Map<string, unknown>();
-  return {
-    run: async (name: string, fn: () => Promise<unknown>) => {
-      if (stepResults.has(name)) return stepResults.get(name);
-      const result = await fn();
-      stepResults.set(name, result);
-      return result;
-    },
-  };
-}
-
-const baseEvent = {
-  data: {
-    tenantId: "tenant-1",
-    userId: "user-1",
-    documentId: "doc-1",
-  },
+const data = { tenantId: "tenant-1", userId: "user-1", documentId: "doc-1" };
+const ctx = { id: "job-1", attempt: 0 };
+const run = () => processDocumentJob.handler(data, ctx);
+const deadLetter = () => {
+  if (!processDocumentJob.onDeadLetter) throw new Error("job has no dead-letter handler");
+  return processDocumentJob.onDeadLetter(data, ctx);
 };
 
 const baseDocument = {
@@ -112,7 +86,13 @@ const successOcrResult = {
   quality: "high" as const,
 };
 
-describe("processDocument handler", () => {
+describe("processDocument job", () => {
+  it("is defined with OCR retries and a dead-letter safety net", () => {
+    expect(processDocumentJob.name).toBe("documents.process-document");
+    expect(processDocumentJob.options?.retryLimit).toBeGreaterThan(0);
+    expect(processDocumentJob.onDeadLetter).toBeDefined();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.AZURE_DI_ENDPOINT;
@@ -126,9 +106,7 @@ describe("processDocument handler", () => {
     mockUpdate.mockResolvedValue({});
     mockAnalyzeDocument.mockResolvedValue(successOcrResult);
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     // Verify step 1: status updated to processing
     expect(mockUpdate).toHaveBeenCalledWith(
@@ -165,9 +143,7 @@ describe("processDocument handler", () => {
       retryable: false,
     });
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -177,7 +153,7 @@ describe("processDocument handler", () => {
     );
   });
 
-  it("OCR failure (retryable): throws error for Inngest retry", async () => {
+  it("OCR failure (retryable): throws so pg-boss retries the job", async () => {
     mockFindUnique
       .mockResolvedValueOnce(baseDocument)
       .mockResolvedValueOnce({ ...baseDocument, status: "processing" });
@@ -188,44 +164,49 @@ describe("processDocument handler", () => {
       retryable: true,
     });
 
-    const step = createMockStep();
-    await expect(
-      // biome-ignore lint/suspicious/noExplicitAny: test helper
-      (processDocument as any).handler({ event: baseEvent, step }),
-    ).rejects.toThrow("Timeout");
+    await expect(run()).rejects.toThrow("Timeout");
   });
 
-  it("document not found in step 1 → NonRetriableError", async () => {
+  it("document not found at claim → completes without retry, touches nothing", async () => {
     mockFindUnique.mockResolvedValueOnce(null);
 
-    const step = createMockStep();
-    await expect(
-      // biome-ignore lint/suspicious/noExplicitAny: test helper
-      (processDocument as any).handler({ event: baseEvent, step }),
-    ).rejects.toThrow(NonRetriableError);
+    await run();
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockAnalyzeDocument).not.toHaveBeenCalled();
   });
 
-  it("document not found in step 2 → NonRetriableError", async () => {
+  it("document gone before OCR → completes without retry, no OCR call", async () => {
     mockFindUnique.mockResolvedValueOnce(baseDocument).mockResolvedValueOnce(null);
     mockUpdate.mockResolvedValue({});
 
-    const step = createMockStep();
-    await expect(
-      // biome-ignore lint/suspicious/noExplicitAny: test helper
-      (processDocument as any).handler({ event: baseEvent, step }),
-    ).rejects.toThrow(NonRetriableError);
+    await run();
+
+    expect(mockAnalyzeDocument).not.toHaveBeenCalled();
   });
 
-  it("status guard: document not in 'uploaded' state → skip step 1", async () => {
+  it("resume: a retry finds the document already 'processing' and goes straight to OCR", async () => {
+    mockFindUnique
+      .mockResolvedValueOnce({ ...baseDocument, status: "processing" })
+      .mockResolvedValueOnce({ ...baseDocument, status: "processing" });
+    mockUpdate.mockResolvedValue({});
+    mockAnalyzeDocument.mockResolvedValue(successOcrResult);
+
+    await processDocumentJob.handler(data, { id: "job-1", attempt: 2 });
+
+    expect(mockAnalyzeDocument).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledTimes(1); // only the extracted write
+    expect(mockUpdate.mock.calls[0][0].data.status).toBe("extracted");
+  });
+
+  it("status guard: document not in 'uploaded' state → no second claim", async () => {
     mockFindUnique
       .mockResolvedValueOnce({ ...baseDocument, status: "processing" }) // Step 1: already processing
       .mockResolvedValueOnce({ ...baseDocument, status: "processing" }); // Step 2
     mockUpdate.mockResolvedValue({});
     mockAnalyzeDocument.mockResolvedValue(successOcrResult);
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     // Step 1 should NOT call update (skipped)
     // Step 3 should still save OCR result
@@ -238,15 +219,13 @@ describe("processDocument handler", () => {
     expect(step1UpdateCall).toBeUndefined();
   });
 
-  it("status guard: document not in 'processing' state in step 2 → skip OCR", async () => {
+  it("status guard: document not in 'processing' state before OCR → skip OCR", async () => {
     mockFindUnique
       .mockResolvedValueOnce(baseDocument) // Step 1
       .mockResolvedValueOnce({ ...baseDocument, status: "extracted" }); // Step 2: already extracted
     mockUpdate.mockResolvedValue({});
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     // OCR service should not have been called
     expect(mockAnalyzeDocument).not.toHaveBeenCalled();
@@ -259,9 +238,7 @@ describe("processDocument handler", () => {
     mockUpdate.mockResolvedValue({});
     mockAnalyzeDocument.mockResolvedValue(successOcrResult);
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     const extractedCall = mockUpdate.mock.calls.find(
       (c: unknown[]) =>
@@ -282,9 +259,7 @@ describe("processDocument handler", () => {
     mockUpdate.mockResolvedValue({});
     mockAnalyzeDocument.mockResolvedValue(successOcrResult);
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     // Audit should log the extracted transition
     expect(mockAuditLog).toHaveBeenCalledWith(
@@ -310,9 +285,7 @@ describe("processDocument handler", () => {
       retryable: false,
     });
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     expect(mockAuditLog).toHaveBeenCalledWith(
       mockTx,
@@ -337,9 +310,7 @@ describe("processDocument handler", () => {
     mockUpdate.mockResolvedValue({});
     mockAnalyzeDocument.mockResolvedValue(lowQualityResult);
 
-    const step = createMockStep();
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).handler({ event: baseEvent, step });
+    await run();
 
     const extractedCall = mockUpdate.mock.calls.find(
       (c: unknown[]) =>
@@ -351,7 +322,7 @@ describe("processDocument handler", () => {
   });
 });
 
-describe("processDocument onFailure handler", () => {
+describe("processDocument dead-letter handler (after the last retry)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -360,15 +331,7 @@ describe("processDocument onFailure handler", () => {
     mockFindUnique.mockResolvedValueOnce({ id: "doc-1", status: "processing" });
     mockUpdate.mockResolvedValue({});
 
-    // CRITICAL: nested event structure
-    const failureEvent = {
-      data: { event: { data: { tenantId: "tenant-1", userId: "user-1", documentId: "doc-1" } } },
-    };
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).onFailure({
-      event: failureEvent,
-      error: new Error("All retries exhausted"),
-    });
+    await deadLetter();
 
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -381,14 +344,7 @@ describe("processDocument onFailure handler", () => {
   it("idempotent: does nothing when document is already ocr_failed", async () => {
     mockFindUnique.mockResolvedValueOnce({ id: "doc-1", status: "ocr_failed" });
 
-    const failureEvent = {
-      data: { event: { data: { tenantId: "tenant-1", userId: "user-1", documentId: "doc-1" } } },
-    };
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).onFailure({
-      event: failureEvent,
-      error: new Error("All retries exhausted"),
-    });
+    await deadLetter();
 
     expect(mockUpdate).not.toHaveBeenCalled();
   });
@@ -396,14 +352,7 @@ describe("processDocument onFailure handler", () => {
   it("idempotent: does nothing when document is already extracted", async () => {
     mockFindUnique.mockResolvedValueOnce({ id: "doc-1", status: "extracted" });
 
-    const failureEvent = {
-      data: { event: { data: { tenantId: "tenant-1", userId: "user-1", documentId: "doc-1" } } },
-    };
-    // biome-ignore lint/suspicious/noExplicitAny: test helper
-    await (processDocument as any).onFailure({
-      event: failureEvent,
-      error: new Error("All retries exhausted"),
-    });
+    await deadLetter();
 
     expect(mockUpdate).not.toHaveBeenCalled();
   });

@@ -4,4 +4,12 @@
 
 export type { DateGap, EcbRateFetchResult, RateLookupResult, RateSource } from "./ecb-rates";
 export { countWeekdaysBetween, fetchDailyRates } from "./ecb-rates";
+export type { EcbSyncData } from "./jobs/ecb-sync";
+export {
+  ecbSyncJob,
+  ecbSyncSchedule,
+  observationsToFetch,
+  rateJobs,
+  rateSchedules,
+} from "./jobs/ecb-sync";
 export * from "./queries";

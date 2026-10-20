@@ -270,3 +270,28 @@ describe("Architecture guard: no console.* in server code", () => {
     }
   });
 });
+
+describe("Architecture guard: vendor SDKs stay behind their kernel adapter (constitution §2)", () => {
+  // package prefix → the only folders that may import it
+  const VENDOR_HOMES: Array<[RegExp, string[]]> = [
+    [/^@azure\/storage-blob/, ["src/kernel/storage/"]],
+    [/^@azure\/ai-form-recognizer|^@azure-rest\/ai-document-intelligence/, ["src/kernel/ocr/"]],
+    [/^pg-boss(\/|$)/, ["src/kernel/jobs/"]],
+    [/^inngest(\/|$)/, []], // replaced by pg-boss (D17)
+  ];
+
+  test("@azure/* only in kernel/storage and kernel/ocr, pg-boss only in kernel/jobs, no inngest", () => {
+    const files = findFiles("src", [".ts", ".tsx"], TEST_FILE);
+    for (const file of files) {
+      for (const spec of imports(readFileSync(file, "utf-8"))) {
+        for (const [pkg, homes] of VENDOR_HOMES) {
+          if (!pkg.test(spec)) continue;
+          expect(
+            homes.some((h) => file.startsWith(h)),
+            `${file} imports ${spec} — only ${homes.join(", ") || "nobody"} may`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+});

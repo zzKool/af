@@ -104,17 +104,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) and sign in with one of the seed accounts above.
 
-## 8. Start the Inngest dev server
+## 8. Background jobs — nothing to start
 
-In a **separate terminal**:
-
-```bash
-npm run inngest:dev
-```
-
-This starts the [Inngest](https://www.inngest.com/) dev server at [http://localhost:8288](http://localhost:8288), which processes background jobs (document OCR, etc.). Without it, uploaded documents will stay in "processing" state.
-
-The Inngest dashboard shows event history and function execution — useful for debugging.
+Jobs (document OCR, ECB rates) run inside the dev server on a Postgres-backed queue (pg-boss, see [[async-jobs]]); `npm run dev` starts the worker. To watch them: `select name, state, retry_count, output from pgboss.job order by created_on desc;`. Set `JOBS_DISABLED=1` to run the app without the worker.
 
 ## Optional: Azure Document Intelligence (OCR)
 

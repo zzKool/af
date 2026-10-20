@@ -4,11 +4,12 @@ import { z } from "zod/v4";
 import { zfd } from "zod-form-data";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { createClock } from "@/kernel/clock/clock";
-import { inngest } from "@/kernel/jobs/client";
+import { enqueue } from "@/kernel/jobs/queue";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
 import { extractBlobPath } from "@/kernel/ocr/ocr";
 import { createStorageService } from "@/kernel/storage/storage";
 import * as documentService from "@/modules/documents/documents";
+import { processDocumentJob } from "@/modules/documents/jobs/process-document";
 
 export type { OcrExtractedData, OcrLineItem } from "@/kernel/ocr/ocr";
 // Type re-exports for component boundary compliance (components import types from actions, not services)
@@ -60,11 +61,11 @@ export const uploadDocumentAction = authedAction
       const documentId = result.data.id;
       const { tenantId, userId } = ctx.callerIdentity;
       ctx.onCommit(async () => {
-        await inngest.send({
-          id: `doc-uploaded-${documentId}`,
-          name: "document/uploaded",
-          data: { tenantId, userId, documentId },
-        });
+        await enqueue(
+          processDocumentJob,
+          { tenantId, userId, documentId },
+          { singletonKey: documentId },
+        );
       });
     }
 

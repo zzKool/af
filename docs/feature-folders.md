@@ -15,7 +15,7 @@ src/
     errors/          AppError, extract-error
     guards/          architecture guard test
     i18n/            locale, date formatting, LocaleProvider, FormattedDate
-    jobs/            background job client + context (Inngest today, pg-boss in item 4)
+    jobs/            pg-boss queue behind JobDefinition/ScheduleDefinition + withJobContext (see async-jobs)
     logging/         pino logger
     money/           currency + number formatting (Decimal at the boundary)
     nav/             nav constants + role filter
@@ -34,7 +34,7 @@ src/
     <entity>.actions.ts      thin Server Actions, named <verb><Entity>Action
     components/              React components of the module
     stores/                  client state (Zustand) of the module
-    jobs/                    background handlers of the module
+    jobs/                    JobDefinitions of the module (exported as `<m>Jobs` / `<m>Schedules`, listed in src/instrumentation.ts)
     __fixtures__/            test fixtures
   app/               Next.js routes only
   components/ui/     shadcn primitives (kernel UI kit; kept here for the shadcn CLI)

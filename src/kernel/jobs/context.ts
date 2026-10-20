@@ -15,12 +15,13 @@ export function createSystemCaller(tenantId: string, userId: string): CallerIden
 }
 
 /**
- * Execute a callback within full Inngest context: RLS transaction + audit logger.
+ * Execute a callback within full job context: RLS transaction + audit logger.
  *
- * Mirrors the auditMiddleware pattern from action-client.ts but for Inngest
- * functions which run outside the Server Action middleware chain.
+ * Mirrors the auditMiddleware pattern from action-client.ts for job handlers, which run outside the
+ * Server Action middleware chain. Keep the transaction short — a job that calls an external service
+ * (OCR, ECB) does so between two `withJobContext` calls, never inside one.
  */
-export async function withInngestContext<T>(
+export async function withJobContext<T>(
   tenantId: string,
   userId: string,
   callback: (tx: TransactionClient, caller: CallerIdentity, audit: AuditLogger) => Promise<T>,

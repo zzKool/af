@@ -30,7 +30,7 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] 3c `modules/linking`: `links` table + migration (RLS, CHECKs, delete trigger on documents), kinds matrix, allocation math (property-tested), service + actions, `Linkable` registry with partners/contracts/documents registered, guard rule (PR #4) — see `docs/linking.md`
   - [x] 3d `queries.ts` per module as the named read API; pages import surfaces only (PR #3). Real query implementations (`ListQuery`, distinct values) come with the reference slice (item 6/8)
 - [ ] **4. Kernel changes**
-  - [ ] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup
+  - [x] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup — 2026-10-20, see `docs/async-jobs.md`
   - [x] `kernel/auth/can()` with the role table (superadmin, owner, accountant, editor), `requireCaller()` for pages, guard rule — every inline role check replaced (PR #5)
   - [ ] `kernel/pdf`: Chromium in the image, print-mode rendering, one Dockerfile stage
   - [ ] `number_series` + fixed business-key functions; remove `DocumentTypePrefix` + settings page

@@ -10,7 +10,7 @@ The tenant middleware (`src/kernel/actions/tenant.ts`) wraps the entire Server A
 
 1. **Transaction timeout risk** — external HTTP calls can take seconds, holding the DB connection
 2. **Connection pool starvation** — long-running transactions exhaust the pool
-3. **Side effects before commit** — if the transaction rolls back, the side effect (e.g., Inngest event, blob deletion) has already fired
+3. **Side effects before commit** — if the transaction rolls back, the side effect (e.g., a queued job, blob deletion) has already fired
 
 ### Solution
 
@@ -19,7 +19,7 @@ Actions register side-effect callbacks via `ctx.onCommit()`. Callbacks execute s
 ```typescript
 // In the action handler:
 ctx.onCommit(async () => {
-  await inngest.send({ name: "document/uploaded", data: { ... } });
+  await enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: documentId });
 });
 ```
 
@@ -33,14 +33,10 @@ ctx.onCommit(async () => {
 
 ### Examples
 
-**Story 5.1 retrofit — Inngest event dispatch (document upload):**
+**Document upload — queue the OCR job (pg-boss since D17; was an Inngest event):**
 ```typescript
 ctx.onCommit(async () => {
-  await inngest.send({
-    id: `doc-uploaded-${documentId}`,
-    name: "document/uploaded",
-    data: { tenantId, userId, documentId },
-  });
+  await enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: documentId });
 });
 ```
 
