@@ -6,7 +6,7 @@ Documents uploaded via Story 5.1 are automatically processed by Azure Document I
 
 ## OCR Service Interface
 
-The service is defined in `src/server/services/ocr.ts` with a swappable interface:
+The service is defined in `src/kernel/ocr/ocr.ts` with a swappable interface:
 
 ```typescript
 interface OcrService {
@@ -97,7 +97,7 @@ document/uploaded event
 }
 ```
 
-Accessed via `getDocumentOcrData()` in `src/server/services/documents.ts`.
+Accessed via `getDocumentOcrData()` in `src/modules/documents/documents.ts`.
 
 ## Environment Variables
 
@@ -119,7 +119,7 @@ Accessed via `getDocumentOcrData()` in `src/server/services/documents.ts`.
 - Mock service tests: prefix-specific fixtures, quality classification, model selection
 - Inngest function tests: 3-step flow, error handling, onFailure handler, audit logging
 - Integration tests (gated): `describe.skipIf(!process.env.AZURE_DI_ENDPOINT)` for real Azure DI
-- Test fixtures: `src/server/services/__fixtures__/test-invoice.pdf`, `test-receipt.jpg`
+- Test fixtures: `src/kernel/ocr/__fixtures__/test-invoice.pdf`, `test-receipt.jpg`
 
 ## Known Limitation
 

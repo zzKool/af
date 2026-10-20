@@ -46,7 +46,7 @@ Single number literals like `new Prisma.Decimal(7.7)` happen to work because dec
 
 See [[constants]] for `CURRENCIES`, `Currency` type, and precision rules.
 
-`formatCurrency(amount: string, currency: Currency)` in `src/lib/format-currency.ts`:
+`formatCurrency(amount: string, currency: Currency)` in `src/kernel/money/format-currency.ts`:
 
 | Currency | Thousands | Decimal | Example |
 |----------|-----------|---------|---------|
@@ -63,8 +63,8 @@ See [[constants]] for `CURRENCIES`, `Currency` type, and precision rules.
 ### Adding New Currencies
 
 To add NOK or GBP:
-1. Add entry to `CURRENCIES` array in `src/lib/constants.ts` (type updates automatically)
-2. Add formatting case in `getSeparators()` in `src/lib/format-currency.ts`
+1. Add entry to `CURRENCIES` array in `src/kernel/nav/constants.ts` (type updates automatically)
+2. Add formatting case in `getSeparators()` in `src/kernel/money/format-currency.ts`
 
 No migrations, no breaking changes.
 
@@ -84,7 +84,7 @@ This is intentionally not a helper function — it's one line. Every service use
 
 ## VAT Rate Constants
 
-VAT rates exist in two forms in `src/lib/constants.ts`:
+VAT rates exist in two forms in `src/kernel/nav/constants.ts`:
 
 | Constant | Value | Use |
 |----------|-------|-----|

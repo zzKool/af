@@ -6,7 +6,7 @@ Azure Blob Storage integration using `@azure/storage-blob` SDK with Azurite for 
 
 - **Single container** named `documents` (from `AZURE_STORAGE_CONTAINER` env var)
 - **Path structure:** `{tenantId}/{uuid}.{ext}` — tenant isolation at path level
-- **Service location:** `src/server/services/storage.ts` — framework-agnostic (hexagonal boundary)
+- **Service location:** `src/kernel/storage/storage.ts` — framework-agnostic (hexagonal boundary)
 - **Callers provide `blobPath`** — the service has no knowledge of tenants
 
 ## Azurite Setup
@@ -71,13 +71,13 @@ To run storage tests locally:
 
 ```bash
 docker compose up azurite -d
-npm run test -- src/server/services/storage.test.ts
+npm run test -- src/kernel/storage/storage.test.ts
 ```
 
 If AZURE_STORAGE_CONNECTION_STRING is not loaded from .env.local by vitest, pass it explicitly:
 
 ```bash
-AZURE_STORAGE_CONNECTION_STRING="..." npm run test -- src/server/services/storage.test.ts
+AZURE_STORAGE_CONNECTION_STRING="..." npm run test -- src/kernel/storage/storage.test.ts
 ```
 
 ## Known Limitations

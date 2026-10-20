@@ -35,7 +35,7 @@ The app **never** connects as superuser in production.
 
 ## Tenant-Aware Client
 
-All tenant-scoped database access goes through `src/server/db/tenant-client.ts`:
+All tenant-scoped database access goes through `src/kernel/db/tenant-client.ts`:
 
 ```typescript
 import { withTenantTransaction } from "@/server/db/tenant-client";
@@ -87,9 +87,9 @@ Partial indexes (`idx_partners_tenant_org … WHERE org_number IS NOT NULL`) are
 
 ## Test Infrastructure
 
-- `src/server/db/test-setup.ts` — Global setup: runs migrations against test DB
-- `src/server/db/test-fixtures.ts` — Factory functions: `createTestTenant()`, `createTestUser()`, `createTestTenantConfig()`
-- `src/server/db/tenant-client.test.ts` — RLS isolation integration tests
+- `src/kernel/db/test-setup.ts` — Global setup: runs migrations against test DB
+- `src/kernel/db/test-fixtures.ts` — Factory functions: `createTestTenant()`, `createTestUser()`, `createTestTenantConfig()`
+- `src/kernel/db/tenant-client.test.ts` — RLS isolation integration tests
 
 Tests use two pools:
 - **Admin pool** (superuser) — test data setup, TRUNCATE cleanup
@@ -100,7 +100,7 @@ Tests use two pools:
 ```bash
 docker compose up -d          # Start dev + test databases
 npm run test                  # All tests
-npx vitest src/server/        # Server tests only
+npx vitest --project server    # DB-backed tests (kernel + modules)
 ```
 
 ## Auth Tables — No RLS

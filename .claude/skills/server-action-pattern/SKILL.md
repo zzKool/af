@@ -5,7 +5,7 @@ description: How to write a Server Action + service pair in AF (middleware chain
 
 # Server action pattern
 
-Read first: `docs/server-actions.md`, `docs/error-handling.md`, `docs/audit-trail.md`. Reference implementation: `src/server/actions/settings.ts` + `src/server/services/settings.ts` (will move to `src/modules/settings/` after the feature-folder move).
+Read first: `docs/server-actions.md`, `docs/error-handling.md`, `docs/audit-trail.md`. Reference implementation: `src/modules/settings/settings.actions.ts` + `src/modules/settings/settings.ts` (will move to `src/modules/settings/` after the feature-folder move).
 
 ## Shape
 

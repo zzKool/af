@@ -65,7 +65,7 @@ Domain entities use **boolean soft-delete** (`is_active` column):
 
 ## Service Pattern
 
-Services live in `src/server/services/<entity>.ts` and follow the hexagonal pattern:
+Services live in `src/modules/<module>/<entity>.ts` and follow the hexagonal pattern:
 
 ```typescript
 export async function createPartner(
@@ -85,7 +85,7 @@ Key conventions:
 
 ## Server Action Pattern
 
-Actions live in `src/server/actions/<entity>.ts`:
+Actions live in `src/modules/<module>/<entity>.actions.ts`:
 
 - Use `ownerAction` middleware for owner-only CRUD
 - Thin wrappers — delegate all logic to services
@@ -135,7 +135,7 @@ Client component with:
 
 ## Test Fixtures
 
-`createTestPartner()` in `src/server/db/test-fixtures.ts` — RLS-aware SQL insert for test setup. Partners included in `cleanupTestData()` truncation.
+`createTestPartner()` in `src/kernel/db/test-fixtures.ts` — RLS-aware SQL insert for test setup. Partners included in `cleanupTestData()` truncation.
 
 ## Related Documentation
 

@@ -155,7 +155,7 @@ Config pages use auto-save (no explicit save button):
 - **Toggle/Select fields**: Save on `onChange`
 - **Text fields**: Save on `onBlur` (when user tabs away)
 
-Reference implementation: `src/components/domain/company-profile-form.tsx`
+Reference implementation: `src/modules/settings/components/company-profile-form.tsx`
 
 Key pattern:
 ```typescript

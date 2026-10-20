@@ -1,12 +1,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/domain/sidebar";
-import { LocaleProvider } from "@/components/providers/locale-provider";
-import { Providers } from "@/components/shared/providers";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
-import type { CallerIdentity } from "@/types/caller-identity";
+import { getAuthContext } from "@/kernel/auth/auth";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { LocaleProvider } from "@/kernel/i18n/locale-provider";
+import { Providers } from "@/kernel/ui/providers";
+import { Sidebar } from "@/kernel/ui/shell/sidebar";
 
 export default async function AppLayout({
   children,

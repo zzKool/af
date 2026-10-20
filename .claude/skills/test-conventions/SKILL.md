@@ -5,12 +5,12 @@ description: What a test must cover in AF and how it is written (Vitest co-locat
 
 # Test conventions
 
-Read first: `docs/conventions.md`, `docs/config-page-test-template.md`, `docs/test-performance-baseline.md`, `src/server/test-utils/`, `src/server/db/test-fixtures.ts`.
+Read first: `docs/conventions.md`, `docs/config-page-test-template.md`, `docs/test-performance-baseline.md`, `src/kernel/test-utils/`, `src/kernel/db/test-fixtures.ts`.
 
 ## Where
 - `*.test.ts` next to the code (Vitest). Service tests run against the **test database** (`db-test`, port 5433) with RLS on — never mocked Prisma.
 - `e2e/*.spec.ts` (Playwright) — one happy path per module, against the dev stack with Azurite.
-- Architecture guard: `src/server/guards/architecture.guard.test.ts` — extend it when the constitution adds a rule.
+- Architecture guard: `src/kernel/guards/architecture.guard.test.ts` — extend it when the constitution adds a rule.
 
 ## Every service test file covers
 1. happy path

@@ -10,9 +10,9 @@
  * Idempotent: safe to run multiple times.
  */
 
-import { auth } from "../src/server/auth";
-import { prisma } from "../src/server/db/client";
-import { withTenantTransaction } from "../src/server/db/tenant-client";
+import { auth } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("Seed script cannot run in production");

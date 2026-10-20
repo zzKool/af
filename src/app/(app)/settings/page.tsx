@@ -2,9 +2,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import type { CallerIdentity } from "@/types/caller-identity";
+import { getAuthContext } from "@/kernel/auth/auth";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { prisma } from "@/kernel/db/client";
 
 type TabConfig = {
   value: string;

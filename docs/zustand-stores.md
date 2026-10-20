@@ -18,7 +18,7 @@ All stores in DefterFab must reset when the user switches tenants to prevent cro
 ### Creating a Store
 
 ```typescript
-// src/lib/stores/category-filter-store.ts
+// src/kernel/stores/category-filter-store.ts
 import { createTenantStore } from "./create-tenant-store";
 
 export const useCategoryFilter = createTenantStore({
@@ -79,4 +79,4 @@ store.setState({ search: "test" });
 expect(store.getState().search).toBe("test");
 ```
 
-See `src/lib/stores/create-tenant-store.test.ts` for test examples.
+See `src/kernel/stores/create-tenant-store.test.ts` for test examples.

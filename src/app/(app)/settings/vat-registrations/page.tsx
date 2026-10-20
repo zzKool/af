@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { VatRegistrationsTab } from "@/components/settings/vat-registrations-tab";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
+import { getAuthContext } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { VatRegistrationsTab } from "@/modules/settings/components/vat-registrations-tab";
 
 export default async function VatRegistrationsSettingsPage() {
   const hdrs = await headers();

@@ -1,6 +1,6 @@
 # AF — constitution
 
-Version 1 · 2026-10-20 · The rules every spec, agent and PR in this repo obeys. Changes to this file are PRs of their own.
+Version 1.1 · 2026-10-20 · The rules every spec, agent and PR in this repo obeys. (1.1: layout amended for Prisma's single schema folder and the shadcn `components/ui` location — item 3a.) Changes to this file are PRs of their own.
 
 Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mapping.md` (business rules), `phase-0.md` (current todo).
 
@@ -24,17 +24,21 @@ Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mappin
 
 ```
 src/
-  kernel/            auth, can(), tenancy (RLS client, CallerIdentity), audit, money, clock,
-                     storage (blob adapter), ocr (adapter), jobs (pg-boss), pdf (Chromium), ui, i18n
-  modules/<name>/    schema.prisma  service.ts  queries.ts  actions.ts  components/  *.test.ts  index.ts
+  kernel/            auth, can(), tenancy (RLS client, CallerIdentity), audit, money, clock, errors, logging,
+                     storage (blob adapter), ocr (adapter), jobs (pg-boss), pdf (Chromium), ui, i18n, nav, stores
+  modules/<name>/    service(s)  queries.ts  actions  components/  stores/  jobs/  *.test.ts  index.ts
   app/               Next.js routes only — thin, import from modules/*/index.ts and queries.ts
+  components/ui/     shadcn primitives (kernel UI kit, kept where the shadcn CLI expects them); lib/utils.ts = cn()
+prisma/schema/<name>.prisma   the module's models — Prisma's multi-file schema needs one folder (see prisma/schema/README.md)
 ```
+
+File naming inside a module until the reference slice (item 6) fixes the final convention: `<entity>.ts` service, `<entity>.test.ts`, `<entity>.actions.ts`. Current layout and the v2 → 3a path map: `docs/feature-folders.md`.
 
 Modules (from the inventory): partners, contracts, documents, banking, rates, journal, linking, invoices, supplier-invoices, expenses, traktamente, exports, dashboard, settings.
 
 ### Import rules — enforced by `architecture.guard.test.ts`
-- `kernel/*` imports nothing from `modules/*` or `app/*`.
-- `modules/<a>` imports `kernel/*` and `modules/<b>/index.ts` only. Never another module's internals.
+- `kernel/*` imports nothing from `modules/*` or `app/*`. *(enforced since 3a)*
+- `modules/<a>` imports `kernel/*` and `modules/<b>/index.ts` only. Never another module's internals. *(index.ts rule enforced from 3b; until then direct file imports between modules are tolerated)*
 - `modules/*/service.ts` and `queries.ts` never import `next/*`, `react`, or `components/*`.
 - `app/*` and `components/*` never import `service.ts` directly: reads go through `queries.ts`, writes through `actions.ts`.
 - Role and permission checks happen only through `kernel/auth/can()`. No `role === 'owner'` anywhere else.

@@ -16,7 +16,7 @@ DefterFab uses five page archetypes to maintain consistent UX:
 
 ## Route Configuration
 
-Navigation items are centralized in `src/lib/constants.ts` as the `NAV_ITEMS` array.
+Navigation items are centralized in `src/kernel/nav/constants.ts` as the `NAV_ITEMS` array.
 
 ### Enabling a new route
 
@@ -42,7 +42,7 @@ The sidebar filters items by `enabled && roles.includes(userRole)`. This is **UI
 
 ## Locale Resolution
 
-Display formatting uses the browser's `Accept-Language` header, resolved via `src/lib/locale.ts`:
+Display formatting uses the browser's `Accept-Language` header, resolved via `src/kernel/i18n/locale.ts`:
 
 - **NEVER** hardcode `sv-SE` for display formatting
 - `resolveLocale(header)` parses quality factors and returns the best match

@@ -40,9 +40,9 @@ This prevents the **delete-all-then-reseed bug**: if the owner deletes all prefi
 ## Architecture
 
 - **Model:** `DocumentTypePrefix` in `app.prisma` — tenant-scoped with RLS
-- **Service:** `src/server/services/document-type-prefixes.ts` — CRUD + seed
-- **Actions:** `src/server/actions/document-type-prefixes.ts` — `ownerAction` for all operations
-- **UI:** `src/components/settings/document-type-prefixes-tab.tsx` — card-based list with inline edit
+- **Service:** `src/modules/documents/document-type-prefixes.ts` — CRUD + seed
+- **Actions:** `src/modules/documents/document-type-prefixes.actions.ts` — `ownerAction` for all operations
+- **UI:** `src/modules/documents/components/document-type-prefixes-tab.tsx` — card-based list with inline edit
 
 ## Downstream Consumers
 

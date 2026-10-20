@@ -2,7 +2,7 @@
 
 **Single source: [`docs/constitution.md`](../../docs/constitution.md).** This file is a pointer so spec-kit workflows find it; do not duplicate content here.
 
-Version 1.0.0 · Ratified 2026-10-20 · Amendments are PRs against `docs/constitution.md` that bump the version line there.
+Version 1.1.0 · Ratified 2026-10-20 · Amended 2026-10-20 (3a layout) · Amendments are PRs against `docs/constitution.md` that bump the version line there.
 
 ## Constitution check (used by /speckit-plan)
 

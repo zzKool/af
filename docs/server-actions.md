@@ -148,7 +148,7 @@ const testAction = ownerAction.schema(z.object({})).action(async ({ ctx }) => {
 const result = await testAction({});
 ```
 
-Use `createAuthenticatedContext()` from `src/server/db/test-fixtures.ts` for auth setup in tests.
+Use `createAuthenticatedContext()` from `src/kernel/db/test-fixtures.ts` for auth setup in tests.
 
 ## Rules & Constraints
 

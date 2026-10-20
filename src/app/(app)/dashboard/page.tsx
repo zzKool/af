@@ -1,10 +1,10 @@
 import { headers } from "next/headers";
-import { ActionItemsWidget } from "@/components/domain/action-items-widget";
-import { BusinessPulseWidget } from "@/components/domain/business-pulse-widget";
-import { formatDateTime } from "@/lib/format-date";
-import { resolveLocale } from "@/lib/locale";
-import { getDashboardData } from "@/server/actions/dashboard";
-import type { BusinessPulseMetric, DashboardActionItem } from "@/types/dashboard";
+import { formatDateTime } from "@/kernel/i18n/format-date";
+import { resolveLocale } from "@/kernel/i18n/locale";
+import { ActionItemsWidget } from "@/modules/dashboard/components/action-items-widget";
+import { BusinessPulseWidget } from "@/modules/dashboard/components/business-pulse-widget";
+import { getDashboardData } from "@/modules/dashboard/dashboard.actions";
+import type { BusinessPulseMetric, DashboardActionItem } from "@/modules/dashboard/types";
 
 export default async function DashboardPage() {
   const hdrs = await headers();

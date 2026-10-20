@@ -47,8 +47,8 @@ Page (server component) → fetches data server-side
                  └─ Prisma tx (RLS-scoped) → database
 ```
 
-- **Service:** `src/server/services/settings.ts` — MUST NOT import from `next/*`
-- **Actions:** `src/server/actions/settings.ts` — `ownerAction` chain, Zod validation
+- **Service:** `src/modules/settings/settings.ts` — MUST NOT import from `next/*`
+- **Actions:** `src/modules/settings/settings.actions.ts` — `ownerAction` chain, Zod validation
 - **Page:** `src/app/(app)/settings/company/page.tsx` — server component renders client form
 
 ## Tenant Switching

@@ -1,11 +1,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { PartnerList } from "@/components/partners/partner-list";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
-import * as partnerService from "@/server/services/partners";
-import type { CallerIdentity } from "@/types/caller-identity";
+import { getAuthContext } from "@/kernel/auth/auth";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { PartnerList } from "@/modules/partners/components/partner-list";
+import * as partnerService from "@/modules/partners/partners";
 
 export default async function PartnersPage() {
   const hdrs = await headers();

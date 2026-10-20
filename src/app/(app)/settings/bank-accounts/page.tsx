@@ -1,10 +1,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { BankAccountsTab } from "@/components/settings/bank-accounts-tab";
-import { getAuthContext } from "@/server/auth";
-import { prisma } from "@/server/db/client";
-import { withTenantTransaction } from "@/server/db/tenant-client";
-import * as bankService from "@/server/services/bank-accounts";
+import { getAuthContext } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import * as bankService from "@/modules/banking/bank-accounts";
+import { BankAccountsTab } from "@/modules/banking/components/bank-accounts-tab";
 
 export default async function BankAccountsSettingsPage() {
   const hdrs = await headers();

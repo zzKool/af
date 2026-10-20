@@ -13,9 +13,10 @@ export default defineConfig({
         extends: true,
         test: {
           name: "server",
-          include: ["src/server/**/*.test.ts"],
+          include: ["src/kernel/**/*.test.ts", "src/modules/**/*.test.ts"],
+          exclude: ["src/kernel/{money,i18n,nav,stores,errors,guards}/**"],
           environment: "node",
-          setupFiles: ["src/server/db/test-setup.ts"],
+          setupFiles: ["src/kernel/db/test-setup.ts"],
           fileParallelism: false,
           testTimeout: 30_000,
         },
@@ -23,8 +24,8 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "lib",
-          include: ["src/lib/**/*.test.ts"],
+          name: "pure",
+          include: ["src/kernel/{money,i18n,nav,stores,errors,guards}/**/*.test.ts"],
           environment: "node",
         },
       },
@@ -32,7 +33,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: "client",
-          include: ["src/components/**/*.test.tsx", "src/hooks/**/*.test.{ts,tsx}"],
+          include: ["src/**/*.test.tsx"],
+          exclude: ["src/generated/**"],
           environment: "jsdom",
         },
       },

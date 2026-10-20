@@ -6,7 +6,7 @@
 
 ### Problem
 
-The tenant middleware (`src/server/middleware/tenant.ts`) wraps the entire Server Action handler inside `withTenantTransaction`. This means external calls — HTTP requests, blob storage operations, event dispatching — execute **inside** the database transaction. This causes:
+The tenant middleware (`src/kernel/actions/tenant.ts`) wraps the entire Server Action handler inside `withTenantTransaction`. This means external calls — HTTP requests, blob storage operations, event dispatching — execute **inside** the database transaction. This causes:
 
 1. **Transaction timeout risk** — external HTTP calls can take seconds, holding the DB connection
 2. **Connection pool starvation** — long-running transactions exhaust the pool

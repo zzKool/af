@@ -12,14 +12,14 @@ Inngest provides async job infrastructure for background processing (OCR, notifi
 
 ## Existing Setup
 
-- `src/server/inngest/client.ts` — Inngest client with id `"defterfab"`
+- `src/kernel/jobs/client.ts` — Inngest client with id `"defterfab"`
 - `src/app/api/inngest/route.ts` — serve handler, registers all functions
 - Package: `inngest@^3.52.6` (already installed)
 
 ## Creating Inngest Functions
 
 ```typescript
-// src/server/inngest/functions/my-function.ts
+// src/kernel/jobs/functions/my-function.ts
 import { inngest } from "../client";
 import { withInngestContext } from "../context";
 

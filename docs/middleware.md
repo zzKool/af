@@ -28,7 +28,7 @@ All other routes require authentication.
 
 ## Important Notes
 
-- The proxy only checks cookie **presence**, not validity. Full session validation happens server-side in the action middleware chain (`src/server/middleware/auth.ts`).
+- The proxy only checks cookie **presence**, not validity. Full session validation happens server-side in the action middleware chain (`src/kernel/actions/auth.ts`).
 - This is a UX optimization — it prevents unauthenticated users from seeing the app shell before getting a server-side 401.
 - Server Actions enforce RBAC independently via `authedAction` / `ownerAction` middleware.
 

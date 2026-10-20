@@ -16,7 +16,7 @@ These systems are **architecturally independent** — never conflate them.
 
 ### Configuration
 
-The logger singleton lives at `src/server/logger.ts`. It uses Pino 10 with structured JSON output.
+The logger singleton lives at `src/kernel/logging/logger.ts`. It uses Pino 10 with structured JSON output.
 
 - **Production:** JSON to stdout, collected by Azure Log Analytics automatically in Container Apps
 - **Development:** Pretty-printed via `pino-pretty`
@@ -52,7 +52,7 @@ Additional fields like `entityType` and `entityId` should be added by service co
 
 ### Request-Scoped Logging
 
-The logging middleware (`src/server/middleware/logging.ts`) runs in the Server Action chain after authentication:
+The logging middleware (`src/kernel/actions/logging.ts`) runs in the Server Action chain after authentication:
 
 ```
 auth → rateLimit → logging → tenant → audit → handler
@@ -73,7 +73,7 @@ logger.warn({ component: "ecb-rates" }, "Rate fetch degraded");
 
 ### Anti-Patterns
 
-- Never use `console.log/error/warn` in `src/server/` — always use Pino
+- Never use `console.log/error/warn` in `src/kernel/` or module services — always use Pino
 - Never log sensitive data (passwords, tokens, PII)
 - Never log `Prisma.Decimal` objects directly — convert to string first
 - Never create per-request Pino instances — use `logger.child()`

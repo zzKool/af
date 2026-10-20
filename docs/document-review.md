@@ -103,12 +103,12 @@ Linked documents cannot be reclassified.
 
 ## Key Files
 
-- `src/server/services/documents.ts` — service methods (getDocumentForReview, updateDocumentCorrections, classifyDocument, markDocumentReviewed, refreshSignedUrl)
-- `src/server/actions/documents.ts` — server action wrappers
+- `src/modules/documents/documents.ts` — service methods (getDocumentForReview, updateDocumentCorrections, classifyDocument, markDocumentReviewed, refreshSignedUrl)
+- `src/modules/documents/documents.actions.ts` — server action wrappers
 - `src/app/(app)/documents/[id]/page.tsx` — server component entry
-- `src/components/domain/document-review-client.tsx` — main orchestrator
-- `src/components/domain/document-preview.tsx` — PDF/image viewer
-- `src/hooks/use-document-review-store.ts` — Zustand corrections store
+- `src/modules/documents/components/document-review-client.tsx` — main orchestrator
+- `src/modules/documents/components/document-preview.tsx` — PDF/image viewer
+- `src/modules/documents/stores/use-document-review-store.ts` — Zustand corrections store
 
 ## Related
 
