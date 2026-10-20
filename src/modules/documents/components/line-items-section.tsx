@@ -103,7 +103,7 @@ export function LineItemsSection({
   return (
     <fieldset ref={sectionRef} className="space-y-3 border-0 p-0 m-0" onBlur={handleSectionBlur}>
       <legend className="sr-only">Line items</legend>
-      <h3 className="text-sm font-medium">Line Items</h3>
+      <h2 className="text-sm font-medium">Line Items</h2>
 
       {mismatch && (
         <div
@@ -125,7 +125,11 @@ export function LineItemsSection({
                 <th className="px-2 py-1 text-right font-medium w-24">Unit Price</th>
                 <th className="px-2 py-1 text-right font-medium w-24">Amount</th>
                 <th className="px-2 py-1 text-right font-medium w-20">Tax</th>
-                {!readOnly && <th className="w-10" />}
+                {!readOnly && (
+                  <th className="w-10">
+                    <span className="sr-only">Remove</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -138,6 +142,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-description`}
+                      aria-label={`Line ${index + 1} description`}
                       className="h-8 text-sm"
                       defaultValue={item.description ?? ""}
                       disabled={readOnly}
@@ -147,6 +152,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-quantity`}
+                      aria-label={`Line ${index + 1} quantity`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="1"
@@ -158,6 +164,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-unitPrice`}
+                      aria-label={`Line ${index + 1} unit price`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -169,6 +176,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-amount`}
+                      aria-label={`Line ${index + 1} amount`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -180,6 +188,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-tax`}
+                      aria-label={`Line ${index + 1} tax`}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"

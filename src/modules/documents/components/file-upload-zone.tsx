@@ -219,7 +219,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
             <p className="text-sm text-muted-foreground">
               {isTouchDevice ? "Tap to upload" : "Drop file here or click to browse"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground/70">
+            <p className="mt-1 text-xs text-muted-foreground">
               PDF, JPEG, PNG, TIFF — max {MAX_FILE_SIZE_MB} MB
             </p>
           </>

@@ -298,26 +298,31 @@ export function DataTable<Row extends { id: string }>({
                     className={cn("h-9 px-2 font-medium", right && "text-right")}
                   >
                     <div className={cn("flex items-center gap-0.5", right && "flex-row-reverse")}>
-                      <button
-                        type="button"
-                        className={cn(
-                          "flex items-center gap-1 truncate hover:text-foreground",
-                          column.sortable === false && "cursor-default",
-                        )}
-                        onClick={(e) => cycleSort(column, e.shiftKey)}
-                      >
-                        <span className="truncate">{column.header}</span>
-                        {column.sortable !== false &&
-                          (sort ? (
-                            sort.dir === "asc" ? (
-                              <ChevronUp className="size-3.5" />
+                      {/* a column without a header (row actions): a name for the screen reader, no button */}
+                      {column.header === "" && column.sortable === false ? (
+                        <span className="sr-only">{column.key}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex items-center gap-1 truncate hover:text-foreground",
+                            column.sortable === false && "cursor-default",
+                          )}
+                          onClick={(e) => cycleSort(column, e.shiftKey)}
+                        >
+                          <span className="truncate">{column.header}</span>
+                          {column.sortable !== false &&
+                            (sort ? (
+                              sort.dir === "asc" ? (
+                                <ChevronUp className="size-3.5" />
+                              ) : (
+                                <ChevronDown className="size-3.5" />
+                              )
                             ) : (
-                              <ChevronDown className="size-3.5" />
-                            )
-                          ) : (
-                            <ChevronsUpDown className="size-3.5 text-muted-foreground/60" />
-                          ))}
-                      </button>
+                              <ChevronsUpDown className="size-3.5 text-muted-foreground/60" />
+                            ))}
+                        </button>
+                      )}
                       {filterable && (
                         <Popover
                           open={openFilter === column.key}

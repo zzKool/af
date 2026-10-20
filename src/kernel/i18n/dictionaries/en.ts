@@ -414,6 +414,7 @@ export const en = {
   "linking.reason.currencyRef": "Currency differs but reference matches",
   "linking.reason.crossNoRate": "Cross-currency match (no rate to compare)",
   "invoices.links.title": "Bank rows",
+  "linking.inbox.select": "Select",
   "linking.inbox.title": "Inbox",
   "linking.inbox.meta":
     "{count} rows need attention · {high} with a high-confidence match · {documents} unlinked documents",

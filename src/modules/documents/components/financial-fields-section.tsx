@@ -64,7 +64,7 @@ export function FinancialFieldsSection({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium">Financial Details</h3>
+      <h2 className="text-sm font-medium">Financial Details</h2>
 
       {/* Vendor/Merchant */}
       <div className="space-y-1">

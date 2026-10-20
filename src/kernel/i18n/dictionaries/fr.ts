@@ -418,6 +418,7 @@ export const fr: Dictionary = {
   "linking.reason.currencyRef": "Devise différente mais référence trouvée",
   "linking.reason.crossNoRate": "Devises différentes (pas de taux pour comparer)",
   "invoices.links.title": "Lignes bancaires",
+  "linking.inbox.select": "Sélectionner",
   "linking.inbox.title": "Boîte de réception",
   "linking.inbox.meta":
     "{count} lignes à traiter · {high} avec une correspondance haute · {documents} documents non liés",

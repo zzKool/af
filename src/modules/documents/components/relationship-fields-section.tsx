@@ -9,7 +9,7 @@ type RelationshipFieldsSectionProps = {
 export function RelationshipFieldsSection({ rawText }: RelationshipFieldsSectionProps) {
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium">Document Content</h3>
+      <h2 className="text-sm font-medium">Document Content</h2>
       <div className="space-y-1">
         <Label htmlFor="rawText">Extracted Text (read-only)</Label>
         <textarea

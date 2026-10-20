@@ -279,14 +279,15 @@ export function RuleDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm">
             <Checkbox
               id={`${ids}-nodoc`}
               checked={draft.noDocumentNeeded}
               onCheckedChange={(c) => setDraft({ ...draft, noDocumentNeeded: c === true })}
+              aria-label={t("banking.rules.form.noDocument")}
             />
-            <label htmlFor={`${ids}-nodoc`}>{t("banking.rules.form.noDocument")}</label>
-          </div>
+            <span>{t("banking.rules.form.noDocument")}</span>
+          </label>
           <div className="flex items-end gap-3">
             <button
               type="button"

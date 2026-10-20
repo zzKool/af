@@ -166,7 +166,8 @@ export function CategoriseForm({
           disabled={isPending}
         />
       </div>
-      <div className="flex items-center gap-2 text-sm">
+      {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
+      <label className="flex items-center gap-2 text-sm">
         <Checkbox
           id={`${ids}-nodoc`}
           checked={noDocument}
@@ -176,9 +177,10 @@ export function CategoriseForm({
             void save({ noDocumentNeeded: next });
           }}
           disabled={isPending}
+          aria-label={t("journal.form.noDocument")}
         />
-        <label htmlFor={`${ids}-nodoc`}>{t("journal.form.noDocument")}</label>
-      </div>
+        <span>{t("journal.form.noDocument")}</span>
+      </label>
     </div>
   );
 }

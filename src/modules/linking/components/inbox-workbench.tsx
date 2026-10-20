@@ -294,7 +294,7 @@ export function InboxWorkbench({
                           checked={checked.has(r.row.id)}
                           onCheckedChange={(v) => toggle(r.row.id, v === true)}
                           onClick={(e) => e.stopPropagation()}
-                          aria-label={r.row.label}
+                          aria-label={`${t("linking.inbox.select")} ${r.row.label || r.row.date}`}
                         />
                       )}
                       <div className="min-w-0 flex-1">
