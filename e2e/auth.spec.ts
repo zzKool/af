@@ -19,6 +19,7 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Partners" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Invoices" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Expenses" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Supplier invoices" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();

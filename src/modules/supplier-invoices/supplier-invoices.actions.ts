@@ -116,7 +116,7 @@ export const copyLastSupplierInvoiceAction = authedAction
   .metadata({ name: "copyLastSupplierInvoice" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "supplier_invoice")) return forbidden;
-    return { data: await copyLastPrefill(ctx.tx, parsedInput.partnerId) };
+    return copyLastPrefill(ctx.tx, parsedInput.partnerId);
   });
 
 export const inputVatForPeriodAction = authedAction

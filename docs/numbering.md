@@ -21,7 +21,7 @@ prisma/schema/numbering.prisma   number_series(tenant_id, series, next_value, up
 | expense ref | `expenseRef(groupNumber, basAlias, seq)` — series `exg-{group}-{alias}` (`expenseSeries`): one counter per group **and** alias — `Ex213-Tr-01`, `Ex213-Tr-02`, `Ex213-Rep-01` | `Ex213-Tr-01` |
 | expense receipt key | `expenseDocumentKey(ref, documentDate)` — the uploaded receipt's key once it became the expense; the per-diem breakdown PDF carries it too (`…_.pdf`) | `Ex213-Tr-01_2026-03-11_` |
 | supplier invoice ref | `supplierInvoiceRef(groupNumber, basAlias, seq)` — series `exg-{group}-{alias}` (the same scheme; an `SI` with the same alias in the same group shares the counter, D28) | `SI213-Acc-01` |
-| supplier invoice document key | `supplierInvoiceDocumentKey(ref, documentDate, vendorName)` — vendor slug appended (`fileSlug`) | `SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB` |
+| supplier invoice document key | `supplierInvoiceDocumentKey(ref, documentDate, vendorName)` — vendor slug appended (`fileSlug`) | `SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB` — used by `createSupplierInvoice({documentId})`, see [[supplier-invoices]] |
 | settlement number | `settlementNumber(bookingDate, seq)` — series `ST{yy}` of the refund's booking date | `ST26-001` |
 | reimbursement statement PDF | `statementPdfKey(number, bookingDate)` | `Reimb_ST26-001_2026-03-31.pdf` |
 | raw upload (provisional) | `uploadDocumentKey(kind, date, seq)` — series `doc-{yyyy-mm}` | `exp_20261020_001` |

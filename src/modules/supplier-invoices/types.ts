@@ -120,3 +120,15 @@ export type SupplierOption = {
   defaultBasCategoryCode: string | null;
   paymentTermsDays: number | null;
 };
+
+// --- option lists the pages hand to the components (client-safe) ---
+
+export type GroupOption = {
+  id: string;
+  number: number;
+  description: string;
+  kind: "trip" | "batch";
+};
+export type CategoryOption = { code: string; label: string };
+export type DocumentOption = { id: string; businessKey: string; fileName: string; status: string };
+export type RegistrationOption = { id: string; label: string; country: string };

@@ -53,6 +53,8 @@ export const invoiceLinkable: Linkable = {
 ```
 Export it from the module's `index.ts`, add one line in `src/modules/linking/linkables.ts`, add the type to `LinkableType` and to the matrix in `kinds.ts`, and add the delete trigger to the table's migration. `amount`/`currency` non-null → the entity can receive allocations. Registration is **lazy** (`provideLinkables` with namespace imports, resolved on the first `getLinkable`): every module imports linking, so the import graph is cyclic and a direct read of `module.xLinkable` at import time could see `undefined` depending on which file a test loaded first.
 
+Registered today: partner, contract, document, invoice, bank_transaction, journal_entry, expense, settlement ([[expenses]]), supplier_invoice ([[supplier-invoices]] — amount = `paid_amount ?? amount_total`, so a cross-currency payment attached the D-g way allocates in the paid currency).
+
 ## Surface
 
 - `index.ts`: `getLinksFor`, `isLinked`, `getAllocationStatus`, `createLink`, `removeLink`, types, `registerLinkable` / `provideLinkables`, `isKindAllowed`, allocation math.

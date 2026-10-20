@@ -3,6 +3,8 @@
 // Never import this file from a client component — use ./ui for components and actions.
 
 export { supplierInvoiceLinkable } from "./linkable";
+export type { SupplierInvoicePageOptions } from "./page-data";
+export { supplierInvoicePageOptions } from "./page-data";
 export type { RecordPaymentInput } from "./payments";
 export {
   allocatedTo,

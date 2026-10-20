@@ -249,6 +249,7 @@ async function seed() {
       ),
       "501",
       "570",
+      "653",
       "654",
       "657",
       "631",
@@ -286,6 +287,7 @@ async function seed() {
       ["580", "Tr"],
       ["583", "Rep"],
       ["501", "Lokal"],
+      ["653", "Acc"],
       ["654", "IT"],
     ] as const) {
       if (!known.has(code) && !(await tx.basCategory.findUnique({ where: { code } }))) continue;

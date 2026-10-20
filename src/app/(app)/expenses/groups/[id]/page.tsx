@@ -18,6 +18,8 @@ import {
 } from "@/modules/expenses";
 import { ExpenseTable, GroupHeaderActions } from "@/modules/expenses/ui";
 import { getUserPreferences } from "@/modules/settings";
+import { listForGroup } from "@/modules/supplier-invoices";
+import { SupplierInvoiceGroupSection } from "@/modules/supplier-invoices/ui";
 import { countryOptions, getTrip, toLocal } from "@/modules/traktamente";
 import { TripPanel } from "@/modules/traktamente/ui";
 
@@ -38,18 +40,28 @@ export default async function ExpenseGroupPage({
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const group = await getGroupDetail(tx, id);
     if (group.error) return null;
-    const [result, options, prefs, trip] = await Promise.all([
+    const [result, options, prefs, trip, supplierInvoices] = await Promise.all([
       listExpenses(tx, query, { groupId: id }),
       expensePageOptions(tx, auth),
       getUserPreferences(tx, auth),
       getTrip(tx, id),
+      listForGroup(tx, id),
     ]);
     const year = trip
       ? toLocal(trip.departureAt).date.slice(0, 4)
       : String(new Date().getFullYear());
     const countries = await countryOptions(tx, Number(year), "en");
     const perDiem = trip?.perDiemExpenseId ? await getExpense(tx, trip.perDiemExpenseId) : null;
-    return { group: group.data, result, options, prefs, trip, countries, perDiem };
+    return {
+      group: group.data,
+      result,
+      options,
+      prefs,
+      trip,
+      countries,
+      perDiem,
+      supplierInvoices,
+    };
   });
   if (!data) notFound();
   const t = translator(data.prefs.data?.locale ?? null);
@@ -101,6 +113,9 @@ export default async function ExpenseGroupPage({
             locale={locale}
           />
         )}
+        <SupplierInvoiceGroupSection
+          rows={data.supplierInvoices.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))}
+        />
         <ExpenseTable
           result={{
             ...data.result,
