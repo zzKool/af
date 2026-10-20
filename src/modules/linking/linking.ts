@@ -124,7 +124,9 @@ export async function createLink(
     select: { id: true },
   });
   if (duplicate) {
-    return { error: { code: "DUPLICATE_ENTRY", message: "This link already exists", retryable: false } };
+    return {
+      error: { code: "DUPLICATE_ENTRY", message: "This link already exists", retryable: false },
+    };
   }
 
   const fromLinkable = getLinkable(from.type);
