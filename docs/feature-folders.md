@@ -16,6 +16,7 @@ src/
     guards/          architecture guard test
     i18n/            locale, date formatting, LocaleProvider, FormattedDate
     jobs/            pg-boss queue behind JobDefinition/ScheduleDefinition + withJobContext (see async-jobs)
+    list-query/      ListQuery contract: types, URL codec, Prisma where/orderBy/distinct helpers, Zod schema (D20)
     logging/         pino logger
     money/           currency + number formatting (Decimal at the boundary)
     nav/             nav constants + role filter
@@ -24,7 +25,7 @@ src/
     storage/         blob storage adapter + file validation
     stores/          tenant-scoped Zustand store factory
     test-utils/      shared test helpers
-    ui/              DataTable, providers, confirm dialog, company avatar; ui/shell = sidebar + tenant switcher
+    ui/              ui/data-table (DataTable + typed header filters + useListQuery), ui/shell (sidebar, topbar, page archetypes), providers, confirm dialog, company avatar; legacy-data-table until documents migrate
   modules/<m>/       one feature module each
     index.ts                 SERVER surface: types, queries, services, actions, jobs — the only server import path from outside
     ui.ts                    CLIENT surface: components, actions, types — importable from pages and client components; stores stay internal
@@ -43,7 +44,7 @@ src/
 prisma/schema/<m>.prisma   the module's models (one folder, Prisma multi-file schema) — see prisma/schema/README.md
 ```
 
-Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
+Modules today: `partners` (the reference slice — see [[partners]]), `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
 
 ## Rules enforced now (3a)
 - `kernel/*` never imports `modules/*` or `app/*`.
@@ -63,7 +64,7 @@ Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settin
 - Only `src/modules/linking` writes the `links` table (guard); modules expose a `Linkable` and register it in `linking/linkables.ts`.
 
 ## Rules arriving with the next moves
-- **Reference slice (item 6)** — real `queries.ts` implementations (`ListQuery`, distinct values for DataTable headers) and the final file naming for single-entity modules (`service.ts` / `actions.ts`); until then `<entity>.ts` / `<entity>.actions.ts` stands.
+- Settled by the reference slice (item 6): `queries.ts` holds the module's `COLUMNS` + `list/distinct/dateHierarchy`; file naming stays `<entity>.ts` / `<entity>.actions.ts` (one entity per module is the common case and the name says what it is).
 
 ## Where did it go? (v2 → 3a)
 

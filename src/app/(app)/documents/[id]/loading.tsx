@@ -1,6 +1,6 @@
 export default function DocumentDetailLoading() {
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="p-4 md:p-6">
       <div className="mb-4 h-6 w-48 animate-pulse rounded bg-muted" />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Left pane — preview skeleton */}

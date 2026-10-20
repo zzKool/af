@@ -2,7 +2,41 @@
 
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
+import { listQuerySchema } from "@/kernel/list-query/schema";
 import * as partnerService from "@/modules/partners/partners";
+import {
+  distinctPartnerValues,
+  PARTNER_COLUMN_KEYS,
+  type PartnerColumn,
+  partnerDateHierarchy,
+} from "@/modules/partners/queries";
+
+const partnerColumnSchema = z
+  .string()
+  .refine(
+    (c): c is PartnerColumn => (PARTNER_COLUMN_KEYS as string[]).includes(c),
+    "unknown column",
+  );
+
+/** Distinct values with counts for a header filter (Excel semantics: the other filters apply). */
+export const distinctPartnersAction = ownerAction
+  .schema(z.object({ column: partnerColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "distinctPartners" })
+  .action(async ({ ctx, parsedInput }) => {
+    return {
+      data: await distinctPartnerValues(ctx.tx, parsedInput.column, parsedInput.query),
+    };
+  });
+
+/** Year → month → day counts for a date column's header filter. */
+export const partnerDateHierarchyAction = ownerAction
+  .schema(z.object({ column: partnerColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "partnerDateHierarchy" })
+  .action(async ({ ctx, parsedInput }) => {
+    return {
+      data: await partnerDateHierarchy(ctx.tx, parsedInput.column, parsedInput.query),
+    };
+  });
 
 /**
  * Get all partners for the tenant — owner only.

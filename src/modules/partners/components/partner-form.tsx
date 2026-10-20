@@ -33,6 +33,7 @@ type ExternalIdentifier = { label: string; value: string };
 export type PartnerData = {
   id: string;
   name: string;
+  shortCode?: string | null;
   orgNumber: string | null;
   vatNumber: string | null;
   types: string[];
@@ -69,6 +70,7 @@ export function PartnerForm({
   onNameSaved,
 }: PartnerFormProps) {
   const [name, setName] = useState(partner.name);
+  const [shortCode, setShortCode] = useState(partner.shortCode ?? "");
   const [orgNumber, setOrgNumber] = useState(partner.orgNumber ?? "");
   const [vatNumber, setVatNumber] = useState(partner.vatNumber ?? "");
   const [types, setTypes] = useState<string[]>(partner.types);
@@ -254,6 +256,18 @@ export function PartnerForm({
                 </label>
               ))}
             </div>
+          </div>
+          <div>
+            <Label htmlFor="shortCode">Short code</Label>
+            <Input
+              id="shortCode"
+              value={shortCode}
+              maxLength={6}
+              placeholder="VA — invoice numbers become VA26-001"
+              className="uppercase"
+              onChange={(e) => setShortCode(e.target.value.toUpperCase())}
+              onBlur={() => handleBlur("shortCode", shortCode, partner.shortCode ?? null)}
+            />
           </div>
           <div>
             <Label htmlFor="orgNumber">Org Number</Label>

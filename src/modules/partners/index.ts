@@ -16,8 +16,10 @@ export {
 export {
   createPartnerAction,
   deactivatePartnerAction,
+  distinctPartnersAction,
   getPartnerAction,
   getPartnersAction,
+  partnerDateHierarchyAction,
   reactivatePartnerAction,
   searchPartnersAction,
   updatePartnerAction,

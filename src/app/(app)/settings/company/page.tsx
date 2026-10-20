@@ -15,7 +15,7 @@ export default async function CompanySettingsPage() {
   if (!profile) redirect("/login");
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="p-4 md:p-6">
       <h1 className="mb-6 text-2xl font-semibold">Company Profile</h1>
       <CompanyProfileForm
         initialData={{
