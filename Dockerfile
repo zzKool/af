@@ -12,10 +12,14 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-# Stage 3: Production runtime
+# Stage 3: Production runtime — the one image: Next.js + pg-boss worker + Chromium (constitution §1.9, §3.6)
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Chromium for kernel/pdf (invoices, statements, package summary). Fonts: DejaVu + Noto for sv/fr/de glyphs.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-dejavu font-noto \
+    && rm -rf /var/cache/apk/*
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public

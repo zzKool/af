@@ -47,6 +47,7 @@
     "pg-boss": "^12.38.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "playwright-core": "1.58",
     "prisma": "^7.4.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
