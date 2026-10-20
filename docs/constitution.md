@@ -41,7 +41,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - `modules/<a>` imports `kernel/*` and `modules/<b>` (index) or `modules/<b>/ui` only. Never another module's internals. *(enforced since 3b)*
 - `modules/*/service.ts` and `queries.ts` never import `next/*`, `react`, or `components/*`.
 - `app/*` and `components/*` never import `service.ts` directly: reads go through `queries.ts`, writes through `actions.ts`.
-- Role and permission checks happen only through `kernel/auth/can()`. No `role === 'owner'` anywhere else.
+- Role and permission checks happen only through `kernel/auth/can()` (`can`, `canRole`, `isTenantAdmin`, `requireCaller`). No `role === 'owner'` anywhere else. *(enforced since 4.2)*
 - Azure SDKs appear only inside `kernel/storage` and `kernel/ocr`.
 - `.toNumber()` on a Decimal appears only in `components/*` (display boundary). Lint rule.
 

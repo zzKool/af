@@ -1,22 +1,12 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { createAuditEntry } from "@/kernel/audit/audit";
-import { getAuthContext } from "@/kernel/auth/auth";
+import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import * as prefixService from "@/modules/documents";
 import { DocumentTypePrefixesTab } from "@/modules/documents/ui";
 
 export default async function DocumentPrefixesSettingsPage() {
-  const hdrs = await headers();
-  const auth = await getAuthContext(hdrs);
-  if (!auth?.tenantId) redirect("/login");
-
-  // Owner-only access — enforce RBAC server-side
-  const member = await prisma.member.findFirst({
-    where: { userId: auth.userId, organizationId: auth.tenantId },
-  });
-  if (member?.role !== "owner") redirect("/dashboard");
+  const auth = await requireCaller({ action: "manage", subject: "tenant_settings" });
 
   const tenantId = auth.tenantId;
   const callerIdentity = {

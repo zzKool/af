@@ -1,10 +1,8 @@
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAuthContext } from "@/kernel/auth/auth";
+import { requireCaller } from "@/kernel/auth/caller";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
-import { prisma } from "@/kernel/db/client";
+import { can } from "@/kernel/auth/can";
 
 type TabConfig = {
   value: string;
@@ -51,17 +49,11 @@ const SETTINGS_TABS: TabConfig[] = [
 ];
 
 export default async function SettingsPage() {
-  const hdrs = await headers();
-  const auth = await getAuthContext(hdrs);
-  if (!auth?.tenantId) redirect("/login");
-
-  const member = await prisma.member.findFirst({
-    where: { userId: auth.userId, organizationId: auth.tenantId },
-  });
-  const role: CallerIdentity["role"] = member?.role === "owner" ? "owner" : "accountant";
+  const caller = await requireCaller();
+  const role = caller.role;
 
   const visibleTabs = SETTINGS_TABS.filter((tab) => tab.roles.includes(role));
-  const defaultTab = role === "owner" ? "company" : "my-preferences";
+  const defaultTab = can(caller, "manage", "tenant_settings") ? "company" : "my-preferences";
 
   return (
     <div className="mx-auto max-w-3xl p-6">

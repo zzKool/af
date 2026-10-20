@@ -11,6 +11,7 @@ import { tenantMiddleware } from "@/kernel/actions/tenant";
 import { createAuditEntry } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { isTenantAdmin } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
 import { logger } from "@/kernel/logging/logger";
@@ -105,7 +106,7 @@ const ownerRoleMiddleware = createMiddleware<{
   serverError: AppError;
   ctx: { callerIdentity: { role: string } };
 }>().define(async ({ ctx, next }) => {
-  if (ctx.callerIdentity.role !== "owner") {
+  if (!isTenantAdmin(ctx.callerIdentity as CallerIdentity)) {
     throw new ActionError({
       code: "FORBIDDEN",
       message: "Requires owner role",

@@ -10,6 +10,7 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 - [[phase-0]] — Status board of the organisation work before the first business feature
 - [[feature-folders]] — The kernel / modules layout (3a): what lives where, rules enforced now, v2 → 3a path map
 - [[linking]] — The single link table (3c): kinds matrix, invariants in service and database, how a module becomes linkable
+- [[authorization]] — `can()` and the role table (4.2): roles, actions, subjects, where checks live
 
 ## Architecture
 
@@ -47,7 +48,7 @@ Environment setup, settings, and deployment configuration.
 - [[project-scaffold]] — Tech stack, development commands, project structure
 - [[local-environment-setup]] — Prerequisites, quick start, and service verification
 - [[environment-variables]] — Required env vars and their purpose
-- [[docker-compose]] — Local development services (PostgreSQL, Azurite)
+- [[docker-compose]] — Local development services (PostgreSQL, Azurite); `docker-compose.prod.yml` + `scripts/backup.sh` for the prod-like stack (4.5)
 - [[deployment]] — Azure Container Apps deployment patterns
 - [[ci-cd]] — CI/CD pipeline, Docker, E2E testing, and recovery runbook
 

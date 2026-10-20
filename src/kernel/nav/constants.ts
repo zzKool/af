@@ -63,8 +63,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
  * Both roles land on /dashboard for now; future: accountant → /periods.
  */
 export const ROLE_LANDING_PAGE: Record<CallerIdentity["role"], string> = {
+  superadmin: "/dashboard",
   owner: "/dashboard",
   accountant: "/dashboard",
+  editor: "/dashboard",
 };
 
 // Currency

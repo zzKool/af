@@ -1,11 +1,10 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createAuditEntry } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
-import { getAuthContext } from "@/kernel/auth/auth";
+import { requireCaller } from "@/kernel/auth/caller";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import type { DocumentFilters, DocumentSort } from "@/modules/documents";
@@ -30,7 +29,7 @@ async function DocumentsContent({
   role,
   caller,
 }: {
-  role: "owner" | "accountant";
+  role: CallerIdentity["role"];
   caller: CallerIdentity;
 }) {
   // table_preferences is user-scoped (no RLS) — fetch outside tenant transaction (AD3)
@@ -74,25 +73,14 @@ async function DocumentsContent({
 }
 
 export default async function DocumentsPage() {
-  const hdrs = await headers();
-  const auth = await getAuthContext(hdrs);
-  if (!auth?.tenantId) redirect("/login");
-
-  const member = await prisma.member.findFirst({
-    where: { userId: auth.userId, organizationId: auth.tenantId },
-  });
-  const role: CallerIdentity["role"] = member?.role === "owner" ? "owner" : "accountant";
-
-  const caller: CallerIdentity = {
-    userId: auth.userId,
-    tenantId: auth.tenantId,
-    role,
-    source: "web",
-  };
+  const caller = await requireCaller();
+  const auth = caller;
+  const role = caller.role;
+  const canUpload = can(caller, "create", "financial_document");
 
   // Load upload zone prefixes (owner only)
   let prefixOptions: { documentType: string; prefix: string }[] = [];
-  if (role === "owner") {
+  if (canUpload) {
     const { prefixes } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
       const audit: AuditLogger = {
         log: async (params) => {
@@ -113,7 +101,7 @@ export default async function DocumentsPage() {
       <h1 className="mb-6 text-2xl font-semibold">Documents</h1>
 
       {/* Upload zone — owner only (AC #8) */}
-      {role === "owner" && <DocumentUploadZone prefixOptions={prefixOptions} />}
+      {canUpload && <DocumentUploadZone prefixOptions={prefixOptions} />}
 
       <div className="mt-8">
         <Suspense fallback={<DocumentsLoading />}>

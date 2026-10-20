@@ -31,10 +31,10 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] 3d `queries.ts` per module as the named read API; pages import surfaces only (PR #3). Real query implementations (`ListQuery`, distinct values) come with the reference slice (item 6/8)
 - [ ] **4. Kernel changes**
   - [ ] Inngest → pg-boss (`kernel/jobs`), resumable handlers, catch-up on startup
-  - [ ] `kernel/auth/can()` with the role map (superadmin, owner, accountant, editor); guard rule
+  - [x] `kernel/auth/can()` with the role table (superadmin, owner, accountant, editor), `requireCaller()` for pages, guard rule — every inline role check replaced (PR #5)
   - [ ] `kernel/pdf`: Chromium in the image, print-mode rendering, one Dockerfile stage
   - [ ] `number_series` + fixed business-key functions; remove `DocumentTypePrefix` + settings page
-  - [ ] `docker-compose.prod.yml` (same image, no bind mounts) + backup script
+  - [x] `docker-compose.prod.yml` (same image, no bind mounts, `.env.prod`) + `scripts/backup.sh` (PR #5)
 - [ ] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6
 - [ ] **6. Reference slice**: rebuild `partners` in the module layout by hand → extract `module-slice` skill
 - [ ] **7. Verify gate wired**: CI + screenshot step + flaky quarantine; first PR through the full gate

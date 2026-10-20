@@ -1,0 +1,57 @@
+# Prod-like stack (constitution §3.3): the SAME image that runs on Azure, no bind mounts, real secrets from .env.prod.
+# Use on the homelab as the real production, or locally to prove "if it runs here it runs on Azure".
+#
+#   cp .env.prod.example .env.prod   # fill secrets
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml exec app npx prisma migrate deploy   # first run and after each release
+#   ./scripts/backup.sh               # nightly via cron; see scripts/backup.sh
+#
+# Differences from docker-compose.yml (dev): one database, app built from the Dockerfile, no ports published
+# except the app, Azurite kept as blob storage until Azure Blob is used (switch = change two env vars).
+services:
+  app:
+    build: .
+    image: af:latest
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-af}
+      POSTGRES_USER: ${POSTGRES_USER:-af}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-af}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck --loose
+    restart: unless-stopped
+    volumes:
+      - blobdata:/data
+
+volumes:
+  pgdata:
+  blobdata:
