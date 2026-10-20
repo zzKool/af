@@ -118,6 +118,15 @@ export async function createLink(
     return { error: violation(`Link kind '${kind}' does not accept ${from.type} → ${to.type}`) };
   }
 
+  // Pre-check the unique tuple: a constraint violation would abort the surrounding Postgres transaction.
+  const duplicate = await tx.link.findFirst({
+    where: { fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, kind },
+    select: { id: true },
+  });
+  if (duplicate) {
+    return { error: { code: "DUPLICATE_ENTRY", message: "This link already exists", retryable: false } };
+  }
+
   const fromLinkable = getLinkable(from.type);
   const toLinkable = getLinkable(to.type);
   if (!fromLinkable || !toLinkable) {
