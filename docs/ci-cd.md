@@ -1,4 +1,4 @@
-> **Policy since phase-0 (2026-10-20):** pull requests run lint, typecheck, unit tests and the production build (~3–4 min). E2E runs on every push to `main` and on manual dispatch (`workflow_dispatch`); a red E2E on `main` is fixed forward in the next PR.
+> **Policy since phase-0 (2026-10-20):** pull requests run lint, typecheck, unit tests and the production build (~3–4 min). E2E runs on every push to `main` and on manual dispatch (`workflow_dispatch`); a red E2E on `main` is fixed forward in the next PR. **Images**: `publish.yml` builds the app and migrate images on every push to `main` and every `v*` tag and pushes them to `ghcr.io/zzkool/af` — the homelab and Azure pull, never build ([[deployment]]).
 
 # CI/CD Pipeline
 
@@ -23,7 +23,8 @@ graph LR
 | **unit-test** | Vitest with PostgreSQL 17 service | <2 min |
 | **build** | `next build` with standalone output | <3 min |
 | **e2e** | Playwright against standalone server | <5 min |
-| **deploy** | Azure Container Apps (disabled) | N/A |
+| **publish** (`publish.yml`, main + tags) | `docker build` of the `runner` and `migrate` stages → `ghcr.io/zzkool/af:{main,sha-…,v…}` | <6 min (layer cache) |
+| **deploy** | Azure Container Apps (disabled until provisioned; [[deployment]]) | N/A |
 
 **Triggers:** Every push to `develop` and every PR targeting `develop`. Pushes that only change `.md`, `docs/`, or `_bmad*/` files are skipped (`paths-ignore`).
 

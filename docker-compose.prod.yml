@@ -1,34 +1,51 @@
-# Prod-like stack (constitution §3.3): the SAME image that runs on Azure, no bind mounts, real secrets from .env.prod.
-# Use on the homelab as the real production, or locally to prove "if it runs here it runs on Azure".
+# The production stack (constitution §1.8, §3.3): the SAME images that run on Azure, no bind mounts, secrets from
+# .env.prod. The homelab runs this as production; locally it proves "if it runs here it runs on Azure".
 #
-#   cp .env.prod.example .env.prod   # fill secrets
-#   docker compose -f docker-compose.prod.yml up -d --build
-#   docker compose -f docker-compose.prod.yml exec app npx prisma migrate deploy   # first run and after each release
-#   ./scripts/backup.sh               # nightly via cron; see scripts/backup.sh
+#   cp .env.prod.example .env.prod          # fill the secrets
+#   docker compose -f docker-compose.prod.yml pull        # the images CI published (ghcr.io/zzkool/af)
+#   docker compose -f docker-compose.prod.yml up -d       # migrate runs first, then the app
+#   ./scripts/backup.sh                                   # nightly via cron; ./scripts/restore.sh to test a backup
 #
-# Differences from docker-compose.yml (dev): one database, app built from the Dockerfile, no ports published
-# except the app, Azurite kept as blob storage until Azure Blob is used (switch = change two env vars).
+# Update = `AF_TAG=<sha-or-tag> docker compose -f docker-compose.prod.yml pull && … up -d` (docs/deployment.md).
+# Build locally instead of pulling: `docker compose -f docker-compose.prod.yml build` (the same Dockerfile).
+#
+# Differences from docker-compose.yml (dev): one database, the published images, no ports published except the
+# app, Azurite kept as blob storage until Azure Blob is used (switch = change two env vars).
 services:
+  migrate:
+    image: ${AF_IMAGE:-ghcr.io/zzkool/af}-migrate:${AF_TAG:-main}
+    build:
+      context: .
+      target: migrate
+    env_file: .env.prod
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
   app:
-    build: .
-    image: af:latest
+    image: ${AF_IMAGE:-ghcr.io/zzkool/af}:${AF_TAG:-main}
+    build:
+      context: .
+      target: runner
     restart: unless-stopped
     env_file: .env.prod
     environment:
       NODE_ENV: production
       PORT: "3000"
     ports:
-      - "3000:3000"
+      - "${AF_PORT:-3000}:3000"
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       azurite:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 20s
 
   db:
     image: postgres:17

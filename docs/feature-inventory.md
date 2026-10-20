@@ -302,7 +302,7 @@ Time tracking and `Project` budgets, `PriceList` family, `ServiceCatalog`, `Pric
 | Storage | Azure Blob | Azure Blob + Azurite, blob proxy | v2 |
 | UI kit | shadcn, TanStack Table, `advanced-table` filters | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider`, centred pages | v2 kit + v1 filter behaviour (H13); full-width layout (D19); i18n keys from day one (en, fr; sv later) |
 | Testing | Jest + 129 e2e | Vitest co-located + Playwright + architecture guard + factories | v2 + flaky-test quarantine + property tests on money and allocations |
-| CI / deploy | GH Actions, App Service, SQL Server | GH Actions with Azurite e2e, Docker, Container Apps | v2 (+ Chromium in the image) |
+| CI / deploy | GH Actions, App Service, SQL Server | GH Actions with Azurite e2e, Docker, Container Apps | v2 (+ Chromium in the image). **Since 2026-10-20**: CI publishes the app image and a one-shot migrate image to `ghcr.io` on every main push; the homelab pulls by tag (`docker-compose.prod.yml`), backups + restore drill, `/api/health`; the Azure job is written, disabled until provisioned — `docs/deployment.md` |
 | Docs | large plan documents | `docs/index.md` wiki per pattern | v2 convention + spec-kit specs |
 | Observability | logger | pino + Sentry, request context partly deferred | v2 |
 
