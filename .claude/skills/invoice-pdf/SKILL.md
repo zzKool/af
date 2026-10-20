@@ -9,7 +9,7 @@ Decisions: D5, D7, D12 in `docs/feature-inventory.md`. Business fields: `docs/ex
 
 ## One component, two modes
 - `<InvoiceSheet mode="edit" | "print" />` renders the **same layout**. Edit mode places inputs inline where the values sit (invoice-generator.com style); print mode renders values only.
-- The PDF is Chromium printing the print mode at `/print/invoice/[id]` (server-rendered, no client JS needed). `kernel/pdf` owns the browser; modules only provide a route.
+- The PDF is Chromium printing the print mode at `/print/invoice/[id]` (server-rendered, no client JS needed). `kernel/pdf` owns the browser; modules only provide a route: the page calls `requirePrintCaller(searchParams, "/print/invoice/" + id)` (kernel/auth) and the issuing service calls `renderPathToPdf("/print/invoice/" + id, caller)` from a job or `onCommit`. Print CSS (`@page { size: A4 }`, page breaks) lives with the component. See `docs/pdf.md`.
 - What you see in edit mode is what the PDF shows. No second template. Ever.
 
 ## Lifecycle

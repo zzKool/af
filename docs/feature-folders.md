@@ -20,6 +20,7 @@ src/
     money/           currency + number formatting (Decimal at the boundary)
     nav/             nav constants + role filter
     ocr/             Azure Document Intelligence adapter (+ fixtures)
+    pdf/             Chromium renderer (playwright-core) + print tokens — see pdf
     storage/         blob storage adapter + file validation
     stores/          tenant-scoped Zustand store factory
     test-utils/      shared test helpers

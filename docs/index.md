@@ -90,4 +90,5 @@ Backend service documentation and API contracts.
 - [[auto-save-pattern]] — Comprehensive auto-save form pattern reference (8 edge cases)
 - [[blob-storage]] — Azure Blob Storage service, Azurite setup, test patterns
 - [[async-jobs]] — pg-boss in-process queue (D17): JobDefinition, withJobContext, retries + dead letter, schedules with catch-up, pgboss schema migration
+- [[pdf]] — kernel/pdf: Chromium in the image, print routes + print tokens, renderPathToPdf / renderHtmlToPdf
 - [[ocr-processing]] — OCR service interface, Azure DI integration, resumable process-document job, quality classification

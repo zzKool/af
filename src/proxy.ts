@@ -10,5 +10,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|login|register|favicon.ico).*)"],
+  // /print/* is opened by the PDF renderer with a print token (kernel/pdf), never by a session.
+  matcher: ["/((?!api|_next/static|_next/image|login|register|favicon.ico|print/).*)"],
 };
