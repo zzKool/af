@@ -6,7 +6,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 - [x] Feature inventory v1 ∪ v2 ∪ PRD ∪ Excel → `docs/feature-inventory.md` (decisions D1–D18)
 - [x] Excel business rules mapped → `docs/excel-to-v3-mapping.md`
 - [x] Linking design: single `link` table, registered linkables, invariants in DB + service, read models on top
-- [x] Hosting: one image + Postgres + blob + OCR; local first, Azure Container Apps (scale to zero) later; ~€17–20/month
+- [x] Hosting: one image + Postgres + blob + OCR; local first, Azure Container Apps (scale to zero) later; ~€17–20/month — **the images are published by CI since 2026-10-20** (`ghcr.io/zzkool/af` + the one-shot migrate image), the homelab runbook, backups + the restore drill and `/api/health` are in `docs/deployment.md`
 - [x] Constitution v1 → `docs/constitution.md`; agent context → `CLAUDE.md`
 - [x] UI direction: full-width layout + Excel-style DataTable → `docs/ui-conventions.md` (D19, D20, H13)
 - [x] Repo seeded from `defterfab` `develop` (history kept, `main` = v2 develop, BMAD stripped, CI on `main`, remote `defter` as read-only reference)

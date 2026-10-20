@@ -48,8 +48,7 @@ Environment setup, settings, and deployment configuration.
 - [[project-scaffold]] — Tech stack, development commands, project structure
 - [[local-environment-setup]] — Prerequisites, quick start, and service verification
 - [[environment-variables]] — Required env vars and their purpose
-- [[docker-compose]] — Local development services (PostgreSQL, Azurite); `docker-compose.prod.yml` + `scripts/backup.sh` for the prod-like stack (4.5)
-- [[deployment]] — Azure Container Apps deployment patterns
+- [[deployment]] — the runbook: the images CI publishes (app + one-shot migrate), the homelab stack (`docker-compose.prod.yml`, update by tag, Caddy for TLS), backups and the restore drill, `/api/health`, the Azure path (scale to zero, ≈ €17–20)
 - [[ci-cd]] — CI/CD pipeline, Docker, E2E testing, and recovery runbook
 
 ## Pages

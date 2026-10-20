@@ -1,0 +1,14 @@
+# TLS and the public name in front of the stack (docs/deployment.md). Caddy gets the certificate from Let's
+# Encrypt by itself; AUTH_URL in .env.prod must be this address.
+#
+#   docker run -d --name caddy --restart unless-stopped --network host \
+#     -v $PWD/deploy/Caddyfile:/etc/caddy/Caddyfile -v caddy_data:/data caddy:2
+af.example.com {
+    reverse_proxy 127.0.0.1:3000
+    encode gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
