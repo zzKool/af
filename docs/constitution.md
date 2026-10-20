@@ -48,7 +48,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 ### Module contract
 - Two public surfaces, because Next.js bundles server and client code differently:
   - `index.ts` — **server surface**: DTO types, `queries.ts` (read API), services (writes, schemas, helpers), actions, jobs. Never imported from a client component.
-  - `ui.ts` — **client surface**: components, stores, actions (client-safe references), DTO types. Never re-exports services.
+  - `ui.ts` — **client surface**: components, actions (client-safe references), DTO types. Never re-exports services or stores (hooks stay module-internal; a server page may import `ui.ts`).
   Outside the module only `@/modules/<m>` and `@/modules/<m>/ui` may be imported (guard-enforced).
 - DTOs are plain types in `types.ts`, never Prisma types; Prisma rows are mapped (`toPartnerDto`) before they leave the module. Money crosses as a decimal string; dates stay `Date` on the server surface and are serialised at the page boundary.
 - `queries.ts` names the module's read API. Pages and other modules read through it (via `index.ts`); writes go through actions → services.

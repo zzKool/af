@@ -157,7 +157,7 @@ describe("Architecture guard: module surfaces (3b)", () => {
     }
   });
 
-  test("every module has index.ts and ui.ts; ui exports only components/stores/types; index never exports components", () => {
+  test("every module has index.ts and ui.ts; ui exports only components/actions/types; index never exports components", () => {
     const modules = readdirSync("src/modules", { withFileTypes: true })
       .filter((e) => e.isDirectory())
       .map((e) => e.name);
@@ -169,8 +169,8 @@ describe("Architecture guard: module surfaces (3b)", () => {
       expect(existsSync(ui), `${ui} missing`).toBe(true);
       for (const spec of imports(readFileSync(ui, "utf-8"))) {
         expect(
-          /^\.\/(components|stores)\/|^\.\/types$|\.actions$/.test(spec),
-          `${ui} exports ${spec} — ui.ts may only export components, stores, actions and types`,
+          /^\.\/components\/|^\.\/types$|\.actions$/.test(spec),
+          `${ui} exports ${spec} — ui.ts may only export components, actions and types (stores stay internal)`,
         ).toBe(true);
       }
       for (const spec of imports(readFileSync(index, "utf-8"))) {

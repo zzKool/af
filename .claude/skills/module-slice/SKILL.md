@@ -23,7 +23,7 @@ src/modules/<name>/
   linkable.ts          optional: { type, exists, summary, amount } registered with modules/linking   (from 3c)
   types.ts             DTOs — plain types, never Prisma; mappers (toXDto) next to the service
   index.ts             SERVER surface: types, queries, services, actions, jobs, linkable
-  ui.ts                CLIENT surface: components, stores, actions, types
+  ui.ts                CLIENT surface: components, actions, types (stores stay internal)
 docs/<name>.md         what the module does, decisions, how to extend
 specs/<name>/          spec.md, plan.md, tasks.md (spec-kit)
 e2e/<name>.spec.ts     Playwright happy path

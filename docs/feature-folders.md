@@ -26,7 +26,7 @@ src/
     ui/              DataTable, providers, confirm dialog, company avatar; ui/shell = sidebar + tenant switcher
   modules/<m>/       one feature module each
     index.ts                 SERVER surface: types, queries, services, actions, jobs — the only server import path from outside
-    ui.ts                    CLIENT surface: components, stores, actions, types — safe in client components
+    ui.ts                    CLIENT surface: components, actions, types — importable from pages and client components; stores stay internal
     types.ts                 DTOs (plain types, never Prisma); mappers live next to the service
     queries.ts               the module's read API (named re-exports today; real query implementations with the reference slice)
     <entity>.ts              service (framework-free; tx + CallerIdentity → ServiceResult)
@@ -54,7 +54,7 @@ Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settin
 ## Rules enforced since 3b / 3d
 - Outside a module, only `@/modules/<m>` (server) or `@/modules/<m>/ui` (client) is imported — pages included.
 - A file with `"use client"` never imports a server surface.
-- `ui.ts` exports only `components/`, `stores/`, `*.actions` and `types`; `index.ts` never exports components; `index.ts`, `ui.ts`, `types.ts` never mention `@/generated/prisma`.
+- `ui.ts` exports only `components/`, `*.actions` and `types` (never stores — hooks would enter the server graph of a page importing it); `index.ts` never exports components; `index.ts`, `ui.ts`, `types.ts` never mention `@/generated/prisma`.
 - Service functions that return rows return DTOs (`PartnerDto`, `ContractDto`, …), mapped inside the module.
 - Actions are `<verb><Entity>Action`; v2's unsuffixed actions were renamed in 3b.
 
