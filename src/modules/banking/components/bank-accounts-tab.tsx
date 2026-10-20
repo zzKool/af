@@ -40,6 +40,8 @@ type BankAccount = {
   id: string;
   accountAlias: string | null;
   accountNumber: string;
+  iban: string | null;
+  bic: string | null;
   currency: string;
   bankFormatId: string;
   bankFormat: BankFormat;
@@ -112,6 +114,8 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
             accountNumber: input.accountNumber,
             currency: input.currency,
             bankFormatId: input.bankFormatId,
+            iban: null,
+            bic: null,
             bankFormat: format,
           },
         ]);
@@ -126,7 +130,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
   const handleUpdateField = useCallback(
     async (
       id: string,
-      field: "accountAlias" | "accountNumber" | "currency" | "bankFormatId",
+      field: "accountAlias" | "accountNumber" | "currency" | "bankFormatId" | "iban" | "bic",
       value: string | null,
     ) => {
       const account = accountsRef.current.find((a) => a.id === id);
@@ -262,7 +266,7 @@ function AccountCard({
   bankFormats: BankFormat[];
   onUpdateField: (
     id: string,
-    field: "accountAlias" | "accountNumber" | "currency" | "bankFormatId",
+    field: "accountAlias" | "accountNumber" | "currency" | "bankFormatId" | "iban" | "bic",
     value: string | null,
   ) => void;
   onDelete: (id: string) => void;
@@ -270,6 +274,8 @@ function AccountCard({
 }) {
   const [localAlias, setLocalAlias] = useState(account.accountAlias ?? "");
   const [localAccountNumber, setLocalAccountNumber] = useState(account.accountNumber);
+  const [localIban, setLocalIban] = useState(account.iban ?? "");
+  const [localBic, setLocalBic] = useState(account.bic ?? "");
 
   // Sync when props change (e.g., after server response)
   useEffect(() => {
@@ -339,6 +345,40 @@ function AccountCard({
             onChange={(e) => setLocalAccountNumber(e.target.value)}
             onBlur={() => onUpdateField(account.id, "accountNumber", localAccountNumber)}
             className="h-8 text-sm"
+          />
+        </div>
+
+        {/* IBAN / BIC — printed in the invoice payment box for this currency */}
+        <div>
+          <label
+            htmlFor={`ba-iban-${account.id}`}
+            className="text-[10px] text-muted-foreground uppercase"
+          >
+            IBAN (printed on invoices)
+          </label>
+          <Input
+            id={`ba-iban-${account.id}`}
+            value={localIban}
+            onChange={(e) => setLocalIban(e.target.value.toUpperCase())}
+            onBlur={() => onUpdateField(account.id, "iban", localIban.replace(/\s+/g, "") || null)}
+            placeholder="SE00 0000 0000 0000 0000 0000"
+            className="h-8 text-sm font-mono"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor={`ba-bic-${account.id}`}
+            className="text-[10px] text-muted-foreground uppercase"
+          >
+            BIC / SWIFT
+          </label>
+          <Input
+            id={`ba-bic-${account.id}`}
+            value={localBic}
+            onChange={(e) => setLocalBic(e.target.value.toUpperCase())}
+            onBlur={() => onUpdateField(account.id, "bic", localBic || null)}
+            placeholder="NDEASESS"
+            className="h-8 text-sm font-mono"
           />
         </div>
 

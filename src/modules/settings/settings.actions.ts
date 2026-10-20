@@ -8,6 +8,9 @@ const updateProfileSchema = z.object({
   name: z.string().min(1).optional(),
   orgNumber: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  email: z.string().trim().email().max(254).optional().nullable().or(z.literal("")),
+  website: z.string().trim().max(200).optional().nullable(),
+  phone: z.string().trim().max(30).optional().nullable(),
   currency: z.enum(["SEK", "CHF", "EUR", "USD"]).optional(),
 });
 

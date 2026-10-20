@@ -169,6 +169,68 @@ export async function uploadDocument(
   };
 }
 
+/**
+ * Store a document the app itself produced (an issued invoice's PDF, a reimbursement statement): no OCR, no
+ * review — status `generated`, business key given by the producing module (`InvoiceAF_VA26-001.pdf`), kind
+ * `financial`. Same blob path convention and audit as an upload; the bytes are already trusted.
+ */
+export async function storeGeneratedDocument(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  storage: StorageService,
+  input: {
+    bytes: Buffer;
+    businessKey: string;
+    fileName: string;
+    mimeType: "application/pdf";
+    prefixType: string;
+  },
+): Promise<ServiceResult<{ id: string; businessKey: string; fileName: string }>> {
+  const ext = input.mimeType === "application/pdf" ? "pdf" : "bin";
+  const blobPath = `${caller.tenantId}/${randomUUID()}.${ext}`;
+  if (!containerEnsured) {
+    await storage.ensureContainer();
+    containerEnsured = true;
+  }
+  let blobUrl: string;
+  try {
+    blobUrl = await storage.uploadBlob(blobPath, input.bytes, input.mimeType, {
+      contentDisposition: "attachment",
+    });
+  } catch {
+    return {
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "File storage temporarily unavailable",
+        retryable: true,
+      },
+    };
+  }
+  const record = await tx.document.create({
+    data: {
+      tenantId: caller.tenantId,
+      businessKey: input.businessKey,
+      fileName: input.fileName,
+      blobUrl,
+      mimeType: input.mimeType,
+      fileSize: input.bytes.length,
+      prefixType: input.prefixType,
+      documentType: "financial",
+      status: "generated",
+      createdBy: caller.userId,
+      source: caller.source,
+    },
+  });
+  await audit.log({
+    action: "create",
+    entityType: "document",
+    entityId: record.id,
+    newData: toAuditData(record),
+  });
+  return { data: { id: record.id, businessKey: record.businessKey, fileName: record.fileName } };
+}
+
 export async function getDocument(
   tx: TransactionClient,
   documentId: string,
@@ -798,6 +860,18 @@ export async function deleteDocument(
       error: {
         code: "BUSINESS_RULE_VIOLATION",
         message: "Cannot delete — document is linked to a journal entry",
+        retryable: false,
+      },
+    };
+  }
+
+  // A generated document (an issued invoice's PDF) is the proof of an immutable record — it lives as long as
+  // its source does, and the source is never deleted.
+  if (doc.status === "generated") {
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: `Cannot delete — ${doc.businessKey} was generated from an issued document`,
         retryable: false,
       },
     };

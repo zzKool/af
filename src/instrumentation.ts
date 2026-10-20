@@ -15,7 +15,7 @@ export async function register() {
         ]);
       // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted)
       contracts.setRateUsage(invoices.rateUsageFromInvoiceLines);
-      await startJobs([...documentJobs, ...rateJobs], [...rateSchedules]);
+      await startJobs([...documentJobs, ...rateJobs, ...invoices.invoiceJobs], [...rateSchedules]);
     }
   }
 

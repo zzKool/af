@@ -9,7 +9,11 @@ test.describe("Document review page — owner", () => {
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
 
     // Wait for actual data rows (not skeleton rows) by waiting for document links
-    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const docLink = page
+      .locator("table tbody tr")
+      .filter({ hasNot: page.getByText("generated", { exact: true }) })
+      .locator("td a[href^='/documents/']")
+      .first();
     const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (hasDocuments) {
@@ -32,7 +36,12 @@ test.describe("Document review page — owner", () => {
   test("document detail page shows preview and form areas", async ({ page }) => {
     await page.goto("/documents");
 
-    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    // an uploaded document (generated PDFs of issued invoices have no review form)
+    const docLink = page
+      .locator("table tbody tr")
+      .filter({ hasNot: page.getByText("generated", { exact: true }) })
+      .locator("td a[href^='/documents/']")
+      .first();
     const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (hasDocuments) {
@@ -55,7 +64,11 @@ test.describe("Document review page — owner", () => {
   test("document detail page has back navigation", async ({ page }) => {
     await page.goto("/documents");
 
-    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const docLink = page
+      .locator("table tbody tr")
+      .filter({ hasNot: page.getByText("generated", { exact: true }) })
+      .locator("td a[href^='/documents/']")
+      .first();
     const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (hasDocuments) {
@@ -71,7 +84,11 @@ test.describe("Document review page — owner", () => {
   test("document review page passes automated accessibility checks", async ({ page }) => {
     await page.goto("/documents");
 
-    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const docLink = page
+      .locator("table tbody tr")
+      .filter({ hasNot: page.getByText("generated", { exact: true }) })
+      .locator("td a[href^='/documents/']")
+      .first();
     const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (hasDocuments) {
@@ -92,7 +109,11 @@ test.describe("Document review page — owner", () => {
     await page.goto("/documents");
 
     // Wait for table to load (non-skeleton content)
-    const docLink = page.locator("table tbody tr td a[href^='/documents/']").first();
+    const docLink = page
+      .locator("table tbody tr")
+      .filter({ hasNot: page.getByText("generated", { exact: true }) })
+      .locator("td a[href^='/documents/']")
+      .first();
     const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (hasDocuments) {

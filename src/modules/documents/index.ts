@@ -16,6 +16,7 @@ export {
   markDocumentReviewed,
   refreshSignedUrl,
   resolveDocumentData,
+  storeGeneratedDocument,
   updateDocumentCorrections,
   uploadDocument,
 } from "./documents";

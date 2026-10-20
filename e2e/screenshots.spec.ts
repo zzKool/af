@@ -6,6 +6,7 @@ import { test } from "@playwright/test";
 const PAGES: Record<string, string> = {
   dashboard: "/dashboard",
   partners: "/partners",
+  invoices: "/invoices",
   documents: "/documents",
   settings: "/settings",
 };

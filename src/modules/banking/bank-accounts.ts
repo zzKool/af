@@ -39,6 +39,8 @@ export async function getBankAccounts(
       accountNumber: string;
       currency: string;
       bankFormatId: string;
+      iban: string | null;
+      bic: string | null;
       bankFormat: {
         id: string;
         name: string;
@@ -75,6 +77,8 @@ export async function createBankAccount(
     accountNumber: string;
     currency: string;
     bankFormatId: string;
+    iban?: string | null;
+    bic?: string | null;
   },
 ): Promise<ServiceResult<{ id: string }>> {
   // Validate currency is in CURRENCIES constant
@@ -108,6 +112,8 @@ export async function createBankAccount(
         accountNumber: input.accountNumber,
         currency: input.currency,
         bankFormatId: input.bankFormatId,
+        iban: input.iban ?? null,
+        bic: input.bic ?? null,
         createdBy: caller.userId,
         source: caller.source,
       },
@@ -155,6 +161,8 @@ export async function updateBankAccount(
     accountNumber?: string;
     currency?: string;
     bankFormatId?: string;
+    iban?: string | null;
+    bic?: string | null;
   },
 ): Promise<ServiceResult<{ updated: boolean }>> {
   // Validate currency if provided
@@ -200,7 +208,11 @@ export async function updateBankAccount(
     accountNumber?: string;
     currency?: string;
     bankFormatId?: string;
+    iban?: string | null;
+    bic?: string | null;
   } = {};
+  if (input.iban !== undefined) updateData.iban = input.iban;
+  if (input.bic !== undefined) updateData.bic = input.bic;
   if (input.accountAlias !== undefined) updateData.accountAlias = input.accountAlias;
   if (input.accountNumber !== undefined) updateData.accountNumber = input.accountNumber;
   if (input.currency !== undefined) updateData.currency = input.currency;

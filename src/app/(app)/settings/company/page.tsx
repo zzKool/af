@@ -22,6 +22,9 @@ export default async function CompanySettingsPage() {
           name: profile.name,
           orgNumber: profile.orgNumber ?? "",
           address: profile.address ?? "",
+          email: profile.email ?? "",
+          website: profile.website ?? "",
+          phone: profile.phone ?? "",
           currency: profile.currency,
         }}
       />

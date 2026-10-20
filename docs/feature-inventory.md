@@ -166,7 +166,7 @@ Verdict legend: **v2** keep v2 code · **harvest** rebuild on v2 foundation from
 | What | `Invoice` + `InvoiceV2` both live; lines, payments, credit notes, templates, period label, PO / contract / vendor-ID labels, en/fr, approval; `Quote` → invoice; puppeteer HTML templates | not built (Epic 10) |
 | Keeps | quotes → invoices; lines (days × rate, discount); period label; PO number per invoice; partner and contract labelled identifiers printed; VAT per registration (CH 8.1 %, SE moms, reverse charge); credit notes referencing the original; en/fr now, sv later; logo; lifecycle draft → issued → sent → paid / credited; paid amount and delta derived from bank links; CH declaration period on each invoice; PDF downloadable any time |
 | Mechanism | two models → one; 260-line numbering → `number_series` per `{client}{yy}`; separate preview and PDF → one component with edit / print modes, Chromium renders print mode; PDF generated once at issue and stored as a document; templates-of-invoices and approval step dropped; email sending not built (mark as sent) |
-| Status | **Part 1 built 2026-10-20**: model, totals, lifecycle, derived states, list read model — `docs/invoices.md`, `specs/invoices/`. Part 2 (sheet, print, PDF, pages) next. |
+| Status | **Built 2026-10-20** (two PRs): model, totals, lifecycle, derived states, list read model; the one-layout sheet (edit / print), print route, PDF job, pages, en/fr — `docs/invoices.md`, `specs/invoices/`. |
 
 ### 3.6 Supplier invoices — harvest, own module
 

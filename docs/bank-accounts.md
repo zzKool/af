@@ -132,3 +132,7 @@ Follows the same auto-save pattern as [[vat-registrations]] and [[bas-categories
 - [[bas-categories]] — App-level reference data pattern (same immutability approach)
 - [[vat-registrations]] — Tenant CRUD pattern (same auto-save approach)
 - [[config-page-test-template]] — Test structure for config CRUD pages
+
+## IBAN / BIC (2026-10-20)
+
+`bank_accounts.iban` and `bic` (migration `20261021000000_add_print_identity`) are printed in the invoice payment box for the account whose currency matches the invoice ([[invoices]]); both editable in the Bank accounts tab with the same auto-save-on-blur as the alias. Optional — without them the account number prints.

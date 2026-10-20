@@ -9,7 +9,6 @@ export type {
   IssueInput,
   LineInputDto,
   UpdateDraftInput,
-  VatTreatment,
 } from "./invoices";
 export {
   convertQuote,
@@ -22,7 +21,6 @@ export {
   declarationPeriodSchema,
   deleteDraft,
   dueDateFor,
-  isSwissCountry,
   issue,
   issueSchema,
   lineInputSchema,
@@ -31,13 +29,17 @@ export {
   toInvoiceDto,
   updateDraft,
   updateDraftSchema,
-  vatTreatmentFor,
 } from "./invoices";
 export * from "./invoices.actions";
+export type { RenderInvoicePdfData } from "./jobs/render-pdf";
+export { invoiceJobs, printPath, renderInvoicePdfJob } from "./jobs/render-pdf";
 export { invoiceLinkable } from "./linkable";
 export * from "./queries";
 export { rateUsageFromInvoiceLines } from "./rate-usage";
+export { resolveSheetContext, type SheetContext } from "./sheet-context";
 export type { InvoiceTotals, LineInput, LineTotals } from "./totals";
 export { formatVatPercent, invoiceTotals, lineTotals, TotalsError } from "./totals";
 export type * from "./types";
 export { INVOICE_STATES, INVOICE_STATUSES, INVOICE_TYPES } from "./types";
+export type { Registration, VatTreatment } from "./vat-treatment";
+export { isSwissCountry, registrationRates, vatTreatmentFor } from "./vat-treatment";
