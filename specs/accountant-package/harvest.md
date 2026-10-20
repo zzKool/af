@@ -67,7 +67,7 @@ New feature; nothing from v1 survives. Depends on: banking (imports, transfer pa
 
 ## 9. Open questions for the owner
 
-> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (D-b, D-i → D31). The questions below are kept as the record of what was asked.
+> **Answered 2026-10-20** — the owner's answers and the resulting decisions are in `docs/open-questions.md` (D-b, D-i → D31). The questions below are kept as the record of what was asked.
 1. Does the accountant want the summary as `.xlsx` only, or also a PDF print of it? (Spec assumes xlsx only; PDF is one more print route if wanted.)
 2. Invoices issued in June but paid in July: appear in June (issued) and again in July (paid) — is the double appearance fine for the accountant, or only the issue month?
 3. Should the package include the OCR-extracted line items of receipts (as a sheet) — useful for VAT per receipt — or is the receipt PDF enough?

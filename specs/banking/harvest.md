@@ -403,7 +403,7 @@ Payroll, travel-allowance and company-purchase finders (entities gone); `allowCr
 
 ## 9. Open questions for the owner
 
-> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (B7, B8, B9, D-a, D-b → D25, D31). The questions below are kept as the record of what was asked.
+> **Answered 2026-10-20** — the owner's answers and the resulting decisions are in `docs/open-questions.md` (B7, B8, B9, D-a, D-b → D25, D31). The questions below are kept as the record of what was asked.
 
 1. **Transfer-pair sample is inconsistent.** `docs/excel-to-v3-mapping.md` prints −9 093.63 CHF ↔ +131 271.18 SEK at 11.98, but 131 271.18 / 9 093.63 = 14.44. Which figure is right? (The fixtures use 108 941.69 SEK so that 11.98 holds.) Also: what text does Nordea actually put in `Name` / `Additional details` on a currency exchange between the two Plusgiro accounts — needed to write the text hint of §4.7.
 2. **Short-payment tolerance.** v1 only forgave 0.05 CHF / 0.50 SEK. The inventory (§3.13) wants "tolerance for short payments and bank fees" — a foreign bank fee deducted from an incoming CHF payment is 10–30 CHF. Proposal: a short payment is accepted by the owner with one click when `delta ≤ max(0.05 ccy, 0.5 % of the invoice)`; the delta is written to *bank fees* (or *exchange difference* for cross-currency) by the link service, the invoice derives `paid`. Confirm the 0.5 % and the category.

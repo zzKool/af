@@ -179,7 +179,7 @@ What changes, per decision:
 
 ## 9. Open questions for the owner
 
-> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (B5, B6, D-j → D24). The questions below are kept as the record of what was asked.
+> **Answered 2026-10-20** — the owner's answers and the resulting decisions are in `docs/open-questions.md` (B5, B6, D-j → D24). The questions below are kept as the record of what was asked.
 - Q1 Day is the only unit (D11). Confirm there is no hourly or fixed-fee billing anywhere (v1 had HOUR/FIXED/SESSION/KM/MONTH; the migration script only ever mapped Daily/Hourly/Fixed). If a second unit exists, `contract_rate.unit ∈ {day, hour}` is one enum column, nothing else changes.
 - Q2 Switch-day semantics: v1 closed the old rate on the new rate's `validFrom` (both valid that day). v3 proposes close on `valid_from − 1` and reject overlaps. OK?
 - Q3 Rate for a period: proposal = rate valid on `period_start` (first of the month for `2026 January`), split lines when a change falls inside the period. Alternative: rate valid on the invoice date. Which one matches how Vaudoise was invoiced in the past (a January 2026 invoice issued in February at 1 200?).

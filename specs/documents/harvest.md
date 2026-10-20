@@ -249,7 +249,7 @@ Fixtures: `fixtures/duplicate-check-cases.json`, `fixtures/inbox-state-cases.jso
 
 ## 9. Open questions for the owner
 
-> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (B12, D-d → D27, D32). The questions below are kept as the record of what was asked.
+> **Answered 2026-10-20** — the owner's answers and the resulting decisions are in `docs/open-questions.md` (B12, D-d → D27, D32). The questions below are kept as the record of what was asked.
 - Q1 Upload of an identical file: keep v1's `Upload anyway` (second copy, same hash) or forbid and always reuse the existing document? (Proposal: keep `Use existing` as the primary action and allow `Upload anyway` only for the owner; both audited.)
 - Q2 Fuzzy supplier-invoice duplicate: ±1 % amount, ±7 days, same partner, same currency. OK for Vaudoise-scale volumes (a few supplier invoices a month)? Should a recurring subscription (same amount every month, dates 30 days apart) ever be flagged? With 7 days it will not.
 - Q3 OCR quality: v2 shows two levels (high/low); v1 had three (high ≥ 80 %/70 % fields, medium ≥ 50 %/50 %, low). Keep two?

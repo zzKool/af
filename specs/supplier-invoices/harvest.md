@@ -118,7 +118,7 @@ What the Excel does better than v1: the due date as the thing that matters; the 
 
 ## 9. Open questions for the owner
 
-> **Answered 2026-10-20** — the owner\'s answers and the resulting decisions are in `docs/open-questions.md` (B13, D-g → D28). The questions below are kept as the record of what was asked.
+> **Answered 2026-10-20** — the owner's answers and the resulting decisions are in `docs/open-questions.md` (B13, D-g → D28). The questions below are kept as the record of what was asked.
 1. **Business key / folder**: today supplier invoices get an `Ex{group}-Acc-{seq}` key and sit in an expense group in the Excel. In v3 they leave the expense module (D8): keep the `Ex…-Acc-…` key for continuity with the accountant (proposed: yes — the key function is shared, the group is "the month"), or introduce `Si{yy}-{nnn}`?
 2. **Deductible VAT**: for Swiss supplier invoices with MWST, do you reclaim input VAT in the CH declaration (then `vat_registration = CH` must be set and the stored `vat_amount` flows to form ref. 400)? For Swedish invoices, moms is reclaimed via the accountant — confirm `vat_registration = SE` is informational only.
 3. **Cross-currency payment of payables**: do you pay CHF supplier invoices from the CHF account only? If always, the cross-currency allocation (§4.4) can stay implemented but hidden; if not, the exchange-difference category of H8 §9.2 applies here too.
