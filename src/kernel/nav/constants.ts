@@ -87,15 +87,6 @@ export const DEFAULT_VAT_RATE_CH = 7.7;
 export const DEFAULT_VAT_RATE_SE_STR = "25";
 export const DEFAULT_VAT_RATE_CH_STR = "7.7";
 
-// Document-type prefixes — default seed values for new tenants
-export const DEFAULT_DOCUMENT_TYPE_PREFIXES: Record<string, string> = {
-  expense: "exp_",
-  invoice: "inv_",
-  contract: "ctrt_",
-  nda: "nda_",
-  certificate: "cert_",
-};
-
 // Payment terms — machine-readable constants for contract billing
 export const PAYMENT_TERMS = [
   "NET_10",

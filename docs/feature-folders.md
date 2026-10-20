@@ -43,7 +43,7 @@ src/
 prisma/schema/<m>.prisma   the module's models (one folder, Prisma multi-file schema) — see prisma/schema/README.md
 ```
 
-Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]).
+Modules today: `partners`, `contracts`, `documents`, `banking`, `rates`, `settings`, `dashboard`, `linking` (3c — see [[linking]]), `numbering` (4.4 — see [[numbering]]).
 
 ## Rules enforced now (3a)
 - `kernel/*` never imports `modules/*` or `app/*`.

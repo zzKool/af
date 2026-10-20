@@ -8,7 +8,7 @@ Documents are uploaded via `FileUploadZone` component on the `/documents` page (
 
 ```
 User drops file → FileUploadZone (client component)
-  → Selects prefix type (expense/invoice/contract/...)
+  → Selects the document kind (expense/invoice/contract/nda/certificate — fixed list)
   → Client-side pre-validation (size + extension)
   → uploadDocumentAction (server action)
     → auth + tenant + audit middleware
@@ -17,7 +17,7 @@ User drops file → FileUploadZone (client component)
       → fileValidation.validateFile(buffer, fileName) → magic bytes check → verified MIME
       → storage.ensureContainer() (memoized)
       → storage.uploadBlob(tenantId/uuid.ext, buffer, verifiedMime, { contentDisposition: 'attachment' })
-      → businessKey.generateBusinessKey(tx, caller, audit, prefixType, clock)
+      → businessKey.generateBusinessKey(tx, caller, kind, clock)   → numbering.nextInSeries('doc-yyyy-mm')
       → tx.document.create({ status: 'uploaded', ... })
       → audit.log({ action: 'create', entityType: 'document' })
     → onCommit: enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: documentId })
@@ -34,12 +34,12 @@ User drops file → FileUploadZone (client component)
 
 ## Business Key Generation
 
-Format: `{prefix}{YYYYMMDD}_{NNN}`
+Provisional key of a raw upload, a fixed function (D6, see [[numbering]]): `uploadDocumentKey(kind, date, seq)` → `{prefix}{YYYYMMDD}_{NNN}`
 
-- Prefix comes from tenant's `DocumentTypePrefix` config (e.g., `exp_`, `inv_`)
-- Date uses Stockholm timezone via Clock abstraction
-- Sequence number (`NNN`) is atomic per tenant per month via `document_key_counters` table
-- Counter uses `INSERT ... ON CONFLICT DO UPDATE SET next_val = next_val + 1 RETURNING next_val`
+- Prefix per kind is a constant: `exp_`, `inv_`, `ctrt_`, `nda_`, `cert_` (`UPLOAD_KIND_PREFIX`) — no settings
+- Date uses Stockholm timezone via the Clock abstraction
+- `NNN` = `nextInSeries(tx, caller, "doc-yyyy-mm")`: gap-free per tenant per month, row-locked in the upload transaction
+- The document gets its final key when it becomes something: expense receipt `Ex213-Tr-01_2026-03-11_`, issued invoice `InvoiceAF_VA26-001.pdf`
 
 ## Document Classification
 
@@ -51,7 +51,7 @@ Format: `{prefix}{YYYYMMDD}_{NNN}`
 | nda | relationship |
 | certificate | relationship |
 
-Classification is derived automatically from prefix type — users never see it in UI.
+Classification is derived automatically from the kind — users never see it in UI.
 
 ## Status Lifecycle
 

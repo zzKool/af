@@ -32,12 +32,6 @@ const SETTINGS_TABS: TabConfig[] = [
     href: "/settings/bank-accounts",
     roles: ["owner"],
   },
-  {
-    value: "document-prefixes",
-    label: "Document Prefixes",
-    href: "/settings/document-prefixes",
-    roles: ["owner"],
-  },
   // Visual separator — "My Preferences" is user-scoped, tabs above are tenant-scoped
   {
     value: "my-preferences",

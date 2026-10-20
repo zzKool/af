@@ -9,6 +9,7 @@ not by location inside `src/modules/<module>/`:
 | `tenancy.prisma`, `audit.prisma` | kernel |
 | `<module>.prisma` | `src/modules/<module>` — the only place that module's models are declared |
 | `linking.prisma` | `src/modules/linking` — the single `links` table; only that module writes it |
+| `numbering.prisma` | `src/modules/numbering` — `number_series`; only that module writes it |
 
 Rules: a model lives in exactly one file; cross-module references are validated UUIDs, not relations (RLS blocks
 cross-table FKs — see `docs/cross-table-rls.md`); schema changes are serialised, one PR at a time.

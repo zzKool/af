@@ -1,0 +1,16 @@
+// Module numbering — gap-free counters (D5, D6). One row per (tenant, series); `next_value` is the
+// number the next issue gets. Taken with a row-locked upsert inside the issuing transaction, so a
+// rollback gives the number back and concurrent issuers serialise. No prefix settings anywhere:
+// series keys and formats are fixed functions in src/modules/numbering/keys.ts.
+
+model NumberSeries {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  series    String   @db.VarChar(40)
+  nextValue Int      @default(1) @map("next_value")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, series], map: "number_series_pkey")
+  @@map("number_series")
+}
