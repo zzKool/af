@@ -32,7 +32,9 @@ e2e/.auth/
 
 
 # Claude Code local state
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/settings.json
 
 # AI IDE state
 .cursor/

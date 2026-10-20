@@ -44,8 +44,10 @@ v1's budget went into features, v2's into foundations. v3 = v2's foundations + v
 | D14 | Owner cash planning (social charges, salary, what's left) moves from Excel into an owner-only dashboard widget — Growth phase. | Q4 |
 | D15 | Roles: app superadmin, tenant admin (owner), accountant (read-only), editor (later). One real user today; RBAC through one `can()` function so CASL-style rules can be plugged in later. | Q7, 3.1 |
 | D16 | Multi-tenancy by RLS kept as built; tenant-switcher polish and the second-tenant journey skipped. | Q6 (first round) |
-| D17 | Background jobs: Postgres-backed queue (pg-boss) in the same container replaces Inngest, unless the Inngest dashboard is wanted. | Q8 |
+| D17 | Background jobs: Postgres-backed queue (pg-boss) in the same container replaces Inngest. No external job service, no signing key; runs offline on the homelab. Settled 2026-10-20. | Q8 |
 | D18 | Linking module owns the single `link` table; every other module registers as linkable; suggestions, graph and exports are read models. Invariants in DB and service. | your §10 |
+| D19 | Layout: full-width app layout (collapsible sidebar, dense content, three page archetypes: list / entity / work). v2's centred `max-w-5xl` pages are replaced. See `ui-conventions.md`. | your UI feedback |
+| D20 | Tables: one kernel `DataTable` with Excel-style typed header filters — server-side distinct values with counts, date hierarchy year→month→day, number ranges, text operators — state in the URL, column prefs per user. v1 `advanced-table` is the behaviour reference. See `ui-conventions.md`. | your UI feedback |
 
 ---
 
@@ -269,11 +271,11 @@ Time tracking and `Project` budgets, `PriceList` family, `ServiceCatalog`, `Pric
 | Validation | one 3 112-line lib | Zod 4 at the action boundary | v2 |
 | Errors | throw `AuthError` | return `AppError`, never throw from actions | v2 |
 | Audit | `EventLog` | append-only `AuditLog` with provenance | v2 |
-| Jobs | none dedicated | Inngest (OCR) | pg-boss in-container (D17): OCR, ECB sync, PDF, package build |
+| Jobs | none dedicated | Inngest (OCR) | pg-boss in-container (D17, settled): OCR, ECB sync, PDF, package build |
 | PDF | puppeteer, same HTML as preview | none | Chromium from the print mode of the invoice component; reimbursement statement and package summary the same way |
 | OCR | Azure DI, sync | Azure DI, async job, review overlay | v2 |
 | Storage | Azure Blob | Azure Blob + Azurite, blob proxy | v2 |
-| UI kit | shadcn, TanStack Table | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider` | v2; i18n keys from day one (en, fr; sv later) |
+| UI kit | shadcn, TanStack Table, `advanced-table` filters | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider`, centred pages | v2 kit + v1 filter behaviour (H13); full-width layout (D19); i18n keys from day one (en, fr; sv later) |
 | Testing | Jest + 129 e2e | Vitest co-located + Playwright + architecture guard + factories | v2 + flaky-test quarantine + property tests on money and allocations |
 | CI / deploy | GH Actions, App Service, SQL Server | GH Actions with Azurite e2e, Docker, Container Apps | v2 (+ Chromium in the image) |
 | Docs | large plan documents | `docs/index.md` wiki per pattern | v2 convention + spec-kit specs |
@@ -311,6 +313,7 @@ v3: v2's constraints, v1's appetite, the Excel's rules, and one guard — a sett
 | H10 | Supplier invoices as payables | v1 `SupplierInvoice*` |
 | H11 | Banking: three-account import, transfer pairs, bank fees rule | v2 `csv-parser.ts`; Excel *Bank Statement* |
 | H12 | Accountant package: monthly zip + generated summary | Excel (all three sheets) + D13 |
+| H13 | DataTable header filters: checkbox distinct values, date hierarchy, number range, text operators, toolbar | v1 `components/advanced-table/*`, `app/api/*/available-values` routes |
 
 ---
 
