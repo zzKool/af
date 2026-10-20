@@ -158,6 +158,91 @@ async function seed() {
     console.log("  ✓ TenantConfig entries seeded");
   });
 
+  // 8. The owner's three Nordea accounts (anonymised numbers; the two main accounts share one Plusgiro
+  //    number and differ by currency) and the two default categorisation rules (specs/banking FR-016).
+  await withTenantTransaction(prisma, orgId, async (tx) => {
+    const nordea = await tx.bankFormat.findUnique({ where: { name: "Nordea CSV (Sweden)" } });
+    if (nordea) {
+      const accounts = [
+        {
+          accountAlias: "Plusgirokonto SEK",
+          accountNumber: "123 45 67-8",
+          currency: "SEK",
+          role: "main" as const,
+        },
+        {
+          accountAlias: "Plusgirokonto CHF",
+          accountNumber: "123 45 67-8",
+          currency: "CHF",
+          role: "main" as const,
+        },
+        {
+          accountAlias: "Sparkonto",
+          accountNumber: "1234 56 78901",
+          currency: "SEK",
+          role: "savings" as const,
+        },
+      ];
+      for (const a of accounts) {
+        await tx.bankAccount.upsert({
+          where: {
+            tenantId_accountNumber_currency: {
+              tenantId: orgId,
+              accountNumber: a.accountNumber,
+              currency: a.currency,
+            },
+          },
+          update: { accountAlias: a.accountAlias, role: a.role },
+          create: {
+            ...a,
+            tenantId: orgId,
+            bankFormatId: nordea.id,
+            createdBy: ownerUserId,
+            source: "seed",
+          },
+        });
+      }
+      console.log("  ✓ Bank accounts seeded (SEK, CHF, savings)");
+    }
+    const rules = [
+      {
+        name: "Nordea bank fees",
+        description: "AVGIFTER NORDEA — the statement is the proof",
+        matchType: "contains" as const,
+        matchPattern: "AVGIFTER NORDEA",
+        matchField: "counterparty_key" as const,
+        basCode: "657",
+        noDocumentNeeded: true,
+        priority: 100,
+      },
+      {
+        name: "Savings interest",
+        description: "Ränta / Interest — the yearly interest row of the savings account",
+        matchType: "regex" as const,
+        matchPattern: "^(R[äa]nta|Interest)\\b",
+        matchField: "details" as const,
+        basCode: "831",
+        noDocumentNeeded: true,
+        priority: 90,
+      },
+    ];
+    for (const r of rules) {
+      const bas = await tx.basCategory.findUnique({ where: { code: r.basCode } });
+      await tx.categorisationRule.upsert({
+        where: { tenantId_name: { tenantId: orgId, name: r.name } },
+        update: {},
+        create: {
+          ...r,
+          basCode: bas ? r.basCode : null,
+          tenantId: orgId,
+          createdBy: ownerUserId,
+          source: "seed",
+        },
+      });
+    }
+    console.log("  ✓ Categorisation rules seeded (bank fees, savings interest)");
+  });
+
   console.log("\n🌱 Seed complete!");
   console.log("  Owner:      owner@dev.test / password123");
   console.log("  Accountant: accountant@dev.test / password123");

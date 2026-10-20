@@ -13,7 +13,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { isTenantAdmin } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { AppError } from "@/kernel/errors/app-error";
+import { type AppError, RollbackError } from "@/kernel/errors/app-error";
 import { logger } from "@/kernel/logging/logger";
 
 /**
@@ -28,7 +28,7 @@ import { logger } from "@/kernel/logging/logger";
 const baseClient = createSafeActionClient({
   defineMetadataSchema: () => z.object({ name: z.string() }),
   handleServerError: (error) => {
-    if (error instanceof ActionError) {
+    if (error instanceof ActionError || error instanceof RollbackError) {
       return error.appError;
     }
     const sentryEventId = Sentry.captureException(error);

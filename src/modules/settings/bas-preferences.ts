@@ -36,6 +36,32 @@ export async function getBasCategories(tx: TransactionClient) {
   return categories;
 }
 
+/** One BAS group by its 3-digit code (reference data) — null when unknown. Used to validate `bas_code` columns. */
+export async function getBasCategory(
+  tx: TransactionClient,
+  code: string,
+): Promise<{ code: string; name: string; nameEn: string | null; nameFr: string | null } | null> {
+  const c = await tx.basCategory.findUnique({
+    where: { code },
+    select: { code: true, name: true, nameEn: true, nameFr: true },
+  });
+  return c;
+}
+
+/** Labels for a set of BAS codes (`657 · Bankkostnader`), for list rows and filter options. */
+export async function basLabels(
+  tx: TransactionClient,
+  codes: readonly string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(codes)];
+  if (unique.length === 0) return new Map();
+  const rows = await tx.basCategory.findMany({
+    where: { code: { in: unique } },
+    select: { code: true, name: true },
+  });
+  return new Map(rows.map((r) => [r.code, `${r.code} · ${r.name}`]));
+}
+
 /**
  * Get tenant's BAS preferences (RLS-scoped by middleware).
  * Read-only — no audit param needed.

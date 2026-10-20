@@ -3,4 +3,6 @@
 // Safe to import from client components and pages. Never re-export services from here — they would pull Prisma into the bundle.
 
 export * from "./bank-accounts.actions";
+export * from "./banking.actions";
 export * from "./components/bank-accounts-tab";
+export type * from "./types";

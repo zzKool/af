@@ -198,6 +198,30 @@ export async function createLink(
         ),
       };
     }
+    // The source side (R19): a bank transaction or a manual journal entry carries an amount too, and the
+    // allocations FROM it never exceed |amount| — in its own currency (a CHF transaction allocates CHF).
+    const fromSummary = await fromLinkable.summary(tx, from.id);
+    if (fromSummary?.amount !== null && fromSummary?.amount !== undefined && fromSummary.currency) {
+      if (currency !== fromSummary.currency) {
+        return {
+          error: violation(
+            `Allocation currency ${currency} differs from ${from.type} currency ${fromSummary.currency}`,
+          ),
+        };
+      }
+      const fromExisting = await tx.link.findMany({
+        where: { fromType: from.type, fromId: from.id, allocatedAmount: { not: null } },
+        select: { allocatedAmount: true },
+      });
+      const fromAllocations = fromExisting.map((r) => r.allocatedAmount as Prisma.Decimal);
+      if (!canAllocate(fromSummary.amount, fromAllocations, input.allocatedAmount)) {
+        return {
+          error: violation(
+            `Allocations from ${from.type} ${from.id} (${sumAllocations(fromAllocations).toFixed(2)} of ${fromSummary.amount} ${fromSummary.currency}) would exceed its amount`,
+          ),
+        };
+      }
+    }
     allocatedAmount = new Prisma.Decimal(input.allocatedAmount);
   }
 

@@ -1,6 +1,6 @@
 # Bank Accounts
 
-Bank account configuration with CSV format library for transaction import.
+Bank account configuration with CSV format library for transaction import. Since the banking import (see [[banking]]) an account also carries `role ∈ main | savings` (the savings CSV goes to the accountant yearly, D13/D31) and cannot be deleted while it has imports.
 
 ## Overview
 

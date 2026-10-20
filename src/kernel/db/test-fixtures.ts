@@ -176,6 +176,7 @@ export async function createTestPartner(
     types?: string[];
     orgNumber?: string;
     defaultCurrency?: string;
+    defaultBasCategoryCode?: string;
     isActive?: boolean;
   },
 ): Promise<{ id: string; name: string; types: string[] }> {
@@ -185,6 +186,7 @@ export async function createTestPartner(
     types: overrides?.types ?? ["client"],
     orgNumber: overrides?.orgNumber ?? null,
     defaultCurrency: overrides?.defaultCurrency ?? null,
+    defaultBasCategoryCode: overrides?.defaultBasCategoryCode ?? null,
     isActive: overrides?.isActive ?? true,
   };
 
@@ -196,8 +198,8 @@ export async function createTestPartner(
     }
     await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
     await client.query(
-      `INSERT INTO partners (id, tenant_id, name, types, org_number, default_currency, is_active, created_by, source, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'web', NOW())`,
+      `INSERT INTO partners (id, tenant_id, name, types, org_number, default_currency, default_bas_category_code, is_active, created_by, source, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'web', NOW())`,
       [
         partner.id,
         tenantId,
@@ -205,6 +207,7 @@ export async function createTestPartner(
         partner.types,
         partner.orgNumber,
         partner.defaultCurrency,
+        partner.defaultBasCategoryCode,
         partner.isActive,
         createdBy,
       ],
@@ -367,7 +370,7 @@ export async function cleanupTestData(pool: Pool): Promise<void> {
     // need to truncate using TRUNCATE which bypasses RLS
     // documents BEFORE partners, contracts BEFORE partners (FK dependency)
     await client.query(
-      "TRUNCATE number_series, links, ecb_rates, audit_logs, documents, invoice_lines, invoices, contract_rates, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
+      "TRUNCATE number_series, links, ecb_rates, audit_logs, journal_entries, bank_transactions, bank_imports, categorisation_rules, bank_accounts, documents, invoice_lines, invoices, contract_rates, contracts, partners, tenant_configs, tenants, invitations, members, accounts, verifications, sessions, users, organizations CASCADE",
     );
     await client.query("COMMIT");
   } catch (error) {

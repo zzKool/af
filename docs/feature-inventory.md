@@ -225,6 +225,7 @@ flowchart LR
 | What | accounts, imports, transactions; modular CSV parsers; `CategorizationRule` + matcher; inbox / reconcile pages | app-level `BankFormat` library + `BankAccount` per tenant; `csv-parser.ts` with dedup hashing |
 | Keeps | three Nordea accounts (SEK main, CHF main, savings) each with its own CSV import; dedup on re-import; counterparty key; learned categorisation rules (OPENAI → OpenAI, MSFT → Microsoft); bank fees auto-categorised with `no_document_needed`; **transfer pairs** (`CHANGE CHFSEK`) detected and linked, bank implicit rate captured |
 | Mechanism | three pages → one transactions workbench with filters; reconcile page → linking module |
+| Status | **Built 2026-10-20** (phase 1, part 1): import with the D25 dedup key, immutable transactions, categorisation rules (defaults on the first import), transfer pairs, derived state, linkable — `docs/banking.md`, `specs/banking/`. Part 2 (pages) next. The scored suggestions / inbox belong to the linking UI. |
 
 ### 3.11 Exchange rates — v2
 
@@ -241,6 +242,7 @@ flowchart LR
 | What | double-entry: journal lines, chart of accounts, VAT codes, fiscal years, posting service (612) | PRD: chronological ledger of financial events with BAS category, flags, notes, filters; BAS preferences done |
 | Keeps | every bank transaction becomes a journal entry (SEK base, rate, source); manual entries for prepaid / forfait; recurring templates (salary, Skatteverket); BAS category per entry with partner defaults; filters by period / currency / partner / category / VAT registration |
 | Mechanism | double-entry → categorised single-entry journal; SIE export out of scope (needs debit/credit) |
+| Status | **Built 2026-10-20** (with banking part 1): `journal_entries` with the money facts locked by trigger, categorise with the never-overwrite rule, manual entries, the ledger read model — `docs/journal.md`, `specs/journal/spec.md`. Recurring templates = categorisation rules (no template table). Page next. |
 
 ### 3.13 Linking — new, informed by v1
 

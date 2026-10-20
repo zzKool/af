@@ -6,12 +6,12 @@
 import { Prisma } from "@/generated/prisma/browser";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
+import { filterInMemory, finishList } from "@/kernel/list-query/memory";
 import { buildDateHierarchy, buildWhere, countDistinct } from "@/kernel/list-query/prisma";
 import type {
   ColumnMap,
   DateHierarchy,
   DistinctValue,
-  Filter,
   ListQuery,
   ListResult,
   SortSpec,
@@ -266,13 +266,10 @@ async function loadRows(
     };
   });
   // derived filters (and the search box over partnerName) are applied here
-  return list.filter((row) => {
-    for (const [col, f] of Object.entries(q.filters)) {
-      if (!DERIVED.has(col) || col === options.exceptColumn) continue;
-      if (!matches(row[col as keyof InvoiceListRow], f)) return false;
-    }
-    if (q.search && !searchHit(row, q.search)) return false;
-    return true;
+  return filterInMemory(list, q, INVOICE_COLUMNS, {
+    derived: DERIVED,
+    search: searchHit,
+    exceptColumn: options.exceptColumn,
   });
 }
 
@@ -283,70 +280,13 @@ function searchHit(row: InvoiceListRow, term: string): boolean {
   );
 }
 
-function matches(value: unknown, f: Filter): boolean {
-  switch (f.kind) {
-    case "in": {
-      const v = value === null || value === undefined || value === "" ? null : String(value);
-      return f.values.includes(v);
-    }
-    case "text": {
-      const v = String(value ?? "").toLowerCase();
-      const needle = (f.value ?? "").toLowerCase();
-      if (f.op === "empty") return v === "";
-      if (f.op === "notEmpty") return v !== "";
-      if (f.op === "equals") return v === needle;
-      if (f.op === "startsWith") return v.startsWith(needle);
-      return v.includes(needle);
-    }
-    case "range": {
-      if (f.empty) return value === null || value === undefined;
-      if (value === null || value === undefined) return false;
-      const d = new D(String(value));
-      if (f.min !== undefined && d.lt(new D(f.min))) return false;
-      if (f.max !== undefined && d.gt(new D(f.max))) return false;
-      return true;
-    }
-    case "dates":
-      return true; // no derived date columns
-  }
-}
-
-function compare(a: unknown, b: unknown, type: string): number {
-  if (a === null || a === undefined) return b === null || b === undefined ? 0 : 1; // blanks last
-  if (b === null || b === undefined) return -1;
-  if (type === "money" || type === "number") return new D(String(a)).cmp(new D(String(b)));
-  if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
-  return String(a).localeCompare(String(b));
-}
-
 export async function listInvoices(
   tx: TransactionClient,
   q: ListQuery,
   today: string,
 ): Promise<ListResult<InvoiceListRow>> {
   const all = await loadRows(tx, q, today);
-  const sort = q.sort.filter((s) => s.col in INVOICE_COLUMNS);
-  const effective = sort.length ? sort : INVOICE_DEFAULT_SORT;
-  all.sort((x, y) => {
-    for (const s of effective) {
-      const c = compare(
-        x[s.col as keyof InvoiceListRow],
-        y[s.col as keyof InvoiceListRow],
-        INVOICE_COLUMNS[s.col as InvoiceColumn].type,
-      );
-      if (c !== 0) return s.dir === "asc" ? c : -c;
-    }
-    return 0;
-  });
-  const start = (q.page - 1) * q.pageSize;
-  const sums: Record<string, string> = {};
-  for (const [col, spec] of Object.entries(INVOICE_COLUMNS)) {
-    if (!("sum" in spec) || !spec.sum) continue;
-    sums[col] = all
-      .reduce((s, r) => s.add(new D(String(r[col as keyof InvoiceListRow] ?? 0))), new D(0))
-      .toFixed(2);
-  }
-  return { rows: all.slice(start, start + q.pageSize), total: all.length, sums };
+  return finishList(all, q, INVOICE_COLUMNS, INVOICE_DEFAULT_SORT);
 }
 
 export async function distinctInvoiceValues(
