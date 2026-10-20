@@ -2,7 +2,7 @@
 
 ## Overview
 
-Documents are uploaded via `FileUploadZone` component on the `/documents` page (owner-only). The upload pipeline validates files, stores blobs in Azure, generates business keys, and dispatches async Inngest events.
+Documents are uploaded via `FileUploadZone` component on the `/documents` page (owner-only). The upload pipeline validates files, stores blobs in Azure, generates business keys, and enqueues the OCR job after commit.
 
 ## Upload Pipeline
 
@@ -20,7 +20,7 @@ User drops file → FileUploadZone (client component)
       → businessKey.generateBusinessKey(tx, caller, audit, prefixType, clock)
       → tx.document.create({ status: 'uploaded', ... })
       → audit.log({ action: 'create', entityType: 'document' })
-    → inngest.send('document/uploaded', { tenantId, userId, documentId })
+    → onCommit: enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: documentId })
   → Client shows business key + "Upload another"
 ```
 
@@ -61,12 +61,12 @@ uploaded → processing → extracted → linked
 ```
 
 - `uploaded`: Initial state after successful upload
-- `processing`: Inngest function picks up the event (Story 5.1 sets this)
+- `processing`: the `documents.process-document` job claimed it (see [[async-jobs]])
 - `extracted`: OCR completed successfully — `ocrData` JSONB populated with extracted fields, raw response, and quality indicator (Story 5.2)
 - `ocr_failed`: OCR processing failed after 3 retries or non-retryable error (Story 5.2). User sees "OCR unavailable — manual entry required"
 - `linked`: Document linked to a transaction (Story 7.1)
 
-See [[ocr-processing]] for OCR service details, 3-step Inngest architecture, and quality classification.
+See [[ocr-processing]] for OCR service details, the resumable job, and quality classification.
 
 ## Azure Blob Storage
 

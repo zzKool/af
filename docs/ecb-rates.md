@@ -49,9 +49,9 @@ Scans `ecb_rates` for gaps exceeding 3 **weekdays** between consecutive rates.
 - Friday → Thursday IS a gap (3 weekdays missing: Mon, Tue, Wed)
 - Holiday refinement deferred to Story 6.1
 
-## Inngest Cron (Story 6.1)
+## Scheduled sync (`rates.ecb-sync`)
 
-Skeleton for scheduled fetching — not implemented in this spike. Story 6.1 will create an Inngest cron function to fetch daily rates automatically.
+`src/modules/rates/jobs/ecb-sync.ts` — a pg-boss schedule, weekdays 16:30 Europe/Stockholm (ECB publishes ~16:00 CET), `missed: "once"`. Each run sizes its request from the gap: `observationsToFetch(latestStoredDate, today)` = weekdays since the last stored rate + 2, between 5 and 400 (30 on an empty table). So after weeks scaled to zero, the single catch-up run on start refills the gap in one ECB request. Duplicates are skipped by the immutability rule. See [[async-jobs]].
 
 ## Service Interface
 

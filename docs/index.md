@@ -82,12 +82,12 @@ UI component documentation and design system.
 Backend service documentation and API contracts.
 
 - [[business-logic]] — Service layer patterns and responsibilities
-- [[external-integrations]] — Azure DI, Blob Storage, ECB, Inngest
+- [[external-integrations]] — Azure DI, Blob Storage, ECB
 - [[testing]] — Test architecture, fixtures, and coverage strategy
 - [[test-performance-baseline]] — Test suite performance baseline and monitoring thresholds
 - [[config-page-test-template]] — Reusable test structure for config CRUD pages (Stories 3.1–3.4)
 - [[story-creation-checklist]] — Mutation story checklist, pattern-setter flag, retro gate check
 - [[auto-save-pattern]] — Comprehensive auto-save form pattern reference (8 edge cases)
 - [[blob-storage]] — Azure Blob Storage service, Azurite setup, test patterns
-- [[async-jobs]] — Inngest async job infrastructure, withInngestContext, retry patterns
-- [[ocr-processing]] — OCR service interface, Azure DI integration, 3-step Inngest architecture, quality classification
+- [[async-jobs]] — pg-boss in-process queue (D17): JobDefinition, withJobContext, retries + dead letter, schedules with catch-up, pgboss schema migration
+- [[ocr-processing]] — OCR service interface, Azure DI integration, resumable process-document job, quality classification

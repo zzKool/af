@@ -1,6 +1,5 @@
-import { NonRetriableError } from "inngest";
-import { inngest } from "@/kernel/jobs/client";
-import { withInngestContext } from "@/kernel/jobs/context";
+import { withJobContext } from "@/kernel/jobs/context";
+import type { JobDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import { OCR_MAX_RETRIES } from "@/kernel/nav/constants";
 import {
@@ -11,182 +10,146 @@ import {
 } from "@/kernel/ocr/ocr";
 import { createStorageService } from "@/kernel/storage/storage";
 
+export interface ProcessDocumentData {
+  tenantId: string;
+  userId: string;
+  documentId: string;
+}
+
 /**
  * Process an uploaded document (OCR, metadata extraction).
  *
- * 3-step Inngest architecture:
- *   Step 1: update-status-to-processing (memoized — never re-runs on retry)
- *   Step 2: run-ocr-analysis (expensive Azure DI call — memoized separately)
- *   Step 3: save-ocr-result (cheap DB write — retryable without re-running OCR)
- *   onFailure: safety net — marks document as ocr_failed if all retries exhausted
+ * Resumable by design: the job carries ids only, the state machine lives on the document
+ * (uploaded → processing → extracted | ocr_failed). Every attempt reads the status and does what is
+ * left, so a retry after a crash or a restart is always safe:
+ *   1. uploaded → processing            (short RLS transaction)
+ *   2. OCR                              (outside any transaction — Azure DI takes 10–15 s)
+ *   3. processing → extracted | failed  (short RLS transaction)
+ * Throwing retries the job (OCR_MAX_RETRIES); when retries are exhausted or an attempt expires,
+ * pg-boss moves the job to the dead-letter queue and `onDeadLetter` marks the document ocr_failed.
  */
-export const processDocument = inngest.createFunction(
-  {
-    id: "process-document",
-    retries: OCR_MAX_RETRIES,
-    onFailure: async ({ event, error }) => {
-      // CRITICAL: onFailure receives NESTED event — event.data.event.data, NOT event.data
-      const { tenantId, userId, documentId } = event.data.event.data as {
-        tenantId: string;
-        userId: string;
-        documentId: string;
-      };
-      logger.error({ documentId, error: error.message }, "OCR processing failed after all retries");
+async function processDocumentHandler({ tenantId, userId, documentId }: ProcessDocumentData) {
+  // 1. Claim: uploaded → processing. Any other status means an earlier attempt got here already.
+  const claimed = await withJobContext(tenantId, userId, async (tx) => {
+    const document = await tx.document.findUnique({ where: { id: documentId } });
+    if (!document) return { found: false as const };
+    if (document.status === "uploaded") {
+      await tx.document.update({ where: { id: documentId }, data: { status: "processing" } });
+    }
+    return { found: true as const };
+  });
+  if (!claimed.found) {
+    // Rolled-back upload or deleted since — nothing to resume, nothing to retry.
+    logger.warn({ documentId }, "process-document: document not found, skipping");
+    return;
+  }
 
-      await withInngestContext(tenantId, userId, async (tx, _caller, audit) => {
-        const doc = await tx.document.findUnique({ where: { id: documentId } });
-        if (doc && doc.status === "processing") {
-          await tx.document.update({
-            where: { id: documentId },
-            data: { status: "ocr_failed" },
-          });
-          await audit.log({
-            action: "update",
-            entityType: "document",
-            entityId: documentId,
-            oldData: { status: "processing" },
-            newData: { status: "ocr_failed" },
-          });
-        }
-        // If doc is already ocr_failed or extracted, skip — idempotent
-      });
+  // 2a. Short transaction: read the document and prepare the OCR source.
+  const prepared = await withJobContext(tenantId, userId, async (tx) => {
+    const doc = await tx.document.findUnique({ where: { id: documentId } });
+    if (!doc) return { skipped: true as const, reason: "not found" };
+    if (doc.status !== "processing") return { skipped: true as const, reason: doc.status };
+
+    const storage = createStorageService();
+    const blobPath = extractBlobPath(doc.blobUrl);
+    const isLocalBlob = doc.blobUrl.includes("127.0.0.1") || doc.blobUrl.includes("localhost");
+
+    let source: OcrSource;
+    if (isLocalBlob) {
+      // Azurite is not reachable from Azure DI (nor from the mock OCR): send the bytes.
+      const fileBuffer = await storage.downloadBlob(blobPath);
+      source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
+    } else {
+      const sasUrl = await storage.generateSasUrl(blobPath, 5);
+      source = { type: "url", url: sasUrl };
+    }
+    return { skipped: false as const, source, prefixType: doc.prefixType };
+  });
+  if (prepared.skipped) {
+    logger.info({ documentId, reason: prepared.reason }, "process-document: nothing left to do");
+    return;
+  }
+
+  // 2b. OCR — outside any transaction.
+  const ocrService = createOcrService();
+  const result: OcrResult = await ocrService.analyzeDocument(prepared.source, prepared.prefixType);
+  logger.info(
+    {
+      documentId,
+      modelUsed: result.success ? result.data.modelUsed : "n/a",
+      confidence: result.success ? result.data.confidence : 0,
+      durationMs: result.success ? result.data.processingTimeMs : 0,
+      success: result.success,
     },
-  },
-  { event: "document/uploaded" },
-  async ({ event, step }) => {
-    const { tenantId, userId, documentId } = event.data;
+    "OCR analysis complete",
+  );
 
-    // Step 1: Update status to processing (existing from Story 5.1, memoized)
-    await step.run("update-status-to-processing", async () => {
-      return withInngestContext(tenantId, userId, async (tx, _caller, _audit) => {
-        const document = await tx.document.findUnique({
-          where: { id: documentId },
-        });
+  if (!result.success && result.retryable) {
+    throw new Error(result.error); // pg-boss retries with backoff; dead-letter after OCR_MAX_RETRIES
+  }
 
-        if (!document) {
-          throw new NonRetriableError(
-            `Document ${documentId} not found — likely from a rolled-back transaction`,
-          );
-        }
-
-        if (document.status !== "uploaded") {
-          return { documentId, status: document.status, skipped: true };
-        }
-
-        await tx.document.update({
-          where: { id: documentId },
-          data: { status: "processing" },
-        });
-
-        return { documentId, status: "processing" };
+  // 3. Save: processing → extracted | ocr_failed.
+  await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
+    if (result.success) {
+      const ocrPayload = {
+        extractedData: result.data,
+        rawResponse: result.rawResponse,
+        quality: result.quality,
+      };
+      await tx.document.update({
+        where: { id: documentId },
+        // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
+        data: { status: "extracted", ocrData: ocrPayload as any },
       });
-    });
-
-    // Step 2: Run OCR analysis (expensive, memoized separately)
-    // NOTE: OCR runs OUTSIDE the RLS transaction to avoid the 5s interactive
-    // transaction timeout — Azure DI typically takes 10-15s.
-    type OcrStepResult = OcrResult | { skipped: true; status: string };
-    const ocrResult: OcrStepResult = await step.run(
-      "run-ocr-analysis",
-      async (): Promise<OcrStepResult> => {
-        // 2a. Short transaction: read document and prepare OCR source
-        const prepared = await withInngestContext(tenantId, userId, async (tx) => {
-          const doc = await tx.document.findUnique({ where: { id: documentId } });
-          if (!doc) throw new NonRetriableError("Document not found");
-          if (doc.status !== "processing") return { skipped: true as const, status: doc.status };
-
-          const storage = createStorageService();
-          const blobPath = extractBlobPath(doc.blobUrl);
-          let source: OcrSource;
-
-          const isLocalBlob =
-            doc.blobUrl.includes("127.0.0.1") || doc.blobUrl.includes("localhost");
-          const isRemoteOcr = !!process.env.AZURE_DI_ENDPOINT;
-
-          if (isLocalBlob && isRemoteOcr) {
-            const fileBuffer = await storage.downloadBlob(blobPath);
-            source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
-          } else if (!isLocalBlob) {
-            const sasUrl = await storage.generateSasUrl(blobPath, 5);
-            source = { type: "url", url: sasUrl };
-          } else {
-            const fileBuffer = await storage.downloadBlob(blobPath);
-            source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
-          }
-
-          return { source, prefixType: doc.prefixType };
-        });
-
-        if ("skipped" in prepared && prepared.skipped)
-          return { skipped: true as const, status: prepared.status! };
-
-        // 2b. OCR call — outside transaction, no timeout concern
-        const ocrService = createOcrService();
-        const result = await ocrService.analyzeDocument(prepared.source, prepared.prefixType);
-
-        logger.info(
-          {
-            documentId,
-            modelUsed: result.success ? result.data.modelUsed : "n/a",
-            confidence: result.success ? result.data.confidence : 0,
-            durationMs: result.success ? result.data.processingTimeMs : 0,
-            success: result.success,
-          },
-          "OCR analysis complete",
-        );
-
-        return result;
-      },
-    );
-
-    // Step 3: Save OCR result (cheap DB write, retryable without re-running OCR)
-    await step.run("save-ocr-result", async () => {
-      // Skip if document was not in 'processing' state
-      if ("skipped" in ocrResult) return ocrResult;
-
-      // Narrow to OcrResult (discriminated on `success`)
-      const result = ocrResult as OcrResult;
-
-      return withInngestContext(tenantId, userId, async (tx, _caller, audit) => {
-        if (result.success) {
-          const ocrPayload = {
-            extractedData: result.data,
-            rawResponse: result.rawResponse,
-            quality: result.quality,
-          };
-          await tx.document.update({
-            where: { id: documentId },
-            // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-            data: { status: "extracted", ocrData: ocrPayload as any },
-          });
-          await audit.log({
-            action: "update",
-            entityType: "document",
-            entityId: documentId,
-            oldData: { status: "processing" },
-            newData: { status: "extracted", quality: result.quality },
-          });
-          return { documentId, status: "extracted", quality: result.quality };
-        }
-
-        if (result.retryable) {
-          throw new Error(result.error); // triggers Inngest retry
-        }
-
-        // Non-retryable: mark as failed
-        await tx.document.update({
-          where: { id: documentId },
-          data: { status: "ocr_failed" },
-        });
-        await audit.log({
-          action: "update",
-          entityType: "document",
-          entityId: documentId,
-          oldData: { status: "processing" },
-          newData: { status: "ocr_failed" },
-        });
-        return { documentId, status: "ocr_failed", error: result.error };
+      await audit.log({
+        action: "update",
+        entityType: "document",
+        entityId: documentId,
+        oldData: { status: "processing" },
+        newData: { status: "extracted", quality: result.quality },
       });
+      return;
+    }
+    // Non-retryable OCR failure (auth, unsupported file): final.
+    await tx.document.update({ where: { id: documentId }, data: { status: "ocr_failed" } });
+    await audit.log({
+      action: "update",
+      entityType: "document",
+      entityId: documentId,
+      oldData: { status: "processing" },
+      newData: { status: "ocr_failed", error: result.error },
     });
+  });
+}
+
+/** Safety net after the last retry: a document must never stay in `processing`. Idempotent. */
+async function markFailed({ tenantId, userId, documentId }: ProcessDocumentData) {
+  logger.error({ documentId }, "OCR processing failed after all retries");
+  await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
+    const doc = await tx.document.findUnique({ where: { id: documentId } });
+    if (!doc || doc.status !== "processing") return; // already extracted / failed / gone
+    await tx.document.update({ where: { id: documentId }, data: { status: "ocr_failed" } });
+    await audit.log({
+      action: "update",
+      entityType: "document",
+      entityId: documentId,
+      oldData: { status: "processing" },
+      newData: { status: "ocr_failed" },
+    });
+  });
+}
+
+export const processDocumentJob: JobDefinition<ProcessDocumentData> = {
+  name: "documents.process-document",
+  options: {
+    policy: "exclusive", // one job per document queued or active (singletonKey = documentId)
+    retryLimit: OCR_MAX_RETRIES,
+    retryDelay: 30,
+    retryBackoff: true,
+    expireInSeconds: 300,
   },
-);
+  handler: processDocumentHandler,
+  onDeadLetter: markFailed,
+};
+
+export const documentJobs = [processDocumentJob] as const;

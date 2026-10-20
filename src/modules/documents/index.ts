@@ -49,6 +49,7 @@ export {
   updateDocumentCorrectionsAction,
   uploadDocumentAction,
 } from "./documents.actions";
-export * from "./jobs/process-document";
+export type { ProcessDocumentData } from "./jobs/process-document";
+export { documentJobs, processDocumentJob } from "./jobs/process-document";
 export { documentLinkable } from "./linkable";
 export * from "./queries";

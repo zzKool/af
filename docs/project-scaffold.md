@@ -9,7 +9,7 @@
 - **Testing:** Vitest 4 (unit/integration) + Playwright 1.58 (E2E)
 - **Database:** PostgreSQL 17 via Prisma 7
 - **Auth:** Better Auth 1.5
-- **Background Jobs:** Inngest 3
+- **Background Jobs:** pg-boss (in-process, Postgres-backed — D17; was Inngest 3)
 
 ## Development Commands
 
@@ -43,7 +43,7 @@ src/
 ├── lib/              # Client-side utilities
 │   └── utils.ts      # cn() helper
 ├── server/           # Server-side code
-│   └── inngest/      # Background job queue
+│   └── jobs/         # pg-boss queue + job context (see async-jobs)
 ├── types/            # Shared TypeScript types
 └── middleware.ts      # Route middleware
 ```

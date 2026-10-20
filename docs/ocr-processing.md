@@ -2,7 +2,7 @@
 
 ## Overview
 
-Documents uploaded via Story 5.1 are automatically processed by Azure Document Intelligence (or a mock service) to extract financial fields. The OCR pipeline runs as an [[async-jobs|Inngest function]] with a 3-step architecture for cost optimization and retry resilience.
+Documents uploaded via Story 5.1 are automatically processed by Azure Document Intelligence (or a mock service) to extract financial fields. The OCR pipeline runs as a resumable [[async-jobs|pg-boss job]] (`documents.process-document`): the job carries ids, the document's status drives what each attempt does.
 
 ## OCR Service Interface
 
@@ -61,31 +61,29 @@ uploaded → processing → extracted → linked
                      ↘ ocr_failed
 ```
 
-- `uploaded` → `processing`: Step 1 of Inngest function
-- `processing` → `extracted`: Step 3 on OCR success
-- `processing` → `ocr_failed`: Step 3 on non-retryable failure, or `onFailure` after retry exhaustion
+- `uploaded` → `processing`: the job's claim (first attempt)
+- `processing` → `extracted`: on OCR success
+- `processing` → `ocr_failed`: on a non-retryable failure, or by the dead-letter handler after the last retry
 
-## 3-Step Inngest Architecture
+## The job (resumable, three short phases)
 
 ```
-document/uploaded event
-  → step.run("update-status-to-processing")   [memoized]
-  → step.run("run-ocr-analysis")              [expensive, memoized]
-  → step.run("save-ocr-result")               [cheap DB write]
-  → onFailure handler                         [safety net]
+enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: documentId })   from onCommit of the upload
+  1. claim      uploaded → processing              short RLS transaction; any other status = already claimed, carry on
+  2. OCR        read doc, prepare source, call DI   the call runs OUTSIDE any transaction (10–15 s)
+  3. save       processing → extracted | ocr_failed short RLS transaction
+  onDeadLetter  processing → ocr_failed            after OCR_MAX_RETRIES or an expired attempt; idempotent
 ```
 
-**Why 3 steps:** If `save-ocr-result` fails (DB timeout), Inngest retries only that step. The expensive Azure DI API call in `run-ocr-analysis` is memoized and not re-executed, saving cost.
+A retry re-runs the whole handler: phase 1 sees `processing` and skips, phase 2 runs OCR again, phase 3 saves. Nothing is memoised — a crash between OCR and save costs one more Azure DI call, and in exchange every attempt is safe from any state (constitution §1.9). The queue is `exclusive` on `documentId`: one job per document queued or active.
 
-## Retry and Failure Handling
+## Retry and failure handling
 
-- Retries: 3 (Inngest default exponential backoff)
-- Retryable errors: timeout, 5xx, 429 rate limit, blob download failure
-- Non-retryable: 401/403 auth failure, document not found
-- `onFailure` handler: marks document as `ocr_failed` if all retries exhausted
-- `onFailure` is idempotent — skips if document is already `ocr_failed` or `extracted`
-
-**CRITICAL:** `onFailure` receives a wrapped event at `event.data.event.data`, not `event.data`.
+- Retries: `OCR_MAX_RETRIES` with exponential backoff from 30 s; an attempt expires after 5 min
+- Retryable errors (the handler throws): timeout, 5xx, 429 rate limit, blob download failure
+- Non-retryable (the handler writes `ocr_failed` and returns): 401/403 auth failure, unsupported file
+- Document not found (rolled-back upload, deleted since): the handler logs and returns — nothing to resume
+- Dead letter: `documents.process-document.dead` → `onDeadLetter` marks the document `ocr_failed` if it is still `processing`
 
 ## ocrData JSONB Structure
 
@@ -117,10 +115,10 @@ Accessed via `getDocumentOcrData()` in `src/modules/documents/documents.ts`.
 ## Testing
 
 - Mock service tests: prefix-specific fixtures, quality classification, model selection
-- Inngest function tests: 3-step flow, error handling, onFailure handler, audit logging
+- Job tests (`jobs/process-document.test.ts`): handler and dead-letter handler called directly — happy path, resume from `processing`, status guards, retryable vs non-retryable errors, audit logging
 - Integration tests (gated): `describe.skipIf(!process.env.AZURE_DI_ENDPOINT)` for real Azure DI
 - Test fixtures: `src/kernel/ocr/__fixtures__/test-invoice.pdf`, `test-receipt.jpg`
 
-## Known Limitation
+## Known limitation
 
-If Inngest infrastructure fails mid-processing and never fires `onFailure`, documents remain in `processing` forever. Recovery: find documents with `status = "processing"` older than 10 minutes in Prisma Studio, update to `ocr_failed`.
+A job that expires (worker killed mid-OCR) is retried, then dead-lettered — so a document cannot stay in `processing` unless the dead-letter handler itself keeps failing (its queue retries twice). Recovery then: `select id, name, state, output from pgboss.job where name like 'documents.%' and state = 'failed'`, fix the cause, and `UPDATE documents SET status = 'ocr_failed' WHERE status = 'processing' AND updated_at < now() - interval '1 hour'`.
