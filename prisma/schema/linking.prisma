@@ -1,0 +1,28 @@
+// Module linking — the single link table (constitution §2, D18).
+// Only src/modules/linking writes rows here. Endpoints are polymorphic (type + id) — no cross-table FKs
+// (RLS blocks them); existence is validated through each module's registered `linkable`.
+// `kind` is constrained by a CHECK in the migration: justifies | transfer | settles | belongs_to.
+// Links are immutable (no updated_at): an allocation change is remove + create, both audited.
+
+model Link {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  fromType        String   @map("from_type") @db.VarChar(40)
+  fromId          String   @map("from_id") @db.Uuid
+  toType          String   @map("to_type") @db.VarChar(40)
+  toId            String   @map("to_id") @db.Uuid
+  kind            String   @db.VarChar(20)
+  allocatedAmount Decimal? @map("allocated_amount") @db.Decimal(15, 2)
+  currency        String?  @db.VarChar(3)
+  note            String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdBy       String   @map("created_by") @db.Uuid
+  source          String   @default("web") @db.VarChar(20)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, fromType, fromId, toType, toId, kind], map: "links_tenant_endpoints_kind_key")
+  @@index([tenantId, fromType, fromId], map: "idx_links_from")
+  @@index([tenantId, toType, toId], map: "idx_links_to")
+  @@map("links")
+}

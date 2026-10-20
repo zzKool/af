@@ -803,7 +803,8 @@ export async function deleteDocument(
     };
   }
 
-  // TODO: Epic 7 — Before tx.document.delete(), verify no junction table rows exist for this documentId
+  // Linked documents cannot be hard-deleted: the database trigger documents_block_delete_when_linked
+  // (migration 20261020060000_add_links) raises 'document_linked'; translated below.
   // once document-transaction linking is implemented.
   await audit.log({
     action: "delete",
@@ -813,7 +814,26 @@ export async function deleteDocument(
     newData: { outcome: "deleted" },
   });
 
-  await tx.document.delete({ where: { id: documentId } });
+  try {
+    await tx.document.delete({ where: { id: documentId } });
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.includes("document_linked")) {
+      await audit.log({
+        action: "delete",
+        entityType: "document",
+        entityId: documentId,
+        newData: { outcome: "blocked", reason: "linked" },
+      });
+      return {
+        error: {
+          code: "BUSINESS_RULE_VIOLATION",
+          message: "Cannot delete — document is linked",
+          retryable: false,
+        },
+      };
+    }
+    throw error;
+  }
 
   return { data: { businessKey: doc.businessKey, blobUrl: doc.blobUrl } };
 }

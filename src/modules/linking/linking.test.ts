@@ -1,0 +1,356 @@
+import { Pool } from "pg";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRateLimit } from "@/kernel/actions/rate-limit";
+import { createAuditEntry } from "@/kernel/audit/audit";
+import type { AuditLogger } from "@/kernel/audit/types";
+import { auth } from "@/kernel/auth/auth";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { prisma } from "@/kernel/db/client";
+import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import {
+  cleanupTestData,
+  createAuthenticatedContext,
+  createTestDocument,
+  createTestPartner,
+} from "@/kernel/db/test-fixtures";
+import { contractLinkable } from "@/modules/contracts";
+import * as documentService from "@/modules/documents";
+import { documentLinkable } from "@/modules/documents";
+import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/linking";
+import { partnerLinkable } from "@/modules/partners";
+import * as linking from "./linking";
+
+const noopAudit: AuditLogger = { log: async () => {} };
+
+function realAudit(tx: TransactionClient, caller: CallerIdentity): AuditLogger {
+  return { log: async (params) => createAuditEntry(tx, caller, params) };
+}
+
+let mockHeaders: Headers = new Headers();
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
+
+const ADMIN_DATABASE_URL =
+  process.env.DATABASE_TEST_MIGRATION_URL ||
+  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+
+let adminPool: Pool;
+
+/**
+ * A fake linkable with an amount, so allocation rules can be tested before invoices/transactions exist.
+ * Registered under the real "invoice" type; the kind matrix already accepts bank_transaction → invoice.
+ */
+const fakeInvoices = new Map<string, { label: string; amount: string; currency: string }>();
+const fakeInvoiceLinkable: Linkable = {
+  type: "invoice",
+  async exists(_tx, id) {
+    return fakeInvoices.has(id);
+  },
+  async summary(_tx, id) {
+    const inv = fakeInvoices.get(id);
+    return inv
+      ? { type: "invoice", id, label: inv.label, amount: inv.amount, currency: inv.currency }
+      : null;
+  },
+};
+const fakeTransactions = new Set<string>();
+const fakeTransactionLinkable: Linkable = {
+  type: "bank_transaction",
+  async exists(_tx, id) {
+    return fakeTransactions.has(id);
+  },
+  async summary(_tx, id) {
+    return fakeTransactions.has(id)
+      ? {
+          type: "bank_transaction",
+          id,
+          label: `tx ${id.slice(0, 8)}`,
+          amount: null,
+          currency: null,
+        }
+      : null;
+  },
+};
+
+const uuid = () => crypto.randomUUID();
+
+beforeAll(async () => {
+  adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+});
+
+beforeEach(async () => {
+  await cleanupTestData(adminPool);
+  resetRateLimit();
+  mockHeaders = new Headers();
+  _resetLinkables();
+  for (const l of [
+    partnerLinkable,
+    contractLinkable,
+    documentLinkable,
+    fakeInvoiceLinkable,
+    fakeTransactionLinkable,
+  ]) {
+    registerLinkable(l);
+  }
+  fakeInvoices.clear();
+  fakeTransactions.clear();
+});
+
+afterAll(async () => {
+  await adminPool.end();
+});
+
+describe("linking service", () => {
+  it("links a document to a partner (belongs_to) and reads it back from both ends, audited", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const partner = await createTestPartner(adminPool, tenantId, userId);
+    const doc = await createTestDocument(adminPool, tenantId, userId);
+
+    const created = await withTenantTransaction(prisma, tenantId, (tx) =>
+      linking.createLink(tx, owner.callerIdentity, realAudit(tx, owner.callerIdentity), {
+        from: { type: "document", id: doc.id },
+        to: { type: "partner", id: partner.id },
+        kind: "belongs_to",
+        note: "NDA",
+      }),
+    );
+    expect(created.error).toBeUndefined();
+    expect(created.data?.kind).toBe("belongs_to");
+    expect(created.data?.allocatedAmount).toBeNull();
+
+    const [fromDoc, fromPartner, linked] = await withTenantTransaction(prisma, tenantId, (tx) =>
+      Promise.all([
+        linking.getLinksFor(tx, { type: "document", id: doc.id }),
+        linking.getLinksFor(tx, { type: "partner", id: partner.id }),
+        linking.isLinked(tx, { type: "document", id: doc.id }),
+      ]),
+    );
+    expect(fromDoc.data).toHaveLength(1);
+    expect(fromPartner.data?.[0].id).toBe(created.data?.id);
+    expect(linked).toBe(true);
+
+    const audit = await adminPool.query(
+      "SELECT action, entity_type FROM audit_logs WHERE tenant_id = $1 AND entity_type = 'link'",
+      [tenantId],
+    );
+    expect(audit.rows).toEqual([{ action: "create", entity_type: "link" }]);
+  });
+
+  it("rejects a duplicate link, a kind the pair does not accept, self-links and unknown endpoints", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const partner = await createTestPartner(adminPool, tenantId, userId);
+    const doc = await createTestDocument(adminPool, tenantId, userId);
+    const input = {
+      from: { type: "document" as const, id: doc.id },
+      to: { type: "partner" as const, id: partner.id },
+      kind: "belongs_to" as const,
+    };
+
+    await withTenantTransaction(prisma, tenantId, async (tx) => {
+      expect(
+        (await linking.createLink(tx, owner.callerIdentity, noopAudit, input)).error,
+      ).toBeUndefined();
+      expect(
+        (await linking.createLink(tx, owner.callerIdentity, noopAudit, input)).error?.code,
+      ).toBe("DUPLICATE_ENTRY");
+      expect(
+        (
+          await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+            ...input,
+            kind: "transfer",
+          })
+        ).error?.code,
+      ).toBe("BUSINESS_RULE_VIOLATION");
+      expect(
+        (
+          await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+            ...input,
+            to: input.from,
+          })
+        ).error?.code,
+      ).toBe("BUSINESS_RULE_VIOLATION");
+      expect(
+        (
+          await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+            ...input,
+            to: { type: "partner", id: uuid() },
+          })
+        ).error?.code,
+      ).toBe("NOT_FOUND");
+    });
+  });
+
+  it("allocations never exceed the target amount; remaining is reported", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId } = owner.callerIdentity;
+    const invoiceId = uuid();
+    fakeInvoices.set(invoiceId, { label: "VA26-001", amount: "1000.00", currency: "CHF" });
+    const tx1 = uuid();
+    const tx2 = uuid();
+    const tx3 = uuid();
+    for (const t of [tx1, tx2, tx3]) fakeTransactions.add(t);
+
+    await withTenantTransaction(prisma, tenantId, async (tx) => {
+      const to = { type: "invoice" as const, id: invoiceId };
+      const first = await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+        from: { type: "bank_transaction", id: tx1 },
+        to,
+        kind: "justifies",
+        allocatedAmount: "600.00",
+      });
+      expect(first.error).toBeUndefined();
+      expect(first.data?.currency).toBe("CHF");
+
+      const status1 = await linking.getAllocationStatus(tx, to);
+      expect(status1.data).toMatchObject({
+        amount: "1000.00",
+        allocated: "600.00",
+        remaining: "400.00",
+      });
+
+      const tooMuch = await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+        from: { type: "bank_transaction", id: tx2 },
+        to,
+        kind: "justifies",
+        allocatedAmount: "400.01",
+      });
+      expect(tooMuch.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+
+      const wrongCurrency = await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+        from: { type: "bank_transaction", id: tx2 },
+        to,
+        kind: "justifies",
+        allocatedAmount: "100.00",
+        currency: "SEK",
+      });
+      expect(wrongCurrency.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+
+      const exact = await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+        from: { type: "bank_transaction", id: tx3 },
+        to,
+        kind: "justifies",
+        allocatedAmount: "400.00",
+      });
+      expect(exact.error).toBeUndefined();
+      const status2 = await linking.getAllocationStatus(tx, to);
+      expect(status2.data?.remaining).toBe("0.00");
+
+      // an allocation on a kind that does not allocate is refused
+      const partnerLike = await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+        from: { type: "bank_transaction", id: tx1 },
+        to: { type: "bank_transaction", id: tx2 },
+        kind: "transfer",
+        allocatedAmount: "1.00",
+      });
+      expect(partnerLike.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    });
+  });
+
+  it("removeLink frees the allocation and is audited", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId } = owner.callerIdentity;
+    const invoiceId = uuid();
+    fakeInvoices.set(invoiceId, { label: "VA26-002", amount: "100.00", currency: "CHF" });
+    const t = uuid();
+    fakeTransactions.add(t);
+
+    await withTenantTransaction(prisma, tenantId, async (tx) => {
+      const audit = realAudit(tx, owner.callerIdentity);
+      const link = await linking.createLink(tx, owner.callerIdentity, audit, {
+        from: { type: "bank_transaction", id: t },
+        to: { type: "invoice", id: invoiceId },
+        kind: "justifies",
+        allocatedAmount: "100.00",
+      });
+      const removed = await linking.removeLink(
+        tx,
+        owner.callerIdentity,
+        audit,
+        link.data?.id ?? "",
+      );
+      expect(removed.data?.removed).toBe(true);
+      const status = await linking.getAllocationStatus(tx, { type: "invoice", id: invoiceId });
+      expect(status.data?.remaining).toBe("100.00");
+      const again = await linking.removeLink(tx, owner.callerIdentity, audit, link.data?.id ?? "");
+      expect(again.error?.code).toBe("NOT_FOUND");
+    });
+
+    const audit = await adminPool.query(
+      "SELECT action FROM audit_logs WHERE tenant_id = $1 AND entity_type = 'link' ORDER BY created_at",
+      [tenantId],
+    );
+    expect(audit.rows.map((r) => r.action)).toEqual(["create", "delete"]);
+  });
+
+  it("a linked document cannot be hard-deleted (database trigger), unlinked it can", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const partner = await createTestPartner(adminPool, tenantId, userId);
+    const doc = await createTestDocument(adminPool, tenantId, userId);
+
+    await withTenantTransaction(prisma, tenantId, async (tx) => {
+      await linking.createLink(tx, owner.callerIdentity, noopAudit, {
+        from: { type: "document", id: doc.id },
+        to: { type: "partner", id: partner.id },
+        kind: "belongs_to",
+      });
+    });
+
+    // raw delete is refused by the trigger
+    await expect(
+      withTenantTransaction(prisma, tenantId, (tx) =>
+        tx.document.delete({ where: { id: doc.id } }),
+      ),
+    ).rejects.toThrow(/document_linked/);
+
+    // the service translates it into a business-rule error
+    const blocked = await withTenantTransaction(prisma, tenantId, (tx) =>
+      documentService.deleteDocument(tx, owner.callerIdentity, noopAudit, doc.id),
+    );
+    expect(blocked.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+
+    // unlink, then delete succeeds
+    await withTenantTransaction(prisma, tenantId, async (tx) => {
+      const links = await linking.getLinksFor(tx, { type: "document", id: doc.id });
+      for (const l of links.data ?? [])
+        await linking.removeLink(tx, owner.callerIdentity, noopAudit, l.id);
+      await tx.document.delete({ where: { id: doc.id } });
+    });
+    const left = await adminPool.query("SELECT 1 FROM documents WHERE id = $1", [doc.id]);
+    expect(left.rowCount).toBe(0);
+  });
+
+  it("RLS: a link is invisible from another tenant and cannot target another tenant's entity", async () => {
+    const ownerA = await createAuthenticatedContext(auth, "owner");
+    const ownerB = await createAuthenticatedContext(auth, "owner");
+    const a = ownerA.callerIdentity;
+    const b = ownerB.callerIdentity;
+    const partnerA = await createTestPartner(adminPool, a.tenantId, a.userId);
+    const docA = await createTestDocument(adminPool, a.tenantId, a.userId);
+
+    await withTenantTransaction(prisma, a.tenantId, async (tx) => {
+      expect(
+        (
+          await linking.createLink(tx, a, noopAudit, {
+            from: { type: "document", id: docA.id },
+            to: { type: "partner", id: partnerA.id },
+            kind: "belongs_to",
+          })
+        ).error,
+      ).toBeUndefined();
+    });
+
+    await withTenantTransaction(prisma, b.tenantId, async (tx) => {
+      const seen = await linking.getLinksFor(tx, { type: "document", id: docA.id });
+      expect(seen.data).toHaveLength(0);
+      const cross = await linking.createLink(tx, b, noopAudit, {
+        from: { type: "document", id: docA.id },
+        to: { type: "partner", id: partnerA.id },
+        kind: "belongs_to",
+      });
+      expect(cross.error?.code).toBe("NOT_FOUND");
+    });
+  });
+});

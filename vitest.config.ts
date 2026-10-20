@@ -14,7 +14,7 @@ export default defineConfig({
         test: {
           name: "server",
           include: ["src/kernel/**/*.test.ts", "src/modules/**/*.test.ts"],
-          exclude: ["src/kernel/{money,i18n,nav,stores,errors,guards}/**"],
+          exclude: ["src/kernel/{money,i18n,nav,stores,errors,guards}/**", "src/**/*.pure.test.ts"],
           environment: "node",
           setupFiles: ["src/kernel/db/test-setup.ts"],
           fileParallelism: false,
@@ -25,7 +25,10 @@ export default defineConfig({
         extends: true,
         test: {
           name: "pure",
-          include: ["src/kernel/{money,i18n,nav,stores,errors,guards}/**/*.test.ts"],
+          include: [
+            "src/kernel/{money,i18n,nav,stores,errors,guards}/**/*.test.ts",
+            "src/**/*.pure.test.ts",
+          ],
           environment: "node",
         },
       },

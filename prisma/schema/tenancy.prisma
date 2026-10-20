@@ -20,6 +20,7 @@ model Tenant {
   partners             Partner[]
   contracts            Contract[]
   documents            Document[]
+  links                Link[]
 
   @@map("tenants")
 }
