@@ -2,7 +2,7 @@
 
 Decisions D5, D6, D21 and D28 (2026-10-20, phase-0 item 4.4 + the owner's answers): invoice numbers and business keys are **fixed functions**, counters are **one table**, and there is **no prefix or numbering settings page**. v2's `document_type_prefixes` engine and `document_key_counters` are gone — code and tables (D30).
 
-The owner's one rule for client documents: **client code and year first, then a type marker when it is not an invoice, then the number** — `VA26-001`, `VA26-QT-001`, `VA26-CN-001`. Files sort by client and year in any explorer, and each type has its own gap-free counter.
+The owner's one rule for client documents: **client code and year first, then the type marker (`INV`, `QUO`, `CN`), then the number** — `VA26-INV-001`, `VA26-QUO-001`, `VA26-CN-001`. Files sort by client and year in any explorer, and each type has its own gap-free counter.
 
 ## Module `src/modules/numbering`
 
@@ -14,10 +14,10 @@ prisma/schema/numbering.prisma   number_series(tenant_id, series, next_value, up
 
 | What | Function | Example |
 |---|---|---|
-| invoice number | `invoiceNumber(shortCode, issueDate, seq)` — series `{short code}{yy}` | `VA26-001` |
-| quote number | `quoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-QT` | `VA26-QT-007` |
+| invoice number | `invoiceNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-INV` | `VA26-INV-001` |
+| quote number | `quoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-QUO` | `VA26-QUO-007` |
 | credit note | `creditNoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-CN` | `VA27-CN-001` |
-| invoice / quote / credit-note PDF | `invoicePdfKey(number)` | `InvoiceAF_VA26-001.pdf` |
+| invoice / quote / credit-note PDF | `invoicePdfKey(number)` | `InvoiceAF_VA26-INV-001.pdf` |
 | expense ref | `expenseRef(groupNumber, basAlias, seq)` — series `exg-{group}` | `Ex213-Tr-01` |
 | expense receipt key | `expenseDocumentKey(ref, documentDate)` | `Ex213-Tr-01_2026-03-11_` |
 | supplier invoice ref | `supplierInvoiceRef(groupNumber, basAlias, seq)` — series `exg-{group}` (shared with expenses) | `SI213-Acc-01` |
@@ -30,14 +30,14 @@ Series keys (`invoiceSeries`, `quoteSeries`, `creditNoteSeries`, `expenseGroupSe
 
 ```ts
 const seq = await nextInSeries(tx, caller, invoiceSeries(partner.shortCode, issueDate));
-const number = formatSeriesNumber(invoiceSeries(partner.shortCode, issueDate), seq); // VA26-004
+const number = formatSeriesNumber(invoiceSeries(partner.shortCode, issueDate), seq); // VA26-INV-004
 ```
 
 Rules (enforced by how the upsert works, tested in `number-series.test.ts`):
 - **Same transaction as the thing being numbered.** The row stays locked until commit, so concurrent issuers queue and get consecutive numbers; a rollback hands the number back — no gaps, no duplicates.
 - **After validation, before the insert.** Taking the number first and failing later is fine (rollback), but a number taken in a transaction that then commits without the entity is a gap for ever.
 - **Never outside `withTenantTransaction`**: the table is RLS-scoped; each tenant has its own series.
-- `peekSeries` is for previews ("this draft will be VA26-004") — it does not lock and the preview can be overtaken.
+- `peekSeries` is for previews ("this draft will be VA26-INV-004") — it does not lock and the preview can be overtaken.
 
 ## Why no settings
 

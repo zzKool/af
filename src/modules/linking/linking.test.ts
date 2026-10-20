@@ -268,7 +268,7 @@ describe("linking service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const { tenantId } = owner.callerIdentity;
     const invoiceId = uuid();
-    fakeInvoices.set(invoiceId, { label: "VA26-001", amount: "1000.00", currency: "CHF" });
+    fakeInvoices.set(invoiceId, { label: "VA26-INV-001", amount: "1000.00", currency: "CHF" });
     const tx1 = uuid();
     const tx2 = uuid();
     const tx3 = uuid();
@@ -334,7 +334,7 @@ describe("linking service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const { tenantId } = owner.callerIdentity;
     const invoiceId = uuid();
-    fakeInvoices.set(invoiceId, { label: "VA26-002", amount: "100.00", currency: "CHF" });
+    fakeInvoices.set(invoiceId, { label: "VA26-INV-002", amount: "100.00", currency: "CHF" });
     const t = uuid();
     fakeTransactions.add(t);
 

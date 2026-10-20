@@ -43,7 +43,7 @@ test.describe("Invoices", () => {
     await page.getByLabel("Period start").fill("2026-01-01");
     await page.getByRole("button", { name: "Create draft" }).click();
     await expect(page).toHaveURL(/\/invoices\/[0-9a-f-]+$/);
-    await expect(page.getByTestId("sheet-number")).toContainText(`will be ${shortCode}26-001`);
+    await expect(page.getByTestId("sheet-number")).toContainText(`will be ${shortCode}26-INV-001`);
     await expect(page.getByLabel("Unit Price").first()).toHaveValue("1200.00");
 
     // 20 days, autosaved
@@ -56,8 +56,8 @@ test.describe("Invoices", () => {
     // issue → number, locked sheet, PDF from the job
     await page.getByRole("button", { name: "Issue" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Issue" }).click();
-    await expect(page.getByText(`${shortCode}26-001 issued`)).toBeVisible();
-    await expect(page.getByTestId("sheet-number")).toHaveText(`${shortCode}26-001`);
+    await expect(page.getByText(`${shortCode}26-INV-001 issued`)).toBeVisible();
+    await expect(page.getByTestId("sheet-number")).toHaveText(`${shortCode}26-INV-001`);
     await expect(page.getByTestId("invoice-state")).toHaveText("Issued");
     await expect(page.getByLabel("Qty")).toHaveCount(0); // print mode: no inputs
     await expect(page.getByTestId("download-pdf")).toBeVisible({ timeout: 90_000 });
@@ -69,6 +69,6 @@ test.describe("Invoices", () => {
 
     // the list shows it with its derived state
     await page.goto("/invoices");
-    await expect(page.getByRole("link", { name: `${shortCode}26-001` })).toBeVisible();
+    await expect(page.getByRole("link", { name: `${shortCode}26-INV-001` })).toBeVisible();
   });
 });

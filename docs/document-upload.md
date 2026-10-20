@@ -39,7 +39,7 @@ Provisional key of a raw upload, a fixed function (D6, see [[numbering]]): `uplo
 - Prefix per kind is a constant: `exp_`, `inv_`, `ctrt_`, `nda_`, `cert_` (`UPLOAD_KIND_PREFIX`) — no settings
 - Date uses Stockholm timezone via the Clock abstraction
 - `NNN` = `nextInSeries(tx, caller, "doc-yyyy-mm")`: gap-free per tenant per month, row-locked in the upload transaction
-- The document gets its final key when it becomes something: expense receipt `Ex213-Tr-01_2026-03-11_`, issued invoice `InvoiceAF_VA26-001.pdf`
+- The document gets its final key when it becomes something: expense receipt `Ex213-Tr-01_2026-03-11_`, issued invoice `InvoiceAF_VA26-INV-001.pdf`
 
 ## Document Classification
 

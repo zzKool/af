@@ -1,5 +1,5 @@
 {
-  "_source": "Fixture for the print-mode snapshot tests (invoice-pdf skill: one snapshot per language). Shape follows the v3 content checklist; values follow the owner's Excel conventions (docs/excel-to-v3-mapping.md sheet 2: VA26-001, Consulting Services, 2026 January, 20 days x 1 200 CHF, 8.1 %). Every identifier that is not the owner's own convention is a placeholder (0000...).",
+  "_source": "Fixture for the print-mode snapshot tests (invoice-pdf skill: one snapshot per language). Shape follows the v3 content checklist; values follow the owner's Excel conventions (docs/excel-to-v3-mapping.md sheet 2: VA26-INV-001, Consulting Services, 2026 January, 20 days x 1 200 CHF, 8.1 %). Every identifier that is not the owner's own convention is a placeholder (0000...).",
   "tenant": {
     "name": "AnalyticsFab AB",
     "orgNumber": "559000-0000",
@@ -78,7 +78,7 @@
     ]
   },
   "invoice": {
-    "number": "VA26-001",
+    "number": "VA26-INV-001",
     "type": "invoice",
     "issueDate": "2026-01-31",
     "dueDate": "2026-03-02",
@@ -112,12 +112,12 @@
       "vat": "23289.12",
       "total": "310809.12"
     },
-    "pdfBusinessKey": "InvoiceAF_VA26-001.pdf"
+    "pdfBusinessKey": "InvoiceAF_VA26-INV-001.pdf"
   },
   "creditNote": {
-    "number": "CN-VA26-001",
+    "number": "CN-VA26-INV-001",
     "type": "credit_note",
-    "relatedInvoice": "VA26-001",
+    "relatedInvoice": "VA26-INV-001",
     "issueDate": "2026-02-10",
     "currency": "CHF",
     "language": "fr",
@@ -134,10 +134,10 @@
     ],
     "subtotal": "2400.00",
     "total": "2594.40",
-    "pdfBusinessKey": "InvoiceAF_CN-VA26-001.pdf"
+    "pdfBusinessKey": "InvoiceAF_VA26-CN-001.pdf"
   },
   "expectedPrintFr": {
-    "title": "Facture VA26-001",
+    "title": "Facture VA26-INV-001",
     "metaLeft": ["invoices@example.com", "N° org.: 559000-0000", "N° TVA: CHE-000.000.000 TVA"],
     "metaRight": [
       "Date: 31 janvier 2026",
@@ -154,7 +154,7 @@
       ["TVA (8.1%)", "CHF 1'944.00"],
       ["Total", "CHF 25'944.00"]
     ],
-    "payment": "Paiement dû dans les 30 jours ouvrables à compter de la date de facturation. Veuillez indiquer le numéro de facture VA26-001.",
+    "payment": "Paiement dû dans les 30 jours ouvrables à compter de la date de facturation. Veuillez indiquer le numéro de facture VA26-INV-001.",
     "bank": [
       ["Banque", "Nordea"],
       ["Titulaire du compte", "AnalyticsFab AB"],

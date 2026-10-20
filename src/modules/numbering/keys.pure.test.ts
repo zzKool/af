@@ -23,16 +23,16 @@ import {
 } from "./keys";
 
 describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", () => {
-  it("invoice: {short code}{yy}-{nnn}", () => {
-    expect(invoiceSeries("VA", "2026-10-20")).toBe("VA26");
-    expect(invoiceNumber("VA", "2026-10-20", 1)).toBe("VA26-001");
-    expect(invoiceNumber("VA", "2026-10-20", 42)).toBe("VA26-042");
-    expect(invoiceNumber("XYY", "2026-01-05", 2)).toBe("XYY26-002");
+  it("invoice: {short code}{yy}-INV-{nnn} (B1: INV / QUO / CN)", () => {
+    expect(invoiceSeries("VA", "2026-10-20")).toBe("VA26-INV");
+    expect(invoiceNumber("VA", "2026-10-20", 1)).toBe("VA26-INV-001");
+    expect(invoiceNumber("VA", "2026-10-20", 42)).toBe("VA26-INV-042");
+    expect(invoiceNumber("XYY", "2026-01-05", 2)).toBe("XYY26-INV-002");
   });
 
   it("quote and credit note: client code + year first, then the type marker (D21)", () => {
-    expect(quoteSeries("VA", "2026-03-01")).toBe("VA26-QT");
-    expect(quoteNumber("VA", "2026-03-01", 7)).toBe("VA26-QT-007");
+    expect(quoteSeries("VA", "2026-03-01")).toBe("VA26-QUO");
+    expect(quoteNumber("VA", "2026-03-01", 7)).toBe("VA26-QUO-007");
     expect(creditNoteSeries("VA", "2027-02-02")).toBe("VA27-CN");
     expect(creditNoteNumber("VA", "2027-02-02", 1)).toBe("VA27-CN-001");
     // three independent counters per client-year: an invoice, a quote and a credit note can all be 001
@@ -46,9 +46,9 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
   });
 
   it("invoice PDF document key", () => {
-    expect(invoicePdfKey("VA26-001")).toBe("InvoiceAF_VA26-001.pdf");
+    expect(invoicePdfKey("VA26-INV-001")).toBe("InvoiceAF_VA26-INV-001.pdf");
     expect(invoicePdfKey("VA27-CN-001")).toBe("InvoiceAF_VA27-CN-001.pdf");
-    expect(invoicePdfKey("VA26-QT-012")).toBe("InvoiceAF_VA26-QT-012.pdf");
+    expect(invoicePdfKey("VA26-QUO-012")).toBe("InvoiceAF_VA26-QUO-012.pdf");
     expect(() => invoicePdfKey("draft")).toThrow();
   });
 

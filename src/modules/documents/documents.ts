@@ -172,7 +172,7 @@ export async function uploadDocument(
 /**
  * Store a document the app itself produced or took in whole (an issued invoice's PDF, a reimbursement statement,
  * an imported bank statement CSV): no OCR, no review — status `generated`, business key given by the producing
- * module (`InvoiceAF_VA26-001.pdf`, `Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv`), kind `financial`.
+ * module (`InvoiceAF_VA26-INV-001.pdf`, `Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv`), kind `financial`.
  * Same blob path convention and audit as an upload; the bytes are already trusted.
  */
 export async function storeGeneratedDocument(

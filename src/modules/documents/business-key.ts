@@ -1,7 +1,7 @@
 // Provisional business key of a raw upload — a fixed function (D6), no prefix table (4.4).
 // `exp_20261020_001`: kind prefix + upload date + sequence in the month's `doc-yyyy-mm` series.
 // A document gets its final key when it becomes something: an expense receipt (`Ex213-Tr-01_…_`),
-// an issued invoice (`InvoiceAF_VA26-001.pdf`) — those functions live in modules/numbering too.
+// an issued invoice (`InvoiceAF_VA26-INV-001.pdf`) — those functions live in modules/numbering too.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";

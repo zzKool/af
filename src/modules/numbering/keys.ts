@@ -1,10 +1,10 @@
 // Business keys and document numbers are FIXED FUNCTIONS (D5, D6, D21, D28) — no prefix settings, no
 // pattern engine. The owner's conventions, verbatim — every client document starts with the client code
 // and the year, then a type marker when it is not an invoice, then the sequence:
-//   invoice      VA26-001                 series {partner short code}{yy}, 3-digit sequence
-//   quote        VA26-QT-001              series {partner short code}{yy}-QT
+//   invoice      VA26-INV-001             series {partner short code}{yy}-INV, 3-digit sequence (D21, B1)
+//   quote        VA26-QUO-001             series {partner short code}{yy}-QUO
 //   credit note  VA26-CN-001              series {partner short code}{yy}-CN
-//   invoice PDF  InvoiceAF_VA26-001.pdf   the document that stores the issued invoice / quote / credit note
+//   invoice PDF  InvoiceAF_VA26-INV-001.pdf   the document that stores the issued invoice / quote / credit note
 //   expense ref  Ex213-Tr-01              Ex{group number}-{BAS alias}-{seq within group, 2 digits}
 //   expense doc  Ex213-Tr-01_2026-03-11_  the receipt's business key = {ref}_{document date}_
 //   supplier inv SI213-Acc-01             SI{group number}-{BAS alias}-{seq}, same per-group counter
@@ -57,19 +57,25 @@ function pad(n: number, width: number): string {
 
 // --- series keys (what number_series is keyed by) ---
 
-export function invoiceSeries(partnerShortCode: string, issueDate: string): string {
+/** `VA26` — the client code and the year, the start of every client document number (D21). */
+export function clientYearSeries(partnerShortCode: string, issueDate: string): string {
   assertShortCode(partnerShortCode);
   return `${partnerShortCode}${yy(issueDate)}`;
 }
 
-/** `VA26-QT` — quotes have their own counter per client-year (D21). */
+/** `VA26-INV` — invoices have their own counter per client-year (D21, B1: INV / QUO / CN). */
+export function invoiceSeries(partnerShortCode: string, issueDate: string): string {
+  return `${clientYearSeries(partnerShortCode, issueDate)}-INV`;
+}
+
+/** `VA26-QUO` — quotes have their own counter per client-year (D21). */
 export function quoteSeries(partnerShortCode: string, issueDate: string): string {
-  return `${invoiceSeries(partnerShortCode, issueDate)}-QT`;
+  return `${clientYearSeries(partnerShortCode, issueDate)}-QUO`;
 }
 
 /** `VA26-CN` — credit notes have their own counter per client-year; the invoice series stays gap-free (D21). */
 export function creditNoteSeries(partnerShortCode: string, issueDate: string): string {
-  return `${invoiceSeries(partnerShortCode, issueDate)}-CN`;
+  return `${clientYearSeries(partnerShortCode, issueDate)}-CN`;
 }
 
 /** Upload counter series: one per month — `doc-2026-10`. */
@@ -86,7 +92,7 @@ export function expenseGroupSeries(groupNumber: number): string {
 
 // --- formatted numbers and keys ---
 
-/** `VA26-001`: a series key + its 3-digit sequence (grows past 999 without truncation). */
+/** `VA26-INV-001`: a series key + its 3-digit sequence (grows past 999 without truncation). */
 export function formatSeriesNumber(series: string, seq: number): string {
   assertSeq(seq);
   return `${series}-${pad(seq, 3)}`;
@@ -104,7 +110,7 @@ export function creditNoteNumber(partnerShortCode: string, issueDate: string, se
   return formatSeriesNumber(creditNoteSeries(partnerShortCode, issueDate), seq);
 }
 
-/** The stored PDF of an issued invoice, credit note or quote: `InvoiceAF_VA26-001.pdf`. */
+/** The stored PDF of an issued invoice, credit note or quote: `InvoiceAF_VA26-INV-001.pdf`. */
 export function invoicePdfKey(number: string): string {
   if (!/^[A-Z0-9-]+-\d{3,}$/.test(number)) throw new Error(`Not a document number: "${number}"`);
   return `InvoiceAF_${number}.pdf`;

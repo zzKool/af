@@ -49,7 +49,7 @@ Observations
 
 | Excel column | v3 |
 |---|---|
-| Number `VA26-001` | `invoice.number`; series key = `{client short}{yy}`; gap-free per series (`number_series` table) |
+| Number `VA26-INV-001` | `invoice.number`; series key = `{client short}{yy}-INV`; gap-free per series (`number_series` table) |
 | Client / Client Short | `partner` + `partner.short_code` |
 | Invoice Date / Due Date | invoice fields; due date defaults from `contract.payment_terms` |
 | Activity (`Consulting Services`) | line description, default from contract |

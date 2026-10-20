@@ -288,7 +288,7 @@
     },
     {
       "id": "I-credit-note-full",
-      "note": "Full credit of case A. v1 stores POSITIVE amounts with documentType CREDIT_NOTE and prints a '-' prefix; number VA26-001b in v1, CN-VA26-001 in v3",
+      "note": "Full credit of case A. v1 stores POSITIVE amounts with documentType CREDIT_NOTE and prints a '-' prefix; number VA26-001b in v1, CN-VA26-INV-001 in v3",
       "documentType": "CREDIT_NOTE",
       "relatedTo": "A-standard-month",
       "currency": "CHF",

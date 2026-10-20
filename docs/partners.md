@@ -3,7 +3,7 @@
 Phase-0 item 6 (2026-10-20). `src/modules/partners` is the module every other module copies: the layout of [[feature-folders]], the surfaces of 3b, the read API of D20, the pages of D19. The `module-slice` skill is distilled from it. Older pattern notes ([[partner-crud-pattern]], [[entity-view-pattern]]) describe v2's version of the same module and stay as history.
 
 ## What a partner is
-A client, vendor or employee (`types[]`, at least one) with org/VAT numbers, defaults for invoicing (currency, language, BAS category), labelled external identifiers (supplier number, PO…), contact details, an address, and since 4.4 a **short code** (`VA`): the invoice series key is `{short_code}{yy}` → `VA26-001` ([[numbering]]). Short codes are 2–6 upper-case letters/digits, unique per tenant, optional until the partner is invoiced. Deactivation is soft (`is_active`); a partner that is linked anywhere cannot be deleted ([[linking]]).
+A client, vendor or employee (`types[]`, at least one) with org/VAT numbers, defaults for invoicing (currency, language, BAS category), labelled external identifiers (supplier number, PO…), contact details, an address, and since 4.4 a **short code** (`VA`): the invoice series key is `{short_code}{yy}` → `VA26-INV-001` ([[numbering]]). Short codes are 2–6 upper-case letters/digits, unique per tenant, optional until the partner is invoiced. Deactivation is soft (`is_active`); a partner that is linked anywhere cannot be deleted ([[linking]]).
 
 ## The module, file by file
 ```

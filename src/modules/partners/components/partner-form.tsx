@@ -263,7 +263,7 @@ export function PartnerForm({
               id="shortCode"
               value={shortCode}
               maxLength={6}
-              placeholder="VA — invoice numbers become VA26-001"
+              placeholder="VA — invoice numbers become VA26-INV-001"
               className="uppercase"
               onChange={(e) => setShortCode(e.target.value.toUpperCase())}
               onBlur={() => handleBlur("shortCode", shortCode, partner.shortCode ?? null)}

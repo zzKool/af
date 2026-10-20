@@ -91,7 +91,7 @@ describe("the printed invoice — French (fixture expectedPrintFr)", () => {
 
   it("title, number, dates, period, references", () => {
     expect(html).toContain("Facture");
-    expect(html).toContain("VA26-001");
+    expect(html).toContain("VA26-INV-001");
     expect(html).toContain("31 janvier 2026");
     expect(html).toContain("02 mars 2026");
     expect(html).toContain("Date d'échéance");
@@ -115,7 +115,7 @@ describe("the printed invoice — French (fixture expectedPrintFr)", () => {
 
   it("payment box and bank details of the invoice currency", () => {
     expect(html).toContain("Paiement dû dans les 30 jours à compter de la date de facturation.");
-    expect(html).toContain("Veuillez indiquer le numéro de facture VA26-001.");
+    expect(html).toContain("Veuillez indiquer le numéro de facture VA26-INV-001.");
     expect(html).toContain("Banque Nordea");
     expect(html).toContain("Titulaire du compte AnalyticsFab AB");
     expect(html).toContain("IBAN SE00 0000 0000 0000 0000 0001");
@@ -133,7 +133,7 @@ describe("the printed invoice — variants", () => {
     expect(html).toContain("Due Date");
     expect(html).toContain("20 Days");
     expect(html).toContain("CHF 25'944.00");
-    expect(html).toContain("Please reference invoice number VA26-001.");
+    expect(html).toContain("Please reference invoice number VA26-INV-001.");
   });
 
   it("VAT column appears when a line differs; two rates → two rows ascending; 0 % → no VAT row", () => {
@@ -172,15 +172,15 @@ describe("the printed invoice — variants", () => {
       ...base,
       type: "credit_note",
       number: "VA26-CN-001",
-      relatedNumber: "VA26-001",
+      relatedNumber: "VA26-INV-001",
     });
     expect(html).toContain("Note de crédit");
     expect(html).toContain("−CHF 25'944.00");
-    expect(html).toContain("Note de crédit pour la facture VA26-001");
+    expect(html).toContain("Note de crédit pour la facture VA26-INV-001");
   });
 
   it("quote: title, valid until, no payment box", () => {
-    const html = text({ ...base, type: "quote", number: "VA26-QT-001" });
+    const html = text({ ...base, type: "quote", number: "VA26-QUO-001" });
     expect(html).toContain("Devis");
     expect(html).toContain("Valable jusqu'au");
     expect(html).not.toContain("Coordonnées bancaires");
@@ -208,9 +208,9 @@ describe("the printed invoice — variants", () => {
   });
 
   it("draft: no number, DRAFT mark, the hint", () => {
-    const html = text({ ...base, status: "draft", number: null, numberHint: "VA26-004" });
+    const html = text({ ...base, status: "draft", number: null, numberHint: "VA26-INV-004" });
     expect(html).toContain("BROUILLON");
-    expect(html).toContain("sera VA26-004");
+    expect(html).toContain("sera VA26-INV-004");
   });
 
   it("formatting helpers", () => {
