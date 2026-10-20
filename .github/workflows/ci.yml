@@ -2,13 +2,13 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '_bmad*/**'
   pull_request:
-    branches: [develop]
+    branches: [main]
 
 env:
   NODE_VERSION: '22'

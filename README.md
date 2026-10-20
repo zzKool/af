@@ -1,6 +1,8 @@
-# DefterFab
+# AF
 
-Secretary-General for solo Swedish AB business administration. Centralizes documents, links transactions, delivers structured accountant reports.
+Business-administration app for AnalyticsFab AB (v3). Centralizes documents, imports bank transactions, links everything to its justification, generates invoices and the monthly accountant package.
+
+Start with `CLAUDE.md` and `docs/index.md`. Seeded from DefterFab (v2) — its history is in this repo; `af_core` (v1) is harvested as specs only.
 
 ## Prerequisites
 
@@ -12,12 +14,8 @@ Secretary-General for solo Swedish AB business administration. Centralizes docum
 
 ```bash
 # Clone the repository (SSH or HTTPS)
-git clone git@github.com:zzKool/defterfab.git
-# or: git clone https://github.com/zzKool/defterfab.git
-cd defterfab
-
-# Switch to develop branch
-git checkout develop
+git clone git@github.com:zzKool/af.git
+cd af
 
 # Copy environment template
 cp .env.example .env.local
