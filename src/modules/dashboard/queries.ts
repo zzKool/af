@@ -1,5 +1,4 @@
-// Read API of the module — the functions pages and other modules may call for data.
-// 3b/3d: declared here as named re-exports; extraction into standalone query implementations
-// (ListQuery, distinct values for DataTable headers) happens with the partners reference slice.
+// Read API of the module: the header's facts (v2) and the overview — action items, pulse, briefing.
 
 export { getDashboardData } from "./dashboard";
+export { dashboardOverview, daysBefore, previousMonth, previousQuarter } from "./overview";

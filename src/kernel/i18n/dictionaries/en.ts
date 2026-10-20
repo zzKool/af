@@ -897,6 +897,43 @@ export const en = {
   "exports.vat.col.label": "What",
   "invoices.declared": "Declared {date}",
   "invoices.declaredPaid": "Declared {date} · paid {paid}",
+
+  // --- dashboard (feature inventory §3.14) ---
+  "dashboard.welcome": "Welcome back, {name}",
+  "dashboard.lastLogin": "Last login: {date}",
+  "dashboard.firstLogin": "First login",
+  "dashboard.actions.title": "To do",
+  "dashboard.actions.none":
+    "Nothing to do — every bank line is justified, every document is there.",
+  "dashboard.action.rows_to_justify": "{count} bank line(s) to justify",
+  "dashboard.action.documents_to_review": "{count} document(s) to review",
+  "dashboard.action.unlinked_documents": "{count} document(s) linked to nothing",
+  "dashboard.action.supplier_invoices_overdue": "{count} supplier invoice(s) overdue",
+  "dashboard.action.supplier_invoices_due": "{count} supplier invoice(s) due within 14 days",
+  "dashboard.action.invoices_overdue": "{count} client invoice(s) overdue",
+  "dashboard.action.owner_liability": "{count} private expense(s) to refund",
+  "dashboard.action.expenses_awaiting_row":
+    "{count} company-paid expense(s) awaiting their bank row",
+  "dashboard.action.receipts_missing": "{count} expense(s) without a receipt",
+  "dashboard.action.rate_gaps": "{count} ECB day(s) without a rate in the last 30 days",
+  "dashboard.action.package_not_built": "Package {period} not built yet ({count} flag(s))",
+  "dashboard.action.package_flags": "Package {period} built with {count} flag(s)",
+  "dashboard.action.vat_not_declared": "Swiss VAT {period} not declared",
+  "dashboard.action.vat_not_paid": "Swiss VAT {period} declared, not paid",
+  "dashboard.pulse.title": "Business pulse",
+  "dashboard.pulse.receivables": "Receivables open",
+  "dashboard.pulse.payables": "Payables open",
+  "dashboard.pulse.liability": "Owed to you",
+  "dashboard.pulse.invoicedYear": "Invoiced this year",
+  "dashboard.pulse.asOf": "as of {date}",
+  "dashboard.pulse.open": "{count} open",
+  "dashboard.briefing.title": "Briefing",
+  "dashboard.briefing.since": "Since {date}",
+  "dashboard.briefing.quiet": "Nothing happened since your last visit.",
+  "dashboard.briefing.first": "Your first visit — the briefing starts from here.",
+  "dashboard.briefing.action.create": "created",
+  "dashboard.briefing.action.update": "updated",
+  "dashboard.briefing.action.delete": "deleted",
 } as const;
 
 export type MessageKey = keyof typeof en;
