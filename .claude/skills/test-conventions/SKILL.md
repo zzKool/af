@@ -29,7 +29,7 @@ Read first: `docs/conventions.md`, `docs/config-page-test-template.md`, `docs/te
 - Harvested v1 behaviour (matcher, calculator, VAT mapping) ships as fixture tables under `specs/<module>/fixtures/` and is asserted, not re-derived.
 
 ## Flaky tests
-A test that fails without a code change is quarantined: `test.skip` with a link to an issue, same PR. Never retried into green, never left red.
+A test that fails without a code change is quarantined in the same PR: Playwright `quarantine("#<issue> — why")` from `e2e/fixtures/quarantine.ts` as the first line of the test, Vitest `it.skip` with the same comment. `retries: 0` in `playwright.config.ts` — never retried into green, never left red. See `docs/verify-gate.md`.
 
 ## E2E hygiene
 - Wait for the success toast / the specific row, never for a row count.

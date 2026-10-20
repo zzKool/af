@@ -43,4 +43,4 @@ The Excel the owner ran the company on used exactly these conventions by hand. v
 
 `20261020150000_add_number_series` creates the table and **carries the monthly upload counters over** (`document_key_counters.next_val + 1 → number_series('doc-yyyy-mm')`) so no provisional key is reused. `document_type_prefixes` and `document_key_counters` are no longer read or written; their Prisma models stay (marked deprecated) until the drop migration lands.
 
-Related: [[document-upload]] (provisional keys), the `invoice-pdf` skill (issue lifecycle), [[bas-accounting]] (aliases), [[excel-to-v3-mapping]].
+Related: [[document-upload]] (provisional keys), the `invoice-pdf` skill (issue lifecycle), the `bas-accounting` skill (aliases), [[excel-to-v3-mapping]].

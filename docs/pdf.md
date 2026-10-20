@@ -53,4 +53,4 @@ Local dev on Windows: set `CHROMIUM_PATH` to Chrome (`C:\Program Files\Google\Ch
 
 `pdf.test.ts` launches the real browser against a tiny `node:http` stand-in for a print page (it verifies the token like `requirePrintCaller`). Page count is read from the PDF's `/Pages /Count`. The suite skips itself when no Chromium is found — CI's Ubuntu runner has Chrome, the image has Chromium, so it runs there.
 
-Related: [[async-jobs]] (PDF generation runs as a job), [[document-upload-flow]] (the PDF is stored as a document), [[constitution]].
+Related: [[async-jobs]] (PDF generation runs as a job), [[document-upload]] (the PDF is stored as a document), [[constitution]].

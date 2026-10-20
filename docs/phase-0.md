@@ -17,7 +17,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 - [ ] **2. Tooling**
   - [x] Windows: postinstall replaced by `scripts/copy-pdf-worker.mjs` (no `cp`/`mkdir -p`)
   - [x] Prisma schema reconciled with the hand-written migrations (`migrate dev` no longer proposes a repair migration) — see `docs/prisma-rls-setup.md`
-  - [ ] CI: add a drift check step (`prisma migrate diff --from-migrations … --to-schema-datamodel … --exit-code`) so this cannot regress
+  - [x] CI: schema ↔ migrations drift check after `migrate deploy` in the unit-test job, failure annotated (PR #9)
   - [x] CI cost: E2E only on `main` pushes + manual dispatch; PRs run lint/typecheck/unit/build (PR #3)
   - [ ] spec-kit: `uv tool install specify-cli`, then in `C:\af`: `specify init --here --integration claude` (or `specify init . --integration claude`), then `/speckit-constitution` fed from `docs/constitution.md`
   - [x] MCP in `.mcp.json`: Playwright (screenshots), Context7 + Microsoft Learn (Next 16 / Prisma 7 / Better Auth docs), Postgres (`postgres-mcp`, restricted, needs `uv`). Approve them on first Claude Code start in the repo.
@@ -37,11 +37,14 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] `docker-compose.prod.yml` (same image, no bind mounts, `.env.prod`) + `scripts/backup.sh` (PR #5)
 - [x] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6 — 2026-10-20: `specs/<module>/harvest.md` for invoices (H1 H2 H6), banking (H3 H4 H11), contracts (H5), documents (H7), expenses (H8), traktamente (H9), supplier-invoices (H10), accountant-package (H12), kernel-ui-datatable (H13); open questions in each §9 — **answer them before the module's `/speckit-specify`**
 - [x] **6. Reference slice**: `partners` on the full module layout (ListQuery `queries.ts`, DataTable list page, entity page, short code) → `module-slice` skill finalised — 2026-10-20, see `docs/partners.md`
-- [ ] **7. Verify gate wired**: CI + screenshot step + flaky quarantine; first PR through the full gate
+- [x] **7. Verify gate wired**: drift check (PR #9), `retries: 0` + `quarantine()` helper, `e2e/screenshots.spec.ts` → `page-screenshots` artifact on `main`, partners happy path `e2e/partners.spec.ts` — 2026-10-20, see `docs/verify-gate.md`
 - [x] **8. Kernel UI**: app shell full-width (D19) + `DataTable` with typed header filters and `ListQuery` helper (D20, H13) — built on `partners` 2026-10-20, see `docs/ui-conventions.md`. Left for later: per-user column order/width (table_preferences), documents library onto the new table
 
 Then phase 1: contracts frozen for the batch → parallel agents on invoices / banking + journal / expenses + traktamente / supplier invoices → linking → exports → dashboard.
 
-## Open points (non-blocking)
+## Open points
+Consolidated in [[open-questions]] (blocking B1–B15, the rest during the build). Of these, **B15** is the only one that blocks a merged PR's follow-up (the drop migration); the others gate each module's spec.
+
+## Open points (non-blocking, from before the harvest)
 - Settlement allocation default: FIFO by expense date with manual override — confirm.
 - Exchange-difference category on cross-currency settlements — ask the accountant.

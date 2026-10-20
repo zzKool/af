@@ -66,7 +66,7 @@ Page-specific documentation and patterns.
 - [[partner-crud-pattern]] — (v2 history) Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
 - [[contract-pattern]] — Child entity pattern, Decimal money field pipeline, dual self-referential FK
 - [[entity-view-pattern]] — Tabbed entity detail page pattern, persistent header, empty state stubs
-- [[document-upload-flow]] — Document upload pipeline, file validation, business key generation, status lifecycle
+- [[document-upload]] — Document upload pipeline, file validation, business key generation, status lifecycle
 - [[document-review]] — Document review & correction, corrections overlay, dual-pane UI, role-based access
 - [[document-library]] — Document library page, paginated table, filters, download, stats bar, DataTable component
 
@@ -92,4 +92,6 @@ Backend service documentation and API contracts.
 - [[blob-storage]] — Azure Blob Storage service, Azurite setup, test patterns
 - [[async-jobs]] — pg-boss in-process queue (D17): JobDefinition, withJobContext, retries + dead letter, schedules with catch-up, pgboss schema migration
 - [[pdf]] — kernel/pdf: Chromium in the image, print routes + print tokens, renderPathToPdf / renderHtmlToPdf
+- [[open-questions]] — the owner's decisions pending from the harvest (blocking vs during-the-build), with proposals
+- [[verify-gate]] — what runs on a PR and on main (lint, typecheck, drift check, tests, build, e2e + page screenshots), flaky quarantine, DoD mapping
 - [[ocr-processing]] — OCR service interface, Azure DI integration, resumable process-document job, quality classification
