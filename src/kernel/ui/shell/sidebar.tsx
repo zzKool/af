@@ -12,6 +12,7 @@ import {
   Receipt,
   Settings,
   Users,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,6 +35,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Users,
   ArrowLeftRight,
   Receipt,
+  Wallet,
   Settings,
 };
 

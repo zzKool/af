@@ -6,9 +6,13 @@
  * - Assumes single Node.js process. If Next.js uses worker threads
  *   or edge runtime, rate limiting becomes per-worker.
  * - Acceptable for 2-3 user app.
+ *
+ * The limit counts every Server Action — reads included: a filter popup, a side panel, an autosave are one each.
+ * An active minute on a workbench (and the e2e suite's two workers on one user) sits well above 60, which is
+ * why the limit is 300: a guard against a runaway loop, not a budget for a working owner.
  */
 
-const DEFAULT_MAX_REQUESTS = 60;
+const DEFAULT_MAX_REQUESTS = 300;
 const DEFAULT_WINDOW_MS = 60_000;
 
 interface RateLimitEntry {

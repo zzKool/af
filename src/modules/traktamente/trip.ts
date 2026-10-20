@@ -121,6 +121,7 @@ export function toTripDto(row: Trip): TripDto {
     longStayFactor: row.longStayFactor ? row.longStayFactor.toString() : null,
     computed: (row.computed as PerDiemResult | null) ?? null,
     perDiemExpenseId: row.perDiemExpenseId,
+    perDiemDocumentId: row.perDiemDocumentId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -281,9 +282,10 @@ export async function createOrReplacePerDiemExpense(
   }
   if (expense.error) return { error: expense.error };
   const snapshot = JSON.parse(JSON.stringify(result));
+  // the breakdown PDF is rendered again by the job (a recompute supersedes the previous one)
   const row = await tx.trip.update({
     where: { id: trip.id },
-    data: { computed: snapshot, perDiemExpenseId: expense.data.id },
+    data: { computed: snapshot, perDiemExpenseId: expense.data.id, perDiemDocumentId: null },
   });
   await audit.log({
     action: "update",

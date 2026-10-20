@@ -45,6 +45,7 @@ export type TripDto = {
   longStayFactor: string | null;
   computed: PerDiemResult | null;
   perDiemExpenseId: string | null;
+  perDiemDocumentId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

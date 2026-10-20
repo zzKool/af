@@ -19,6 +19,13 @@ export {
   TENANT_ZONE,
   toLocal,
 } from "./calculator";
+export type { RenderPerDiemData } from "./jobs/render-per-diem";
+export {
+  perDiemPrintPath,
+  renderPerDiem,
+  renderPerDiemJob,
+  traktamenteJobs,
+} from "./jobs/render-per-diem";
 export * from "./queries";
 export type { ParsedCsv, ParsedRate, PasteInput, RateInput } from "./rates";
 export {
@@ -30,6 +37,8 @@ export {
   rateInputSchema,
   upsertRate,
 } from "./rates";
+export type { PerDiemStatement } from "./statement";
+export { resolvePerDiemStatement } from "./statement";
 export * from "./traktamente.actions";
 export type { TripInput } from "./trip";
 export {

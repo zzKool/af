@@ -57,6 +57,8 @@ model Trip {
   computed                  Json?     @db.JsonB
   /// the per_diem expense written from this trip (validated UUID into expenses)
   perDiemExpenseId          String?   @map("per_diem_expense_id") @db.Uuid
+  /// the breakdown PDF (validated UUID into documents), set by the job; cleared on recompute
+  perDiemDocumentId         String?   @map("per_diem_document_id") @db.Uuid
   createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
   createdBy                 String    @map("created_by") @db.Uuid

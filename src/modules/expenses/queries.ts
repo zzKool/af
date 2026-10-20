@@ -2,6 +2,7 @@
 // columns, then the group, the payer, the BAS label, Σ settlement lines, Σ justifies allocations and the document
 // are joined over that set and the derived status / filters / search / sort / page run in memory.
 import { Prisma } from "@/generated/prisma/browser";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -15,6 +16,7 @@ import type {
   SortSpec,
 } from "@/kernel/list-query/types";
 import * as banking from "@/modules/banking";
+import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
@@ -440,21 +442,22 @@ export async function listSettlements(tx: TransactionClient): Promise<Settlement
   return out;
 }
 
-/** Outgoing rows on main accounts that do not settle anything yet — the settle page's picker (US5). */
+export type SettleableTransaction = {
+  id: string;
+  bookingDate: string;
+  amount: string;
+  currency: string;
+  description: string;
+  bankAccountId: string;
+  accountLabel: string;
+  amountBase: string | null;
+};
+
+/** Outgoing rows on main accounts that do not settle anything yet — the settle page's picker (US5) and the attach picker. */
 export async function settleableTransactions(
   tx: TransactionClient,
   limit = 200,
-): Promise<
-  {
-    id: string;
-    bookingDate: string;
-    amount: string;
-    currency: string;
-    description: string;
-    accountLabel: string;
-    amountBase: string | null;
-  }[]
-> {
+): Promise<SettleableTransaction[]> {
   const settling = await tx.settlement.findMany({
     where: { status: "active" },
     select: { bankTransactionId: true },
@@ -477,6 +480,7 @@ export async function settleableTransactions(
       amount: r.amount.toFixed(2),
       currency: r.currency,
       description: r.description,
+      bankAccountId: r.bankAccountId,
       accountLabel: banking.accountLabel(r.bankAccount),
       amountBase: entries.get(r.id)?.amountBase ?? null,
     }));
@@ -545,4 +549,40 @@ export async function ledgerSnapshot(tx: TransactionClient): Promise<LedgerSnaps
     sources: out,
     awaitingLinkCount: awaitingLink,
   };
+}
+
+// --- the receipts that can become an expense ---
+
+export type CandidateDocument = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  status: string;
+};
+
+/** Uploaded expense documents that did not become anything yet (the new-expense dialog's picker). */
+export async function candidateDocuments(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+): Promise<CandidateDocument[]> {
+  const list = await documents.getDocuments(
+    tx,
+    caller,
+    { prefixType: ["expense"] },
+    { field: "createdAt", direction: "desc" },
+    { page: 1, pageSize: 200 },
+  );
+  const items = (list.data?.items ?? []).filter((d) => d.status !== "generated");
+  if (items.length === 0) return [];
+  const taken = new Set(
+    (
+      await tx.link.findMany({
+        where: { kind: "created_from", toType: "document", toId: { in: items.map((d) => d.id) } },
+        select: { toId: true },
+      })
+    ).map((l) => l.toId),
+  );
+  return items
+    .filter((d) => !taken.has(d.id))
+    .map((d) => ({ id: d.id, businessKey: d.businessKey, fileName: d.fileName, status: d.status }));
 }

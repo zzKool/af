@@ -164,7 +164,7 @@ Use `createAuthenticatedContext()` from `src/kernel/db/test-fixtures.ts` for aut
 ## Design Decisions
 
 - **Why next-safe-action:** Type-safe Server Action framework with middleware chain, Zod schema validation, and proper error handling. `.use()` chains clone (don't mutate), enabling safe composition.
-- **Why in-memory rate limiting:** Single-process app with 2-3 users. No Redis dependency needed. Resets on restart (acceptable).
+- **Why in-memory rate limiting:** Single-process app with 2-3 users. No Redis dependency needed. Resets on restart (acceptable). The limit is 300 actions per user per minute — reads count too (a filter popup, a side panel, an autosave each take one), so 60 throttled an active owner and the e2e suite's two workers on one user (`Too many requests` surfaced as the invoices flow stalling on `main`, 2026-10-20).
 - **Why this chain order (auth → rate limit → tenant):** Rate limiting before tenant avoids holding a DB transaction for rejected requests. Auth must come first to identify the user for rate limiting.
 - **Why middleware-managed transactions:** `tenantMiddleware` wraps `next()` inside `withTenantTransaction`, making it impossible to forget RLS. Every handler automatically runs inside a tenant-scoped transaction.
 - **Why ActionError throws:** `next-safe-action` discards middleware return values. Throwing allows `handleServerError` to convert business errors to structured AppError responses.
