@@ -16,7 +16,9 @@ import {
   run,
   seedRates,
   setupOwner,
+  storage,
 } from "@/modules/expenses/__fixtures__/harness";
+import { renderPerDiem } from "./jobs/render-per-diem";
 import { countryOptions } from "./queries";
 import {
   copyRatesFromYear,
@@ -34,6 +36,10 @@ vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
 vi.mock("@/kernel/logging/logger", () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
+vi.mock("@/kernel/storage/storage", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/kernel/storage/storage")>();
+  return { ...mod, createStorageService: () => storage };
+});
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "traktamente", "fixtures");
 const ADMIN_DATABASE_URL =
@@ -255,6 +261,56 @@ describe("US3 — the per-diem expense", () => {
         returnAt: "2026-03-02T09:00",
       });
       expect(backwards.error?.message).toMatch(/after the departure/);
+    });
+  });
+
+  it("the breakdown PDF (D29): stored as the expense's receipt, linked created_from, replaced on recompute, idempotent", async () => {
+    const g = await tripGroup();
+    await run(owner.caller, (tx) => upsertTrip(tx, owner.caller, noopAudit, ownerTrip(g.id)));
+    const written = (
+      await run(owner.caller, (tx) =>
+        createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
+          groupId: g.id,
+          basCode: "580",
+        }),
+      )
+    ).data!;
+    const render = vi.fn(async (path: string) => Buffer.from(`%PDF ${path}`));
+    const data = { tenantId: owner.caller.tenantId, userId: owner.caller.userId, groupId: g.id };
+    await renderPerDiem(data, render);
+    await renderPerDiem(data, render);
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(render).toHaveBeenCalledWith(`/print/per-diem/${g.id}`, expect.anything());
+    const firstDoc = await run(owner.caller, async (tx) => {
+      const trip = await tx.trip.findUniqueOrThrow({ where: { groupId: g.id } });
+      expect(trip.perDiemDocumentId).toBeTruthy();
+      const doc = await tx.document.findUniqueOrThrow({ where: { id: trip.perDiemDocumentId! } });
+      expect(doc).toMatchObject({
+        businessKey: "Ex213-Tr-01_2026-03-21_",
+        fileName: "Ex213-Tr-01_2026-03-21_.pdf",
+        status: "generated",
+        prefixType: "expense",
+      });
+      const detail = await expenses.getExpenseDetail(tx, written.expense.id);
+      expect(detail.data?.document?.id).toBe(doc.id);
+      expect(detail.data?.links.map((l) => l.kind)).toEqual(["created_from"]);
+      return doc.id;
+    });
+    // recompute → the marker clears, the job renders again, the link moves to the new document
+    await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, { ...ownerTrip(g.id), lunches: 2 }),
+    );
+    await run(owner.caller, (tx) =>
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+    );
+    await renderPerDiem(data, render);
+    expect(render).toHaveBeenCalledTimes(2);
+    await run(owner.caller, async (tx) => {
+      const trip = await tx.trip.findUniqueOrThrow({ where: { groupId: g.id } });
+      expect(trip.perDiemDocumentId).not.toBe(firstDoc);
+      const detail = await expenses.getExpenseDetail(tx, written.expense.id);
+      expect(detail.data?.document?.id).toBe(trip.perDiemDocumentId);
+      expect(await tx.document.count({ where: { id: firstDoc } })).toBe(1); // the old one stays
     });
   });
 

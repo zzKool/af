@@ -3,6 +3,8 @@
 import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
+import { enqueue } from "@/kernel/jobs/queue";
+import { renderPerDiemJob } from "@/modules/traktamente/jobs/render-per-diem";
 import {
   countryOptions,
   getTrip,
@@ -92,9 +94,23 @@ export const upsertTripAction = ownerAction
     trips.upsertTrip(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
 
+/** Write the per-diem expense; the breakdown PDF job is enqueued once committed (D29). */
 export const createPerDiemExpenseAction = ownerAction
   .schema(z.object({ groupId: uuid, basCode: z.string().regex(/^\d{3,4}$/) }))
   .metadata({ name: "createPerDiemExpense" })
-  .action(async ({ ctx, parsedInput }) =>
-    trips.createOrReplacePerDiemExpense(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
-  );
+  .action(async ({ ctx, parsedInput }) => {
+    const result = await trips.createOrReplacePerDiemExpense(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput,
+    );
+    if (result.data) {
+      const { tenantId, userId } = ctx.callerIdentity;
+      const { groupId } = parsedInput;
+      ctx.onCommit(async () => {
+        await enqueue(renderPerDiemJob, { tenantId, userId, groupId }, { singletonKey: groupId });
+      });
+    }
+    return result;
+  });

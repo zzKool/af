@@ -33,12 +33,12 @@
 
 ## Part 2 — `feat/expenses-pages` (pages, dialogs, e2e, screenshots)
 
-- [ ] T013 `/expenses` — `ListPage` + `ExpenseTable` (DataTable on `EXPENSE_COLUMNS`, KPI strip from `ledgerSnapshot`), side panel (`ExpensePanel`: facts form saved on change, document, links, attach bank row for company-paid), *New expense* dialog (group select / create inline, category, paid by, amount, currency, date, document picker from the inbox or upload, document missing), delete.
-- [ ] T014 `/expenses/groups/[id]` — header, totals, the group's expenses, *add expense*, the trip panel (`TripPanel`: date-times, country, agency, meal steppers, collapsed nights / long stay, result card, *Create per-diem expense* / *Recompute*).
-- [ ] T015 `/expenses/settle` — open private expenses (FIFO order, checkboxes, editable allocations, totals) · transaction picker · confirm dialog (exact / partial / over-allocated, exchange-difference line, rounding note) · settlements list below with cancel; `/expenses/settlements/[id]` detail with the statement download.
-- [ ] T016 `src/app/print/settlement/[id]/page.tsx` + `StatementSheet` (print mode; invoice-pdf skill), screenshot of the PDF.
-- [ ] T017 Settings → *Traktamente rates* tab (`RateTable`: year tabs, inline edit, copy last year, paste Skatteverket CSV with preview).
-- [ ] T018 Nav (*Expenses* for owner + accountant), strings `expenses.*` / `traktamente.*` en + fr, `e2e/expenses.spec.ts` (group → three expenses from the fixture (SEK, CI has no ECB) → settle → statement → trip → per-diem), `e2e/screenshots.spec.ts` additions, `specs/expenses/screenshots/`, docs pages sections, PR.
+- [x] T013 `/expenses` — `ListPage` + `ExpenseTable` (DataTable on `EXPENSE_COLUMNS`, KPI strip from `ledgerSnapshot`), side panel (`ExpensePanel`: facts form saved on change, document, links, attach bank row for company-paid), *New expense* dialog (group select / create inline, category, paid by, amount, currency, date, document picker from the inbox or upload, document missing), delete.
+- [x] T014 `/expenses/groups/[id]` — header, totals, the group's expenses, *add expense*, the trip panel (`TripPanel`: date-times, country, agency, meal steppers, collapsed nights / long stay, result card, *Create per-diem expense* / *Recompute*).
+- [x] T015 `/expenses/settle` — open private expenses (FIFO order, checkboxes, editable allocations, totals) · transaction picker · confirm dialog (exact / partial / over-allocated, exchange-difference line, rounding note) · settlements list below with cancel; `/expenses/settlements/[id]` detail with the statement download.
+- [x] T016 `src/app/print/settlement/[id]/page.tsx` + `StatementSheet` (print mode; invoice-pdf skill), screenshot of the PDF.
+- [x] T017 Settings → *Traktamente rates* tab (`RateTable`: year tabs, inline edit, copy last year, paste Skatteverket CSV with preview).
+- [x] T018 Nav (*Expenses* for owner + accountant), strings `expenses.*` / `traktamente.*` en + fr, `e2e/expenses.spec.ts` (group → three expenses from the fixture (SEK, CI has no ECB) → settle → statement → trip → per-diem), `e2e/screenshots.spec.ts` additions, `specs/expenses/screenshots/`, docs pages sections, PR.
 
 ## Dependencies
 

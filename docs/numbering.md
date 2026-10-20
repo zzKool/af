@@ -19,7 +19,7 @@ prisma/schema/numbering.prisma   number_series(tenant_id, series, next_value, up
 | credit note | `creditNoteNumber(shortCode, issueDate, seq)` — series `{short code}{yy}-CN` | `VA27-CN-001` |
 | invoice / quote / credit-note PDF | `invoicePdfKey(number)` | `InvoiceAF_VA26-INV-001.pdf` |
 | expense ref | `expenseRef(groupNumber, basAlias, seq)` — series `exg-{group}-{alias}` (`expenseSeries`): one counter per group **and** alias — `Ex213-Tr-01`, `Ex213-Tr-02`, `Ex213-Rep-01` | `Ex213-Tr-01` |
-| expense receipt key | `expenseDocumentKey(ref, documentDate)` | `Ex213-Tr-01_2026-03-11_` |
+| expense receipt key | `expenseDocumentKey(ref, documentDate)` — the uploaded receipt's key once it became the expense; the per-diem breakdown PDF carries it too (`…_.pdf`) | `Ex213-Tr-01_2026-03-11_` |
 | supplier invoice ref | `supplierInvoiceRef(groupNumber, basAlias, seq)` — series `exg-{group}-{alias}` (the same scheme; an `SI` with the same alias in the same group shares the counter, D28) | `SI213-Acc-01` |
 | supplier invoice document key | `supplierInvoiceDocumentKey(ref, documentDate, vendorName)` — vendor slug appended (`fileSlug`) | `SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB` |
 | settlement number | `settlementNumber(bookingDate, seq)` — series `ST{yy}` of the refund's booking date | `ST26-001` |

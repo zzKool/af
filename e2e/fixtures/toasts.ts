@@ -34,3 +34,15 @@ export async function expectToast(page: Page, text: string): Promise<void> {
     })
     .toContainEqual(expect.stringContaining(text));
 }
+
+/** Runs the steps; a failure's message gains the toasts recorded so far and the page URL — what the app showed. */
+export async function withToastReport<T>(page: Page, steps: () => Promise<T>): Promise<T> {
+  try {
+    return await steps();
+  } catch (error) {
+    const toasts = await page.evaluate(() => window.__toasts ?? []).catch(() => []);
+    const detail = `\n\nToasts seen: ${JSON.stringify(toasts)}\nURL: ${page.url()}`;
+    if (error instanceof Error) error.message += detail;
+    throw error;
+  }
+}

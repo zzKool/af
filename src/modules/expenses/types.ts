@@ -199,3 +199,32 @@ export type ExpenseListRow = {
   vatAmount: string | null;
   createdAt: Date;
 };
+
+// --- option shapes the dialogs and panels share (plain data) ---
+
+export type GroupOption = {
+  id: string;
+  number: number;
+  description: string;
+  kind: "trip" | "batch";
+};
+export type SourceOption = {
+  id: string;
+  label: string;
+  kind: "bank_account" | "private";
+  bankAccountId: string | null;
+  currency: string;
+  isActive: boolean;
+};
+export type CategoryOption = { code: string; label: string };
+export type DocumentOption = { id: string; businessKey: string; fileName: string; status: string };
+export type TransactionOption = {
+  id: string;
+  bookingDate: string;
+  amount: string;
+  currency: string;
+  description: string;
+  bankAccountId: string;
+  accountLabel: string;
+  amountBase: string | null;
+};
