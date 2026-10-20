@@ -37,6 +37,7 @@ export const createBankAccountAction = ownerAction
       accountNumber: z.string().trim().min(1).max(50),
       currency: z.string().toUpperCase().length(3),
       bankFormatId: z.string().uuid(),
+      role: z.enum(["main", "savings"]).optional(),
     }),
   )
   .metadata({ name: "createBankAccount" })
@@ -55,6 +56,7 @@ export const updateBankAccountAction = ownerAction
       accountNumber: z.string().trim().min(1).max(50).optional(),
       currency: z.string().toUpperCase().length(3).optional(),
       bankFormatId: z.string().uuid().optional(),
+      role: z.enum(["main", "savings"]).optional(),
       iban: z.string().trim().max(34).nullable().optional(),
       bic: z.string().trim().max(11).nullable().optional(),
     }),

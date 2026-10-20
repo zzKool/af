@@ -17,7 +17,7 @@ Endpoints are polymorphic (`type` + `id`) — no cross-table foreign keys (RLS b
 | kind | from → to | allocation |
 |---|---|---|
 | `justifies` | bank_transaction / journal_entry → document / invoice / supplier_invoice / expense | yes — against the target's amount |
-| `transfer` | bank_transaction ↔ bank_transaction (`CHANGE CHFSEK` pairs) | no |
+| `transfer` | bank_transaction → bank_transaction (`CHANGE CHFSEK` pairs, debit → credit; [[banking]] `acceptTransfer`) | no |
 | `settles` | bank_transaction → settlement (owner reimbursement) | yes |
 | `belongs_to` | document / invoice / supplier_invoice / expense → partner / contract | no |
 | `created_from` | expense / supplier_invoice → document ("what this document became", D27) | no — and exclusive: one origin per document, one document per entity |
@@ -34,6 +34,7 @@ The matrix lives in `kinds.ts`; a new linkable type is one line there plus a `Li
 | both endpoints exist in the caller's tenant | `Linkable.exists` / `summary` through the registry | RLS on every table |
 | kind accepts the pair | `isKindAllowed` | `links_kind_check` |
 | allocation > 0, currency matches the target, Σ allocations ≤ target amount | `canAllocate` (property-tested in `allocation.pure.test.ts`) | `links_allocation_positive_check`, `links_allocation_currency_check` |
+| Σ allocations **from** one source ≤ its amount, same currency (a bank transaction, a manual journal entry) | `createLink` checks the source's summary too (R19) | service-level — polymorphic sources have no single table to read in a trigger; the target side stays DB-checked |
 | no self-link, no duplicate | explicit check / `DUPLICATE_ENTRY` | `links_not_self_check`, unique index |
 | `created_from` is exclusive on both ends | `EXCLUSIVE_KINDS` pre-check (`already became …` / `already created from …`) | partial unique indexes `links_created_from_origin_key`, `links_created_from_entity_key` |
 | a linked document is never hard-deleted | `deleteDocument` translates the trigger into `BUSINESS_RULE_VIOLATION` | trigger `documents_block_delete_when_linked` (`block_delete_when_linked('document')`) — reuse it for every linkable table |
@@ -59,4 +60,4 @@ Export it from the module's `index.ts`, add one line in `src/modules/linking/lin
 
 ## Tests
 
-`allocation.pure.test.ts` (fast-check, no DB) · `linking.test.ts` (DB, RLS on): link + audit, rejections, `created_from` exclusivity (service and index), allocations and remaining, remove, delete trigger, cross-tenant isolation. Fake linkables with amounts stand in for invoices and bank transactions until those modules exist.
+`allocation.pure.test.ts` (fast-check, no DB) · `linking.test.ts` (DB, RLS on): link + audit, rejections, `created_from` exclusivity (service and index), allocations and remaining, remove, delete trigger, cross-tenant isolation (fake linkables) · the source-side invariant and the real `bank_transaction` / `journal_entry` linkables in `modules/banking/import.test.ts` and `modules/journal/journal.test.ts`.

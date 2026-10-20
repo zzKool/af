@@ -14,7 +14,7 @@ const NORDEA_CONFIG: BankFormatConfig = {
   encoding: "ISO-8859-1",
   columnMapping: {
     columns: [
-      { index: 0, field: "date", label: "Booking date" },
+      { index: 0, field: "date", label: "Booking date", aliases: ["Date"] },
       { index: 1, field: "amount", label: "Amount" },
       { index: 2, field: "sender", label: "Sender" },
       { index: 3, field: "recipient", label: "Recipient" },
@@ -53,8 +53,21 @@ const ALT_CONFIG: BankFormatConfig = {
   },
 };
 
+const SPEC_FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
+
 function loadFixture(name: string): Buffer {
   return readFileSync(join(FIXTURES, name));
+}
+
+function loadSpecFixture(name: string): Buffer {
+  return readFileSync(join(SPEC_FIXTURES, name));
+}
+
+/** the same file with its header line replaced (to exercise another column mapping) */
+function withHeader(file: Buffer, header: string): Buffer {
+  const text = new TextDecoder("ISO-8859-1").decode(file);
+  const [, ...rest] = text.split(/\r?\n/);
+  return Buffer.from([header, ...rest].join("\n"), "latin1");
 }
 
 describe("CSV parser — valid SEK file", () => {
@@ -69,7 +82,11 @@ describe("CSV parser — valid SEK file", () => {
     expect(row0.currency).toBe("SEK");
     expect(row0.description).toBe("KORT KOP LIVSMEDEL AB");
     expect(row0.reference).toBeNull(); // No message field
-    expect(row0.notes).toBe("Groceries");
+    expect(row0.ownNotes).toBe("Groceries");
+    expect(row0.name).toBe("KORT KOP LIVSMEDEL AB");
+    expect(row0.counterpartyKey).toBe("LIVSMEDEL AB");
+    expect(row0.rowIndex).toBe(0);
+    expect(row0.occurrence).toBe(0);
     expect(row0.balance?.toString()).toBe("12345.67");
   });
 
@@ -186,34 +203,95 @@ describe("CSV parser — quoted semicolons", () => {
   });
 });
 
-describe("CSV parser — deduplication hash", () => {
+describe("CSV parser — deduplication hash (D25)", () => {
   it("same row produces same hash", () => {
     const result = parse(loadFixture("nordea-sek-valid.csv"), NORDEA_CONFIG);
     const result2 = parse(loadFixture("nordea-sek-valid.csv"), NORDEA_CONFIG);
-    expect(result.rows[0].deduplicationHash).toBe(result2.rows[0].deduplicationHash);
+    expect(result.rows[0].dedupHash).toBe(result2.rows[0].dedupHash);
   });
 
   it("different rows produce different hashes", () => {
     const result = parse(loadFixture("nordea-sek-valid.csv"), NORDEA_CONFIG);
-    const hashes = result.rows.map((r) => r.deduplicationHash);
+    const hashes = result.rows.map((r) => r.dedupHash);
     const unique = new Set(hashes);
     expect(unique.size).toBe(hashes.length);
+    for (const h of hashes) expect(h).toHaveLength(64);
   });
 
-  it("uses reference for hash when available", () => {
-    const result = parse(loadFixture("nordea-sek-valid.csv"), NORDEA_CONFIG);
-    // Row 1 has a reference, row 0 does not
-    // Both should have valid hashes
-    expect(result.rows[0].deduplicationHash).toHaveLength(64); // SHA-256
-    expect(result.rows[1].deduplicationHash).toHaveLength(64);
-    expect(result.rows[0].deduplicationHash).not.toBe(result.rows[1].deduplicationHash);
+  it("the hash does not depend on the row's position, the balance or the own notes", () => {
+    const file = loadFixture("nordea-sek-valid.csv");
+    const text = new TextDecoder("ISO-8859-1").decode(file);
+    const lines = text.split(/\r?\n/).filter((l) => l !== "");
+    // drop the first data row → every other row shifts up one position
+    const shifted = Buffer.from([lines[0], ...lines.slice(2)].join("\n"), "latin1");
+    const full = parse(file, NORDEA_CONFIG).rows;
+    const less = parse(shifted, NORDEA_CONFIG).rows;
+    expect(less.map((r) => r.dedupHash)).toEqual(full.slice(1).map((r) => r.dedupHash));
+    // same row, other balance and other own notes → same hash
+    const cols = lines[1].split(";");
+    cols[7] = "something else";
+    cols[8] = "1,00";
+    const edited = Buffer.from([lines[0], cols.join(";")].join("\n"), "latin1");
+    expect(parse(edited, NORDEA_CONFIG).rows[0].dedupHash).toBe(full[0].dedupHash);
+  });
+
+  it("two identical rows in one file share the hash and get occurrence 0 and 1", () => {
+    const result = parse(loadSpecFixture("nordea-bank-fee-duplicate-rows.csv"), NORDEA_CONFIG);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].dedupHash).toBe(result.rows[1].dedupHash);
+    expect(result.rows.map((r) => r.occurrence)).toEqual([0, 1]);
+    expect(result.rows[0].counterpartyKey).toBe("AVGIFTER NORDEA");
+  });
+});
+
+describe("CSV parser — the owner's July 2026 export (D25)", () => {
+  it("accepts the `Date` header, empty Name on card rows, sparse balance", () => {
+    const result = parse(loadSpecFixture("nordea-2026-07-sek-sample.csv"), NORDEA_CONFIG);
+    expect(result.errors).toHaveLength(0);
+    expect(result.rows.length).toBeGreaterThan(10);
+    const openai = result.rows.find((r) => r.additionalDetails?.includes("OPENAI"));
+    expect(openai?.name).toBeNull();
+    expect(openai?.description).toBe("Kortköp 260727 OPENAI *CHATGPT SUBS");
+    expect(openai?.counterpartyKey).toBe("OPENAI *CHATGPT SUBS");
+    expect(openai?.reference).toBe("OPENAI *CHATGPT 1234");
+    expect(result.rows.some((r) => r.balance === null)).toBe(true);
+    expect(result.rows.some((r) => r.balance !== null)).toBe(true);
+  });
+
+  it("rejects the v1 Swedish-header file (comma-delimited) as not a Nordea export", () => {
+    const result = validateFormat(loadSpecFixture("v1-swedish-headers.csv"), NORDEA_CONFIG);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toMatch(/^Unexpected columns: expected "Booking date\/Date; Amount/);
+  });
+
+  it("accepts a space thousands separator and reports an invalid amount per row", () => {
+    const header =
+      "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
+    const file = Buffer.from(
+      [
+        header,
+        "2026/07/08;-1 500,00;;;Something AB;;;;;SEK;",
+        "2026/07/09;abc;;;Broken;;;;;SEK;",
+        "2026/13/40;10,00;;;Bad date;;;;;SEK;",
+        "2026/07/10;12.345,67;;;Dotted AB;;;;;SEK;",
+      ].join("\n"),
+      "latin1",
+    );
+    const result = parse(file, NORDEA_CONFIG);
+    expect(result.rows.map((r) => r.amount.toFixed(2))).toEqual(["-1500.00", "12345.67"]);
+    expect(result.errors).toEqual([
+      'Row 2: invalid amount "abc"',
+      'Row 3: invalid date "2026/13/40"',
+    ]);
   });
 });
 
 describe("CSV parser — configurable column mapping", () => {
+  const ALT_HEADER = "Date;Sum;From;To;Desc;Info;Ref;Notes;Bal;Curr;";
+
   it("works with reordered column mapping", () => {
     // ALT_CONFIG has columns in a different order but same indices
-    const result = parse(loadFixture("nordea-sek-valid.csv"), ALT_CONFIG);
+    const result = parse(withHeader(loadFixture("nordea-sek-valid.csv"), ALT_HEADER), ALT_CONFIG);
     expect(result.rows).toHaveLength(5);
     expect(result.rows[0].date).toBe("2025-01-15");
     expect(result.rows[0].amount.toString()).toBe("-149");
@@ -222,7 +300,7 @@ describe("CSV parser — configurable column mapping", () => {
   it("proves parser is format-agnostic (not hardcoded for Nordea)", () => {
     // Same file, different config → same results
     const result1 = parse(loadFixture("nordea-sek-valid.csv"), NORDEA_CONFIG);
-    const result2 = parse(loadFixture("nordea-sek-valid.csv"), ALT_CONFIG);
+    const result2 = parse(withHeader(loadFixture("nordea-sek-valid.csv"), ALT_HEADER), ALT_CONFIG);
     expect(result1.rows.length).toBe(result2.rows.length);
     expect(result1.rows[0].amount.toString()).toBe(result2.rows[0].amount.toString());
   });

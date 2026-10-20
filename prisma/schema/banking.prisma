@@ -1,6 +1,12 @@
-// Module banking — bank formats (app-level) and bank accounts
+// Module banking — bank formats (app-level), bank accounts, imports, immutable transactions, categorisation rules
 // Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
 // enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// A bank transaction is one CSV row, kept verbatim and never updated (trigger `bank_transactions_immutable`);
+// the owner's facts about it (category, partner, note, no document needed) live on its journal entry
+// (prisma/schema/journal.prisma, D3). Linked / open / no-document are DERIVED from links and the journal flag.
+// Dedup (D25): sha256 over the raw columns per account + the in-file occurrence index; balance and own notes
+// never take part. Cross-module references (document, partner, rule) are validated UUIDs, never FKs.
 
 model BankFormat {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -18,26 +24,177 @@ model BankFormat {
   @@map("bank_formats")
 }
 
-model BankAccount {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String   @map("tenant_id") @db.Uuid
-  accountAlias  String?  @map("account_alias") @db.VarChar(100) // Optional friendly name
-  accountNumber String   @map("account_number") @db.VarChar(50) // "211 53 13-5"
-  currency      String   @default("SEK") @db.VarChar(3) // "SEK", "CHF", etc.
-  bankFormatId  String   @map("bank_format_id") @db.Uuid
-  /// printed in the invoice's payment box (the account of the invoice currency)
-  iban          String?  @db.VarChar(34)
-  bic           String?  @db.VarChar(11)
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  createdBy     String   @map("created_by") @db.Uuid
-  source        String   @default("web") @db.VarChar(20)
+/// main = the two Plusgiro accounts (monthly package); savings = Sparkonto (its CSV goes yearly, D13/D31)
+enum BankAccountRole {
+  main
+  savings
 
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bankFormat BankFormat @relation(fields: [bankFormatId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@map("bank_account_role")
+}
+
+model BankAccount {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String          @map("tenant_id") @db.Uuid
+  accountAlias  String?         @map("account_alias") @db.VarChar(100) // Optional friendly name
+  accountNumber String          @map("account_number") @db.VarChar(50) // "211 53 13-5"
+  currency      String          @default("SEK") @db.VarChar(3) // "SEK", "CHF", etc.
+  bankFormatId  String          @map("bank_format_id") @db.Uuid
+  role          BankAccountRole @default(main)
+  /// printed in the invoice's payment box (the account of the invoice currency)
+  iban          String?         @db.VarChar(34)
+  bic           String?         @db.VarChar(11)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy     String          @map("created_by") @db.Uuid
+  source        String          @default("web") @db.VarChar(20)
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankFormat   BankFormat        @relation(fields: [bankFormatId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  imports      BankImport[]
+  transactions BankTransaction[]
 
   @@unique([tenantId, accountNumber, currency], map: "bank_accounts_tenant_account_currency_unique")
   @@index([tenantId])
   @@index([bankFormatId])
   @@map("bank_accounts")
+}
+
+/// One imported file: provenance, counts, the stored CSV (document id, validated UUID), the period it covers.
+model BankImport {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  bankAccountId  String    @map("bank_account_id") @db.Uuid
+  fileName       String    @map("file_name") @db.VarChar(255)
+  /// the CSV stored as a document (bank_statement) for the accountant package — validated UUID
+  documentId     String?   @map("document_id") @db.Uuid
+  recordCount    Int       @default(0) @map("record_count")
+  importedCount  Int       @default(0) @map("imported_count")
+  duplicateCount Int       @default(0) @map("duplicate_count")
+  errorCount     Int       @default(0) @map("error_count")
+  /// parser messages: ["Row 7: invalid amount \"abc\"", …]
+  errors         Json      @default("[]") @db.JsonB
+  periodFrom     DateTime? @map("period_from") @db.Date
+  periodTo       DateTime? @map("period_to") @db.Date
+  importedAt     DateTime  @default(now()) @map("imported_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String    @map("created_by") @db.Uuid
+  source         String    @default("web") @db.VarChar(20)
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount  BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  transactions BankTransaction[]
+
+  @@index([tenantId, bankAccountId])
+  @@index([tenantId, importedAt(sort: Desc)])
+  @@map("bank_imports")
+}
+
+/// One CSV row, verbatim. Never updated (trigger); deleted only with its import and only when unlinked.
+model BankTransaction {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  bankAccountId     String   @map("bank_account_id") @db.Uuid
+  bankImportId      String   @map("bank_import_id") @db.Uuid
+  bookingDate       DateTime @map("booking_date") @db.Date
+  /// signed: negative = out
+  amount            Decimal  @db.Decimal(15, 2)
+  currency          String   @db.Char(3)
+  /// end-of-day balance — Nordea prints it on the last row of a day only
+  balance           Decimal? @db.Decimal(15, 2)
+  sender            String?
+  recipient         String?
+  name              String?
+  additionalDetails String?  @map("additional_details")
+  message           String?
+  ownNotes          String?  @map("own_notes")
+  /// name → additional details → sender → recipient → "Unknown transaction"
+  description       String
+  /// `Message` when it looks like a payment reference (/ROC/…, digits)
+  reference         String?
+  /// normalised counterparty (Excel Column1): upper-case, card prefix / suffix stripped — the input for rules
+  counterpartyKey   String   @map("counterparty_key")
+  /// sha256(date | amount | currency | sender | recipient | name | additional details | message) (D25)
+  dedupHash         String   @map("dedup_hash") @db.Char(64)
+  /// 0-based index among identical rows of the same file (two identical fees on one day stay distinct)
+  occurrence        Int      @default(0)
+  /// position in the file — provenance only, never part of any key
+  rowIndex          Int      @map("row_index")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdBy         String   @map("created_by") @db.Uuid
+  source            String   @default("web") @db.VarChar(20)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  bankImport  BankImport  @relation(fields: [bankImportId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([bankAccountId, dedupHash, occurrence], map: "bank_transactions_account_hash_occurrence_key")
+  @@index([tenantId, bookingDate(sort: Desc)])
+  @@index([tenantId, bankAccountId, bookingDate])
+  @@index([tenantId, counterpartyKey])
+  @@index([tenantId, bankImportId])
+  @@map("bank_transactions")
+}
+
+enum RuleMatchType {
+  contains
+  starts_with
+  ends_with
+  exact
+  regex
+
+  @@map("rule_match_type")
+}
+
+enum RuleMatchField {
+  counterparty_key
+  name
+  details
+  message
+  sender
+  recipient
+  all
+
+  @@map("rule_match_field")
+}
+
+/// manual = typed on the rules page; learned = "create rule from this transaction"
+enum RuleSource {
+  manual
+  learned
+
+  @@map("rule_source")
+}
+
+/// A text match on the bank row → BAS category / partner / "no document needed" on the journal entry.
+/// Runs on every import (new rows only) and on demand; never sets a status, never creates a link.
+model CategorisationRule {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  name             String         @db.VarChar(200)
+  description      String?        @db.VarChar(500)
+  matchType        RuleMatchType  @map("match_type")
+  matchPattern     String         @map("match_pattern") @db.VarChar(500)
+  matchField       RuleMatchField @default(counterparty_key) @map("match_field")
+  /// 3-digit BAS group (bas_categories.code), validated at write
+  basCode          String?        @map("bas_code") @db.VarChar(4)
+  /// validated UUID through the partners module
+  partnerId        String?        @map("partner_id") @db.Uuid
+  noDocumentNeeded Boolean        @default(false) @map("no_document_needed")
+  /// higher first; tie-break: longer pattern, then newest
+  priority         Int            @default(100)
+  isActive         Boolean        @default(true) @map("is_active")
+  ruleSource       RuleSource     @default(manual) @map("rule_source")
+  hitCount         Int            @default(0) @map("hit_count")
+  lastHitAt        DateTime?      @map("last_hit_at") @db.Timestamptz
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy        String         @map("created_by") @db.Uuid
+  source           String         @default("web") @db.VarChar(20)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name], map: "categorisation_rules_tenant_name_key")
+  @@index([tenantId, isActive, priority(sort: Desc)])
+  @@map("categorisation_rules")
 }

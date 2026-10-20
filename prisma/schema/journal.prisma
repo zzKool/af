@@ -1,0 +1,70 @@
+// Module journal — the categorised ledger of financial facts (D1, D2, D3; specs/journal/spec.md)
+// Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
+// enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
+//
+// One entry per bank transaction (created by the banking import) or typed by hand. The money facts — amount,
+// currency, SEK base, rate, rate source, date, description — are written once (trigger `journal_entries_lock_money`);
+// the owner's facts — BAS category, partner, note, no document needed — change freely. Not a ledger: no debit /
+// credit, no posting, no fiscal year (the accountant books). `source_id`, `partner_id`, `rule_id` are validated
+// UUIDs, never FKs; the journal never reads the banking tables.
+
+enum JournalSource {
+  bank_transaction
+  manual
+
+  @@map("journal_source")
+}
+
+/// who set the category / partner last: a rule, the partner's default, or the owner by hand (null = uncategorised)
+enum JournalCategorisedBy {
+  manual
+  rule
+  partner_default
+
+  @@map("journal_categorised_by")
+}
+
+model JournalEntry {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                @map("tenant_id") @db.Uuid
+  sourceType       JournalSource         @map("source_type")
+  /// the bank transaction id (validated UUID); null for manual entries
+  sourceId         String?               @map("source_id") @db.Uuid
+  entryDate        DateTime              @map("entry_date") @db.Date
+  description      String
+  counterpartyKey  String?               @map("counterparty_key")
+  /// signed, in the entry currency
+  amount           Decimal               @db.Decimal(15, 2)
+  currency         String                @db.Char(3)
+  /// SEK base = round(amount × rate, 2) — written once
+  amountBase       Decimal               @map("amount_base") @db.Decimal(15, 2)
+  rate             Decimal               @db.Decimal(18, 6)
+  /// same_currency | ecb_daily | ecb_nearest | manual
+  rateSource       String                @map("rate_source") @db.VarChar(20)
+  rateDate         DateTime?             @map("rate_date") @db.Date
+  /// the bank's implied rate of an accepted transfer pair (SEK ÷ CHF) — informational, set once, never replaces `rate`
+  bankImplicitRate Decimal?              @map("bank_implicit_rate") @db.Decimal(18, 6)
+  /// 3-digit BAS group (bas_categories.code), validated at write
+  basCode          String?               @map("bas_code") @db.VarChar(4)
+  partnerId        String?               @map("partner_id") @db.Uuid
+  note             String?
+  /// the statement itself is the proof (bank fees, interest, transfer pairs, Skatteverket)
+  noDocumentNeeded Boolean               @default(false) @map("no_document_needed")
+  categorisedBy    JournalCategorisedBy? @map("categorised_by")
+  /// the categorisation rule that hit (validated UUID), cleared when the owner overrides
+  ruleId           String?               @map("rule_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy        String                @map("created_by") @db.Uuid
+  source           String                @default("web") @db.VarChar(20)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// partial: WHERE source_id IS NOT NULL (migration) — declared here for the drift check
+  @@unique([tenantId, sourceType, sourceId], map: "journal_entries_tenant_source_key")
+  @@index([tenantId, entryDate(sort: Desc)])
+  @@index([tenantId, basCode])
+  @@index([tenantId, partnerId])
+  @@index([tenantId, categorisedBy])
+  @@map("journal_entries")
+}

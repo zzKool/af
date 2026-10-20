@@ -1,6 +1,19 @@
+// Nordea CSV parser (v2, kept; D25 edits marked). Pure: a buffer + a format config → rows with Decimal
+// amounts, the raw columns by field, the derived text (description, reference, counterparty key) and the
+// dedup key. The hash covers the raw columns of the row — never the row's position, the balance (end-of-day
+// only) or the owner's own notes (editable in Nordea); identical rows of one file are told apart by `occurrence`.
 import { createHash } from "node:crypto";
 import Papa from "papaparse";
 import { Prisma } from "@/generated/prisma/client";
+import { counterpartyKey } from "./counterparty";
+
+export interface BankFormatColumn {
+  index: number;
+  field: string;
+  label: string;
+  /** other header texts the bank prints for the same column (`Date` for `Booking date`, D25) */
+  aliases?: string[];
+}
 
 export interface BankFormatConfig {
   delimiter: string;
@@ -8,7 +21,7 @@ export interface BankFormatConfig {
   dateFormat: string;
   encoding: string;
   columnMapping: {
-    columns: Array<{ index: number; field: string; label: string }>;
+    columns: BankFormatColumn[];
     hasHeader: boolean;
     skipRows: number;
     trailingDelimiter: boolean;
@@ -21,11 +34,22 @@ export interface ParsedRow {
   date: string; // ISO 8601 (converted from source format)
   amount: Prisma.Decimal;
   currency: string;
-  description: string; // Resolved: name || details || sender || "Unknown transaction"
-  reference: string | null;
-  notes: string | null;
   balance: Prisma.Decimal | null;
-  deduplicationHash: string;
+  // the six raw text columns, trimmed, null when empty
+  sender: string | null;
+  recipient: string | null;
+  name: string | null;
+  additionalDetails: string | null;
+  message: string | null;
+  ownNotes: string | null;
+  description: string; // Resolved: name || details || sender || recipient || "Unknown transaction"
+  reference: string | null; // the reference column (Message), verbatim
+  counterpartyKey: string;
+  dedupHash: string;
+  /** 0-based index among the rows of this file that share the hash */
+  occurrence: number;
+  /** 0-based position among the data rows of the file — provenance only */
+  rowIndex: number;
   rawFields: Record<string, string>;
 }
 
@@ -54,51 +78,69 @@ function isSuspiciousValue(value: string): boolean {
   return ["=", "+", "-", "@"].includes(firstChar);
 }
 
-function convertDate(dateStr: string, dateFormat: string): string {
+/** a real calendar date in ISO form, or null */
+function isoDate(iso: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const d = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso ? null : iso;
+}
+
+function convertDate(dateStr: string, dateFormat: string): string | null {
+  const s = dateStr.trim();
   // YYYY/MM/DD → YYYY-MM-DD (ISO 8601)
   if (dateFormat === "YYYY/MM/DD") {
-    return dateStr.replace(/\//g, "-");
+    if (!/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return null;
+    return isoDate(s.replace(/\//g, "-"));
   }
   // DD/MM/YYYY → YYYY-MM-DD
   if (dateFormat === "DD/MM/YYYY") {
-    const [day, month, year] = dateStr.split("/");
-    return `${year}-${month}-${day}`;
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return null;
+    const [day, month, year] = s.split("/");
+    return isoDate(`${year}-${month}-${day}`);
   }
-  // Default: return as-is
-  return dateStr;
+  return isoDate(s);
 }
 
+/** `-1 500,00` / `1.500,00` / `-149,00` → Decimal; null when not a number (D25: a space thousands separator is accepted) */
 function parseAmount(value: string, decimalSeparator: string): Prisma.Decimal | null {
-  if (!value || value.trim() === "") return null;
-  // Replace comma decimal with dot for Prisma.Decimal
-  const normalized = decimalSeparator === "," ? value.replace(/\./g, "").replace(",", ".") : value;
-  return new Prisma.Decimal(normalized.trim());
+  const compact = value.replace(/[\s ]/g, "");
+  if (compact === "") return null;
+  const normalized =
+    decimalSeparator === "," ? compact.replace(/\./g, "").replace(",", ".") : compact;
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) return null;
+  return new Prisma.Decimal(normalized);
 }
 
-function computeHash(
-  date: string,
-  amount: string,
-  reference: string | null,
-  description: string,
-  rowIndex: number,
-): string {
-  const input = reference
-    ? `${date}|${amount}|${reference}`
-    : `${date}|${amount}|${description}|${rowIndex}`;
+/** sha256 over the raw columns — the dedup key of D25 (the account is the index's scope). */
+export function dedupHash(parts: {
+  date: string;
+  amount: string;
+  currency: string;
+  sender: string | null;
+  recipient: string | null;
+  name: string | null;
+  additionalDetails: string | null;
+  message: string | null;
+}): string {
+  const input = [
+    parts.date,
+    parts.amount,
+    parts.currency,
+    parts.sender ?? "",
+    parts.recipient ?? "",
+    parts.name ?? "",
+    parts.additionalDetails ?? "",
+    parts.message ?? "",
+  ].join("|");
   return createHash("sha256").update(input).digest("hex");
 }
 
 function resolveDescription(fields: Record<string, string>, primaryField: string): string {
-  // Resolution chain: primaryDescriptionField → details → sender → "Unknown transaction"
-  const name = fields[primaryField]?.trim();
-  if (name) return name;
-
-  const details = fields.details?.trim();
-  if (details) return details;
-
-  const sender = fields.sender?.trim();
-  if (sender) return sender;
-
+  // Resolution chain: primaryDescriptionField → details → sender → recipient → "Unknown transaction"
+  for (const key of [primaryField, "details", "sender", "recipient"]) {
+    const v = fields[key]?.trim();
+    if (v) return v;
+  }
   return "Unknown transaction";
 }
 
@@ -107,7 +149,32 @@ function resolveDescription(fields: Record<string, string>, primaryField: string
  */
 function decodeBuffer(file: Buffer, encoding: string): string {
   const text = new TextDecoder(encoding).decode(file);
-  return text.replace(/^\uFEFF/, "");
+  return text.replace(/^﻿/, "");
+}
+
+function parseRaw(cleaned: string, config: BankFormatConfig): string[][] {
+  const result = Papa.parse<string[]>(cleaned, {
+    delimiter: config.delimiter,
+    header: false,
+    skipEmptyLines: true,
+  });
+  return result.data;
+}
+
+/** The header must carry the format's labels (or their aliases) at the mapped indexes — else it is not this bank's export. */
+export function headerError(header: string[], config: BankFormatConfig): string | null {
+  const expected: string[] = [];
+  let ok = true;
+  for (const col of config.columnMapping.columns) {
+    const accepted = [col.label, ...(col.aliases ?? [])];
+    expected.push(accepted.join("/"));
+    const got = (header[col.index] ?? "").trim().toLowerCase();
+    if (!accepted.some((a) => a.toLowerCase() === got)) ok = false;
+  }
+  if (ok) return null;
+  return `Unexpected columns: expected "${expected.join("; ")}", got "${header
+    .filter((h) => h !== "")
+    .join("; ")}"`;
 }
 
 /**
@@ -128,15 +195,19 @@ export function validateFormat(file: Buffer, config: BankFormatConfig): Validati
     return { valid: false, errors };
   }
 
-  const result = Papa.parse(cleaned, {
-    delimiter: config.delimiter,
-    header: false,
-    skipEmptyLines: true,
-  });
+  const data = parseRaw(cleaned, config);
+  const { hasHeader, skipRows } = config.columnMapping;
 
-  const dataRows = config.columnMapping.hasHeader
-    ? result.data.slice(1 + config.columnMapping.skipRows)
-    : result.data.slice(config.columnMapping.skipRows);
+  if (hasHeader) {
+    const header = data[skipRows] ?? [];
+    const err = headerError(header, config);
+    if (err) {
+      errors.push(err);
+      return { valid: false, errors };
+    }
+  }
+
+  const dataRows = hasHeader ? data.slice(1 + skipRows) : data.slice(skipRows);
 
   if (dataRows.length === 0) {
     errors.push("No data rows found (headers only or empty)");
@@ -158,19 +229,15 @@ export function parse(file: Buffer, config: BankFormatConfig): ParseResult {
   }
 
   const cleaned = decodeBuffer(file, config.encoding);
-
-  const result = Papa.parse<string[]>(cleaned, {
-    delimiter: config.delimiter,
-    header: false,
-    skipEmptyLines: true,
-  });
+  const data = parseRaw(cleaned, config);
 
   const errors: string[] = [];
   const rows: ParsedRow[] = [];
+  const seen = new Map<string, number>();
 
   // Skip header rows
   const startIndex = (config.columnMapping.hasHeader ? 1 : 0) + config.columnMapping.skipRows;
-  const dataRows = result.data.slice(startIndex);
+  const dataRows = data.slice(startIndex);
 
   const { columns, trailingDelimiter, primaryDescriptionField, referenceField } =
     config.columnMapping;
@@ -202,36 +269,68 @@ export function parse(file: Buffer, config: BankFormatConfig): ParseResult {
     const amountRaw = rawFields.amount ?? "";
     const currencyRaw = rawFields.currency ?? "";
 
-    if (!dateRaw || !amountRaw) {
+    if (!dateRaw.trim() || !amountRaw.trim()) {
       errors.push(`Row ${i + 1}: missing required field (date or amount)`);
       continue;
     }
 
     const date = convertDate(dateRaw, config.dateFormat);
+    if (!date) {
+      errors.push(`Row ${i + 1}: invalid date "${dateRaw}"`);
+      continue;
+    }
     const amount = parseAmount(amountRaw, config.decimalSeparator);
     if (!amount) {
       errors.push(`Row ${i + 1}: invalid amount "${amountRaw}"`);
       continue;
     }
 
-    const currency = currencyRaw.trim() || "SEK";
+    const currency = currencyRaw.trim().toUpperCase() || "SEK";
+    const text = (key: string): string | null => {
+      const v = rawFields[key]?.trim();
+      return v ? v : null;
+    };
+    const sender = text("sender");
+    const recipient = text("recipient");
+    const name = text("name");
+    const additionalDetails = text("details");
+    const message = text("message");
+    const ownNotes = text("notes");
     const description = resolveDescription(rawFields, primaryDescriptionField);
-    const referenceValue = rawFields[referenceField]?.trim() || null;
-    const notes = rawFields.notes?.trim() || null;
+    const reference = text(referenceField);
     const balanceRaw = rawFields.balance?.trim() ?? "";
     const balance = balanceRaw ? parseAmount(balanceRaw, config.decimalSeparator) : null;
 
-    const deduplicationHash = computeHash(date, amount.toString(), referenceValue, description, i);
+    const hash = dedupHash({
+      date,
+      amount: amount.toFixed(2),
+      currency,
+      sender,
+      recipient,
+      name,
+      additionalDetails,
+      message,
+    });
+    const occurrence = seen.get(hash) ?? 0;
+    seen.set(hash, occurrence + 1);
 
     rows.push({
       date,
       amount,
       currency,
-      description,
-      reference: referenceValue,
-      notes,
       balance,
-      deduplicationHash,
+      sender,
+      recipient,
+      name,
+      additionalDetails,
+      message,
+      ownNotes,
+      description,
+      reference,
+      counterpartyKey: counterpartyKey({ name, additionalDetails, message, sender, recipient }),
+      dedupHash: hash,
+      occurrence,
+      rowIndex: i,
       rawFields,
     });
   }

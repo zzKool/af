@@ -1,0 +1,45 @@
+# Tasks: Banking import + journal
+
+**Input**: `specs/banking/spec.md`, `specs/journal/spec.md`, `plan.md` · two PRs
+
+## Part 1 — `feat/banking-import` (model, parser, services, linkables, queries, tests, docs)
+
+### Phase 1: Foundational
+- [x] T001 `prisma/schema/banking.prisma`: `BankAccountRole` enum + `role`; `BankImport`, `BankTransaction`, `CategorisationRule` (+ enums `RuleMatchType`, `RuleMatchField`, `RuleSource`); `prisma/schema/journal.prisma`: `JournalEntry` (+ `JournalSource`, `JournalCategorisedBy`); tenant relations
+- [x] T002 Migration `add_banking_import_and_journal`: enums, tables, CHECKs, unique indexes (partial one declared `@@unique(map:)`), RLS + grants, triggers (`bank_transactions_immutable`, `journal_entries_lock_money`, `block_delete_when_linked` × 2), Nordea format `Date` alias (UPDATE of `column_mapping`), `bank_accounts.role`
+- [x] T003 `banking/types.ts`, `journal/types.ts`: DTOs (`BankTransactionDto`, `BankImportDto`, `ImportSummary`, `CategorisationRuleDto`, `TransferProposal`, `TransactionState`, `TransactionListRow`; `JournalEntryDto`, `JournalListRow`, `RateSource`, `CategorisedBy`); `can.ts` unchanged (`bank_transaction`, `journal_entry` exist)
+
+### Phase 2: US1 — parser and import (P1)
+- [x] T004 `csv-parser.ts` edits (D25): header validation with aliases, space thousands separator, raw columns by field, hash over raw columns, `occurrence`, `counterparty.ts`; `csv-parser.test.ts` + `counterparty.pure.test.ts` (July sample, bank-fee duplicate rows, swedish headers rejected, `-1 500,00`)
+- [x] T005 `dedup.pure.test.ts`: property — re-import = 0 new, superset = exactly the extra rows, identical rows kept (over the pure `planImport(existingKeys, rows)` helper)
+- [x] T006 `account-detect.ts` + test (Plusgiro / Sparkonto filenames, currency from first row, unknown → null)
+- [x] T007 `journal/journal.ts`: schemas, `baseAmount`, `createBankEntries` (rateToBase; refuse when missing), `createManualEntry`, `categorise` (never-overwrite rules), `setBankImplicitRate`, `deleteBySource`, `deleteManualEntry`; `journal/queries.ts` `entriesForSources`, `getJournalEntry`; `journal/linkable.ts`; `journal/index.ts`, `ui.ts`; `base.pure.test.ts`
+- [x] T008 `documents.storeGeneratedDocument`: CSV mime + `documentType`/`prefixType` for bank statements; review page / delete guard already treat `generated` as read-only
+- [x] T009 `banking/import.ts`: `importCsv` (account, currency check, dedup, insert, document, journal entries, rules, record, audit), `deleteImport` (links check → cascade → journal.deleteBySource), `ensureDefaultRules`
+- [x] T010 `import.test.ts` (DB): US1 scenarios 1–7, 9 on the fixtures; direct SQL update of `amount` refused; RLS
+
+### Phase 3: US2 — rules (P1)
+- [x] T011 `rules.ts`: schemas, pure `orderRules / matchRule / firstHit`, `createRule`, `updateRule`, `deleteRule`, `testRule`, `applyRules({dryRun})`, `applyToEntries`, `createRuleFromTransaction`; `rules.pure.test.ts` on `fixtures/categorisation-rules-sample.json#testPatternCases` + ordering + invalid regex
+- [x] T012 `rules.test.ts` (DB): US2 scenarios 1, 3–8; counters; never touches manual entries
+
+### Phase 4: US3 — transfer pairs (P2)
+- [x] T013 `transfer-pairs.ts`: pure `transferCandidates` (window, signs, own accounts, rate 1 / 5 % of ECB, hints, confidence, reason params) + `transfer-pairs.pure.test.ts`; `proposeTransfers`, `acceptTransfer` (link + flags + implicit rate; refuse when paired); DB tests on the fixture pair and the savings move
+
+### Phase 5: US4 / US5 — linkables, derived state, list queries (P2)
+- [x] T014 `banking/linkable.ts`; `linking/linkables.ts` registers `bankTransactionLinkable` and `journalEntryLinkable`; `linking/linking.ts` source-side allocation check + `allocation.pure.test.ts` two-sided case + `linking.test.ts` case
+- [x] T015 (`queries.test.ts` folded into `import.test.ts` / `journal.test.ts`) `banking/queries.ts`: `TRANSACTION_COLUMNS`, `listTransactions`, `distinctTransactionValues`, `transactionDateHierarchy`, `getTransaction`, `listImports`, `listRules`, `accountBalances`; `journal/queries.ts`: `JOURNAL_COLUMNS`, `listJournalEntries`, `distinctJournalValues`, `journalDateHierarchy`; `queries.test.ts` (state derivation, Excel semantics, sums)
+- [x] T016 Actions (`import.actions.ts`, `rules.actions.ts`, `transfer-pairs.actions.ts`, `journal.actions.ts`) on `ownerAction` / `authedAction + can()`; `index.ts` / `ui.ts` surfaces; architecture guard green
+- [x] T017 Seed: three accounts with roles, the two default rules; `test-fixtures.ts` TRUNCATE list
+- [x] T018 Docs: `docs/banking.md`, `docs/journal.md`, `docs/linking.md` (source-side invariant, new linkables), `docs/feature-folders.md`, `docs/index.md`, inventory §3.10 / §3.12 status lines (the `banking.*` / `journal.*` dictionary keys come with the pages in part 2 — services return English messages with `details`)
+
+## Part 2 — `feat/banking-pages` (pages, dialogs, e2e, screenshots)
+- [ ] T019 `banking/components/transaction-table.tsx` (DataTable, state chips, money in row currency, footer sums, account filter labelled by alias, category labelled `657 · Bankkostnader`), `transaction-panel.tsx` (raw columns, categorise form, links, transfer proposal + accept, *Create rule from this*), `import-dialog.tsx` (file → detected account → confirm → summary)
+- [ ] T020 `banking/components/imports-table.tsx` + delete; `rules-table.tsx` + `rule-dialog.tsx` (create / edit, regex behind *advanced*, *Test* count) + *Apply rules* (dry run → apply)
+- [ ] T021 `journal/components/categorise-form.tsx` (shared), `journal-table.tsx`, `manual-entry-dialog.tsx`
+- [ ] T022 Pages `/banking`, `/banking/imports`, `/banking/rules`, `/journal`; nav entries (owner + accountant); `nav-filter.test.ts`, `e2e/auth.spec.ts` updated
+- [ ] T023 `e2e/banking.spec.ts`: import the July sample → rows + fee rule applied → categorise one → create rule from it → import the CHF pair file → accept the transfer → journal shows the base; `e2e/screenshots.spec.ts` + screenshots in `specs/banking/screenshots/`
+- [ ] T024 Docs pages sections; definition-of-done checklist in the PR
+
+## Dependencies
+
+T001–T003 → T004–T010 (T007 before T009) → T011–T012 → T013 → T014–T018 → part 2.

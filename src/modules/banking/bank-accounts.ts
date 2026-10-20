@@ -4,6 +4,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
+import { BANK_ACCOUNT_ROLES, type BankAccountRole } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -39,6 +40,7 @@ export async function getBankAccounts(
       accountNumber: string;
       currency: string;
       bankFormatId: string;
+      role: BankAccountRole;
       iban: string | null;
       bic: string | null;
       bankFormat: {
@@ -60,7 +62,27 @@ export async function getBankAccounts(
     include: { bankFormat: true },
     orderBy: [{ accountNumber: "asc" }, { currency: "asc" }],
   });
-  return { data: accounts };
+  return { data: accounts.map((a) => ({ ...a, role: a.role as BankAccountRole })) };
+}
+
+/** `Plusgirokonto SEK` — the alias, else `{number} {currency}` */
+export function accountLabel(a: {
+  accountAlias: string | null;
+  accountNumber: string;
+  currency: string;
+}): string {
+  return a.accountAlias?.trim() || `${a.accountNumber} ${a.currency}`;
+}
+
+/** the account's role (main / savings) — an account attribute, nothing to do with user roles */
+function checkRole(input: { role?: BankAccountRole }): AppError | null {
+  const value = input.role;
+  if (value === undefined || BANK_ACCOUNT_ROLES.includes(value)) return null;
+  return {
+    code: "VALIDATION_ERROR",
+    message: `Invalid account role: ${value}. Must be one of: ${BANK_ACCOUNT_ROLES.join(", ")}`,
+    retryable: false,
+  };
 }
 
 /**
@@ -77,10 +99,13 @@ export async function createBankAccount(
     accountNumber: string;
     currency: string;
     bankFormatId: string;
+    role?: BankAccountRole;
     iban?: string | null;
     bic?: string | null;
   },
 ): Promise<ServiceResult<{ id: string }>> {
+  const roleCheck = checkRole(input);
+  if (roleCheck) return { error: roleCheck };
   // Validate currency is in CURRENCIES constant
   if (!CURRENCIES.includes(input.currency as (typeof CURRENCIES)[number])) {
     return {
@@ -112,6 +137,7 @@ export async function createBankAccount(
         accountNumber: input.accountNumber,
         currency: input.currency,
         bankFormatId: input.bankFormatId,
+        role: input.role ?? "main",
         iban: input.iban ?? null,
         bic: input.bic ?? null,
         createdBy: caller.userId,
@@ -161,10 +187,13 @@ export async function updateBankAccount(
     accountNumber?: string;
     currency?: string;
     bankFormatId?: string;
+    role?: BankAccountRole;
     iban?: string | null;
     bic?: string | null;
   },
 ): Promise<ServiceResult<{ updated: boolean }>> {
+  const roleCheck = checkRole(input);
+  if (roleCheck) return { error: roleCheck };
   // Validate currency if provided
   if (input.currency !== undefined) {
     if (!CURRENCIES.includes(input.currency as (typeof CURRENCIES)[number])) {
@@ -208,9 +237,11 @@ export async function updateBankAccount(
     accountNumber?: string;
     currency?: string;
     bankFormatId?: string;
+    role?: BankAccountRole;
     iban?: string | null;
     bic?: string | null;
   } = {};
+  if ("role" in input && input.role) updateData.role = input.role;
   if (input.iban !== undefined) updateData.iban = input.iban;
   if (input.bic !== undefined) updateData.bic = input.bic;
   if (input.accountAlias !== undefined) updateData.accountAlias = input.accountAlias;
@@ -262,7 +293,6 @@ export async function deleteBankAccount(
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ deleted: boolean }>> {
-  // TODO: Epic 6 — check for imported transactions before allowing delete
   const existing = await tx.bankAccount.findUnique({ where: { id } });
   if (!existing) {
     return {
@@ -270,6 +300,18 @@ export async function deleteBankAccount(
         code: "NOT_FOUND",
         message: `Bank account not found: ${id}`,
         retryable: false,
+      },
+    };
+  }
+  // an account with imports keeps its history: delete the imports first (each one checked for links)
+  const imports = await tx.bankImport.count({ where: { bankAccountId: id } });
+  if (imports > 0) {
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: `This account has ${imports} import(s); delete them first`,
+        retryable: false,
+        details: { imports },
       },
     };
   }

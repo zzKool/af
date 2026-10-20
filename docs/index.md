@@ -64,6 +64,8 @@ Page-specific documentation and patterns.
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 - [[partners]] — the reference slice (phase-0 item 6): module layout, ListQuery read API, DataTable list page, entity page, the tests that define it
 - [[partner-crud-pattern]] — (v2 history) Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
+- [[banking]] — Nordea import (D25 dedup, `Date` header, counterparty key), immutable transactions, categorisation rules (first hit wins, never over a hand-set fact), transfer pairs (`CHANGE CHFSEK` → one `transfer` link + the bank implicit rate), derived open/partial/linked/no-document state, ListQuery read model
+- [[journal]] — the categorised ledger (D3): one entry per bank transaction or by hand, SEK base written once (ECB / same currency / manual), category · partner · note · no-document-needed, the never-overwrite rule, the ledger list
 - [[invoices]] — quotes, invoices, credit notes on one table: Decimal totals (VAT once per rate), issue (number, ECB base, declaration period, snapshot, DB lock), derived paid/overdue/credited, ListQuery read model; the one-layout sheet (edit / print), the print route, the PDF job, the pages
 - [[contracts]] — contract rate history (D24): non-overlapping dated rates, `rateFor(contract, date)`, derived current rate, auto-close, the Rates section; first module on the kernel string dictionary
 - [[contract-pattern]] — (v2 history) Child entity pattern, dual self-referential FK; its Decimal `billing_rate` pipeline is superseded by [[contracts]]
