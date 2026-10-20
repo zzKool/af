@@ -1,0 +1,61 @@
+{
+  "_source": "af_core app/api/documents/[id]/create-entity/route.ts l.202-306 (SUPPLIER_INVOICE branch) and l.308-395 (EXPENSE_CLAIM, COMPANY_PURCHASE), commit a2fe220. 'ocrData' is the parsed Azure Document Intelligence result (prebuilt-invoice / prebuilt-receipt). Precedence: explicit user value → OCR field(s) in order → fallback. v3 uses this as the pre-fill of the 'create payable from document' form; every defaulted value is flagged for review.",
+  "common": {
+    "title": ["data.title", "ocr.vendorName", "ocr.merchantName", "document.fileName"],
+    "description": ["data.description", "''"],
+    "currency": ["data.currency", "ocr.currencyCode", "'SEK'"],
+    "subtotal": ["data.subtotal", "ocr.subTotal", "ocr.subtotal", 0],
+    "vatAmount": ["data.vatAmount", "ocr.totalTax", 0],
+    "totalAmount": ["data.totalAmount", "ocr.invoiceTotal", "ocr.total", 0]
+  },
+  "supplier_invoice": {
+    "partnerId": {
+      "sources": ["data.partnerId", "inline createNewPartner (ADMIN only)"],
+      "missing": "400 'Partner is required for supplier invoice'"
+    },
+    "invoiceNumber": {
+      "sources": ["data.invoiceNumber", "ocr.invoiceId"],
+      "missing": "400 'Invoice number is required'"
+    },
+    "invoiceDate": { "sources": ["data.invoiceDate", "ocr.invoiceDate"], "fallback": "today" },
+    "dueDate": {
+      "sources": ["data.dueDate", "ocr.dueDate"],
+      "fallback": "today + 30 days",
+      "v3": "invoice_date + partner.payment_terms_days, flagged 'defaulted'"
+    },
+    "lines": {
+      "sources": [
+        "data.lineItems[] → {lineNumber: i+1, description || title, quantity ?? 1, unitPrice ?? amount, amount}"
+      ],
+      "fallback": "one line {description: title, quantity 1, unitPrice: subtotal, amount: subtotal}",
+      "v3": "no lines unless a VAT split is wanted"
+    },
+    "status": "PENDING",
+    "document_link": "DocumentLink entityType SUPPLIER_INVOICE, linkType ORIGINAL; document.processingStatus → ENTITY_CREATED"
+  },
+  "expense_claim_for_reference": {
+    "claimDate": {
+      "sources": ["data.claimDate", "data.invoiceDate", "ocr.transactionDate"],
+      "fallback": "today"
+    },
+    "lines": "one line with amount = totalAmount",
+    "status": "DRAFT"
+  },
+  "company_purchase_for_reference": {
+    "purchaseNumber": "CP{yy}-{nnn}",
+    "purchaseDate": {
+      "sources": ["data.purchaseDate", "data.invoiceDate", "ocr.transactionDate"],
+      "fallback": "today"
+    },
+    "merchantName": ["data.merchantName", "ocr.merchantName", "ocr.vendorName"],
+    "status": "PENDING"
+  },
+  "ocr_review_confidence_thresholds": {
+    "_source": "components/expenses/OCRReview.tsx l.57-70, 244",
+    "high": ">= 0.8 (green)",
+    "medium": ">= 0.5 (yellow)",
+    "low": "< 0.5 (red)",
+    "banner_when_any_field_below": 0.7,
+    "banner_text": "Low Confidence Detected — Some fields have low confidence scores. Please review carefully."
+  }
+}

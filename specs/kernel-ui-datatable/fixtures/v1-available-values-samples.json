@@ -1,0 +1,110 @@
+{
+  "_about": "Shapes of every v1 server endpoint that fed filter option lists, plus the query parameters the exchange-rates page actually sent. The 'before' picture for harvest §8. All response examples are illustrative values in the documented shape.",
+  "exchangeRatesAvailableValues": {
+    "method": "GET /api/exchange-rates/available-values",
+    "sql": [
+      "SELECT DISTINCT fromCurrencyCode FROM exchange_rates ORDER BY fromCurrencyCode",
+      "SELECT DISTINCT toCurrencyCode FROM exchange_rates ORDER BY toCurrencyCode",
+      "SELECT DISTINCT source FROM exchange_rates ORDER BY source"
+    ],
+    "response": {
+      "success": true,
+      "data": {
+        "currencies": ["CHF", "EUR", "SEK", "USD"],
+        "sources": ["ECB", "MANUAL", "Riksbank"]
+      }
+    },
+    "properties": {
+      "counts": false,
+      "narrowedByActiveFilters": false,
+      "cap": null,
+      "tenantScoped": false
+    }
+  },
+  "exchangeRatesAvailableDates": {
+    "method": "GET /api/exchange-rates/available-dates",
+    "sql": "SELECT DISTINCT date FROM exchange_rates ORDER BY date DESC",
+    "response": {
+      "success": true,
+      "data": ["2026-10-17T00:00:00.000Z", "2026-10-16T00:00:00.000Z", "…"],
+      "count": 1312
+    },
+    "properties": {
+      "counts": false,
+      "narrowedByActiveFilters": false,
+      "cap": null,
+      "clientBuildsHierarchy": true
+    }
+  },
+  "exchangeRatesListParams": {
+    "method": "GET /api/exchange-rates",
+    "params": [
+      "fromCurrency",
+      "toCurrency",
+      "currencyCode",
+      "startDate (yyyy-mm-dd, gte T00:00:00Z)",
+      "endDate (yyyy-mm-dd, lte T23:59:59Z)",
+      "source",
+      "limit (default 100; page used 200)",
+      "offset",
+      "sortBy ∈ date|fromCurrencyCode|toCurrencyCode|rate|source",
+      "sortDir ∈ asc|desc"
+    ],
+    "whatThePageSent": {
+      "date": "min..max of all selected existing days → startDate/endDate (flattened)",
+      "fromCurrencyCode": "sent only when exactly 1 value selected; ≥2 values filtered client-side on the 200-row page",
+      "toCurrencyCode": "same",
+      "source": "same",
+      "rate": "never sent; [min,max] applied client-side",
+      "sorting": "sorting[0] only"
+    }
+  },
+  "documentsInboxFilterOptions": {
+    "method": "GET /api/documents/inbox?includeFilterOptions=true",
+    "response": {
+      "filterOptions": {
+        "documentTypes": ["EXPENSE_RECEIPT", "SUPPLIER_INVOICE", "OTHER"],
+        "dateRange": { "min": "2025-11-07T09:12:00.000Z", "max": "2026-10-19T16:40:00.000Z" }
+      }
+    },
+    "scope": "tenant, linkedEntityId IS NULL, status != DELETED",
+    "properties": { "counts": false, "narrowedByActiveFilters": false }
+  },
+  "bankingInboxFilterOptions": {
+    "method": "GET /api/banking/inbox-transactions?includeFilterOptions=true",
+    "response": {
+      "filterOptions": {
+        "bankAccounts": ["Nordea CHF", "Nordea SEK", "Nordea Savings"],
+        "currencies": ["CHF", "SEK"],
+        "statuses": ["UNRECONCILED", "SUGGESTED", "RECONCILED", "IGNORED"],
+        "dateRange": { "min": "2024-01-02T00:00:00.000Z", "max": "2026-10-17T00:00:00.000Z" }
+      }
+    },
+    "properties": { "counts": false, "narrowedByActiveFilters": false, "statusesHardcoded": true }
+  },
+  "clientSideOptionLists": {
+    "where": "partners/page.tsx, supplier-invoices, expenses, company-purchases, payroll, time-entries, banking/transactions",
+    "how": "new Set(rows.map(r => r.col)) over the rows already loaded; '__NULL__' prepended when a blank exists; date columns pass the rows' dates as dateValues",
+    "consequence": "options reflect the loaded page only; no counts; no narrowing"
+  },
+  "notAFilterEndpoint": {
+    "method": "GET /api/currencies/available",
+    "purpose": "ECB currency catalogue for the admin 'add currency' screen",
+    "response": {
+      "data": [{ "code": "AUD", "name": "Australian dollar", "isAdded": false }],
+      "summary": { "total": 30, "added": 4, "available": 26 }
+    }
+  },
+  "v3Target": {
+    "distinct": "queries.distinct(tx, col, filters) → { values: [{ value, label?, count }], truncated }",
+    "distinctDates": "queries.distinctDates(tx, col, filters) → [{ year, count, months: [{ month, count, days: [{ day, count }] }] }]",
+    "list": "queries.list(tx, q) → { rows, total, sums? }",
+    "properties": {
+      "counts": true,
+      "narrowedByActiveFilters": "all filters except the column's own",
+      "cap": 500,
+      "tenantScoped": "RLS",
+      "search": "q param when truncated"
+    }
+  }
+}

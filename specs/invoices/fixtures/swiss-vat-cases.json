@@ -1,0 +1,322 @@
+{
+  "_source": "Scenarios from af_core app/api/reports/swiss-vat/__tests__/route.test.ts (L312-531) and lib/reports/__tests__/swiss-vat-types.test.ts, rewritten as data. Period = 2024-Q4 (2024-10-01..2024-12-31) unless stated. Amounts in CHF.",
+  "quarterBoundaries": [
+    { "year": 2024, "quarter": 1, "start": "2024-01-01", "end": "2024-03-31" },
+    { "year": 2024, "quarter": 2, "start": "2024-04-01", "end": "2024-06-30" },
+    { "year": 2024, "quarter": 3, "start": "2024-07-01", "end": "2024-09-30" },
+    { "year": 2024, "quarter": 4, "start": "2024-10-01", "end": "2024-12-31" },
+    { "year": 2025, "quarter": 2, "start": "2025-04-01", "end": "2025-06-30" }
+  ],
+  "periodLabelExamples": [
+    { "invoiceDate": "2026-01-31", "label": "CH 2026/Q1" },
+    { "invoiceDate": "2026-04-01", "label": "CH 2026/Q2" },
+    { "invoiceDate": "2026-06-30", "label": "CH 2026/Q2" },
+    { "invoiceDate": "2026-12-31", "label": "CH 2026/Q4" }
+  ],
+  "cases": [
+    {
+      "id": "V1-two-swiss-invoices",
+      "invoices": [
+        {
+          "number": "INV-001",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "10000.00",
+          "lines": [{ "net": "10000.00", "rate": "8.1" }]
+        },
+        {
+          "number": "INV-002",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "5000.00",
+          "lines": [{ "net": "5000.00", "rate": "8.1" }]
+        }
+      ],
+      "expected": {
+        "ref200": "15000.00",
+        "ref221": "0.00",
+        "ref299": "15000.00",
+        "ref303": { "base": "15000.00", "tax": "1215.00" },
+        "ref379": "15000.00",
+        "ref399": "1215.00",
+        "ref500": "1215.00",
+        "warnings": []
+      }
+    },
+    {
+      "id": "V2-swiss-plus-foreign",
+      "invoices": [
+        {
+          "number": "INV-001",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "10000.00",
+          "lines": [{ "net": "10000.00", "rate": "8.1" }]
+        },
+        {
+          "number": "INV-002",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "DE",
+          "net": "5000.00",
+          "lines": [{ "net": "5000.00", "rate": "8.1" }]
+        }
+      ],
+      "expected": {
+        "ref200": "15000.00",
+        "ref221": "5000.00",
+        "ref289": "5000.00",
+        "ref299": "10000.00",
+        "ref303": { "base": "10000.00", "tax": "810.00" },
+        "ref379": "10000.00",
+        "warnings": []
+      }
+    },
+    {
+      "id": "V3-standard-rate-tax",
+      "invoices": [
+        {
+          "number": "INV-001",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "10000.00",
+          "lines": [{ "net": "10000.00", "rate": "8.1" }]
+        }
+      ],
+      "expected": {
+        "ref303": { "base": "10000.00", "tax": "810.00" },
+        "ref500": "810.00",
+        "ref510": "0.00"
+      }
+    },
+    {
+      "id": "V4-credit-note-as-negative-invoice",
+      "note": "v1 only recognises a credit note by a NEGATIVE subtotal on the old Invoice model; a V2 credit note (positive amounts, documentType CREDIT_NOTE) is invisible to this report. v3: credit notes of the period go to 235 by document type",
+      "invoices": [
+        {
+          "number": "INV-001",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "10000.00",
+          "lines": [{ "net": "10000.00", "rate": "8.1" }]
+        },
+        {
+          "number": "CN-001",
+          "date": "2024-11-02",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "-1000.00",
+          "lines": [{ "net": "-1000.00", "rate": null }]
+        }
+      ],
+      "expected": {
+        "ref200": "10000.00",
+        "ref235": "1000.00",
+        "ref289": "1000.00",
+        "ref299": "9000.00",
+        "ref303": { "base": "10000.00", "tax": "810.00" },
+        "ref379": "10000.00",
+        "warnings": ["plausibility_mismatch"],
+        "_note": "v1 test asserted only 200 and 235; 379 (10000) != 299 (9000) because the credit's base is not removed from 303 — a v1 inconsistency v3 must not reproduce (credit note lines must reduce 303.base too)"
+      }
+    },
+    {
+      "id": "V5-input-vat-supplier-line",
+      "supplierInvoiceLines": [
+        {
+          "supplier": "Supplier AG",
+          "number": "SI-001",
+          "date": "2024-10-15",
+          "status": "APPROVED",
+          "net": "1000.00",
+          "vatCode": "CH81",
+          "rate": "8.1"
+        }
+      ],
+      "expected": { "ref400": "81.00", "ref479": "81.00", "ref510": "81.00", "ref500": "0.00" }
+    },
+    {
+      "id": "V6-input-vat-expense-gross",
+      "expenses": [
+        {
+          "ref": "EXP-001",
+          "date": "2024-10-15",
+          "status": "APPROVED",
+          "gross": "108.10",
+          "vatCode": "CH81",
+          "rate": "8.1"
+        }
+      ],
+      "expected": { "ref400": "8.10", "_formula": "108.10 x 8.1 / 108.1 = 8.10" }
+    },
+    {
+      "id": "V7-payable-when-output-exceeds-input",
+      "invoices": [
+        {
+          "number": "INV-001",
+          "date": "2024-10-15",
+          "status": "SENT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "10000.00",
+          "lines": [{ "net": "10000.00", "rate": "8.1" }]
+        }
+      ],
+      "supplierInvoiceLines": [
+        {
+          "supplier": "Supplier AG",
+          "number": "SI-001",
+          "date": "2024-10-15",
+          "status": "PAID",
+          "net": "1000.00",
+          "vatCode": "CH81",
+          "rate": "8.1"
+        }
+      ],
+      "expected": { "ref399": "810.00", "ref479": "81.00", "ref500": "729.00", "ref510": "0.00" }
+    },
+    {
+      "id": "V8-empty-period",
+      "invoices": [],
+      "expected": {
+        "ref200": "0.00",
+        "ref299": "0.00",
+        "ref399": "0.00",
+        "ref479": "0.00",
+        "ref500": "0.00",
+        "ref510": "0.00",
+        "detailsInvoices": 0,
+        "detailsInputSources": 0
+      }
+    },
+    {
+      "id": "V9-excluded-by-status-currency-or-date",
+      "note": "none of these may appear in the period",
+      "invoices": [
+        {
+          "number": "D-1",
+          "date": "2024-10-15",
+          "status": "DRAFT",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "100.00"
+        },
+        {
+          "number": "F-1",
+          "date": "2024-10-15",
+          "status": "FINALIZED",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "100.00",
+          "_v1": "excluded (not SENT yet); v3: issued counts (open question Q5)"
+        },
+        {
+          "number": "C-1",
+          "date": "2024-10-15",
+          "status": "CANCELLED",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "100.00"
+        },
+        {
+          "number": "E-1",
+          "date": "2024-10-15",
+          "status": "PAID",
+          "currency": "EUR",
+          "clientCountry": "CH",
+          "net": "100.00",
+          "_v1": "excluded because currency != CHF; v3: the CH registration on the contract decides (open question Q5)"
+        },
+        {
+          "number": "Q3-1",
+          "date": "2024-09-30",
+          "status": "PAID",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "100.00"
+        },
+        {
+          "number": "Q1-1",
+          "date": "2025-01-01",
+          "status": "PAID",
+          "currency": "CHF",
+          "clientCountry": "CH",
+          "net": "100.00"
+        }
+      ],
+      "expected": { "ref200": "0.00" }
+    },
+    {
+      "id": "V10-missing-country-treated-as-swiss",
+      "invoices": [
+        {
+          "number": "INV-001",
+          "date": "2024-10-15",
+          "status": "PAID",
+          "currency": "CHF",
+          "clientCountry": null,
+          "net": "1000.00",
+          "lines": [{ "net": "1000.00", "rate": "8.1" }]
+        }
+      ],
+      "expected": {
+        "ref200": "1000.00",
+        "ref221": "0.00",
+        "ref303": { "base": "1000.00", "tax": "81.00" }
+      }
+    },
+    {
+      "id": "V11-future-period-warning",
+      "year": "{currentYear + 1}",
+      "quarter": 4,
+      "expected": {
+        "warnings": [{ "type": "future_period", "message": "Selected period has not yet started" }]
+      }
+    }
+  ],
+  "parameterValidation": [
+    {
+      "query": "?quarter=4",
+      "status": 400,
+      "error": "year and quarter are required query parameters"
+    },
+    {
+      "query": "?year=2024",
+      "status": 400,
+      "error": "year and quarter are required query parameters"
+    },
+    {
+      "query": "?year=2019&quarter=4",
+      "status": 400,
+      "error": "Invalid year. Must be between 2020 and next year."
+    },
+    {
+      "query": "?year={currentYear + 5}&quarter=4",
+      "status": 400,
+      "error": "Invalid year. Must be between 2020 and next year."
+    },
+    {
+      "query": "?year=2024&quarter=0",
+      "status": 400,
+      "error": "Invalid quarter. Must be 1, 2, 3, or 4."
+    },
+    {
+      "query": "?year=2024&quarter=5",
+      "status": 400,
+      "error": "Invalid quarter. Must be 1, 2, 3, or 4."
+    },
+    { "query": "?year=2024&quarter=4", "status": 200 }
+  ]
+}

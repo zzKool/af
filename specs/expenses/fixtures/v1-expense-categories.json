@@ -1,0 +1,87 @@
+{
+  "_source": "af_core prisma/seed.ts l.178-249 (commit a2fe220). App-level table ExpenseCategory, not tenant-scoped. The 'v1_comment' is the BAS name v1 wrote next to the number; 'remark' is the harvest reviewer's note — the accountant confirms the v3 mapping once.",
+  "categories": [
+    {
+      "code": "TRAVEL",
+      "name": "Travel Expenses",
+      "description": "Flights, trains, car rental, taxis",
+      "expenseAccountNumber": 7510,
+      "v1_comment": "Bilersättningar",
+      "remark": "BAS 7510 is lagstadgade sociala avgifter; travel belongs in 58xx (5800 group)",
+      "excel_alias_candidate": "Tr"
+    },
+    {
+      "code": "MEALS",
+      "name": "Meals & Entertainment",
+      "description": "Business meals, client entertainment",
+      "expenseAccountNumber": 6071,
+      "v1_comment": "Representation",
+      "remark": "plausible (6071 avdragsgill / 6072 ej avdragsgill)",
+      "excel_alias_candidate": "Rep"
+    },
+    {
+      "code": "ACCOMMODATION",
+      "name": "Accommodation",
+      "description": "Hotels, lodging",
+      "expenseAccountNumber": 7533,
+      "v1_comment": "Traktamenten",
+      "remark": "not a hotel account; kost och logi is 5831 (SE) / 5832 (abroad)",
+      "excel_alias_candidate": "Tr"
+    },
+    {
+      "code": "SOFTWARE",
+      "name": "Software & Subscriptions",
+      "description": "Software licenses, SaaS subscriptions",
+      "expenseAccountNumber": 6540,
+      "v1_comment": "IT-tjänster",
+      "remark": "plausible",
+      "excel_alias_candidate": "Ut"
+    },
+    {
+      "code": "EQUIPMENT",
+      "name": "Equipment & Hardware",
+      "description": "Laptops, monitors, accessories",
+      "expenseAccountNumber": 5460,
+      "v1_comment": "Förbrukningsinventarier",
+      "remark": "5460 is förbrukningsmaterial; 5410 is förbrukningsinventarier",
+      "excel_alias_candidate": null
+    },
+    {
+      "code": "TRAINING",
+      "name": "Training & Education",
+      "description": "Courses, conferences, books",
+      "expenseAccountNumber": 6981,
+      "v1_comment": "Utbildning",
+      "remark": "7610 Utbildning is the standard account",
+      "excel_alias_candidate": "Evnt"
+    },
+    {
+      "code": "OTHER",
+      "name": "Other Expenses",
+      "description": "Miscellaneous business expenses",
+      "expenseAccountNumber": 6570,
+      "v1_comment": "Bankkostnader",
+      "remark": "wrong default: 6570 is bank fees",
+      "excel_alias_candidate": null
+    }
+  ],
+  "excel_account_names": {
+    "_source": "docs/excel-to-v3-mapping.md Sheet 3, column 'Account Name' with its alias",
+    "Tr": "Travel Expense",
+    "Rep": "Representation fees",
+    "Off": "Office rent",
+    "Ut": "Licences, Cloud and Utilities",
+    "Acc": "Accounting fees (supplier invoices in v3, D8)",
+    "Evnt": "Events, Conferences and Trainings",
+    "Vat": "Swiss VAT"
+  },
+  "v1_posting_accounts": {
+    "_source": "lib/posting/posting-service.ts",
+    "accounts_payable_staff_and_suppliers": 2440,
+    "bank": 1920,
+    "vat_input": 2641,
+    "travel_expenses_for_allowance_payment": 5800,
+    "bank_fees": 6570,
+    "note": "v1 used 2440 (leverantörsskulder) for the owner liability too; BAS has 2893 skulder till närstående personer for that — confirm with the accountant"
+  }
+}

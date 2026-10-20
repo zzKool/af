@@ -1,0 +1,136 @@
+{
+  "$comment": "Sample categorisation rules in the v1 CategorizationRule shape (af_core prisma/schema.prisma lines 800–831, commit a2fe220). v1 shipped NO seed rules; the examples below are the ones named in docs/feature-inventory.md §3.10 and docs/excel-to-v3-mapping.md Sheet 1 (OPENAI → OpenAI, MSFT → Microsoft, AVGIFTER NORDEA → bank fees, SALARY / SKATTEVERKET). BAS numbers are the standard kontoplan accounts the owner's aliases point to and MUST be confirmed with the accountant; v3 stores a BAS category id, not a number. `matchField` ∈ name|message|sender|recipient|all; `matchType` ∈ CONTAINS|STARTS_WITH|ENDS_WITH|EXACT|REGEX; priority 0–999, UI-created rules get 100.",
+  "v1ShapeExample": {
+    "name": "Nordea banking fees",
+    "description": "Monthly account fees, grey italic rows in the Excel",
+    "matchType": "CONTAINS",
+    "matchPattern": "AVGIFTER NORDEA",
+    "matchField": "name",
+    "basAccountId": "<ChartOfAccount id>",
+    "partnerId": "<Partner id or null>",
+    "priority": 100,
+    "isActive": true
+  },
+  "rules": [
+    {
+      "name": "Nordea banking fees",
+      "matchType": "CONTAINS",
+      "matchPattern": "AVGIFTER NORDEA",
+      "matchField": "name",
+      "bas": "6570 Bankkostnader",
+      "alias": null,
+      "partner": "Nordea",
+      "noDocumentNeeded": true,
+      "priority": 100
+    },
+    {
+      "name": "OpenAI subscription",
+      "matchType": "CONTAINS",
+      "matchPattern": "OPENAI",
+      "matchField": "name",
+      "bas": "6540 IT-tjänster (owner alias Ut — Licences, Cloud and Utilities)",
+      "alias": "Ut",
+      "partner": "OpenAI",
+      "noDocumentNeeded": false,
+      "priority": 100
+    },
+    {
+      "name": "Microsoft subscription",
+      "matchType": "CONTAINS",
+      "matchPattern": "MSFT",
+      "matchField": "name",
+      "bas": "6540 IT-tjänster (alias Ut)",
+      "alias": "Ut",
+      "partner": "Microsoft",
+      "noDocumentNeeded": false,
+      "priority": 100
+    },
+    {
+      "name": "Salary",
+      "matchType": "CONTAINS",
+      "matchPattern": "SALARY",
+      "matchField": "all",
+      "bas": "7210 Löner till tjänstemän",
+      "alias": null,
+      "partner": null,
+      "noDocumentNeeded": true,
+      "priority": 100,
+      "note": "yellow rows in the Excel; recurring manual-entry template in v3 (D14 widget uses them)"
+    },
+    {
+      "name": "Skatteverket",
+      "matchType": "CONTAINS",
+      "matchPattern": "SKATTEVERKET",
+      "matchField": "all",
+      "bas": "2710 / 2731 (tax + social charges — split by the accountant)",
+      "alias": null,
+      "partner": "Skatteverket",
+      "noDocumentNeeded": true,
+      "priority": 100
+    },
+    {
+      "name": "Savings interest",
+      "matchType": "STARTS_WITH",
+      "matchPattern": "Ränta",
+      "matchField": "message",
+      "bas": "8300 Ränteintäkter",
+      "alias": null,
+      "partner": "Nordea",
+      "noDocumentNeeded": true,
+      "priority": 90,
+      "note": "savings account: Name is empty, 'Ränta 2024' sits in Additional details, the year sits in Sender — see v3 __fixtures__/nordea-interest.csv. matchField 'message' here means v2 'details' once v3 maps fields; see harvest §8"
+    }
+  ],
+  "matcherSemantics": {
+    "caseInsensitive": "CONTAINS/STARTS_WITH/ENDS_WITH/EXACT lower-case both sides; REGEX runs new RegExp(pattern, 'i') on the ORIGINAL text; an invalid regex never matches",
+    "fieldAll": "name + message + additionalDetails + sender + recipient joined by one space, empty parts dropped",
+    "defaultField": "unknown matchField → name",
+    "emptyText": "empty field value never matches (even EXACT '' )",
+    "conflict": "active rules sorted by priority DESC, first match wins; equal priority → undefined order (v1 has no tie-break)"
+  },
+  "testPatternCases": [
+    {
+      "pattern": "spotify",
+      "matchType": "CONTAINS",
+      "input": ["SPOTIFY AB", "Spotify Premium", "Netflix"],
+      "matches": ["SPOTIFY AB", "Spotify Premium"],
+      "nonMatches": ["Netflix"]
+    },
+    {
+      "pattern": "KORT KOP",
+      "matchType": "STARTS_WITH",
+      "input": ["KORT KOP LIVSMEDEL AB", "Skatteverket"],
+      "matches": ["KORT KOP LIVSMEDEL AB"],
+      "nonMatches": ["Skatteverket"]
+    },
+    {
+      "pattern": "AB",
+      "matchType": "ENDS_WITH",
+      "input": ["Employer AB", "Electric AB", "Swiss Services AG"],
+      "matches": ["Employer AB", "Electric AB"],
+      "nonMatches": ["Swiss Services AG"]
+    },
+    {
+      "pattern": "skatteverket",
+      "matchType": "EXACT",
+      "input": ["Skatteverket", "Skatteverket Moms"],
+      "matches": ["Skatteverket"],
+      "nonMatches": ["Skatteverket Moms"]
+    },
+    {
+      "pattern": "^/ROC/PMT-\\d{8}",
+      "matchType": "REGEX",
+      "input": ["/ROC/PMT-10026655-5681836", "/ROC/XYZ"],
+      "matches": ["/ROC/PMT-10026655-5681836"],
+      "nonMatches": ["/ROC/XYZ"]
+    },
+    {
+      "pattern": "(unclosed",
+      "matchType": "REGEX",
+      "input": ["(unclosed"],
+      "matches": [],
+      "nonMatches": ["(unclosed"],
+      "note": "invalid regex → no match, no throw"
+    }
+  ]
+}

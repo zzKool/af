@@ -1,0 +1,198 @@
+{
+  "_about": "Date hierarchy cases. 'hierarchy' = v1 buildDateHierarchy output (unique local days, grouped year→month0→days, desc) extended with v3 counts. 'selectionCases' follow the tri-state rules of components/advanced-table/date-hierarchy-filter.tsx (toggleYear/toggleMonth/toggleDay). 'predicateCases' follow DataTable.tsx dateInHierarchy. Month numbers in keys are 1-based (YYYY-MM); v1's in-memory month index is 0-based.",
+  "inputDates": [
+    "2026-03-11",
+    "2026-03-11",
+    "2026-03-11",
+    "2026-03-02",
+    "2026-02-28",
+    "2026-01-15",
+    "2026-01-15",
+    "2025-12-31",
+    "2025-06-30"
+  ],
+  "hierarchy": {
+    "2026": {
+      "count": 7,
+      "months": {
+        "03": { "count": 4, "days": { "2026-03-11": 3, "2026-03-02": 1 } },
+        "02": { "count": 1, "days": { "2026-02-28": 1 } },
+        "01": { "count": 2, "days": { "2026-01-15": 2 } }
+      }
+    },
+    "2025": {
+      "count": 2,
+      "months": {
+        "12": { "count": 1, "days": { "2025-12-31": 1 } },
+        "06": { "count": 1, "days": { "2025-06-30": 1 } }
+      }
+    }
+  },
+  "renderOrder": {
+    "years": [2026, 2025],
+    "monthsOf2026": ["03", "02", "01"],
+    "daysOf2026-03": ["2026-03-11", "2026-03-02"]
+  },
+  "v1UniqueDays": [
+    "2026-03-11",
+    "2026-03-02",
+    "2026-02-28",
+    "2026-01-15",
+    "2025-12-31",
+    "2025-06-30"
+  ],
+  "selectionCases": [
+    {
+      "case": "tick-year",
+      "before": { "years": [], "months": [], "days": [] },
+      "action": "toggleYear 2026",
+      "after": { "years": [2026], "months": [], "days": [] }
+    },
+    {
+      "case": "untick-year",
+      "before": { "years": [2026], "months": [], "days": [] },
+      "action": "toggleYear 2026",
+      "after": { "years": [], "months": [], "days": [] }
+    },
+    {
+      "case": "tick-year-clears-children",
+      "before": { "years": [], "months": ["2026-03"], "days": ["2026-01-15"] },
+      "action": "toggleYear 2026",
+      "after": { "years": [2026], "months": [], "days": [] }
+    },
+    {
+      "case": "tick-month-removes-year",
+      "before": { "years": [2026], "months": [], "days": [] },
+      "action": "toggleMonth 2026-03",
+      "after": { "years": [], "months": ["2026-03"], "days": [] },
+      "_note": "v1: year dropped, only March stays (not 'all other months'); Excel would keep the other months — v3 decision in harvest §4.2"
+    },
+    {
+      "case": "tick-month-clears-its-days",
+      "before": { "years": [], "months": [], "days": ["2026-03-11", "2026-02-28"] },
+      "action": "toggleMonth 2026-03",
+      "after": { "years": [], "months": ["2026-03"], "days": ["2026-02-28"] }
+    },
+    {
+      "case": "untick-month",
+      "before": { "years": [], "months": ["2026-03", "2026-01"], "days": [] },
+      "action": "toggleMonth 2026-03",
+      "after": { "years": [], "months": ["2026-01"], "days": [] }
+    },
+    {
+      "case": "tick-day",
+      "before": { "years": [], "months": [], "days": [] },
+      "action": "toggleDay 2026-03-11",
+      "after": { "years": [], "months": [], "days": ["2026-03-11"] }
+    },
+    {
+      "case": "tick-day-removes-year-and-month",
+      "before": { "years": [2026], "months": ["2026-03"], "days": [] },
+      "action": "toggleDay 2026-03-02",
+      "after": { "years": [], "months": [], "days": ["2026-03-02"] }
+    },
+    {
+      "case": "untick-day",
+      "before": { "years": [], "months": [], "days": ["2026-03-11", "2026-03-02"] },
+      "action": "toggleDay 2026-03-11",
+      "after": { "years": [], "months": [], "days": ["2026-03-02"] }
+    },
+    {
+      "case": "year-checked-via-months-then-click",
+      "before": { "years": [], "months": ["2025-12", "2025-06"], "days": [] },
+      "displayBefore": { "year2025": "checked" },
+      "action": "toggleYear 2025",
+      "afterV1": { "years": [2025], "months": [], "days": [] },
+      "afterV3": { "years": [], "months": [], "days": [] },
+      "_note": "v1 adds the year (else-branch) so the click looks like a no-op; v3 un-ticks (Excel)"
+    }
+  ],
+  "displayStateCases": [
+    {
+      "selection": { "years": [], "months": [], "days": ["2026-03-11", "2026-03-02"] },
+      "expect": { "month2026-03": "checked", "year2026": "partial" },
+      "_note": "all existing days of March ticked ⇒ month checked"
+    },
+    {
+      "selection": { "years": [], "months": [], "days": ["2026-03-11"] },
+      "expect": { "month2026-03": "partial", "year2026": "partial" }
+    },
+    {
+      "selection": { "years": [], "months": ["2026-03", "2026-02", "2026-01"], "days": [] },
+      "expect": { "year2026": "checked" }
+    },
+    {
+      "selection": { "years": [2025], "months": [], "days": [] },
+      "expect": { "year2025": "checked", "month2025-12": "checked", "year2026": "unchecked" }
+    }
+  ],
+  "predicateCases": [
+    {
+      "selection": { "years": [2026], "months": [], "days": [] },
+      "rowDate": "2026-07-04",
+      "pass": true
+    },
+    {
+      "selection": { "years": [2026], "months": [], "days": [] },
+      "rowDate": "2025-12-31",
+      "pass": false
+    },
+    {
+      "selection": { "years": [], "months": ["2026-03"], "days": [] },
+      "rowDate": "2026-03-31",
+      "pass": true
+    },
+    {
+      "selection": { "years": [], "months": ["2026-03"], "days": [] },
+      "rowDate": "2026-04-01",
+      "pass": false
+    },
+    {
+      "selection": { "years": [], "months": [], "days": ["2026-03-11"] },
+      "rowDate": "2026-03-11",
+      "pass": true
+    },
+    {
+      "selection": { "years": [2025], "months": ["2026-03"], "days": ["2026-01-15"] },
+      "rowDate": "2025-02-02",
+      "pass": true
+    },
+    {
+      "selection": { "years": [2025], "months": ["2026-03"], "days": ["2026-01-15"] },
+      "rowDate": "2026-01-16",
+      "pass": false
+    },
+    {
+      "selection": { "years": [], "months": [], "days": [] },
+      "rowDate": "2026-01-16",
+      "pass": true,
+      "_note": "empty selection = no filter"
+    }
+  ],
+  "v3RangeExpansion": [
+    {
+      "selection": { "years": [2025], "months": ["2026-03"], "days": ["2026-01-15"] },
+      "ranges": [
+        ["2025-01-01", "2025-12-31"],
+        ["2026-01-15", "2026-01-15"],
+        ["2026-03-01", "2026-03-31"]
+      ]
+    },
+    {
+      "selection": { "years": [], "months": ["2026-02", "2026-03"], "days": ["2026-03-11"] },
+      "ranges": [["2026-02-01", "2026-03-31"]],
+      "_note": "day inside a selected month is absorbed; adjacent months merged"
+    },
+    {
+      "selection": { "years": [2024], "months": ["2024-02"], "days": [] },
+      "ranges": [["2024-01-01", "2024-12-31"]],
+      "_note": "leap year, month absorbed by year"
+    }
+  ],
+  "v1FlatteningBug": {
+    "selection": { "years": [], "months": ["2026-01", "2026-03"], "days": [] },
+    "v1SentToServer": { "startDate": "2026-01-15", "endDate": "2026-03-11" },
+    "_note": "exchange-rates page sent min..max of the selected EXISTING days, so February rows came back too",
+    "v3": [["2026-01-01", "2026-01-31"], ["2026-03-01", "2026-03-31"]]
+  }
+}

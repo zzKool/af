@@ -35,7 +35,7 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] `kernel/pdf`: Chromium in the image, print-mode rendering, one Dockerfile stage — 2026-10-20, see `docs/pdf.md`
   - [x] `number_series` + fixed business-key functions; `DocumentTypePrefix` engine + settings page removed — 2026-10-20, see `docs/numbering.md`. **Open: the DROP of `document_type_prefixes` + `document_key_counters` waits for your OK (data-dropping migration).**
   - [x] `docker-compose.prod.yml` (same image, no bind mounts, `.env.prod`) + `scripts/backup.sh` (PR #5)
-- [ ] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6
+- [x] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6 — 2026-10-20: `specs/<module>/harvest.md` for invoices (H1 H2 H6), banking (H3 H4 H11), contracts (H5), documents (H7), expenses (H8), traktamente (H9), supplier-invoices (H10), accountant-package (H12), kernel-ui-datatable (H13); open questions in each §9 — **answer them before the module's `/speckit-specify`**
 - [ ] **6. Reference slice**: rebuild `partners` in the module layout by hand → extract `module-slice` skill
 - [ ] **7. Verify gate wired**: CI + screenshot step + flaky quarantine; first PR through the full gate
 - [ ] **8. Kernel UI**: app shell full-width (D19) + `DataTable` with typed header filters and `ListQuery` helper (D20, H13) — built once on `partners`, before the parallel batch

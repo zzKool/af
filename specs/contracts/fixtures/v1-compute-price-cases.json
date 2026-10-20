@@ -1,0 +1,80 @@
+{
+  "_about": "The computePrice(type, basePrice, values) cases from af_core lib/validation/__tests__/pricelist.test.ts, as data. The pricelist generation is dropped in v3; kept because the DISCOUNT arithmetic (base × (1 − pct/100)) is the same one an invoice line discount needs (H1).",
+  "semantics": {
+    "FIXED": "values.fixedPrice ?? basePrice",
+    "DISCOUNT": "basePrice * (1 - (values.discountPercent ?? 0) / 100)",
+    "SURCHARGE": "basePrice + (values.surchargeAmount ?? 0)",
+    "FORMULA": "basePrice * (values.multiplier ?? 1)",
+    "unknown": "basePrice"
+  },
+  "cases": [
+    { "type": "FIXED", "base": 100, "values": { "fixedPrice": 150 }, "expected": 150 },
+    { "type": "FIXED", "base": 100, "values": { "fixedPrice": null }, "expected": 100 },
+    { "type": "FIXED", "base": 100, "values": {}, "expected": 100 },
+    { "type": "FIXED", "base": 100, "values": { "fixedPrice": 0 }, "expected": 0 },
+    { "type": "FIXED", "base": 100, "values": { "fixedPrice": 99.95 }, "expected": 99.95 },
+    { "type": "DISCOUNT", "base": 100, "values": { "discountPercent": 10 }, "expected": 90 },
+    { "type": "DISCOUNT", "base": 100, "values": { "discountPercent": 0 }, "expected": 100 },
+    { "type": "DISCOUNT", "base": 100, "values": { "discountPercent": 100 }, "expected": 0 },
+    { "type": "DISCOUNT", "base": 200, "values": { "discountPercent": 50 }, "expected": 100 },
+    { "type": "DISCOUNT", "base": 100, "values": { "discountPercent": null }, "expected": 100 },
+    { "type": "DISCOUNT", "base": 100, "values": {}, "expected": 100 },
+    { "type": "DISCOUNT", "base": 100, "values": { "discountPercent": 15.5 }, "expected": 84.5 },
+    { "type": "DISCOUNT", "base": 10000, "values": { "discountPercent": 2.5 }, "expected": 9750 },
+    { "type": "SURCHARGE", "base": 100, "values": { "surchargeAmount": 25 }, "expected": 125 },
+    { "type": "SURCHARGE", "base": 100, "values": { "surchargeAmount": 0 }, "expected": 100 },
+    { "type": "SURCHARGE", "base": 100, "values": { "surchargeAmount": null }, "expected": 100 },
+    { "type": "SURCHARGE", "base": 100, "values": {}, "expected": 100 },
+    { "type": "SURCHARGE", "base": 100, "values": { "surchargeAmount": 9.99 }, "expected": 109.99 },
+    { "type": "SURCHARGE", "base": 100, "values": { "surchargeAmount": 500 }, "expected": 600 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": 1.5 }, "expected": 150 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": 1 }, "expected": 100 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": 0 }, "expected": 0 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": 0.8 }, "expected": 80 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": null }, "expected": 100 },
+    { "type": "FORMULA", "base": 100, "values": {}, "expected": 100 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": 1.125 }, "expected": 112.5 },
+    { "type": "FORMULA", "base": 100, "values": { "multiplier": 3 }, "expected": 300 },
+    { "type": "UNKNOWN", "base": 100, "values": { "fixedPrice": 50 }, "expected": 100 },
+    { "type": "FIXED", "base": 0, "values": { "fixedPrice": 50 }, "expected": 50 },
+    { "type": "DISCOUNT", "base": 0, "values": { "discountPercent": 10 }, "expected": 0 },
+    { "type": "SURCHARGE", "base": 0, "values": { "surchargeAmount": 25 }, "expected": 25 },
+    { "type": "FORMULA", "base": 0, "values": { "multiplier": 1.5 }, "expected": 0 },
+    { "type": "DISCOUNT", "base": -100, "values": { "discountPercent": 10 }, "expected": -90 },
+    { "type": "SURCHARGE", "base": -100, "values": { "surchargeAmount": 25 }, "expected": -75 },
+    { "type": "FORMULA", "base": -100, "values": { "multiplier": 1.5 }, "expected": -150 },
+    { "type": "FIXED", "base": 0.01, "values": { "fixedPrice": 0.02 }, "expected": 0.02 },
+    { "type": "DISCOUNT", "base": 0.1, "values": { "discountPercent": 50 }, "expected": 0.05 },
+    {
+      "type": "FIXED",
+      "base": 999999999,
+      "values": { "fixedPrice": 1000000000 },
+      "expected": 1000000000
+    },
+    { "type": "DISCOUNT", "base": 1000000, "values": { "discountPercent": 5 }, "expected": 950000 },
+    {
+      "type": "FIXED",
+      "base": 100,
+      "values": { "fixedPrice": 50, "discountPercent": 10, "surchargeAmount": 20, "multiplier": 2 },
+      "expected": 50
+    },
+    {
+      "type": "DISCOUNT",
+      "base": 100,
+      "values": { "fixedPrice": 50, "discountPercent": 10, "surchargeAmount": 20, "multiplier": 2 },
+      "expected": 90
+    },
+    {
+      "type": "SURCHARGE",
+      "base": 100,
+      "values": { "fixedPrice": 50, "discountPercent": 10, "surchargeAmount": 20, "multiplier": 2 },
+      "expected": 120
+    },
+    {
+      "type": "FORMULA",
+      "base": 100,
+      "values": { "fixedPrice": 50, "discountPercent": 10, "surchargeAmount": 20, "multiplier": 2 },
+      "expected": 200
+    }
+  ]
+}

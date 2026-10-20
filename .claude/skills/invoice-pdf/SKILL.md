@@ -5,7 +5,7 @@ description: Rules for documents AF renders to PDF (client invoices, quotes, cre
 
 # Invoice and PDF rules
 
-Decisions: D5, D7, D12 in `docs/feature-inventory.md`. Business fields: `docs/excel-to-v3-mapping.md` sheet 2. v1 behaviour to harvest: `af_core/lib/pdf/invoice-template.ts`, `quote-template.ts`, `invoice-translations-v2.ts` (read for layout and strings, do not copy code).
+Decisions: D5, D7, D12 in `docs/feature-inventory.md`. Business fields: `docs/excel-to-v3-mapping.md` sheet 2. v1 behaviour harvested in `specs/invoices/harvest.md` (+ `fixtures/`: en/fr/sv strings, totals cases, Swiss VAT form fields). v1 had no quotes — the quote flow is a v3 build from D5/D7.
 
 ## One component, two modes
 - `<InvoiceSheet mode="edit" | "print" />` renders the **same layout**. Edit mode places inputs inline where the values sit (invoice-generator.com style); print mode renders values only.

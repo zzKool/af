@@ -1,0 +1,17 @@
+publisher,year,country_code,country_name_sv,day_amount_sek,night_amount_sek,currency,source
+SE,2025,SE,Sverige,290,145,SEK,v1-seed (prisma/seed.ts l.593-603)
+SE,2025,DE,Tyskland,774,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,GB,Storbritannien och Nordirland,958,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,FR,Frankrike,774,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,NL,Nederländerna,774,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,NO,Norge,1043,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,DK,Danmark,774,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,FI,Finland,542,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,US,USA,889,,SEK,v1-seed (prisma/seed.ts)
+SE,2025,CH,Schweiz,1402,,SEK,v1-seed (prisma/seed.ts l.687-696; also rate-import.ts header example)
+SE,2025,AL,Albanien,345,,SEK,v1 rate-import.ts header example only
+SE,2024,SE,Sverige,280,140,SEK,v1-rate-import SWEDEN_DOMESTIC_RATES
+SE,2023,SE,Sverige,270,135,SEK,v1-rate-import SWEDEN_DOMESTIC_RATES
+SE,2022,SE,Sverige,260,130,SEK,v1-rate-import SWEDEN_DOMESTIC_RATES
+SE,2021,SE,Sverige,250,125,SEK,v1-rate-import SWEDEN_DOMESTIC_RATES
+SE,2020,SE,Sverige,240,120,SEK,v1-rate-import SWEDEN_DOMESTIC_RATES

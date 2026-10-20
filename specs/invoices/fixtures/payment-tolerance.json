@@ -1,0 +1,92 @@
+{
+  "_source": "af_core lib/utils/rounding.ts (constants L9-12, checkRoundingTolerance L39-67, determinePaymentStatus L112-158) as applied in app/api/banking/transactions/[id]/reconcile/route.ts reconcileToInvoice (L368-440). Underpayment within tolerance => PAID with paidAmount recorded as the full total and a rounding note on the payment. Overpayment is refused before tolerance is considered.",
+  "tolerancePerCurrency": {
+    "CHF": "0.05",
+    "SEK": "0.50",
+    "EUR": "0.05",
+    "USD": "0.05",
+    "default": "0.05"
+  },
+  "toleranceName": {
+    "CHF": "Swiss 5-cent",
+    "SEK": "Swedish 50-öre",
+    "EUR": "Euro 5-cent",
+    "USD": "US 5-cent"
+  },
+  "roundingNoteFormat": "Rounding adjustment: {symbol} {difference2dp} ({toleranceName} rounding tolerance)",
+  "symbol": { "CHF": "CHF", "SEK": "SEK", "EUR": "€", "USD": "$" },
+  "cases": [
+    {
+      "currency": "CHF",
+      "total": "25944.00",
+      "sumAllocated": "25944.00",
+      "status": "PAID",
+      "paidAmount": "25944.00",
+      "roundingNote": null
+    },
+    {
+      "currency": "CHF",
+      "total": "25944.00",
+      "sumAllocated": "25943.96",
+      "status": "PAID",
+      "paidAmount": "25944.00",
+      "roundingNote": "Rounding adjustment: CHF 0.04 (Swiss 5-cent rounding tolerance)"
+    },
+    {
+      "currency": "CHF",
+      "total": "25944.00",
+      "sumAllocated": "25943.95",
+      "status": "PAID",
+      "paidAmount": "25944.00",
+      "roundingNote": "Rounding adjustment: CHF 0.05 (Swiss 5-cent rounding tolerance)"
+    },
+    {
+      "currency": "CHF",
+      "total": "25944.00",
+      "sumAllocated": "25943.94",
+      "status": "PARTIALLY_PAID",
+      "paidAmount": "25943.94",
+      "roundingNote": null
+    },
+    {
+      "currency": "CHF",
+      "total": "25944.00",
+      "sumAllocated": "25900.00",
+      "status": "PARTIALLY_PAID",
+      "paidAmount": "25900.00",
+      "roundingNote": null
+    },
+    {
+      "currency": "CHF",
+      "total": "25944.00",
+      "sumAllocated": "25944.01",
+      "status": "ERROR",
+      "error": "Total payments (25944.01) would exceed invoice amount (25944)"
+    },
+    {
+      "currency": "SEK",
+      "total": "60000.00",
+      "sumAllocated": "59999.60",
+      "status": "PAID",
+      "paidAmount": "60000.00",
+      "roundingNote": "Rounding adjustment: SEK 0.40 (Swedish 50-öre rounding tolerance)"
+    },
+    {
+      "currency": "SEK",
+      "total": "60000.00",
+      "sumAllocated": "59999.40",
+      "status": "PARTIALLY_PAID",
+      "paidAmount": "59999.40",
+      "roundingNote": null
+    },
+    {
+      "currency": "EUR",
+      "total": "1000.00",
+      "sumAllocated": "999.97",
+      "status": "PAID",
+      "paidAmount": "1000.00",
+      "roundingNote": "Rounding adjustment: € 0.03 (Euro 5-cent rounding tolerance)"
+    }
+  ],
+  "_v3Note": "In v3 'paid' is derived from link allocations (D7, excel-to-v3 sheet 2 'Pay / Paid Amount / Delta'); the Excel practice also absorbs bank fees (Delta column), which is larger than 0.05 CHF. The tolerance rule for bank fees is the linking module's (H3); this file only fixes the v1 rounding constants."
+}

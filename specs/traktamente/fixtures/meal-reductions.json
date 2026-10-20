@@ -1,0 +1,119 @@
+{
+  "_source": "af_core lib/travel-allowance/calculator.ts l.71-87 (constants; server calculator was dead code), l.129-137 (long stay); app/dashboard/travel-allowances/TravelAllowanceFormClient.tsx l.176-191 (what actually ran). Half-day SE amounts and the 'v3' block are derived from Skatteverket's published percentages (15/35/35/85 %) applied to the half-day amount and rounded to whole SEK — verify against Skatteverket's table for the year before relying on them.",
+  "v1_domestic_SE_fixed_sek_2025": {
+    "_applies_to": "full day only (v1 had no half-day amounts)",
+    "breakfast": 58,
+    "lunch": 102,
+    "dinner": 102,
+    "allMeals": 261,
+    "_comment_in_source": "breakfast + lunch + dinner (58 + 102 + 102 = 262, but Skatteverket rounds to 261)"
+  },
+  "v1_international_percent_of_daily_rate": {
+    "breakfast": 0.15,
+    "singleMeal": 0.35,
+    "lunchDinner": 0.7,
+    "allMeals": 0.85,
+    "_rule": "allMeals count short-circuits the others; lunch and dinner are paired by min(lunch, dinner) at 70 %, extras at 35 % each"
+  },
+  "v1_form_client_actually_used": {
+    "formula": "mealReduction = mealsProvided × (dailyRate × longStayFactor) × 0.15",
+    "note": "one integer 'meals provided', 15 % each, no meal type, same for SE and abroad"
+  },
+  "v1_long_stay": {
+    "server": { "months_ge_3": 0.7, "months_ge_24": 0.5, "default": 1.0 },
+    "form": { "isLongStay_true": 0.7, "else": 1.0 },
+    "server_bug": "POST /api/travel-allowances recomputes dayAllowanceAmount with the unreduced dayRate sent by the form, so the factor is stored (longStayFactor) but not applied"
+  },
+  "v1_night": {
+    "SE": { "2025": 145, "2024": 140, "2023": 135, "2022": 130, "2021": 125, "2020": 120 },
+    "abroad": 0,
+    "rule": "nightRate × (calendarDays − 1), always, regardless of who paid the hotel"
+  },
+
+  "v3_percentages_of_the_days_amount": {
+    "breakfast": 0.15,
+    "lunch": 0.35,
+    "dinner": 0.35,
+    "all_three": 0.85,
+    "half_day_factor": 0.5,
+    "long_stay": { "from_3_months": 0.7, "from_24_months": 0.5 }
+  },
+  "v3_SE_2025_whole_sek_derived": {
+    "full_day_290": { "breakfast": 58, "lunch": 102, "dinner": 102, "all_three": 261 },
+    "half_day_145": { "breakfast": 29, "lunch": 51, "dinner": 51, "all_three": 131 },
+    "_note": "full-day values equal v1's. Half-day values are the full-day amounts halved and rounded (58/102/102/261 → 29/51/51/131), which is how Skatteverket prints them; note that 290 × 0.15 = 43.5 ≠ 58, i.e. Skatteverket's SE krona amounts are NOT 15/35/35/85 % of the normalbelopp (they are 20/35/35/90 %). v3 therefore stores the SE meal amounts per year as a row in the rate table (full-day breakfast/lunch/dinner/all) and derives half-day by halving, while abroad uses the 15/35/35/85 percentages. Confirm with the accountant."
+  },
+  "worked_examples_v3": [
+    {
+      "country": "CH",
+      "year": 2025,
+      "day_amount": 1402,
+      "full_days": 3,
+      "half_days": 0,
+      "lunches": 0,
+      "expected_day_total": 4206.0,
+      "expected_meal_deduction": 0.0,
+      "expected_total": 4206.0
+    },
+    {
+      "country": "CH",
+      "year": 2025,
+      "day_amount": 1402,
+      "full_days": 3,
+      "half_days": 0,
+      "lunches": 2,
+      "expected_meal_deduction": 981.4,
+      "expected_total": 3224.6
+    },
+    {
+      "country": "CH",
+      "year": 2025,
+      "day_amount": 1402,
+      "full_days": 19,
+      "half_days": 1,
+      "lunches": 18,
+      "expected_day_total": 27339.0,
+      "expected_meal_deduction": 8832.6,
+      "expected_total": 18506.4,
+      "_note": "the Excel's 'Quantity 19.5' + 'lunch(s) = 18' shape"
+    },
+    {
+      "country": "CH",
+      "year": 2025,
+      "day_amount": 1402,
+      "full_days": 0,
+      "half_days": 1,
+      "breakfasts": 1,
+      "lunches": 1,
+      "dinners": 1,
+      "expected_meal_deduction": 595.85,
+      "_formula": "0.85 × 701"
+    },
+    {
+      "country": "SE",
+      "year": 2025,
+      "day_amount": 290,
+      "night_amount": 145,
+      "full_days": 3,
+      "half_days": 0,
+      "all_three_days": 1,
+      "nights_without_paid_lodging": 2,
+      "expected_day_total": 870,
+      "expected_meal_deduction": 261,
+      "expected_night_total": 290,
+      "expected_total": 899.0
+    },
+    {
+      "country": "SE",
+      "year": 2025,
+      "day_amount": 290,
+      "full_days": 1,
+      "half_days": 0,
+      "breakfasts": 1,
+      "lunches": 1,
+      "dinners": 1,
+      "expected_meal_deduction": 261,
+      "_note": "all three on one day uses the 85 % figure (261), not 58+102+102 = 262"
+    }
+  ]
+}

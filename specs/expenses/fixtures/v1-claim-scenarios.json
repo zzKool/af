@@ -1,0 +1,136 @@
+{
+  "_source": "af_core lib/validation/__tests__/expenses.test.ts, describe 'Real-World Expense Scenarios' (l.542-643) and 'should validate expense with allowance type and quantity' (l.88-109). Data copied verbatim; all four were asserted valid against ExpenseClaimCreateSchema. In v3 each claim becomes an expense_group and each line an expense.",
+  "scenarios": [
+    {
+      "name": "Swiss business trip",
+      "v1_test": "should validate Swiss business trip expenses",
+      "claim": {
+        "title": "Geneva Business Trip - Q4 2024",
+        "description": "Client presentations and partner meetings",
+        "claimDate": "2024-12-20",
+        "currency": "CHF",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "expenseDate": "2024-12-18",
+            "categoryId": "cat-travel-train",
+            "amount": 85.0,
+            "description": "Train Zurich-Geneva 1st class",
+            "merchant": "SBB"
+          },
+          {
+            "lineNumber": 2,
+            "expenseDate": "2024-12-18",
+            "categoryId": "cat-accommodation",
+            "amount": 280.0,
+            "description": "Hotel Beau-Rivage Geneva",
+            "merchant": "Beau-Rivage",
+            "notes": "Corporate rate applied"
+          },
+          {
+            "lineNumber": 3,
+            "expenseDate": "2024-12-18",
+            "categoryId": "cat-meals",
+            "amount": 95.0,
+            "description": "Business dinner with client",
+            "merchant": "Restaurant Le Relais",
+            "notes": "4 persons"
+          },
+          {
+            "lineNumber": 4,
+            "expenseDate": "2024-12-19",
+            "categoryId": "cat-travel-train",
+            "amount": 85.0,
+            "description": "Train Geneva-Zurich return",
+            "merchant": "SBB"
+          }
+        ]
+      },
+      "v3_reading": "group kind=trip 'Geneva Business Trip - Q4 2024'; 4 expenses: Tr-01 (85 CHF), Tr-02 hotel (280 CHF), Rep-01 (95 CHF), Tr-03 (85 CHF); expected keys with group 213: Ex213-Tr-01, Ex213-Tr-02, Ex213-Rep-01, Ex213-Tr-03"
+    },
+    {
+      "name": "Swedish mileage",
+      "v1_test": "should validate Swedish mileage allowance claim",
+      "claim": {
+        "title": "December 2024 Mileage",
+        "description": "Client visits using private vehicle",
+        "claimDate": "2024-12-31",
+        "currency": "SEK",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "expenseDate": "2024-12-05",
+            "categoryId": "cat-mileage",
+            "amount": 315.0,
+            "description": "Stockholm to Västerås - Client meeting",
+            "quantity": 90,
+            "unitAmount": 3.5,
+            "notes": "Swedish standard mileage rate"
+          },
+          {
+            "lineNumber": 2,
+            "expenseDate": "2024-12-12",
+            "categoryId": "cat-mileage",
+            "amount": 420.0,
+            "description": "Stockholm to Uppsala - Site visit",
+            "quantity": 120,
+            "unitAmount": 3.5
+          }
+        ]
+      },
+      "v3_reading": "only if the owner confirms mileage (harvest §9.5); the 3.50 SEK/km is a test value, Skatteverket's tax-free rate is per mil"
+    },
+    {
+      "name": "Mileage with quantity",
+      "v1_test": "should validate expense with allowance type and quantity",
+      "claim": {
+        "title": "Mileage Claim",
+        "claimDate": "2024-12-15",
+        "currency": "SEK",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "expenseDate": "2024-12-15",
+            "categoryId": "cat-mileage",
+            "amount": 350.0,
+            "description": "Client visit - Stockholm to Uppsala",
+            "quantity": 100,
+            "unitAmount": 3.5,
+            "notes": "Company car used"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Office supplies, minimal",
+      "v1_test": "should validate minimal office supplies claim",
+      "claim": {
+        "title": "Home Office Supplies",
+        "claimDate": "2024-12-15",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "expenseDate": "2024-12-15",
+            "categoryId": "cat-office-supplies",
+            "amount": 45.9,
+            "description": "Printer cartridges and paper",
+            "merchant": "Office Depot"
+          }
+        ]
+      },
+      "v3_reading": "group kind=batch; one expense, currency defaults from paid_by"
+    }
+  ],
+  "v1_validation_messages": {
+    "_source": "lib/validation/expenses.ts",
+    "lineNumber": "Line number must be positive",
+    "categoryId": "Category ID is required",
+    "amount": "Amount must be positive",
+    "description": "Description is required",
+    "title": "Title is required",
+    "currency": "Currency must be a 3-letter ISO code",
+    "lines": "At least one expense line is required",
+    "lineNumbers": "Line numbers must be unique",
+    "update.title": "Title cannot be empty"
+  }
+}

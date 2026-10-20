@@ -1,0 +1,134 @@
+{
+  "_source": "DERIVED, not from v1. The owner's example in docs/feature-inventory.md §3.7 (hotel 600 CHF + transport 150 CHF + meals 250 CHF paid privately; 9 700 SEK refunded; rest stays in the company) made concrete with fixture exchange rates (NOT real ECB values). Use for the settlement property/unit tests (harvest §6).",
+  "rates_fixture": {
+    "_note": "CHF→SEK, 'ecb' source; weekend 2026-03-14/15 falls back to 2026-03-13",
+    "2026-03-10": 10.75,
+    "2026-03-11": 10.8,
+    "2026-03-12": 10.78,
+    "2026-03-13": 10.76,
+    "2026-03-31": 10.7
+  },
+  "group": { "number": 213, "description": "Travel to CH in March 2026", "kind": "trip" },
+  "expenses": [
+    {
+      "key": "Ex213-Tr-01",
+      "date": "2026-03-10",
+      "description": "Hotel",
+      "alias": "Tr",
+      "amount": 600.0,
+      "currency": "CHF",
+      "paid_by": "private CH",
+      "rate": 10.75,
+      "rate_source": "ecb",
+      "amount_base": 6450.0
+    },
+    {
+      "key": "Ex213-Tr-02",
+      "date": "2026-03-11",
+      "description": "Transport",
+      "alias": "Tr",
+      "amount": 150.0,
+      "currency": "CHF",
+      "paid_by": "private CH",
+      "rate": 10.8,
+      "rate_source": "ecb",
+      "amount_base": 1620.0
+    },
+    {
+      "key": "Ex213-Rep-01",
+      "date": "2026-03-12",
+      "description": "Meals",
+      "alias": "Rep",
+      "amount": 250.0,
+      "currency": "CHF",
+      "paid_by": "private CH",
+      "rate": 10.78,
+      "rate_source": "ecb",
+      "amount_base": 2695.0
+    }
+  ],
+  "ledger_before": { "private CH": { "open_base": 10765.0, "open_count": 3 } },
+
+  "variant_A_partial_sek_refund": {
+    "bank_transaction": {
+      "account": "AF SEK",
+      "booking_date": "2026-03-31",
+      "amount": -9700.0,
+      "currency": "SEK",
+      "amount_base": 9700.0,
+      "rate": 1,
+      "counterparty": "Zikrija"
+    },
+    "fifo_proposal": [
+      { "expense": "Ex213-Tr-01", "allocated_base": 6450.0, "remaining_open": 0.0 },
+      { "expense": "Ex213-Tr-02", "allocated_base": 1620.0, "remaining_open": 0.0 },
+      { "expense": "Ex213-Rep-01", "allocated_base": 1630.0, "remaining_open": 1065.0 }
+    ],
+    "sum_allocated_base": 9700.0,
+    "unallocated_on_transaction": 0.0,
+    "exchange_difference_base": 0.0,
+    "statuses_after": {
+      "Ex213-Tr-01": "refunded",
+      "Ex213-Tr-02": "refunded",
+      "Ex213-Rep-01": "partially refunded"
+    },
+    "ledger_after": { "private CH": { "open_base": 1065.0, "open_count": 1 } },
+    "statement": {
+      "number": "ST26-001",
+      "lines": 3,
+      "total_allocated_base": 9700.0,
+      "residual_open_base": 1065.0
+    }
+  },
+
+  "variant_B_full_chf_refund_exchange_difference": {
+    "_note": "Owner transfers the exact CHF sum from the AF CHF account. Per-expense allocation matches in CHF; in SEK base the refund (booked at the ECB rate of its booking date) differs from the sum of the expense bases. diff = Σ allocated_base − |tx amount_base| = 10765 − 10700 = +65 → company settled a 10 765 SEK liability with 10 700 SEK: a gain for the company (BAS 3960 valutakursvinster proposed); a negative diff would be a loss (7960 valutakursförluster). Both to confirm with the accountant (harvest §9.2).",
+    "bank_transaction": {
+      "account": "AF CHF",
+      "booking_date": "2026-03-31",
+      "amount": -1000.0,
+      "currency": "CHF",
+      "rate": 10.7,
+      "rate_source": "ecb",
+      "amount_base": 10700.0,
+      "counterparty": "Zikrija"
+    },
+    "allocations": [
+      { "expense": "Ex213-Tr-01", "allocated_base": 6450.0 },
+      { "expense": "Ex213-Tr-02", "allocated_base": 1620.0 },
+      { "expense": "Ex213-Rep-01", "allocated_base": 2695.0 }
+    ],
+    "sum_allocated_base": 10765.0,
+    "exchange_difference_base": 65.0,
+    "within_rounding_tolerance_sek": false,
+    "statuses_after": {
+      "Ex213-Tr-01": "refunded",
+      "Ex213-Tr-02": "refunded",
+      "Ex213-Rep-01": "refunded"
+    },
+    "ledger_after": { "private CH": { "open_base": 0.0, "open_count": 0 } }
+  },
+
+  "variant_C_rounding_only": {
+    "_note": "Same as B but the refund base lands within the SEK tolerance of 0.50: treated as rounding, not as exchange difference.",
+    "bank_transaction": {
+      "amount": -1000.0,
+      "currency": "CHF",
+      "rate": 10.7647,
+      "amount_base": 10764.7
+    },
+    "sum_allocated_base": 10765.0,
+    "exchange_difference_base": 0.0,
+    "rounding_base": 0.3,
+    "rounding_note": "Rounding adjustment: SEK 0.30 (Swedish 50-öre rounding tolerance)"
+  },
+
+  "invariants": [
+    "each allocated_base <= expense open_base at the time of the settlement",
+    "Σ allocated_base <= |tx amount_base| + tolerance(SEK) unless the owner confirms an exchange difference",
+    "allocated_base > 0",
+    "ledger_after = ledger_before − Σ allocated_base",
+    "unlinking the settlement restores ledger_before and the statuses 'to refund'",
+    "an expense paid from a company account can never be allocated in a settlement"
+  ]
+}

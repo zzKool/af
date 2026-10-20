@@ -1,0 +1,386 @@
+{
+  "$comment": "Harvested from af_core lib/banking/__tests__/matching.test.ts (commit a2fe220). Each case = one v1 test. `expected.score` is computed from the v1 algorithm (matching.ts scoreXxxMatch) — v1 tests assert confidence and reasons only, never the score. Amount sign convention: negative = money out. Dates ISO. All entity finders in v1 are pre-filtered by the DB query (status, date window ±5 days, tenant); cases marked `dbFiltered` only prove the filter, not the scorer.",
+  "defaultTransaction": {
+    "id": "txn-123",
+    "amount": "-1000.00",
+    "currency": "CHF",
+    "bookingDate": "2025-01-15",
+    "message": "Payment for invoice INV-2025-042",
+    "recipient": "Acme Corp",
+    "sender": null,
+    "additionalDetails": null
+  },
+  "cases": [
+    {
+      "id": "inv-exact-same-date",
+      "v1Test": "Invoice Matching › should match invoice with exact amount and same date",
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-042",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "confidence": "HIGH",
+        "score": 110,
+        "reasons": ["Invoice number in message", "Exact amount match", "Same date"]
+      }
+    },
+    {
+      "id": "inv-within-1pct",
+      "v1Test": "Invoice Matching › should match invoice with amount within 1% tolerance",
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-043",
+        "amount": "1005.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "confidence": "MEDIUM",
+        "score": 60,
+        "reasons": ["Very close amount match", "Same date"]
+      }
+    },
+    {
+      "id": "inv-3-days-before",
+      "v1Test": "Invoice Matching › should match invoice within date tolerance (±5 days)",
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-044",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-12",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "confidence": "MEDIUM",
+        "score": 55,
+        "reasons": ["Exact amount match", "Within 5 days"]
+      }
+    },
+    {
+      "id": "inv-different-currency-filtered",
+      "v1Test": "Invoice Matching › should not match invoice with different currency",
+      "dbFiltered": true,
+      "note": "v1 test mocks an empty result; with allowCrossCurrency=true (the default) the DB query does NOT filter by currency — the test documents the allowCrossCurrency=false path only.",
+      "expected": { "candidates": 0 }
+    },
+    {
+      "id": "inv-paid-excluded",
+      "v1Test": "Invoice Matching › should exclude already PAID invoices",
+      "dbFiltered": true,
+      "note": "status filter: SENT, OVERDUE (+ PARTIALLY_PAID when includePartiallyPaid=true, the default)",
+      "expected": { "candidates": 0 }
+    },
+    {
+      "id": "inv-ranking",
+      "v1Test": "Invoice Matching › should rank multiple matches by confidence and score",
+      "entities": [
+        {
+          "id": "inv-medium",
+          "type": "invoice",
+          "number": "INV-2025-999",
+          "amount": "1000.00",
+          "currency": "CHF",
+          "date": "2025-01-18",
+          "status": "SENT",
+          "partner": "Acme Corp"
+        },
+        {
+          "id": "inv-high",
+          "type": "invoice",
+          "number": "INV-2025-042",
+          "amount": "1000.00",
+          "currency": "CHF",
+          "date": "2025-01-15",
+          "status": "SENT",
+          "partner": "Acme Corp"
+        }
+      ],
+      "expected": {
+        "order": ["inv-high", "inv-medium"],
+        "confidences": ["HIGH", "MEDIUM"],
+        "scores": [110, 55]
+      }
+    },
+    {
+      "id": "supplier-name-in-recipient",
+      "v1Test": "Supplier Invoice Matching › should match supplier invoice with recipient name",
+      "entity": {
+        "type": "supplier_invoice",
+        "number": "SUPP-001",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "APPROVED",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "confidence": "HIGH",
+        "score": 95,
+        "reasons": ["Supplier name match", "Exact amount match", "Same date"]
+      }
+    },
+    {
+      "id": "supplier-pending-excluded",
+      "v1Test": "Supplier Invoice Matching › should only match APPROVED supplier invoices",
+      "dbFiltered": true,
+      "expected": { "candidates": 0 }
+    },
+    {
+      "id": "custom-date-tolerance",
+      "v1Test": "Matching Options › should respect custom date tolerance",
+      "dbFiltered": true,
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-047",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-08",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": { "withDateTolerance5": 0, "withDateTolerance10": 1 }
+    },
+    {
+      "id": "min-confidence-filter",
+      "v1Test": "Matching Options › should filter by minimum confidence",
+      "entity": {
+        "type": "invoice",
+        "number": "RANDOM-999",
+        "amount": "1005.00",
+        "currency": "CHF",
+        "date": "2025-01-20",
+        "status": "SENT",
+        "partner": "Different Corp"
+      },
+      "expected": {
+        "confidence": "LOW",
+        "score": 45,
+        "reasons": ["Very close amount match", "Within 5 days"],
+        "withMinConfidenceLOW": 1,
+        "withMinConfidenceMEDIUM": 0
+      }
+    },
+    {
+      "id": "transaction-not-found",
+      "v1Test": "Error Handling › should throw error if transaction not found",
+      "expected": { "error": "Transaction nonexistent not found" }
+    },
+    {
+      "id": "inv-partial-number",
+      "v1Test": "Edge Cases - Fuzzy Matching › should match invoice with partial invoice number in message",
+      "transactionOverride": { "message": "Payment for INV-042" },
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-042",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "confidence": "HIGH",
+        "score": 90,
+        "reasons": ["Partial invoice number match", "Exact amount match", "Same date"],
+        "note": "token '042' (≥3 digits) found; 'inv' and '2025' are ignored as common tokens"
+      }
+    },
+    {
+      "id": "inv-case-insensitive-recipient",
+      "v1Test": "Edge Cases - Fuzzy Matching › should match with case-insensitive company name",
+      "transactionOverride": { "recipient": "ACME CORP" },
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-050",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "confidence": "MEDIUM",
+        "score": 70,
+        "reasons": ["Exact amount match", "Same date"],
+        "note": "v1 never searches partner name for CLIENT invoices (only for supplier invoices); the test only asserts the amount reason"
+      }
+    },
+    {
+      "id": "inv-amount-boundary-1pct",
+      "v1Test": "Edge Cases - Fuzzy Matching › should handle amount tolerance boundary (exactly 1%)",
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-051",
+        "amount": "1010.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "reasons": ["Very close amount match"],
+        "note": "diff% = |1000−1010| / 1010 = 0.0099 < 0.01 — the percentage is relative to the ENTITY amount, not the transaction"
+      }
+    },
+    {
+      "id": "inv-date-boundary-5-days",
+      "v1Test": "Edge Cases - Fuzzy Matching › should handle date tolerance boundary (exactly 5 days)",
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-052",
+        "amount": "1000.00",
+        "currency": "CHF",
+        "date": "2025-01-10",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": { "reasons": ["Within 5 days"], "score": 55, "confidence": "MEDIUM" }
+    },
+    {
+      "id": "tie-same-confidence",
+      "v1Test": "Edge Cases - Multiple Candidates › should handle tie in scores with same confidence",
+      "entities": [
+        {
+          "id": "inv-tie-1",
+          "type": "invoice",
+          "number": "INV-001",
+          "amount": "1000.00",
+          "currency": "CHF",
+          "date": "2025-01-15",
+          "status": "SENT",
+          "partner": "Acme Corp"
+        },
+        {
+          "id": "inv-tie-2",
+          "type": "invoice",
+          "number": "INV-002",
+          "amount": "1000.00",
+          "currency": "CHF",
+          "date": "2025-01-15",
+          "status": "SENT",
+          "partner": "Acme Corp"
+        }
+      ],
+      "expected": {
+        "candidates": 2,
+        "confidences": ["MEDIUM", "MEDIUM"],
+        "scores": [70, 70],
+        "note": "tie order is unspecified in v1 (Array.sort stability → input order)"
+      }
+    },
+    {
+      "id": "no-matches",
+      "v1Test": "Edge Cases - Multiple Candidates › should handle no matches scenario",
+      "expected": { "candidates": 0 }
+    },
+    {
+      "id": "inv-large-amount-diff",
+      "v1Test": "Edge Cases - Multiple Candidates › should handle very large amount differences (> 10%)",
+      "entity": {
+        "type": "invoice",
+        "number": "INV-2025-053",
+        "amount": "1500.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "SENT",
+        "partner": "Acme Corp"
+      },
+      "expected": {
+        "candidates": 1,
+        "confidence": "LOW",
+        "score": 40,
+        "reasons": ["Approximate amount match", "Same date"],
+        "note": "v1 asserts confidence ∈ {LOW, MEDIUM}; with the default allowCrossCurrency=true there is no amount pre-filter, so a 50 % off invoice is still a (LOW) candidate"
+      }
+    },
+    {
+      "id": "expense-claim-number-and-name",
+      "v1Test": "Edge Cases - Expense Claim Matching › should match expense claim with negative transaction amount",
+      "transactionOverride": {
+        "amount": "-500.00",
+        "message": "Employee reimbursement EXP-001",
+        "recipient": "John Doe"
+      },
+      "entity": {
+        "type": "expense_claim",
+        "number": "EXP-001",
+        "amount": "500.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "APPROVED",
+        "claimant": "John Doe"
+      },
+      "expected": {
+        "confidence": "HIGH",
+        "score": 110,
+        "reasons": ["Claim number in message", "Exact amount match", "Same date"]
+      }
+    },
+    {
+      "id": "expense-name-in-sender-ignored",
+      "v1Test": "Edge Cases - Expense Claim Matching › should match expense claim with employee name in sender field",
+      "transactionOverride": {
+        "amount": "-300.00",
+        "message": "Expense reimbursement",
+        "recipient": null,
+        "sender": "Jane Smith"
+      },
+      "entity": {
+        "type": "expense_claim",
+        "number": "EXP-002",
+        "amount": "300.00",
+        "currency": "CHF",
+        "date": "2025-01-15",
+        "status": "APPROVED",
+        "claimant": "Jane Smith"
+      },
+      "expected": {
+        "confidence": "MEDIUM",
+        "score": 70,
+        "reasons": ["Exact amount match", "Same date"],
+        "note": "v1 never searches the SENDER field — the name in sender gives no points. v3 should search all text fields."
+      }
+    },
+    {
+      "id": "multi-entity-ranking",
+      "v1Test": "Edge Cases - Multi-Entity Matching › should rank candidates across different entity types",
+      "entities": [
+        {
+          "id": "inv-multi",
+          "type": "invoice",
+          "number": "INV-2025-100",
+          "amount": "1000.00",
+          "currency": "CHF",
+          "date": "2025-01-15",
+          "status": "SENT",
+          "partner": "Acme Corp"
+        },
+        {
+          "id": "sinv-multi",
+          "type": "supplier_invoice",
+          "number": "SUPP-100",
+          "amount": "1000.00",
+          "currency": "CHF",
+          "date": "2025-01-15",
+          "status": "APPROVED",
+          "partner": "Acme Corp"
+        }
+      ],
+      "expected": {
+        "order": ["sinv-multi", "inv-multi"],
+        "confidences": ["HIGH", "MEDIUM"],
+        "scores": [95, 70],
+        "note": "supplier invoice wins because v1 searches the partner name for supplier invoices only"
+      }
+    }
+  ]
+}

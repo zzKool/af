@@ -1,0 +1,214 @@
+{
+  "_source": "af_core lib/validation/__tests__/supplier-invoices.test.ts, describe 'Real-World Supplier Invoice Scenarios' (l.855-1088), commit a2fe220. Data verbatim; each was asserted valid against SupplierInvoiceCreateSchema. The key 'expenseAccountId' on lines is NOT in the schema (v1 schema was non-strict, so it was ignored); v3 maps it to a line BAS category only when a split is wanted (harvest R16). Swiss VAT in these inputs is 7.7 % (pre-2024); the current CH rate is 8.1 % and comes from the registration's schedule.",
+  "scenarios": [
+    {
+      "name": "Cloud hosting, USD, no VAT",
+      "v1_test": "should validate cloud hosting invoice (AWS)",
+      "input": {
+        "supplierId": "sup-aws",
+        "invoiceNumber": "AWS-2024-12-123456",
+        "invoiceDate": "2024-12-01",
+        "dueDate": "2024-12-31",
+        "currency": "USD",
+        "subtotal": 2850.0,
+        "vatAmount": 0.0,
+        "totalAmount": 2850.0,
+        "description": "December 2024 AWS services",
+        "notes": "Auto-payment via corporate card",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "description": "EC2 instances - Production",
+            "quantity": 1,
+            "unitPrice": 1200.0,
+            "amount": 1200.0,
+            "expenseAccountId": "acc-cloud-compute"
+          },
+          {
+            "lineNumber": 2,
+            "description": "RDS databases",
+            "quantity": 1,
+            "unitPrice": 850.0,
+            "amount": 850.0,
+            "expenseAccountId": "acc-cloud-database"
+          },
+          {
+            "lineNumber": 3,
+            "description": "S3 storage",
+            "quantity": 1,
+            "unitPrice": 450.0,
+            "amount": 450.0,
+            "expenseAccountId": "acc-cloud-storage"
+          },
+          {
+            "lineNumber": 4,
+            "description": "CloudFront CDN",
+            "quantity": 1,
+            "unitPrice": 350.0,
+            "amount": 350.0,
+            "expenseAccountId": "acc-cloud-cdn"
+          }
+        ]
+      },
+      "v3_reading": "payable: partner AWS, number AWS-2024-12-123456, USD 2 850.00, VAT 0, category Ut, no lines (one category), paid by card → link to the SEK bank row with bank implicit rate"
+    },
+    {
+      "name": "Office supplies, Swiss, 7.7 %",
+      "v1_test": "should validate office supplies invoice (Swiss)",
+      "input": {
+        "supplierId": "sup-office-express",
+        "invoiceNumber": "OE-2024-5678",
+        "invoiceDate": "2024-12-10",
+        "dueDate": "2025-01-10",
+        "currency": "CHF",
+        "subtotal": 287.5,
+        "vatAmount": 22.14,
+        "totalAmount": 309.64,
+        "description": "Office supplies - Q4 2024",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "description": "Paper A4 (10 reams)",
+            "quantity": 10,
+            "unitPrice": 8.5,
+            "amount": 85.0
+          },
+          {
+            "lineNumber": 2,
+            "description": "Pens (50 pack)",
+            "quantity": 2,
+            "unitPrice": 12.5,
+            "amount": 25.0
+          },
+          {
+            "lineNumber": 3,
+            "description": "Notebooks (25 pack)",
+            "quantity": 5,
+            "unitPrice": 15.5,
+            "amount": 77.5
+          },
+          {
+            "lineNumber": 4,
+            "description": "Printer toner cartridges",
+            "quantity": 4,
+            "unitPrice": 25.0,
+            "amount": 100.0
+          }
+        ]
+      },
+      "_vat_note": "287.50 × 7.7 % = 22.1375 → 22.14 (v1 comment); total 309.64",
+      "v3_reading": "payable in CHF with vat_registration = CH when input VAT is reclaimed (harvest §9.2); due date = invoice date + 31 days here (partner terms would default 30)"
+    },
+    {
+      "name": "Consulting, Swedish, 25 %",
+      "v1_test": "should validate consulting invoice (Swedish)",
+      "input": {
+        "supplierId": "sup-nordic-consultants",
+        "invoiceNumber": "NC-2024-789",
+        "invoiceDate": "2024-12-15",
+        "dueDate": "2025-01-15",
+        "currency": "SEK",
+        "subtotal": 45000.0,
+        "vatAmount": 11250.0,
+        "totalAmount": 56250.0,
+        "description": "IT consulting - December 2024",
+        "notes": "Payment terms: Net 30 days",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "description": "Senior consultant - 60 hours",
+            "quantity": 60,
+            "unitPrice": 500.0,
+            "amount": 30000.0,
+            "expenseAccountId": "acc-consulting-senior"
+          },
+          {
+            "lineNumber": 2,
+            "description": "Junior consultant - 40 hours",
+            "quantity": 40,
+            "unitPrice": 375.0,
+            "amount": 15000.0,
+            "expenseAccountId": "acc-consulting-junior"
+          }
+        ]
+      },
+      "v3_reading": "SEK payable, rate 1, vat_registration = SE (informational), status derived; paid in two instalments → two links, 'partially paid' in between"
+    },
+    {
+      "name": "Multi-line, Swiss, 7.7 %, several accounts",
+      "v1_test": "should validate multi-line invoice with various expense accounts",
+      "input": {
+        "supplierId": "sup-multi-services",
+        "invoiceNumber": "MS-2024-999",
+        "invoiceDate": "2024-12-31",
+        "dueDate": "2025-01-31",
+        "currency": "CHF",
+        "subtotal": 5000.0,
+        "vatAmount": 385.0,
+        "totalAmount": 5385.0,
+        "description": "Various services - December 2024",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "description": "Software licenses",
+            "quantity": 10,
+            "unitPrice": 150.0,
+            "amount": 1500.0,
+            "expenseAccountId": "acc-software"
+          },
+          {
+            "lineNumber": 2,
+            "description": "Hardware maintenance",
+            "quantity": 1,
+            "unitPrice": 1200.0,
+            "amount": 1200.0,
+            "expenseAccountId": "acc-hardware-maint"
+          },
+          {
+            "lineNumber": 3,
+            "description": "Training courses",
+            "quantity": 4,
+            "unitPrice": 350.0,
+            "amount": 1400.0,
+            "expenseAccountId": "acc-training"
+          },
+          {
+            "lineNumber": 4,
+            "description": "Support services",
+            "quantity": 1,
+            "unitPrice": 900.0,
+            "amount": 900.0,
+            "expenseAccountId": "acc-support"
+          }
+        ]
+      },
+      "v3_reading": "the one case where v3 split lines are justified: four categories (Ut / Ut / Evnt / Ut), each line net + VAT at the CH rate; Σ net = 5 000, Σ VAT = 385 (7.7 %) — with the 2026 rate 8.1 % the VAT would be 405.00"
+    }
+  ],
+  "v1_validation_messages": {
+    "_source": "lib/validation/supplier-invoices.ts and the routes",
+    "lineNumber": "Line number must be positive",
+    "line.description": "Description is required",
+    "line.quantity": "Quantity must be non-negative",
+    "line.unitPrice": "Unit price must be non-negative",
+    "line.amount": "Amount must be non-negative",
+    "invoiceNumber": "Invoice number is required",
+    "currency": "Currency must be a 3-letter ISO code",
+    "subtotal": "Subtotal must be non-negative",
+    "vatAmount": "VAT amount must be non-negative",
+    "totalAmount": "Total amount must be positive",
+    "lines": "At least one invoice line is required",
+    "lineNumbers": "Line numbers must be unique",
+    "totals": "Total amount must equal subtotal + VAT amount",
+    "partner": "Either supplierId or partnerId is required",
+    "route.partner404": "Supplier not found",
+    "route.edit": "Only PENDING supplier invoices can be edited",
+    "route.delete": "Only PENDING or CANCELLED supplier invoices can be deleted",
+    "route.approve": "Only PENDING supplier invoices can be approved",
+    "route.reconcile.status": "Cannot reconcile a {paid|cancelled} supplier invoice",
+    "route.reconcile.currency": "Supplier invoice and bank transaction must use the same currency for reconciliation",
+    "route.reconcile.txOver": "Allocated amount exceeds available transaction amount",
+    "route.reconcile.invoiceOver": "Total payments exceed supplier invoice amount"
+  },
+  "v1_total_tolerance": 0.01
+}

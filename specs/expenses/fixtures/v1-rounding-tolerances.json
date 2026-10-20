@@ -1,0 +1,59 @@
+{
+  "_source": "af_core lib/utils/rounding.ts (commit a2fe220). Applied by every reconcile route (invoice, supplier invoice, expense claim, travel allowance) to decide 'fully paid' on an underpayment. v3: the linking module's allocation tolerance rule; the base-currency (SEK) tolerance applies to settlements.",
+  "tolerances": {
+    "CHF": 0.05,
+    "SEK": 0.5,
+    "EUR": 0.05,
+    "USD": 0.05,
+    "_default": "CHF (0.05)"
+  },
+  "rule": "isWithinTolerance = (total - paid) > 0 AND (total - paid) <= tolerance(currency). Overpayment is never within tolerance (and is rejected earlier: 'Total payments … would exceed amount …'). paid >= total → PAID without note.",
+  "statuses": ["PAID", "PARTIALLY_PAID", "UNPAID"],
+  "note_format": "Rounding adjustment: {symbol} {difference to 2 dp} ({name} rounding tolerance)",
+  "symbols": { "CHF": "CHF", "SEK": "SEK", "EUR": "€", "USD": "$" },
+  "names": {
+    "CHF": "Swiss 5-cent",
+    "SEK": "Swedish 50-öre",
+    "EUR": "Euro 5-cent",
+    "USD": "US 5-cent"
+  },
+  "examples": [
+    {
+      "currency": "CHF",
+      "total": 100.0,
+      "paid": 99.97,
+      "expected": {
+        "status": "PAID",
+        "note": "Rounding adjustment: CHF 0.03 (Swiss 5-cent rounding tolerance)"
+      }
+    },
+    {
+      "currency": "SEK",
+      "total": 1000.0,
+      "paid": 999.6,
+      "expected": {
+        "status": "PAID",
+        "note": "Rounding adjustment: SEK 0.40 (Swedish 50-öre rounding tolerance)"
+      }
+    },
+    {
+      "currency": "SEK",
+      "total": 1000.0,
+      "paid": 999.4,
+      "expected": { "status": "PARTIALLY_PAID", "note": null }
+    },
+    {
+      "currency": "EUR",
+      "total": 50.0,
+      "paid": 50.0,
+      "expected": { "status": "PAID", "note": null }
+    },
+    {
+      "currency": "EUR",
+      "total": 50.0,
+      "paid": 0,
+      "expected": { "status": "UNPAID", "note": null }
+    }
+  ],
+  "transaction_remaining": "remainingAmount after a (batch) reconcile is normalised to 0 when |remaining| <= tolerance(transaction currency) (normalizeToZeroIfWithinTolerance); reconciledStatus = RECONCILED when fully allocated, else SUGGESTED (v1 oddity — v3 derives 'partially linked')."
+}

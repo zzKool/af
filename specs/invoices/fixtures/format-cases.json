@@ -1,0 +1,83 @@
+{
+  "_source": "af_core lib/utils/formatting.ts formatNumber/formatCurrency (L11-43, used by the PDF template), lib/pdf/invoice-translations-v2.ts formatInvoiceDate/getLocaleForLanguage/getQuantityTypeLabel (L277-350), lib/pdf/invoice-template.ts formatVatPercent (L108-113) and the qty cell (L563-567). Expected strings are what v1's PDF printed; the 'intlPreview' column is what the React preview printed for the same value through Intl.NumberFormat (the two disagreed — v3 picks one, see harvest §4 H2).",
+  "localeForLanguage": { "en": "en-GB", "fr": "fr-CH", "sv": "sv-SE", "de": "de-CH" },
+  "money": [
+    {
+      "value": "25944.00",
+      "currency": "CHF",
+      "decimals": 2,
+      "pdf": "CHF 25'944.00",
+      "intlPreview": { "en": "CHF 25,944.00", "sv": "25 944,00 CHF" }
+    },
+    {
+      "value": "1200.00",
+      "currency": "CHF",
+      "decimals": 0,
+      "context": "unit price column prints 0 decimals",
+      "pdf": "CHF 1'200"
+    },
+    { "value": "1080.99", "currency": "CHF", "decimals": 2, "pdf": "CHF 1'080.99" },
+    { "value": "60000.00", "currency": "SEK", "decimals": 2, "pdf": "SEK 60'000.00" },
+    { "value": "648.60", "currency": "CHF", "decimals": 2, "pdf": "CHF 648.60" },
+    { "value": "1234567.5", "currency": "EUR", "decimals": 2, "pdf": "EUR 1'234'567.50" },
+    { "value": null, "currency": "CHF", "decimals": 2, "pdf": "CHF 0.00" }
+  ],
+  "quantity": [
+    { "quantity": "20", "quantityType": "DAY", "language": "en", "pdf": "20 Days" },
+    { "quantity": "1", "quantityType": "DAY", "language": "en", "pdf": "1 Day" },
+    { "quantity": "0.5", "quantityType": "DAY", "language": "en", "pdf": "0.5 Days" },
+    { "quantity": "2.5", "quantityType": "DAY", "language": "fr", "pdf": "2.5 Jours" },
+    { "quantity": "20", "quantityType": "DAY", "language": "fr", "pdf": "20 Jours" },
+    { "quantity": "3", "quantityType": "HOUR", "language": "en", "pdf": "3 Hours" },
+    { "quantity": "1", "quantityType": "MONTH", "language": "fr", "pdf": "1 Mois" },
+    { "quantity": "1", "quantityType": "FIXED", "language": "en", "pdf": "" },
+    { "quantity": "12", "quantityType": "KM", "language": "sv", "pdf": "12 km" }
+  ],
+  "vatPercent": [
+    { "rate": "8.1", "pdf": "8.1%" },
+    { "rate": "25", "pdf": "25%" },
+    { "rate": "2.6", "pdf": "2.6%" },
+    { "rate": "0", "pdf": "0%" },
+    { "rate": "7.7", "pdf": "7.7%" }
+  ],
+  "date": [
+    {
+      "iso": "2026-01-31",
+      "en": "31 January 2026",
+      "fr": "31 janvier 2026",
+      "sv": "31 januari 2026"
+    },
+    {
+      "iso": "2026-02-05",
+      "en": "05 February 2026",
+      "fr": "05 février 2026",
+      "sv": "05 februari 2026"
+    },
+    { "iso": "2026-03-02", "en": "02 March 2026", "fr": "02 mars 2026", "sv": "02 mars 2026" }
+  ],
+  "dueDate": [
+    {
+      "invoiceDate": "2026-01-30",
+      "days": 30,
+      "businessDays": false,
+      "due": "2026-03-01",
+      "note": "calendar days: +30"
+    },
+    {
+      "invoiceDate": "2026-01-30",
+      "days": 30,
+      "businessDays": true,
+      "due": "2026-03-13",
+      "note": "Fri 30 Jan + 30 working days (Mon-Fri, no holidays): Feb 2..27 = 20, Mar 2..13 = 10"
+    },
+    { "invoiceDate": "2026-01-31", "days": 0, "businessDays": true, "due": "2026-01-31" },
+    {
+      "invoiceDate": "2026-01-31",
+      "days": 1,
+      "businessDays": true,
+      "due": "2026-02-02",
+      "note": "Sat 31 Jan -> Mon 2 Feb"
+    },
+    { "invoiceDate": "2026-02-27", "days": 10, "businessDays": true, "due": "2026-03-13" }
+  ]
+}

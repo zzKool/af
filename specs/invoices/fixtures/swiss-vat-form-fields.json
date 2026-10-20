@@ -1,0 +1,178 @@
+{
+  "_source": "af_core lib/reports/swiss-vat-types.ts (SwissVatDeclaration L13-98, SWISS_VAT_RATES L168-172), app/api/reports/swiss-vat/route.ts (aggregation L120-349), app/dashboard/reports/swiss-vat/page.tsx (French labels as exported to CSV, L82-111) and docs/features/swiss-vat-declaration.md. FTA form 'Décompte TVA', méthode effective, mode contre-prestations convenues, Net mode. source: auto = computed from data, calc = formula over other refs, manual = typed by the owner on the form page, zero = always 0 for AF.",
+  "method": {
+    "accounting": "effective (not forfaitaire)",
+    "mode": "convenues (VAT due at invoice date, not payment)",
+    "dataMode": "Net (ref 200 excludes VAT)",
+    "currency": "CHF only",
+    "period": "quarterly"
+  },
+  "rates": {
+    "STANDARD": "8.1",
+    "REDUCED": "2.6",
+    "ACCOMMODATION": "3.8",
+    "_pre2024": {
+      "STANDARD": "7.7",
+      "REDUCED": "2.5",
+      "ACCOMMODATION": "3.7",
+      "_note": "not in v1; the 2024+ FTA form carries separate rows 302/312/342 for turnover at the old rates — v3 rate schedule by date (see harvest §8 H6)"
+    }
+  },
+  "sections": [
+    {
+      "section": "I",
+      "title": "Chiffre d'affaires",
+      "fields": [
+        {
+          "ref": "200",
+          "label_fr": "Total des contre-prestations convenues",
+          "source": "auto",
+          "rule": "sum of subtotal (net) of every CHF invoice of the period with status in [SENT, PARTIALLY_PAID, PAID], positive amounts only"
+        },
+        { "ref": "205", "label_fr": "Contre-prestations exclues (art. 21/22)", "source": "zero" },
+        { "ref": "220", "label_fr": "Prestations exonérées (art. 23)", "source": "manual" },
+        {
+          "ref": "221",
+          "label_fr": "Prestations fournies à l'étranger",
+          "source": "auto",
+          "rule": "sum of net of CHF invoices whose partner country is not Swiss (isSwissCountry false); place of supply abroad"
+        },
+        { "ref": "225", "label_fr": "Transferts (art. 38)", "source": "manual" },
+        { "ref": "230", "label_fr": "Prestations exclues (art. 21)", "source": "zero" },
+        {
+          "ref": "235",
+          "label_fr": "Diminutions",
+          "source": "auto",
+          "rule": "sum of |net| of invoices with negative subtotal (credit notes, discounts, write-offs)"
+        },
+        { "ref": "280", "label_fr": "Divers", "source": "manual" },
+        {
+          "ref": "289",
+          "label_fr": "Total des déductions",
+          "source": "calc",
+          "formula": "220 + 221 + 225 + 230 + 235 + 280"
+        },
+        {
+          "ref": "299",
+          "label_fr": "Chiffre d'affaires imposable",
+          "source": "calc",
+          "formula": "200 - 289"
+        }
+      ]
+    },
+    {
+      "section": "II",
+      "title": "Calcul de l'impôt",
+      "fields": [
+        {
+          "ref": "303",
+          "label_fr": "Taux normal 8.1 %",
+          "source": "auto",
+          "rule": "Swiss-client invoice lines whose VAT rate is 8.1 (|rate-8.1|<0.01): base += line net; tax += base x 0.081. v1 also sends any other rate > 0 here (bug for 7.7 lines)"
+        },
+        { "ref": "313", "label_fr": "Taux réduit 2.6 %", "source": "auto", "rule": "lines at 2.6" },
+        {
+          "ref": "343",
+          "label_fr": "Taux hébergement 3.8 %",
+          "source": "auto",
+          "rule": "lines at 3.8"
+        },
+        {
+          "ref": "379",
+          "label_fr": "Contrôle de plausibilité",
+          "source": "calc",
+          "formula": "303.base + 313.base + 343.base; warning plausibility_mismatch when |379 - 299| > 0.01"
+        },
+        {
+          "ref": "383",
+          "label_fr": "Impôt sur les acquisitions",
+          "source": "zero",
+          "rule": "acquisition tax (reverse charge on foreign purchases) — not implemented in v1; v3 open question Q6"
+        },
+        {
+          "ref": "399",
+          "label_fr": "Total de l'impôt dû",
+          "source": "calc",
+          "formula": "303.tax + 313.tax + 343.tax + 383.tax"
+        }
+      ]
+    },
+    {
+      "section": "II-bis",
+      "title": "Impôt préalable",
+      "fields": [
+        {
+          "ref": "400",
+          "label_fr": "Impôt préalable (matériel et services)",
+          "source": "auto",
+          "rule": "sum of CH VAT of supplier-invoice lines (status APPROVED/PAID, vatCode.country = Switzerland): net x rate/100; plus expense claims (status APPROVED/REIMBURSED, CH vat code): gross x rate/(100+rate)"
+        },
+        { "ref": "405", "label_fr": "Impôt préalable (investissements)", "source": "manual" },
+        { "ref": "410", "label_fr": "Dégrèvement ultérieur (art. 32)", "source": "manual" },
+        {
+          "ref": "415",
+          "label_fr": "Corrections (art. 30/31)",
+          "source": "manual",
+          "sign": "subtract"
+        },
+        { "ref": "420", "label_fr": "Réduction (art. 33)", "source": "manual", "sign": "subtract" },
+        {
+          "ref": "479",
+          "label_fr": "Total à déduire",
+          "source": "calc",
+          "formula": "400 + 405 + 410 - 415 - 420"
+        },
+        {
+          "ref": "500",
+          "label_fr": "Montant à payer",
+          "source": "calc",
+          "formula": "399 - 479 when 399 > 479, else 0"
+        },
+        {
+          "ref": "510",
+          "label_fr": "Solde créditeur",
+          "source": "calc",
+          "formula": "479 - 399 when 479 > 399, else 0"
+        }
+      ]
+    },
+    {
+      "section": "III",
+      "title": "Autres mouvements de fonds",
+      "fields": [
+        { "ref": "900", "label_fr": "Subventions, taxes touristiques, etc.", "source": "manual" },
+        { "ref": "910", "label_fr": "Dons, dividendes, dédommagements", "source": "manual" }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "type": "future_period",
+      "when": "period start > today",
+      "message": "Selected period has not yet started",
+      "details": "Period starts {yyyy-mm-dd}"
+    },
+    {
+      "type": "incomplete_period",
+      "when": "period end > today",
+      "message": "Selected period has not yet ended",
+      "details": "Period ends {yyyy-mm-dd}"
+    },
+    {
+      "type": "plausibility_mismatch",
+      "when": "|ref379 - ref299| > 0.01",
+      "message": "Plausibility check failed: ref 379 does not equal ref 299",
+      "details": "379 base: {x}, 299: {y}"
+    },
+    { "type": "missing_vat_code", "when": "declared in the type, never emitted in v1" }
+  ],
+  "csvExport": {
+    "fileName": "swiss-vat-{year}-Q{quarter}.csv",
+    "separator": ";",
+    "columns": ["ref", "label_fr (unaccented in v1)", "amount 2dp"],
+    "doubleRows": ["303", "313", "343", "383"],
+    "doubleRowSuffix": [" - Base", " - TVA"]
+  },
+  "swissCountryValues": ["ch", "switzerland", "suisse", "schweiz"],
+  "swissCountryNullDefault": true
+}

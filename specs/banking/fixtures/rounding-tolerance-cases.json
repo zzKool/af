@@ -1,0 +1,104 @@
+{
+  "$comment": "Harvested from af_core lib/utils/rounding.ts + lib/utils/__tests__/rounding.test.ts (commit a2fe220). v1's only 'short payment' rule: an UNDERPAYMENT within a per-currency tolerance counts as fully paid; overpayment is simply paid. Used by every reconcile route to derive PAID / PARTIALLY_PAID and to clamp a slightly negative remaining amount to 0.",
+  "tolerance": {
+    "CHF": "0.05",
+    "SEK": "0.50",
+    "EUR": "0.05",
+    "USD": "0.05",
+    "default": "0.05 (falls back to CHF)"
+  },
+  "roundingNoteFormat": "Rounding adjustment: {symbol} {difference 2dp} ({name} rounding tolerance)  — symbol CHF|SEK|€|$ ; name 'Swiss 5-cent' | 'Swedish 50-öre' | 'Euro 5-cent' | 'US 5-cent'",
+  "checkRoundingTolerance": [
+    { "paid": "99.99", "total": "100.00", "currency": "CHF", "within": true, "difference": "0.01" },
+    { "paid": "99.95", "total": "100.00", "currency": "CHF", "within": true, "difference": "0.05" },
+    { "paid": "99.94", "total": "100.00", "currency": "CHF", "within": false },
+    {
+      "paid": "100.01",
+      "total": "100.00",
+      "currency": "CHF",
+      "within": false,
+      "difference": "-0.01",
+      "note": "overpayment never 'within tolerance'"
+    },
+    {
+      "paid": "100.00",
+      "total": "100.00",
+      "currency": "CHF",
+      "within": false,
+      "difference": "0",
+      "note": "exact is not a rounding case"
+    },
+    { "paid": "99.75", "total": "100.00", "currency": "SEK", "within": true },
+    { "paid": "99.50", "total": "100.00", "currency": "SEK", "within": true, "difference": "0.50" },
+    { "paid": "99.49", "total": "100.00", "currency": "SEK", "within": false },
+    { "paid": "50.97", "total": "51.00", "currency": "EUR", "within": true },
+    { "paid": "49.98", "total": "50.00", "currency": "USD", "within": true },
+    {
+      "paid": "99.97",
+      "total": "100.00",
+      "currency": "chf",
+      "within": true,
+      "note": "currency code case-insensitive"
+    }
+  ],
+  "determinePaymentStatus": [
+    {
+      "paid": "100.00",
+      "total": "100.00",
+      "currency": "CHF",
+      "status": "PAID",
+      "finalPaid": "100.00"
+    },
+    {
+      "paid": "100.50",
+      "total": "100.00",
+      "currency": "CHF",
+      "status": "PAID",
+      "finalPaid": "100.00",
+      "note": "overpaid → recorded as total"
+    },
+    {
+      "paid": "99.97",
+      "total": "100.00",
+      "currency": "CHF",
+      "status": "PAID",
+      "finalPaid": "100.00",
+      "roundingNote": true
+    },
+    {
+      "paid": "999.60",
+      "total": "1000.00",
+      "currency": "SEK",
+      "status": "PAID",
+      "roundingNote": true
+    },
+    {
+      "paid": "99.90",
+      "total": "100.00",
+      "currency": "CHF",
+      "status": "PARTIALLY_PAID",
+      "finalPaid": "99.90"
+    },
+    {
+      "paid": "25.00",
+      "total": "100.00",
+      "currency": "CHF",
+      "status": "PARTIALLY_PAID",
+      "finalPaid": "25.00"
+    },
+    { "paid": "0", "total": "100.00", "currency": "CHF", "status": "UNPAID", "finalPaid": "0" },
+    { "paid": "-5.00", "total": "100.00", "currency": "CHF", "status": "UNPAID" },
+    {
+      "paid": "1499.97",
+      "total": "1500.00",
+      "currency": "CHF",
+      "status": "PAID",
+      "note": "several payments totalling slightly less"
+    }
+  ],
+  "normalizeToZeroIfWithinTolerance": [
+    { "amount": "-0.03", "currency": "CHF", "result": "0" },
+    { "amount": "-0.10", "currency": "CHF", "result": "-0.10" },
+    { "amount": "5.00", "currency": "CHF", "result": "5.00" }
+  ]
+}

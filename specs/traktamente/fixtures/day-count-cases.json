@@ -1,0 +1,213 @@
+{
+  "_source": "Inputs chosen by the harvest; 'v1' outputs computed by hand from af_core lib/travel-allowance/calculator.ts calculateDays (l.199-250) = TravelAllowanceFormClient.tsx l.134-174 (identical logic: hour-only comparison, full if depHour < 12 / retHour >= 19, same-day evaluated on both). 'v3' outputs follow harvest §4.1 (Skatteverket: departure at or after 12:00 → half; return at or before 19:00 → half; no overnight → 0). v1 had no tests for this code.",
+  "fields": "departure, return as local ISO timestamps (Europe/Zurich for the owner); full_days, half_days, overnights, days = full + 0.5 × half",
+  "cases": [
+    {
+      "id": "same-day-morning",
+      "departure": "2026-03-10T08:00",
+      "return": "2026-03-10T17:00",
+      "v1": { "full_days": 1, "half_days": 0, "overnights": 0, "days": 1.0 },
+      "v3": {
+        "full_days": 0,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 0,
+        "reason": "no overnight stay"
+      }
+    },
+    {
+      "id": "same-day-afternoon-early-return",
+      "departure": "2026-03-10T13:00",
+      "return": "2026-03-10T18:30",
+      "v1": { "full_days": 0, "half_days": 1, "overnights": 0, "days": 0.5 },
+      "v3": {
+        "full_days": 0,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 0,
+        "reason": "no overnight stay"
+      }
+    },
+    {
+      "id": "same-day-afternoon-late-return",
+      "departure": "2026-03-10T13:00",
+      "return": "2026-03-10T20:00",
+      "v1": { "full_days": 1, "half_days": 0, "overnights": 0, "days": 1.0 },
+      "v3": {
+        "full_days": 0,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 0,
+        "reason": "no overnight stay"
+      }
+    },
+    {
+      "id": "same-day-noon-boundary",
+      "departure": "2026-03-10T12:00",
+      "return": "2026-03-10T18:00",
+      "v1": { "full_days": 0, "half_days": 1, "overnights": 0, "days": 0.5 },
+      "v3": {
+        "full_days": 0,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 0,
+        "reason": "no overnight stay"
+      }
+    },
+    {
+      "id": "same-day-1159",
+      "departure": "2026-03-10T11:59",
+      "return": "2026-03-10T18:00",
+      "v1": { "full_days": 1, "half_days": 0, "overnights": 0, "days": 1.0 },
+      "v3": {
+        "full_days": 0,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 0,
+        "reason": "no overnight stay"
+      }
+    },
+    {
+      "id": "same-day-return-1900",
+      "departure": "2026-03-10T14:00",
+      "return": "2026-03-10T19:00",
+      "v1": {
+        "full_days": 1,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 1.0,
+        "note": "retHour 19 >= 19 → full"
+      },
+      "v3": {
+        "full_days": 0,
+        "half_days": 0,
+        "overnights": 0,
+        "days": 0,
+        "reason": "no overnight stay"
+      }
+    },
+
+    {
+      "id": "three-days-full",
+      "departure": "2026-03-09T07:00",
+      "return": "2026-03-11T21:00",
+      "v1": { "full_days": 3, "half_days": 0, "overnights": 2, "days": 3.0 },
+      "v3": { "full_days": 3, "half_days": 0, "overnights": 2, "days": 3.0 }
+    },
+    {
+      "id": "three-days-half-ends",
+      "departure": "2026-03-09T14:00",
+      "return": "2026-03-11T16:00",
+      "v1": { "full_days": 1, "half_days": 2, "overnights": 2, "days": 2.0 },
+      "v3": { "full_days": 1, "half_days": 2, "overnights": 2, "days": 2.0 }
+    },
+    {
+      "id": "two-days-both-half",
+      "departure": "2026-03-09T13:00",
+      "return": "2026-03-10T18:00",
+      "v1": { "full_days": 0, "half_days": 2, "overnights": 1, "days": 1.0 },
+      "v3": { "full_days": 0, "half_days": 2, "overnights": 1, "days": 1.0 }
+    },
+    {
+      "id": "two-days-both-full",
+      "departure": "2026-03-09T06:00",
+      "return": "2026-03-10T22:00",
+      "v1": { "full_days": 2, "half_days": 0, "overnights": 1, "days": 2.0 },
+      "v3": { "full_days": 2, "half_days": 0, "overnights": 1, "days": 2.0 }
+    },
+    {
+      "id": "owner-19-5-days",
+      "departure": "2026-03-02T09:00",
+      "return": "2026-03-21T17:00",
+      "v1": { "full_days": 19, "half_days": 1, "overnights": 19, "days": 19.5 },
+      "v3": {
+        "full_days": 19,
+        "half_days": 1,
+        "overnights": 19,
+        "days": 19.5,
+        "note": "the Excel 'Quantity 19.5' shape: 18 middle + full departure day + half return day"
+      }
+    },
+    {
+      "id": "no-times-v1-defaults",
+      "departure": "2026-03-09",
+      "return": "2026-03-10",
+      "v1": {
+        "full_days": 2,
+        "half_days": 0,
+        "overnights": 1,
+        "days": 2.0,
+        "note": "defaults 00:00 / 23:59 → always full days"
+      },
+      "v3": { "error": "timestamps required (minute precision)" }
+    },
+
+    {
+      "id": "return-exactly-1900-multi-day",
+      "departure": "2026-03-09T08:00",
+      "return": "2026-03-10T19:00",
+      "v1": { "full_days": 2, "half_days": 0, "overnights": 1, "days": 2.0 },
+      "v3": {
+        "full_days": 1,
+        "half_days": 1,
+        "overnights": 1,
+        "days": 1.5,
+        "note": "DIFFERS: return at 19:00 is 'at or before 19:00' → half day"
+      }
+    },
+    {
+      "id": "return-1901",
+      "departure": "2026-03-09T08:00",
+      "return": "2026-03-10T19:01",
+      "v1": { "full_days": 2, "half_days": 0, "overnights": 1, "days": 2.0 },
+      "v3": { "full_days": 2, "half_days": 0, "overnights": 1, "days": 2.0 }
+    },
+    {
+      "id": "departure-1230",
+      "departure": "2026-03-09T12:30",
+      "return": "2026-03-10T20:00",
+      "v1": { "full_days": 1, "half_days": 1, "overnights": 1, "days": 1.5 },
+      "v3": { "full_days": 1, "half_days": 1, "overnights": 1, "days": 1.5 }
+    },
+    {
+      "id": "new-year-trip",
+      "departure": "2025-12-28T10:00",
+      "return": "2026-01-05T20:00",
+      "v1": {
+        "full_days": 9,
+        "half_days": 0,
+        "overnights": 8,
+        "days": 9.0,
+        "rate_year": 2025,
+        "note": "departure year for the whole trip (calculator.ts l.103-105)"
+      },
+      "v3": {
+        "full_days": 9,
+        "half_days": 0,
+        "overnights": 8,
+        "days": 9.0,
+        "days_per_year": { "2025": 4, "2026": 5 },
+        "flag": "trip spans two rate years (harvest §9.1)"
+      }
+    },
+    {
+      "id": "dst-end-october",
+      "departure": "2026-10-24T10:00",
+      "return": "2026-10-26T18:00",
+      "v1": {
+        "full_days": 2,
+        "half_days": 1,
+        "overnights": 2,
+        "days": 2.5,
+        "note": "correct only because the dates were parsed as UTC midnight; with local Date objects the 49 h span would ceil() to 3 → totalDays 4 (one day too many)"
+      },
+      "v3": {
+        "full_days": 2,
+        "half_days": 1,
+        "overnights": 2,
+        "days": 2.5,
+        "note": "calendar-date arithmetic, DST-safe"
+      }
+    }
+  ]
+}
