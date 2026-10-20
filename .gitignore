@@ -35,6 +35,7 @@ e2e/.auth/
 .claude/*
 !.claude/skills/
 !.claude/settings.json
+!.claude/commands/
 
 # AI IDE state
 .cursor/
