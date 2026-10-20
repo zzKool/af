@@ -5,14 +5,11 @@
 // whose graph reaches this barrel; the review client loads it with next/dynamic({ ssr: false }).
 
 export * from "./components/document-classification-section";
-export * from "./components/document-library-client";
-export * from "./components/document-library-filters";
 export * from "./components/document-review-client";
 export * from "./components/document-review-footer";
 export * from "./components/document-review-form";
 export * from "./components/document-review-header";
-export * from "./components/document-stats-bar";
-export * from "./components/document-upload-zone";
+export * from "./components/documents-table";
 export * from "./components/file-upload-zone";
 export * from "./components/financial-fields-section";
 export * from "./components/line-items-section";

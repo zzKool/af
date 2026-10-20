@@ -5,11 +5,18 @@ import { zfd } from "zod-form-data";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { createClock } from "@/kernel/clock/clock";
 import { enqueue } from "@/kernel/jobs/queue";
+import { listQuerySchema } from "@/kernel/list-query/schema";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
 import { extractBlobPath } from "@/kernel/ocr/ocr";
 import { createStorageService } from "@/kernel/storage/storage";
 import * as documentService from "@/modules/documents/documents";
 import { processDocumentJob } from "@/modules/documents/jobs/process-document";
+import {
+  DOCUMENT_COLUMN_KEYS,
+  type DocumentColumn,
+  distinctDocumentValues,
+  documentDateHierarchy,
+} from "@/modules/documents/queries";
 
 export type { OcrExtractedData, OcrLineItem } from "@/kernel/ocr/ocr";
 // Type re-exports for component boundary compliance (components import types from actions, not services)
@@ -202,13 +209,6 @@ export const getDocumentsAction = authedAction
     );
   });
 
-export const getDocumentFilterOptionsAction = authedAction
-  .schema(z.object({}))
-  .metadata({ name: "getDocumentFilterOptions" })
-  .action(async ({ ctx }) => {
-    return documentService.getDocumentFilterOptions(ctx.tx, ctx.callerIdentity);
-  });
-
 export const getDocumentStatsAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "getDocumentStats" })
@@ -258,3 +258,33 @@ export const deleteDocumentAction = ownerAction
     }
     return { data: { businessKey } };
   });
+
+// --- the library's header filters (D20; the role rule is the read model's) ---
+
+const documentColumnSchema = z.enum(DOCUMENT_COLUMN_KEYS as [DocumentColumn, ...DocumentColumn[]]);
+
+/** Distinct values with counts for a header filter (Excel semantics: the other filters apply). */
+export const distinctDocumentValuesAction = authedAction
+  .schema(z.object({ column: documentColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "distinctDocumentValues" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await distinctDocumentValues(
+      ctx.tx,
+      ctx.callerIdentity,
+      parsedInput.column,
+      parsedInput.query,
+    ),
+  }));
+
+/** Year → month → day counts for a date column's header filter. */
+export const documentDateHierarchyAction = authedAction
+  .schema(z.object({ column: documentColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "documentDateHierarchy" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await documentDateHierarchy(
+      ctx.tx,
+      ctx.callerIdentity,
+      parsedInput.column,
+      parsedInput.query,
+    ),
+  }));

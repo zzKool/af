@@ -117,8 +117,8 @@ test.describe("Document review page — owner", () => {
     const hasDocuments = await docLink.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (hasDocuments) {
-      // Review status is embedded in the Status badge — look for "Needs Review" or "Reviewed"
-      const reviewBadge = page.getByText(/Needs Review|Reviewed/).first();
+      // Review status is a chip next to the Status badge — "needs review" until reviewed
+      const reviewBadge = page.getByText(/needs review|extracted|uploaded/i).first();
       await expect(reviewBadge).toBeVisible();
     }
   });

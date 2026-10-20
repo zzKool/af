@@ -1,99 +1,70 @@
-import { Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { requireCaller } from "@/kernel/auth/caller";
-import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { translator } from "@/kernel/i18n/translate";
+import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
-import type { DocumentFilters, DocumentSort } from "@/modules/documents";
-import * as documentService from "@/modules/documents";
-import { DocumentLibraryClient, DocumentUploadZone } from "@/modules/documents/ui";
+import {
+  DOCUMENT_COLUMN_KEYS,
+  DOCUMENT_DEFAULT_SORT,
+  getDocumentStats,
+  getUploadKinds,
+  listDocuments,
+} from "@/modules/documents";
+import { DocumentsTable } from "@/modules/documents/ui";
 import { UPLOAD_KIND_PREFIX } from "@/modules/numbering";
-import * as tablePrefsService from "@/modules/settings";
+import { getUserPreferences } from "@/modules/settings";
 
-function DocumentsLoading() {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex gap-2">
-        <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-8 w-20" />
-        <Skeleton className="h-8 w-20" />
-      </div>
-      <Skeleton className="h-64 w-full" />
-    </div>
-  );
-}
-
-async function DocumentsContent({
-  role,
-  caller,
+// The document library (D19, D20): the URL is the query, the server loads one page, the table changes the
+// URL. The accountant sees financial documents only (the read model applies can()); the owner uploads and deletes.
+export default async function DocumentsPage({
+  searchParams,
 }: {
-  role: CallerIdentity["role"];
-  caller: CallerIdentity;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // table_preferences is user-scoped (no RLS) — fetch outside tenant transaction (AD3)
-  const [filterOptsResult, tablePrefResult] = await Promise.all([
-    withTenantTransaction(prisma, caller.tenantId, (tx) =>
-      documentService.getDocumentFilterOptions(tx, caller),
-    ),
-    tablePrefsService.getTablePreference(prisma, caller, "documents"),
-  ]);
-
-  const filterOptions = filterOptsResult.data ?? {
-    statuses: [],
-    documentTypes: [],
-    prefixTypes: [],
-  };
-  const tablePreference = tablePrefResult.data;
-
-  // Parse stored preferences
-  let initialPreferences: {
-    filters?: DocumentFilters;
-    sort?: DocumentSort;
-    pageSize?: number;
-  } | null = null;
-
-  if (tablePreference?.preferences) {
-    const prefs = tablePreference.preferences as Record<string, unknown>;
-    initialPreferences = {
-      filters: prefs.filters as DocumentFilters | undefined,
-      sort: prefs.sort as DocumentSort | undefined,
-      pageSize: typeof prefs.pageSize === "number" ? prefs.pageSize : undefined,
-    };
-  }
-
-  return (
-    <DocumentLibraryClient
-      filterOptions={filterOptions}
-      initialPreferences={initialPreferences}
-      role={role}
-    />
-  );
-}
-
-export default async function DocumentsPage() {
-  const caller = await requireCaller();
-  const role = caller.role;
-  const canUpload = can(caller, "create", "financial_document");
-
+  const auth = await requireCaller({ action: "read", subject: "financial_document" });
+  const query = parseListQuery(await searchParams, {
+    columns: DOCUMENT_COLUMN_KEYS,
+    defaultSort: DOCUMENT_DEFAULT_SORT,
+  });
+  const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
+    const [result, stats, prefs] = await Promise.all([
+      listDocuments(tx, auth, query),
+      getDocumentStats(tx, auth),
+      getUserPreferences(tx, auth),
+    ]);
+    return { result, stats: stats.data ?? null, prefs };
+  });
+  const t = translator(data.prefs.data?.locale ?? null);
+  const canUpload = can(auth, "create", "financial_document");
   // The upload form offers the fixed document kinds (D6: no prefix settings).
   const prefixOptions = canUpload
-    ? documentService
-        .getUploadKinds()
-        .map((kind) => ({ documentType: kind, prefix: UPLOAD_KIND_PREFIX[kind] }))
+    ? getUploadKinds().map((kind) => ({ documentType: kind, prefix: UPLOAD_KIND_PREFIX[kind] }))
     : [];
 
   return (
-    <ListPage title="Documents">
-      {/* Upload zone — owner only (AC #8) */}
-      {canUpload && <DocumentUploadZone prefixOptions={prefixOptions} />}
-
-      <div className="mt-6">
-        <Suspense fallback={<DocumentsLoading />}>
-          <DocumentsContent role={role} caller={caller} />
-        </Suspense>
-      </div>
+    <ListPage
+      title={t("documents.title")}
+      meta={t("documents.meta", {
+        total: data.stats?.totalCount ?? data.result.total,
+        unreviewed: data.stats?.unreviewed ?? 0,
+        failed: data.stats?.byStatus?.ocr_failed ?? 0,
+      })}
+    >
+      <DocumentsTable
+        result={{
+          ...data.result,
+          rows: data.result.rows.map((d) => ({
+            ...d,
+            createdAt: d.createdAt.toISOString(),
+            reviewedAt: d.reviewedAt ? d.reviewedAt.toISOString() : null,
+          })),
+        }}
+        canUpload={canUpload}
+        canDelete={can(auth, "delete", "financial_document")}
+        prefixOptions={prefixOptions}
+      />
     </ListPage>
   );
 }

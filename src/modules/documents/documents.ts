@@ -769,45 +769,6 @@ export async function getDocuments(
   return { data: { items, totalCount } };
 }
 
-export async function getDocumentFilterOptions(
-  tx: TransactionClient,
-  caller: CallerIdentity,
-): Promise<ServiceResult<{ statuses: string[]; documentTypes: string[]; prefixTypes: string[] }>> {
-  // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
-  const where: any = {};
-
-  // Roles without relationship-document access see financial document types only
-  if (!can(caller, "read", "relationship_document")) {
-    where.documentType = "financial";
-  }
-
-  const [statuses, documentTypes, prefixTypes] = await Promise.all([
-    tx.document.findMany({
-      where,
-      distinct: ["status"],
-      select: { status: true },
-    }),
-    tx.document.findMany({
-      where,
-      distinct: ["documentType"],
-      select: { documentType: true },
-    }),
-    tx.document.findMany({
-      where,
-      distinct: ["prefixType"],
-      select: { prefixType: true },
-    }),
-  ]);
-
-  return {
-    data: {
-      statuses: statuses.map((s) => s.status),
-      documentTypes: documentTypes.map((d) => d.documentType),
-      prefixTypes: prefixTypes.map((p) => p.prefixType),
-    },
-  };
-}
-
 export async function getDocumentStats(
   tx: TransactionClient,
   caller: CallerIdentity,

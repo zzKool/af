@@ -16,7 +16,7 @@ export function CompanyAvatar({ name, className }: { name: string; className?: s
   return (
     <div
       className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-sm font-semibold text-accent",
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground",
         className,
       )}
       aria-hidden="true"

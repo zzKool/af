@@ -38,7 +38,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 - [x] **5. Harvest specs** from `af_core` (behaviour + fixtures, no code) — H1–H13 in `feature-inventory.md` §6 — 2026-10-20: `specs/<module>/harvest.md` for invoices (H1 H2 H6), banking (H3 H4 H11), contracts (H5), documents (H7), expenses (H8), traktamente (H9), supplier-invoices (H10), accountant-package (H12), kernel-ui-datatable (H13); open questions in each §9 — **answer them before the module's `/speckit-specify`**
 - [x] **6. Reference slice**: `partners` on the full module layout (ListQuery `queries.ts`, DataTable list page, entity page, short code) → `module-slice` skill finalised — 2026-10-20, see `docs/partners.md`
 - [x] **7. Verify gate wired**: drift check (PR #9), `retries: 0` + `quarantine()` helper, `e2e/screenshots.spec.ts` → `page-screenshots` artifact on `main`, partners happy path `e2e/partners.spec.ts` — 2026-10-20, see `docs/verify-gate.md`
-- [x] **8. Kernel UI**: app shell full-width (D19) + `DataTable` with typed header filters and `ListQuery` helper (D20, H13) — built on `partners` 2026-10-20, see `docs/ui-conventions.md`. Left for later: per-user column order/width (table_preferences), documents library onto the new table
+- [x] **8. Kernel UI**: app shell full-width (D19) + `DataTable` with typed header filters and `ListQuery` helper (D20, H13) — built on `partners` 2026-10-20, see `docs/ui-conventions.md`. Left for later: per-user column order/width (table_preferences). The documents library moved onto the new table on 2026-10-20.
 
 Then phase 1: contracts frozen for the batch → parallel agents on invoices / banking + journal / expenses + traktamente / supplier invoices → linking → exports → dashboard.
 

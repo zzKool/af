@@ -25,7 +25,7 @@ src/
     storage/         blob storage adapter + file validation
     stores/          tenant-scoped Zustand store factory
     test-utils/      shared test helpers
-    ui/              ui/data-table (DataTable + typed header filters + useListQuery), ui/shell (sidebar, topbar, page archetypes), providers, confirm dialog, company avatar; legacy-data-table until documents migrate
+    ui/              ui/data-table (DataTable + typed header filters + useListQuery), ui/shell (sidebar, topbar, page archetypes), providers, confirm dialog, company avatar
   modules/<m>/       one feature module each
     index.ts                 SERVER surface: types, queries, services, actions, jobs — the only server import path from outside
     ui.ts                    CLIENT surface: components, actions, types — importable from pages and client components; stores stay internal
