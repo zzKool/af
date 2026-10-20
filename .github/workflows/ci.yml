@@ -165,7 +165,7 @@ jobs:
         run: |
           npx next start -p 3000 > server.log 2>&1 &
           npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
-          npm run e2e
+          npm run e2e || (echo "::group::server.log (tail)"; tail -n 200 server.log; echo "::endgroup::"; exit 1)
         env:
           PORT: 3000
           HOSTNAME: localhost

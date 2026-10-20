@@ -8,7 +8,9 @@ export default defineConfig({
   // Never retried into green (constitution §4.3): a flaky test is quarantined with an issue instead.
   retries: 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: "html",
+  // CI: the `github` reporter annotates the failing test and its error on the check run (the raw logs are
+  // not always reachable); `line` keeps the console readable; `html` is uploaded as an artifact.
+  reporter: process.env.CI ? [["github"], ["line"], ["html", { open: "never" }]] : "html",
   use: {
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
