@@ -24,10 +24,14 @@ async function main() {
       done++;
     } catch (error) {
       failed++;
-      console.error(`${row.businessKey}: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `${row.businessKey}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
-  console.log(`Document hashes: ${done} written, ${failed} failed, ${rows.length} without a hash before`);
+  console.log(
+    `Document hashes: ${done} written, ${failed} failed, ${rows.length} without a hash before`,
+  );
 }
 
 main()
