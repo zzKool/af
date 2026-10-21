@@ -4,6 +4,7 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 
 ## Phase 0 — read first
 
+- [[features]] — The flat table: one row per feature with its module, status (built / partial / planned / later / dropped / owner), what is left, the shared files it touches and its size — for dispatching work to agents
 - [[lessons]] — Findings of the 2026-10-20 → 21 build with their actions: process (e2e ownership, CI logs, the cloud session's environment), code (load cycles through the linking registry, link reads), product gaps, how to work with the agent
 - [[roadmap]] — What is done, what is left to a first real version, what is next, how we work (the spec-kit loop as applied, self-merge when green, the local test loop)
 - [[constitution]] — Rules, import boundaries, linking invariants, portability, definition of done, process
