@@ -292,8 +292,10 @@ export function InboxWorkbench({
     await reload();
   }
 
-  const canMake = (row: InboxItem | null) =>
+  const canFile = (row: InboxItem | null) =>
     !!row && canWrite && !!options && (row.state === "ready" || row.state === "ocr_failed");
+  // a relationship document (contract, NDA) becomes nothing: it is filed or archived
+  const canMake = (row: InboxItem | null) => canFile(row) && row?.documentType === "financial";
   const canLink = (row: InboxItem | null) =>
     !!row && row.state === "ready" && row.documentType === "financial";
   const selection = checked.size > 0 ? [...checked] : null;
@@ -574,6 +576,7 @@ export function InboxWorkbench({
               row={open}
               canWrite={canWrite}
               canMake={canMake(open)}
+              canFile={canFile(open)}
               canLink={canLink(open)}
               busy={archiving || restoring || ocrRunning || filing}
               openSearchKey={openSearchKey}
@@ -645,6 +648,7 @@ function InboxPane({
   row,
   canWrite,
   canMake,
+  canFile,
   canLink,
   busy,
   openSearchKey,
@@ -659,6 +663,7 @@ function InboxPane({
   row: InboxItem;
   canWrite: boolean;
   canMake: boolean;
+  canFile: boolean;
   canLink: boolean;
   busy: boolean;
   openSearchKey: number;
@@ -742,17 +747,19 @@ function InboxPane({
               >
                 {t("documents.makeIt.supplierInvoice")}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={onFile}
-                title={t("documents.makeIt.justFileHint")}
-                data-testid="inbox-file"
-              >
-                {t("documents.makeIt.justFile")}
-              </Button>
             </>
+          )}
+          {canFile && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={onFile}
+              title={t("documents.makeIt.justFileHint")}
+              data-testid="inbox-file"
+            >
+              {t("documents.makeIt.justFile")}
+            </Button>
           )}
           {canWrite && row.state !== "archived" && (
             <Button

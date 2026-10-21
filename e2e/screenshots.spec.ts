@@ -19,6 +19,7 @@ const PAGES: Record<string, string> = {
   "supplier-invoices": "/supplier-invoices",
   "settings-traktamente": "/settings/traktamente",
   documents: "/documents",
+  "documents-inbox": "/documents/inbox",
   settings: "/settings",
 };
 

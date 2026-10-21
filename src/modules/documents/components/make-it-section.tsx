@@ -97,6 +97,7 @@ export function MakeItSection({
   reviewedAt,
   became,
   options,
+  financial = true,
 }: {
   documentId: string;
   documentKey: string;
@@ -104,6 +105,8 @@ export function MakeItSection({
   reviewedAt: Date | null;
   became: Became | null;
   options: MakeItOptions | null;
+  /** a relationship document (contract, NDA) becomes nothing: only *Just file it* is offered */
+  financial?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -152,17 +155,21 @@ export function MakeItSection({
       <div className="text-sm font-medium">{t("documents.makeIt.title")}</div>
       <p className="mt-1 text-xs text-muted-foreground">{t("documents.makeIt.hint")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => setDialog("expense")} data-testid="make-it-expense">
-          {t("documents.makeIt.expense")}
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setDialog("supplier")}
-          data-testid="make-it-supplier-invoice"
-        >
-          {t("documents.makeIt.supplierInvoice")}
-        </Button>
+        {financial && (
+          <>
+            <Button size="sm" onClick={() => setDialog("expense")} data-testid="make-it-expense">
+              {t("documents.makeIt.expense")}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setDialog("supplier")}
+              data-testid="make-it-supplier-invoice"
+            >
+              {t("documents.makeIt.supplierInvoice")}
+            </Button>
+          </>
+        )}
         <Button
           size="sm"
           variant="outline"

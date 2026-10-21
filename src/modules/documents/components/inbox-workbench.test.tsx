@@ -99,7 +99,7 @@ const options = {
   supplier: { groups: [], categories: [], suppliers: [], registrations: [] },
 };
 
-const key = (k: string, target: EventTarget = window) => fireEvent.keyDown(target, { key: k });
+const key = (k: string, target: Element | Window = window) => fireEvent.keyDown(target, { key: k });
 const openKey = () => screen.getByTestId("inbox-pane-key").textContent;
 
 function renderOwner(rows = ROWS) {
@@ -303,6 +303,16 @@ describe("InboxWorkbench — the page", () => {
     expect(within(actions()).getByTestId("inbox-run-ocr")).toBeInTheDocument();
     expect(within(actions()).queryByTestId("inbox-make-expense")).not.toBeInTheDocument();
     expect(screen.queryByTestId("suggestions")).not.toBeInTheDocument(); // not ready → no bank rows
+  });
+
+  it("a relationship document is filed or archived, never made into an expense", () => {
+    renderOwner([row("010", { documentType: "relationship", prefixType: "contract" })]);
+    const actions = screen.getByTestId("inbox-actions");
+    expect(within(actions).queryByTestId("inbox-make-expense")).not.toBeInTheDocument();
+    expect(within(actions).getByTestId("inbox-file")).toBeInTheDocument();
+    expect(screen.queryByTestId("suggestions")).not.toBeInTheDocument();
+    key("e");
+    expect(screen.queryByTestId("expense-dialog")).not.toBeInTheDocument();
   });
 
   it("an empty inbox says so", () => {
