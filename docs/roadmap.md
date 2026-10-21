@@ -8,6 +8,8 @@ Read `CLAUDE.md`, then this page, then [[lessons]] (the findings of the last bui
 
 ## Done — the vertical slices (2026-10-20 → 21)
 
+The feature-by-feature view with statuses is [[features]]; this table is the module view.
+
 Every module of [[feature-inventory]] §3 has a build behind it; the status line of each section says what exactly. In one line each:
 
 | Module | What works | Doc |

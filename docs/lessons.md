@@ -12,6 +12,8 @@
 - [ ] **Spec-kit, the house way, is right-sized**: `spec.md` for the owner's read, `plan.md` + `tasks.md` for the agent; no `research.md` / `data-model.md` / `quickstart.md`. The owner's one gate (reading the spec) caught nothing this time — keep it anyway; it is cheap and it is where a wrong assumption would be caught.
 - [ ] **The merge watcher had a race** (#47 merged on the previous head's green while a push landed). Fixed in #49 (waits for the full run set, re-reads the head). Lesson: a script that merges needs the same scrutiny as code.
 
+- [ ] **`docs/features.md` is the dispatch table**: every feature PR updates its row (status, what is left) — a stale row sends an agent to build what exists.
+
 ## Code
 
 - [ ] **Module-load cycles through the linking registry**: `modules/linking/index.ts` eagerly imports `./linkables`, which imports every module — so any module importing `@/modules/linking` is in a cycle at load time; `supplier-invoices` could not use a Zod schema from `expenses` at the top level (declared twice instead). Action: register linkables lazily from the composition root (`src/instrumentation.ts` already wires `contracts.setRateUsage`) and drop the eager import.
