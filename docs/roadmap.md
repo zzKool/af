@@ -4,7 +4,7 @@
 
 ## Starting a session
 
-Read `CLAUDE.md`, then this page, then the spec folder of the module in *Next up*. Work as *How we work* says. The owner is asked only for the decisions listed under *Open decisions*; everything else is the agent's call, written down in the PR.
+Read `CLAUDE.md`, then this page, then [[lessons]] (the findings of the last build, with their actions), then the spec folder of the module in *Next up*. Work as *How we work* says. The owner is asked only for the decisions listed under *Open decisions*; everything else is the agent's call, written down in the PR.
 
 ## Done — the vertical slices (2026-10-20 → 21)
 
