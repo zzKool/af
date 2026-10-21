@@ -34,7 +34,7 @@ Dispatch rule: pick a row with status planned, give the builder its ID, the modu
 | F26 | Banking: three Nordea CSV imports with dedup, immutable rows, categorisation rules, transfer pairs, derived state, workbench / imports / rules pages | `modules/banking` | built | | [[banking]], `specs/banking` | — | — |
 | F27 | Journal: every bank row an entry with locked money facts, categorise (never overwrite), manual entries, the ledger page with filters; recurring = rules | `modules/journal` | built | D33: the partner stays typed | [[journal]], `specs/journal` | — | — |
 | F28 | ECB rates: sync job, catch-up on start, `rateToBase` with nearest-day fallback, Settings → Exchange rates with Fetch now | `modules/rates` | built | | [[ecb-rates]] | — | — |
-| F29 | Rates backfill by date (`scripts/fetch-rates.ts 2023-04-01`) | `modules/rates` (script) | planned | `fetchDailyRates` takes `startDate`; only the script argument is missing | roadmap A3 | — | S |
+| F29 | Rates backfill by date (`scripts/fetch-rates.ts 2023-04-01`) | `modules/rates` (script) | built | `fetchDailyRates({ startDate })` fetches every observation from that day (only the URL builder took it before); the script takes a past day or a count (`fetchRatesArgToOptions`) | [[ecb-rates]] | — | — |
 | F30 | Linking: one `links` table, kinds, invariants, audit; scorer with reasons; suggestions both ways; apply / bulk apply HIGH; Link to…; the `/banking/inbox` work page; the graph page | `modules/linking` | built | complete | [[linking]], `specs/linking` | — | — |
 | F31 | Dashboard: to-do list with counts and amounts, pulse, briefing since last login | `modules/dashboard` | built | | [[dashboard]] | — | — |
 | F32 | Cash-planning widget | `modules/dashboard` | later | D14, Growth | — | — | M |

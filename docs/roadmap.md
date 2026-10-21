@@ -40,7 +40,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 - [x] **A1 Document inbox** — `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
 - [ ] **A2 Members** — Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
-- [ ] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` (`fetchDailyRates` already takes `startDate`; only the script argument is missing). A `fix:` PR, no spec.
+- [x] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` backfills every ECB day from that date ([[ecb-rates]]).
 - [ ] **A4 Partners: contact persons** — small.
 
 ### B. Real-data readiness (the owner, with the agent's help)
