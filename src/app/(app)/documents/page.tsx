@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
@@ -10,6 +11,7 @@ import {
   DOCUMENT_DEFAULT_SORT,
   getDocumentStats,
   getUploadKinds,
+  inboxTotals,
   listDocuments,
 } from "@/modules/documents";
 import { DocumentsTable } from "@/modules/documents/ui";
@@ -29,12 +31,13 @@ export default async function DocumentsPage({
     defaultSort: DOCUMENT_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, stats, prefs] = await Promise.all([
+    const [result, stats, inbox, prefs] = await Promise.all([
       listDocuments(tx, auth, query),
       getDocumentStats(tx, auth),
+      inboxTotals(tx, auth),
       getUserPreferences(tx, auth),
     ]);
-    return { result, stats: stats.data ?? null, prefs };
+    return { result, stats: stats.data ?? null, inbox, prefs };
   });
   const t = translator(data.prefs.data?.locale ?? null);
   const canUpload = can(auth, "create", "financial_document");
@@ -51,6 +54,15 @@ export default async function DocumentsPage({
         unreviewed: data.stats?.unreviewed ?? 0,
         failed: data.stats?.byStatus?.ocr_failed ?? 0,
       })}
+      actions={
+        <Link
+          href="/documents/inbox"
+          className="text-sm font-medium underline-offset-4 hover:underline"
+          data-testid="documents-inbox-link"
+        >
+          {t("documents.inbox.libraryLink", { count: data.inbox.total })} →
+        </Link>
+      }
     >
       <DocumentsTable
         result={{

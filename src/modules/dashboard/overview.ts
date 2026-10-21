@@ -167,7 +167,7 @@ export async function dashboardOverview(
             }),
           )
         : Promise.resolve({ total: 0 }),
-      documents.getDocumentStats(tx, caller),
+      documents.inboxTotals(tx, caller),
       linking.unlinkedDocuments(tx),
       expenses.listExpenses(tx, q({ hasDocument: { kind: "in", values: ["false"] } })),
       Promise.resolve(ledger.awaitingLinkCount),
@@ -181,14 +181,15 @@ export async function dashboardOverview(
         href: "/banking/inbox",
       });
     }
-    const unreviewed = stats.data?.unreviewed ?? 0;
-    if (unreviewed > 0) {
+    // the inbox's "need attention" (pending + ready) — the same number the inbox's title says (SC-005)
+    const toReview = stats.total;
+    if (toReview > 0) {
       items.push({
         id: "documents",
         kind: "documents_to_review",
-        count: unreviewed,
+        count: toReview,
         priority: "high",
-        href: "/documents",
+        href: "/documents/inbox",
       });
     }
     if (unlinkedDocs.length > 0) {

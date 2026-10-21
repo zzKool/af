@@ -17,6 +17,7 @@ import {
   distinctDocumentValues,
   documentDateHierarchy,
   listInbox,
+  toInboxData,
 } from "@/modules/documents/queries";
 
 export type { OcrExtractedData, OcrLineItem } from "@/kernel/ocr/ocr";
@@ -352,5 +353,5 @@ export const listInboxAction = authedAction
   )
   .metadata({ name: "listInbox" })
   .action(async ({ ctx, parsedInput }) => ({
-    data: await listInbox(ctx.tx, ctx.callerIdentity, parsedInput),
+    data: toInboxData(await listInbox(ctx.tx, ctx.callerIdentity, parsedInput)),
   }));

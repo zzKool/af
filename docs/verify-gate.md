@@ -23,6 +23,11 @@ npm run build                                         # what CI builds
 npx playwright test e2e/<module>.spec.ts              # the module's happy path against `npm run dev`
 ```
 Without the Prisma engine (restricted networks): apply `prisma/migrations` with psql and run the server project with `SKIP_MIGRATE_DEPLOY=1` (see `src/kernel/db/test-setup.ts`).
+In a sandbox without Docker Hub / the Prisma CDN / Google Fonts (a cloud agent session), the same loop still runs:
+- `prisma generate` with `PRISMA_SCHEMA_ENGINE_BINARY=/bin/true` (generate needs no schema engine); a local PostgreSQL (16 works) on 5433 with the `defterfab` superuser, the migrations applied with psql.
+- **Both timezones UTC**, as on CI: `ALTER SYSTEM SET timezone = 'UTC'` on the server and `TZ=UTC` for the test process — otherwise timestamps written through the Prisma adapter shift by the server's offset and the time-window tests (stuck OCR, archived-at) fail for the wrong reason.
+- Azurite from npm (`npx azurite-blob --blobHost 127.0.0.1 --skipApiVersionCheck --loose`).
+- The build: `next build --webpack` with `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` pointing to a file that maps the two `css2?family=Geist…` URLs to an `@font-face` whose `src` is a local `.woff2` path (Turbopack ignores the mock for the font file itself). Then `next start` and `CI=1 npx playwright test` like CI.
 
 ## Definition of done, where it is checked
 | §4 item | where |

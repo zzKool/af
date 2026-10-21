@@ -220,13 +220,69 @@ export type InboxListRow = {
   currency: string | null;
   documentDate: string | null;
   quality: string | null;
+  /** the OCR facts as corrected that the *Make it…* dialogs pre-fill from (no line items, no raw text) */
+  facts: InboxFacts;
   reviewedAt: Date | null;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
+export type InboxFacts = Pick<
+  Partial<OcrExtractedData>,
+  | "vendorName"
+  | "vendorTaxId"
+  | "merchantName"
+  | "invoiceNumber"
+  | "invoiceDate"
+  | "transactionDate"
+  | "dueDate"
+  | "invoiceTotal"
+  | "subtotal"
+  | "totalTax"
+  | "currency"
+>;
+
+const FACT_KEYS = [
+  "vendorName",
+  "vendorTaxId",
+  "merchantName",
+  "invoiceNumber",
+  "invoiceDate",
+  "transactionDate",
+  "dueDate",
+  "invoiceTotal",
+  "subtotal",
+  "totalTax",
+  "currency",
+] as const satisfies readonly (keyof InboxFacts)[];
+
 export type InboxList = { rows: InboxListRow[]; counts: InboxCounts };
+
+/** The inbox row as the page and the action hand it to the client: dates as ISO strings. */
+export type InboxItem = Omit<
+  InboxListRow,
+  "reviewedAt" | "archivedAt" | "createdAt" | "updatedAt"
+> & {
+  reviewedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type InboxData = { rows: InboxItem[]; counts: InboxCounts };
+
+export function toInboxData(list: InboxList): InboxData {
+  return {
+    counts: list.counts,
+    rows: list.rows.map((r) => ({
+      ...r,
+      reviewedAt: r.reviewedAt?.toISOString() ?? null,
+      archivedAt: r.archivedAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    })),
+  };
+}
 
 export const INBOX_SEARCH_MAX = 100;
 
@@ -316,6 +372,12 @@ export async function listInbox(
       currency: resolved.currency ?? null,
       documentDate: resolved.invoiceDate ?? resolved.transactionDate ?? null,
       quality: parsed?.quality ?? null,
+      facts: Object.fromEntries(
+        FACT_KEYS.filter((k) => resolved[k] !== undefined && resolved[k] !== null).map((k) => [
+          k,
+          resolved[k],
+        ]),
+      ) as InboxFacts,
       reviewedAt: d.reviewedAt,
       archivedAt: d.archivedAt,
       createdAt: d.createdAt,
@@ -331,4 +393,13 @@ export async function listInbox(
         [r.businessKey, r.fileName, r.vendor].some((v) => (v ?? "").toLowerCase().includes(term))),
   );
   return { rows, counts };
+}
+
+/** The inbox counts alone — the library's *Inbox (n)* link and the dashboard's *documents to review* (SC-005). */
+export async function inboxTotals(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  now?: Date,
+): Promise<InboxCounts> {
+  return (await listInbox(tx, caller, { now })).counts;
 }
