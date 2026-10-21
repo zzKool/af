@@ -1361,13 +1361,16 @@ export const fr: Dictionary = {
   "documents.duplicate.reason.exact": "La facture n° {n} de {partner} existe déjà",
   "documents.duplicate.reason.hash": "Ce fichier a déjà servi à créer {kind} {key}",
   "documents.duplicate.reason.fuzzy": "Facture similaire : n° {n} de {amount} {currency} le {date}",
-  "documents.duplicate.reason.fuzzyExpense": "Dépense similaire : {key} de {amount} {currency} le {date}",
+  "documents.duplicate.reason.fuzzyExpense":
+    "Dépense similaire : {key} de {amount} {currency} le {date}",
   "documents.makeIt.title": "En faire…",
-  "documents.makeIt.hint": "Ce qu'est ce document — le dialogue s'ouvre pré-rempli avec les données ci-dessus.",
+  "documents.makeIt.hint":
+    "Ce qu'est ce document — le dialogue s'ouvre pré-rempli avec les données ci-dessus.",
   "documents.makeIt.expense": "Une dépense",
   "documents.makeIt.supplierInvoice": "Une facture fournisseur",
   "documents.makeIt.justFile": "Simplement classer",
-  "documents.makeIt.justFileHint": "Rien à créer (relevé bancaire, contrat, attestation) : marquer comme vérifié.",
+  "documents.makeIt.justFileHint":
+    "Rien à créer (relevé bancaire, contrat, attestation) : marquer comme vérifié.",
   "documents.makeIt.filed": "Classé",
   "documents.makeIt.becameExpense": "Devenu la dépense {key}",
   "documents.makeIt.becameSupplierInvoice": "Devenu la facture fournisseur {key}",

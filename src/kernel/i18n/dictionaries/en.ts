@@ -1347,14 +1347,18 @@ export const en = {
   "documents.duplicate.panel.createAnyway": "Create anyway",
   "documents.duplicate.reason.exact": "Invoice #{n} from {partner} already exists",
   "documents.duplicate.reason.hash": "This exact file was already used to create {kind} {key}",
-  "documents.duplicate.reason.fuzzy": "Similar invoice exists: #{n} for {amount} {currency} on {date}",
-  "documents.duplicate.reason.fuzzyExpense": "Similar expense exists: {key} for {amount} {currency} on {date}",
+  "documents.duplicate.reason.fuzzy":
+    "Similar invoice exists: #{n} for {amount} {currency} on {date}",
+  "documents.duplicate.reason.fuzzyExpense":
+    "Similar expense exists: {key} for {amount} {currency} on {date}",
   "documents.makeIt.title": "Make it…",
-  "documents.makeIt.hint": "What this document is — the dialog opens pre-filled from the facts above.",
+  "documents.makeIt.hint":
+    "What this document is — the dialog opens pre-filled from the facts above.",
   "documents.makeIt.expense": "Expense",
   "documents.makeIt.supplierInvoice": "Supplier invoice",
   "documents.makeIt.justFile": "Just file it",
-  "documents.makeIt.justFileHint": "Nothing to create (a bank statement, a contract, a certificate): mark it reviewed.",
+  "documents.makeIt.justFileHint":
+    "Nothing to create (a bank statement, a contract, a certificate): mark it reviewed.",
   "documents.makeIt.filed": "Filed",
   "documents.makeIt.becameExpense": "Became expense {key}",
   "documents.makeIt.becameSupplierInvoice": "Became supplier invoice {key}",

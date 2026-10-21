@@ -1216,14 +1216,17 @@ export const sv: Dictionary = {
   "documents.duplicate.panel.createAnyway": "Skapa ändå",
   "documents.duplicate.reason.exact": "Faktura nr {n} från {partner} finns redan",
   "documents.duplicate.reason.hash": "Exakt denna fil har redan använts för att skapa {kind} {key}",
-  "documents.duplicate.reason.fuzzy": "Liknande faktura finns: nr {n} på {amount} {currency} den {date}",
-  "documents.duplicate.reason.fuzzyExpense": "Liknande utgift finns: {key} på {amount} {currency} den {date}",
+  "documents.duplicate.reason.fuzzy":
+    "Liknande faktura finns: nr {n} på {amount} {currency} den {date}",
+  "documents.duplicate.reason.fuzzyExpense":
+    "Liknande utgift finns: {key} på {amount} {currency} den {date}",
   "documents.makeIt.title": "Gör till…",
   "documents.makeIt.hint": "Vad dokumentet är — dialogen öppnas förifylld med uppgifterna ovan.",
   "documents.makeIt.expense": "Utgift",
   "documents.makeIt.supplierInvoice": "Leverantörsfaktura",
   "documents.makeIt.justFile": "Bara arkivera",
-  "documents.makeIt.justFileHint": "Inget att skapa (kontoutdrag, avtal, intyg): markera som granskat.",
+  "documents.makeIt.justFileHint":
+    "Inget att skapa (kontoutdrag, avtal, intyg): markera som granskat.",
   "documents.makeIt.filed": "Arkiverat",
   "documents.makeIt.becameExpense": "Blev utgift {key}",
   "documents.makeIt.becameSupplierInvoice": "Blev leverantörsfaktura {key}",
