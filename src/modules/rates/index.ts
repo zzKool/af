@@ -9,7 +9,7 @@ export type {
   RateLookupResult,
   RateSource,
 } from "./ecb-rates";
-export { countWeekdaysBetween, fetchDailyRates } from "./ecb-rates";
+export { countWeekdaysBetween, fetchDailyRates, rateStatus } from "./ecb-rates";
 export type { EcbSyncData } from "./jobs/ecb-sync";
 export {
   ecbSyncJob,
@@ -19,3 +19,5 @@ export {
   rateSchedules,
 } from "./jobs/ecb-sync";
 export * from "./queries";
+export { fetchRatesNowAction, ratesStatusAction } from "./rates.actions";
+export type * from "./types";

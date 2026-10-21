@@ -9,6 +9,7 @@ import {
   fetchDailyRates,
   getRate,
   parseEcbXml,
+  rateStatus,
   rateToBase,
 } from "@/modules/rates/ecb-rates";
 
@@ -444,5 +445,58 @@ describe("rateToBase — the conversion written once at issue (D3/D4)", () => {
     expect(weekend?.source).toBe("ecb_nearest");
     expect(weekend?.rateDate).toBe("2026-01-30");
     expect(await rateToBase(db, "2026-01-31", "USD", "SEK")).toBeNull();
+  });
+});
+
+describe("rateStatus — Settings → Exchange rates", () => {
+  const db = {
+    $queryRawUnsafe: (q: string, ...args: unknown[]) =>
+      adminPool.query(q, args).then((r) => r.rows),
+  };
+
+  it("reports the newest day, its rate and the missing weekdays of the window per pair", async () => {
+    // today is Fri 2026-03-20; the window is the 30 days before, settled two days back (Wed 2026-03-18)
+    // → 21 ECB weekdays from Wed 2026-02-18 to Wed 2026-03-18
+    await insertRate("2026-03-16", "EUR/SEK", "11.10");
+    await insertRate("2026-03-17", "EUR/SEK", "11.20");
+    await insertRate("2026-03-18", "EUR/SEK", "11.30");
+    await insertRate("2026-03-18", "EUR/CHF", "0.95");
+    await insertRate("2026-01-05", "EUR/USD", "1.03"); // outside the window: newest day, no coverage
+
+    const status = await rateStatus(db, "2026-03-20");
+    expect(status.map((s) => s.pair)).toEqual(["EUR/SEK", "EUR/CHF", "EUR/USD"]);
+    expect(status[0]).toEqual({
+      pair: "EUR/SEK",
+      latestDate: "2026-03-18",
+      latestRate: "11.300000",
+      storedDays: 3,
+      missingWeekdays: 18,
+    });
+    expect(status[1]).toMatchObject({
+      latestDate: "2026-03-18",
+      storedDays: 1,
+      missingWeekdays: 20,
+    });
+    expect(status[2]).toMatchObject({
+      latestDate: "2026-01-05",
+      latestRate: "1.030000",
+      storedDays: 0,
+      missingWeekdays: 21,
+    });
+  });
+
+  it("an empty table: never fetched, every weekday missing; a full window is complete", async () => {
+    const empty = await rateStatus(db, "2026-03-20");
+    expect(empty.every((s) => s.latestDate === null && s.missingWeekdays === 21)).toBe(true);
+
+    const d = new Date("2026-02-18");
+    while (d <= new Date("2026-03-18")) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6)
+        await insertRate(d.toISOString().slice(0, 10), "EUR/SEK", "11.00");
+      d.setDate(d.getDate() + 1);
+    }
+    const full = await rateStatus(db, "2026-03-20", { currencyPairs: ["EUR/SEK"] });
+    expect(full[0]).toMatchObject({ storedDays: 21, missingWeekdays: 0 });
   });
 });

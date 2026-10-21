@@ -39,6 +39,12 @@ const SETTINGS_TABS: TabConfig[] = [
     href: "/settings/traktamente",
     roles: ["owner"],
   },
+  {
+    value: "rates",
+    label: "Exchange rates",
+    href: "/settings/rates",
+    roles: ["owner", "accountant"],
+  },
   // Visual separator — "My Preferences" is user-scoped, tabs above are tenant-scoped
   {
     value: "my-preferences",

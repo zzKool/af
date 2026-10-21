@@ -269,7 +269,7 @@ export async function dashboardOverview(
         kind: "rate_gaps",
         count: gaps.length,
         priority: "low",
-        href: "/settings",
+        href: "/settings/rates",
       });
     }
   }

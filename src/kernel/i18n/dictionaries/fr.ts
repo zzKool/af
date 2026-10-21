@@ -650,6 +650,23 @@ export const fr: Dictionary = {
   "expenses.statement.superseded": "REMPLACÉ — ce remboursement a été annulé",
   "expenses.statement.generated": "Généré le {date}",
   // --- traktamente ---
+  "rates.title": "Taux de change",
+  "rates.meta":
+    "Taux de référence BCE contre l'euro — la base SEK de chaque montant et le décompte TVA suisse s'en servent.",
+  "rates.schedule":
+    "Récupérés automatiquement chaque jour ouvré à 16 h 30 (Stockholm) tant que l'application tourne ; les jours manqués sont rattrapés au prochain démarrage.",
+  "rates.fetchNow": "Récupérer maintenant",
+  "rates.fetching": "Récupération…",
+  "rates.queued": "Récupération des {count} derniers jours BCE…",
+  "rates.alreadyRunning": "Une récupération est déjà en cours",
+  "rates.fetched": "Taux mis à jour",
+  "rates.never": "jamais",
+  "rates.complete": "complet",
+  "rates.missing": "{count} jour(s) manquant(s)",
+  "rates.col.pair": "Paire",
+  "rates.col.latest": "Dernier jour",
+  "rates.col.rate": "Taux",
+  "rates.col.coverage": "30 derniers jours",
   "traktamente.title": "Barèmes traktamente",
   "traktamente.tab": "Traktamente",
   "traktamente.meta": "{count} pays en {year}",
