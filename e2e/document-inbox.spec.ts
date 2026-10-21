@@ -123,7 +123,11 @@ test.describe("Document inbox — accountant", () => {
     await expect(page.getByTestId("inbox-row-check")).toHaveCount(0);
     const pane = page.getByTestId("inbox-pane");
     if (await pane.isVisible()) {
-      await expect(page.getByTestId("inbox-actions").getByRole("button")).toHaveCount(0);
+      // Open → the review page is the only thing left (a link styled as a button)
+      const actions = page.getByTestId("inbox-actions");
+      for (const id of ["inbox-run-ocr", "inbox-make-expense", "inbox-file", "inbox-archive"])
+        await expect(actions.getByTestId(id)).toHaveCount(0);
+      await expect(actions.getByTestId("inbox-open")).toBeVisible();
       const key = await page.getByTestId("inbox-pane-key").innerText();
       await page.keyboard.press("d");
       await expect(page.getByTestId("inbox-undo")).toHaveCount(0);
