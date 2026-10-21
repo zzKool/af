@@ -188,10 +188,11 @@ const data: PeriodData = {
     },
   ],
   flags: [
-    { kind: "missing_document", entity: "expense", key: "Ex213-Tr-01", detail: "Train" },
+    { kind: "missing_document", entity: "expense", id: "e1", key: "Ex213-Tr-01", detail: "Train" },
     {
       kind: "unlinked_row",
       entity: "bank_transaction",
+      id: "t1",
       key: "Plusgirokonto SEK 2026-06-20 -40.00 SEK",
       detail: 'Fee; "monthly"',
     },

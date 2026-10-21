@@ -57,6 +57,9 @@ export type FlagKind = (typeof FLAG_KINDS)[number];
 export type PackageFlag = {
   kind: FlagKind;
   entity: "bank_transaction" | "invoice" | "supplier_invoice" | "expense" | "settlement";
+  /** the entity's id — the stable identity (two rows can share a label: same account, day and amount) */
+  id: string;
+  /** the human key: business key, invoice number, or the row's label */
   key: string;
   detail: string;
 };

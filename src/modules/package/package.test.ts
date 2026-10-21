@@ -428,10 +428,17 @@ describe("SC-001 — the fixture month", () => {
       {
         kind: "unlinked_row",
         entity: "bank_transaction",
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
         key: "Plusgirokonto SEK 2026-06-27 -198.52 SEK",
         detail: "OPENAI *CHATGPT",
       },
-      { kind: "missing_document", entity: "expense", key: "Ex213-Tr-01", detail: "Train Zürich" },
+      {
+        kind: "missing_document",
+        entity: "expense",
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        key: "Ex213-Tr-01",
+        detail: "Train Zürich",
+      },
     ]);
     expect(data.transfers).toEqual([
       {
