@@ -4,13 +4,15 @@
 // server-side distinct values, URL state (useListQuery), chips, footer with count and sums.
 // Modules declare columns and a filter source; they never write filter UI.
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
   Columns3,
   Filter as FilterIcon,
 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -48,11 +50,13 @@ import { CheckboxFilter } from "./filters/checkbox-filter";
 import { DateFilter } from "./filters/date-filter";
 import { RangeFilter } from "./filters/range-filter";
 import { TextFilter } from "./filters/text-filter";
+import { isPinned, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderColumns, RESIZE_STEP } from "./layout";
+import { type TableLayoutState, useTableLayout } from "./preferences";
 import type { BulkAction, DataTableColumn, DataTableFilterSource } from "./types";
 import type { ListQueryState } from "./use-list-query";
 
 export interface DataTableProps<Row extends { id: string }> {
-  /** Stable key of this table (e.g. "partners") — column visibility is remembered under it. */
+  /** Stable key of this table (e.g. "partners") — the user's column layout (hidden, order, widths) is remembered under it. */
   tableKey: string;
   columns: DataTableColumn<Row>[];
   result: ListResult<Row>;
@@ -123,8 +127,15 @@ export function DataTable<Row extends { id: string }>({
   rowHeight = 36,
 }: DataTableProps<Row>) {
   const { query, isPending } = state;
-  const [hidden, setHidden] = useColumnVisibility(tableKey, allColumns);
-  const columns = useMemo(() => allColumns.filter((c) => !hidden.has(c.key)), [allColumns, hidden]);
+  const tableLayout = useTableLayout(tableKey, allColumns);
+  const { hidden, layout } = tableLayout;
+  const columns = useMemo(
+    () => orderColumns(allColumns, layout.order).filter((c) => !hidden.has(c.key)),
+    [allColumns, layout.order, hidden],
+  );
+  const [dragging, setDragging] = useState<string | null>(null);
+  const widthOf = (column: DataTableColumn<Row>): string | number | undefined =>
+    layout.widths[column.key] ?? column.width;
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState(query.search ?? "");
@@ -246,7 +257,7 @@ export function DataTable<Row extends { id: string }>({
         )}
         <div className="ml-auto flex items-center gap-2">
           {toolbar}
-          <ColumnsMenu columns={allColumns} hidden={hidden} onChange={setHidden} />
+          <ColumnsMenu columns={allColumns} layout={tableLayout} />
         </div>
       </div>
 
@@ -290,12 +301,36 @@ export function DataTable<Row extends { id: string }>({
                 const right =
                   column.align === "right" || (!column.align && RIGHT_TYPES.includes(column.type));
                 const filterable = column.filterable !== false;
+                const width = widthOf(column);
+                const movable = !isPinned(column);
                 return (
                   <TableHead
                     key={column.key}
                     aria-sort={sort ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-                    style={column.width ? { width: column.width } : undefined}
-                    className={cn("h-9 px-2 font-medium", right && "text-right")}
+                    style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+                    className={cn(
+                      "relative h-9 px-2 font-medium",
+                      right && "text-right",
+                      dragging === column.key && "opacity-50",
+                    )}
+                    data-column={column.key}
+                    draggable={movable}
+                    onDragStart={(e) => {
+                      if (!movable) return;
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", column.key);
+                      setDragging(column.key);
+                    }}
+                    onDragEnd={() => setDragging(null)}
+                    onDragOver={(e) => {
+                      if (movable && dragging && dragging !== column.key) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const key = dragging ?? e.dataTransfer.getData("text/plain");
+                      if (movable && key && key !== column.key) tableLayout.drop(key, column.key);
+                      setDragging(null);
+                    }}
                   >
                     <div className={cn("flex items-center gap-0.5", right && "flex-row-reverse")}>
                       {/* a column without a header (row actions): a name for the screen reader, no button */}
@@ -344,6 +379,13 @@ export function DataTable<Row extends { id: string }>({
                         </Popover>
                       )}
                     </div>
+                    {movable && (
+                      <ResizeHandle
+                        label={typeof column.header === "string" ? column.header : column.key}
+                        width={layout.widths[column.key]}
+                        onResize={(px) => tableLayout.setWidth(column.key, px)}
+                      />
+                    )}
                   </TableHead>
                 );
               })}
@@ -396,15 +438,17 @@ export function DataTable<Row extends { id: string }>({
                     const right =
                       column.align === "right" ||
                       (!column.align && RIGHT_TYPES.includes(column.type));
+                    const width = widthOf(column);
                     return (
                       <TableCell
                         key={column.key}
+                        style={width ? { width, minWidth: width, maxWidth: width } : undefined}
                         className={cn(
                           "px-2 py-1",
                           right && "text-right",
                           column.truncate === false
                             ? "whitespace-normal"
-                            : column.width
+                            : width
                               ? "max-w-0 truncate"
                               : "whitespace-nowrap",
                         )}
@@ -479,51 +523,18 @@ export function DataTable<Row extends { id: string }>({
   );
 }
 
-// --- column visibility (per table, per browser — server-side table preferences come with item 8b) ---
-
-const VISIBILITY_KEY = (tableKey: string) => `af.table.${tableKey}.hidden`;
-
-function useColumnVisibility<Row>(
-  tableKey: string,
-  columns: DataTableColumn<Row>[],
-): [Set<string>, (next: Set<string>) => void] {
-  const defaults = useMemo(
-    () => new Set(columns.filter((c) => c.defaultHidden && !c.alwaysVisible).map((c) => c.key)),
-    [columns],
-  );
-  const [hidden, setHiddenState] = useState<Set<string>>(defaults);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(VISIBILITY_KEY(tableKey));
-      if (raw) setHiddenState(new Set(JSON.parse(raw) as string[]));
-    } catch {
-      // storage unavailable: defaults stand
-    }
-  }, [tableKey]);
-  const setHidden = useCallback(
-    (next: Set<string>) => {
-      setHiddenState(next);
-      try {
-        localStorage.setItem(VISIBILITY_KEY(tableKey), JSON.stringify([...next]));
-      } catch {
-        // ignore
-      }
-    },
-    [tableKey],
-  );
-  return [hidden, setHidden];
-}
+// --- the Columns menu: visibility, order (arrows — the keyboard path next to header drag and drop), reset ---
 
 function ColumnsMenu<Row>({
   columns,
-  hidden,
-  onChange,
+  layout,
 }: {
   columns: DataTableColumn<Row>[];
-  hidden: Set<string>;
-  onChange: (next: Set<string>) => void;
+  layout: TableLayoutState;
 }) {
-  const toggleable = columns.filter((c) => !c.alwaysVisible && c.header);
+  const { hidden, setHidden, move, reset, isDefault } = layout;
+  const ordered = orderColumns(columns, layout.layout.order).filter((c) => !isPinned(c));
+  const toggleable = ordered.filter((c) => c.header);
   if (toggleable.length === 0) return null;
   return (
     <Popover>
@@ -534,25 +545,116 @@ function ColumnsMenu<Row>({
         <Columns3 className="size-3.5" />
         Columns
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-56">
-        <div className="flex flex-col gap-1">
-          {toggleable.map((c) => (
-            <label key={c.key} htmlFor={`col-${c.key}`} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                id={`col-${c.key}`}
-                checked={!hidden.has(c.key)}
-                onCheckedChange={() => {
-                  const next = new Set(hidden);
-                  if (next.has(c.key)) next.delete(c.key);
-                  else next.add(c.key);
-                  onChange(next);
-                }}
-              />
-              {c.header}
-            </label>
-          ))}
+      <PopoverContent align="end" className="w-64">
+        <div className="flex flex-col gap-1" data-testid="columns-menu">
+          {toggleable.map((c, i) => {
+            const name = typeof c.header === "string" ? c.header : c.key;
+            return (
+              <div key={c.key} className="flex items-center gap-2 text-sm">
+                {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
+                <label className="flex min-w-0 flex-1 items-center gap-2">
+                  <Checkbox
+                    aria-label={name}
+                    disabled={c.alwaysVisible}
+                    checked={!hidden.has(c.key)}
+                    onCheckedChange={() => {
+                      const next = new Set(hidden);
+                      if (next.has(c.key)) next.delete(c.key);
+                      else next.add(c.key);
+                      setHidden(next);
+                    }}
+                  />
+                  <span className="truncate">{c.header}</span>
+                </label>
+                <button
+                  type="button"
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label={`Move ${name} up`}
+                  disabled={i === 0}
+                  onClick={() => move(c.key, -1)}
+                >
+                  <ArrowUp className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label={`Move ${name} down`}
+                  disabled={i === toggleable.length - 1}
+                  onClick={() => move(c.key, 1)}
+                >
+                  <ArrowDown className="size-3.5" />
+                </button>
+              </div>
+            );
+          })}
+          {!isDefault && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-1 justify-start"
+              onClick={reset}
+              data-testid="columns-reset"
+            >
+              Reset layout
+            </Button>
+          )}
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// --- the resize handle on a header's right edge: drag with the pointer, or ← / → on the keyboard ---
+
+function ResizeHandle({
+  label,
+  width,
+  onResize,
+}: {
+  label: string;
+  /** the stored width, when the user set one */
+  width: number | undefined;
+  onResize: (px: number) => void;
+}) {
+  const start = useRef<{ x: number; width: number } | null>(null);
+  const widthOfHeader = (el: HTMLElement) =>
+    (el.closest("th") as HTMLElement | null)?.getBoundingClientRect().width ?? 0;
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be focused or dragged; the separator role is the ARIA way to say "resizer"
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${label}`}
+      aria-valuenow={width ?? MIN_COLUMN_WIDTH}
+      aria-valuemin={MIN_COLUMN_WIDTH}
+      aria-valuemax={MAX_COLUMN_WIDTH}
+      tabIndex={0}
+      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none hover:bg-primary/40 focus-visible:bg-primary/40 focus-visible:outline-none"
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        start.current = { x: e.clientX, width: widthOfHeader(e.currentTarget) };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!start.current) return;
+        onResize(start.current.width + (e.clientX - start.current.x));
+      }}
+      onPointerUp={(e) => {
+        if (!start.current) return;
+        onResize(start.current.width + (e.clientX - start.current.x));
+        start.current = null;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        const width = widthOfHeader(e.currentTarget);
+        onResize(width + (e.key === "ArrowRight" ? RESIZE_STEP : -RESIZE_STEP));
+      }}
+    />
   );
 }

@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { DataTable } from "./data-table";
 import { describeFilter } from "./filter-chips";
 import { compress, presetRange } from "./filters/date-filter";
+import { SAVE_DEBOUNCE_MS, TablePreferencesProvider } from "./preferences";
 import type { DataTableColumn } from "./types";
 import type { ListQueryState } from "./use-list-query";
 
@@ -147,6 +148,95 @@ describe("DataTable", () => {
     expect(state.calls.setPage).toEqual([3]);
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(state.calls.setPage).toEqual([1]);
+  });
+});
+
+describe("DataTable layout — hidden, order, widths per user (ui-conventions v2)", () => {
+  const headerKeys = () =>
+    Array.from(document.querySelectorAll("thead th[data-column]")).map((th) =>
+      th.getAttribute("data-column"),
+    );
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("starts from the server's layout: order and hidden columns apply before any click", () => {
+    render(
+      <TablePreferencesProvider
+        initial={{ t: { hidden: ["currency"], order: ["created", "name"], widths: { name: 200 } } }}
+        save={async () => undefined}
+      >
+        <DataTable tableKey="t" columns={columns} result={{ rows, total: 2 }} state={makeState()} />
+      </TablePreferencesProvider>,
+    );
+    expect(headerKeys()).toEqual(["created", "name", "amount"]);
+    const name = document.querySelector("thead th[data-column=name]") as HTMLElement;
+    expect(name.style.width).toBe("200px");
+  });
+
+  it("the Columns menu moves a column with the arrows and the change is saved, debounced", async () => {
+    vi.useFakeTimers();
+    const save = vi.fn(async () => undefined);
+    render(
+      <TablePreferencesProvider initial={{}} save={save}>
+        <DataTable tableKey="t" columns={columns} result={{ rows, total: 2 }} state={makeState()} />
+      </TablePreferencesProvider>,
+    );
+    expect(headerKeys()).toEqual(["name", "currency", "amount", "created"]);
+    fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move Amount up" }));
+    expect(headerKeys()).toEqual(["name", "amount", "currency", "created"]);
+    fireEvent.click(screen.getByRole("button", { name: "Move Amount up" }));
+    expect(headerKeys()).toEqual(["amount", "name", "currency", "created"]);
+    expect(save).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS + 10);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith({
+      tableKey: "t",
+      preferences: { hidden: [], order: ["amount", "name", "currency", "created"], widths: {} },
+    });
+    // the browser keeps a copy too
+    expect(JSON.parse(localStorage.getItem("af.table.t.layout") ?? "{}").order).toEqual([
+      "amount",
+      "name",
+      "currency",
+      "created",
+    ]);
+    vi.useRealTimers();
+  });
+
+  it("drag a header onto another to reorder; the resize handle's arrow keys set a width; Reset clears", () => {
+    render(
+      <DataTable tableKey="t" columns={columns} result={{ rows, total: 2 }} state={makeState()} />,
+    );
+    const th = (key: string) =>
+      document.querySelector(`thead th[data-column=${key}]`) as HTMLElement;
+    const transfer = { effectAllowed: "", setData: vi.fn(), getData: () => "created" };
+    fireEvent.dragStart(th("created"), { dataTransfer: transfer });
+    fireEvent.dragOver(th("name"), { dataTransfer: transfer });
+    fireEvent.drop(th("name"), { dataTransfer: transfer });
+    expect(headerKeys()).toEqual(["created", "name", "currency", "amount"]);
+
+    const handle = screen.getByRole("separator", { name: "Resize Name" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    // jsdom has no layout: the header measures 0, so the width lands on the minimum
+    expect(th("name").style.width).toBe("48px");
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    expect(th("name").style.width).toBe("48px");
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
+    fireEvent.click(screen.getByTestId("columns-reset"));
+    expect(headerKeys()).toEqual(["name", "currency", "amount", "created"]);
+    expect(th("name").style.width).toBe("");
+  });
+
+  it("without a provider the browser's copy is read back, including the visibility-only format", () => {
+    localStorage.setItem("af.table.t.hidden", JSON.stringify(["amount"]));
+    render(
+      <DataTable tableKey="t" columns={columns} result={{ rows, total: 2 }} state={makeState()} />,
+    );
+    expect(headerKeys()).toEqual(["name", "currency", "created"]);
   });
 });
 

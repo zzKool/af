@@ -1,81 +1,96 @@
 import Link from "next/link";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireCaller } from "@/kernel/auth/caller";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
-import { can } from "@/kernel/auth/can";
 import { PageHeader } from "@/kernel/ui/shell/page";
 
-type TabConfig = {
-  value: string;
+type Section = {
   label: string;
+  description: string;
   href: string;
   roles: CallerIdentity["role"][];
-  separator?: boolean;
+  /** the user-scoped sections, after a separator — everything above is the company's */
+  personal?: boolean;
 };
 
-const SETTINGS_TABS: TabConfig[] = [
-  { value: "company", label: "Company", href: "/settings/company", roles: ["owner"] },
+// The settings hub: plain links to the sections (they are pages, not tabs — a Tabs widget here hydrated with
+// different ids on server and client). Tenant sections for the owner, the personal ones for everyone.
+const SECTIONS: Section[] = [
   {
-    value: "bas-categories",
+    label: "Company",
+    description: "Name, organisation number, address, contact, base currency.",
+    href: "/settings/company",
+    roles: ["owner"],
+  },
+  {
     label: "BAS Categories",
+    description: "The categories the journal and the expenses use, with their aliases.",
     href: "/settings/bas-categories",
     roles: ["owner"],
   },
   {
-    value: "vat-registrations",
     label: "VAT Registrations",
+    description: "Swedish and Swiss registrations, rates and declaration periods.",
     href: "/settings/vat-registrations",
     roles: ["owner"],
   },
   {
-    value: "bank-accounts",
     label: "Bank Accounts",
+    description: "The Nordea accounts and their CSV formats.",
     href: "/settings/bank-accounts",
     roles: ["owner"],
   },
   {
-    value: "traktamente",
     label: "Traktamente",
+    description: "Skatteverket's normalbelopp per country and year.",
     href: "/settings/traktamente",
     roles: ["owner"],
   },
   {
-    value: "rates",
     label: "Exchange rates",
+    description: "ECB reference rates — coverage, and a fetch on demand.",
     href: "/settings/rates",
     roles: ["owner", "accountant"],
   },
-  // Visual separator — "My Preferences" is user-scoped, tabs above are tenant-scoped
   {
-    value: "my-preferences",
     label: "My Preferences",
+    description: "The language of the interface.",
     href: "/settings/my-preferences",
     roles: ["owner", "accountant"],
-    separator: true,
+    personal: true,
   },
 ];
 
 export default async function SettingsPage() {
   const caller = await requireCaller();
-  const role = caller.role;
+  const visible = SECTIONS.filter((s) => s.roles.includes(caller.role));
+  const company = visible.filter((s) => !s.personal);
+  const personal = visible.filter((s) => s.personal);
 
-  const visibleTabs = SETTINGS_TABS.filter((tab) => tab.roles.includes(role));
-  const defaultTab = can(caller, "manage", "tenant_settings") ? "company" : "my-preferences";
+  const list = (sections: Section[], label: string) =>
+    sections.length === 0 ? null : (
+      <section aria-label={label} className="flex flex-col gap-2">
+        <h2 className="text-xs font-medium text-muted-foreground">{label}</h2>
+        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {sections.map((s) => (
+            <li key={s.href}>
+              <Link
+                href={s.href}
+                className="block rounded-md border p-3 hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <span className="block text-sm font-medium">{s.label}</span>
+                <span className="block text-xs text-muted-foreground">{s.description}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
 
   return (
-    <div className="p-4 md:p-6">
-      <PageHeader title="Settings" className="mb-4" />
-      <Tabs defaultValue={defaultTab}>
-        <TabsList>
-          {visibleTabs.map((tab) => (
-            <span key={tab.value} className={tab.separator ? "ml-2 border-l pl-2" : undefined}>
-              <TabsTrigger value={tab.value} nativeButton={false} render={<Link href={tab.href} />}>
-                {tab.label}
-              </TabsTrigger>
-            </span>
-          ))}
-        </TabsList>
-      </Tabs>
+    <div className="flex flex-col gap-6 p-4 md:p-6">
+      <PageHeader title="Settings" />
+      {list(company, "Company")}
+      {list(personal, "Personal")}
     </div>
   );
 }
