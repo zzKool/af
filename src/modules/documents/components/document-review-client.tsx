@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { extractError } from "@/kernel/errors/extract-error";
+import { useT } from "@/kernel/i18n/use-t";
 import { DocumentReviewFooter } from "@/modules/documents/components/document-review-footer";
 import { DocumentReviewForm } from "@/modules/documents/components/document-review-form";
 import { DocumentReviewHeader } from "@/modules/documents/components/document-review-header";
@@ -39,6 +40,7 @@ const DocumentPreview = dynamic(() => import("@/modules/documents/components/doc
 });
 
 export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
+  const t = useT();
   const [prefixType, setPrefixType] = useState(data.prefixType);
   const corrections = useDocumentReviewStore((s) => s.corrections);
   const saveStatus = useDocumentReviewStore((s) => s.saveStatus);
@@ -61,13 +63,13 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
       const error = await saveWithRetry(data.id, { [field]: value });
       if (error) {
         setSaveStatus(field, "error");
-        toast.error(`Failed to save ${field}: ${error}`);
+        toast.error(t("documents.review.fieldSaveFailed", { field, error }));
         return;
       }
 
       setSaveStatus(field, "saved");
     },
-    [data.id, setCorrection, setSaveStatus],
+    [data.id, setCorrection, setSaveStatus, t],
   );
 
   // Line items save handler (full array replacement) with retry
@@ -79,13 +81,13 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
       const error = await saveWithRetry(data.id, { items });
       if (error) {
         setSaveStatus("items", "error");
-        toast.error(`Failed to save line items: ${error}`);
+        toast.error(t("documents.review.lineItemsSaveFailed", { error }));
         return;
       }
 
       setSaveStatus("items", "saved");
     },
-    [data.id, setCorrections, setSaveStatus],
+    [data.id, setCorrections, setSaveStatus, t],
   );
 
   // Classification change handler

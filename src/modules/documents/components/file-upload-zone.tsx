@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AppError } from "@/kernel/errors/app-error";
+import { useT } from "@/kernel/i18n/use-t";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
 import { cn } from "@/lib/utils";
 import { uploadDocumentAction } from "@/modules/documents/documents.actions";
@@ -24,6 +25,7 @@ type FileUploadZoneProps = {
 type UploadState = "idle" | "dragover" | "uploading" | "complete" | "error";
 
 export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: FileUploadZoneProps) {
+  const t = useT();
   const [state, setState] = useState<UploadState>("idle");
   const [selectedPrefix, setSelectedPrefix] = useState(prefixOptions[0]?.documentType ?? "");
   const [uploadedDoc, setUploadedDoc] = useState<{
@@ -56,7 +58,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
       const validExts = ["pdf", "jpg", "jpeg", "png", "tiff", "tif"];
       if (!validExts.includes(ext)) {
-        setErrorMessage("Unsupported file type. Accepted: PDF, JPEG, PNG, TIFF");
+        setErrorMessage(t("documents.upload.unsupported"));
         setState("error");
         return;
       }
@@ -78,7 +80,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
 
       if (result?.serverError) {
         const err = result.serverError as AppError;
-        setErrorMessage(err.message ?? "Upload failed");
+        setErrorMessage(err.message ?? t("documents.upload.failed"));
         setState("error");
         onError?.(err);
         return;
@@ -98,7 +100,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         onUploadComplete?.(doc);
       }
     },
-    [executeAsync, selectedPrefix, onUploadComplete, onError],
+    [executeAsync, selectedPrefix, onUploadComplete, onError, t],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -120,13 +122,13 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
 
       const files = e.dataTransfer.files;
       if (files.length > 1) {
-        toast.info("One file at a time");
+        toast.info(t("documents.upload.oneFile"));
       }
       if (files.length > 0) {
         handleUpload(files[0]);
       }
     },
-    [handleUpload],
+    [handleUpload, t],
   );
 
   const handleFileSelect = useCallback(
@@ -176,7 +178,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
       {/* Prefix type selector */}
       <div className="flex items-center gap-2">
         <label htmlFor="prefix-type" className="text-sm font-medium text-muted-foreground">
-          Document type
+          {t("documents.upload.type")}
         </label>
         <select
           id="prefix-type"
@@ -198,7 +200,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
       <div
         role="button"
         tabIndex={0}
-        aria-label="Upload document"
+        aria-label={t("documents.upload.zone")}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -217,10 +219,10 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           <>
             <Upload className="mb-2 size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {isTouchDevice ? "Tap to upload" : "Drop file here or click to browse"}
+              {isTouchDevice ? t("documents.upload.tap") : t("documents.upload.drop")}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              PDF, JPEG, PNG, TIFF — max {MAX_FILE_SIZE_MB} MB
+              {t("documents.upload.hint", { max: MAX_FILE_SIZE_MB })}
             </p>
           </>
         )}
@@ -228,7 +230,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         {state === "dragover" && (
           <>
             <Upload className="mb-2 size-8 text-primary" />
-            <p className="text-sm font-medium text-primary">Release to upload</p>
+            <p className="text-sm font-medium text-primary">{t("documents.upload.release")}</p>
           </>
         )}
 
@@ -236,7 +238,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           <>
             <Loader2 className="mb-2 size-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {showSlow ? "Still uploading..." : "Uploading..."}
+              {showSlow ? t("documents.upload.stillUploading") : t("documents.upload.uploading")}
             </p>
           </>
         )}
@@ -255,7 +257,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
                 handleReset();
               }}
             >
-              Upload another
+              {t("documents.upload.another")}
             </Button>
           </>
         )}
@@ -273,7 +275,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
                 handleRetry();
               }}
             >
-              Try again
+              {t("documents.upload.retry")}
             </Button>
           </>
         )}

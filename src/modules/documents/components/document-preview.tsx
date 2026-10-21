@@ -5,6 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/kernel/i18n/use-t";
 import { SIGNED_URL_REFRESH_MS } from "@/kernel/nav/constants";
 import { refreshSignedUrlAction } from "@/modules/documents/documents.actions";
 
@@ -33,6 +34,7 @@ type DocumentPreviewProps = {
 };
 
 export default function DocumentPreview({ signedUrl, mimeType, documentId }: DocumentPreviewProps) {
+  const t = useT();
   const [previewUrl, setPreviewUrl] = useState(proxyIfLocal(signedUrl));
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -117,9 +119,9 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 rounded-lg border bg-muted/50 p-8">
-        <p className="text-muted-foreground">Unable to load preview</p>
+        <p className="text-muted-foreground">{t("documents.preview.failed")}</p>
         <Button variant="outline" size="sm" onClick={handleRetry}>
-          Retry
+          {t("documents.preview.retry")}
         </Button>
       </div>
     );
@@ -132,22 +134,42 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
       // biome-ignore lint/a11y/noNoninteractiveTabindex: document viewer needs focus for keyboard page navigation
       tabIndex={0}
       role="document"
-      aria-label="Document preview"
+      aria-label={t("documents.preview.label")}
       onKeyDown={handleKeyDown}
     >
       {/* Controls */}
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
-        <Button variant="outline" size="sm" onClick={handleRotate} title="Rotate">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRotate}
+          title={t("documents.preview.rotate")}
+        >
           &#x21bb; Rotate
         </Button>
-        <Button variant="outline" size="sm" onClick={handleZoomOut} title="Zoom out">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleZoomOut}
+          title={t("documents.preview.zoomOut")}
+        >
           &minus;
         </Button>
-        <Button variant="outline" size="sm" onClick={handleZoomIn} title="Zoom in">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleZoomIn}
+          title={t("documents.preview.zoomIn")}
+        >
           +
         </Button>
-        <Button variant="outline" size="sm" onClick={handleFitWidth} title="Fit width">
-          Fit
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleFitWidth}
+          title={t("documents.preview.fitWidth")}
+        >
+          {t("documents.preview.fit")}
         </Button>
         {isPdf && numPages > 0 && (
           <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
@@ -159,9 +181,7 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
             >
               &lt;
             </Button>
-            <span>
-              Page {currentPage}/{numPages}
-            </span>
+            <span>{t("documents.preview.page", { page: currentPage, pages: numPages })}</span>
             <Button
               variant="outline"
               size="sm"
@@ -196,7 +216,7 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
           // biome-ignore lint/performance/noImgElement: signed Azure blob URLs with rotation/zoom — next/image not compatible
           <img
             src={previewUrl}
-            alt="Document preview"
+            alt={t("documents.preview.label")}
             onLoad={() => setLoading(false)}
             onError={() => setError(true)}
             className="mx-auto max-w-full transition-transform"

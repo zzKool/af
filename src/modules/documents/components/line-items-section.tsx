@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/kernel/i18n/use-t";
 import type { OcrLineItem } from "@/modules/documents/documents.actions";
 
 type LineItemsSectionProps = {
@@ -19,6 +20,7 @@ export function LineItemsSection({
   readOnly,
   onItemsChange,
 }: LineItemsSectionProps) {
+  const t = useT();
   const [items, setItems] = useState<OcrLineItem[]>(initialItems);
   const [, setDeletedItem] = useState<{ item: OcrLineItem; index: number } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -69,9 +71,9 @@ export function LineItemsSection({
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       undoTimerRef.current = setTimeout(() => setDeletedItem(null), 3000);
 
-      toast("Line item deleted", {
+      toast(t("documents.lines.deleted"), {
         action: {
-          label: "Undo",
+          label: t("documents.lines.undo"),
           onClick: () => {
             setItems((prev) => {
               const restored = [...prev];
@@ -84,7 +86,7 @@ export function LineItemsSection({
         duration: 3000,
       });
     },
-    [items],
+    [items, t],
   );
 
   // Save full array when user leaves the section
@@ -102,16 +104,18 @@ export function LineItemsSection({
 
   return (
     <fieldset ref={sectionRef} className="space-y-3 border-0 p-0 m-0" onBlur={handleSectionBlur}>
-      <legend className="sr-only">Line items</legend>
-      <h2 className="text-sm font-medium">Line Items</h2>
+      <legend className="sr-only">{t("documents.lines.legend")}</legend>
+      <h2 className="text-sm font-medium">{t("documents.lines.title")}</h2>
 
       {mismatch && (
         <div
           className="rounded border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
           role="alert"
         >
-          Total mismatch: header shows {headerTotal.toFixed(2)} but line items sum to{" "}
-          {lineItemsTotal.toFixed(2)}
+          {t("documents.lines.mismatch", {
+            header: headerTotal.toFixed(2),
+            lines: lineItemsTotal.toFixed(2),
+          })}
         </div>
       )}
 
@@ -120,14 +124,24 @@ export function LineItemsSection({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
-                <th className="px-2 py-1 text-left font-medium">Description</th>
-                <th className="px-2 py-1 text-right font-medium w-20">Qty</th>
-                <th className="px-2 py-1 text-right font-medium w-24">Unit Price</th>
-                <th className="px-2 py-1 text-right font-medium w-24">Amount</th>
-                <th className="px-2 py-1 text-right font-medium w-20">Tax</th>
+                <th className="px-2 py-1 text-left font-medium">
+                  {t("documents.lines.description")}
+                </th>
+                <th className="px-2 py-1 text-right font-medium w-20">
+                  {t("documents.lines.qty")}
+                </th>
+                <th className="px-2 py-1 text-right font-medium w-24">
+                  {t("documents.lines.unitPrice")}
+                </th>
+                <th className="px-2 py-1 text-right font-medium w-24">
+                  {t("documents.lines.amount")}
+                </th>
+                <th className="px-2 py-1 text-right font-medium w-20">
+                  {t("documents.lines.tax")}
+                </th>
                 {!readOnly && (
                   <th className="w-10">
-                    <span className="sr-only">Remove</span>
+                    <span className="sr-only">{t("documents.lines.remove")}</span>
                   </th>
                 )}
               </tr>
@@ -142,7 +156,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-description`}
-                      aria-label={`Line ${index + 1} description`}
+                      aria-label={t("documents.lines.aria.description", { n: index + 1 })}
                       className="h-8 text-sm"
                       defaultValue={item.description ?? ""}
                       disabled={readOnly}
@@ -152,7 +166,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-quantity`}
-                      aria-label={`Line ${index + 1} quantity`}
+                      aria-label={t("documents.lines.aria.quantity", { n: index + 1 })}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="1"
@@ -164,7 +178,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-unitPrice`}
-                      aria-label={`Line ${index + 1} unit price`}
+                      aria-label={t("documents.lines.aria.unitPrice", { n: index + 1 })}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -176,7 +190,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-amount`}
-                      aria-label={`Line ${index + 1} amount`}
+                      aria-label={t("documents.lines.aria.amount", { n: index + 1 })}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -188,7 +202,7 @@ export function LineItemsSection({
                   <td className="px-2 py-1">
                     <Input
                       id={`line-item-${index}-tax`}
-                      aria-label={`Line ${index + 1} tax`}
+                      aria-label={t("documents.lines.aria.tax", { n: index + 1 })}
                       className="h-8 text-sm text-right"
                       type="number"
                       step="0.01"
@@ -204,6 +218,7 @@ export function LineItemsSection({
                         size="sm"
                         className="h-8 w-8 p-0 text-destructive"
                         onClick={() => deleteItem(index)}
+                        aria-label={t("documents.lines.aria.remove", { n: index + 1 })}
                       >
                         &times;
                       </Button>
@@ -218,7 +233,7 @@ export function LineItemsSection({
 
       {!readOnly && (
         <Button variant="outline" size="sm" onClick={addItem}>
-          + Add Line Item
+          {t("documents.lines.add")}
         </Button>
       )}
     </fieldset>

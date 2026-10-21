@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import type { OcrExtractedData } from "@/modules/documents/documents.actions";
 
@@ -45,6 +46,7 @@ export function FinancialFieldsSection({
   onFieldChange,
   saveStatus,
 }: FinancialFieldsSectionProps) {
+  const t = useT();
   const isInvoice = prefixType === "invoice";
 
   const handleBlur = useCallback(
@@ -57,18 +59,21 @@ export function FinancialFieldsSection({
 
   const statusIndicator = (field: string) => {
     const s = saveStatus[field];
-    if (s === "saving") return " (saving...)";
-    if (s === "error") return " (save failed)";
+    if (s === "saving") return ` (${t("documents.review.fieldSaving")})`;
+    if (s === "error") return ` (${t("documents.review.fieldSaveError")})`;
     return "";
   };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium">Financial Details</h2>
+      <h2 className="text-sm font-medium">{t("documents.review.financial")}</h2>
 
       {/* Vendor/Merchant */}
       <div className="space-y-1">
-        <Label htmlFor="vendorName">Vendor / Merchant{statusIndicator("vendorName")}</Label>
+        <Label htmlFor="vendorName">
+          {t("documents.review.vendor")}
+          {statusIndicator("vendorName")}
+        </Label>
         <Input
           id="vendorName"
           defaultValue={String(resolvedData.vendorName ?? resolvedData.merchantName ?? "")}
@@ -81,7 +86,7 @@ export function FinancialFieldsSection({
       {/* Date */}
       <div className="space-y-1">
         <Label htmlFor="invoiceDate">
-          {isInvoice ? "Invoice Date" : "Transaction Date"}
+          {isInvoice ? t("documents.review.invoiceDate") : t("documents.review.transactionDate")}
           {statusIndicator("invoiceDate")}
         </Label>
         <Input
@@ -98,7 +103,10 @@ export function FinancialFieldsSection({
       {/* Due date (invoice only) */}
       {isInvoice && (
         <div className="space-y-1">
-          <Label htmlFor="dueDate">Due Date{statusIndicator("dueDate")}</Label>
+          <Label htmlFor="dueDate">
+            {t("documents.review.dueDate")}
+            {statusIndicator("dueDate")}
+          </Label>
           <Input
             id="dueDate"
             type="date"
@@ -112,7 +120,10 @@ export function FinancialFieldsSection({
       {/* Invoice number */}
       {isInvoice && (
         <div className="space-y-1">
-          <Label htmlFor="invoiceNumber">Invoice #{statusIndicator("invoiceNumber")}</Label>
+          <Label htmlFor="invoiceNumber">
+            {t("documents.review.invoiceNumber")}
+            {statusIndicator("invoiceNumber")}
+          </Label>
           <Input
             id="invoiceNumber"
             defaultValue={String(resolvedData.invoiceNumber ?? "")}
@@ -130,7 +141,7 @@ export function FinancialFieldsSection({
       {/* Amount */}
       <div className="space-y-1">
         <Label htmlFor="invoiceTotal">
-          {isInvoice ? "Invoice Total" : "Amount"}
+          {isInvoice ? t("documents.review.invoiceTotal") : t("documents.review.amount")}
           {statusIndicator("invoiceTotal")}
         </Label>
         <Input
@@ -146,7 +157,10 @@ export function FinancialFieldsSection({
 
       {/* Subtotal */}
       <div className="space-y-1">
-        <Label htmlFor="subtotal">Subtotal{statusIndicator("subtotal")}</Label>
+        <Label htmlFor="subtotal">
+          {t("documents.review.subtotal")}
+          {statusIndicator("subtotal")}
+        </Label>
         <Input
           id="subtotal"
           type="number"
@@ -159,7 +173,10 @@ export function FinancialFieldsSection({
 
       {/* VAT */}
       <div className="space-y-1">
-        <Label htmlFor="totalTax">VAT / Tax{statusIndicator("totalTax")}</Label>
+        <Label htmlFor="totalTax">
+          {t("documents.review.vat")}
+          {statusIndicator("totalTax")}
+        </Label>
         <Input
           id="totalTax"
           type="number"
@@ -173,14 +190,17 @@ export function FinancialFieldsSection({
 
       {/* Currency */}
       <div className="space-y-1">
-        <Label htmlFor="currency">Currency{statusIndicator("currency")}</Label>
+        <Label htmlFor="currency">
+          {t("documents.review.currency")}
+          {statusIndicator("currency")}
+        </Label>
         <Select
           defaultValue={resolvedData.currency ?? ""}
           disabled={readOnly}
           onValueChange={(value) => onFieldChange("currency", value)}
         >
           <SelectTrigger id="currency">
-            <SelectValue placeholder="Select currency" />
+            <SelectValue placeholder={t("documents.review.selectCurrency")} />
           </SelectTrigger>
           <SelectContent>
             {CURRENCIES.map((c) => (

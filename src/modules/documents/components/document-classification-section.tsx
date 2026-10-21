@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
+import { useT } from "@/kernel/i18n/use-t";
 import { classifyDocumentAction } from "@/modules/documents/documents.actions";
 
 const CATEGORIES = {
@@ -31,6 +32,7 @@ export function DocumentClassificationSection({
   readOnly,
   onClassificationChange,
 }: DocumentClassificationSectionProps) {
+  const t = useT();
   const isFinancial = prefixType === "expense" || prefixType === "invoice";
   const category = isFinancial ? "financial" : "relationship";
 
@@ -64,31 +66,31 @@ export function DocumentClassificationSection({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-medium">Classification</h2>
+      <h2 className="text-sm font-medium">{t("documents.review.classification")}</h2>
 
       <div className="space-y-1">
-        <Label htmlFor="category">Category</Label>
+        <Label htmlFor="category">{t("documents.review.category")}</Label>
         <Select value={category} onValueChange={handleCategoryChange}>
           <SelectTrigger id="category">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="financial">Financial</SelectItem>
-            <SelectItem value="relationship">Relationship</SelectItem>
+            <SelectItem value="financial">{t("documents.category.financial")}</SelectItem>
+            <SelectItem value="relationship">{t("documents.category.relationship")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="prefixType">Type</Label>
+        <Label htmlFor="prefixType">{t("documents.review.type")}</Label>
         <Select value={prefixType} onValueChange={handlePrefixChange}>
           <SelectTrigger id="prefixType">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {CATEGORIES[category].map((t) => (
-              <SelectItem key={t} value={t}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+            {CATEGORIES[category].map((type) => (
+              <SelectItem key={type} value={type}>
+                {t(`documents.prefix.${type}`)}
               </SelectItem>
             ))}
           </SelectContent>

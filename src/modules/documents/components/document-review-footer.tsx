@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { extractError } from "@/kernel/errors/extract-error";
 import { FormattedDate } from "@/kernel/i18n/formatted-date";
+import { useT } from "@/kernel/i18n/use-t";
 import { markDocumentReviewedAction } from "@/modules/documents/documents.actions";
 
 type DocumentReviewFooterProps = {
@@ -25,6 +26,7 @@ export function DocumentReviewFooter({
   saveStatus,
   correctionsCount = 0,
 }: DocumentReviewFooterProps) {
+  const t = useT();
   const [reviewedAt, setReviewedAt] = useState<Date | null>(initialReviewedAt);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,18 +50,22 @@ export function DocumentReviewFooter({
 
     if (result?.data?.data?.reviewedAt) {
       setReviewedAt(new Date(result.data.data.reviewedAt));
-      toast.success("Document marked as reviewed");
+      toast.success(t("documents.review.markedReviewed"));
     }
-  }, [documentId]);
+  }, [documentId, t]);
 
-  const autoSaveLabel = isSaving ? "Saving..." : hasErrors ? "Save failed" : "Auto-saved";
+  const autoSaveLabel = isSaving
+    ? t("documents.review.saving")
+    : hasErrors
+      ? t("documents.review.saveFailed")
+      : t("documents.review.autoSaved");
 
   // Determine button label and style based on 4 states
   const getButtonConfig = () => {
     if (modifiedSinceReview) {
       // State 4: amber — modified since last review
       return {
-        label: "Update Review (modified since last review)",
+        label: t("documents.review.updateReview"),
         className:
           "border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
         variant: "outline" as const,
@@ -68,7 +74,7 @@ export function DocumentReviewFooter({
     if (reviewedAt) {
       // State 3: muted green — already reviewed
       return {
-        label: "Reviewed",
+        label: t("documents.review.reviewed"),
         className: "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300",
         variant: "outline" as const,
       };
@@ -77,8 +83,8 @@ export function DocumentReviewFooter({
     return {
       label:
         correctionsCount > 0
-          ? `Mark as Reviewed (${correctionsCount} corrections made)`
-          : "Mark as Reviewed",
+          ? t("documents.review.markReviewedCorrections", { count: correctionsCount })
+          : t("documents.review.markReviewed"),
       className: "bg-green-600 hover:bg-green-700 text-white",
       variant: "default" as const,
     };
@@ -98,10 +104,10 @@ export function DocumentReviewFooter({
         <div className="text-sm text-muted-foreground">
           {reviewedAt ? (
             <span>
-              Reviewed <FormattedDate date={reviewedAt} />
+              {t("documents.review.reviewed")} <FormattedDate date={reviewedAt} />
             </span>
           ) : (
-            "Awaiting review"
+            t("documents.review.awaiting")
           )}
         </div>
       ) : (
@@ -111,7 +117,7 @@ export function DocumentReviewFooter({
           variant={buttonConfig.variant}
           className={buttonConfig.className}
         >
-          {isSubmitting ? "Marking..." : buttonConfig.label}
+          {isSubmitting ? t("documents.review.marking") : buttonConfig.label}
         </Button>
       )}
     </div>
