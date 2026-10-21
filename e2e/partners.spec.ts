@@ -47,5 +47,14 @@ test.describe("Partners", () => {
     await expect(page).toHaveURL(/\/partners\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Short code" })).toHaveValue(shortCode);
+
+    // the relationships: nothing names or is linked to a brand-new partner; the graph is one click away
+    await page.getByRole("tab", { name: "Transactions (0)" }).click();
+    await expect(page.getByText("No journal entry names this partner yet.")).toBeVisible();
+    await page.getByRole("tab", { name: "Documents (0)" }).click();
+    await expect(page.getByText("No document is linked to this partner yet.")).toBeVisible();
+    await page.getByTestId("graph-link").click();
+    await expect(page).toHaveURL(/\/links\/partner\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(name);
   });
 });

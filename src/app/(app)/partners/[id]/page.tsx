@@ -5,6 +5,9 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { EntityPage } from "@/kernel/ui/shell/page";
 import * as contractService from "@/modules/contracts";
+import { documentsByIds } from "@/modules/documents";
+import { JOURNAL_DEFAULT_SORT, listJournalEntries } from "@/modules/journal";
+import { linksTouching } from "@/modules/linking";
 import * as partnerService from "@/modules/partners";
 import { PartnerDetailTabs } from "@/modules/partners/ui";
 import * as settingsService from "@/modules/settings";
@@ -22,6 +25,8 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     ratesByContract,
     vatResult,
     employeesResult,
+    documents,
+    journal,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const [partner, basPrefs, contracts, vat, employees] = await Promise.all([
       partnerService.getPartner(tx, id),
@@ -36,6 +41,21 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       (contracts.data ?? []).map((c) => c.id),
       today,
     );
+    // the relationships (specs/linking, "relationship navigation"): the documents linked to the partner and
+    // the journal entries that name it — read models of other modules, composed here
+    const links = await linksTouching(tx, "partner", [id]);
+    const documentIds = links.flatMap((l) =>
+      [l.from, l.to].filter((e) => e.type === "document").map((e) => e.id),
+    );
+    const [documents, journal] = await Promise.all([
+      documentsByIds(tx, [...new Set(documentIds)]),
+      listJournalEntries(tx, {
+        page: 1,
+        pageSize: 25,
+        sort: JOURNAL_DEFAULT_SORT,
+        filters: { partnerId: { kind: "in", values: [id] } },
+      }),
+    ]);
     return {
       partnerResult: partner,
       basPrefsResult: basPrefs,
@@ -43,6 +63,8 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       ratesByContract: rates,
       vatResult: vat,
       employeesResult: employees,
+      documents,
+      journal,
     };
   });
 
@@ -105,6 +127,19 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
         employeePartners={employeePartners}
         basOptions={basOptions}
         defaultCurrency={partner.defaultCurrency}
+        documents={documents}
+        journal={{
+          total: journal.total,
+          rows: journal.rows.map((r) => ({
+            id: r.id,
+            entryDate: r.entryDate,
+            description: r.description,
+            amount: r.amount,
+            currency: r.currency,
+            amountBase: r.amountBase,
+            basLabel: r.basLabel,
+          })),
+        }}
       />
     </EntityPage>
   );

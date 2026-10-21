@@ -32,6 +32,10 @@ src/app/(app)/partners/[id]/page.tsx   entity page: <EntityPage> around the tabs
 4. **Columns declare, the kernel renders.** `type` picks the filter UI and alignment; `cell` overrides rendering; `width`, `defaultHidden`, `alwaysVisible`, `truncate` shape the layout. Column visibility is remembered per table key (browser storage for now; per-user table preferences come with the documents migration).
 5. **Mutations** go through the module's actions and `router.refresh()`.
 
+## The entity page's relationships (2026-10-21)
+
+`/partners/[id]` composes three read models of other modules on top of the partner itself — the page does it, never the partners module (cycles): `linking.linksTouching(tx, "partner", [id])` → the documents linked to the partner (`documents.documentsByIds`) for the *Documents* tab; `journal.listJournalEntries` filtered on `partnerId` (newest 25, with the total) for the *Transactions* tab, which links to the journal filtered on the partner; the tab labels and the overview carry the counts. The header's *Graph* button opens `/links/partner/<id>` (the linking graph). The strings are `partners.*` in the dictionary (en / fr / sv) since the same day.
+
 ## Tests that define the slice
 - `queries.test.ts` — the contract: 5 partners + 1 in another tenant; paging/sorting; `in` on an array column and with blanks; text ops; boolean; search; date year/month/range; mapped-column sorting; distinct narrowed by other filters but not by its own; array unnest; boolean counts; date hierarchy.
 - `kernel/list-query/*.pure.test.ts` — codec round trip (fast-check) and every filter → Prisma `where`.
