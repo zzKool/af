@@ -26,13 +26,15 @@ export async function trackToasts(page: Page): Promise<void> {
   });
 }
 
-/** Waits for a toast containing `text`; the failure message lists every toast seen on the page so far. */
-export async function expectToast(page: Page, text: string): Promise<void> {
+/** Waits for a toast containing `text` (or matching it); the failure message lists every toast seen so far. */
+export async function expectToast(page: Page, text: string | RegExp): Promise<void> {
   await expect
     .poll(async () => page.evaluate(() => window.__toasts ?? []), {
       message: `toast "${text}"`,
     })
-    .toContainEqual(expect.stringContaining(text));
+    .toContainEqual(
+      typeof text === "string" ? expect.stringContaining(text) : expect.stringMatching(text),
+    );
 }
 
 /** Runs the steps; a failure's message gains the toasts recorded so far and the page URL — what the app showed. */

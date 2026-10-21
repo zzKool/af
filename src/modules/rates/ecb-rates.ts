@@ -26,6 +26,8 @@ export interface RateLookupResult {
   actualDate: string;
 }
 
+import type { RatePairStatus } from "./types";
+
 export interface DateGap {
   from: string;
   to: string;
@@ -337,4 +339,65 @@ export async function rateToBase(
         : eurFrom.actualDate
       : date,
   };
+}
+
+/** Weekdays between `from` and `to`, both inclusive. */
+function weekdaysInclusive(from: Date, to: Date): number {
+  let count = 0;
+  const current = new Date(from);
+  while (current <= to) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) count += 1;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+/**
+ * Per pair: the newest stored day and the coverage of the last `windowDays` days (ECB weekdays with no stored
+ * rate — the last two weekdays are never counted, the ECB publishes around 16:00 CET and the rate lands later).
+ */
+export async function rateStatus(
+  prisma: { $queryRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown[]> },
+  today: string,
+  options?: { currencyPairs?: string[]; windowDays?: number },
+): Promise<RatePairStatus[]> {
+  const pairs = options?.currencyPairs ?? DEFAULT_CURRENCY_PAIRS;
+  const windowDays = options?.windowDays ?? 30;
+  const to = new Date(today);
+  const from = new Date(to);
+  from.setDate(from.getDate() - windowDays);
+  const settled = new Date(to);
+  settled.setDate(settled.getDate() - 2);
+  const expected = weekdaysInclusive(from, settled);
+
+  const rows = (await prisma.$queryRawUnsafe(
+    `SELECT currency_pair,
+            max(date)::text AS latest_date,
+            (array_agg(rate::text ORDER BY date DESC))[1] AS latest_rate,
+            count(*) FILTER (WHERE date >= $2::date AND date <= $3::date AND extract(isodow FROM date) < 6)::int AS stored_days
+     FROM ecb_rates
+     WHERE currency_pair = ANY($1::text[])
+     GROUP BY currency_pair`,
+    pairs,
+    from.toISOString().slice(0, 10),
+    settled.toISOString().slice(0, 10),
+  )) as Array<{
+    currency_pair: string;
+    latest_date: string | null;
+    latest_rate: string | null;
+    stored_days: number;
+  }>;
+  const byPair = new Map(rows.map((r) => [r.currency_pair, r]));
+  return pairs.map((pair) => {
+    const r = byPair.get(pair);
+    const storedDays = r?.stored_days ?? 0;
+    return {
+      pair,
+      latestDate: r?.latest_date ?? null,
+      latestRate: r?.latest_rate ?? null,
+      storedDays,
+      missingWeekdays: Math.max(0, expected - storedDays),
+    };
+  });
 }

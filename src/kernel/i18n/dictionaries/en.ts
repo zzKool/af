@@ -644,6 +644,23 @@ export const en = {
   "expenses.statement.superseded": "SUPERSEDED — this settlement was cancelled",
   "expenses.statement.generated": "Generated {date}",
   // --- traktamente ---
+  "rates.title": "Exchange rates",
+  "rates.meta":
+    "ECB reference rates against the euro — every amount's SEK base and the Swiss VAT return convert through them.",
+  "rates.schedule":
+    "Fetched by itself every weekday at 16:30 (Stockholm) while the app is running; missed days catch up on the next start.",
+  "rates.fetchNow": "Fetch now",
+  "rates.fetching": "Fetching…",
+  "rates.queued": "Fetching the last {count} ECB days…",
+  "rates.alreadyRunning": "A fetch is already running",
+  "rates.fetched": "Rates updated",
+  "rates.never": "never",
+  "rates.complete": "complete",
+  "rates.missing": "{count} day(s) missing",
+  "rates.col.pair": "Pair",
+  "rates.col.latest": "Newest day",
+  "rates.col.rate": "Rate",
+  "rates.col.coverage": "Last 30 days",
   "traktamente.title": "Traktamente rates",
   "traktamente.tab": "Traktamente",
   "traktamente.meta": "{count} countries in {year}",

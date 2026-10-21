@@ -206,7 +206,7 @@ describe("the owner's dashboard", () => {
       amount: { value: "1290.00", currency: "SEK" },
     });
     expect(byKind.receipts_missing).toMatchObject({ count: 1, priority: "low" });
-    expect(byKind.rate_gaps).toMatchObject({ count: 1, href: "/settings" });
+    expect(byKind.rate_gaps).toMatchObject({ count: 1, href: "/settings/rates" });
     expect(byKind.package_not_built).toMatchObject({
       period: "2026-06",
       priority: "medium",

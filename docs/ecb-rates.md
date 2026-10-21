@@ -32,6 +32,7 @@ message:GenericData → message:DataSet → generic:Series[]
 ## Loading rates
 
 - **By schedule** — `rates.ecb-sync` (pg-boss, `modules/rates/jobs/ecb-sync.ts`) runs weekdays at 16:30 Stockholm time while the app is up; the first run takes the last 30 observations, later runs size the window from the gap since the last stored date, missed days catch up once on the next start.
+- **From Settings → Exchange rates** (`/settings/rates`, owner and accountant): per pair the newest stored day, its rate and the coverage of the last 30 ECB weekdays (`rateStatus`; the last two weekdays are not counted — the ECB publishes around 16:00 CET and the rate lands later). *Fetch now* (owner) queues the same sync job with the catch-up window (`fetchRatesNowAction`, one manual fetch in flight at a time) and the table refreshes itself until the new day shows. The dashboard's *rate gap* item links here.
 - **By hand** — `DATABASE_URL=… npx tsx scripts/fetch-rates.ts [lastN]` (default 400 ≈ 18 months of weekdays): the same fetch, outside the queue; duplicates are skipped, so it is safe to repeat. Useful on a fresh database before the first scheduled run.
 
 ## Rate Storage
