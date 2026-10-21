@@ -54,7 +54,7 @@ Dispatch rule: pick a row with status planned, give the builder its ID, the modu
 | F46 | Rename pass `defterfab_*` → `af_*` (compose, env example, CI, seed tenant) | repo-wide | planned | optional, before a quiet moment | roadmap C3 | — | S |
 | F47 | Branch protection on `main` | GitHub settings | owner | needs GitHub Pro | [[phase-0]] | — | — |
 | F48 | Deferred mechanics: `.toNumber()` lint rule, Sentry request context, the two quarantined e2e | `kernel` | planned | | roadmap C4 | — | S |
-| F49 | Cloud-session dev environment script / doc (Postgres, Azurite, env, font stub, prod build) | `scripts/` | planned | from [[lessons]] | [[lessons]] | — | S |
+| F49 | Cloud-session dev environment script / doc (Postgres, Azurite, env, font stub, prod build) | `scripts/` | built | `scripts/dev-env.sh` (one command, idempotent, ≈2 min) + `scripts/dev-env.md`: Postgres :5433 without Docker, psql migrations when the Prisma engine is blocked, seed as the migration role, Azurite from npm, Playwright Chromium from `/opt/pw-browsers`, generated `next/font` mock, `next start` :3000 | `scripts/dev-env.md`, [[local-environment-setup]] | — | S |
 | F50 | Code-hygiene items from the audit pass (split `documents.ts`, `parseOcrPayload`, zod scalars, `GroupPicker`, panel splits, typed JSON columns) | per item's module | planned | each a small PR; take them one module at a time | [[lessons]] | — | S each |
 | F51 | Make it… hidden for relationship documents; dashboard "to review" aligned on the inbox total | `modules/documents`, `modules/dashboard` | planned | from [[lessons]] (product) | [[lessons]] | i18n | S |
 

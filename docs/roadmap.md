@@ -80,7 +80,8 @@ skipped: /speckit-clarify (questions go to the owner in chat → docs/open-quest
 - Every PR: `docs/<module>.md` updated, screenshots of new pages and PDFs under `specs/<module>/screenshots/` linked from the PR body, the definition of done ([[constitution]] §4).
 - PRs that touch `prisma/schema`, the nav constants or the i18n dictionaries are serialised, never parallel. Never force-push; a pushed branch takes `origin/main` by merge.
 - CI runs lint / typecheck / unit / build on PRs and the e2e only on `main` pushes ([[verify-gate]]). After a merge, watch `main`'s `build-and-e2e` and fix it first if it goes red.
-- Local test loop: `docker compose up -d`, `npx prisma migrate deploy` against the test database, `npm run seed`, `npm run test`, then `scripts/reset-e2e-data.sh` + `npm run seed` before `npm run e2e` (a full server-test run empties the seed; the e2e journeys leave data behind that the next run sees as duplicates). The e2e run with `--workers=2` like CI.
+- Local test loop: `docker compose up -d`, `npx prisma migrate deploy` against the test database, `npm run db:seed`, `npm run test`, then `scripts/reset-e2e-data.sh` + `npm run db:seed` before `npm run e2e` (a full server-test run empties the seed; the e2e journeys leave data behind that the next run sees as duplicates). The e2e run with `--workers=2` like CI.
+- In a cloud agent session: `scripts/dev-env.sh` builds all of it from nothing (Postgres, Azurite, `.env.local`, migrations, seed, Chromium, the build, `next start` on :3000) — `scripts/dev-env.md` says why each step and the test loop there.
 - In a cloud agent session the CI logs on GitHub's blob host are not reachable through the proxy: read failures with `gh api repos/zzKool/af/check-runs/<id>/annotations`.
 
 Related: [[feature-inventory]] · [[phase-0]] · [[open-questions]] · [[constitution]] · [[verify-gate]]

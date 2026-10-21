@@ -1,6 +1,6 @@
 # Local Environment Setup
 
-Quick guide to get DefterFab running locally from scratch.
+Quick guide to get DefterFab running locally from scratch, with Docker. In a cloud agent session (no Docker daemon, Prisma engine / Google Fonts / Playwright downloads blocked) run `scripts/dev-env.sh` instead — see `scripts/dev-env.md`.
 
 ## Prerequisites
 
