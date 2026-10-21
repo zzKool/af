@@ -77,8 +77,9 @@ test.describe("Supplier invoices", () => {
       await expect(row).toContainText("Unpaid");
       await expect(row).toContainText(dueDate);
 
-      // the panel: the key, the status, the due date from the terms
-      await row.click();
+      // the panel: the key, the status, the due date from the terms — click the key cell, not the row's
+      // centre (the group link sits there since the columns carry their widths)
+      await row.getByText(/^SI\d+-Acc-\d+$/).click();
       const panel = page.getByTestId("supplier-invoice-panel");
       await expect(panel).toBeVisible();
       await expect(page.getByTestId("panel-key")).toContainText(/SI\d+-Acc-01/);
@@ -110,7 +111,7 @@ test.describe("Supplier invoices", () => {
 
       // 4. link the payment: the row of the invoice currency, the whole open amount → paid
       await page.goto(`/supplier-invoices?q=${encodeURIComponent(key)}`);
-      await page.getByRole("row").filter({ hasText: key }).first().click();
+      await page.getByRole("row").filter({ hasText: key }).first().getByText(key).click();
       await expect(panel).toBeVisible();
       await panel.getByLabel("Pick the bank row that paid this invoice").click();
       await page.getByRole("option", { name: new RegExp(vendor) }).click();
@@ -140,6 +141,7 @@ test.describe("Supplier invoices", () => {
         .getByRole("row")
         .filter({ hasText: `9161-${stamp}` })
         .first()
+        .getByText(/^SI\d+-Acc-\d+$/)
         .click();
       await expect(panel).toBeVisible();
       await page.getByTestId("cancel-reason").fill("Sent twice");
