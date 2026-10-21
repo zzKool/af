@@ -428,7 +428,7 @@ function FlagList({ flags }: { flags: PackageFlag[] }) {
                 {flags
                   .filter((f) => f.kind === kind)
                   .map((f) => (
-                    <li key={`${f.entity}:${f.key}`} className="truncate" title={f.detail}>
+                    <li key={`${f.entity}:${f.id}:${f.kind}`} className="truncate" title={f.detail}>
                       <span className="font-mono text-xs">{f.key}</span>
                       <span className="text-muted-foreground"> — {f.detail}</span>
                     </li>

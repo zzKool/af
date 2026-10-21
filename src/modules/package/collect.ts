@@ -265,6 +265,7 @@ export async function collectPeriod(
       flags.push({
         kind: "unlinked_row",
         entity: "bank_transaction",
+        id: r.id,
         key: rowLabel(r),
         detail: r.description,
       });
@@ -275,6 +276,7 @@ export async function collectPeriod(
         flags.push({
           kind: "delta",
           entity: "bank_transaction",
+          id: r.id,
           key: rowLabel(r),
           detail: `allocated ${money(allocated.toFixed(2), r.currency)}, ${money(delta.toFixed(2), r.currency)} open`,
         });
@@ -328,6 +330,7 @@ export async function collectPeriod(
       flags.push({
         kind: "document_not_ready",
         entity: "invoice",
+        id: inv.id,
         key: inv.number,
         detail: "the PDF has not been rendered yet",
       });
@@ -338,6 +341,7 @@ export async function collectPeriod(
       flags.push({
         kind: "unpaid_invoice",
         entity: "invoice",
+        id: inv.id,
         key: inv.number,
         detail: `${inv.state.replace("_", " ")}, ${money(inv.remaining, inv.currency)} open`,
       });
@@ -386,6 +390,7 @@ export async function collectPeriod(
       flags.push({
         kind: "missing_document",
         entity: "supplier_invoice",
+        id: s.id,
         key: s.key,
         detail: `${s.partnerName} ${s.invoiceNumber}`,
       });
@@ -434,6 +439,7 @@ export async function collectPeriod(
       flags.push({
         kind: "missing_document",
         entity: "expense",
+        id: e.id,
         key: e.key,
         detail: e.description,
       });
@@ -473,6 +479,7 @@ export async function collectPeriod(
       flags.push({
         kind: "document_not_ready",
         entity: "settlement",
+        id: s.id,
         key: s.number,
         detail: "the reimbursement statement has not been rendered yet",
       });
