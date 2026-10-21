@@ -15,7 +15,7 @@ DB (DECIMAL 15,2) → Prisma.Decimal → Service layer → Server Action → JSO
 - **Components** receive strings and call `formatCurrency(amount, currency)` for display.
 - Conversion to JavaScript `number` only happens implicitly inside `formatCurrency()` — nowhere else.
 
-> **Known gap:** This rule is enforced by convention and code review, not by tooling. A custom lint rule flagging `.toNumber()` on Decimal instances would be a future improvement.
+> **Enforced:** a Biome plugin (`biome-plugins/decimal-to-number.grit`) fails the lint on any `.toNumber()` outside a `components/` folder. In a service, compare Decimals with `.eq()` / `.gt()` / `.isZero()`.
 
 ## Decimal Type
 

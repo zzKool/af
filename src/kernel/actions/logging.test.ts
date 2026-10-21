@@ -12,10 +12,6 @@ const { mockChild } = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("@sentry/nextjs", () => ({
-  setTag: vi.fn(),
-}));
-
 vi.mock("@/kernel/logging/logger", () => ({
   logger: {
     child: mockChild,

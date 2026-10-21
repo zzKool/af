@@ -7,6 +7,7 @@ import {
   countWeekdaysBetween,
   detectGaps,
   fetchDailyRates,
+  fetchRatesArgToOptions,
   getRate,
   parseEcbXml,
   rateStatus,
@@ -173,6 +174,29 @@ describe("buildEcbUrl", () => {
   it("includes lastNObservations parameter", () => {
     const url = buildEcbUrl(["EUR/SEK"], { lastN: 5 });
     expect(url).toContain("lastNObservations=5");
+  });
+});
+
+describe("fetchRatesArgToOptions — the script argument", () => {
+  const today = "2026-10-22";
+
+  it("a past day backfills from it", () => {
+    expect(fetchRatesArgToOptions("2023-04-01", today)).toEqual({ startDate: "2023-04-01" });
+    expect(fetchRatesArgToOptions(today, today)).toEqual({ startDate: today });
+  });
+
+  it("a number keeps the last N, clamped to 1..2000; nothing means 400", () => {
+    expect(fetchRatesArgToOptions("30", today)).toEqual({ lastN: 30 });
+    expect(fetchRatesArgToOptions("0", today)).toEqual({ lastN: 1 });
+    expect(fetchRatesArgToOptions("99999", today)).toEqual({ lastN: 2000 });
+    expect(fetchRatesArgToOptions(undefined, today)).toEqual({ lastN: 400 });
+  });
+
+  it("rejects a future day, an impossible day and anything else", () => {
+    expect(fetchRatesArgToOptions("2026-10-23", today)).toBeNull();
+    expect(fetchRatesArgToOptions("2023-02-30", today)).toBeNull();
+    expect(fetchRatesArgToOptions("2023-4-1", today)).toBeNull();
+    expect(fetchRatesArgToOptions("april", today)).toBeNull();
   });
 });
 
@@ -364,6 +388,37 @@ describe("fetchDailyRates", () => {
 
     expect(result.inserted).toBe(0);
     expect(result.skipped).toBe(1);
+
+    vi.restoreAllMocks();
+  });
+
+  it("backfills from startDate: startPeriod only, no endPeriod, no lastN cap", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(MOCK_XML, { status: 200 }));
+    const prisma = { $executeRawUnsafe: vi.fn().mockResolvedValue(1) };
+
+    await fetchDailyRates(prisma, { startDate: "2023-04-01", currencyPairs: ["EUR/SEK"] });
+
+    const url = String(fetchSpy.mock.calls[0][0]);
+    expect(url).toContain("startPeriod=2023-04-01");
+    expect(url).not.toContain("endPeriod");
+    expect(url).not.toContain("lastNObservations");
+
+    vi.restoreAllMocks();
+  });
+
+  it("without date or startDate fetches only the latest observation", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(MOCK_XML, { status: 200 }));
+    const prisma = { $executeRawUnsafe: vi.fn().mockResolvedValue(1) };
+
+    await fetchDailyRates(prisma, { currencyPairs: ["EUR/SEK"] });
+
+    const url = String(fetchSpy.mock.calls[0][0]);
+    expect(url).toContain("lastNObservations=1");
+    expect(url).not.toContain("startPeriod");
 
     vi.restoreAllMocks();
   });

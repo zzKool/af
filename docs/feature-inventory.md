@@ -244,7 +244,7 @@ flowchart LR
 | What | ECB sync + converter + admin page with manual rates | `EcbRate` + SDMX fetch + gap detection + `Clock` |
 | Keeps | daily ECB rates, weekend / holiday fallback, gap flag > 3 days, rate immutable per entry; manual override on the entry only |
 | Mechanism | admin page + table-level manual rates → scheduled job + dashboard flag |
-| Status | **Built**: the ECB sync job (weekdays 16:30 Stockholm, catch-up on start), `rateToBase` everywhere, the dashboard's gap item. **2026-10-21**: Settings → Exchange rates (coverage per pair, *Fetch now* queues the job), `scripts/fetch-rates.ts` — `docs/ecb-rates.md`. |
+| Status | **Built**: the ECB sync job (weekdays 16:30 Stockholm, catch-up on start), `rateToBase` everywhere, the dashboard's gap item. **2026-10-21**: Settings → Exchange rates (coverage per pair, *Fetch now* queues the job), `scripts/fetch-rates.ts` — `docs/ecb-rates.md`. **2026-10-22**: the script backfills from a date (`fetch-rates.ts 2023-04-01`, F29). |
 
 ### 3.12 Journal and BAS — new to PRD
 
@@ -296,7 +296,7 @@ Time tracking and `Project` budgets, `PriceList` family, `ServiceCatalog`, `Pric
 
 | Concern | v1 | v2 | v3 |
 |---|---|---|---|
-| Money | Decimal + helpers; SEK literals removed by audit | Decimal through services, number at display; `.toNumber()` lint rule deferred | v2 + the lint rule |
+| Money | Decimal + helpers; SEK literals removed by audit | Decimal through services, number at display; `.toNumber()` lint rule (Biome plugin, F48) | v2 + the lint rule |
 | Dates | mixed | `Clock`, TIMESTAMPTZ, sv-SE display | v2 |
 | Validation | one 3 112-line lib | Zod 4 at the action boundary | v2 |
 | Errors | throw `AuthError` | return `AppError`, never throw from actions | v2 |

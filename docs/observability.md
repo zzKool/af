@@ -99,8 +99,24 @@ See [[deployment]] for Azure Container Apps setup.
 
 ### What Gets Reported
 
-- **Unexpected crashes** (non-`ActionError` exceptions) — with `sentryEventId` returned to user
-- Sentry events include `userId`, `tenantId` (set in auth middleware), and `requestId` (set in logging middleware)
+- **Unexpected crashes in a Server Action** (non-`ActionError` exceptions) — with `sentryEventId` returned to the user
+- **Failed job attempts** (pg-boss) — every attempt that throws, before pg-boss retries it
+- **Render / route errors** — through `onRequestError` in `src/instrumentation.ts` (no user context there)
+
+### Request context
+
+Every report goes through one function, `reportError(error, context)` in `src/kernel/errors/report-error.ts`, which puts the context **on the event itself** (`captureException(error, { user, tags })`) — never on a shared Sentry scope, so two concurrent requests cannot lend each other their user or tenant.
+
+```
+Server Action                                   Job attempt (src/kernel/jobs/run-reported.ts)
+auth ──► userId, tenantId ─┐                    pg-boss ──► job, jobId, attempt
+logging ──► requestId, log ┤                    payload ──► tenantId (when it carries one)
+throw ─► handleServerError(error, { ctx, metadata })      throw ─► reportError ─► rethrow (retry)
+             └─► reportError: user.id + tags { tenantId, requestId, action }
+                 ctx.log.error({ err, sentryEventId, action })  ← the same requestId in pino
+```
+
+What the chain had not reached is left out (a crash before auth has no user). The Sentry reference and the pino line share the `requestId`, so a user's "Reference: …" leads to the log lines of that request.
 
 ### What Does NOT Get Reported
 

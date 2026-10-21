@@ -129,17 +129,21 @@ function buildEcbUrl(
 export async function fetchDailyRates(
   prisma: { $executeRawUnsafe: (query: string, ...args: unknown[]) => Promise<number> },
   options?: {
+    /** One day: start and end of the range. */
     date?: string;
+    /** Backfill: every observation from this day to the latest (ignored when `date` is set). */
+    startDate?: string;
     currencyPairs?: string[];
     lastN?: number;
   },
 ): Promise<EcbRateFetchResult> {
   const pairs = options?.currencyPairs ?? DEFAULT_CURRENCY_PAIRS;
+  const startDate = options?.date ?? options?.startDate;
 
   const url = buildEcbUrl(pairs, {
-    startDate: options?.date,
+    startDate,
     endDate: options?.date,
-    lastN: options?.lastN ?? (options?.date ? undefined : 1),
+    lastN: options?.lastN ?? (startDate ? undefined : 1),
   });
 
   const response = await fetch(url, {
@@ -187,6 +191,26 @@ export async function fetchDailyRates(
   logger.info({ inserted, skipped, total: parsed.length }, "ECB rates fetched and stored");
 
   return { inserted, skipped, rates };
+}
+
+/**
+ * The argument of `scripts/fetch-rates.ts`: a day (`2023-04-01`) backfills from that day,
+ * a number keeps the last N observations, nothing means the last 400 (≈ 18 months of weekdays).
+ * Returns null when the argument is neither, or the day is not a real past day.
+ */
+export function fetchRatesArgToOptions(
+  arg: string | undefined,
+  today: string = new Date().toISOString().slice(0, 10),
+): { startDate: string } | { lastN: number } | null {
+  if (arg === undefined || arg === "") return { lastN: 400 };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(arg)) {
+    const parsed = new Date(`${arg}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== arg) return null;
+    if (arg > today) return null;
+    return { startDate: arg };
+  }
+  if (/^\d+$/.test(arg)) return { lastN: Math.max(1, Math.min(2000, Number(arg))) };
+  return null;
 }
 
 /**
