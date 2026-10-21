@@ -4,7 +4,8 @@
 #   (setsid nohup scripts/merge-when-green.sh 46 "fix: …" > /tmp/merge-46.log 2>&1 &)
 set -u
 PR=${1:?pr number}; TITLE=${2:?squash commit title}
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+# REST only (GraphQL is not reachable from every session): the repo from the origin URL, or GH_REPO.
+REPO=${GH_REPO:-$(git remote get-url origin | sed -E "s#.*github\.com[:/]##; s#\.git\$##")}
 BODY=$(mktemp)
 trap 'rm -f "$BODY"' EXIT
 for _ in $(seq 1 80); do
