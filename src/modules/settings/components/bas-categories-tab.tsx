@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/kernel/i18n/use-t";
 import { createTenantStore } from "@/kernel/stores/create-tenant-store";
 import {
   activateBasCategoriesAction,
@@ -47,20 +48,6 @@ type Props = {
 // ─────────────────────────────────────────────────────────────
 const useBasSearch = createTenantStore({ search: "" });
 
-// ─────────────────────────────────────────────────────────────
-// Account class metadata
-// ─────────────────────────────────────────────────────────────
-const CLASS_NAMES_EN: Record<number, string> = {
-  1: "Assets",
-  2: "Equity & Liabilities",
-  3: "Revenue",
-  4: "Cost of goods",
-  5: "Premises & other costs",
-  6: "Other external costs",
-  7: "Personnel",
-  8: "Financial",
-};
-
 /** Extract error message from a server action result */
 function actionError(result: {
   serverError?: unknown;
@@ -78,6 +65,7 @@ function actionError(result: {
 // Component
 // ─────────────────────────────────────────────────────────────
 export function BasCategoriesTab({ initialCategories, initialPreferences }: Props) {
+  const t = useT();
   const search = useBasSearch((s) => s.search);
   const setSearch = useCallback((v: string) => useBasSearch.store.setState({ search: v }), []);
   const [preferences, setPreferences] = useState<Map<string, BasPreference>>(
@@ -157,7 +145,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       if (result) {
         const err = actionError(result);
         if (err) {
-          toast.error(`Failed to activate ${code}: ${err}`);
+          toast.error(t("settings.bas.activateFailed", { code, error: err }));
         } else {
           const cat = initialCategories.find((c) => c.code === code);
           if (cat) {
@@ -178,7 +166,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       }
       markSaving(code, false);
     },
-    [execActivate, initialCategories, markSaving],
+    [execActivate, initialCategories, markSaving, t],
   );
 
   const handleDeactivate = useCallback(
@@ -188,7 +176,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       if (result) {
         const err = actionError(result);
         if (err) {
-          toast.error(`Failed to deactivate ${code}: ${err}`);
+          toast.error(t("settings.bas.deactivateFailed", { code, error: err }));
         } else {
           setPreferences((prev) => {
             const next = new Map(prev);
@@ -204,7 +192,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       }
       markSaving(code, false);
     },
-    [execDeactivate, markSaving],
+    [execDeactivate, markSaving, t],
   );
 
   // ─── Favorite toggle (auto-save onChange) ───
@@ -223,7 +211,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       if (result) {
         const err = actionError(result);
         if (err) {
-          toast.error(`Failed to update favorite: ${err}`);
+          toast.error(t("settings.bas.favoriteFailed", { error: err }));
           // Revert optimistic update
           setPreferences((prev) => {
             const next = new Map(prev);
@@ -234,7 +222,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
         }
       }
     },
-    [preferences, execUpdate],
+    [preferences, execUpdate, t],
   );
 
   // ─── Short code edit (auto-save onBlur) ───
@@ -253,10 +241,10 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       const result = await execUpdate({ basCode: code, shortCode: val });
       if (result) {
         const err = actionError(result);
-        if (err) toast.error(`Failed to save alias: ${err}`);
+        if (err) toast.error(t("settings.bas.aliasFailed", { error: err }));
       }
     },
-    [preferences, execUpdate],
+    [preferences, execUpdate, t],
   );
 
   // ─── Translations edit (auto-save onBlur) ───
@@ -277,10 +265,10 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       const result = await execUpdate({ basCode: code, translations });
       if (result) {
         const err = actionError(result);
-        if (err) toast.error(`Failed to save translation: ${err}`);
+        if (err) toast.error(t("settings.bas.translationFailed", { error: err }));
       }
     },
-    [preferences, execUpdate],
+    [preferences, execUpdate, t],
   );
 
   // ─── Quick-start ───
@@ -302,7 +290,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     if (result) {
       const err = actionError(result);
       if (err) {
-        toast.error(`Failed to activate categories: ${err}`);
+        toast.error(t("settings.bas.activateManyFailed", { error: err }));
         setSavingCodes(new Set());
         return; // Keep quick-start panel open on failure
       }
@@ -327,8 +315,8 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     });
     setSavingCodes(new Set());
     setShowQuickStart(false);
-    toast.success(`Activated ${codes.length} categories`);
-  }, [quickStartCodes, execActivate, initialCategories]);
+    toast.success(t("settings.bas.activated", { count: codes.length }));
+  }, [quickStartCodes, execActivate, initialCategories, t]);
 
   return (
     <div className="space-y-4">
@@ -338,7 +326,7 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by code, name, alias..."
+          placeholder={t("settings.bas.search")}
           className="pl-10"
         />
       </div>
@@ -346,20 +334,16 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
       {/* Empty states & Quick-start */}
       {!hasActivePrefs && !showQuickStart && (
         <div className="rounded-lg border border-dashed p-6 text-center">
-          <p className="text-sm text-muted-foreground">No active categories</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Activate categories below, or use quick-start to get started.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("settings.bas.empty")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settings.bas.emptyHint")}</p>
           <Button variant="default" className="mt-4" onClick={handleQuickStartInit}>
-            Activate common categories for solo AB
+            {t("settings.bas.quickStart")}
           </Button>
         </div>
       )}
 
       {hasActivePrefs && !hasFavorites && (
-        <p className="text-xs text-muted-foreground">
-          No favorites yet — click the star icon on active categories to mark favorites.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("settings.bas.noFavorites")}</p>
       )}
 
       {/* Quick-start preview */}
@@ -424,12 +408,13 @@ function QuickStartPreview({
   onCancel: () => void;
   saving: boolean;
 }) {
+  const t = useT();
   return (
     <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Quick-start: Common solo AB categories</h3>
+        <h3 className="text-sm font-medium">{t("settings.bas.quickStartTitle")}</h3>
         <span className="text-xs text-muted-foreground">
-          {selected.size} of {categories.length} selected
+          {t("settings.bas.selectedOf", { selected: selected.size, total: categories.length })}
         </span>
       </div>
       <div className="grid grid-cols-1 gap-1 max-h-60 overflow-auto">
@@ -452,16 +437,16 @@ function QuickStartPreview({
       </div>
       <div className="flex gap-2 justify-end">
         <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button size="sm" onClick={onConfirm} disabled={saving || selected.size === 0}>
           {saving ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              Activating...
+              {t("settings.bas.activating")}
             </>
           ) : (
-            `Activate ${selected.size} categories`
+            t("settings.bas.activateCount", { count: selected.size })
           )}
         </Button>
       </div>
@@ -503,6 +488,7 @@ function ClassAccordion({
   onShortCodeSave: (code: string, shortCode: string) => void;
   onTranslationSave: (code: string, lang: "en" | "sv" | "fr", value: string) => void;
 }) {
+  const t = useT();
   const parentRef = useRef<HTMLDivElement>(null);
   const activeCount = categories.filter((c) => preferences.has(c.code)).length;
 
@@ -525,10 +511,12 @@ function ClassAccordion({
           <span className="font-medium text-sm">
             {classNum}. {className}
           </span>
-          <span className="text-xs text-muted-foreground">{CLASS_NAMES_EN[classNum]}</span>
+          <span className="text-xs text-muted-foreground">
+            {t(`settings.bas.class.${classNum as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`)}
+          </span>
         </div>
         <span className="text-xs text-muted-foreground">
-          {activeCount}/{categories.length} active
+          {t("settings.bas.activeOf", { active: activeCount, total: categories.length })}
         </span>
       </button>
 
@@ -602,6 +590,7 @@ function CategoryRow({
   onShortCodeSave: (shortCode: string) => void;
   onTranslationSave: (lang: "en" | "sv" | "fr", value: string) => void;
 }) {
+  const t = useT();
   const isActive = !!preference;
 
   return (
@@ -614,7 +603,8 @@ function CategoryRow({
           onChange={isActive ? onDeactivate : onActivate}
           disabled={saving}
           className="rounded"
-          title={isActive ? "Deactivate" : "Activate"}
+          title={isActive ? t("settings.bas.deactivate") : t("settings.bas.activate")}
+          aria-label={`${isActive ? t("settings.bas.deactivate") : t("settings.bas.activate")} ${category.code}`}
         />
 
         {/* Code */}
@@ -638,7 +628,10 @@ function CategoryRow({
             type="button"
             onClick={onFavoriteToggle}
             className="shrink-0"
-            title={preference?.isFavorite ? "Remove favorite" : "Mark as favorite"}
+            title={
+              preference?.isFavorite ? t("settings.bas.unfavorite") : t("settings.bas.favorite")
+            }
+            aria-label={`${preference?.isFavorite ? t("settings.bas.unfavorite") : t("settings.bas.favorite")} ${category.code}`}
           >
             <Star
               className={`h-4 w-4 ${
@@ -656,9 +649,10 @@ function CategoryRow({
             type="button"
             onClick={onToggleExpand}
             className="text-xs text-muted-foreground hover:text-foreground shrink-0"
-            title="Edit details"
+            title={t("settings.bas.edit")}
+            aria-label={`${t("settings.bas.edit")} ${category.code}`}
           >
-            {preference?.shortCode || "edit"}
+            {preference?.shortCode || t("settings.bas.editShort")}
           </button>
         )}
 
@@ -671,28 +665,28 @@ function CategoryRow({
         <div className="px-3 pb-2 pt-0 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <InlineField
             code={category.code}
-            label="Alias"
+            label={t("settings.bas.alias")}
             value={preference?.shortCode || ""}
             onSave={onShortCodeSave}
-            placeholder={category.suggestedAlias || "e.g. Lokal"}
+            placeholder={category.suggestedAlias || t("settings.bas.aliasPlaceholder")}
           />
           <InlineField
             code={category.code}
-            label="Custom SV"
+            label={t("settings.bas.customSv")}
             value={(preference?.translations as Record<string, string>)?.sv || ""}
             onSave={(v) => onTranslationSave("sv", v)}
             placeholder={category.name}
           />
           <InlineField
             code={category.code}
-            label="Custom EN"
+            label={t("settings.bas.customEn")}
             value={(preference?.translations as Record<string, string>)?.en || ""}
             onSave={(v) => onTranslationSave("en", v)}
             placeholder={category.nameEn || ""}
           />
           <InlineField
             code={category.code}
-            label="Custom FR"
+            label={t("settings.bas.customFr")}
             value={(preference?.translations as Record<string, string>)?.fr || ""}
             onSave={(v) => onTranslationSave("fr", v)}
             placeholder={category.nameFr || ""}

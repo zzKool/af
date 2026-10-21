@@ -13,7 +13,7 @@ async function snap(page: Page, name: string) {
 
 async function pickLocale(page: Page, label: string) {
   await page.goto("/settings/my-preferences");
-  await page.getByRole("combobox", { name: "Display Locale" }).click();
+  await page.locator("#locale-select").click();
   await page.getByRole("option", { name: label }).click();
   // the confirmation comes in whichever language the page was in when the change was made
   await expectToast(page, /Preferences saved|Inställningar sparade/);

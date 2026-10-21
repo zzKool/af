@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/kernel/i18n/use-t";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createVatRegistrationAction,
@@ -71,6 +72,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
   );
   const { executeAsync: execUpdate } = useAction(updateVatRegistrationAction);
   const { executeAsync: execDelete } = useAction(deleteVatRegistrationAction);
+  const t = useT();
   const { dialogProps, confirm } = useConfirmDialog();
 
   // Ref to avoid stale closures in update callbacks
@@ -94,7 +96,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
         }
         const newId = result.data?.data?.id;
         if (!newId) {
-          toast.error("Failed to create registration");
+          toast.error(t("settings.vat.createFailed"));
           return false;
         }
         setRegistrations((prev) => [
@@ -110,7 +112,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
       }
       return false;
     },
-    [execCreate],
+    [execCreate, t],
   );
 
   // ─── Update (auto-save onBlur) ───
@@ -170,7 +172,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
   const handleDelete = useCallback(
     (id: string) => {
       const reg = registrationsRef.current.find((r) => r.id === id);
-      const name = reg?.country || "this registration";
+      const name = reg?.country ?? "";
       confirm(
         async () => {
           setDeleting((prev) => new Set(prev).add(id));
@@ -189,10 +191,10 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
             });
           }
         },
-        { description: `Delete "${name}" VAT registration? This cannot be undone.` },
+        { description: t("settings.vat.deleteConfirm", { name }) },
       );
     },
-    [execDelete, confirm],
+    [execDelete, confirm, t],
   );
 
   return (
@@ -200,13 +202,11 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
       {/* Empty state */}
       {registrations.length === 0 && !showAddForm && (
         <div className="rounded-lg border border-dashed p-6 text-center">
-          <p className="text-sm text-muted-foreground">No VAT registrations yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Add your company&apos;s VAT registrations for each country where you&apos;re registered.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("settings.vat.empty")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settings.vat.emptyHint")}</p>
           <Button variant="default" className="mt-4" onClick={() => setShowAddForm(true)}>
             <Plus className="mr-1 h-4 w-4" />
-            Add Registration
+            {t("settings.vat.add")}
           </Button>
         </div>
       )}
@@ -236,7 +236,7 @@ export function VatRegistrationsTab({ initialRegistrations }: Props) {
       {registrations.length > 0 && !showAddForm && (
         <Button variant="outline" onClick={() => setShowAddForm(true)}>
           <Plus className="mr-1 h-4 w-4" />
-          Add Registration
+          {t("settings.vat.add")}
         </Button>
       )}
 
@@ -261,6 +261,7 @@ function RegistrationCard({
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
+  const t = useT();
   const [localVatNumber, setLocalVatNumber] = useState(registration.vatNumber);
   const [localRates, setLocalRates] = useState(registration.rateSchedule?.rates.join(", ") ?? "");
 
@@ -287,7 +288,8 @@ function RegistrationCard({
           size="sm"
           onClick={() => onDelete(registration.id)}
           disabled={isDeleting}
-          title="Delete registration"
+          title={t("settings.vat.delete")}
+          aria-label={t("settings.vat.delete")}
         >
           {isDeleting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -304,7 +306,7 @@ function RegistrationCard({
             htmlFor={`vat-country-${registration.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            Country
+            {t("settings.vat.country")}
           </label>
           <Input
             id={`vat-country-${registration.id}`}
@@ -320,7 +322,7 @@ function RegistrationCard({
             htmlFor={`vat-number-${registration.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            VAT Number
+            {t("settings.vat.number")}
           </label>
           <Input
             id={`vat-number-${registration.id}`}
@@ -338,14 +340,14 @@ function RegistrationCard({
           htmlFor={`vat-rates-${registration.id}`}
           className="text-[10px] text-muted-foreground uppercase"
         >
-          Rate Schedule
+          {t("settings.vat.rates")}
         </label>
         <Input
           id={`vat-rates-${registration.id}`}
           value={localRates}
           onChange={(e) => setLocalRates(e.target.value)}
           onBlur={() => onUpdateRateSchedule(registration.id, localRates)}
-          placeholder="e.g., 25, 12, 6"
+          placeholder={t("settings.vat.ratesPlaceholder")}
           className="h-8 text-sm"
         />
         {/* Display parsed rates as pills */}
@@ -361,7 +363,7 @@ function RegistrationCard({
             ))}
           </div>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground">No rates configured</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settings.vat.noRates")}</p>
         )}
       </div>
     </div>
@@ -380,6 +382,7 @@ function AddRegistrationForm({
   onCancel: () => void;
   isCreating: boolean;
 }) {
+  const t = useT();
   const [country, setCountry] = useState("");
   const [vatNumber, setVatNumber] = useState("");
   const [rateSchedule, setRateSchedule] = useState("");
@@ -395,11 +398,11 @@ function AddRegistrationForm({
     const trimmedVatNumber = vatNumber.trim();
 
     if (trimmedCountry.length !== 2) {
-      toast.error("Country must be a 2-letter code (e.g., SE, CH)");
+      toast.error(t("settings.vat.countryInvalid"));
       return;
     }
     if (!trimmedVatNumber) {
-      toast.error("VAT number is required");
+      toast.error(t("settings.vat.numberRequired"));
       return;
     }
 
@@ -414,11 +417,11 @@ function AddRegistrationForm({
 
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border bg-muted/30 p-4 space-y-3">
-      <h3 className="text-sm font-medium">Add VAT Registration</h3>
+      <h3 className="text-sm font-medium">{t("settings.vat.addTitle")}</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label htmlFor="vat-add-country" className="text-[10px] text-muted-foreground uppercase">
-            Country Code
+            {t("settings.vat.countryCode")}
           </label>
           <Input
             id="vat-add-country"
@@ -432,7 +435,7 @@ function AddRegistrationForm({
         </div>
         <div>
           <label htmlFor="vat-add-number" className="text-[10px] text-muted-foreground uppercase">
-            VAT Number
+            {t("settings.vat.number")}
           </label>
           <Input
             id="vat-add-number"
@@ -444,7 +447,7 @@ function AddRegistrationForm({
         </div>
         <div>
           <label htmlFor="vat-add-rates" className="text-[10px] text-muted-foreground uppercase">
-            Rates (optional)
+            {t("settings.vat.ratesOptional")}
           </label>
           <Input
             id="vat-add-rates"
@@ -457,16 +460,16 @@ function AddRegistrationForm({
       </div>
       <div className="flex gap-2 justify-end">
         <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isCreating}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" size="sm" disabled={isCreating}>
           {isCreating ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              Adding...
+              {t("settings.vat.adding")}
             </>
           ) : (
-            "Add Registration"
+            t("settings.vat.add")
           )}
         </Button>
       </div>
