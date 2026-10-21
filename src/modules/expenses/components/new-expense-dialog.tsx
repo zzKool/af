@@ -4,7 +4,7 @@
 // who paid, the receipt from the inbox (or "no receipt"), a note. The key and the base come from the service.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -101,13 +101,20 @@ export function NewExpenseDialog({
     useAction(createExpenseGroupAction);
   const { executeAsync: checkDuplicates } = useAction(checkExpenseDuplicatesAction);
 
+  // what the dialog sets when it opens — once per opening: the page may re-render while it is open (a server action
+  // that refreshes the session cookie refreshes the route), the option arrays come back new, and that must not
+  // reset what the owner picked (the group, the pre-filled facts)
+  const opened = useRef(false);
   useEffect(() => {
-    if (open) setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
-  }, [open, defaultGroupId, groups]);
-
-  // the document's facts fill the form when the dialog opens from the review page
-  useEffect(() => {
-    if (!open || !initial) return;
+    if (!open) {
+      opened.current = false;
+      return;
+    }
+    if (opened.current) return;
+    opened.current = true;
+    setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
+    // the document's facts fill the form when the dialog opens from the review page or the inbox
+    if (!initial) return;
     if (initial.date) setDate(initial.date);
     if (initial.description) setDescription(initial.description);
     if (initial.amount) setAmount(initial.amount);
@@ -118,7 +125,7 @@ export function NewExpenseDialog({
       setDocumentMissing(false);
     }
     setAckNote("");
-  }, [open, initial]);
+  }, [open, defaultGroupId, groups, initial]);
 
   // the duplicate check (specs/documents US3): the same bytes, or a similar expense of the same merchant
   const checkKey = open
@@ -155,10 +162,10 @@ export function NewExpenseDialog({
       : documents;
 
   // the payer's currency pre-fills the expense's
+  const sourceCurrency = sources.find((x) => x.id === sourceId)?.currency ?? null;
   useEffect(() => {
-    const s = sources.find((x) => x.id === sourceId);
-    if (s) setCurrency(s.currency);
-  }, [sourceId, sources]);
+    if (sourceCurrency) setCurrency(sourceCurrency);
+  }, [sourceCurrency]);
 
   async function submit() {
     let targetGroup = groupId;
