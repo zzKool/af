@@ -47,6 +47,10 @@ The owner opens a bank row in the banking workbench. Under *Suggestions* the app
 
 `/banking/inbox` is the work page: every main-account row that is neither linked, transferred nor *no document needed*, sorted by the top candidate's confidence then date, the detail on the right. `j` / `k` move, `Enter` applies the top candidate when HIGH, `1`–`9` the n-th, `l` opens *Link to…*, `c` focuses the category, `u` undoes the last link, `?` the help. *Apply HIGH* on the selection reports applied / skipped with the reason (*no candidates · best is MEDIUM · ambiguous (95 vs 90) · cross-currency · nothing left to allocate*). *Unlinked documents* lists financial documents that became nothing and justify nothing.
 
+### User Story 4 - The graph (Priority: P2, part 3)
+
+From any *Links* section a *Graph* button opens `/links/<type>/<id>`: the entity in the centre, everything linked to it one and two hops away — the invoice, the row that pays it, the document that justifies that row, the partner the document belongs to — labelled by their own modules, the kind on every edge. Beside the picture the same entities as a list by ring: *Graph* re-roots, *Open* goes to the entity's page (or its list with the panel open). When more exists beyond the second ring the page says so. The accountant sees it like the owner.
+
 ## Requirements *(mandatory)*
 
 - **FR-001** `Linkable` gains two optional members: `facts(tx, id)` → `EntityFacts` (type, id, label, amount, currency, SEK base, date, reference, partner name, search texts, remaining) and `candidates(tx, query)` → `EntityFacts[]` for a direction and date window (cap 50). The linking module stays generic: it never imports a module's tables.
@@ -56,11 +60,15 @@ The owner opens a bank row in the banking workbench. Under *Suggestions* the app
 - **FR-005** `searchLinkables(q, types?)` → the candidates of every registered type whose label or texts contain `q` (cap 20 per type) — the *Link to…* picker.
 - **FR-006** UI part 1: the banking panel's *Suggestions* section and *Link to…*, *Unlink* on the panel's links, the reverse suggestions on the invoice page and the supplier-invoice / expense panels (*Bank rows* section). Strings `linking.*` en + fr. Part 2: `/banking/inbox`, bulk apply, unlinked documents.
 
+- **FR-007** `neighbourhood(tx, root, { depth = 2, maxNodes = 80 })` — a read model over the link table (nothing stored): BFS from the root, one query per type per hop, labels through `Linkable.summary`, `depth` and `parent` on every node, edges with kind and allocation, only edges between named nodes, `truncated` when the depth or the cap cut something; depth clamped to 3; null when the root is not in the tenant. `graphAction` behind `can(read, link)`.
+- **FR-008** UI part 3: radial layout (pure), the SVG picture (`aria-hidden`; the list beside it is the accessible form), the ring list with *Graph* / *Open*, the `GraphLink` button next to every *Links* heading, `?open=<id>` on the expenses / supplier-invoices / banking lists so *Open* lands on the row's panel.
+
 ## Success Criteria *(mandatory)*
 
 - **SC-001** Every scorable case of `matching-cases.json` passes on the v3 scorer (expected confidence; the reasons and scores where the one-scorer rule leaves them; the deviations listed in the test).
 - **SC-002** A 200-run property: ranking is stable and total, HIGH ⇒ score ≥ 60, score is the sum of its reasons.
 - **SC-003** The e2e links an issued invoice from an imported row through the suggestion and unlinks it; the invoice's derived state follows.
+- **SC-004** The graph of a document two hops deep names its partner, the partner's other documents and the document's own expense, and nothing of another tenant; the node cap never leaves a dangling edge.
 
 ## Assumptions
 

@@ -90,6 +90,7 @@ export function ExpenseTable({
   canWrite,
   groupId,
   hideKpis,
+  initialSelectedId,
 }: {
   result: ListResult<ExpenseRow>;
   ledger: LedgerSnapshot | null;
@@ -102,11 +103,13 @@ export function ExpenseTable({
   /** the group page: the list is scoped and the dialog pre-selects the group */
   groupId?: string;
   hideKpis?: boolean;
+  /** `?open=<id>` — the panel opens on this expense (the graph's "Open") */
+  initialSelectedId?: string | null;
 }) {
   const t = useT();
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const [newOpen, setNewOpen] = useState(false);
 
   const filterSource = useMemo<DataTableFilterSource>(

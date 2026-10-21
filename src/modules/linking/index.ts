@@ -9,6 +9,15 @@ export {
   settlementTolerance,
   sumAllocations,
 } from "./allocation";
+export {
+  GRAPH_DEFAULT_DEPTH,
+  GRAPH_MAX_DEPTH,
+  GRAPH_MAX_NODES,
+  type GraphOptions,
+  neighbourhood,
+  nodeKey,
+} from "./graph";
+export { entityHref, graphHref } from "./hrefs";
 export { INBOX_LIMIT, type InboxRow, inboxRows, unlinkedDocuments } from "./inbox";
 export { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 export type { Linkable } from "./linkable";
@@ -27,6 +36,7 @@ export {
   getAllocationStatusAction,
   getLinksForAction,
   getLinksWithLabelsAction,
+  graphAction,
   removeLinkAction,
   searchLinkablesAction,
   suggestionsForEntityAction,

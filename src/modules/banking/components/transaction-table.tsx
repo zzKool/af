@@ -69,6 +69,7 @@ export function TransactionTable({
   partners,
   importLabels,
   canWrite,
+  initialSelectedId,
 }: {
   result: ListResult<TransactionRow>;
   balances: (Omit<AccountBalance, "lastImportAt"> & { lastImportAt: string | null })[];
@@ -78,11 +79,13 @@ export function TransactionTable({
   /** import id → file name, for the Import filter's values */
   importLabels: Record<string, string>;
   canWrite: boolean;
+  /** `?open=<id>` — the panel opens on this row (the graph's "Open") */
+  initialSelectedId?: string | null;
 }) {
   const t = useT();
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const [importOpen, setImportOpen] = useState(false);
 
   const filterSource = useMemo<DataTableFilterSource>(

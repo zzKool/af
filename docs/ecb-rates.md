@@ -29,6 +29,11 @@ message:GenericData → message:DataSet → generic:Series[]
   → generic:Obs[] → generic:ObsDimension[@value=date] + generic:ObsValue[@value=rate]
 ```
 
+## Loading rates
+
+- **By schedule** — `rates.ecb-sync` (pg-boss, `modules/rates/jobs/ecb-sync.ts`) runs weekdays at 16:30 Stockholm time while the app is up; the first run takes the last 30 observations, later runs size the window from the gap since the last stored date, missed days catch up once on the next start.
+- **By hand** — `DATABASE_URL=… npx tsx scripts/fetch-rates.ts [lastN]` (default 400 ≈ 18 months of weekdays): the same fetch, outside the queue; duplicates are skipped, so it is safe to repeat. Useful on a fresh database before the first scheduled run.
+
 ## Rate Storage
 
 - **Table:** `ecb_rates` — immutable (PostgreSQL RULEs prevent UPDATE/DELETE)

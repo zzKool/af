@@ -139,3 +139,36 @@ export type BulkApplyResult = {
   skipped: { bankTransactionId: string; reason: SkipReason; detail: string }[];
   failed: { bankTransactionId: string; message: string }[];
 };
+
+// --- graph (specs/linking/spec.md, the read model of constitution §1.2) ---
+
+/** One entity in the neighbourhood of a root. `key` is `type:id`. */
+export type GraphNode = {
+  key: string;
+  type: LinkableType;
+  id: string;
+  label: string;
+  amount: string | null;
+  currency: string | null;
+  /** hops from the root (0 = the root) */
+  depth: number;
+  /** the key of the node it was reached from (null for the root) — the tree the picture is drawn along */
+  parent: string | null;
+};
+
+export type GraphEdge = {
+  id: string;
+  from: string;
+  to: string;
+  kind: LinkKind;
+  allocatedAmount: string | null;
+  currency: string | null;
+};
+
+export type Graph = {
+  root: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  /** true when the depth or the node cap stopped the walk — more exists beyond the last ring */
+  truncated: boolean;
+};

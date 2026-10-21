@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import "./linkables"; // make sure every module's linkable is registered before a link is validated
+import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
 import * as linkingService from "./linking";
 import { linksWithLabels } from "./queries";
 import * as suggestions from "./suggestions";
@@ -74,6 +75,22 @@ export const getLinksWithLabelsAction = authedAction
   .schema(endpointSchema)
   .metadata({ name: "getLinksWithLabels" })
   .action(async ({ ctx, parsedInput }) => ({ data: await linksWithLabels(ctx.tx, parsedInput) }));
+
+/** The neighbourhood of one entity (specs/linking, the graph read model) — anyone who may read links. */
+export const graphAction = authedAction
+  .schema(endpointSchema.extend({ depth: z.number().int().min(0).max(GRAPH_MAX_DEPTH).optional() }))
+  .metadata({ name: "linkGraph" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "link")) return forbidden;
+    const { depth, ...root } = parsedInput;
+    const graph = await neighbourhood(ctx.tx, root, { depth });
+    if (!graph) {
+      return {
+        error: { code: "NOT_FOUND" as const, message: "Entity not found", retryable: false },
+      };
+    }
+    return { data: graph };
+  });
 
 export const suggestionsForTransactionAction = authedAction
   .schema(z.object({ bankTransactionId: z.string().uuid() }))

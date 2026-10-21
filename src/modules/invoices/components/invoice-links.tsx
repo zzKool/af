@@ -7,6 +7,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
 import {
+  GraphLink,
   getLinksWithLabelsAction,
   type LinkRow,
   LinksList,
@@ -46,8 +47,11 @@ export function InvoiceLinks({
 
   return (
     <div className="rounded-lg border p-3" data-testid="invoice-links">
-      <div className="mb-2 text-xs font-medium text-muted-foreground">
-        {t("invoices.links.title")}
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          {t("invoices.links.title")}
+        </span>
+        <GraphLink self={{ type: "invoice", id: invoiceId }} />
       </div>
       <div className="mb-3">
         {links === null ? (
