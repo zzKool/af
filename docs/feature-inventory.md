@@ -149,6 +149,7 @@ Verdict legend: **v2** keep v2 code · **harvest** rebuild on v2 foundation from
 | What | `Partner` + `Contact`; separate clients / suppliers pages | `Partner` with `types[]`, org + VAT number, labelled external identifiers (supplier number etc.), soft-delete, tabbed entity view; pattern-setter module |
 | Keeps | everything in v2 + contact persons + per-partner defaults (BAS category, currency, payment terms) + partner short code (`VA`) + 360° view: documents, transactions, invoices, supplier invoices, contracts |
 | Mechanism | three pages → one partner hub filtered by type |
+| Status | The reference slice (2026-10-20). **2026-10-21**: the entity page's *Transactions* and *Documents* tabs read the journal and the links (counts, the newest entries with a jump to the journal, the linked documents, a *Graph* button); the module's strings in the dictionary. Contact persons: not built. |
 
 ### 3.4 Contracts and rates — v2 + v1 rate history
 
@@ -240,6 +241,7 @@ flowchart LR
 | What | ECB sync + converter + admin page with manual rates | `EcbRate` + SDMX fetch + gap detection + `Clock` |
 | Keeps | daily ECB rates, weekend / holiday fallback, gap flag > 3 days, rate immutable per entry; manual override on the entry only |
 | Mechanism | admin page + table-level manual rates → scheduled job + dashboard flag |
+| Status | **Built**: the ECB sync job (weekdays 16:30 Stockholm, catch-up on start), `rateToBase` everywhere, the dashboard's gap item. **2026-10-21**: Settings → Exchange rates (coverage per pair, *Fetch now* queues the job), `scripts/fetch-rates.ts` — `docs/ecb-rates.md`. |
 
 ### 3.12 Journal and BAS — new to PRD
 
@@ -300,7 +302,7 @@ Time tracking and `Project` budgets, `PriceList` family, `ServiceCatalog`, `Pric
 | PDF | puppeteer, same HTML as preview | none | Chromium from the print mode of the invoice component; reimbursement statement and package summary the same way |
 | OCR | Azure DI, sync | Azure DI, async job, review overlay | v2 |
 | Storage | Azure Blob | Azure Blob + Azurite, blob proxy | v2 |
-| UI kit | shadcn, TanStack Table, `advanced-table` filters | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider`, centred pages | v2 kit + v1 filter behaviour (H13); full-width layout (D19); i18n keys from day one (en, fr, sv) |
+| UI kit | shadcn, TanStack Table, `advanced-table` filters | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider`, centred pages | v2 kit + v1 filter behaviour (H13); full-width layout (D19); per-user column layout on every list (order, width, visibility — `table_preferences`, 2026-10-21); i18n keys from day one — en, fr and sv dictionaries complete for the signed-in UI (2026-10-21) |
 | Testing | Jest + 129 e2e | Vitest co-located + Playwright + architecture guard + factories | v2 + flaky-test quarantine + property tests on money and allocations |
 | CI / deploy | GH Actions, App Service, SQL Server | GH Actions with Azurite e2e, Docker, Container Apps | v2 (+ Chromium in the image). **Since 2026-10-20**: CI publishes the app image and a one-shot migrate image to `ghcr.io` on every main push; the homelab pulls by tag (`docker-compose.prod.yml`), backups + restore drill, `/api/health`; the Azure job is written, disabled until provisioned — `docs/deployment.md` |
 | Docs | large plan documents | `docs/index.md` wiki per pattern | v2 convention + spec-kit specs |
