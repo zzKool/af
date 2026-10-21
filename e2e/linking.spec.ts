@@ -121,6 +121,25 @@ test.describe("Linking", () => {
       const links = page.getByTestId("invoice-links");
       await expect(links.getByTestId("link-row")).toHaveCount(1);
       await snap(page, "invoice-paid");
+
+      // 5. the graph (read model): the invoice in the centre, the row one hop away; *Open* brings the
+      // banking panel up on that row; back on the invoice, unlink
+      await links.getByTestId("graph-link").click();
+      await expect(page).toHaveURL(/\/links\/invoice\/[0-9a-f-]+$/);
+      await expect(page.getByRole("heading", { level: 1 })).toContainText(number);
+      await expect(page.getByTestId("link-graph")).toBeVisible();
+      const node = page.getByTestId("graph-node").filter({ hasText: "Bank row" });
+      await expect(node).toHaveCount(1);
+      await expect(node).toContainText(`${remaining} SEK`);
+      await expect(page.getByTestId("graph-truncated")).toHaveCount(0);
+      await snap(page, "graph");
+      await node.getByTestId("graph-open").click();
+      await expect(page).toHaveURL(/\/banking\?open=[0-9a-f-]+$/);
+      await expect(page.getByTestId("transaction-panel").getByTestId("panel-state")).toHaveText(
+        "Linked",
+      );
+      await page.keyboard.press("Escape");
+      await page.goto(invoiceUrl);
       await links.getByTestId("unlink").click();
       await expectToast(page, "Link removed");
       await expect(page.getByTestId("invoice-state")).toHaveText("Issued");

@@ -22,7 +22,8 @@ export default async function ExpensesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireCaller({ action: "read", subject: "expense" });
-  const query = parseListQuery(await searchParams, {
+  const params = await searchParams;
+  const query = parseListQuery(params, {
     columns: EXPENSE_COLUMN_KEYS,
     defaultSort: EXPENSE_DEFAULT_SORT,
   });
@@ -50,6 +51,7 @@ export default async function ExpensesPage({
         ledger={data.ledger}
         {...data.options}
         canWrite={can(auth, "create", "expense")}
+        initialSelectedId={typeof params.open === "string" ? params.open : null}
       />
     </ListPage>
   );

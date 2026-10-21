@@ -22,7 +22,8 @@ export default async function SupplierInvoicesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireCaller({ action: "read", subject: "supplier_invoice" });
-  const query = parseListQuery(await searchParams, {
+  const params = await searchParams;
+  const query = parseListQuery(params, {
     columns: SUPPLIER_INVOICE_COLUMN_KEYS,
     defaultSort: SUPPLIER_INVOICE_DEFAULT_SORT,
   });
@@ -50,6 +51,7 @@ export default async function SupplierInvoicesPage({
         kpis={data.strip}
         {...data.options}
         canWrite={can(auth, "create", "supplier_invoice")}
+        initialSelectedId={typeof params.open === "string" ? params.open : null}
       />
     </ListPage>
   );

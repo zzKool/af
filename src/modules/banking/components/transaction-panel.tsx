@@ -24,7 +24,7 @@ import { acceptTransferAction, getTransactionAction } from "@/modules/banking/ba
 import type { TransactionDetail } from "@/modules/banking/queries";
 import type { TransactionState } from "@/modules/banking/types";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "@/modules/journal/ui";
-import { LinksList, SuggestionsSection } from "@/modules/linking/ui";
+import { GraphLink, LinksList, SuggestionsSection } from "@/modules/linking/ui";
 import { RuleDialog } from "./rule-dialog";
 
 export const STATE_STYLE: Record<TransactionState, string> = {
@@ -296,7 +296,10 @@ export function TransactionDetailView({
           )}
 
           <section>
-            <h3 className="mb-2 text-sm font-medium">{t("banking.panel.links")}</h3>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-medium">{t("banking.panel.links")}</h3>
+              <GraphLink self={{ type: "bank_transaction", id: tx.id }} />
+            </div>
             <LinksList
               self={{ type: "bank_transaction", id: tx.id }}
               links={detail.links}

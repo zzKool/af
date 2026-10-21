@@ -14,3 +14,9 @@
 
 - [x] T006 `/banking/inbox` work page: the rows needing attention sorted by confidence then date, the detail on the right, `j` / `k` / `Enter` / `1`–`9` / `l` / `c` / `u` / `?`, the bulk bar with *Apply HIGH* and its applied / skipped report.
 - [x] T007 Unlinked documents view (financial documents that became nothing and justify nothing), nav, e2e, screenshots, docs.
+
+## Part 3 — `feat/linking-graph`
+
+- [x] T008 `graph.ts` (`neighbourhood`, caps, `nodeKey`), `Graph*` types, `graphAction`, `hrefs.ts` (`graphHref`, `entityHref`); `graph.test.ts` (SC-004).
+- [x] T009 `graph-layout.ts` (pure radial layout) + `graph-layout.pure.test.ts`; `LinkGraph` (picture + ring list), `GraphLink`; the page `/links/[type]/[id]`; the button next to every *Links* heading; `?open=<id>` on the three lists; strings `linking.graph.*` en + fr.
+- [x] T010 e2e (the invoice's graph, *Open* lands on the banking panel), screenshots, docs (`linking`, inventory §3.13), PR.

@@ -25,7 +25,8 @@ export default async function BankingPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireCaller({ action: "read", subject: "bank_transaction" });
-  const query = parseListQuery(await searchParams, {
+  const params = await searchParams;
+  const query = parseListQuery(params, {
     columns: TRANSACTION_COLUMN_KEYS,
     defaultSort: TRANSACTION_DEFAULT_SORT,
   });
@@ -74,6 +75,7 @@ export default async function BankingPage({
         partners={data.partners}
         importLabels={Object.fromEntries(data.imports.map((i) => [i.id, i.fileName]))}
         canWrite={can(auth, "create", "bank_transaction")}
+        initialSelectedId={typeof params.open === "string" ? params.open : null}
       />
     </ListPage>
   );

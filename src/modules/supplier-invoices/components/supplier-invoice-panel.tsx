@@ -32,6 +32,7 @@ import { useT } from "@/kernel/i18n/use-t";
 import { formatCurrency } from "@/kernel/money/format-currency";
 import { CURRENCIES, type Currency } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
+import { GraphLink } from "@/modules/linking/ui";
 import type {
   PayableTransaction,
   SupplierInvoiceDetail,
@@ -673,7 +674,10 @@ export function SupplierInvoicePanel({
             </section>
 
             <section>
-              <h3 className="mb-2 text-sm font-medium">{t("supplierInvoices.panel.links")}</h3>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-medium">{t("supplierInvoices.panel.links")}</h3>
+                <GraphLink self={{ type: "supplier_invoice", id: si.id }} />
+              </div>
               {detail.links.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {t("supplierInvoices.panel.noLinks")}

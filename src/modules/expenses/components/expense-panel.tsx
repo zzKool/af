@@ -40,6 +40,7 @@ import {
 } from "@/modules/expenses/expenses.actions";
 import type { ExpenseDetail } from "@/modules/expenses/queries";
 import type { CategoryOption, SourceOption, TransactionOption } from "@/modules/expenses/types";
+import { GraphLink } from "@/modules/linking/ui";
 import { StatusBadge } from "./status-badge";
 
 type Detail = Omit<ExpenseDetail, "expense" | "group" | "links"> & {
@@ -493,7 +494,10 @@ export function ExpensePanel({
             )}
 
             <section>
-              <h3 className="mb-2 text-sm font-medium">{t("expenses.panel.links")}</h3>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-medium">{t("expenses.panel.links")}</h3>
+                <GraphLink self={{ type: "expense", id: detail.expense.id }} />
+              </div>
               {detail.links.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("expenses.panel.noLinks")}</p>
               ) : (
