@@ -79,13 +79,13 @@ export function DocumentReviewFooter({
         variant: "outline" as const,
       };
     }
-    // State 1 & 2: green — not yet reviewed
+    // State 1 & 2: green — not yet reviewed (green-700: white text reaches WCAG AA, green-600 did not)
     return {
       label:
         correctionsCount > 0
           ? t("documents.review.markReviewedCorrections", { count: correctionsCount })
           : t("documents.review.markReviewed"),
-      className: "bg-green-600 hover:bg-green-700 text-white",
+      className: "bg-green-700 hover:bg-green-800 text-white",
       variant: "default" as const,
     };
   };

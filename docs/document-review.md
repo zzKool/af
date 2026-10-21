@@ -51,6 +51,14 @@ This bypasses Prisma's read-then-write pattern, preventing lost-update race cond
 - Saved (checkmark, auto-fades)
 - Error (red, with retry guidance)
 
+### Mark as Reviewed button
+
+Three states: not yet reviewed (solid green-700 with white text — green-600 fails WCAG AA contrast, which the review page's axe check enforces), corrections pending (amber outline), reviewed (muted green outline).
+
+## E2E
+
+`e2e/document-review.spec.ts` — every owner journey uploads its own PDF through the library and opens that row, so a parallel journey deleting its upload, or an issued invoice's generated PDF landing first in the list, cannot change what the test sees (the suite runs with 2 workers in CI). The accountant journey only needs the list.
+
 ## Role-Based Access
 
 | Action | Owner | Accountant |
