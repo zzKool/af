@@ -1,6 +1,7 @@
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { Msg } from "@/kernel/i18n/msg";
 import { BasCategoriesTab } from "@/modules/settings/ui";
 
 export default async function BasCategoriesSettingsPage() {
@@ -30,7 +31,9 @@ export default async function BasCategoriesSettingsPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">BAS Categories</h1>
+      <h1 className="mb-6 text-2xl font-semibold">
+        <Msg k="settings.bas.title" />
+      </h1>
       <BasCategoriesTab initialCategories={categories} initialPreferences={preferences} />
     </div>
   );

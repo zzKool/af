@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
+import { Msg } from "@/kernel/i18n/msg";
 import { MyPreferencesTab } from "@/modules/settings/ui";
 
 export default async function MyPreferencesSettingsPage() {
@@ -18,7 +19,9 @@ export default async function MyPreferencesSettingsPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">My Preferences</h1>
+      <h1 className="mb-6 text-2xl font-semibold">
+        <Msg k="settings.preferences.title" />
+      </h1>
       <MyPreferencesTab initialLocale={userPref?.locale ?? null} />
     </div>
   );

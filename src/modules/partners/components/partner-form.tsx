@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
+import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
@@ -95,10 +96,11 @@ export function PartnerForm({
   const { executeAsync: execDeactivate } = useAction(deactivatePartnerAction);
   const { executeAsync: execReactivate } = useAction(reactivatePartnerAction);
 
+  const t = useT();
   const { dialogProps, confirm } = useConfirmDialog({
-    title: "Deactivate Partner",
+    title: t("partners.deactivateConfirm.title"),
     variant: "destructive",
-    confirmLabel: "Deactivate",
+    confirmLabel: t("partners.deactivate"),
   });
 
   // Auto-save helper for simple fields
@@ -141,13 +143,13 @@ export function PartnerForm({
     (type: string, checked: boolean) => {
       const newTypes = checked ? [...types, type] : types.filter((t) => t !== type);
       if (newTypes.length === 0) {
-        toast.error("At least one type required");
+        toast.error(t("partners.form.typeRequired"));
         return;
       }
       setTypes(newTypes);
       autoSave("types", newTypes);
     },
-    [types, autoSave],
+    [types, autoSave, t],
   );
 
   // Address save
@@ -164,11 +166,11 @@ export function PartnerForm({
 
   const addExternalIdentifier = useCallback(() => {
     if (externalIdentifiers.length >= 5) {
-      toast.error("Maximum 5 external identifiers");
+      toast.error(t("partners.form.identifiersMax"));
       return;
     }
     setExternalIdentifiers([...externalIdentifiers, { label: "", value: "" }]);
-  }, [externalIdentifiers]);
+  }, [externalIdentifiers, t]);
 
   const removeExternalIdentifier = useCallback(
     (index: number) => {
@@ -186,13 +188,13 @@ export function PartnerForm({
         const error = extractError(result);
         if (error) throw new Error(error);
         setIsActive(false);
-        toast.success("Partner deactivated");
+        toast.success(t("partners.deactivated", { name }));
       },
       {
-        description: `Deactivate "${name}"? The partner will be hidden from active lists but retained for historical references.`,
+        description: t("partners.deactivateConfirm.description", { name }),
       },
     );
-  }, [confirm, execDeactivate, partner.id, name]);
+  }, [confirm, execDeactivate, partner.id, name, t]);
 
   const handleReactivate = useCallback(async () => {
     const result = await execReactivate({ id: partner.id });
@@ -202,8 +204,8 @@ export function PartnerForm({
       return;
     }
     setIsActive(true);
-    toast.success("Partner reactivated");
-  }, [execReactivate, partner.id]);
+    toast.success(t("partners.reactivated", { name }));
+  }, [execReactivate, partner.id, name, t]);
 
   return (
     <div className="space-y-6">
@@ -212,20 +214,20 @@ export function PartnerForm({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/partners" className="text-muted-foreground hover:text-foreground">
-              &larr; Partners
+              &larr; {t("partners.title")}
             </Link>
             <h1 className="text-2xl font-semibold">{name}</h1>
             <Badge variant={isActive ? "default" : "secondary"}>
-              {isActive ? "Active" : "Inactive"}
+              {isActive ? t("partners.status.active") : t("partners.status.inactive")}
             </Badge>
           </div>
           {isActive ? (
             <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-              Deactivate
+              {t("partners.deactivate")}
             </Button>
           ) : (
             <Button variant="outline" size="sm" onClick={handleReactivate}>
-              Reactivate
+              {t("partners.reactivate")}
             </Button>
           )}
         </div>
@@ -234,11 +236,11 @@ export function PartnerForm({
       {/* Basic Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
+          <CardTitle>{t("partners.form.basic")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t("partners.col.name")}</Label>
             <Input
               id="name"
               value={name}
@@ -247,34 +249,34 @@ export function PartnerForm({
             />
           </div>
           <div>
-            <Label>Types</Label>
+            <Label>{t("partners.col.types")}</Label>
             <div className="flex gap-3 pt-2">
-              {["client", "vendor", "employee"].map((type) => (
+              {(["client", "vendor", "employee"] as const).map((type) => (
                 <label key={type} className="flex items-center gap-1.5 text-sm">
                   <input
                     type="checkbox"
                     checked={types.includes(type)}
                     onChange={(e) => handleTypeToggle(type, e.target.checked)}
                   />
-                  {type}
+                  {t(`partners.type.${type}`)}
                 </label>
               ))}
             </div>
           </div>
           <div>
-            <Label htmlFor="shortCode">Short code</Label>
+            <Label htmlFor="shortCode">{t("partners.new.shortCode")}</Label>
             <Input
               id="shortCode"
               value={shortCode}
               maxLength={6}
-              placeholder="VA — invoice numbers become VA26-INV-001"
+              placeholder={t("partners.form.shortCodePlaceholder")}
               className="uppercase"
               onChange={(e) => setShortCode(e.target.value.toUpperCase())}
               onBlur={() => handleBlur("shortCode", shortCode, partner.shortCode ?? null)}
             />
           </div>
           <div>
-            <Label htmlFor="orgNumber">Org Number</Label>
+            <Label htmlFor="orgNumber">{t("partners.col.orgNumber")}</Label>
             <Input
               id="orgNumber"
               value={orgNumber}
@@ -283,7 +285,7 @@ export function PartnerForm({
             />
           </div>
           <div>
-            <Label htmlFor="vatNumber">VAT Number</Label>
+            <Label htmlFor="vatNumber">{t("partners.col.vatNumber")}</Label>
             <Input
               id="vatNumber"
               value={vatNumber}
@@ -292,7 +294,7 @@ export function PartnerForm({
             />
           </div>
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("partners.col.email")}</Label>
             <Input
               id="email"
               type="email"
@@ -302,7 +304,7 @@ export function PartnerForm({
             />
           </div>
           <div>
-            <Label htmlFor="phone">Phone</Label>
+            <Label htmlFor="phone">{t("partners.form.phone")}</Label>
             <Input
               id="phone"
               value={phone}
@@ -316,11 +318,11 @@ export function PartnerForm({
       {/* Defaults */}
       <Card>
         <CardHeader>
-          <CardTitle>Defaults</CardTitle>
+          <CardTitle>{t("partners.form.defaults")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div>
-            <Label>Currency</Label>
+            <Label>{t("partners.col.currency")}</Label>
             <Select
               value={defaultCurrency || "__none__"}
               onValueChange={(v) => {
@@ -330,10 +332,10 @@ export function PartnerForm({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select currency" />
+                <SelectValue placeholder={t("partners.form.selectCurrency")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
+                <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
                 {CURRENCIES.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
@@ -343,7 +345,7 @@ export function PartnerForm({
             </Select>
           </div>
           <div>
-            <Label>Language</Label>
+            <Label>{t("partners.form.language")}</Label>
             <Select
               value={defaultLanguage || "__none__"}
               onValueChange={(v) => {
@@ -353,10 +355,10 @@ export function PartnerForm({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select language" />
+                <SelectValue placeholder={t("partners.form.selectLanguage")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
+                <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
                 {SUPPORTED_LOCALES.map((l) => (
                   <SelectItem key={l} value={l}>
                     {l}
@@ -366,7 +368,7 @@ export function PartnerForm({
             </Select>
           </div>
           <div>
-            <Label>BAS Category</Label>
+            <Label>{t("partners.form.basCategory")}</Label>
             <Select
               value={defaultBasCategoryCode || "__none__"}
               onValueChange={(v) => {
@@ -376,10 +378,10 @@ export function PartnerForm({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select BAS category" />
+                <SelectValue placeholder={t("partners.form.selectBas")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
+                <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
                 {basOptions.map((o) => (
                   <SelectItem key={o.code} value={o.code}>
                     {o.label}
@@ -389,7 +391,7 @@ export function PartnerForm({
             </Select>
           </div>
           <div>
-            <Label htmlFor="paymentTermsDays">Payment terms (days)</Label>
+            <Label htmlFor="paymentTermsDays">{t("partners.form.paymentTerms")}</Label>
             <Input
               id="paymentTermsDays"
               type="number"
@@ -405,8 +407,7 @@ export function PartnerForm({
               }}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              The due date of this supplier's invoices defaults to the invoice date plus these days
-              (30 when blank).
+              {t("partners.form.paymentTermsHint")}
             </p>
           </div>
         </CardContent>
@@ -415,12 +416,12 @@ export function PartnerForm({
       {/* Address */}
       <Card>
         <CardHeader>
-          <CardTitle>Address</CardTitle>
+          <CardTitle>{t("partners.form.address")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="street">Street</Label>
+              <Label htmlFor="street">{t("partners.form.street")}</Label>
               <Input
                 id="street"
                 value={address.street ?? ""}
@@ -428,7 +429,7 @@ export function PartnerForm({
               />
             </div>
             <div>
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">{t("partners.form.city")}</Label>
               <Input
                 id="city"
                 value={address.city ?? ""}
@@ -436,7 +437,7 @@ export function PartnerForm({
               />
             </div>
             <div>
-              <Label htmlFor="postalCode">Postal Code</Label>
+              <Label htmlFor="postalCode">{t("partners.form.postalCode")}</Label>
               <Input
                 id="postalCode"
                 value={address.postalCode ?? ""}
@@ -444,7 +445,7 @@ export function PartnerForm({
               />
             </div>
             <div>
-              <Label htmlFor="country">Country (2-letter code)</Label>
+              <Label htmlFor="country">{t("partners.form.country")}</Label>
               <Input
                 id="country"
                 value={address.country ?? ""}
@@ -454,7 +455,7 @@ export function PartnerForm({
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleAddressSave}>
-            Save Address
+            {t("partners.form.saveAddress")}
           </Button>
         </CardContent>
       </Card>
@@ -463,21 +464,21 @@ export function PartnerForm({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>External Identifiers</CardTitle>
+            <CardTitle>{t("partners.form.identifiers")}</CardTitle>
             <Button variant="outline" size="sm" onClick={addExternalIdentifier}>
-              Add Identifier
+              {t("partners.form.addIdentifier")}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {externalIdentifiers.length === 0 && (
-            <p className="text-sm text-muted-foreground">No external identifiers.</p>
+            <p className="text-sm text-muted-foreground">{t("partners.form.noIdentifiers")}</p>
           )}
           {externalIdentifiers.map((ei, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: dynamic list without stable IDs
             <div key={i} className="flex items-end gap-2">
               <div className="flex-1">
-                <Label>Label</Label>
+                <Label>{t("partners.form.identifierLabel")}</Label>
                 <Input
                   value={ei.label}
                   onChange={(e) => {
@@ -485,11 +486,11 @@ export function PartnerForm({
                     updated[i] = { ...updated[i], label: e.target.value };
                     setExternalIdentifiers(updated);
                   }}
-                  placeholder="e.g., Supplier Number"
+                  placeholder={t("partners.form.identifierLabelPlaceholder")}
                 />
               </div>
               <div className="flex-1">
-                <Label>Value</Label>
+                <Label>{t("partners.form.identifierValue")}</Label>
                 <Input
                   value={ei.value}
                   onChange={(e) => {
@@ -497,17 +498,17 @@ export function PartnerForm({
                     updated[i] = { ...updated[i], value: e.target.value };
                     setExternalIdentifiers(updated);
                   }}
-                  placeholder="e.g., SUP-44821"
+                  placeholder={t("partners.form.identifierValuePlaceholder")}
                 />
               </div>
               <Button variant="ghost" size="sm" onClick={() => removeExternalIdentifier(i)}>
-                Remove
+                {t("partners.form.remove")}
               </Button>
             </div>
           ))}
           {externalIdentifiers.length > 0 && (
             <Button variant="outline" size="sm" onClick={handleExternalIdsSave}>
-              Save Identifiers
+              {t("partners.form.saveIdentifiers")}
             </Button>
           )}
         </CardContent>

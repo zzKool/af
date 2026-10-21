@@ -1,6 +1,7 @@
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { Msg } from "@/kernel/i18n/msg";
 import * as bankService from "@/modules/banking";
 import { BankAccountsTab } from "@/modules/banking/ui";
 
@@ -56,7 +57,9 @@ export default async function BankAccountsSettingsPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">Bank Accounts</h1>
+      <h1 className="mb-6 text-2xl font-semibold">
+        <Msg k="settings.bankAccounts.title" />
+      </h1>
       <BankAccountsTab initialAccounts={accounts} bankFormats={formats} />
     </div>
   );
