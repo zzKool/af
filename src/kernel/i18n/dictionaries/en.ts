@@ -1,4 +1,4 @@
-// UI strings — English is the key set; every other dictionary is typed against it (sv later = one more file).
+// UI strings — English is the key set; every other dictionary (fr, sv) is typed against it — a new language is one more file.
 // Keys are `<module>.<area>.<name>`; `{name}` placeholders are filled by translate()/useT().
 export const en = {
   "common.save": "Save",
@@ -10,6 +10,21 @@ export const en = {
   "common.yes": "Yes",
   "common.no": "No",
   "common.today": "Today",
+
+  // --- nav (the sidebar and the breadcrumb) ---
+  "nav.dashboard": "Dashboard",
+  "nav.documents": "Documents",
+  "nav.journal": "Journal",
+  "nav.banking": "Banking",
+  "nav.partners": "Partners",
+  "nav.reconciliation": "Reconciliation",
+  "nav.invoices": "Invoices",
+  "nav.expenses": "Expenses",
+  "nav.supplierInvoices": "Supplier invoices",
+  "nav.package": "Package",
+  "nav.declarations": "Declarations",
+  "nav.settings": "Settings",
+  "nav.logout": "Log out",
 
   "contracts.currentRate": "Current rate",
   "contracts.currentRate.none": "No rate for today",
@@ -86,6 +101,7 @@ export const en = {
 
   // --- invoices: the sheet and the pages (v3) ---
   "invoices.title": "Invoices",
+  "invoices.meta.count": "{count} documents",
   "invoices.new": "New document",
   "invoices.new.invoice": "New invoice",
   "invoices.new.quote": "New quote",
@@ -644,6 +660,7 @@ export const en = {
   "expenses.statement.superseded": "SUPERSEDED — this settlement was cancelled",
   "expenses.statement.generated": "Generated {date}",
   // --- traktamente ---
+  "settings.preferences.saved": "Preferences saved",
   "rates.title": "Exchange rates",
   "rates.meta":
     "ECB reference rates against the euro — every amount's SEK base and the Swiss VAT return convert through them.",

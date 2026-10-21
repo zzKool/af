@@ -65,7 +65,7 @@ Observations
 | Due VAT % / Due VAT / Delta VAT | derived from the CH VAT registration rate schedule |
 | SE Taxes / Z Salary / Ce que AF se fait | owner cash planning — not accounting; owner-only dashboard widget, Growth phase (D14) |
 
-Extra fields the invoice carries: PO number (per invoice), supplier number and 2–3 labelled identifiers (per partner / per contract, already in the v2 model), optional discount, logo, language en/fr (sv later).
+Extra fields the invoice carries: PO number (per invoice), supplier number and 2–3 labelled identifiers (per partner / per contract, already in the v2 model), optional discount, logo, language en/fr/sv.
 
 ---
 

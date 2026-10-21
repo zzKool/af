@@ -22,6 +22,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authClient } from "@/kernel/auth/auth-client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { useT } from "@/kernel/i18n/use-t";
 import { NAV_ITEMS } from "@/kernel/nav/constants";
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 import { TenantSwitcher } from "@/kernel/ui/shell/tenant-switcher";
@@ -52,6 +53,7 @@ export function Sidebar({
   role: CallerIdentity["role"];
   tenants: { id: string; name: string }[];
 }) {
+  const t = useT();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -109,7 +111,7 @@ export function Sidebar({
               tabIndex={switching ? -1 : undefined}
             >
               {Icon && <Icon className="h-4 w-4 shrink-0" />}
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
             </Link>
           );
         })}
@@ -129,7 +131,7 @@ export function Sidebar({
           )}
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Log out</span>}
+          {!collapsed && <span>{t("nav.logout")}</span>}
         </button>
       </div>
     </aside>

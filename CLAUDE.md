@@ -30,7 +30,7 @@ Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 ·
 ## Conventions
 - Files kebab-case, components PascalCase, DB snake_case, Postgres enums, TIMESTAMPTZ, `@db.Uuid`.
 - Tests: `.test.ts` co-located (Vitest), `.spec.ts` in `e2e/` (Playwright). Property tests on money and allocations.
-- i18n keys from day one: en + fr; sv is a later dictionary, never a code change.
+- i18n keys from day one: en + fr + sv (sv added 2026-10-21); a new language is one dictionary file, never a code change.
 - Business keys are fixed functions: `Ex{group}-{BAS alias}-{seq}_{date}_`, invoices `{client short}{yy}-{nnn}` via `number_series`. No prefix settings.
 - Docs: `docs/<topic>.md` with `[[wiki-links]]`, indexed in `docs/index.md`. Specs in `specs/<module>/`.
 

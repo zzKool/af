@@ -164,7 +164,7 @@ Verdict legend: **v2** keep v2 code · **harvest** rebuild on v2 foundation from
 | | v1 | v2 |
 |---|---|---|
 | What | `Invoice` + `InvoiceV2` both live; lines, payments, credit notes, templates, period label, PO / contract / vendor-ID labels, en/fr, approval; `Quote` → invoice; puppeteer HTML templates | not built (Epic 10) |
-| Keeps | quotes → invoices; lines (days × rate, discount); period label; PO number per invoice; partner and contract labelled identifiers printed; VAT per registration (CH 8.1 %, SE moms, reverse charge); credit notes referencing the original; en/fr now, sv later; logo; lifecycle draft → issued → sent → paid / credited; paid amount and delta derived from bank links; CH declaration period on each invoice; PDF downloadable any time |
+| Keeps | quotes → invoices; lines (days × rate, discount); period label; PO number per invoice; partner and contract labelled identifiers printed; VAT per registration (CH 8.1 %, SE moms, reverse charge); credit notes referencing the original; en/fr/sv (sv dictionary 2026-10-21); logo; lifecycle draft → issued → sent → paid / credited; paid amount and delta derived from bank links; CH declaration period on each invoice; PDF downloadable any time |
 | Mechanism | two models → one; 260-line numbering → `number_series` per `{client}{yy}`; separate preview and PDF → one component with edit / print modes, Chromium renders print mode; PDF generated once at issue and stored as a document; templates-of-invoices and approval step dropped; email sending not built (mark as sent) |
 | Status | **Built 2026-10-20** (two PRs): model, totals, lifecycle, derived states, list read model; the one-layout sheet (edit / print), print route, PDF job, pages, en/fr — `docs/invoices.md`, `specs/invoices/`. |
 
@@ -300,7 +300,7 @@ Time tracking and `Project` budgets, `PriceList` family, `ServiceCatalog`, `Pric
 | PDF | puppeteer, same HTML as preview | none | Chromium from the print mode of the invoice component; reimbursement statement and package summary the same way |
 | OCR | Azure DI, sync | Azure DI, async job, review overlay | v2 |
 | Storage | Azure Blob | Azure Blob + Azurite, blob proxy | v2 |
-| UI kit | shadcn, TanStack Table, `advanced-table` filters | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider`, centred pages | v2 kit + v1 filter behaviour (H13); full-width layout (D19); i18n keys from day one (en, fr; sv later) |
+| UI kit | shadcn, TanStack Table, `advanced-table` filters | shadcn, `DataTable`, Zustand tenant stores, `LocaleProvider`, centred pages | v2 kit + v1 filter behaviour (H13); full-width layout (D19); i18n keys from day one (en, fr, sv) |
 | Testing | Jest + 129 e2e | Vitest co-located + Playwright + architecture guard + factories | v2 + flaky-test quarantine + property tests on money and allocations |
 | CI / deploy | GH Actions, App Service, SQL Server | GH Actions with Azurite e2e, Docker, Container Apps | v2 (+ Chromium in the image). **Since 2026-10-20**: CI publishes the app image and a one-shot migrate image to `ghcr.io` on every main push; the homelab pulls by tag (`docker-compose.prod.yml`), backups + restore drill, `/api/health`; the Azure job is written, disabled until provisioned — `docs/deployment.md` |
 | Docs | large plan documents | `docs/index.md` wiki per pattern | v2 convention + spec-kit specs |

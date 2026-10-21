@@ -1,14 +1,15 @@
 // String lookup — server-safe (no React). Dictionaries are data: a new language is one file + one line here.
 import { type Dictionary, en, type MessageKey } from "./dictionaries/en";
 import { fr } from "./dictionaries/fr";
+import { sv } from "./dictionaries/sv";
 
 export type { Dictionary, MessageKey };
 
-const DICTIONARIES: Record<string, Dictionary> = { en, fr };
+const DICTIONARIES: Record<string, Dictionary> = { en, fr, sv };
 
 export const SUPPORTED_UI_LANGUAGES = Object.keys(DICTIONARIES) as ReadonlyArray<string>;
 
-/** `fr-CH` → `fr`, `sv-SE` → `en` (no Swedish dictionary yet), null → `en`. */
+/** `fr-CH` → `fr`, `sv-SE` → `sv`, `de-CH` → `en` (no dictionary), null → `en`. */
 export function uiLanguage(locale: string | null | undefined): string {
   const lang = (locale ?? "").toLowerCase().split(/[-_]/)[0];
   return lang && lang in DICTIONARIES ? lang : "en";
