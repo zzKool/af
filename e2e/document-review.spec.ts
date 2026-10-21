@@ -49,8 +49,12 @@ test.describe("Document review page — owner", () => {
     // Auto-save status indicator should be present
     await expect(page.getByText(/Auto-saved|Saving|Save failed/)).toBeVisible();
 
-    // Verify document preview region with keyboard-accessible document role
-    await expect(page.locator("[role='document']")).toBeVisible();
+    // the preview region: the viewer (keyboard-accessible document role) while it loads, or its "Unable to load
+    // preview" state — the journey's file is a few bytes, not a parseable PDF, and pdf.js may reject it before
+    // this line runs (a race that failed main twice)
+    await expect(
+      page.locator("[role='document']").or(page.getByText("Unable to load preview")).first(),
+    ).toBeVisible();
 
     // Verify financial or relationship form section is rendered
     const financialHeading = page.getByText("Financial Details");
