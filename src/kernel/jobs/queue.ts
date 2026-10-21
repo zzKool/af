@@ -8,6 +8,7 @@
 // graph, so a plain module singleton would start one pg-boss per bundle.
 import { PgBoss } from "pg-boss";
 import { logger } from "@/kernel/logging/logger";
+import { runReported } from "./run-reported";
 import type { EnqueueOptions, JobDefinition, ScheduleDefinition } from "./types";
 
 const SCHEMA = "pgboss";
@@ -113,12 +114,18 @@ export async function startJobs(
       if (s.workers.has(job.name)) continue;
       await ensureQueue(boss, job);
       await boss.work<object>(job.name, { batchSize: 1 }, async ([j]) => {
-        await job.handler(j.data, { id: j.id, attempt: j.retryCount });
+        await runReported(job.name, job.handler.bind(job), j.data, {
+          id: j.id,
+          attempt: j.retryCount,
+        });
       });
       if (job.onDeadLetter) {
         const onDeadLetter = job.onDeadLetter.bind(job);
         await boss.work<object>(deadLetterQueueName(job.name), { batchSize: 1 }, async ([j]) => {
-          await onDeadLetter(j.data, { id: j.id, attempt: j.retryCount });
+          await runReported(deadLetterQueueName(job.name), onDeadLetter, j.data, {
+            id: j.id,
+            attempt: j.retryCount,
+          });
         });
       }
       s.workers.add(job.name);

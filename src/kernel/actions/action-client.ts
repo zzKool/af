@@ -1,6 +1,6 @@
 import { PrismaClientKnownRequestError } from "@prisma/client-runtime-utils";
-import * as Sentry from "@sentry/nextjs";
 import { createMiddleware, createSafeActionClient } from "next-safe-action";
+import type pino from "pino";
 import { z } from "zod/v4";
 import { authMiddleware } from "@/kernel/actions/auth";
 import { ActionError } from "@/kernel/actions/errors";
@@ -14,25 +14,47 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { isTenantAdmin } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError } from "@/kernel/errors/app-error";
+import { reportError } from "@/kernel/errors/report-error";
 import { logger } from "@/kernel/logging/logger";
+
+/** What the middleware chain may have put in the context before an unexpected error. */
+type RequestContext = Partial<{
+  userId: string;
+  tenantId: string | null;
+  requestId: string;
+  log: pino.Logger;
+}>;
 
 /**
  * Base action client with error handler.
  * handleServerError distinguishes ActionError (business errors from middleware)
  * from unexpected crashes. Both are returned as serverError to the client.
  *
- * - ActionError → pass through the AppError object
+ * - ActionError → pass through the AppError object (not reported)
+ * - anything else → reported to Sentry with the request context (user, tenant, request id, action)
  * - Prisma errors → INTERNAL_ERROR with retryable: true
  * - Other errors → INTERNAL_ERROR with retryable: false
  */
 const baseClient = createSafeActionClient({
   defineMetadataSchema: () => z.object({ name: z.string() }),
-  handleServerError: (error) => {
+  handleServerError: (error, { ctx, metadata }) => {
     if (error instanceof ActionError || error instanceof RollbackError) {
       return error.appError;
     }
-    const sentryEventId = Sentry.captureException(error);
-    logger.error({ err: error, sentryEventId }, "Unhandled Server Action error");
+    // The context the middleware chain had reached when the error was thrown: empty before auth,
+    // user + tenant after it, request id + the request-scoped logger after logging.
+    const request = ctx as RequestContext;
+    const action = metadata?.name ?? "unknown";
+    const sentryEventId = reportError(error, {
+      userId: request.userId,
+      tenantId: request.tenantId,
+      requestId: request.requestId,
+      action,
+    });
+    (request.log ?? logger).error(
+      { err: error, sentryEventId, action },
+      "Unhandled Server Action error",
+    );
     const retryable = error instanceof PrismaClientKnownRequestError;
     return {
       code: "INTERNAL_ERROR" as const,
