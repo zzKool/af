@@ -3,22 +3,36 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { FormattedDate } from "@/kernel/i18n/formatted-date";
+import type { MessageKey } from "@/kernel/i18n/translate";
+import { useT } from "@/kernel/i18n/use-t";
 import type { DocumentReviewData } from "@/modules/documents/documents.actions";
 
-const QUALITY_CONFIG: Record<string, { label: string; className: string }> = {
+const QUALITY_CONFIG: Record<string, { label: MessageKey; className: string }> = {
   high: {
-    label: "Review extracted data",
+    label: "documents.review.quality.high",
     className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
   },
   low: {
-    label: "Low Confidence — Manual Review Recommended",
+    label: "documents.review.quality.low",
     className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   },
   none: {
-    label: "Manual Entry Required",
+    label: "documents.review.quality.none",
     className: "bg-muted text-muted-foreground",
   },
 };
+
+const STATUS_KEYS = [
+  "uploaded",
+  "processing",
+  "extracted",
+  "ocr_failed",
+  "linked",
+  "generated",
+] as const;
+type DocumentStatusKey = (typeof STATUS_KEYS)[number];
+const isKnownStatus = (s: string): s is DocumentStatusKey =>
+  (STATUS_KEYS as readonly string[]).includes(s);
 
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-muted text-muted-foreground",
@@ -29,13 +43,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
+  const t = useT();
   const qualityInfo = data.quality ? QUALITY_CONFIG[data.quality] : null;
   const fileSizeKb = Math.round(data.fileSize / 1024);
 
   return (
     <div className="space-y-2">
       <Link href="/documents" className="text-sm text-muted-foreground hover:text-foreground">
-        &larr; Back to Documents
+        &larr; {t("documents.review.back")}
       </Link>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -44,7 +59,7 @@ export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
           variant="outline"
           className={STATUS_COLORS[data.status] ?? "bg-muted text-muted-foreground"}
         >
-          {data.status}
+          {isKnownStatus(data.status) ? t(`documents.status.${data.status}`) : data.status}
         </Badge>
       </div>
 
@@ -52,7 +67,7 @@ export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
         <span>{data.fileName}</span>
         <span>{fileSizeKb} KB</span>
         <span>
-          Uploaded <FormattedDate date={data.createdAt} />
+          {t("documents.review.uploaded")} <FormattedDate date={data.createdAt} />
         </span>
       </div>
 
@@ -63,7 +78,7 @@ export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
             {data.quality === "high" && "● "}
             {data.quality === "low" && "▲ "}
             {data.quality === "none" && "○ "}
-            {qualityInfo.label}
+            {t(qualityInfo.label)}
           </Badge>
         </div>
       )}
@@ -72,10 +87,10 @@ export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
       <div className="text-sm text-muted-foreground">
         {data.reviewedAt ? (
           <span>
-            Reviewed <FormattedDate date={data.reviewedAt} />
+            {t("documents.review.reviewed")} <FormattedDate date={data.reviewedAt} />
           </span>
         ) : (
-          <span>Awaiting review</span>
+          <span>{t("documents.review.awaiting")}</span>
         )}
       </div>
     </div>

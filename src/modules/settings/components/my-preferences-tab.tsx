@@ -56,12 +56,12 @@ export function MyPreferencesTab({ initialLocale }: Props) {
       if (result) {
         if (result.serverError) {
           const se = result.serverError as { message?: string };
-          toast.error(se.message || "Server error");
+          toast.error(se.message || t("settings.preferences.saveFailed"));
           setLocale(currentLocale);
           return;
         }
         if (result.data?.error) {
-          toast.error(result.data.error.message || "Failed to update locale");
+          toast.error(result.data.error.message || t("settings.preferences.saveFailed"));
           setLocale(currentLocale);
         }
         toast.success(t("settings.preferences.saved"));
@@ -82,17 +82,17 @@ export function MyPreferencesTab({ initialLocale }: Props) {
     <div className="space-y-6">
       <div className="space-y-2">
         <label htmlFor="locale-select" className="text-sm font-medium">
-          Display Locale
+          {t("settings.preferences.locale")}
         </label>
-        <p className="text-xs text-muted-foreground">
-          Controls how dates and numbers are formatted across the application.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("settings.preferences.localeHint")}</p>
         <Select value={selectValue} onValueChange={handleChange}>
           <SelectTrigger id="locale-select" className="w-64">
-            <SelectValue placeholder="Select locale" />
+            <SelectValue placeholder={t("settings.preferences.selectLocale")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={BROWSER_DEFAULT_VALUE}>Browser Default</SelectItem>
+            <SelectItem value={BROWSER_DEFAULT_VALUE}>
+              {t("settings.preferences.browserDefault")}
+            </SelectItem>
             {SUPPORTED_LOCALES.map((loc) => (
               <SelectItem key={loc} value={loc}>
                 {LOCALE_DISPLAY_NAMES[loc] ?? loc}
@@ -104,14 +104,20 @@ export function MyPreferencesTab({ initialLocale }: Props) {
 
       {/* Live preview */}
       <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-        <h3 className="text-sm font-medium">Preview ({previewLocale})</h3>
+        <h3 className="text-sm font-medium">
+          {t("settings.preferences.preview", { locale: previewLocale })}
+        </h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-xs text-muted-foreground uppercase">Date</span>
+            <span className="text-xs text-muted-foreground uppercase">
+              {t("settings.preferences.date")}
+            </span>
             <p className="font-mono">{previewDate}</p>
           </div>
           <div>
-            <span className="text-xs text-muted-foreground uppercase">Number</span>
+            <span className="text-xs text-muted-foreground uppercase">
+              {t("settings.preferences.number")}
+            </span>
             <p className="font-mono">{previewNumber}</p>
           </div>
         </div>

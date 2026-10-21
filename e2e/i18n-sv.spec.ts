@@ -13,7 +13,7 @@ async function snap(page: Page, name: string) {
 
 async function pickLocale(page: Page, label: string) {
   await page.goto("/settings/my-preferences");
-  await page.getByRole("combobox", { name: "Display Locale" }).click();
+  await page.locator("#locale-select").click();
   await page.getByRole("option", { name: label }).click();
   // the confirmation comes in whichever language the page was in when the change was made
   await expectToast(page, /Preferences saved|Inställningar sparade/);
@@ -44,6 +44,13 @@ test.describe("Swedish UI", () => {
       await page.goto("/settings");
       await expect(page.getByRole("heading", { name: "Inställningar" })).toBeVisible();
       await expect(page.getByRole("link", { name: /Bankkonton/ })).toBeVisible();
+      await page.goto("/settings/company");
+      await expect(page.getByRole("heading", { name: "Företagsprofil" })).toBeVisible();
+      await expect(page.getByText("Organisationsnummer")).toBeVisible();
+      await page.goto("/settings/bank-accounts");
+      await expect(page.getByRole("heading", { name: "Bankkonton" })).toBeVisible();
+      await page.goto("/settings/vat-registrations");
+      await expect(page.getByRole("heading", { name: "Momsregistreringar" })).toBeVisible();
       await page.goto("/settings/rates");
       await expect(page.getByRole("heading", { name: "Valutakurser" })).toBeVisible();
       await expect(page.getByTestId("rates-fetch")).toHaveText("Hämta nu");

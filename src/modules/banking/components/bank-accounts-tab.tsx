@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
@@ -87,6 +88,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
   const { executeAsync: execCreate, isPending: isCreating } = useAction(createBankAccountAction);
   const { executeAsync: execUpdate } = useAction(updateBankAccountAction);
   const { executeAsync: execDelete } = useAction(deleteBankAccountAction);
+  const t = useT();
   const { dialogProps, confirm } = useConfirmDialog();
 
   // Ref to avoid stale closures in update callbacks
@@ -112,7 +114,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
         }
         const newId = result.data?.data?.id;
         if (!newId) {
-          toast.error("Failed to create bank account");
+          toast.error(t("settings.bankAccounts.createFailed"));
           return false;
         }
         const format = bankFormats.find((f) => f.id === input.bankFormatId);
@@ -135,7 +137,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
       }
       return false;
     },
-    [execCreate, bankFormats],
+    [execCreate, bankFormats, t],
   );
 
   // ─── Update (auto-save) ───
@@ -202,10 +204,10 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
             });
           }
         },
-        { description: `Delete "${name}" bank account? This cannot be undone.` },
+        { description: t("settings.bankAccounts.deleteConfirm", { name }) },
       );
     },
-    [execDelete, confirm],
+    [execDelete, confirm, t],
   );
 
   return (
@@ -213,14 +215,13 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
       {/* Empty state */}
       {accounts.length === 0 && !showAddForm && (
         <div className="rounded-lg border border-dashed p-6 text-center">
-          <p className="text-sm text-muted-foreground">No bank accounts configured yet</p>
+          <p className="text-sm text-muted-foreground">{t("settings.bankAccounts.empty")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Add your bank accounts and select the CSV format each account uses for importing
-            transactions.
+            {t("settings.bankAccounts.emptyHint")}
           </p>
           <Button variant="default" className="mt-4" onClick={() => setShowAddForm(true)}>
             <Plus className="mr-1 h-4 w-4" />
-            Add Bank Account
+            {t("settings.bankAccounts.add")}
           </Button>
         </div>
       )}
@@ -251,7 +252,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
       {accounts.length > 0 && !showAddForm && (
         <Button variant="outline" onClick={() => setShowAddForm(true)}>
           <Plus className="mr-1 h-4 w-4" />
-          Add Bank Account
+          {t("settings.bankAccounts.add")}
         </Button>
       )}
 
@@ -276,6 +277,7 @@ function AccountCard({
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
+  const t = useT();
   const [localAlias, setLocalAlias] = useState(account.accountAlias ?? "");
   const [localAccountNumber, setLocalAccountNumber] = useState(account.accountNumber);
   const [localIban, setLocalIban] = useState(account.iban ?? "");
@@ -306,7 +308,8 @@ function AccountCard({
           size="sm"
           onClick={() => onDelete(account.id)}
           disabled={isDeleting}
-          title="Delete bank account"
+          title={t("settings.bankAccounts.delete")}
+          aria-label={t("settings.bankAccounts.delete")}
         >
           {isDeleting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -323,14 +326,14 @@ function AccountCard({
             htmlFor={`ba-alias-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            Alias (optional)
+            {t("settings.bankAccounts.alias")}
           </label>
           <Input
             id={`ba-alias-${account.id}`}
             value={localAlias}
             onChange={(e) => setLocalAlias(e.target.value)}
             onBlur={() => onUpdateField(account.id, "accountAlias", localAlias || null)}
-            placeholder="e.g., Plusgiro SEK"
+            placeholder={t("settings.bankAccounts.aliasPlaceholder")}
             className="h-8 text-sm"
           />
         </div>
@@ -341,7 +344,7 @@ function AccountCard({
             htmlFor={`ba-number-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            Account Number
+            {t("settings.bankAccounts.number")}
           </label>
           <Input
             id={`ba-number-${account.id}`}
@@ -358,7 +361,7 @@ function AccountCard({
             htmlFor={`ba-iban-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            IBAN (printed on invoices)
+            {t("settings.bankAccounts.iban")}
           </label>
           <Input
             id={`ba-iban-${account.id}`}
@@ -374,7 +377,7 @@ function AccountCard({
             htmlFor={`ba-bic-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            BIC / SWIFT
+            {t("settings.bankAccounts.bic")}
           </label>
           <Input
             id={`ba-bic-${account.id}`}
@@ -392,7 +395,7 @@ function AccountCard({
             htmlFor={`ba-currency-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            Currency
+            {t("settings.bankAccounts.currency")}
           </Label>
           <Select
             value={account.currency}
@@ -420,7 +423,7 @@ function AccountCard({
             htmlFor={`ba-role-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            Role
+            {t("banking.accounts.role")}
           </Label>
           <Select
             value={account.role}
@@ -433,8 +436,8 @@ function AccountCard({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="main">Main (monthly package)</SelectItem>
-              <SelectItem value="savings">Savings (yearly package)</SelectItem>
+              <SelectItem value="main">{t("banking.accounts.role.main")}</SelectItem>
+              <SelectItem value="savings">{t("banking.accounts.role.savings")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -445,7 +448,7 @@ function AccountCard({
             htmlFor={`ba-format-${account.id}`}
             className="text-[10px] text-muted-foreground uppercase"
           >
-            CSV Format
+            {t("settings.bankAccounts.format")}
           </Label>
           <Select
             value={account.bankFormatId}
@@ -506,6 +509,7 @@ function AddAccountForm({
   onClose: () => void;
   isCreating: boolean;
 }) {
+  const t = useT();
   const [accountNumber, setAccountNumber] = useState("");
   const [currency, setCurrency] = useState<string>(CURRENCIES[0]);
   const [bankFormatId, setBankFormatId] = useState<string>(
@@ -524,11 +528,11 @@ function AddAccountForm({
     const trimmedAlias = alias.trim();
 
     if (!trimmedNumber) {
-      toast.error("Account number is required");
+      toast.error(t("settings.bankAccounts.numberRequired"));
       return;
     }
     if (!bankFormatId) {
-      toast.error("Please select a CSV format");
+      toast.error(t("settings.bankAccounts.formatRequired"));
       return;
     }
 
@@ -553,7 +557,7 @@ function AddAccountForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="ba-add-number" className="text-[10px] text-muted-foreground uppercase">
-            Account Number
+            {t("settings.bankAccounts.number")}
           </label>
           <Input
             id="ba-add-number"
@@ -566,19 +570,19 @@ function AddAccountForm({
         </div>
         <div>
           <label htmlFor="ba-add-alias" className="text-[10px] text-muted-foreground uppercase">
-            Alias (optional)
+            {t("settings.bankAccounts.alias")}
           </label>
           <Input
             id="ba-add-alias"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
-            placeholder="e.g., Plusgiro SEK"
+            placeholder={t("settings.bankAccounts.aliasPlaceholder")}
             className="h-8 text-sm"
           />
         </div>
         <div>
           <Label htmlFor="ba-add-currency" className="text-[10px] text-muted-foreground uppercase">
-            Currency
+            {t("settings.bankAccounts.currency")}
           </Label>
           <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
             <SelectTrigger id="ba-add-currency" className="w-full">
@@ -595,11 +599,11 @@ function AddAccountForm({
         </div>
         <div>
           <Label htmlFor="ba-add-format" className="text-[10px] text-muted-foreground uppercase">
-            CSV Format
+            {t("settings.bankAccounts.format")}
           </Label>
           <Select value={bankFormatId} onValueChange={(v) => v && setBankFormatId(v)}>
             <SelectTrigger id="ba-add-format" className="w-full">
-              <SelectValue placeholder="Select format..." />
+              <SelectValue placeholder={t("settings.bankAccounts.selectFormat")} />
             </SelectTrigger>
             <SelectContent>
               {bankFormats.map((f) => (
@@ -613,16 +617,16 @@ function AddAccountForm({
       </div>
       <div className="flex gap-2 justify-end">
         <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isCreating}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" size="sm" disabled={isCreating}>
           {isCreating ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              Adding...
+              {t("settings.bankAccounts.adding")}
             </>
           ) : (
-            "Add Account"
+            t("settings.bankAccounts.addAccount")
           )}
         </Button>
       </div>

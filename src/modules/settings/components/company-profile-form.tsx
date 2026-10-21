@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/kernel/i18n/use-t";
 import { CompanyAvatar } from "@/kernel/ui/company-avatar";
 import { updateTenantProfileAction } from "@/modules/settings/settings.actions";
 
@@ -28,6 +29,7 @@ type ProfileData = {
 const CURRENCIES = ["SEK", "CHF", "EUR", "USD"] as const;
 
 export function CompanyProfileForm({ initialData }: { initialData: ProfileData }) {
+  const t = useT();
   const [data, setData] = useState(initialData);
   const [errors, setErrors] = useState<Partial<Record<keyof ProfileData, string>>>({});
   const [savingField, setSavingField] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
 
       // Validate required fields
       if (field === "name" && !value.trim()) {
-        setErrors((prev) => ({ ...prev, name: "Company name is required" }));
+        setErrors((prev) => ({ ...prev, name: t("settings.company.nameRequired") }));
         setData((prev) => ({ ...prev, name: previousData.current.name }));
         return;
       }
@@ -57,7 +59,9 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
 
       if (result?.serverError || result?.data?.error) {
         const errorMsg =
-          result?.serverError?.message ?? result?.data?.error?.message ?? "Save failed";
+          result?.serverError?.message ??
+          result?.data?.error?.message ??
+          t("settings.company.saveFailed");
         setErrors((prev) => ({ ...prev, [field]: errorMsg }));
         setData((prev) => ({ ...prev, [field]: previousData.current[field] }));
       } else {
@@ -66,7 +70,7 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
 
       setSavingField(null);
     },
-    [executeAsync],
+    [executeAsync, t],
   );
 
   return (
@@ -82,7 +86,7 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
 
       {/* Company Name */}
       <FieldWrapper
-        label="Company Name"
+        label={t("settings.company.name")}
         required
         error={errors.name}
         saving={savingField === "name"}
@@ -91,13 +95,13 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
           value={data.name}
           onChange={(e) => setData((prev) => ({ ...prev, name: e.target.value }))}
           onBlur={() => saveField("name", data.name)}
-          placeholder="Enter company name"
+          placeholder={t("settings.company.namePlaceholder")}
         />
       </FieldWrapper>
 
       {/* Org Number */}
       <FieldWrapper
-        label="Organization Number"
+        label={t("settings.company.orgNumber")}
         error={errors.orgNumber}
         saving={savingField === "orgNumber"}
       >
@@ -105,13 +109,13 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
           value={data.orgNumber}
           onChange={(e) => setData((prev) => ({ ...prev, orgNumber: e.target.value }))}
           onBlur={() => saveField("orgNumber", data.orgNumber)}
-          placeholder="e.g., 556677-8899"
+          placeholder={t("settings.company.orgNumberPlaceholder")}
         />
       </FieldWrapper>
 
       {/* Address */}
       <FieldWrapper
-        label="Registered Address"
+        label={t("settings.company.address")}
         error={errors.address}
         saving={savingField === "address"}
       >
@@ -119,26 +123,30 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
           value={data.address}
           onChange={(e) => setData((prev) => ({ ...prev, address: e.target.value }))}
           onBlur={() => saveField("address", data.address)}
-          placeholder="e.g., Testgatan 1, 111 22 Stockholm"
+          placeholder={t("settings.company.addressPlaceholder")}
         />
       </FieldWrapper>
 
       {/* Contact line — printed on invoices */}
       <FieldWrapper
-        label="Email"
+        label={t("settings.company.email")}
         error={errors.email}
         saving={savingField === "email"}
-        hint="Printed on invoices"
+        hint={t("settings.company.emailHint")}
       >
         <Input
           type="email"
           value={data.email}
           onChange={(e) => setData((prev) => ({ ...prev, email: e.target.value }))}
           onBlur={() => saveField("email", data.email)}
-          placeholder="invoices@example.com"
+          placeholder={t("settings.company.emailPlaceholder")}
         />
       </FieldWrapper>
-      <FieldWrapper label="Website" error={errors.website} saving={savingField === "website"}>
+      <FieldWrapper
+        label={t("settings.company.website")}
+        error={errors.website}
+        saving={savingField === "website"}
+      >
         <Input
           value={data.website}
           onChange={(e) => setData((prev) => ({ ...prev, website: e.target.value }))}
@@ -146,7 +154,11 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
           placeholder="https://example.com"
         />
       </FieldWrapper>
-      <FieldWrapper label="Phone" error={errors.phone} saving={savingField === "phone"}>
+      <FieldWrapper
+        label={t("settings.company.phone")}
+        error={errors.phone}
+        saving={savingField === "phone"}
+      >
         <Input
           value={data.phone}
           onChange={(e) => setData((prev) => ({ ...prev, phone: e.target.value }))}
@@ -157,10 +169,10 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
 
       {/* Currency */}
       <FieldWrapper
-        label="Base Currency"
+        label={t("settings.company.currency")}
         error={errors.currency}
         saving={savingField === "currency"}
-        hint="Base currency for all financial calculations"
+        hint={t("settings.company.currencyHint")}
       >
         <Select
           value={data.currency}
