@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { findSupplierInvoiceDuplicates } from "@/modules/supplier-invoices/duplicates";
 import * as payments from "@/modules/supplier-invoices/payments";
 import {
   candidateDocuments,
@@ -128,6 +129,27 @@ export const inputVatForPeriodAction = authedAction
   });
 
 // --- writes (owner only) ---
+
+/** The entity duplicate check before "Make it a supplier invoice" (specs/documents US3): owner only, read-only. */
+export const checkSupplierInvoiceDuplicatesAction = ownerAction
+  .schema(
+    z.object({
+      documentId: z.string().uuid().optional(),
+      partnerId: z.string().uuid().nullable().optional(),
+      invoiceNumber: z.string().max(100).nullable().optional(),
+      amount: z.string().max(20).nullable().optional(),
+      currency: z.string().length(3).nullable().optional(),
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable()
+        .optional(),
+    }),
+  )
+  .metadata({ name: "checkSupplierInvoiceDuplicates" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await findSupplierInvoiceDuplicates(ctx.tx, parsedInput),
+  }));
 
 export const createSupplierInvoiceAction = ownerAction
   .schema(service.supplierInvoiceInputSchema)

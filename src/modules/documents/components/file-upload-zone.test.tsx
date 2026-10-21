@@ -39,10 +39,30 @@ function successResult(overrides?: Partial<{ id: string; businessKey: string; fi
   return {
     data: {
       data: {
+        kind: "stored",
         id: "doc-1",
         businessKey: "exp_20260314_001",
         fileName: "test.pdf",
         ...overrides,
+      },
+    },
+  };
+}
+
+function duplicateResult(becameType: "expense" | null = null) {
+  return {
+    data: {
+      data: {
+        kind: "duplicate",
+        existing: {
+          id: "doc-0",
+          businessKey: "exp_20260301_004",
+          fileName: "email.pdf",
+          status: "extracted",
+          createdAt: new Date("2026-03-01T10:00:00Z"),
+          createdBy: "user-1",
+          becameType,
+        },
       },
     },
   };
@@ -147,6 +167,36 @@ describe("FileUploadZone", () => {
     expect(screen.getByText("Upload another")).toBeInTheDocument();
   });
 
+  it("shows the duplicate card instead of storing; Upload anyway re-posts with force", async () => {
+    mockExecuteAsync.mockResolvedValueOnce(duplicateResult("expense"));
+    mockExecuteAsync.mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_002" }));
+
+    render(<FileUploadZone {...defaultProps} />);
+    const input = document.querySelector("input[type='file']") as HTMLInputElement;
+    const file = new File(["pdf content"], "photo.pdf", { type: "application/pdf" });
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    // the card: the existing key, what it became, the two ways out
+    expect(screen.getByTestId("upload-duplicate")).toBeInTheDocument();
+    expect(screen.getByTestId("upload-duplicate-key")).toHaveTextContent("exp_20260301_004");
+    expect(screen.getByText(/became an expense/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Use existing document" })).toHaveAttribute(
+      "href",
+      "/documents/doc-0",
+    );
+    expect(screen.queryByText("Upload another")).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Upload anyway" }));
+    });
+    expect(mockExecuteAsync).toHaveBeenCalledTimes(2);
+    const formData = mockExecuteAsync.mock.calls[1][0] as FormData;
+    expect(formData.get("force")).toBe("true");
+    expect(screen.getByText("exp_20260314_002")).toBeInTheDocument();
+  });
+
   it("shows error state when server returns business error", async () => {
     mockExecuteAsync.mockResolvedValue({
       data: {
@@ -197,11 +247,13 @@ describe("FileUploadZone", () => {
       fireEvent.change(input, { target: { files: [validFile] } });
     });
 
-    expect(onComplete).toHaveBeenCalledWith({
-      id: "doc-1",
-      businessKey: "exp_20260314_001",
-      fileName: "test.pdf",
-    });
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "doc-1",
+        businessKey: "exp_20260314_001",
+        fileName: "test.pdf",
+      }),
+    );
   });
 
   it("calls onError callback on server error", async () => {

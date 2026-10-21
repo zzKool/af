@@ -45,6 +45,21 @@ const positiveRate = z
 const uuid = z.string().uuid();
 const basCode = z.string().regex(/^\d{3,4}$/, "A BAS code is 3 or 4 digits");
 
+export const duplicateAckSchema = z.object({
+  entityIds: z.array(uuid).min(1).max(5),
+  note: z.string().trim().min(1, "Say why it is not a duplicate").max(500),
+});
+
+/** The note as stored when a duplicate was acknowledged: the owner's reason first, the typed note after. */
+export function noteWithAck(
+  note: string | null | undefined,
+  ack?: { note: string } | null,
+): string | null {
+  if (!ack) return note ?? null;
+  const reason = `Not a duplicate: ${ack.note}`;
+  return note ? `${reason}\n${note}` : reason;
+}
+
 export const expenseInputSchema = z.object({
   groupId: uuid,
   kind: z.enum(EXPENSE_KINDS).optional(),
@@ -62,11 +77,13 @@ export const expenseInputSchema = z.object({
   note: z.string().trim().max(2000).nullable().optional(),
   /** the uploaded receipt this expense is created from (D27) */
   documentId: uuid.optional(),
+  /** "Create anyway" on a high duplicate match (specs/documents US3): which entities, and why it is not one */
+  duplicateAck: duplicateAckSchema.optional(),
 });
 export type ExpenseInput = z.input<typeof expenseInputSchema>;
 
 export const updateExpenseSchema = expenseInputSchema
-  .omit({ documentId: true, kind: true })
+  .omit({ documentId: true, kind: true, duplicateAck: true })
   .partial();
 export type UpdateExpenseInput = z.input<typeof updateExpenseSchema>;
 
@@ -311,7 +328,7 @@ export async function createExpense(
       baseProvisional: isProvisional(source.data, v.currency),
       paymentSourceId: source.data.id,
       documentMissing: v.documentMissing ?? false,
-      note: v.note ?? null,
+      note: noteWithAck(v.note, v.duplicateAck),
       createdBy: caller.userId,
       source: caller.source,
     },
@@ -320,7 +337,7 @@ export async function createExpense(
     action: "create",
     entityType: "expense",
     entityId: row.id,
-    newData: toAuditData(row),
+    newData: { ...toAuditData(row), ...(v.duplicateAck ? { duplicateAck: v.duplicateAck } : {}) },
   });
 
   // 4. the receipt becomes this expense (D27): its key, the created_from link. A failure here rolls everything back.

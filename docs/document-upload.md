@@ -68,6 +68,10 @@ uploaded → processing → extracted → linked
 
 See [[ocr-processing]] for OCR service details, the resumable job, and quality classification.
 
+## The same file twice (specs/documents US2, D32 — 2026-10-21)
+
+Every stored document carries `content_hash` (sha256 hex of the bytes; uploads and generated PDFs alike; index `(tenant_id, content_hash)`, not unique). `uploadDocument` computes it after the file validation and looks it up **before** writing anything: a hit returns `{ kind: "duplicate", existing }` — the existing document's key, file name, date, uploader and what it became (the `created_from` link's type) — and the upload zone shows the amber card: *Use existing document* (the review page), *Upload anyway* (the owner; `force=true` stores a second copy, audited `knowingDuplicateOf`), *Upload another*. A hard-deleted document never matches. Rows stored before the column have a null hash until `scripts/backfill-document-hashes.ts` reads their blobs once. `sameContentDocumentIds(tx, id)` is what the entity duplicate check ([[expenses]], [[supplier-invoices]]) reads.
+
 ## Azure Blob Storage
 
 - Blob path: `/{tenantId}/{uuid}.{detectedExt}`

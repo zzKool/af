@@ -68,12 +68,21 @@ const ADMIN_DATABASE_URL =
 let adminPool: Pool;
 const testClock = createTestClock(new Date("2026-03-14T15:00:00Z"));
 
-// PDF magic bytes
-const PDF_BUFFER = (() => {
+// PDF magic bytes; `pdf(label)` gives distinct bytes — the same bytes twice in one tenant is a duplicate (US2)
+function pdf(label: string): Buffer {
   const buf = Buffer.alloc(1024);
-  Buffer.from("%PDF-1.4 test content", "ascii").copy(buf);
+  Buffer.from(`%PDF-1.4 test content ${label}`, "ascii").copy(buf);
   return buf;
-})();
+}
+const PDF_BUFFER = pdf("");
+
+/** The stored branch of an upload result (fails the test on a duplicate or an error). */
+function stored(result: Awaited<ReturnType<typeof documentService.uploadDocument>>) {
+  expect(result.error).toBeUndefined();
+  expect(result.data?.kind).toBe("stored");
+  if (result.data?.kind !== "stored") throw new Error("not stored");
+  return result.data;
+}
 
 beforeAll(async () => {
   adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
@@ -116,12 +125,11 @@ describe("documents service", () => {
         );
       });
 
-      expect(result.error).toBeUndefined();
-      expect(result.data).toBeDefined();
-      expect(result.data?.businessKey).toMatch(/^exp_20260314_001$/);
-      expect(result.data?.fileName).toBe("test-invoice.pdf");
-      expect(result.data?.status).toBe("uploaded");
-      expect(result.data?.documentType).toBe("financial");
+      const doc = stored(result);
+      expect(doc.businessKey).toMatch(/^exp_20260314_001$/);
+      expect(doc.fileName).toBe("test-invoice.pdf");
+      expect(doc.status).toBe("uploaded");
+      expect(doc.documentType).toBe("financial");
     });
 
     it("uploads blob with Content-Disposition: attachment", async () => {
@@ -194,8 +202,105 @@ describe("documents service", () => {
         );
       });
 
-      expect(result.data).toBeDefined();
-      await assertAuditLogged(adminPool, tenantId, "create", "document", result.data?.id);
+      await assertAuditLogged(adminPool, tenantId, "create", "document", stored(result).id);
+    });
+
+    // --- the same file twice (specs/documents US2, D32) ---
+    it("stores the sha256 of the bytes; the same bytes again return the existing document and write nothing", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+      const bytes = pdf("twice");
+      const up = (name: string, force?: boolean) =>
+        withTenantTransaction(prisma, tenantId, (tx) =>
+          documentService.uploadDocument(
+            tx,
+            owner.callerIdentity,
+            createRealAuditLogger(tx, owner.callerIdentity),
+            mockStorage,
+            testClock,
+            bytes,
+            name,
+            "expense",
+            { force },
+          ),
+        );
+
+      const first = stored(await up("email.pdf"));
+      const row = await adminPool.query("SELECT content_hash FROM documents WHERE id = $1", [
+        first.id,
+      ]);
+      expect(row.rows[0].content_hash).toBe(documentService.contentHashOf(bytes));
+      expect(row.rows[0].content_hash).toMatch(/^[0-9a-f]{64}$/);
+
+      // the same bytes under another name and kind: the card, not a second document
+      const again = await withTenantTransaction(prisma, tenantId, (tx) =>
+        documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          createRealAuditLogger(tx, owner.callerIdentity),
+          mockStorage,
+          testClock,
+          bytes,
+          "photo.pdf",
+          "invoice",
+        ),
+      );
+      expect(again.data?.kind).toBe("duplicate");
+      if (again.data?.kind !== "duplicate") throw new Error("expected duplicate");
+      expect(again.data.existing.id).toBe(first.id);
+      expect(again.data.existing.businessKey).toBe(first.businessKey);
+      const count = await adminPool.query(
+        "SELECT count(*)::int AS n FROM documents WHERE tenant_id = $1",
+        [tenantId],
+      );
+      expect(count.rows[0].n).toBe(1);
+      expect(mockUploadBlob).toHaveBeenCalledTimes(1);
+
+      // "Upload anyway": a second document with its own key, audited as a knowing duplicate
+      const second = stored(await up("photo.pdf", true));
+      expect(second.id).not.toBe(first.id);
+      expect(second.businessKey).toContain("_002");
+      const audit = await adminPool.query(
+        "SELECT new_data FROM audit_logs WHERE tenant_id = $1 AND entity_id = $2 AND action = 'create'",
+        [tenantId, second.id],
+      );
+      expect(audit.rows[0].new_data.knowingDuplicateOf).toBe(first.id);
+
+      // the twins see each other; a different file sees nobody
+      const twins = await withTenantTransaction(prisma, tenantId, (tx) =>
+        documentService.sameContentDocumentIds(tx, first.id),
+      );
+      expect(twins).toEqual([second.id]);
+    });
+
+    it("a hard-deleted document never counts as a duplicate", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+      const bytes = pdf("deleted-then-again");
+      const up = () =>
+        withTenantTransaction(prisma, tenantId, (tx) =>
+          documentService.uploadDocument(
+            tx,
+            owner.callerIdentity,
+            createRealAuditLogger(tx, owner.callerIdentity),
+            mockStorage,
+            testClock,
+            bytes,
+            "gone.pdf",
+            "expense",
+          ),
+        );
+      const first = stored(await up());
+      await withTenantTransaction(prisma, tenantId, (tx) =>
+        documentService.deleteDocument(
+          tx,
+          owner.callerIdentity,
+          createRealAuditLogger(tx, owner.callerIdentity),
+          first.id,
+        ),
+      );
+      const second = stored(await up());
+      expect(second.id).not.toBe(first.id);
     });
 
     it("increments business key sequence for same month", async () => {
@@ -210,7 +315,7 @@ describe("documents service", () => {
           audit,
           mockStorage,
           testClock,
-          PDF_BUFFER,
+          pdf("doc1"),
           "doc1.pdf",
           "expense",
         );
@@ -224,14 +329,14 @@ describe("documents service", () => {
           audit,
           mockStorage,
           testClock,
-          PDF_BUFFER,
+          pdf("doc2"),
           "doc2.pdf",
           "expense",
         );
       });
 
-      expect(result1.data?.businessKey).toContain("_001");
-      expect(result2.data?.businessKey).toContain("_002");
+      expect(stored(result1).businessKey).toContain("_001");
+      expect(stored(result2).businessKey).toContain("_002");
     });
   });
 
@@ -283,7 +388,7 @@ describe("documents service", () => {
             audit,
             mockStorage,
             testClock,
-            PDF_BUFFER,
+            pdf(`doc${i}`),
             `doc${i}.pdf`,
             "expense",
           );
@@ -320,7 +425,7 @@ describe("documents service", () => {
       });
 
       expect(uploaded.data).toBeDefined();
-      const docId = uploaded.data!.id;
+      const docId = stored(uploaded).id;
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
         return documentService.getDocument(tx, docId);
@@ -379,11 +484,11 @@ describe("documents service", () => {
 
         // Simulate OCR completion
         await tx.document.update({
-          where: { id: uploadResult.data!.id },
+          where: { id: stored(uploadResult).id },
           data: { status: "extracted", ocrData: ocrPayload },
         });
 
-        return uploadResult.data!.id;
+        return stored(uploadResult).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -412,8 +517,7 @@ describe("documents service", () => {
           "no-ocr.pdf",
           "invoice",
         );
-        expect(uploadResult.data).toBeDefined();
-        return uploadResult.data!.id;
+        return stored(uploadResult).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -518,7 +622,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -552,7 +656,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -603,7 +707,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -632,7 +736,7 @@ describe("documents service", () => {
           "concurrent.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       // Run two correction saves concurrently
@@ -684,7 +788,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -716,7 +820,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -750,8 +854,8 @@ describe("documents service", () => {
           "expense",
         );
         // Simulate linked status
-        await tx.document.update({ where: { id: r.data!.id }, data: { status: "linked" } });
-        return r.data!.id;
+        await tx.document.update({ where: { id: stored(r).id }, data: { status: "linked" } });
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -779,7 +883,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -809,7 +913,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -839,7 +943,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       // First review
@@ -879,7 +983,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -917,7 +1021,7 @@ describe("documents service", () => {
         );
         // Simulate OCR completion
         await tx.document.update({
-          where: { id: r.data!.id },
+          where: { id: stored(r).id },
           data: {
             status: "extracted",
             ocrData: {
@@ -932,7 +1036,7 @@ describe("documents service", () => {
             },
           },
         });
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -964,7 +1068,7 @@ describe("documents service", () => {
           "expense",
         );
         await tx.document.update({
-          where: { id: r.data!.id },
+          where: { id: stored(r).id },
           data: {
             status: "extracted",
             ocrData: {
@@ -981,7 +1085,7 @@ describe("documents service", () => {
             corrections: { vendorName: "Corrected" },
           },
         });
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -1013,7 +1117,7 @@ describe("documents service", () => {
           "test.pdf",
           "contract",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -1049,7 +1153,7 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        return r.data!.id;
+        return stored(r).id;
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {

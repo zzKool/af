@@ -24,6 +24,7 @@ import {
   seedRates,
   setupOwner,
 } from "./__fixtures__/harness";
+import { findExpenseDuplicates } from "./duplicates";
 import {
   attachBankTransaction,
   createExpense,
@@ -454,6 +455,88 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     await expect(
       adminPool.query(`DELETE FROM expenses WHERE id = $1`, [e.data!.id]),
     ).rejects.toThrow(/settlement_lines/);
+  });
+});
+
+describe("the duplicate check (specs/documents US3): the same bytes, a similar expense", () => {
+  it("hash → high through created_from; same merchant ± 1 % ± 7 days → medium; acknowledged → note + audit", async () => {
+    const g = await group213();
+    const hash = "a".repeat(64);
+    const original = await createTestDocument(
+      adminPool,
+      owner.caller.tenantId,
+      owner.caller.userId,
+      {
+        businessKey: "exp_20260310_010",
+        status: "extracted",
+        contentHash: hash,
+      },
+    );
+    const copy = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "exp_20260310_011",
+      status: "extracted",
+      contentHash: hash,
+    });
+    const hotel = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, realAudit(tx, owner.caller), {
+        ...fixtureInput(g.id, FIXTURE.expenses[0]), // Hotel 600 CHF 2026-03-10
+        documentId: original.id,
+      }),
+    );
+    expect(hotel.error).toBeUndefined();
+
+    await run(owner.caller, async (tx) => {
+      // B: the copy's bytes already became the hotel expense
+      const byHash = await findExpenseDuplicates(tx, { documentId: copy.id });
+      expect(byHash).toHaveLength(1);
+      expect(byHash[0]).toMatchObject({
+        kind: "hash",
+        confidence: "high",
+        entityId: hotel.data!.id,
+      });
+      expect(byHash[0].reason.params).toEqual({ kind: "expense", key: "Ex213-Tr-01" });
+
+      // C′: same merchant, 1 % off, 5 days later, same currency → medium; other currency → nothing
+      const near = await findExpenseDuplicates(tx, {
+        merchant: " hotel ",
+        amount: "605.00",
+        currency: "CHF",
+        date: "2026-03-15",
+      });
+      expect(near.map((m) => [m.kind, m.confidence])).toEqual([["fuzzy", "medium"]]);
+      const otherCurrency = await findExpenseDuplicates(tx, {
+        merchant: "Hotel",
+        amount: "600.00",
+        currency: "SEK",
+        date: "2026-03-10",
+      });
+      expect(otherCurrency).toEqual([]);
+      const nothing = await findExpenseDuplicates(tx, {
+        documentId: original.id,
+        merchant: "Taxi",
+      });
+      expect(nothing).toEqual([]);
+    });
+
+    // "Create anyway" with a note: the note on the expense, the acknowledgement in the audit row
+    const anyway = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, realAudit(tx, owner.caller), {
+        ...fixtureInput(g.id, FIXTURE.expenses[1]),
+        documentId: copy.id,
+        note: "second night",
+        duplicateAck: { entityIds: [hotel.data!.id], note: "two rooms, two receipts" },
+      }),
+    );
+    expect(anyway.error).toBeUndefined();
+    expect(anyway.data?.note).toBe("Not a duplicate: two rooms, two receipts\nsecond night");
+    const audit = await adminPool.query(
+      "SELECT new_data FROM audit_logs WHERE tenant_id = $1 AND entity_id = $2 AND action = 'create'",
+      [owner.caller.tenantId, anyway.data!.id],
+    );
+    expect(audit.rows[0].new_data.duplicateAck).toEqual({
+      entityIds: [hotel.data!.id],
+      note: "two rooms, two receipts",
+    });
   });
 });
 

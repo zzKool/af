@@ -27,7 +27,11 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
-import { createExpenseAction, createExpenseGroupAction } from "@/modules/expenses/expenses.actions";
+import {
+  checkExpenseDuplicatesAction,
+  createExpenseAction,
+  createExpenseGroupAction,
+} from "@/modules/expenses/expenses.actions";
 import type {
   CategoryOption,
   DocumentOption,
@@ -35,7 +39,19 @@ import type {
   SourceOption,
 } from "@/modules/expenses/types";
 import { EXPENSE_KINDS, type ExpenseKind } from "@/modules/expenses/types";
+import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
 import { groupLabel } from "./labels";
+
+/** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
+export type ExpenseInitial = {
+  date?: string | null;
+  description?: string | null;
+  amount?: string | null;
+  currency?: string | null;
+  vatAmount?: string | null;
+  documentId?: string | null;
+  documentKey?: string | null;
+};
 
 const NONE = "__none__";
 const NEW_GROUP = "__new__";
@@ -48,6 +64,7 @@ export function NewExpenseDialog({
   sources,
   documents,
   defaultGroupId,
+  initial,
   onCreated,
 }: {
   open: boolean;
@@ -57,6 +74,8 @@ export function NewExpenseDialog({
   sources: SourceOption[];
   documents: DocumentOption[];
   defaultGroupId?: string;
+  /** the OCR facts of the document this expense is made from — applied when the dialog opens */
+  initial?: ExpenseInitial;
   onCreated?: (expense: { id: string; key: string }) => void;
 }) {
   const t = useT();
@@ -76,13 +95,64 @@ export function NewExpenseDialog({
   const [documentMissing, setDocumentMissing] = useState(false);
   const [vatAmount, setVatAmount] = useState("");
   const [note, setNote] = useState("");
+  const [ackNote, setAckNote] = useState("");
   const { executeAsync: create, isPending } = useAction(createExpenseAction);
   const { executeAsync: createGroup, isPending: creatingGroup } =
     useAction(createExpenseGroupAction);
+  const { executeAsync: checkDuplicates } = useAction(checkExpenseDuplicatesAction);
 
   useEffect(() => {
     if (open) setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
   }, [open, defaultGroupId, groups]);
+
+  // the document's facts fill the form when the dialog opens from the review page
+  useEffect(() => {
+    if (!open || !initial) return;
+    if (initial.date) setDate(initial.date);
+    if (initial.description) setDescription(initial.description);
+    if (initial.amount) setAmount(initial.amount);
+    if (initial.currency) setCurrency(initial.currency);
+    if (initial.vatAmount) setVatAmount(initial.vatAmount);
+    if (initial.documentId) {
+      setDocumentId(initial.documentId);
+      setDocumentMissing(false);
+    }
+    setAckNote("");
+  }, [open, initial]);
+
+  // the duplicate check (specs/documents US3): the same bytes, or a similar expense of the same merchant
+  const checkKey = open
+    ? JSON.stringify([
+        documentId === NONE ? "" : documentId,
+        description.trim(),
+        amount.trim(),
+        currency,
+        date,
+      ])
+    : "";
+  const duplicates = useDuplicateCheck(open, checkKey, async () => {
+    const r = await checkDuplicates({
+      documentId: documentId === NONE ? undefined : documentId,
+      merchant: description.trim() || null,
+      amount: amount.trim() || null,
+      currency,
+      date: date || null,
+    });
+    return r?.data?.data ?? [];
+  });
+  const blocked = hasHighMatch(duplicates);
+  const documentOptions =
+    initial?.documentId && !documents.some((d) => d.id === initial.documentId)
+      ? [
+          {
+            id: initial.documentId,
+            businessKey: initial.documentKey ?? "",
+            fileName: "",
+            status: "extracted",
+          },
+          ...documents,
+        ]
+      : documents;
 
   // the payer's currency pre-fills the expense's
   useEffect(() => {
@@ -114,6 +184,12 @@ export function NewExpenseDialog({
       documentMissing,
       vatAmount: vatAmount.trim() || null,
       note: note.trim() || null,
+      duplicateAck: blocked
+        ? {
+            entityIds: duplicates.filter((m) => m.confidence === "high").map((m) => m.entityId),
+            note: ackNote.trim(),
+          }
+        : undefined,
     });
     const error = extractError(r);
     if (error) {
@@ -126,6 +202,7 @@ export function NewExpenseDialog({
     setAmount("");
     setVatAmount("");
     setNote("");
+    setAckNote("");
     setDocumentId(NONE);
     setDocumentMissing(false);
     setNewGroup("");
@@ -300,9 +377,9 @@ export function NewExpenseDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE}>{t("expenses.form.noDocument")}</SelectItem>
-                {documents.map((d) => (
+                {documentOptions.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.businessKey} · {d.fileName}
+                    {d.fileName ? `${d.businessKey} · ${d.fileName}` : d.businessKey}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -336,16 +413,19 @@ export function NewExpenseDialog({
             </label>
             <Input id={`${ids}-note`} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
+          <DuplicatePanel matches={duplicates} ackNote={ackNote} onAckNote={setAckNote} />
           <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
             </Button>
             <Button
               type="submit"
-              disabled={isPending || creatingGroup || !basCode || !sourceId}
+              disabled={
+                isPending || creatingGroup || !basCode || !sourceId || (blocked && !ackNote.trim())
+              }
               data-testid="create-expense"
             >
-              {t("expenses.form.create")}
+              {blocked ? t("documents.duplicate.panel.createAnyway") : t("expenses.form.create")}
             </Button>
           </DialogFooter>
         </form>

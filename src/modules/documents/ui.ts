@@ -13,6 +13,7 @@ export * from "./components/documents-table";
 export * from "./components/file-upload-zone";
 export * from "./components/financial-fields-section";
 export * from "./components/line-items-section";
+export * from "./components/make-it-section";
 export * from "./components/payment-details-section";
 export * from "./components/relationship-fields-section";
 export * from "./documents.actions";

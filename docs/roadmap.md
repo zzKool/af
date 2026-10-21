@@ -36,7 +36,7 @@ upload ──► review ──► make it an expense / SI ──► link bank ro
 accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ```
 
-- [ ] **A1 Document inbox** — `specs/documents/` (H7, D27, D32): from the review page, *make this an expense* / *a supplier invoice* (`created_from` link, the key), duplicate detection on upload (same hash → *Use existing*; fuzzy supplier-invoice duplicate), *archive* for irrelevant uploads, the keyboard map and undo. The link kind and the services already exist; this is the UI and the finder.
+- [ ] **A1 Document inbox** — `specs/documents/` (spec, plan, tasks): **part 1 done** (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — PR `feat/documents-become`); **part 2** = the inbox work page `/documents/inbox` (states, counts, archive + undo, OCR re-run, the keyboard `j k x a o i e l d r u z Enter 1-3 ? Esc`), tasks T011–T018.
 - [ ] **A2 Members** — Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
 - [ ] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` (`fetchDailyRates` already takes `startDate`; only the script argument is missing). A `fix:` PR, no spec.
 - [ ] **A4 Partners: contact persons** — small.
@@ -58,11 +58,11 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ## Next up
 
-**A1 Document inbox** — `/speckit-specify` → `specs/documents/spec.md` → the owner reads it → plan → tasks → 2–3 PRs → `/speckit-converge`. Then A2, A3, A4, then B with the owner.
+**A1 part 2** — the inbox work page (`specs/documents/tasks.md` T011–T018, branch `feat/documents-inbox`), then `/speckit-converge` on `specs/documents`. Then A2, A3, A4, then B with the owner.
 
 ## Open decisions (the owner's)
 
-- Should a `justifies` link fill in a blank partner on the bank row's journal entry? It crosses "typed, not derived" for the partner field — not done unasked.
+None open. Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
 
 ## How we work
 

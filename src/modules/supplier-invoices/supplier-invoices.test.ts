@@ -21,6 +21,7 @@ import {
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { findSupplierInvoiceDuplicates } from "./duplicates";
 import { attachPayment, detachPayment, recordPayment, removePayment } from "./payments";
 import {
   candidateDocuments,
@@ -399,6 +400,120 @@ describe("US1 — record a supplier invoice", () => {
       note: "latest",
       groupId,
     });
+  });
+});
+
+describe("the duplicate check (specs/documents US3): exact, hash, fuzzy", () => {
+  it("same partner + normalised number → high; the same bytes → high; ± 1 % ± 7 days same currency → medium; cancelled ignored", async () => {
+    const hash = "b".repeat(64);
+    const original = await createTestDocument(
+      adminPool,
+      owner.caller.tenantId,
+      owner.caller.userId,
+      {
+        businessKey: "inv_20260314_010",
+        prefixType: "invoice",
+        status: "extracted",
+        contentHash: hash,
+      },
+    );
+    const copy = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "inv_20260314_011",
+      prefixType: "invoice",
+      status: "extracted",
+      contentHash: hash,
+    });
+    const july = await create(julyInvoice({ documentId: original.id })); // 9160, 1 297.20 CHF, 2026-03-14
+    expect(july.error).toBeUndefined();
+    const cancelled = await create(
+      julyInvoice({ invoiceNumber: "9150", invoiceDate: "2026-03-12" }),
+    );
+    await run(owner.caller, (tx) =>
+      cancelSupplierInvoice(tx, owner.caller, noopAudit, cancelled.data!.id, "sent twice"),
+    );
+
+    await run(owner.caller, async (tx) => {
+      const exact = await findSupplierInvoiceDuplicates(tx, {
+        partnerId: skattepunkten,
+        invoiceNumber: " 9160 ",
+      });
+      expect(exact).toHaveLength(1);
+      expect(exact[0]).toMatchObject({
+        kind: "exact",
+        confidence: "high",
+        entityId: july.data!.id,
+        partnerName: "Skattepunkten Office Services AB",
+      });
+
+      const byHash = await findSupplierInvoiceDuplicates(tx, { documentId: copy.id });
+      expect(byHash.map((m) => [m.kind, m.entityId])).toEqual([["hash", july.data!.id]]);
+
+      // the exact hit wins over the hash hit for the same entity; a fuzzy twin is a second entry
+      const all = await findSupplierInvoiceDuplicates(tx, {
+        documentId: copy.id,
+        partnerId: skattepunkten,
+        invoiceNumber: "9160",
+        amount: "1297.20",
+        currency: "CHF",
+        date: "2026-03-14",
+      });
+      expect(all.map((m) => m.kind)).toEqual(["exact"]);
+
+      const near = await findSupplierInvoiceDuplicates(tx, {
+        partnerId: skattepunkten,
+        invoiceNumber: "9199",
+        amount: "1290.00",
+        currency: "CHF",
+        date: "2026-03-19",
+      });
+      expect(near.map((m) => [m.kind, m.confidence])).toEqual([["fuzzy", "medium"]]);
+      expect(near[0].reason.params).toEqual({
+        n: "9160",
+        amount: "1297.20",
+        currency: "CHF",
+        date: "2026-03-14",
+      });
+      // other currency, 8 days, 1.5 % off, another partner: nothing; the cancelled one never counts
+      for (const q of [
+        { currency: "SEK", date: "2026-03-14", amount: "1297.20" },
+        { currency: "CHF", date: "2026-03-22", amount: "1297.20" },
+        { currency: "CHF", date: "2026-03-14", amount: "1317.00" },
+      ]) {
+        expect(
+          await findSupplierInvoiceDuplicates(tx, {
+            partnerId: skattepunkten,
+            invoiceNumber: "x",
+            ...q,
+          }),
+        ).toEqual([]);
+      }
+      expect(
+        await findSupplierInvoiceDuplicates(tx, { partnerId: saas, invoiceNumber: "9160" }),
+      ).toEqual([]);
+      expect(
+        await findSupplierInvoiceDuplicates(tx, {
+          partnerId: skattepunkten,
+          invoiceNumber: "9150",
+        }),
+      ).toEqual([]);
+    });
+
+    // "Create anyway": the unique (partner, number) index still refuses the very same number — the
+    // acknowledgement is for the fuzzy / hash cases; here the copy's bytes with a new number
+    const anyway = await create(
+      julyInvoice({
+        invoiceNumber: "9160-B",
+        documentId: copy.id,
+        duplicateAck: { entityIds: [july.data!.id], note: "the corrected reissue" },
+      }),
+    );
+    expect(anyway.error).toBeUndefined();
+    expect(anyway.data?.note).toBe("Not a duplicate: the corrected reissue");
+    const audit = await adminPool.query(
+      "SELECT new_data FROM audit_logs WHERE tenant_id = $1 AND entity_id = $2 AND action = 'create'",
+      [owner.caller.tenantId, anyway.data!.id],
+    );
+    expect(audit.rows[0].new_data.duplicateAck.note).toBe("the corrected reissue");
   });
 });
 

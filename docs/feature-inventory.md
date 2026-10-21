@@ -60,6 +60,8 @@ v1's budget went into features, v2's into foundations. v3 = v2's foundations + v
 | D30 | `document_type_prefixes` and `document_key_counters` dropped (migration `20261020200000_drop_v2_prefix_tables`). | B15 |
 | D31 | Accountant package: `.xlsx` summary only; an invoice issued in June and paid in July appears in both months; no OCR line-item sheet; the savings CSV joins the package of the month it is imported in (December or January); a **year package** = the same generator over 12 months. | D-b, D-i |
 | D32 | Documents: identical upload → `Use existing` (primary) / `Upload anyway` (owner); fuzzy duplicate ±1 % / ±7 days / same partner + currency, "Create anyway" on HIGH needs a note; OCR quality two levels; archive only inbox rows; keyboard map `j k x a o i e l d r z u ? Enter 1-3`. | D-d |
+| D33 | A `justifies` link does **not** fill in a blank partner on the bank row's journal entry: the journal's partner stays typed (by hand or by a rule); the link is the answer to "who was this paid to". Reversible later as a read-side rule (2026-10-21). | — |
+| D34 | A document leaves the inbox when it **became** something (`created_from`), was **filed** (reviewed with nothing created — *Mark as reviewed* and *Just file it* are the same fact) or was **archived**; no new status value (specs/documents, 2026-10-21). | — |
 
 ---
 
@@ -224,6 +226,7 @@ flowchart LR
 | What | `Document` + polymorphic `DocumentLink` + `OcrResult`; inbox / process / queue; suggestion engine; duplicate detection; keyboard shortcuts and undo | upload + validation → blob → business key → async OCR → review overlay (line items, VAT) → library → retention; `documents.ts` 824 lines |
 | Keeps | the whole v2 pipeline; business key as filename; duplicate detection; inbox UX (keyboard, undo); document types incl. `bank_statement`, `reimbursement_statement`, `invoice_pdf` |
 | Mechanism | configurable prefixes → fixed key function (D6); `documents.ts` split into upload / review / library / retention during the feature-folder move; links move to the linking module |
+| Status | v2 pipeline + the library on the DataTable (2026-10-20). **2026-10-21, part 1** (`specs/documents/spec.md` US1–US3): *Make it…* on the review page (expense / supplier invoice / just file it, the dialogs pre-filled, the supplier match, *Became {key}*), the content hash and the upload duplicate card, the entity duplicate check (exact / hash / fuzzy; high blocks with a note) — `docs/document-review.md`, `docs/document-upload.md`. Part 2 (the inbox work page, archive + undo, OCR re-run, the keyboard) next. |
 
 ### 3.10 Banking — v2 + v1 rules
 

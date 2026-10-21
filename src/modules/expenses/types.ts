@@ -228,3 +228,17 @@ export type TransactionOption = {
   accountLabel: string;
   amountBase: string | null;
 };
+
+// --- the entity duplicate check (specs/documents US3, D32) — shared shape with supplier invoices ---
+export type DuplicateConfidence = "high" | "medium";
+export type DuplicateMatch = {
+  kind: "exact" | "hash" | "fuzzy";
+  confidence: DuplicateConfidence;
+  entityType: "expense" | "supplier_invoice";
+  entityId: string;
+  entityKey: string;
+  partnerName: string | null;
+  /** a dictionary key + its parameters; the dialog renders it in the user's language */
+  reason: { key: string; params: Record<string, string | number> };
+};
+export type DuplicateAck = { entityIds: string[]; note: string };

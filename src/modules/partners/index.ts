@@ -3,6 +3,7 @@
 // Never import this file from a client component — use ./ui for components and stores.
 
 export { partnerLinkable } from "./linkable";
+export { BEST_MATCH_PERCENT, matchPartners, rankPartnerMatches, scorePartnerMatch } from "./match";
 export type { CreatePartnerInput, UpdatePartnerInput } from "./partners";
 export {
   createPartner,
@@ -19,6 +20,7 @@ export {
   distinctPartnersAction,
   getPartnerAction,
   getPartnersAction,
+  matchPartnersAction,
   partnerDateHierarchyAction,
   reactivatePartnerAction,
   searchPartnersAction,

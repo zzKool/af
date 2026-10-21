@@ -22,6 +22,22 @@ test.describe("Document Library", () => {
       timeout: 15_000,
     });
 
+    // the same bytes again: the card, nothing stored (specs/documents US2); "Upload another" clears it
+    await page.getByRole("button", { name: "Upload another" }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: `e2e-library-${stamp}-copy.pdf`,
+      mimeType: "application/pdf",
+      buffer: Buffer.from(`%PDF-1.4 e2e-library-${stamp}`),
+    });
+    const card = page.getByTestId("upload-duplicate");
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId("upload-duplicate-key")).toHaveText(/^exp_/);
+    const existingHref = await card
+      .getByRole("link", { name: "Use existing document" })
+      .getAttribute("href");
+    expect(existingHref).toMatch(/^\/documents\/[0-9a-f-]{36}$/);
+    await card.getByRole("button", { name: "Upload another" }).click();
+
     // the row: an upload key (exp_…), status uploaded or processing, not linked
     const row = page
       .getByRole("row")

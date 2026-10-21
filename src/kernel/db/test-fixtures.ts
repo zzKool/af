@@ -306,6 +306,8 @@ export async function createTestDocument(
     prefixType?: string;
     documentType?: string;
     status?: string;
+    /** the sha256 of the bytes — two fixtures with the same hash are "the same file twice" */
+    contentHash?: string;
   },
 ): Promise<{ id: string; businessKey: string; fileName: string }> {
   const doc = {
@@ -320,6 +322,7 @@ export async function createTestDocument(
     prefixType: overrides?.prefixType ?? "expense",
     documentType: overrides?.documentType ?? "financial",
     status: overrides?.status ?? "uploaded",
+    contentHash: overrides?.contentHash ?? null,
   };
 
   const client = await pool.connect();
@@ -330,8 +333,8 @@ export async function createTestDocument(
     }
     await client.query(`SET LOCAL app.tenant_id = '${tenantId}'`);
     await client.query(
-      `INSERT INTO documents (id, tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type, document_type, status, created_by, source, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'web', NOW())`,
+      `INSERT INTO documents (id, tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type, document_type, status, created_by, source, updated_at, content_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'web', NOW(), $12)`,
       [
         doc.id,
         tenantId,
@@ -344,6 +347,7 @@ export async function createTestDocument(
         doc.documentType,
         doc.status,
         createdBy,
+        doc.contentHash,
       ],
     );
     await client.query("COMMIT");

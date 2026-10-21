@@ -17,6 +17,11 @@ model Document {
   corrections  Json?    @map("corrections") @db.JsonB
   reviewedAt   DateTime? @map("reviewed_at") @db.Timestamptz
   reviewedBy   String?  @map("reviewed_by") @db.Uuid
+  /// sha256 hex of the stored bytes, set once (upload / generated); null on rows stored before the column
+  contentHash  String?  @map("content_hash") @db.Char(64)
+  /// the parking flag (archive / restore on the inbox) — a fact beside the pipeline status
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz
+  archivedBy   String?  @map("archived_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
   createdBy    String   @map("created_by") @db.Uuid
@@ -26,5 +31,6 @@ model Document {
 
   @@index([tenantId, status], map: "idx_documents_tenant_status")
   @@index([tenantId, businessKey], map: "idx_documents_tenant_business_key")
+  @@index([tenantId, contentHash], map: "idx_documents_tenant_content_hash")
   @@map("documents")
 }

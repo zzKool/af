@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { matchPartners } from "@/modules/partners/match";
 import * as partnerService from "@/modules/partners/partners";
 import {
   distinctPartnerValues,
@@ -113,3 +114,21 @@ export const searchPartnersAction = ownerAction
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.searchPartners(ctx.tx, parsedInput.query);
   });
+
+/**
+ * The supplier match for a document's OCR vendor (specs/documents US1): the best partners with their confidence.
+ * Owner only — it serves the creation dialogs.
+ */
+export const matchPartnersAction = ownerAction
+  .schema(
+    z.object({
+      name: z.string().max(200).optional(),
+      vatNumber: z.string().max(40).optional(),
+      address: z.string().max(400).optional(),
+      type: z.enum(["client", "vendor", "employee"]).optional(),
+    }),
+  )
+  .metadata({ name: "matchPartners" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await matchPartners(ctx.tx, parsedInput),
+  }));
