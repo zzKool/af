@@ -68,14 +68,16 @@ export const en = {
   "partners.tab.contracts": "Contracts ({count})",
   "partners.tab.transactions": "Transactions",
   "partners.tab.documents": "Documents",
+  "partners.tab.transactionsCount": "Transactions ({count})",
+  "partners.tab.documentsCount": "Documents ({count})",
+  "partners.transactions.showing": "The newest {shown} of {total}",
+  "partners.transactions.openJournal": "Open in the journal →",
   "partners.overview.activeContracts": "Active contracts",
   "partners.overview.totalContracts": "Total contracts",
   "partners.contracts.notClient":
     "This partner is not a client — contracts are only available for client-type partners. You can add the “client” type in the Overview tab.",
-  "partners.transactions.empty":
-    "No transactions linked to this partner yet. Transactions appear here when bank imports and journal entries reference this partner.",
-  "partners.documents.empty":
-    "No documents linked to this partner yet. Documents appear here when uploaded files are associated with this partner.",
+  "partners.transactions.empty": "No journal entry names this partner yet.",
+  "partners.documents.empty": "No document is linked to this partner yet.",
   "partners.form.typeRequired": "At least one type required",
   "partners.form.identifiersMax": "Maximum 5 external identifiers",
   "partners.form.basic": "Basic Information",

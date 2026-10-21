@@ -68,14 +68,16 @@ export const fr: Dictionary = {
   "partners.tab.contracts": "Contrats ({count})",
   "partners.tab.transactions": "Transactions",
   "partners.tab.documents": "Documents",
+  "partners.tab.transactionsCount": "Transactions ({count})",
+  "partners.tab.documentsCount": "Documents ({count})",
+  "partners.transactions.showing": "Les {shown} plus récentes sur {total}",
+  "partners.transactions.openJournal": "Ouvrir dans le journal →",
   "partners.overview.activeContracts": "Contrats actifs",
   "partners.overview.totalContracts": "Contrats au total",
   "partners.contracts.notClient":
     "Ce partenaire n'est pas un client — les contrats n'existent que pour les clients. Ajoutez le type « client » dans l'onglet Aperçu.",
-  "partners.transactions.empty":
-    "Aucune transaction liée à ce partenaire pour l'instant. Elles apparaissent ici quand des imports bancaires et des écritures le référencent.",
-  "partners.documents.empty":
-    "Aucun document lié à ce partenaire pour l'instant. Ils apparaissent ici quand des fichiers téléversés lui sont associés.",
+  "partners.transactions.empty": "Aucune écriture ne nomme encore ce partenaire.",
+  "partners.documents.empty": "Aucun document n'est encore lié à ce partenaire.",
   "partners.form.typeRequired": "Au moins un type est requis",
   "partners.form.identifiersMax": "5 identifiants externes au maximum",
   "partners.form.basic": "Informations de base",

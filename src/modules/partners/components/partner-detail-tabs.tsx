@@ -12,8 +12,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { formatCurrency } from "@/kernel/money/format-currency";
+import type { Currency } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { ContractList, type ContractRow } from "@/modules/contracts/ui";
+import { GraphLink } from "@/modules/linking/ui";
 import { type PartnerData, PartnerForm } from "@/modules/partners/components/partner-form";
 import {
   deactivatePartnerAction,
@@ -23,6 +26,24 @@ import {
 type BasOption = { code: string; label: string };
 type VatOption = { id: string; label: string };
 type EmployeeOption = { id: string; name: string };
+/** a document linked to the partner (belongs_to) — plain facts from the documents module */
+export type PartnerDocument = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  documentType: string;
+  status: string;
+};
+/** a journal entry that names the partner — the newest first, capped by the page */
+export type PartnerJournalRow = {
+  id: string;
+  entryDate: string;
+  description: string;
+  amount: string;
+  currency: string;
+  amountBase: string;
+  basLabel: string | null;
+};
 
 interface PartnerDetailTabsProps {
   partner: PartnerData;
@@ -31,6 +52,8 @@ interface PartnerDetailTabsProps {
   employeePartners: EmployeeOption[];
   basOptions: BasOption[];
   defaultCurrency: string | null;
+  documents: PartnerDocument[];
+  journal: { total: number; rows: PartnerJournalRow[] };
 }
 
 export function PartnerDetailTabs({
@@ -40,6 +63,8 @@ export function PartnerDetailTabs({
   employeePartners,
   basOptions,
   defaultCurrency,
+  documents,
+  journal,
 }: PartnerDetailTabsProps) {
   const t = useT();
   const router = useRouter();
@@ -102,15 +127,18 @@ export function PartnerDetailTabs({
             {isActive ? t("partners.status.active") : t("partners.status.inactive")}
           </Badge>
         </div>
-        {isActive ? (
-          <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-            {t("partners.deactivate")}
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={handleReactivate}>
-            {t("partners.reactivate")}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <GraphLink self={{ type: "partner", id: partner.id }} />
+          {isActive ? (
+            <Button variant="destructive" size="sm" onClick={handleDeactivate}>
+              {t("partners.deactivate")}
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleReactivate}>
+              {t("partners.reactivate")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabbed Content */}
@@ -120,8 +148,12 @@ export function PartnerDetailTabs({
           <TabsTrigger value="contracts">
             {t("partners.tab.contracts", { count: contracts.length })}
           </TabsTrigger>
-          <TabsTrigger value="transactions">{t("partners.tab.transactions")}</TabsTrigger>
-          <TabsTrigger value="documents">{t("partners.tab.documents")}</TabsTrigger>
+          <TabsTrigger value="transactions">
+            {t("partners.tab.transactionsCount", { count: journal.total })}
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            {t("partners.tab.documentsCount", { count: documents.length })}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="pt-4">
@@ -145,11 +177,11 @@ export function PartnerDetailTabs({
             </div>
             <div>
               <dt className="text-muted-foreground">{t("partners.tab.transactions")}</dt>
-              <dd className="font-medium">0</dd>
+              <dd className="font-medium">{journal.total}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">{t("partners.tab.documents")}</dt>
-              <dd className="font-medium">0</dd>
+              <dd className="font-medium">{documents.length}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">{t("partners.col.created")}</dt>
@@ -187,19 +219,77 @@ export function PartnerDetailTabs({
         </TabsContent>
 
         <TabsContent value="transactions" className="pt-4">
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-muted-foreground">{t("partners.transactions.empty")}</p>
-            </CardContent>
-          </Card>
+          {journal.rows.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-muted-foreground">{t("partners.transactions.empty")}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-2" data-testid="partner-transactions">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {t("partners.transactions.showing", {
+                    shown: journal.rows.length,
+                    total: journal.total,
+                  })}
+                </span>
+                <Link
+                  href={`/journal?f.partnerId=in:${partner.id}`}
+                  className="text-xs hover:underline"
+                >
+                  {t("partners.transactions.openJournal")}
+                </Link>
+              </div>
+              <ul className="divide-y rounded-md border text-sm">
+                {journal.rows.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                    <span className="min-w-0 truncate">
+                      <span className="mr-2 text-muted-foreground tabular-nums">{r.entryDate}</span>
+                      <span title={r.description}>{r.description}</span>
+                      {r.basLabel && (
+                        <span className="ml-2 text-xs text-muted-foreground">{r.basLabel}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-right tabular-nums">
+                      {formatCurrency(r.amount, r.currency as Currency)} {r.currency}
+                      {r.currency !== "SEK" && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {formatCurrency(r.amountBase, "SEK")} SEK
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="pt-4">
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-muted-foreground">{t("partners.documents.empty")}</p>
-            </CardContent>
-          </Card>
+          {documents.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-muted-foreground">{t("partners.documents.empty")}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <ul className="divide-y rounded-md border text-sm" data-testid="partner-documents">
+              {documents.map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                  <span className="min-w-0 truncate">
+                    <Link href={`/documents/${d.id}`} className="font-medium hover:underline">
+                      {d.businessKey}
+                    </Link>
+                    <span className="ml-2 text-muted-foreground">{d.fileName}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {d.documentType} · {d.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </TabsContent>
       </Tabs>
 

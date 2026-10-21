@@ -70,14 +70,16 @@ export const sv: Dictionary = {
   "partners.tab.contracts": "Avtal ({count})",
   "partners.tab.transactions": "Transaktioner",
   "partners.tab.documents": "Dokument",
+  "partners.tab.transactionsCount": "Transaktioner ({count})",
+  "partners.tab.documentsCount": "Dokument ({count})",
+  "partners.transactions.showing": "De {shown} senaste av {total}",
+  "partners.transactions.openJournal": "Öppna i journalen →",
   "partners.overview.activeContracts": "Aktiva avtal",
   "partners.overview.totalContracts": "Avtal totalt",
   "partners.contracts.notClient":
     "Partnern är inte en kund — avtal finns bara för kunder. Lägg till typen ”kund” under fliken Översikt.",
-  "partners.transactions.empty":
-    "Inga transaktioner kopplade till partnern ännu. De visas här när bankimporter och journalposter hänvisar till partnern.",
-  "partners.documents.empty":
-    "Inga dokument kopplade till partnern ännu. De visas här när uppladdade filer knyts till partnern.",
+  "partners.transactions.empty": "Ingen journalpost nämner partnern ännu.",
+  "partners.documents.empty": "Inget dokument är kopplat till partnern ännu.",
   "partners.form.typeRequired": "Minst en typ krävs",
   "partners.form.identifiersMax": "Högst 5 externa identifierare",
   "partners.form.basic": "Grunduppgifter",
