@@ -8,13 +8,16 @@ PR=${1:?pr number}; TITLE=${2:?squash commit title}
 REPO=${GH_REPO:-$(git remote get-url origin | sed -E "s#.*github\.com[:/]##; s#\.git\$##")}
 BODY=$(mktemp)
 trap 'rm -f "$BODY"' EXIT
+MIN_RUNS=${MIN_RUNS:-4}   # lint, typecheck, unit-test, build — fewer means the run has not been created yet
 for _ in $(seq 1 80); do
   SHA=$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha')
   RUNS=$(gh api "repos/$REPO/commits/$SHA/check-runs" --jq '.check_runs[] | select(.name != "deploy") | "\(.name):\(.status):\(.conclusion)"')
-  if [ -z "$RUNS" ]; then sleep 20; continue; fi
+  if [ -z "$RUNS" ] || [ "$(echo "$RUNS" | wc -l)" -lt "$MIN_RUNS" ]; then sleep 20; continue; fi
   if echo "$RUNS" | grep -q "failure\|cancelled\|timed_out"; then echo "RED"; echo "$RUNS"; exit 1; fi
   if echo "$RUNS" | grep -qv ":completed:"; then sleep 30; continue; fi
-  echo "GREEN"; echo "$RUNS"
+  # a push that landed while we polled: the PR's head moved — never merge on the previous head's green
+  if [ "$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha')" != "$SHA" ]; then sleep 20; continue; fi
+  echo "GREEN $SHA"; echo "$RUNS"
   printf '{"merge_method":"squash","commit_title":%s,"commit_message":""}' \
     "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$TITLE")" > "$BODY"
   gh api "repos/$REPO/pulls/$PR/merge" --method PUT --input "$BODY" --jq '{merged, sha, message}'
