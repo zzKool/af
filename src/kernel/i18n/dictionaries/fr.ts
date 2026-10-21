@@ -11,6 +11,21 @@ export const fr: Dictionary = {
   "common.no": "Non",
   "common.today": "Aujourd'hui",
 
+  // --- nav (the sidebar and the breadcrumb) ---
+  "nav.dashboard": "Tableau de bord",
+  "nav.documents": "Documents",
+  "nav.journal": "Journal",
+  "nav.banking": "Banque",
+  "nav.partners": "Partenaires",
+  "nav.reconciliation": "Rapprochement",
+  "nav.invoices": "Factures",
+  "nav.expenses": "Dépenses",
+  "nav.supplierInvoices": "Factures fournisseurs",
+  "nav.package": "Dossier",
+  "nav.declarations": "Déclarations",
+  "nav.settings": "Paramètres",
+  "nav.logout": "Se déconnecter",
+
   "contracts.currentRate": "Tarif actuel",
   "contracts.currentRate.none": "Aucun tarif aujourd'hui",
   "contracts.currency.lockedHint":
@@ -88,6 +103,7 @@ export const fr: Dictionary = {
 
   // --- invoices: the sheet and the pages ---
   "invoices.title": "Factures",
+  "invoices.meta.count": "{count} documents",
   "invoices.new": "Nouveau document",
   "invoices.new.invoice": "Nouvelle facture",
   "invoices.new.quote": "Nouveau devis",
@@ -650,6 +666,7 @@ export const fr: Dictionary = {
   "expenses.statement.superseded": "REMPLACÉ — ce remboursement a été annulé",
   "expenses.statement.generated": "Généré le {date}",
   // --- traktamente ---
+  "settings.preferences.saved": "Préférences enregistrées",
   "rates.title": "Taux de change",
   "rates.meta":
     "Taux de référence BCE contre l'euro — la base SEK de chaque montant et le décompte TVA suisse s'en servent.",

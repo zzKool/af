@@ -1,11 +1,14 @@
 // Business constants — client-safe (NO @prisma/client import)
 
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import type { MessageKey } from "@/kernel/i18n/dictionaries/en";
 
 // Navigation configuration
 export type NavItem = {
   path: string;
+  /** English label — the sidebar and the breadcrumb show `t(labelKey)` in the user's language */
   label: string;
+  labelKey: Extract<MessageKey, `nav.${string}`>;
   icon: string; // lucide-react icon name — resolved in sidebar component
   roles: CallerIdentity["role"][];
   enabled: boolean;
@@ -21,6 +24,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/dashboard",
     label: "Dashboard",
+    labelKey: "nav.dashboard",
     icon: "LayoutDashboard",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -28,6 +32,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/documents",
     label: "Documents",
+    labelKey: "nav.documents",
     icon: "FileText",
     roles: ["owner"],
     enabled: true,
@@ -35,6 +40,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/journal",
     label: "Journal",
+    labelKey: "nav.journal",
     icon: "BookOpen",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -42,14 +48,23 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/banking",
     label: "Banking",
+    labelKey: "nav.banking",
     icon: "Landmark",
     roles: ["owner", "accountant"],
     enabled: true,
   },
-  { path: "/partners", label: "Partners", icon: "Users", roles: ["owner"], enabled: true },
+  {
+    path: "/partners",
+    label: "Partners",
+    labelKey: "nav.partners",
+    icon: "Users",
+    roles: ["owner"],
+    enabled: true,
+  },
   {
     path: "/reconciliation",
     label: "Reconciliation",
+    labelKey: "nav.reconciliation",
     icon: "ArrowLeftRight",
     roles: ["owner"],
     enabled: false,
@@ -57,6 +72,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/invoices",
     label: "Invoices",
+    labelKey: "nav.invoices",
     icon: "Receipt",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -64,6 +80,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/expenses",
     label: "Expenses",
+    labelKey: "nav.expenses",
     icon: "Wallet",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -71,6 +88,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/supplier-invoices",
     label: "Supplier invoices",
+    labelKey: "nav.supplierInvoices",
     icon: "ReceiptText",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -78,6 +96,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/package",
     label: "Package",
+    labelKey: "nav.package",
     icon: "Archive",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -85,6 +104,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/exports",
     label: "Declarations",
+    labelKey: "nav.declarations",
     icon: "FileSpreadsheet",
     roles: ["owner", "accountant"],
     enabled: true,
@@ -92,6 +112,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     path: "/settings",
     label: "Settings",
+    labelKey: "nav.settings",
     icon: "Settings",
     roles: ["owner", "accountant"],
     enabled: true,

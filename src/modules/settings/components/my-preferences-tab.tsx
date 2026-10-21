@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { formatDate, resolveLocale } from "@/kernel/i18n/format-date";
 import { useLocale } from "@/kernel/i18n/locale-provider";
+import { useT } from "@/kernel/i18n/use-t";
 import { formatNumber } from "@/kernel/money/format-number";
 import type { SupportedLocale } from "@/kernel/nav/constants";
 import { SUPPORTED_LOCALES } from "@/kernel/nav/constants";
@@ -33,6 +34,7 @@ const BROWSER_DEFAULT_VALUE = "__browser__";
 
 export function MyPreferencesTab({ initialLocale }: Props) {
   const { locale, setLocale } = useLocale();
+  const t = useT();
   const { executeAsync: execUpdate } = useAction(updateUserLocaleAction);
 
   const currentLocale = locale ?? initialLocale;
@@ -62,10 +64,10 @@ export function MyPreferencesTab({ initialLocale }: Props) {
           toast.error(result.data.error.message || "Failed to update locale");
           setLocale(currentLocale);
         }
-        // Success is silent
+        toast.success(t("settings.preferences.saved"));
       }
     },
-    [execUpdate, setLocale, currentLocale],
+    [execUpdate, setLocale, currentLocale, t],
   );
 
   // Live preview data

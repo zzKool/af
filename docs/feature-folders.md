@@ -14,7 +14,7 @@ src/
     db/              Prisma client, tenant-scoped client (RLS), test setup + fixtures
     errors/          AppError, extract-error
     guards/          architecture guard test
-    i18n/            locale, date formatting, LocaleProvider, FormattedDate; dictionaries/{en,fr}.ts + translate() / useT() (UI strings)
+    i18n/            locale, date formatting, LocaleProvider, FormattedDate; dictionaries/{en,fr,sv}.ts + translate() / useT() (UI strings)
     jobs/            pg-boss queue behind JobDefinition/ScheduleDefinition + withJobContext (see async-jobs)
     list-query/      ListQuery contract: types, URL codec, Prisma where/orderBy/distinct helpers, Zod schema (D20)
     logging/         pino logger

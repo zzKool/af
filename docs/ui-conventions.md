@@ -72,7 +72,7 @@ queries.dateHierarchy(tx, col, q): { years → months → days with counts; empt
 
 ## i18n — UI strings
 
-English is the key set: `src/kernel/i18n/dictionaries/en.ts` (`as const`); every other dictionary is `Record<MessageKey, string>` typed against it (`fr.ts` today; `sv.ts` later = one file + one line in `translate.ts`, no code change). Keys are `<module>.<area>.<name>`; `{name}` placeholders are filled by the caller.
+English is the key set: `src/kernel/i18n/dictionaries/en.ts` (`as const`); every other dictionary is `Record<MessageKey, string>` typed against it (`fr.ts`, `sv.ts` — the Swedish one follows BAS / Skatteverket terminology and the v1 printed-invoice strings in `specs/invoices/fixtures/invoice-strings.sv.json`; a new language is one file + one line in `translate.ts`, no code change). Keys are `<module>.<area>.<name>`; `{name}` placeholders are filled by the caller.
 
 - Client components: `const t = useT(); t("contracts.rates.title")` — the language comes from `LocaleProvider` (user preference, else the browser), `fr-CH` → fr, anything without a dictionary → en.
 - Server components, PDFs, jobs: `translate(locale, key, params)` or `translator(locale)`.
