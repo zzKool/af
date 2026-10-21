@@ -36,6 +36,10 @@ src/app/(app)/partners/[id]/page.tsx   entity page: <EntityPage> around the tabs
 
 `/partners/[id]` composes three read models of other modules on top of the partner itself — the page does it, never the partners module (cycles): `linking.linksTouching(tx, "partner", [id])` → the documents linked to the partner (`documents.documentsByIds`) for the *Documents* tab; `journal.listJournalEntries` filtered on `partnerId` (newest 25, with the total) for the *Transactions* tab, which links to the journal filtered on the partner; the tab labels and the overview carry the counts. The header's *Graph* button opens `/links/partner/<id>` (the linking graph). The strings are `partners.*` in the dictionary (en / fr / sv) since the same day.
 
+## The supplier match — `match.ts` (specs/documents US1, harvest R39 — 2026-10-21)
+
+`matchPartners(tx, { name?, vatNumber?, address?, type? })` scores the active partners (`scorePartnerMatch`, pure): VAT exact (alnum, case-fold) 100 · name exact 80 | contains 60 | ≤ 3 edits 40 − 10·d · address contains 20 · the wanted type 10; `percent = min(100, round(score / 140 × 100))`; zeros dropped, best five (`rankPartnerMatches`). The dialog's card shows a best match from 60 %. `matchPartnersAction` (owner). Tested on the harvest's cases (`match.pure.test.ts`).
+
 ## Tests that define the slice
 - `queries.test.ts` — the contract: 5 partners + 1 in another tenant; paging/sorting; `in` on an array column and with blanks; text ops; boolean; search; date year/month/range; mapped-column sorting; distinct narrowed by other filters but not by its own; array unnest; boolean counts; date hierarchy.
 - `kernel/list-query/*.pure.test.ts` — codec round trip (fast-check) and every filter → Prisma `where`.

@@ -10,4 +10,4 @@ DELETE FROM normalbelopp WHERE year <> 2025;
 DELETE FROM categorisation_rules WHERE source <> 'seed';
 DELETE FROM pgboss.job;
 SQL
-echo "e2e data reset — now: npm run seed"
+echo "e2e data reset — now: DATABASE_URL=$URL npx tsx prisma/seed.ts   (the seed needs the migration role, not the RLS app role)"

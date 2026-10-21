@@ -53,11 +53,17 @@ This bypasses Prisma's read-then-write pattern, preventing lost-update race cond
 
 ### Mark as Reviewed button
 
-Three states: not yet reviewed (solid green-700 with white text — green-600 fails WCAG AA contrast, which the review page's axe check enforces), corrections pending (amber outline), reviewed (muted green outline).
+Reviewed = **filed** (specs/documents, assumption confirmed 2026-10-21): a reviewed document that became nothing leaves the inbox. Three states: not yet reviewed (solid green-700 with white text — green-600 fails WCAG AA contrast, which the review page's axe check enforces), corrections pending (amber outline), reviewed (muted green outline).
 
 ## E2E
 
 `e2e/document-review.spec.ts` — every owner journey uploads its own PDF through the library and opens that row, so a parallel journey deleting its upload, or an issued invoice's generated PDF landing first in the list, cannot change what the test sees (the suite runs with 2 workers in CI). The accountant journey only needs the list.
+
+## Make it… (specs/documents US1 — 2026-10-21)
+
+Under the review form, for the owner, on a document that is not generated and has not become anything: **Expense**, **Supplier invoice**, **Just file it**. The two buttons open the modules' own dialogs (`NewExpenseDialog`, `NewSupplierInvoiceDialog` through their `ui` surfaces) with `initial` built by `initialFromFacts` from the OCR facts **as corrected** (date, amounts, currency, VAT, number, vendor / merchant) and the document pre-selected; creating writes the `created_from` link (D27) in the module's service as before. *Just file it* = `markDocumentReviewedAction` — nothing created, the document leaves the inbox (a bank statement, a contract). Once a `created_from` link exists the page shows *Became expense Ex213-Tr-04* (the section and a chip in the header, both linking to the entity) and no buttons. The page (`/documents/[id]`) composes it: `linksWithLabels(tx, { type: "document", id })` for *became*, `expensePageOptions` + `supplierInvoicePageOptions` for the dialogs' option lists (null for the accountant and for generated PDFs).
+
+The supplier dialog first shows the **supplier match** ([[partners]] `matchPartners`): the best partner from 60 % with *Use match*, the other matches, *New vendor* (name + VAT pre-filled, `createPartnerAction`, selected at once). Both dialogs run the **entity duplicate check** when the key fields settle (400 ms): a *high* match blocks until a note says why it is not one (*Create anyway*, `duplicateAck` → the note on the entity, the acknowledgement in the audit row); a *medium* match warns inline. Rules in [[expenses]] and [[supplier-invoices]].
 
 ## Role-Based Access
 

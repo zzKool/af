@@ -78,6 +78,51 @@ test.describe("Document review page — owner", () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
+  test("Make it… → Expense: the receipt becomes an expense, the page says what it became", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await openOwnDocument(page);
+    const makeIt = page.getByTestId("make-it");
+    await expect(makeIt).toBeVisible();
+    await expect(makeIt.getByTestId("make-it-file")).toBeEnabled();
+    await makeIt.getByTestId("make-it-expense").click();
+
+    // the expense dialog, pre-filled once the mock OCR has run (ICA Maxi, 342.50 SEK) — or empty when the
+    // job has not finished yet: the test fills what is missing and the service does the rest
+    const dialog = page.getByTestId("new-expense-dialog");
+    await expect(dialog).toBeVisible();
+    const pick = async (label: string, option: RegExp | string) => {
+      await dialog.getByLabel(label, { exact: true }).click();
+      await page.getByRole("option", { name: option }).click();
+    };
+    const stamp = String(Date.now()).slice(-5);
+    await pick("Group", "+ New group…");
+    await page.getByTestId("new-group-description").fill(`Receipts ${stamp}`);
+    await pick("Paid by", "Private SE");
+    await pick("Category", /^580/);
+    if (!(await page.getByTestId("expense-description").inputValue())) {
+      await page.getByTestId("expense-description").fill("ICA Maxi");
+    }
+    if (!(await page.getByTestId("expense-amount").inputValue())) {
+      await page.getByTestId("expense-amount").fill("342.50");
+    }
+    await expect(page.getByTestId("create-expense")).toBeEnabled();
+    await page.getByTestId("create-expense").click();
+    await expect(page.getByText(/-01 created/)).toBeVisible({ timeout: 15_000 });
+
+    // the page re-reads: Became expense Ex…, no Make it… any more, the chip in the header links to it
+    const became = page.getByTestId("document-became");
+    await expect(became).toBeVisible({ timeout: 15_000 });
+    await expect(became).toContainText(/Became expense Ex\d+-\w+-\d+/);
+    await expect(page.getByTestId("make-it")).toHaveCount(0);
+    const href = await page.getByTestId("became-chip").getAttribute("href");
+    expect(href).toMatch(/^\/expenses\?open=[0-9a-f-]{36}$/);
+    await page.goto(href ?? "/expenses");
+    await expect(page.getByTestId("expense-panel")).toBeVisible();
+    await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-\w+-\d+/);
+  });
+
   test("documents list shows review status badges for extracted documents", async ({ page }) => {
     await openOwnDocument(page);
     await page.goto("/documents");
