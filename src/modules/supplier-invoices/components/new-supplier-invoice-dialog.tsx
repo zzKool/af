@@ -29,8 +29,14 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
-import { createExpenseGroupAction } from "@/modules/expenses/ui";
 import {
+  createExpenseGroupAction,
+  DuplicatePanel,
+  hasHighMatch,
+  useDuplicateCheck,
+} from "@/modules/expenses/ui";
+import {
+  checkSupplierInvoiceDuplicatesAction,
   copyLastSupplierInvoiceAction,
   createSupplierInvoiceAction,
 } from "@/modules/supplier-invoices/supplier-invoices.actions";
@@ -42,6 +48,21 @@ import type {
   SupplierOption,
 } from "@/modules/supplier-invoices/types";
 import { groupLabel } from "./labels";
+import { SupplierMatchCard, type VendorFacts } from "./supplier-match-card";
+
+/** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
+export type SupplierInvoiceInitial = {
+  vendor?: VendorFacts;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
+  dueDate?: string | null;
+  currency?: string | null;
+  amountNet?: string | null;
+  vatAmount?: string | null;
+  amountTotal?: string | null;
+  documentId?: string | null;
+  documentKey?: string | null;
+};
 
 const NONE = "__none__";
 const NEW_GROUP = "__new__";
@@ -70,6 +91,7 @@ export function NewSupplierInvoiceDialog({
   registrations,
   documents,
   defaultGroupId,
+  initial,
   onCreated,
 }: {
   open: boolean;
@@ -80,6 +102,8 @@ export function NewSupplierInvoiceDialog({
   registrations: RegistrationOption[];
   documents: DocumentOption[];
   defaultGroupId?: string;
+  /** the OCR facts of the document this invoice is made from — applied when the dialog opens */
+  initial?: SupplierInvoiceInitial;
   onCreated?: (invoice: { id: string; key: string }) => void;
 }) {
   const t = useT();
@@ -88,7 +112,9 @@ export function NewSupplierInvoiceDialog({
   const today = new Date().toISOString().slice(0, 10);
   const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
   const [newGroup, setNewGroup] = useState("");
-  const [partnerId, setPartnerId] = useState(suppliers[0]?.id ?? "");
+  const [partnerId, setPartnerId] = useState(initial?.vendor ? "" : (suppliers[0]?.id ?? ""));
+  const [extraSuppliers, setExtraSuppliers] = useState<SupplierOption[]>([]);
+  const [ackNote, setAckNote] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(today);
   const [dueDate, setDueDate] = useState("");
@@ -107,16 +133,41 @@ export function NewSupplierInvoiceDialog({
   const { executeAsync: createGroup, isPending: creatingGroup } =
     useAction(createExpenseGroupAction);
   const { executeAsync: copyLast, isPending: copying } = useAction(copyLastSupplierInvoiceAction);
+  const { executeAsync: checkDuplicates } = useAction(checkSupplierInvoiceDuplicatesAction);
 
   useEffect(() => {
     if (open) setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
   }, [open, defaultGroupId, groups]);
 
+  // the document's facts fill the form when the dialog opens from the review page
+  useEffect(() => {
+    if (!open || !initial) return;
+    if (initial.invoiceNumber) setInvoiceNumber(initial.invoiceNumber);
+    if (initial.invoiceDate) setInvoiceDate(initial.invoiceDate);
+    if (initial.dueDate) {
+      setDueDate(initial.dueDate);
+      setDueTouched(true);
+    }
+    if (initial.currency) setCurrency(initial.currency);
+    if (initial.amountNet) setAmountNet(initial.amountNet);
+    if (initial.vatAmount) setVatAmount(initial.vatAmount);
+    if (initial.amountTotal) {
+      setAmountTotal(initial.amountTotal);
+      setTotalTouched(true);
+    }
+    if (initial.documentId) {
+      setDocumentId(initial.documentId);
+      setDocumentMissing(false);
+    }
+    setAckNote("");
+  }, [open, initial]);
+
+  const allSuppliers = extraSuppliers.length ? [...extraSuppliers, ...suppliers] : suppliers;
   // the supplier's defaults pre-fill the currency, the category and the due date
-  const supplier = suppliers.find((s) => s.id === partnerId);
+  const supplier = allSuppliers.find((s) => s.id === partnerId);
   useEffect(() => {
     if (!supplier) return;
-    if (supplier.defaultCurrency) setCurrency(supplier.defaultCurrency);
+    if (supplier.defaultCurrency && !initial?.currency) setCurrency(supplier.defaultCurrency);
     if (
       supplier.defaultBasCategoryCode &&
       categories.some((c) => c.code === supplier.defaultBasCategoryCode)
@@ -153,6 +204,42 @@ export function NewSupplierInvoiceDialog({
     setNote(last.note ?? "");
     if (groups.some((g) => g.id === last.groupId) && !defaultGroupId) setGroupId(last.groupId);
   }
+
+  // the duplicate check (specs/documents US3): same partner + number, the same bytes, a similar invoice
+  const checkKey = open
+    ? JSON.stringify([
+        documentId === NONE ? "" : documentId,
+        partnerId,
+        invoiceNumber.trim(),
+        amountTotal.trim(),
+        currency,
+        invoiceDate,
+      ])
+    : "";
+  const duplicates = useDuplicateCheck(open, checkKey, async () => {
+    const r = await checkDuplicates({
+      documentId: documentId === NONE ? undefined : documentId,
+      partnerId: partnerId || null,
+      invoiceNumber: invoiceNumber.trim() || null,
+      amount: amountTotal.trim() || null,
+      currency,
+      date: invoiceDate || null,
+    });
+    return r?.data?.data ?? [];
+  });
+  const blocked = hasHighMatch(duplicates);
+  const documentOptions =
+    initial?.documentId && !documents.some((d) => d.id === initial.documentId)
+      ? [
+          {
+            id: initial.documentId,
+            businessKey: initial.documentKey ?? "",
+            fileName: "",
+            status: "extracted",
+          },
+          ...documents,
+        ]
+      : documents;
 
   function reset() {
     setInvoiceNumber("");
@@ -193,6 +280,12 @@ export function NewSupplierInvoiceDialog({
       documentId: documentId === NONE ? undefined : documentId,
       documentMissing,
       note: note.trim() || null,
+      duplicateAck: blocked
+        ? {
+            entityIds: duplicates.filter((m) => m.confidence === "high").map((m) => m.entityId),
+            note: ackNote.trim(),
+          }
+        : undefined,
     });
     const error = extractError(r);
     if (error) {
@@ -200,6 +293,7 @@ export function NewSupplierInvoiceDialog({
       return;
     }
     const created = r?.data?.data;
+    setAckNote("");
     toast.success(t("supplierInvoices.form.created", { key: created?.key ?? "" }));
     reset();
     onOpenChange(false);
@@ -221,6 +315,26 @@ export function NewSupplierInvoiceDialog({
             void submit();
           }}
         >
+          {initial?.vendor && (
+            <SupplierMatchCard
+              vendor={initial.vendor}
+              selectedId={partnerId}
+              onUseMatch={setPartnerId}
+              onCreated={(p) => {
+                setExtraSuppliers((prev) => [
+                  {
+                    id: p.id,
+                    name: p.name,
+                    defaultCurrency: null,
+                    defaultBasCategoryCode: null,
+                    paymentTermsDays: null,
+                  },
+                  ...prev,
+                ]);
+                setPartnerId(p.id);
+              }}
+            />
+          )}
           <div className="sm:col-span-2 grid grid-cols-[1fr_auto] items-end gap-2">
             <div>
               <label htmlFor={`${ids}-supplier`} className="mb-1 block text-xs font-medium">
@@ -231,7 +345,7 @@ export function NewSupplierInvoiceDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((s) => (
+                  {allSuppliers.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
                     </SelectItem>
@@ -434,9 +548,9 @@ export function NewSupplierInvoiceDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE}>{t("supplierInvoices.form.noDocument")}</SelectItem>
-                {documents.map((d) => (
+                {documentOptions.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.businessKey} · {d.fileName}
+                    {d.fileName ? `${d.businessKey} · ${d.fileName}` : d.businessKey}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -459,16 +573,21 @@ export function NewSupplierInvoiceDialog({
             </label>
             <Input id={`${ids}-note`} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
+          <DuplicatePanel matches={duplicates} ackNote={ackNote} onAckNote={setAckNote} />
           <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
             </Button>
             <Button
               type="submit"
-              disabled={isPending || creatingGroup || !basCode || !partnerId}
+              disabled={
+                isPending || creatingGroup || !basCode || !partnerId || (blocked && !ackNote.trim())
+              }
               data-testid="create-supplier-invoice"
             >
-              {t("supplierInvoices.form.create")}
+              {blocked
+                ? t("documents.duplicate.panel.createAnyway")
+                : t("supplierInvoices.form.create")}
             </Button>
           </DialogFooter>
         </form>

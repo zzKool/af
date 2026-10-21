@@ -7,5 +7,6 @@ export * from "./components/new-supplier-invoice-dialog";
 export * from "./components/status-badge";
 export * from "./components/supplier-invoice-panel";
 export * from "./components/supplier-invoice-table";
+export * from "./components/supplier-match-card";
 export * from "./supplier-invoices.actions";
 export type * from "./types";

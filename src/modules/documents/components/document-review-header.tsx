@@ -6,6 +6,7 @@ import { FormattedDate } from "@/kernel/i18n/formatted-date";
 import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import type { DocumentReviewData } from "@/modules/documents/documents.actions";
+import { type Became, becameHref } from "./make-it-section";
 
 const QUALITY_CONFIG: Record<string, { label: MessageKey; className: string }> = {
   high: {
@@ -42,7 +43,13 @@ const STATUS_COLORS: Record<string, string> = {
   linked: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
 };
 
-export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
+export function DocumentReviewHeader({
+  data,
+  became = null,
+}: {
+  data: DocumentReviewData;
+  became?: Became | null;
+}) {
   const t = useT();
   const qualityInfo = data.quality ? QUALITY_CONFIG[data.quality] : null;
   const fileSizeKb = Math.round(data.fileSize / 1024);
@@ -61,6 +68,21 @@ export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
         >
           {isKnownStatus(data.status) ? t(`documents.status.${data.status}`) : data.status}
         </Badge>
+        {became && (
+          <Link href={becameHref(became)} data-testid="became-chip">
+            <Badge
+              variant="outline"
+              className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+            >
+              {t(
+                became.type === "expense"
+                  ? "documents.makeIt.becameExpense"
+                  : "documents.makeIt.becameSupplierInvoice",
+                { key: became.label ?? "" },
+              )}
+            </Badge>
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">

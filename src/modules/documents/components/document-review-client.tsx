@@ -9,6 +9,11 @@ import { DocumentReviewFooter } from "@/modules/documents/components/document-re
 import { DocumentReviewForm } from "@/modules/documents/components/document-review-form";
 import { DocumentReviewHeader } from "@/modules/documents/components/document-review-header";
 import {
+  type Became,
+  type MakeItOptions,
+  MakeItSection,
+} from "@/modules/documents/components/make-it-section";
+import {
   type DocumentReviewData,
   type OcrLineItem,
   updateDocumentCorrectionsAction,
@@ -39,7 +44,17 @@ const DocumentPreview = dynamic(() => import("@/modules/documents/components/doc
   loading: () => <div className="aspect-[3/4] animate-pulse rounded-lg bg-muted" />,
 });
 
-export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
+export function DocumentReviewClient({
+  data,
+  became = null,
+  makeItOptions = null,
+}: {
+  data: DocumentReviewData;
+  /** what the document became (specs/documents US1) — the page reads the `created_from` link */
+  became?: Became | null;
+  /** the dialogs' option lists; null for the accountant and for generated documents (no *Make it…*) */
+  makeItOptions?: MakeItOptions | null;
+}) {
   const t = useT();
   const [prefixType, setPrefixType] = useState(data.prefixType);
   const corrections = useDocumentReviewStore((s) => s.corrections);
@@ -100,7 +115,7 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
 
   return (
     <div className="p-4 md:p-6">
-      <DocumentReviewHeader data={data} />
+      <DocumentReviewHeader data={data} became={became} />
 
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Left pane — Preview (sticky) */}
@@ -134,6 +149,17 @@ export function DocumentReviewClient({ data }: { data: DocumentReviewData }) {
               onFieldChange={handleFieldChange}
               onItemsChange={handleItemsChange}
               onClassificationChange={handleClassificationChange}
+            />
+          )}
+
+          {data.status !== "generated" && (became || (makeItOptions && !data.readOnly)) && (
+            <MakeItSection
+              documentId={data.id}
+              documentKey={data.businessKey}
+              facts={resolvedData}
+              reviewedAt={data.reviewedAt}
+              became={became}
+              options={makeItOptions}
             />
           )}
 
