@@ -5,6 +5,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { findExpenseDuplicates } from "@/modules/expenses/duplicates";
 import * as expenseService from "@/modules/expenses/expenses";
 import * as groups from "@/modules/expenses/groups";
 import { renderStatementJob } from "@/modules/expenses/jobs/render-statement";
@@ -148,6 +149,26 @@ export const proposeSettlementAction = authedAction
     if (!can(ctx.callerIdentity, "read", "settlement")) return forbidden;
     return settlements.proposeSettlement(ctx.tx, parsedInput);
   });
+
+/** The entity duplicate check before "Make it an expense" (specs/documents US3): owner only, read-only. */
+export const checkExpenseDuplicatesAction = ownerAction
+  .schema(
+    z.object({
+      documentId: uuid.optional(),
+      merchant: z.string().max(200).nullable().optional(),
+      amount: z.string().max(20).nullable().optional(),
+      currency: z.string().length(3).nullable().optional(),
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable()
+        .optional(),
+    }),
+  )
+  .metadata({ name: "checkExpenseDuplicates" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await findExpenseDuplicates(ctx.tx, parsedInput),
+  }));
 
 // --- writes (owner only) ---
 

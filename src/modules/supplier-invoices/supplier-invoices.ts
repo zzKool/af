@@ -12,6 +12,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
 import * as documents from "@/modules/documents";
+import { noteWithAck } from "@/modules/expenses";
 import * as linking from "@/modules/linking";
 import {
   expenseSeries,
@@ -94,6 +95,14 @@ export const supplierInvoiceInputSchema = z
     note: z.string().trim().max(2000).nullable().optional(),
     /** the reviewed document this invoice is created from (D27) */
     documentId: uuid.optional(),
+    /** "Create anyway" on a high duplicate match (specs/documents US3) — the schema is declared here, not
+     *  imported: expenses ↔ supplier-invoices meet through the linking registry at module load */
+    duplicateAck: z
+      .object({
+        entityIds: z.array(uuid).min(1).max(5),
+        note: z.string().trim().min(1, "Say why it is not a duplicate").max(500),
+      })
+      .optional(),
     /** the VAT / category split — none by default (FR-001) */
     lines: z.array(lineSchema).max(50).optional(),
   })
@@ -436,7 +445,7 @@ export async function createSupplierInvoice(
       basCode: v.basCode,
       vatRegistrationId: v.vatRegistrationId ?? null,
       documentMissing: v.documentMissing ?? false,
-      note: v.note ?? null,
+      note: noteWithAck(v.note, v.duplicateAck),
       createdBy: caller.userId,
       source: caller.source,
       lines: v.lines?.length
@@ -461,7 +470,11 @@ export async function createSupplierInvoice(
     action: "create",
     entityType: "supplier_invoice",
     entityId: row.id,
-    newData: { ...toAuditData(row), lines: row.lines.length },
+    newData: {
+      ...toAuditData(row),
+      lines: row.lines.length,
+      ...(v.duplicateAck ? { duplicateAck: v.duplicateAck } : {}),
+    },
   });
 
   // 4. the document becomes this invoice (D27, D28): its key carries the vendor's name

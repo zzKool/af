@@ -41,3 +41,28 @@ export type PartnerSummaryDto = Pick<
   PartnerDto,
   "id" | "name" | "shortCode" | "types" | "defaultCurrency" | "defaultBasCategoryCode"
 >;
+
+// --- the supplier match (specs/documents US1) ---
+export type MatchQuery = {
+  name?: string | null;
+  vatNumber?: string | null;
+  address?: string | null;
+  /** the partner type the caller wants (`vendor` for a supplier invoice); a matching type adds 10 */
+  type?: "client" | "vendor" | "employee";
+};
+
+export type MatchablePartner = {
+  id: string;
+  name: string;
+  vatNumber: string | null;
+  address: string | null;
+  types: string[];
+};
+
+export type PartnerMatch = {
+  partnerId: string;
+  name: string;
+  score: number;
+  /** min(100, round(score / 140 × 100)) */
+  percent: number;
+};

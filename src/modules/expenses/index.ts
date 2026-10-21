@@ -2,6 +2,18 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and actions.
 
+export {
+  createdFromTwins,
+  DUPLICATE_AMOUNT_TOLERANCE,
+  DUPLICATE_DATE_TOLERANCE_DAYS,
+  DUPLICATE_MAX,
+  daysApart,
+  dedupeMatches,
+  type ExpenseDuplicateQuery,
+  findExpenseDuplicates,
+  foldName,
+  isNear,
+} from "./duplicates";
 export type { AttachInput, ExpenseInput, PerDiemInput, UpdateExpenseInput } from "./expenses";
 export {
   attachBankTransaction,
@@ -11,8 +23,10 @@ export {
   createPerDiemExpense,
   deleteExpense,
   detachBankTransaction,
+  duplicateAckSchema,
   expenseInputSchema,
   isExpenseOpen,
+  noteWithAck,
   perDiemInputSchema,
   replacePerDiemExpense,
   updateExpense,
