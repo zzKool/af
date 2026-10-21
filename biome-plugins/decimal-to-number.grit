@@ -1,0 +1,8 @@
+// Constitution §2: money is a Decimal in services; `.toNumber()` happens only at the display
+// boundary, i.e. in a `components/` folder. Compare Decimals with `.eq()` / `.gt()` / `.isZero()`.
+language js
+
+`$value.toNumber()` as $call where {
+  $filename <: not includes "/components/",
+  register_diagnostic(span=$call, message="`.toNumber()` only in components/* (display boundary, constitution §2) — compare Decimals with .eq() / .gt() / .isZero().", severity="error")
+}

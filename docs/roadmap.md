@@ -55,7 +55,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 - [ ] **C1 UI/UX pass** — direction first (density — the Excel-like tables stay —, typography, colour, panel vs page, chips, light/dark), decided with the owner on concrete options; written down in [[ui-conventions]] and as a repo skill `.claude/skills/af-design` so every later PR follows it; then one restyle of the shell + kernel kit, which the modules inherit. Not the shadcn default look.
 - [ ] **C2** Remaining English: login / register pages, error fallbacks. The owner's Swedish read of `sv.ts`.
 - [ ] **C3** Phase-0 leftovers: the rename pass (`defterfab_*` → `af_*`), branch protection on GitHub.
-- [ ] **C4** Deferred mechanics: Sentry request context, the `.toNumber()` lint rule, the two quarantined e2e.
+- [x] **C4** Deferred mechanics: Sentry request context, the `.toNumber()` lint rule (F48); no e2e turned out to be quarantined.
 - Out of scope by decision: email sending, the cash-planning widget (D14, Growth), SIE, Swedish moms (the accountant's), mobile.
 
 ## Next up

@@ -210,7 +210,7 @@ async function baseFor(
   typedRate: string | undefined,
 ): Promise<ServiceResult<Base>> {
   if (typedRate !== undefined) {
-    if (currency === BASE_CURRENCY && new D(typedRate).toNumber() !== 1) {
+    if (currency === BASE_CURRENCY && !new D(typedRate).eq(1)) {
       return { error: invalid(`The rate of a ${BASE_CURRENCY} amount is 1`) };
     }
     const rate = new D(typedRate);

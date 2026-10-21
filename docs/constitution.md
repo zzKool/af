@@ -43,7 +43,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - `app/*` and `components/*` never import `service.ts` directly: reads go through `queries.ts`, writes through `actions.ts`.
 - Role and permission checks happen only through `kernel/auth/can()` (`can`, `canRole`, `isTenantAdmin`, `requireCaller`). No `role === 'owner'` anywhere else. *(enforced since 4.2)*
 - Azure SDKs appear only inside `kernel/storage` and `kernel/ocr`.
-- `.toNumber()` on a Decimal appears only in `components/*` (display boundary). Lint rule.
+- `.toNumber()` on a Decimal appears only in `components/*` (display boundary). Lint rule: `biome-plugins/decimal-to-number.grit`, an error in `npm run lint` and the pre-commit hook. *(enforced since F48)*
 
 ### Module contract
 - Two public surfaces, because Next.js bundles server and client code differently:

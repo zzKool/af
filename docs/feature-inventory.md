@@ -296,7 +296,7 @@ Time tracking and `Project` budgets, `PriceList` family, `ServiceCatalog`, `Pric
 
 | Concern | v1 | v2 | v3 |
 |---|---|---|---|
-| Money | Decimal + helpers; SEK literals removed by audit | Decimal through services, number at display; `.toNumber()` lint rule deferred | v2 + the lint rule |
+| Money | Decimal + helpers; SEK literals removed by audit | Decimal through services, number at display; `.toNumber()` lint rule (Biome plugin, F48) | v2 + the lint rule |
 | Dates | mixed | `Clock`, TIMESTAMPTZ, sv-SE display | v2 |
 | Validation | one 3 112-line lib | Zod 4 at the action boundary | v2 |
 | Errors | throw `AuthError` | return `AppError`, never throw from actions | v2 |

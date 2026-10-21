@@ -18,12 +18,10 @@ const { mockCaptureException } = vi.hoisted(() => ({
 }));
 vi.mock("@sentry/nextjs", () => ({
   captureException: mockCaptureException,
-  setUser: vi.fn(),
-  setContext: vi.fn(),
-  setTag: vi.fn(),
 }));
 
-// Spy on logger.error to verify error handler logging
+// Spy on logger.error to verify error handler logging (the request-scoped child logs the crash once
+// the logging middleware has run)
 const { mockLoggerError } = vi.hoisted(() => ({
   mockLoggerError: vi.fn(),
 }));
@@ -33,7 +31,7 @@ vi.mock("@/kernel/logging/logger", () => ({
     child: vi.fn().mockReturnValue({
       info: vi.fn(),
       warn: vi.fn(),
-      error: vi.fn(),
+      error: mockLoggerError,
       debug: vi.fn(),
       child: vi.fn(),
     }),
@@ -63,6 +61,7 @@ afterAll(async () => {
 });
 
 // Import action clients after mocks are set up
+import { headers } from "next/headers";
 import { authedAction, ownerAction, publicAction } from "@/kernel/actions/action-client";
 
 // Create test actions for each chain
@@ -194,9 +193,48 @@ describe("action-client integration", () => {
 
     await crashingAction({});
     expect(mockLoggerError).toHaveBeenCalledWith(
-      { err: expect.any(Error), sentryEventId: expect.any(String) },
+      { err: expect.any(Error), sentryEventId: "fake-sentry-event-id", action: "crashingTest" },
       "Unhandled Server Action error",
     );
+  });
+
+  it("handleServerError reports the crash with this request's user, tenant, request id and action", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+
+    const result = await crashingAction({});
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error), {
+      user: { id: owner.callerIdentity.userId },
+      tags: {
+        tenantId: owner.callerIdentity.tenantId,
+        requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        action: "crashingTest",
+      },
+    });
+    expect(result?.serverError?.message).toBe(
+      "An unexpected error occurred. Reference: fake-sentry-event-id",
+    );
+  });
+
+  it("two concurrent crashes each carry their own user and tenant", async () => {
+    const a = await createAuthenticatedContext(auth, "owner");
+    const b = await createAuthenticatedContext(auth, "owner");
+    // each concurrent request reads its own session (whichever reaches the auth middleware first)
+    vi.mocked(headers).mockResolvedValueOnce(a.headers).mockResolvedValueOnce(b.headers);
+    await Promise.all([crashingAction({}), crashingAction({})]);
+
+    const reported = mockCaptureException.mock.calls.map(
+      (call) =>
+        (call as unknown as [unknown, { user: { id: string }; tags: Record<string, string> }])[1],
+    );
+    expect(reported.map((r) => [r.user.id, r.tags.tenantId]).sort()).toEqual(
+      [
+        [a.callerIdentity.userId, a.callerIdentity.tenantId],
+        [b.callerIdentity.userId, b.callerIdentity.tenantId],
+      ].sort(),
+    );
+    expect(new Set(reported.map((r) => r.tags.requestId)).size).toBe(2);
   });
 
   it("handleServerError does NOT call logger.error or Sentry for ActionError (business errors)", async () => {
