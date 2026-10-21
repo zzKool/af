@@ -49,7 +49,7 @@ Reusable code patterns and development conventions.
 Environment setup, settings, and deployment configuration.
 
 - [[project-scaffold]] — Tech stack, development commands, project structure
-- [[local-environment-setup]] — Prerequisites, quick start, and service verification
+- [[local-environment-setup]] — Prerequisites, quick start, and service verification · cloud sessions: `scripts/dev-env.sh` / `scripts/dev-env.md`
 - [[environment-variables]] — Required env vars and their purpose
 - [[deployment]] — the runbook: the images CI publishes (app + one-shot migrate), the homelab stack (`docker-compose.prod.yml`, update by tag, Caddy for TLS), backups and the restore drill, `/api/health`, the Azure path (scale to zero, ≈ €17–20)
 - [[ci-cd]] — CI/CD pipeline, Docker, E2E testing, and recovery runbook
