@@ -160,6 +160,7 @@ export function DocumentReviewClient({
               reviewedAt={data.reviewedAt}
               became={became}
               options={makeItOptions}
+              financial={data.documentType === "financial"}
             />
           )}
 

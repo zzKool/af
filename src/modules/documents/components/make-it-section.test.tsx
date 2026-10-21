@@ -159,4 +159,20 @@ describe("MakeItSection (specs/documents US1)", () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+  it("a relationship document (contract, NDA) is only filed — no expense, no supplier invoice", () => {
+    render(
+      <MakeItSection
+        documentId="doc-1"
+        documentKey="ctrt_20260304_001"
+        facts={{}}
+        reviewedAt={null}
+        became={null}
+        options={options}
+        financial={false}
+      />,
+    );
+    expect(screen.queryByTestId("make-it-expense")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("make-it-supplier-invoice")).not.toBeInTheDocument();
+    expect(screen.getByTestId("make-it-file")).toBeInTheDocument();
+  });
 });

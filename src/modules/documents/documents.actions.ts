@@ -16,6 +16,8 @@ import {
   type DocumentColumn,
   distinctDocumentValues,
   documentDateHierarchy,
+  listInbox,
+  toInboxData,
 } from "@/modules/documents/queries";
 
 export type { OcrExtractedData, OcrLineItem } from "@/kernel/ocr/ocr";
@@ -290,4 +292,66 @@ export const documentDateHierarchyAction = authedAction
       parsedInput.column,
       parsedInput.query,
     ),
+  }));
+
+// --- the inbox (specs/documents US4) ---
+
+const idsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(documentService.ARCHIVE_BULK_MAX),
+});
+
+/** Park inbox rows (owner); per-id outcomes for the undo stack. */
+export const archiveDocumentsAction = ownerAction
+  .schema(idsSchema)
+  .metadata({ name: "archiveDocuments" })
+  .action(async ({ ctx, parsedInput }) =>
+    documentService.archiveDocuments(ctx.tx, ctx.callerIdentity, ctx.audit, clock, parsedInput.ids),
+  );
+
+/** Bring parked rows back (owner). */
+export const unarchiveDocumentsAction = ownerAction
+  .schema(idsSchema)
+  .metadata({ name: "unarchiveDocuments" })
+  .action(async ({ ctx, parsedInput }) =>
+    documentService.unarchiveDocuments(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.ids),
+  );
+
+/** Run the OCR again on a failed / stuck document (owner); `force` for a completed one. The job is queued after the commit. */
+export const runOcrAction = ownerAction
+  .schema(z.object({ documentId: z.string().uuid(), force: z.boolean().optional() }))
+  .metadata({ name: "runOcr" })
+  .action(async ({ ctx, parsedInput }) => {
+    const result = await documentService.prepareOcrRerun(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      clock,
+      parsedInput.documentId,
+      { force: parsedInput.force },
+    );
+    if (result.data) {
+      const { tenantId, userId } = ctx.callerIdentity;
+      const documentId = parsedInput.documentId;
+      ctx.onCommit(async () => {
+        await enqueue(
+          processDocumentJob,
+          { tenantId, userId, documentId },
+          { singletonKey: documentId },
+        );
+      });
+    }
+    return result;
+  });
+
+/** The inbox rows of a tab + the counts (anyone who may read documents) — the page's refresh. */
+export const listInboxAction = authedAction
+  .schema(
+    z.object({
+      tab: z.enum(["all", "pending", "ready", "duplicates", "archived"]).optional(),
+      q: z.string().max(100).optional(),
+    }),
+  )
+  .metadata({ name: "listInbox" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: toInboxData(await listInbox(ctx.tx, ctx.callerIdentity, parsedInput)),
   }));

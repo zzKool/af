@@ -5,7 +5,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
-import { cleanupTestData, createTestPartner } from "@/kernel/db/test-fixtures";
+import { cleanupTestData, createTestDocument, createTestPartner } from "@/kernel/db/test-fixtures";
 import * as contracts from "@/modules/contracts";
 import * as expenses from "@/modules/expenses";
 import {
@@ -253,6 +253,21 @@ describe("the owner's dashboard", () => {
     expect(o.items.map((i) => i.kind).sort()).toEqual(["package_not_built", "vat_not_declared"]);
     expect(o.pulse.length).toBeGreaterThan(3);
     expect(o.briefing).toEqual({ since: null, lines: [] });
+  });
+
+  it("documents to review = the inbox's pending + ready, and the item opens the inbox (SC-005, FR-024)", async () => {
+    const { tenantId, userId } = owner.caller;
+    await createTestDocument(adminPool, tenantId, userId, { status: "uploaded" });
+    await createTestDocument(adminPool, tenantId, userId, { status: "extracted" });
+    const filed = await createTestDocument(adminPool, tenantId, userId, { status: "extracted" });
+    await adminPool.query(`UPDATE documents SET reviewed_at = now() WHERE id = $1`, [filed.id]);
+    const parked = await createTestDocument(adminPool, tenantId, userId, { status: "ocr_failed" });
+    await adminPool.query(`UPDATE documents SET archived_at = now() WHERE id = $1`, [parked.id]);
+    const o = await run(owner.caller, (tx) => dashboardOverview(tx, owner.caller, TODAY, null));
+    expect(o.items.find((i) => i.kind === "documents_to_review")).toMatchObject({
+      count: 2,
+      href: "/documents/inbox",
+    });
   });
 
   it("an empty tenant: nothing but last month's package (and the ECB gap, which is global), the pulse at zero", async () => {

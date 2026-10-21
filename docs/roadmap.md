@@ -16,7 +16,7 @@ Every module of [[feature-inventory]] §3 has a build behind it; the status line
 | Invoices | quotes → invoices → credit notes, `VA26-INV-001` series, one sheet edit/print, Chromium PDF stored as a document, paid derived from links, CH declaration period | [[invoices]] |
 | Supplier invoices | payables with `SI` keys, terms, derived status, payment links, cancel, copy last | [[supplier-invoices]] |
 | Expenses, traktamente | groups, four payment sources, `Ex` keys, owner liability ledger, FIFO settlements + statement PDF, trips with the half-day rule + per-diem PDF | [[expenses]], [[traktamente]] |
-| Documents | upload → blob → key → OCR job → review page (auto-save, corrections, classify, mark reviewed) → library with Excel filters, retention guard on delete | [[document-upload]], [[document-review]], [[document-library]] |
+| Documents | upload → blob → key → OCR job → review page (auto-save, corrections, classify, mark reviewed, *Make it…*) → library with Excel filters, retention guard on delete; content-hash duplicates; the inbox work page with archive + undo and the keyboard | [[document-upload]], [[document-review]], [[document-library]], [[document-inbox]] |
 | Banking, journal | three Nordea CSV imports with dedup, rules, transfer pairs; every row a journal entry with locked money facts; the journal page | [[banking]], [[journal]] |
 | Linking | one `links` table, the scorer, suggestions both ways, the inbox work page with the keyboard, the graph page | [[linking]] |
 | Rates | ECB sync job, `rateToBase`, Settings → Exchange rates with *Fetch now*, `scripts/fetch-rates.ts` | [[ecb-rates]] |
@@ -32,11 +32,11 @@ Decided with the owner on 2026-10-21: **cut-off 2023-04** (the start of the acti
 
 ```
 upload ──► review ──► make it an expense / SI ──► link bank row ──► package
-  ✓          ✓            ✗ A1                        ✓               ✓
+  ✓          ✓            ✓ A1                        ✓               ✓
 accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ```
 
-- [ ] **A1 Document inbox** — `specs/documents/` (spec, plan, tasks): **part 1 done** (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — PR `feat/documents-become`); **part 2** = the inbox work page `/documents/inbox` (states, counts, archive + undo, OCR re-run, the keyboard `j k x a o i e l d r u z Enter 1-3 ? Esc`), tasks T011–T018.
+- [x] **A1 Document inbox** — `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
 - [ ] **A2 Members** — Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
 - [ ] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` (`fetchDailyRates` already takes `startDate`; only the script argument is missing). A `fix:` PR, no spec.
 - [ ] **A4 Partners: contact persons** — small.
@@ -58,7 +58,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ## Next up
 
-**A1 part 2** — the inbox work page (`specs/documents/tasks.md` T011–T018, branch `feat/documents-inbox`), then `/speckit-converge` on `specs/documents`. Then A2, A3, A4, then B with the owner.
+`/speckit-converge` on `specs/documents` (what the spec asks and the build lacks, appended as tasks), then **A2 Members**, A3, A4, then B with the owner.
 
 ## Open decisions (the owner's)
 

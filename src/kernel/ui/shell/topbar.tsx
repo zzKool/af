@@ -19,6 +19,7 @@ const CRUMB_KEYS: Record<string, MessageKey> = {
   "/banking/imports": "banking.nav.imports",
   "/banking/rules": "banking.nav.rules",
   "/banking/inbox": "banking.nav.inbox",
+  "/documents/inbox": "documents.inbox.title",
   "/expenses/groups": "expenses.nav.groups",
   "/expenses/settle": "expenses.nav.settle",
   "/expenses/settlements": "expenses.nav.settlements",

@@ -38,12 +38,14 @@ test.describe("Document Library", () => {
     expect(existingHref).toMatch(/^\/documents\/[0-9a-f-]{36}$/);
     await card.getByRole("button", { name: "Upload another" }).click();
 
-    // the row: an upload key (exp_…), status uploaded or processing, not linked
+    // the row: an upload key (exp_…), status uploaded or processing, not linked — this journey's own file, never
+    // the first exp_ row (a parallel journey's upload: deleting it below would pull it from under that journey)
     const row = page
       .getByRole("row")
       .filter({ has: page.getByTestId("document-key") })
-      .filter({ hasText: /^exp_/ })
+      .filter({ hasText: `e2e-library-${stamp}.pdf` })
       .first();
+    await expect(row.getByTestId("document-key")).toHaveText(/^exp_/, { timeout: 15_000 });
     await expect(row).toBeVisible({ timeout: 15_000 });
     await expect(row.getByTestId("document-download")).toBeVisible();
     await expect(row.getByTestId("document-delete")).toBeVisible();

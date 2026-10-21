@@ -79,6 +79,8 @@ export function SuggestionsSection({
   onLinked,
   refreshKey = 0,
   openSearchKey = 0,
+  applyRequest,
+  limit,
 }: {
   target: SuggestionsTarget;
   canWrite: boolean;
@@ -88,6 +90,11 @@ export function SuggestionsSection({
   refreshKey?: number;
   /** bump it to open "Link to…" and focus its search (a keyboard shortcut on a work page) */
   openSearchKey?: number;
+  /** a new `seq` links the `index`-th suggestion with its proposed allocation (`Enter` / `1`–`3` on a work page);
+   *  `requireHigh` refuses one below HIGH */
+  applyRequest?: { index: number; requireHigh: boolean; seq: number; needsHighMessage?: string };
+  /** show the first n suggestions only */
+  limit?: number;
 }) {
   const t = useT();
   const ids = useId();
@@ -187,7 +194,28 @@ export function SuggestionsSection({
     void reload();
   }
 
+  // the host's keyboard: link the n-th suggestion as *Link* would, once per request
+  const seenApply = useRef(applyRequest?.seq ?? 0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `link` reads the live state; the request is the trigger
+  useEffect(() => {
+    if (!applyRequest || applyRequest.seq === seenApply.current) return;
+    seenApply.current = applyRequest.seq;
+    if (!canWrite || !suggestions) return;
+    const s = suggestions[applyRequest.index];
+    if (!s) return;
+    if (applyRequest.requireHigh && s.confidence !== "HIGH") {
+      toast.message(applyRequest.needsHighMessage ?? t("linking.inbox.enterNeedsHigh"));
+      return;
+    }
+    if (s.allocation === null) {
+      toast.error(t("linking.crossCurrencyHint"));
+      return;
+    }
+    void link(s.candidate, allocations[s.candidate.id] || s.allocation);
+  }, [applyRequest]);
+
   const exhausted = self !== null && Number(self.remaining) <= 0;
+  const shown = suggestions && limit ? suggestions.slice(0, limit) : suggestions;
 
   return (
     <section data-testid="suggestions">
@@ -203,11 +231,11 @@ export function SuggestionsSection({
         <p className="text-sm text-muted-foreground">…</p>
       ) : exhausted ? (
         <p className="text-sm text-muted-foreground">{t("linking.suggestions.exhausted")}</p>
-      ) : suggestions.length === 0 ? (
+      ) : !shown || shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("linking.suggestions.none")}</p>
       ) : (
         <ul className="divide-y rounded-md border text-sm">
-          {suggestions.map((s, i) => (
+          {shown.map((s, i) => (
             <li
               key={s.candidate.id}
               className="flex flex-col gap-1 px-3 py-2"

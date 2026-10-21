@@ -2,6 +2,8 @@
 
 The library (`/documents`) is a list page on the kernel `DataTable` (D19, D20; the last page migrated off v2's legacy table — phase-0 item 8). Owners see every document and upload / delete; the accountant sees financial documents only, read-only.
 
+The header links the work page: *Inbox (n)* → `/documents/inbox`, n = the documents that still need a decision (pending + ready, `inboxTotals`) — see [[document-inbox]].
+
 ## Architecture
 
 ```

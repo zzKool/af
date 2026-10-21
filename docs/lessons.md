@@ -17,7 +17,8 @@
 - [ ] **Module-load cycles through the linking registry**: `modules/linking/index.ts` eagerly imports `./linkables`, which imports every module — so any module importing `@/modules/linking` is in a cycle at load time; `supplier-invoices` could not use a Zod schema from `expenses` at the top level (declared twice instead). Action: register linkables lazily from the composition root (`src/instrumentation.ts` already wires `contracts.setRateUsage`) and drop the eager import.
 - [ ] **A client barrel cycle** `expenses/ui ↔ documents/ui` (settlements-table ↔ make-it-section) works at render time but is fragile. Action: either the review *page* composes `MakeItSection` (pages may import both), or `settlements-table` takes the download action as a prop. Add a guard rule against `ui.ts ↔ ui.ts` cycles.
 - [ ] **Reads of `link` outside the linking module** (documents' `unlinkedIds`, the inbox query, the upload card's *became*) are allowed (only writes are reserved) but spread knowledge of the table. Action: a read API `linking.createdFromTargets(tx, documentIds)` / `justifiedIds` and use it.
-- [ ] **The inbox read model loads every non-generated document per request** (cap 20 000, in-memory state / twins / counts). Right for one company; say so in `docs/document-inbox.md` and revisit if a tenant passes a few thousand documents.
+- [x] **The inbox read model loads every non-generated document per request** (cap 20 000, in-memory state / twins / counts). Right for one company; say so in `docs/document-inbox.md` and revisit if a tenant passes a few thousand documents. Said there (part 2).
+- [ ] **`storage.test.ts` › *generateDownloadUrl sanitizes filename* fails when Azurite runs** (`.._.._evil_path.pdf` keeps the `..`): CI's unit job has no Azurite, so the suite is skipped there and the failure never shows. Harmless for a download name, but either sanitise the dots or fix the expectation — and give the unit job Azurite so the storage tests run (found 2026-10-21, inbox part 2).
 - [ ] **`.toNumber()` lint rule and Sentry request context** are still deferred (constitution §2 / observability). Small, do them in a quiet moment.
 
 ## Code — a first audit pass (cheap scan, 2026-10-21; a real audit is a task for a fresh agent, brief below)
@@ -38,9 +39,9 @@ What a twenty-minute scan found; none of it needs a framework, each is a small P
 
 ## Product
 
-- [ ] **`Make it…` on a relationship document** (contract, NDA) offers *Expense* / *Supplier invoice*, which make no sense there. Action (part 2): hide those two when `documentType !== "financial"`, keep *Just file it* and *Link to…*.
+- [x] **`Make it…` on a relationship document** (contract, NDA) offers *Expense* / *Supplier invoice*, which make no sense there. Action (part 2): hide those two when `documentType !== "financial"`, keep *Just file it* and *Link to…*. Done in part 2 (review page and inbox).
 - [ ] **The upload duplicate card shows the date, not the uploader's name** (the spec said both). Minor; the user table is outside the tenant transaction. Decide: drop it from the spec or resolve the name in the action.
-- [ ] **The dashboard's *documents to review* counts unreviewed documents; the inbox counts pending + ready** (archived and became excluded, D34). Align the dashboard item on the inbox's `total` and point it at `/documents/inbox` (part 2, T014).
+- [x] **The dashboard's *documents to review* counts unreviewed documents; the inbox counts pending + ready** (archived and became excluded, D34). Align the dashboard item on the inbox's `total` and point it at `/documents/inbox` (part 2, T014). Done in part 2 (`inboxTotals`).
 - [ ] **Expense dialog: no partner, so no partner default for the BAS category** (the spec's "partner default when a partner matches" applies to supplier invoices only). Either accept (expenses are merchant-level) or add an optional partner to expenses later — not now.
 - [ ] **Login / register and error pages are English only**; the signed-in UI is en / fr / sv. Roadmap C2.
 

@@ -79,6 +79,7 @@ Page-specific documentation and patterns.
 - [[document-upload]] — Document upload pipeline, file validation, business key generation, status lifecycle
 - [[document-review]] — Document review & correction, corrections overlay, dual-pane UI, role-based access
 - [[document-library]] — the library on the kernel DataTable: the ListQuery read model (OCR facts as corrected, linked), the role base, Download / Delete, the upload zone
+- [[document-inbox]] — the documents work page `/documents/inbox`: derived inbox states, tabs + counts, duplicates, archive / restore with undo, OCR re-run, Make it… from the keyboard, the accountant read-only
 
 ## Components
 
