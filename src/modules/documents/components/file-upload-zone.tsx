@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertCircle, CheckCircle, Loader2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle, Copy, Loader2, Upload } from "lucide-react";
+import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import type { AppError } from "@/kernel/errors/app-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
 import { cn } from "@/lib/utils";
+import type { DuplicateUploadRef } from "@/modules/documents/documents";
 import { uploadDocumentAction } from "@/modules/documents/documents.actions";
 
 const ACCEPTED_EXTENSIONS = ".pdf,.jpg,.jpeg,.png,.tiff,.tif";
@@ -22,7 +24,7 @@ type FileUploadZoneProps = {
   onError?: (error: AppError) => void;
 };
 
-type UploadState = "idle" | "dragover" | "uploading" | "complete" | "error";
+type UploadState = "idle" | "dragover" | "uploading" | "complete" | "duplicate" | "error";
 
 export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: FileUploadZoneProps) {
   const t = useT();
@@ -33,6 +35,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
     businessKey: string;
     fileName: string;
   } | null>(null);
+  const [duplicateOf, setDuplicateOf] = useState<DuplicateUploadRef | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [showSlow, setShowSlow] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -47,7 +50,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
   }, []);
 
   const handleUpload = useCallback(
-    async (file: File) => {
+    async (file: File, force = false) => {
       // Client-side pre-validation
       if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
         setErrorMessage(`File exceeds ${MAX_FILE_SIZE_MB} MB limit`);
@@ -72,6 +75,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
       const formData = new FormData();
       formData.append("file", file);
       formData.append("prefixType", selectedPrefix);
+      if (force) formData.append("force", "true");
 
       const result = await executeAsync(formData);
 
@@ -93,11 +97,17 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         return;
       }
 
-      if (result?.data?.data) {
-        const doc = result.data.data;
-        setUploadedDoc(doc);
+      const data = result?.data?.data;
+      if (data?.kind === "duplicate") {
+        // the same bytes are already here (specs/documents US2): nothing was stored — the owner decides
+        setDuplicateOf(data.existing);
+        setState("duplicate");
+        return;
+      }
+      if (data?.kind === "stored") {
+        setUploadedDoc(data);
         setState("complete");
-        onUploadComplete?.(doc);
+        onUploadComplete?.(data);
       }
     },
     [executeAsync, selectedPrefix, onUploadComplete, onError, t],
@@ -161,9 +171,14 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
   const handleReset = useCallback(() => {
     setState("idle");
     setUploadedDoc(null);
+    setDuplicateOf(null);
     setErrorMessage("");
     fileRef.current = null;
   }, []);
+
+  const handleUploadAnyway = useCallback(() => {
+    if (fileRef.current) handleUpload(fileRef.current, true);
+  }, [handleUpload]);
 
   const handleRetry = useCallback(() => {
     if (fileRef.current) {
@@ -212,6 +227,8 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           state === "dragover" && "border-primary bg-primary/5",
           state === "uploading" && "border-muted-foreground/25 cursor-wait",
           state === "complete" && "border-green-500/50 bg-green-50 dark:bg-green-950/20",
+          state === "duplicate" &&
+            "border-amber-500/60 bg-amber-50 dark:bg-amber-950/20 cursor-default",
           state === "error" && "border-destructive/50 bg-destructive/5",
         )}
       >
@@ -260,6 +277,54 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
               {t("documents.upload.another")}
             </Button>
           </>
+        )}
+
+        {state === "duplicate" && duplicateOf && (
+          // biome-ignore lint/a11y/noStaticElementInteractions: the card's clicks must not reopen the file picker
+          <div
+            className="flex flex-col items-center text-center"
+            data-testid="upload-duplicate"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <Copy className="mb-2 size-8 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm font-medium">{t("documents.upload.duplicate.title")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("documents.upload.duplicate.body")}
+            </p>
+            <p className="mt-2 text-sm">
+              <span className="font-mono" data-testid="upload-duplicate-key">
+                {duplicateOf.businessKey}
+              </span>
+              <span className="text-muted-foreground"> · {duplicateOf.fileName}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("documents.upload.duplicate.uploaded", {
+                date: new Date(duplicateOf.createdAt).toISOString().slice(0, 10),
+              })}
+              {duplicateOf.becameType && (
+                <>
+                  {" · "}
+                  {t(
+                    duplicateOf.becameType === "expense"
+                      ? "documents.upload.duplicate.becameExpense"
+                      : "documents.upload.duplicate.becameSupplierInvoice",
+                  )}
+                </>
+              )}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" render={<Link href={`/documents/${duplicateOf.id}`} />}>
+                {t("documents.upload.duplicate.useExisting")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleUploadAnyway}>
+                {t("documents.upload.duplicate.uploadAnyway")}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleReset}>
+                {t("documents.upload.another")}
+              </Button>
+            </div>
+          </div>
         )}
 
         {state === "error" && (

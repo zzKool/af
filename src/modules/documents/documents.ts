@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -47,10 +47,39 @@ export type DocumentReviewData = {
   updatedAt: Date;
   reviewedAt: Date | null;
   reviewedBy: string | null;
+  /** parked on the inbox (specs/documents US4); cleared on restore */
+  archivedAt: Date | null;
   readOnly: boolean;
 };
 
 let containerEnsured = false;
+
+/** The document already holding the uploaded bytes (specs/documents US2): shown on the upload card. */
+export type DuplicateUploadRef = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  status: string;
+  createdAt: Date;
+  createdBy: string;
+  /** what the existing document became (`created_from`), when it did */
+  becameType: "expense" | "supplier_invoice" | null;
+};
+
+export type UploadResult =
+  | {
+      kind: "stored";
+      id: string;
+      businessKey: string;
+      fileName: string;
+      status: string;
+      documentType: string;
+    }
+  | { kind: "duplicate"; existing: DuplicateUploadRef };
+
+export function contentHashOf(bytes: Buffer): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
 
 export async function uploadDocument(
   tx: TransactionClient,
@@ -61,15 +90,8 @@ export async function uploadDocument(
   fileBuffer: Buffer,
   fileName: string,
   prefixType: string,
-): Promise<
-  ServiceResult<{
-    id: string;
-    businessKey: string;
-    fileName: string;
-    status: string;
-    documentType: string;
-  }>
-> {
+  options: { force?: boolean } = {},
+): Promise<ServiceResult<UploadResult>> {
   if (!can(caller, "create", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
@@ -80,6 +102,37 @@ export async function uploadDocument(
   const validation = await validateFile(fileBuffer, fileName);
   if (!validation.valid) {
     return { error: validation.error };
+  }
+
+  // The same bytes already stored (D32): nothing is written, the caller shows the card — unless the owner
+  // said "upload anyway", which stores a second copy and is audited as such. A hard-deleted document is gone.
+  const contentHash = contentHashOf(fileBuffer);
+  const existing = await tx.document.findFirst({
+    where: { tenantId: caller.tenantId, contentHash },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      businessKey: true,
+      fileName: true,
+      status: true,
+      createdAt: true,
+      createdBy: true,
+    },
+  });
+  if (existing && !options.force) {
+    const became = await tx.link.findFirst({
+      where: { kind: "created_from", toType: "document", toId: existing.id },
+      select: { fromType: true },
+    });
+    return {
+      data: {
+        kind: "duplicate",
+        existing: {
+          ...existing,
+          becameType: (became?.fromType as DuplicateUploadRef["becameType"]) ?? null,
+        },
+      },
+    };
   }
 
   const blobId = randomUUID();
@@ -138,6 +191,7 @@ export async function uploadDocument(
         prefixType,
         documentType: keyResult.data.documentType,
         status: "uploaded",
+        contentHash,
         createdBy: caller.userId,
         source: caller.source,
       },
@@ -150,16 +204,20 @@ export async function uploadDocument(
     };
   }
 
-  // Audit trail
+  // Audit trail (a knowing duplicate names the document it copies)
   await audit.log({
     action: "create",
     entityType: "document",
     entityId: record.id,
-    newData: toAuditData(record),
+    newData: {
+      ...toAuditData(record),
+      ...(existing ? { knowingDuplicateOf: existing.id } : {}),
+    },
   });
 
   return {
     data: {
+      kind: "stored",
       id: record.id,
       businessKey: record.businessKey,
       fileName: record.fileName,
@@ -167,6 +225,23 @@ export async function uploadDocument(
       documentType: record.documentType,
     },
   };
+}
+
+/** Other documents of the tenant holding the same bytes as `documentId` (the hash strategy of the duplicate check). */
+export async function sameContentDocumentIds(
+  tx: TransactionClient,
+  documentId: string,
+): Promise<string[]> {
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { tenantId: true, contentHash: true },
+  });
+  if (!doc?.contentHash) return [];
+  const twins = await tx.document.findMany({
+    where: { tenantId: doc.tenantId, contentHash: doc.contentHash, id: { not: documentId } },
+    select: { id: true },
+  });
+  return twins.map((t) => t.id);
 }
 
 /**
@@ -226,6 +301,7 @@ export async function storeGeneratedDocument(
       prefixType: input.prefixType,
       documentType: "financial",
       status: "generated",
+      contentHash: contentHashOf(input.bytes),
       createdBy: caller.userId,
       source: caller.source,
     },
@@ -440,6 +516,7 @@ export async function getDocumentForReview(
       updatedAt: doc.updatedAt,
       reviewedAt: doc.reviewedAt,
       reviewedBy: doc.reviewedBy,
+      archivedAt: doc.archivedAt,
       readOnly: isAccountant,
     },
   };

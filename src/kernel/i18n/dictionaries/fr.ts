@@ -1344,6 +1344,14 @@ export const fr: Dictionary = {
   "documents.upload.stillUploading": "Envoi toujours en cours…",
   "documents.upload.another": "Téléverser un autre",
   "documents.upload.retry": "Réessayer",
+  "documents.upload.duplicate.title": "Document en double détecté",
+  "documents.upload.duplicate.body":
+    "Un document au contenu identique existe déjà — rien n'a été enregistré.",
+  "documents.upload.duplicate.uploaded": "Téléversé le {date}",
+  "documents.upload.duplicate.becameExpense": "devenu une dépense",
+  "documents.upload.duplicate.becameSupplierInvoice": "devenu une facture fournisseur",
+  "documents.upload.duplicate.useExisting": "Utiliser le document existant",
+  "documents.upload.duplicate.uploadAnyway": "Téléverser quand même",
   "documents.upload.unsupported":
     "Type de fichier non pris en charge. Acceptés : PDF, JPEG, PNG, TIFF",
   "documents.upload.failed": "Échec de l'envoi",

@@ -37,6 +37,8 @@ const uploadSchema = zfd.formData({
       ),
   ),
   prefixType: zfd.text(z.string().min(1)),
+  /** "Upload anyway" on the duplicate card (owner): store a second copy of bytes the tenant already holds */
+  force: zfd.text(z.enum(["true", "false"]).optional()),
 });
 
 let _storage: ReturnType<typeof createStorageService> | null = null;
@@ -50,7 +52,7 @@ export const uploadDocumentAction = authedAction
   .schema(uploadSchema)
   .metadata({ name: "uploadDocument" })
   .action(async ({ ctx, parsedInput }) => {
-    const { file, prefixType } = parsedInput;
+    const { file, prefixType, force } = parsedInput;
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const result = await documentService.uploadDocument(
@@ -62,9 +64,10 @@ export const uploadDocumentAction = authedAction
       fileBuffer,
       file.name,
       prefixType,
+      { force: force === "true" },
     );
 
-    if (result.data) {
+    if (result.data?.kind === "stored") {
       const documentId = result.data.id;
       const { tenantId, userId } = ctx.callerIdentity;
       ctx.onCommit(async () => {

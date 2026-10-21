@@ -114,6 +114,7 @@ function makeReviewData(overrides?: Partial<DocumentReviewData>): DocumentReview
     updatedAt: new Date("2026-03-15T10:00:00Z"),
     reviewedAt: null,
     reviewedBy: null,
+    archivedAt: null,
     readOnly: false,
     ...overrides,
   };
