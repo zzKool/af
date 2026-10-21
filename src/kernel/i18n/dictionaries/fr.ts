@@ -1303,6 +1303,9 @@ export const fr: Dictionary = {
   "documents.status.extracted": "extrait",
   "documents.status.ocr_failed": "OCR en échec",
   "documents.status.linked": "lié",
+  "documents.status.generated": "généré",
+  "documents.review.generated":
+    "Généré par l'application à partir d'un document émis — rien à réviser, rien à corriger. Il est conservé aussi longtemps que sa source.",
   "documents.lines.title": "Lignes",
   "documents.lines.legend": "Lignes du document",
   "documents.lines.deleted": "Ligne supprimée",

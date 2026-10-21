@@ -145,7 +145,7 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
           onClick={handleRotate}
           title={t("documents.preview.rotate")}
         >
-          &#x21bb; Rotate
+          &#x21bb; {t("documents.preview.rotate")}
         </Button>
         <Button
           variant="outline"

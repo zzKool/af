@@ -22,7 +22,17 @@ const QUALITY_CONFIG: Record<string, { label: MessageKey; className: string }> =
   },
 };
 
-type DocumentStatusKey = "uploaded" | "processing" | "extracted" | "ocr_failed" | "linked";
+const STATUS_KEYS = [
+  "uploaded",
+  "processing",
+  "extracted",
+  "ocr_failed",
+  "linked",
+  "generated",
+] as const;
+type DocumentStatusKey = (typeof STATUS_KEYS)[number];
+const isKnownStatus = (s: string): s is DocumentStatusKey =>
+  (STATUS_KEYS as readonly string[]).includes(s);
 
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-muted text-muted-foreground",
@@ -49,7 +59,7 @@ export function DocumentReviewHeader({ data }: { data: DocumentReviewData }) {
           variant="outline"
           className={STATUS_COLORS[data.status] ?? "bg-muted text-muted-foreground"}
         >
-          {t(`documents.status.${data.status as DocumentStatusKey}`)}
+          {isKnownStatus(data.status) ? t(`documents.status.${data.status}`) : data.status}
         </Badge>
       </div>
 

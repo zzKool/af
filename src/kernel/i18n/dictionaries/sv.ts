@@ -1159,6 +1159,9 @@ export const sv: Dictionary = {
   "documents.status.extracted": "tolkat",
   "documents.status.ocr_failed": "OCR misslyckades",
   "documents.status.linked": "kopplat",
+  "documents.status.generated": "genererat",
+  "documents.review.generated":
+    "Skapat av appen från ett utfärdat dokument — inget att granska, inget att rätta. Det behålls så länge källan finns.",
   "documents.lines.title": "Rader",
   "documents.lines.legend": "Dokumentets rader",
   "documents.lines.deleted": "Rad borttagen",
