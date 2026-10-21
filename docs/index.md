@@ -4,6 +4,7 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 
 ## Phase 0 — read first
 
+- [[lessons]] — Findings of the 2026-10-20 → 21 build with their actions: process (e2e ownership, CI logs, the cloud session's environment), code (load cycles through the linking registry, link reads), product gaps, how to work with the agent
 - [[roadmap]] — What is done, what is left to a first real version, what is next, how we work (the spec-kit loop as applied, self-merge when green, the local test loop)
 - [[constitution]] — Rules, import boundaries, linking invariants, portability, definition of done, process
 - [[feature-inventory]] — v1 vs v2 vs Excel: scope, decisions D1–D18, module verdicts, harvest list

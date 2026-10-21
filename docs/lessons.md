@@ -1,0 +1,54 @@
+# Lessons from the build — what to improve, what to do differently
+
+> Written at the end of the 2026-10-20 → 21 build (51 PRs, every module's first slice) for whoever continues. Each item is a finding **and** the action; tick them off or move them into [[roadmap]] when picked up. Not a backlog of features — those are in the roadmap.
+
+## Process
+
+- [ ] **e2e flakiness is the recurring cost** (three fixes in one day: a journey reading another's data, a row click landing on a link after column widths, a journey running out of its total budget on a loaded runner). Rules that hold: every journey **owns its data** (uploads / creates what it reads — `document-review.spec.ts` is the model); open an entity by **deep link** (`?open=`, `?q=`, `/documents/<id>`) rather than by clicking the n-th row; give long journeys `test.setTimeout(240_000)` up front; two workers stay — if a fourth flake appears, measure one worker (+2 min) before fixing one more test.
+- [ ] **CI logs are not reachable from a cloud session** (the blob host is behind the proxy); the check-run **annotations** are. Keep the Playwright failure summary in an annotation (it is), and consider annotating `test-results/*/error-context.md`'s first lines too.
+- [ ] **A cloud session rebuilds its environment from nothing** (Postgres cluster, Azurite, env vars, the prod build with a `next/font` stub because Google Fonts is unreachable). Two scripts moved into `scripts/` (`merge-when-green.sh`, `reset-e2e-data.sh`); the rest is still per-session. Action: `scripts/dev-env.md` (or a `scripts/dev-env.sh`) describing the exact steps — the test DB URLs and roles, `apply-migrations` by psql when the Prisma engine is missing, the seed with the migration role, the font stub, `next start` on :3000 — so the next session does not rediscover them.
+- [ ] **Run `biome check --write .` before every commit**: four "chore: format" commits in a day. `.husky/` exists — add a pre-commit that formats the staged files.
+- [ ] **Screenshots came from a hand-written script** that re-did the e2e's steps. Put every new page in `e2e/screenshots.spec.ts` (it runs on `main` and uploads the artifact) and take the PR's pictures from there.
+- [ ] **Spec-kit, the house way, is right-sized**: `spec.md` for the owner's read, `plan.md` + `tasks.md` for the agent; no `research.md` / `data-model.md` / `quickstart.md`. The owner's one gate (reading the spec) caught nothing this time — keep it anyway; it is cheap and it is where a wrong assumption would be caught.
+- [ ] **The merge watcher had a race** (#47 merged on the previous head's green while a push landed). Fixed in #49 (waits for the full run set, re-reads the head). Lesson: a script that merges needs the same scrutiny as code.
+
+## Code
+
+- [ ] **Module-load cycles through the linking registry**: `modules/linking/index.ts` eagerly imports `./linkables`, which imports every module — so any module importing `@/modules/linking` is in a cycle at load time; `supplier-invoices` could not use a Zod schema from `expenses` at the top level (declared twice instead). Action: register linkables lazily from the composition root (`src/instrumentation.ts` already wires `contracts.setRateUsage`) and drop the eager import.
+- [ ] **A client barrel cycle** `expenses/ui ↔ documents/ui` (settlements-table ↔ make-it-section) works at render time but is fragile. Action: either the review *page* composes `MakeItSection` (pages may import both), or `settlements-table` takes the download action as a prop. Add a guard rule against `ui.ts ↔ ui.ts` cycles.
+- [ ] **Reads of `link` outside the linking module** (documents' `unlinkedIds`, the inbox query, the upload card's *became*) are allowed (only writes are reserved) but spread knowledge of the table. Action: a read API `linking.createdFromTargets(tx, documentIds)` / `justifiedIds` and use it.
+- [ ] **The inbox read model loads every non-generated document per request** (cap 20 000, in-memory state / twins / counts). Right for one company; say so in `docs/document-inbox.md` and revisit if a tenant passes a few thousand documents.
+- [ ] **`.toNumber()` lint rule and Sentry request context** are still deferred (constitution §2 / observability). Small, do them in a quiet moment.
+
+## Code — a first audit pass (cheap scan, 2026-10-21; a real audit is a task for a fresh agent, brief below)
+
+What a twenty-minute scan found; none of it needs a framework, each is a small PR:
+
+- [ ] **OCR JSON parsed by hand in three places** (`documents.ts` review, `queries.ts` library and inbox): `ocrData as unknown as { extractedData, quality }`. One `parseOcrPayload(row)` in `documents.ts`, used by all three; it also removes two `any` ignores.
+- [ ] **`documents.ts` is 1 076 lines** with v2's story headings still in it (5.3, 5.4, 5.5). Split along the headings it already has — `upload.ts`, `review.ts`, `library.ts`, `retention.ts`, `inbox` already separate — the constitution asked for this during the feature-folder move. `invoices.ts` (960) and `supplier-invoices.ts` (751) are next, by section.
+- [ ] **The same Zod helpers declared per module** (`uuid`, `isoDate`, `money`, `positiveMoney`, `basCode` — 20 declarations across 8 files). One `kernel/validation/scalars.ts`; the business schemas stay in their modules.
+- [ ] **The two creation dialogs duplicate the inline "+ New group…"** (group select + description input + `createExpenseGroupAction`) and their `labels.ts` are the same three lines. A `GroupPicker` in `expenses/ui` used by both; `supplier-invoices/components/labels.ts` re-exports expenses'.
+- [ ] **`supplier-invoice-panel.tsx` (811 lines) and `expense-panel.tsx` (559)** are each one component with the money form, payments, links, cancel. Split by section (facts · money · payments · links) with the same props — easier to restyle in the UI pass.
+- [ ] **95 `biome-ignore`s, 31 of them `noExplicitAny`**, clustered in settings (4), partners, documents, contracts — mostly Prisma `where: any` and JSON columns. Type the JSON columns once (`Prisma.JsonValue` → the DTO) and the ignores go.
+- [ ] **27 `as unknown as` / `as any` casts** in non-test code: list them, each is either a missing DTO mapper or a JSON column without a type.
+- [ ] **The dictionaries are 1 380 keys in one file each**. Fine for the machine, hard for a human review (your Swedish read). A one-off script that prints the three side by side per prefix (`documents.*`) would make that review a half-hour job.
+- [ ] **Not found, worth saying**: no `console.*` in server code, 3 TODOs in total, no dead v1/v2 copies, the guard test holds the import rules. The over-engineering risk ("usine à gaz") is low today: no settings engine, no plugin layer, one link table; the thing to watch is the **number of read-model helpers that compute in memory over a cap** (library, inbox, invoices list, supplier-invoices list) — fine for one company, the day a second tenant arrives they share a pattern that should become one.
+
+**Brief for the fresh agent doing the real audit** (one session, read-only, report as a checklist like this file): for each module, read the service and the queries once; look for (1) a rule written twice, (2) a status or amount stored where it should be derived, (3) a component over 400 lines doing two jobs, (4) a cast that hides a missing type, (5) a cross-module read that bypasses the other module's `index.ts`, (6) a test that tests the mock rather than the rule. Do not fix while auditing; do not propose a framework; propose the smallest PR per finding and the order.
+
+## Product
+
+- [ ] **`Make it…` on a relationship document** (contract, NDA) offers *Expense* / *Supplier invoice*, which make no sense there. Action (part 2): hide those two when `documentType !== "financial"`, keep *Just file it* and *Link to…*.
+- [ ] **The upload duplicate card shows the date, not the uploader's name** (the spec said both). Minor; the user table is outside the tenant transaction. Decide: drop it from the spec or resolve the name in the action.
+- [ ] **The dashboard's *documents to review* counts unreviewed documents; the inbox counts pending + ready** (archived and became excluded, D34). Align the dashboard item on the inbox's `total` and point it at `/documents/inbox` (part 2, T014).
+- [ ] **Expense dialog: no partner, so no partner default for the BAS category** (the spec's "partner default when a partner matches" applies to supplier invoices only). Either accept (expenses are merchant-level) or add an optional partner to expenses later — not now.
+- [ ] **Login / register and error pages are English only**; the signed-in UI is en / fr / sv. Roadmap C2.
+
+## Working with the agent — for the owner
+
+- The agent is cheapest when it can **read small and run little**: targeted `grep` / `sed -n` reads, one unit test file at a time, the full suite once before the PR, the e2e for the touched journeys only, the local `next start` kept running across tasks. The expensive moments were full-suite reruns and re-reading large files (dictionaries, long tests).
+- **Decisions come back cheapest in batches**: the harvest questions (B1–B15) answered in one sitting unblocked a whole phase; one unanswered question (`justifies` → partner) sat open for a day. Keep *Open decisions* in the roadmap and answer them when you read the spec.
+- **Your real data is the test that matters** (roadmap B1). Every oddity you hit entering 2023-04 onwards is worth more than a week of the agent's tests — report them as you find them, one line each, and let the agent batch the fixes.
+- **The UI pass is a direction decision first** (roadmap C1): react to options, then the kit changes once and the modules inherit it. Do not restyle page by page.
+
+Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-inventory]]

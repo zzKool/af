@@ -23,7 +23,7 @@ test.describe("Supplier invoices", () => {
   const bankDate = iso(0).replace(/-/g, "/");
 
   test("vendor, invoice, payment link, copy last, cancel, group page", async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000); // the longest journey after expenses: an import, two PDF-less creates, links — 180 s ran out on a loaded CI runner (2 workers)
     await trackToasts(page);
     await withToastReport(page, async () => {
       // 1. the vendor with 20-day terms

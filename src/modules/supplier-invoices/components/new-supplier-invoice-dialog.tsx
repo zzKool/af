@@ -6,7 +6,7 @@
 // invoice (amounts, category, registration — a new number and dates). The key and the base come from the service.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -135,13 +135,20 @@ export function NewSupplierInvoiceDialog({
   const { executeAsync: copyLast, isPending: copying } = useAction(copyLastSupplierInvoiceAction);
   const { executeAsync: checkDuplicates } = useAction(checkSupplierInvoiceDuplicatesAction);
 
+  // what the dialog sets when it opens — once per opening: the page may re-render while it is open (a server action
+  // that refreshes the session cookie refreshes the route), the option arrays come back new, and that must not
+  // reset what the owner picked (a new group typed in, the pre-filled facts)
+  const opened = useRef(false);
   useEffect(() => {
-    if (open) setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
-  }, [open, defaultGroupId, groups]);
-
-  // the document's facts fill the form when the dialog opens from the review page
-  useEffect(() => {
-    if (!open || !initial) return;
+    if (!open) {
+      opened.current = false;
+      return;
+    }
+    if (opened.current) return;
+    opened.current = true;
+    setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
+    // the document's facts fill the form when the dialog opens from the review page or the inbox
+    if (!initial) return;
     if (initial.invoiceNumber) setInvoiceNumber(initial.invoiceNumber);
     if (initial.invoiceDate) setInvoiceDate(initial.invoiceDate);
     if (initial.dueDate) {
@@ -160,25 +167,30 @@ export function NewSupplierInvoiceDialog({
       setDocumentMissing(false);
     }
     setAckNote("");
-  }, [open, initial]);
+  }, [open, defaultGroupId, groups, initial]);
 
   const allSuppliers = extraSuppliers.length ? [...extraSuppliers, ...suppliers] : suppliers;
   // the supplier's defaults pre-fill the currency, the category and the due date
   const supplier = allSuppliers.find((s) => s.id === partnerId);
   const initialCurrency = initial?.currency ?? null;
+  // plain values, so a re-render with new option arrays does not re-apply the defaults over the owner's edits
+  const supplierId = supplier?.id ?? null;
+  const supplierCurrency = supplier?.defaultCurrency ?? null;
+  const supplierBas =
+    supplier?.defaultBasCategoryCode &&
+    categories.some((c) => c.code === supplier.defaultBasCategoryCode)
+      ? supplier.defaultBasCategoryCode
+      : null;
+  const supplierTerms = supplier?.paymentTermsDays ?? DEFAULT_TERMS;
   useEffect(() => {
-    if (!supplier) return;
+    if (!supplierId) return;
     // the document's currency wins over the supplier's default when the dialog opens from the review page
-    if (supplier.defaultCurrency && !initialCurrency) setCurrency(supplier.defaultCurrency);
-    if (
-      supplier.defaultBasCategoryCode &&
-      categories.some((c) => c.code === supplier.defaultBasCategoryCode)
-    )
-      setBasCode(supplier.defaultBasCategoryCode);
-  }, [supplier, categories, initialCurrency]);
+    if (supplierCurrency && !initialCurrency) setCurrency(supplierCurrency);
+    if (supplierBas) setBasCode(supplierBas);
+  }, [supplierId, supplierCurrency, supplierBas, initialCurrency]);
   useEffect(() => {
-    if (!dueTouched) setDueDate(addDays(invoiceDate, supplier?.paymentTermsDays ?? DEFAULT_TERMS));
-  }, [invoiceDate, supplier, dueTouched]);
+    if (!dueTouched) setDueDate(addDays(invoiceDate, supplierTerms));
+  }, [invoiceDate, supplierTerms, dueTouched]);
   useEffect(() => {
     if (!totalTouched) setAmountTotal(amountNet || vatAmount ? sum(amountNet, vatAmount) : "");
   }, [amountNet, vatAmount, totalTouched]);
