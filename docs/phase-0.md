@@ -19,7 +19,7 @@ Status board for everything before the first business feature. Tick, don't rewri
   - [x] Prisma schema reconciled with the hand-written migrations (`migrate dev` no longer proposes a repair migration) — see `docs/prisma-rls-setup.md`
   - [x] CI: schema ↔ migrations drift check after `migrate deploy` in the unit-test job, failure annotated (PR #9)
   - [x] CI cost: E2E only on `main` pushes + manual dispatch; PRs run lint/typecheck/unit/build (PR #3)
-  - [ ] spec-kit: `uv tool install specify-cli`, then in `C:\af`: `specify init --here --integration claude` (or `specify init . --integration claude`), then `/speckit-constitution` fed from `docs/constitution.md`
+  - [x] spec-kit initialised in PR #1 (`.specify/`, the `speckit-*` skills in `.claude/skills/`, `.specify/memory/constitution.md` → `docs/constitution.md`); the loop as applied is in `docs/roadmap.md`
   - [x] MCP in `.mcp.json`: Playwright (screenshots), Context7 + Microsoft Learn (Next 16 / Prisma 7 / Better Auth docs), Postgres (`postgres-mcp`, restricted, needs `uv`). Approve them on first Claude Code start in the repo.
   - [x] Skills in `.claude/skills/`: `server-action-pattern`, `module-slice` (draft, finalised after item 6), `invoice-pdf`, `test-conventions`, `bas-accounting`
   - [x] PR template with the definition-of-done checklist (`.github/pull_request_template.md`)
@@ -40,7 +40,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 - [x] **7. Verify gate wired**: drift check (PR #9), `retries: 0` + `quarantine()` helper, `e2e/screenshots.spec.ts` → `page-screenshots` artifact on `main`, partners happy path `e2e/partners.spec.ts` — 2026-10-20, see `docs/verify-gate.md`
 - [x] **8. Kernel UI**: app shell full-width (D19) + `DataTable` with typed header filters and `ListQuery` helper (D20, H13) — built on `partners` 2026-10-20, see `docs/ui-conventions.md`. Per-user column order / width / visibility (`table_preferences`) built 2026-10-21. The documents library moved onto the new table on 2026-10-20.
 
-Then phase 1: contracts frozen for the batch → parallel agents on invoices / banking + journal / expenses + traktamente / supplier invoices → linking → exports → dashboard.
+Then phase 1: contracts frozen for the batch → parallel agents on invoices / banking + journal / expenses + traktamente / supplier invoices → linking → exports → dashboard — **done 2026-10-20 → 21**; what is left is in [[roadmap]].
 
 ## Open points
 Consolidated in [[open-questions]] (blocking B1–B15, the rest during the build) — **all answered 2026-10-20**, recorded as D21–D32 in [[feature-inventory]]; nothing gates a module spec any more.

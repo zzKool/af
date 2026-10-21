@@ -4,6 +4,7 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 
 ## Phase 0 — read first
 
+- [[roadmap]] — What is done, what is left to a first real version, what is next, how we work (the spec-kit loop as applied, self-merge when green, the local test loop)
 - [[constitution]] — Rules, import boundaries, linking invariants, portability, definition of done, process
 - [[feature-inventory]] — v1 vs v2 vs Excel: scope, decisions D1–D18, module verdicts, harvest list
 - [[excel-to-v3-mapping]] — The owner's tracking Excel mapped column by column to the v3 model
