@@ -165,15 +165,17 @@ export function NewSupplierInvoiceDialog({
   const allSuppliers = extraSuppliers.length ? [...extraSuppliers, ...suppliers] : suppliers;
   // the supplier's defaults pre-fill the currency, the category and the due date
   const supplier = allSuppliers.find((s) => s.id === partnerId);
+  const initialCurrency = initial?.currency ?? null;
   useEffect(() => {
     if (!supplier) return;
-    if (supplier.defaultCurrency && !initial?.currency) setCurrency(supplier.defaultCurrency);
+    // the document's currency wins over the supplier's default when the dialog opens from the review page
+    if (supplier.defaultCurrency && !initialCurrency) setCurrency(supplier.defaultCurrency);
     if (
       supplier.defaultBasCategoryCode &&
       categories.some((c) => c.code === supplier.defaultBasCategoryCode)
     )
       setBasCode(supplier.defaultBasCategoryCode);
-  }, [supplier, categories]);
+  }, [supplier, categories, initialCurrency]);
   useEffect(() => {
     if (!dueTouched) setDueDate(addDays(invoiceDate, supplier?.paymentTermsDays ?? DEFAULT_TERMS));
   }, [invoiceDate, supplier, dueTouched]);
