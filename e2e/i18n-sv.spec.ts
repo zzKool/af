@@ -38,6 +38,12 @@ test.describe("Swedish UI", () => {
       );
       await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Utlägg");
       await expect(page.getByRole("button", { name: "Nytt utlägg" })).toBeVisible();
+      await page.goto("/partners");
+      await expect(page.getByRole("heading", { name: "Partner" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Lägg till partner" })).toBeVisible();
+      await page.goto("/settings");
+      await expect(page.getByRole("heading", { name: "Inställningar" })).toBeVisible();
+      await expect(page.getByRole("link", { name: /Bankkonton/ })).toBeVisible();
       await page.goto("/settings/rates");
       await expect(page.getByRole("heading", { name: "Valutakurser" })).toBeVisible();
       await expect(page.getByTestId("rates-fetch")).toHaveText("Hämta nu");

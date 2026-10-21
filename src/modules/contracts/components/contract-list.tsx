@@ -128,7 +128,7 @@ function ContractEditForm({
     <div className="space-y-4 border-l-2 border-primary/20 p-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label>Name</Label>
+          <Label>{t("contracts.form.name")}</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -136,7 +136,7 @@ function ContractEditForm({
           />
         </div>
         <div>
-          <Label>Start Date</Label>
+          <Label>{t("contracts.form.startDate")}</Label>
           <Input
             type="date"
             value={startDate}
@@ -145,7 +145,7 @@ function ContractEditForm({
           />
         </div>
         <div>
-          <Label>End Date</Label>
+          <Label>{t("contracts.form.endDate")}</Label>
           <Input
             type="date"
             value={endDate}
@@ -162,17 +162,17 @@ function ContractEditForm({
           </p>
         </div>
         <div>
-          <Label>Currency</Label>
+          <Label>{t("contracts.form.currency")}</Label>
           <Select
             value={currency || "__none__"}
             onValueChange={(v) => handleSelectChange("currency", v, setCurrency)}
             disabled={contract.rates.length > 0 && !!contract.currency}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select currency" />
+              <SelectValue placeholder={t("contracts.form.selectCurrency")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
+              <SelectItem value="__none__">{t("contracts.form.none")}</SelectItem>
               {CURRENCIES.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
@@ -187,16 +187,16 @@ function ContractEditForm({
           )}
         </div>
         <div>
-          <Label>Payment Terms</Label>
+          <Label>{t("contracts.form.paymentTerms")}</Label>
           <Select
             value={paymentTerms || "__none__"}
             onValueChange={(v) => handleSelectChange("paymentTerms", v, setPaymentTerms)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select payment terms" />
+              <SelectValue placeholder={t("contracts.form.selectPaymentTerms")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
+              <SelectItem value="__none__">{t("contracts.form.none")}</SelectItem>
               {PAYMENT_TERMS.map((t) => (
                 <SelectItem key={t} value={t}>
                   {t}
@@ -206,7 +206,7 @@ function ContractEditForm({
           </Select>
         </div>
         <div>
-          <Label>Assigned Employee</Label>
+          <Label>{t("contracts.form.employee")}</Label>
           <Select
             value={assignedEmployeeId || "__none__"}
             onValueChange={(v) =>
@@ -214,10 +214,10 @@ function ContractEditForm({
             }
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select employee" />
+              <SelectValue placeholder={t("contracts.form.selectEmployee")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
+              <SelectItem value="__none__">{t("contracts.form.none")}</SelectItem>
               {employeePartners.length === 0 ? (
                 <SelectItem value="__empty__" disabled>
                   No employees added yet
@@ -233,16 +233,16 @@ function ContractEditForm({
           </Select>
         </div>
         <div>
-          <Label>VAT Registration</Label>
+          <Label>{t("contracts.form.vatRegistration")}</Label>
           <Select
             value={vatRegistrationId || "__none__"}
             onValueChange={(v) => handleSelectChange("vatRegistrationId", v, setVatRegistrationId)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select VAT registration" />
+              <SelectValue placeholder={t("contracts.form.selectVatRegistration")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
+              <SelectItem value="__none__">{t("contracts.form.none")}</SelectItem>
               {vatRegistrations.length === 0 ? (
                 <SelectItem value="__empty__" disabled>
                   No VAT registrations configured
@@ -262,23 +262,23 @@ function ContractEditForm({
       {/* External References */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <Label>External References</Label>
+          <Label>{t("contracts.form.references")}</Label>
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               if (externalRefs.length >= 5) {
-                toast.error("Maximum 5 external references");
+                toast.error(t("contracts.form.referencesMax"));
                 return;
               }
               setExternalRefs([...externalRefs, { label: "", value: "" }]);
             }}
           >
-            Add Reference
+            {t("contracts.form.addReference")}
           </Button>
         </div>
         {externalRefs.length === 0 && (
-          <p className="text-sm text-muted-foreground">No external references.</p>
+          <p className="text-sm text-muted-foreground">{t("contracts.form.noReferences")}</p>
         )}
         {externalRefs.map((ref, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: dynamic list without stable IDs
@@ -291,7 +291,7 @@ function ContractEditForm({
                   updated[i] = { ...updated[i], label: e.target.value };
                   setExternalRefs(updated);
                 }}
-                placeholder="Label"
+                placeholder={t("partners.form.identifierLabel")}
               />
             </div>
             <div className="flex-1">
@@ -302,7 +302,7 @@ function ContractEditForm({
                   updated[i] = { ...updated[i], value: e.target.value };
                   setExternalRefs(updated);
                 }}
-                placeholder="Value"
+                placeholder={t("partners.form.identifierValue")}
               />
             </div>
             <Button
@@ -314,13 +314,13 @@ function ContractEditForm({
                 onAutoSave(contract.id, "externalReferences", updated);
               }}
             >
-              Remove
+              {t("partners.form.remove")}
             </Button>
           </div>
         ))}
         {externalRefs.length > 0 && (
           <Button variant="outline" size="sm" onClick={handleRefsSave}>
-            Save References
+            {t("contracts.form.saveReferences")}
           </Button>
         )}
       </div>
@@ -337,11 +337,11 @@ function ContractEditForm({
       <div className="flex gap-2 pt-2">
         {contract.isActive ? (
           <Button variant="destructive" size="sm" onClick={() => onDeactivate(contract)}>
-            Deactivate
+            {t("partners.deactivate")}
           </Button>
         ) : (
           <Button variant="outline" size="sm" onClick={() => onReactivate(contract)}>
-            Reactivate
+            {t("partners.reactivate")}
           </Button>
         )}
       </div>
@@ -375,9 +375,9 @@ export function ContractList({
   const { executeAsync: execReactivate } = useAction(reactivateContractAction);
 
   const { dialogProps, confirm } = useConfirmDialog({
-    title: "Deactivate Contract",
+    title: t("contracts.deactivateConfirm.title"),
     variant: "destructive",
-    confirmLabel: "Deactivate",
+    confirmLabel: t("partners.deactivate"),
   });
 
   const filteredContracts = useMemo(() => {
@@ -400,7 +400,7 @@ export function ContractList({
       toast.error(error);
       return;
     }
-    toast.success("Contract created");
+    toast.success(t("contracts.created"));
     const newId = result?.data?.data?.id;
     if (newId) {
       setContracts((prev) => [
@@ -424,7 +424,7 @@ export function ContractList({
     setNewName("");
     setNewStartDate("");
     setShowCreateForm(false);
-  }, [newName, newStartDate, partnerId, defaultCurrency, execCreate]);
+  }, [newName, newStartDate, partnerId, defaultCurrency, execCreate, t]);
 
   const handleAutoSave = useCallback(
     async (id: string, field: string, value: unknown) => {
@@ -467,17 +467,17 @@ export function ContractList({
           const result = await execDeactivate({ id: contract.id });
           const error = extractError(result);
           if (error) throw new Error(error);
-          toast.success("Contract deactivated");
+          toast.success(t("contracts.deactivated"));
           setContracts((prev) =>
             prev.map((c) => (c.id === contract.id ? { ...c, isActive: false } : c)),
           );
         },
         {
-          description: `Deactivate "${contract.name}"? The contract will be hidden from active lists.`,
+          description: t("contracts.deactivateConfirm.description", { name: contract.name }),
         },
       );
     },
-    [confirm, execDeactivate],
+    [confirm, execDeactivate, t],
   );
 
   const handleReactivate = useCallback(
@@ -488,28 +488,28 @@ export function ContractList({
         toast.error(error);
         return;
       }
-      toast.success("Contract reactivated");
+      toast.success(t("contracts.reactivated"));
       setContracts((prev) =>
         prev.map((c) => (c.id === contract.id ? { ...c, isActive: true } : c)),
       );
     },
-    [execReactivate],
+    [execReactivate, t],
   );
 
   const columns: ColumnDef<ContractRow>[] = useMemo(
     () => [
       {
         accessorKey: "name",
-        header: "Name",
+        header: t("contracts.form.name"),
         cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
       },
       {
         id: "dateRange",
-        header: "Date Range",
+        header: t("contracts.col.dateRange"),
         cell: ({ row }) => {
           const start = row.original.startDate;
           const end = row.original.endDate;
-          return end ? `${start} — ${end}` : `${start} — ongoing`;
+          return end ? `${start} — ${end}` : `${start} — ${t("contracts.col.ongoing")}`;
         },
       },
       {
@@ -524,15 +524,15 @@ export function ContractList({
       },
       {
         accessorKey: "paymentTerms",
-        header: "Payment Terms",
+        header: t("contracts.form.paymentTerms"),
         cell: ({ row }) => row.original.paymentTerms ?? "—",
       },
       {
         accessorKey: "isActive",
-        header: "Status",
+        header: t("partners.col.status"),
         cell: ({ row }) => (
           <Badge variant={row.original.isActive ? "default" : "secondary"}>
-            {row.original.isActive ? "Active" : "Inactive"}
+            {row.original.isActive ? t("partners.status.active") : t("partners.status.inactive")}
           </Badge>
         ),
       },
@@ -550,7 +550,7 @@ export function ContractList({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Contracts ({activeCount})</CardTitle>
+          <CardTitle>{t("partners.tab.contracts", { count: activeCount })}</CardTitle>
           <Button
             size="sm"
             onClick={() => {
@@ -561,7 +561,7 @@ export function ContractList({
               }
             }}
           >
-            {showCreateForm ? "Cancel" : "+ New Contract"}
+            {showCreateForm ? t("common.cancel") : t("contracts.new")}
           </Button>
         </div>
       </CardHeader>
@@ -570,17 +570,17 @@ export function ContractList({
         {showCreateForm && (
           <div className="flex items-end gap-3 rounded-lg border p-4">
             <div className="flex-1">
-              <Label htmlFor="new-contract-name">Name</Label>
+              <Label htmlFor="new-contract-name">{t("contracts.form.name")}</Label>
               <Input
                 id="new-contract-name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Contract name"
+                placeholder={t("contracts.form.namePlaceholder")}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
               />
             </div>
             <div>
-              <Label htmlFor="new-contract-start">Start Date</Label>
+              <Label htmlFor="new-contract-start">{t("contracts.form.startDate")}</Label>
               <Input
                 id="new-contract-start"
                 type="date"
@@ -592,7 +592,7 @@ export function ContractList({
               onClick={handleCreate}
               disabled={isCreating || !newName.trim() || !newStartDate}
             >
-              {isCreating ? "Creating..." : "Create"}
+              {isCreating ? t("partners.new.creating") : t("partners.new.create")}
             </Button>
           </div>
         )}
@@ -605,7 +605,7 @@ export function ContractList({
               checked={showInactive}
               onChange={(e) => setShowInactive(e.target.checked)}
             />
-            Show inactive
+            {t("contracts.showInactive")}
           </label>
         </div>
 
@@ -629,7 +629,7 @@ export function ContractList({
               {table.getRowModel().rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No contracts yet. Create your first contract above.
+                    {t("contracts.empty")}
                   </TableCell>
                 </TableRow>
               ) : (

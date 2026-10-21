@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
+import { useT } from "@/kernel/i18n/use-t";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { ContractList, type ContractRow } from "@/modules/contracts/ui";
 import { type PartnerData, PartnerForm } from "@/modules/partners/components/partner-form";
@@ -40,6 +41,7 @@ export function PartnerDetailTabs({
   basOptions,
   defaultCurrency,
 }: PartnerDetailTabsProps) {
+  const t = useT();
   const router = useRouter();
   const [isActive, setIsActive] = useState(partner.isActive);
   const [displayName, setDisplayName] = useState(partner.name);
@@ -47,9 +49,9 @@ export function PartnerDetailTabs({
   const { executeAsync: execReactivate } = useAction(reactivatePartnerAction);
 
   const { dialogProps, confirm } = useConfirmDialog({
-    title: "Deactivate Partner",
+    title: t("partners.deactivateConfirm.title"),
     variant: "destructive",
-    confirmLabel: "Deactivate",
+    confirmLabel: t("partners.deactivate"),
   });
 
   const isClient = partner.types.includes("client");
@@ -62,14 +64,14 @@ export function PartnerDetailTabs({
         const error = extractError(result);
         if (error) throw new Error(error);
         setIsActive(false);
-        toast.success("Partner deactivated");
+        toast.success(t("partners.deactivated", { name: displayName }));
         router.refresh();
       },
       {
-        description: `Deactivate "${displayName}"? The partner will be hidden from active lists but retained for historical references.`,
+        description: t("partners.deactivateConfirm.description", { name: displayName }),
       },
     );
-  }, [confirm, execDeactivate, partner.id, displayName, router]);
+  }, [confirm, execDeactivate, partner.id, displayName, router, t]);
 
   const handleReactivate = useCallback(async () => {
     const result = await execReactivate({ id: partner.id });
@@ -79,9 +81,9 @@ export function PartnerDetailTabs({
       return;
     }
     setIsActive(true);
-    toast.success("Partner reactivated");
+    toast.success(t("partners.reactivated", { name: displayName }));
     router.refresh();
-  }, [execReactivate, partner.id, router]);
+  }, [execReactivate, partner.id, displayName, router, t]);
 
   const handleNameSaved = useCallback((name: string) => {
     setDisplayName(name);
@@ -93,20 +95,20 @@ export function PartnerDetailTabs({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/partners" className="text-muted-foreground hover:text-foreground">
-            &larr; Partners
+            &larr; {t("partners.title")}
           </Link>
           <h1 className="text-2xl font-semibold">{displayName}</h1>
           <Badge variant={isActive ? "default" : "secondary"}>
-            {isActive ? "Active" : "Inactive"}
+            {isActive ? t("partners.status.active") : t("partners.status.inactive")}
           </Badge>
         </div>
         {isActive ? (
           <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-            Deactivate
+            {t("partners.deactivate")}
           </Button>
         ) : (
           <Button variant="outline" size="sm" onClick={handleReactivate}>
-            Reactivate
+            {t("partners.reactivate")}
           </Button>
         )}
       </div>
@@ -114,37 +116,43 @@ export function PartnerDetailTabs({
       {/* Tabbed Content */}
       <Tabs defaultValue="overview">
         <TabsList variant="line">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="contracts">Contracts ({contracts.length})</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="overview">{t("partners.tab.overview")}</TabsTrigger>
+          <TabsTrigger value="contracts">
+            {t("partners.tab.contracts", { count: contracts.length })}
+          </TabsTrigger>
+          <TabsTrigger value="transactions">{t("partners.tab.transactions")}</TabsTrigger>
+          <TabsTrigger value="documents">{t("partners.tab.documents")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="pt-4">
           {/* Relationship Summary */}
           <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             <div>
-              <dt className="text-muted-foreground">Types</dt>
-              <dd className="font-medium">{partner.types.join(", ")}</dd>
+              <dt className="text-muted-foreground">{t("partners.col.types")}</dt>
+              <dd className="font-medium">
+                {partner.types
+                  .map((type) => t(`partners.type.${type as "client" | "vendor" | "employee"}`))
+                  .join(", ")}
+              </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Active Contracts</dt>
+              <dt className="text-muted-foreground">{t("partners.overview.activeContracts")}</dt>
               <dd className="font-medium">{activeContractCount}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Total Contracts</dt>
+              <dt className="text-muted-foreground">{t("partners.overview.totalContracts")}</dt>
               <dd className="font-medium">{contracts.length}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Transactions</dt>
+              <dt className="text-muted-foreground">{t("partners.tab.transactions")}</dt>
               <dd className="font-medium">0</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Documents</dt>
+              <dt className="text-muted-foreground">{t("partners.tab.documents")}</dt>
               <dd className="font-medium">0</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Created</dt>
+              <dt className="text-muted-foreground">{t("partners.col.created")}</dt>
               <dd className="font-medium">
                 {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
                   new Date(partner.createdAt),
@@ -172,10 +180,7 @@ export function PartnerDetailTabs({
           ) : (
             <Card>
               <CardContent className="py-8">
-                <p className="text-muted-foreground">
-                  This partner is not a client — contracts are only available for client-type
-                  partners. You can add the &ldquo;client&rdquo; type in the Overview tab.
-                </p>
+                <p className="text-muted-foreground">{t("partners.contracts.notClient")}</p>
               </CardContent>
             </Card>
           )}
@@ -184,11 +189,7 @@ export function PartnerDetailTabs({
         <TabsContent value="transactions" className="pt-4">
           <Card>
             <CardContent className="py-8">
-              <p className="text-muted-foreground">
-                No transactions linked to this partner yet. Transactions will appear here
-                automatically when bank statement imports are processed and journal entries
-                reference this partner.
-              </p>
+              <p className="text-muted-foreground">{t("partners.transactions.empty")}</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -196,10 +197,7 @@ export function PartnerDetailTabs({
         <TabsContent value="documents" className="pt-4">
           <Card>
             <CardContent className="py-8">
-              <p className="text-muted-foreground">
-                No documents linked to this partner yet. Documents will appear here when uploaded
-                files are associated with this partner.
-              </p>
+              <p className="text-muted-foreground">{t("partners.documents.empty")}</p>
             </CardContent>
           </Card>
         </TabsContent>

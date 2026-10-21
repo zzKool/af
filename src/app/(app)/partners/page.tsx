@@ -1,10 +1,12 @@
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { listPartners, PARTNER_COLUMN_KEYS, PARTNER_DEFAULT_SORT } from "@/modules/partners";
 import { PartnerTable } from "@/modules/partners/ui";
+import { getUserPreferences } from "@/modules/settings";
 
 // The reference list page (D19, D20): the URL is the query, the server loads one page, the client
 // table changes the URL. Nothing is fetched client-side except header filter values.
@@ -19,12 +21,17 @@ export default async function PartnersPage({
     defaultSort: PARTNER_DEFAULT_SORT,
   });
 
-  const result = await withTenantTransaction(prisma, auth.tenantId, (tx) =>
-    listPartners(tx, query),
-  );
+  const { result, prefs } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
+    const [result, prefs] = await Promise.all([
+      listPartners(tx, query),
+      getUserPreferences(tx, auth),
+    ]);
+    return { result, prefs };
+  });
+  const t = translator(prefs.data?.locale ?? null);
 
   return (
-    <ListPage title="Partners" meta={`${result.total} partner${result.total === 1 ? "" : "s"}`}>
+    <ListPage title={t("partners.title")} meta={t("partners.meta.count", { count: result.total })}>
       <PartnerTable
         result={{
           ...result,
