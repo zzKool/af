@@ -20,6 +20,22 @@
 - [ ] **The inbox read model loads every non-generated document per request** (cap 20 000, in-memory state / twins / counts). Right for one company; say so in `docs/document-inbox.md` and revisit if a tenant passes a few thousand documents.
 - [ ] **`.toNumber()` lint rule and Sentry request context** are still deferred (constitution §2 / observability). Small, do them in a quiet moment.
 
+## Code — a first audit pass (cheap scan, 2026-10-21; a real audit is a task for a fresh agent, brief below)
+
+What a twenty-minute scan found; none of it needs a framework, each is a small PR:
+
+- [ ] **OCR JSON parsed by hand in three places** (`documents.ts` review, `queries.ts` library and inbox): `ocrData as unknown as { extractedData, quality }`. One `parseOcrPayload(row)` in `documents.ts`, used by all three; it also removes two `any` ignores.
+- [ ] **`documents.ts` is 1 076 lines** with v2's story headings still in it (5.3, 5.4, 5.5). Split along the headings it already has — `upload.ts`, `review.ts`, `library.ts`, `retention.ts`, `inbox` already separate — the constitution asked for this during the feature-folder move. `invoices.ts` (960) and `supplier-invoices.ts` (751) are next, by section.
+- [ ] **The same Zod helpers declared per module** (`uuid`, `isoDate`, `money`, `positiveMoney`, `basCode` — 20 declarations across 8 files). One `kernel/validation/scalars.ts`; the business schemas stay in their modules.
+- [ ] **The two creation dialogs duplicate the inline "+ New group…"** (group select + description input + `createExpenseGroupAction`) and their `labels.ts` are the same three lines. A `GroupPicker` in `expenses/ui` used by both; `supplier-invoices/components/labels.ts` re-exports expenses'.
+- [ ] **`supplier-invoice-panel.tsx` (811 lines) and `expense-panel.tsx` (559)** are each one component with the money form, payments, links, cancel. Split by section (facts · money · payments · links) with the same props — easier to restyle in the UI pass.
+- [ ] **95 `biome-ignore`s, 31 of them `noExplicitAny`**, clustered in settings (4), partners, documents, contracts — mostly Prisma `where: any` and JSON columns. Type the JSON columns once (`Prisma.JsonValue` → the DTO) and the ignores go.
+- [ ] **27 `as unknown as` / `as any` casts** in non-test code: list them, each is either a missing DTO mapper or a JSON column without a type.
+- [ ] **The dictionaries are 1 380 keys in one file each**. Fine for the machine, hard for a human review (your Swedish read). A one-off script that prints the three side by side per prefix (`documents.*`) would make that review a half-hour job.
+- [ ] **Not found, worth saying**: no `console.*` in server code, 3 TODOs in total, no dead v1/v2 copies, the guard test holds the import rules. The over-engineering risk ("usine à gaz") is low today: no settings engine, no plugin layer, one link table; the thing to watch is the **number of read-model helpers that compute in memory over a cap** (library, inbox, invoices list, supplier-invoices list) — fine for one company, the day a second tenant arrives they share a pattern that should become one.
+
+**Brief for the fresh agent doing the real audit** (one session, read-only, report as a checklist like this file): for each module, read the service and the queries once; look for (1) a rule written twice, (2) a status or amount stored where it should be derived, (3) a component over 400 lines doing two jobs, (4) a cast that hides a missing type, (5) a cross-module read that bypasses the other module's `index.ts`, (6) a test that tests the mock rather than the rule. Do not fix while auditing; do not propose a framework; propose the smallest PR per finding and the order.
+
 ## Product
 
 - [ ] **`Make it…` on a relationship document** (contract, NDA) offers *Expense* / *Supplier invoice*, which make no sense there. Action (part 2): hide those two when `documentType !== "financial"`, keep *Just file it* and *Link to…*.
