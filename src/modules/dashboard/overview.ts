@@ -103,7 +103,7 @@ export async function dashboardOverview(
   const receivables = new Map<string, InstanceType<typeof D>>();
   let overdueCount = 0;
   for (const inv of openInvoices.rows) {
-    if (inv.type === "quote") continue;
+    if (inv.type !== "invoice") continue;
     receivables.set(inv.currency, (receivables.get(inv.currency) ?? new D(0)).plus(inv.remaining));
     if (inv.state === "overdue") overdueCount += 1;
   }

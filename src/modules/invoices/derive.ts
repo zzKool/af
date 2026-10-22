@@ -41,7 +41,9 @@ export function deriveState(input: DeriveInput, today: string): InvoiceState {
   const open = total.sub(credited);
   if (open.gt(0) && isSettled(open, [allocated])) return "paid";
   if (allocated.gt(0)) return "partially_paid";
-  if (input.dueDate && input.dueDate < today) return "overdue";
+  // a credit note is money the company owes back, not a claim on the client: it is never overdue
+  // (its stored due date is the issue date, F57 / lessons audit 3)
+  if (type === "invoice" && input.dueDate && input.dueDate < today) return "overdue";
   return status === "sent" ? "sent" : "issued";
 }
 
@@ -49,6 +51,18 @@ export function deriveState(input: DeriveInput, today: string): InvoiceState {
 export function remainingAmount(totalAmount: string, allocated: string, credited = "0"): string {
   const r = new D(totalAmount).sub(new D(credited)).sub(new D(allocated));
   return (r.isNegative() ? new D(0) : r).toFixed(2);
+}
+
+/**
+ * What the client still owes on this document — the `remaining` of the read model. Only an issued
+ * invoice is a receivable: a draft is not billed, a quote is never paid, a credit note is owed TO the
+ * client and already reduces its original through `credited` (F57).
+ */
+export function receivableAmount(
+  input: Pick<DeriveInput, "type" | "status" | "totalAmount" | "allocated" | "credited">,
+): string {
+  if (input.type !== "invoice" || input.status === "draft") return "0.00";
+  return remainingAmount(input.totalAmount, input.allocated, input.credited);
 }
 
 /** `CH 2026/Q1` for an issue date, the Swiss quarterly declaration period (D12, D23). */

@@ -38,5 +38,13 @@
 - [x] T022 Tests: `print.test.ts` (render print mode for `fixtures/sample-invoice.json` in fr + en → expected strings; VAT column rules; credit note / quote titles), PDF test through `kernel/pdf` (40 lines → 2 pages), `e2e/invoices.spec.ts` (new draft → line → issue → PDF link → mark sent)
 - [x] T023 Screenshots of list, draft sheet, issued sheet, PDF page 1 → `specs/invoices/screenshots/`; `docs/invoices.md` part 2; PR
 
+## F57 — `feat/invoices-credit-notes` (lessons audit 3 · 8)
+
+- [x] T024 `derive.ts`: a credit note is never overdue (overdue for `type = invoice` only); `receivableAmount` — `remaining` is 0 for drafts, quotes and credit notes; `queries.ts` uses it
+- [x] T025 `totals.ts` `baseTotals`: subtotal base after the header discount, total base = the sum of the parts; `issue()` uses it
+- [x] T026 Dashboard receivables / overdue loop: `type = invoice` only (one line in `modules/dashboard/overview.ts`)
+- [x] T027 Tests: derive cases, base totals example + property (300 runs, a discount on every document), DB: discounted issue, credit note a year on; docs (F57 row, [[invoices]], lessons 3 · 8)
+- [ ] Left outside F57's scope: the receivables hint counts quotes (`dashboard/overview.ts:118`)
+
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.

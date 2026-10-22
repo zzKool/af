@@ -60,7 +60,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ## Next up
 
-1. **F56 · F57 · F59 · F60 — the wrong figures the audit found** (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
+1. **F56 · ~~F57~~ · F59 · F60 — the wrong figures the audit found** (F57 credit notes + SEK subtotal: done 2026-10-22) (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
 2. **F58** (O3 decided as D37: the small fix) — alongside round 1. ~~F39's restyle~~ (done 2026-10-22); its module follow-up **F71** goes one module at a time, after that module's round-1 fix.
 3. **F70 — base currency per tenant** (D39): the kernel + settings PR first, then one PR per module — after round 1, since it touches the same modules.
 4. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36), F61–F67, F69 and F71–F74.
