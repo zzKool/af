@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Draft — waiting for the owner's read
+**Status**: Read by the owner 2026-10-22 ("go") — planned
 
 **Input**: "F08 contact persons on a partner, module partners: name, role, email, phone; shown on the partner page." Roadmap A4; [[feature-inventory]] §3.3 keeps "contact persons" from v1 (`Partner` + `Contact`).
 
@@ -61,7 +61,7 @@ On the partner page the **Overview** summary shows the number of contacts next t
 
 - **Any partner type** has contacts — a client, a vendor (their support desk), an employee partner (rarely, but not forbidden).
 - **An inactive partner** keeps its contacts and they stay editable; deactivation is about invoicing, not about the address book.
-- **Deleting a partner** (only possible when it is linked nowhere) deletes its contacts with it.
+- **A partner is never deleted from the app** (deactivation is soft); should a partner row ever be removed, its contacts go with it — a contact never outlives its partner.
 - **Duplicates are allowed**: two *Anne Muster* on the same partner are not refused — a name is not a key.
 - **The partner's own e-mail and phone** stay as they are (the company's switchboard / generic address); a contact does not replace them and nothing is migrated between them.
 - **A read-only role** (the accountant, when invited) sees the tab and the list, without the add / edit / delete controls — the same rule as the partner itself.
