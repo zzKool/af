@@ -17,9 +17,9 @@ export {
   neighbourhood,
   nodeKey,
 } from "./graph";
-export { entityHref, graphHref } from "./hrefs";
+export { attachHref, entityHref, graphHref } from "./hrefs";
 export { INBOX_LIMIT, type InboxRow, inboxRows, unlinkedDocuments } from "./inbox";
-export { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
+export { ALLOCATING_KINDS, isKindAllowed, needsOwnFlow, OWN_PAYMENT_FLOW } from "./kinds";
 export type { Linkable } from "./linkable";
 export {
   _resetLinkables,
@@ -28,7 +28,7 @@ export {
   provideLinkables,
   registerLinkable,
 } from "./linkable";
-export { createLink, removeLink, toLinkDto } from "./linking";
+export { createLink, type LinkWriteOptions, removeLink, toLinkDto } from "./linking";
 export {
   applySuggestionAction,
   bulkApplyHighAction,

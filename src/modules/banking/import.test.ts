@@ -16,9 +16,10 @@ import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
-import { createBankAccount } from "./bank-accounts";
+import { createBankAccount, updateBankAccount } from "./bank-accounts";
 import { deleteImport, importCsv } from "./import";
 import { getTransaction, listTransactions } from "./queries";
+import { applyRules, createRule } from "./rules";
 import { acceptTransfer, proposeTransfers } from "./transfer-pairs";
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
@@ -397,7 +398,7 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
     return { sek, chf, sav, chfTx: a.id, sekTx: b.id };
   }
 
-  it("scenario 1 + 2: proposed with implied 11.887, accepted into one link, two flags, the implicit rate", async () => {
+  it("scenario 1 + 2: proposed with implied 11.887, accepted into one link and the implicit rate — no flag typed", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { chfTx, sekTx } = await pair(caller);
     const proposals = await run(caller, (tx) => proposeTransfers(tx, chfTx));
@@ -426,8 +427,11 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
       const entries = await journal.entriesForSources(tx, "bank_transaction", [chfTx, sekTx]);
       const chfEntry = entries.get(chfTx);
       const sekEntry = entries.get(sekTx);
-      expect(chfEntry?.noDocumentNeeded).toBe(true);
-      expect(sekEntry?.noDocumentNeeded).toBe(true);
+      // F65: the legs' facts are untouched — "transfer" is the link, the state derives from it
+      expect(chfEntry?.noDocumentNeeded).toBe(false);
+      expect(sekEntry?.noDocumentNeeded).toBe(false);
+      expect(chfEntry?.categorisedBy).toBeNull();
+      expect(sekEntry?.categorisedBy).toBeNull();
       expect(chfEntry?.bankImplicitRate).toBe("11.887");
       expect(chfEntry?.rate).toBe("11.899657"); // ECB stays the rate of the base
       expect(chfEntry?.amountBase).toBe("-237993.14");
@@ -452,7 +456,7 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
     );
   });
 
-  it("scenario 3: a savings move pairs at rate 1; scenario 4: removing the link keeps the flags", async () => {
+  it("scenario 3: a savings move pairs at rate 1; scenario 4: pair then unpair leaves the rows as before", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { sek, sav } = await accounts(caller);
     await run(caller, (tx) => importFile(tx, caller, sav, "nordea-savings-year.csv"));
@@ -471,6 +475,27 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
         where: { additionalDetails: { startsWith: "Ranta" } },
       }),
     }));
+    const ids = [inn.id, outTx.id];
+    const facts = (tx: TransactionClient) =>
+      journal.entriesForSources(tx, "bank_transaction", ids).then((m) =>
+        ids.map((id) => {
+          const e = m.get(id);
+          return {
+            basCode: e?.basCode,
+            partnerId: e?.partnerId,
+            note: e?.note,
+            noDocumentNeeded: e?.noDocumentNeeded,
+            categorisedBy: e?.categorisedBy,
+            ruleId: e?.ruleId,
+          };
+        }),
+      );
+    const before = await run(caller, facts);
+    const statesBefore = await run(caller, (tx) =>
+      Promise.all(ids.map(async (id) => (await getTransaction(tx, id)).data?.state)),
+    );
+    expect(statesBefore).toEqual(["open", "open"]);
+
     const proposals = await run(caller, (tx) => proposeTransfers(tx, inn.id));
     expect(proposals.data).toHaveLength(1);
     expect(proposals.data?.[0].implied).toBe("1.000000");
@@ -482,18 +507,94 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
     await run(caller, async (tx) => {
       const entries = await journal.entriesForSources(tx, "bank_transaction", [
         inn.id,
-        outTx.id,
         interest.id,
       ]);
-      expect(entries.get(inn.id)?.noDocumentNeeded).toBe(true);
       expect(entries.get(inn.id)?.bankImplicitRate).toBeNull(); // same currency: nothing to record
       // the interest row hit the default rule (regex on the details)
       expect(entries.get(interest.id)?.basCode).toBe("831");
       expect(entries.get(interest.id)?.noDocumentNeeded).toBe(true);
-      await linking.removeLink(tx, caller, noopAudit, accepted.data?.linkId as string);
-      const after = await journal.entriesForSources(tx, "bank_transaction", [inn.id]);
-      expect(after.get(inn.id)?.noDocumentNeeded).toBe(true);
+      // paired: the facts are as before, the state derives from the link
+      expect(await facts(tx)).toEqual(before);
       expect((await getTransaction(tx, inn.id)).data?.state).toBe("no_document");
+      expect((await getTransaction(tx, outTx.id)).data?.state).toBe("no_document");
+      await linking.removeLink(tx, caller, noopAudit, accepted.data?.linkId as string);
+    });
+    // unpaired: the rows are exactly as before the pair
+    expect(await run(caller, facts)).toEqual(before);
+    const statesAfter = await run(caller, (tx) =>
+      Promise.all(ids.map(async (id) => (await getTransaction(tx, id)).data?.state)),
+    );
+    expect(statesAfter).toEqual(statesBefore);
+  });
+
+  it("F65: a rule applies to an accepted transfer leg (the pair no longer marks it 'by hand')", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { chfTx, sekTx } = await pair(caller);
+    const accepted = await run(caller, (tx) =>
+      acceptTransfer(tx, caller, noopAudit, { fromId: chfTx, toId: sekTx }),
+    );
+    expect(accepted.error).toBeUndefined();
+    const rule = await run(caller, (tx) =>
+      createRule(tx, caller, noopAudit, {
+        name: "Currency exchange",
+        matchType: "contains",
+        matchPattern: "CHANGE CHFSEK",
+        matchField: "details",
+        basCode: "657",
+      }),
+    );
+    expect(rule.error).toBeUndefined();
+    const applied = await run(caller, (tx) => applyRules(tx, caller, noopAudit));
+    expect(applied.error).toBeUndefined();
+    expect(applied.data?.applied).toBeGreaterThanOrEqual(1);
+    await run(caller, async (tx) => {
+      const chfEntry = (await journal.entriesForSources(tx, "bank_transaction", [chfTx])).get(
+        chfTx,
+      );
+      expect(chfEntry?.basCode).toBe("657");
+      expect(chfEntry?.categorisedBy).toBe("rule");
+      expect(chfEntry?.ruleId).toBe(rule.data?.id);
+      expect(chfEntry?.bankImplicitRate).toBe("11.887"); // the pair's own fact is untouched
+    });
+  });
+});
+
+describe("F65 — an account's number and currency are locked once a CSV is imported into it", () => {
+  it("changing the currency or the number of an imported account is refused; the alias still changes", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, chf } = await accounts(caller);
+    // before any import both change freely (and back)
+    const free = await run(caller, (tx) =>
+      updateBankAccount(tx, caller, noopAudit, sek, { currency: "EUR" }),
+    );
+    expect(free.error).toBeUndefined();
+    await run(caller, (tx) => updateBankAccount(tx, caller, noopAudit, sek, { currency: "SEK" }));
+
+    await run(caller, (tx) => importFile(tx, caller, chf, "nordea-transfer-pair-chf.csv"));
+    const currency = await run(caller, (tx) =>
+      updateBankAccount(tx, caller, noopAudit, chf, { currency: "EUR" }),
+    );
+    expect(currency.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    expect(currency.error?.details).toEqual({ imports: 1 });
+    const number = await run(caller, (tx) =>
+      updateBankAccount(tx, caller, noopAudit, chf, { accountNumber: "999 99 99-9" }),
+    );
+    expect(number.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    // the same values, the alias, the IBAN: still fine
+    const same = await run(caller, (tx) =>
+      updateBankAccount(tx, caller, noopAudit, chf, {
+        currency: "CHF",
+        accountNumber: "123 45 67-8",
+        accountAlias: "CHF main",
+        iban: "SE0000000000000000000000",
+      }),
+    );
+    expect(same.error).toBeUndefined();
+    const row = await run(caller, (tx) => tx.bankAccount.findUniqueOrThrow({ where: { id: chf } }));
+    expect(row).toMatchObject({
+      currency: "CHF",
+      accountNumber: "123 45 67-8",
+      accountAlias: "CHF main",
     });
   });
 });

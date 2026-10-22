@@ -8,7 +8,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { canAllocate, remaining, sumAllocations } from "./allocation";
-import { ALLOCATING_KINDS, EXCLUSIVE_KINDS, isKindAllowed } from "./kinds";
+import { ALLOCATING_KINDS, EXCLUSIVE_KINDS, isKindAllowed, needsOwnFlow } from "./kinds";
 import { getLinkable } from "./linkable";
 import type {
   AllocationStatus,
@@ -39,6 +39,26 @@ export function toLinkDto(row: Link): LinkDto {
 
 function violation(message: string): AppError {
   return { code: "BUSINESS_RULE_VIOLATION", message, retryable: false };
+}
+
+/** Who writes the link: the owning module of the `to` entity, for the kinds it owns (D37, F58). */
+export type LinkWriteOptions = { owner?: LinkableType };
+
+const OWN_FLOW_MESSAGE: Partial<Record<LinkableType, string>> = {
+  expense: "An expense's bank row is attached and detached from the expense's own panel (D37)",
+  supplier_invoice:
+    "A supplier invoice's payments are recorded and removed from the invoice's own panel (D37)",
+};
+
+/** The refusal of a generic `justifies` onto an entity that writes its own payments; null when allowed. */
+function ownFlowRefusal(kind: LinkKind, to: LinkableType, opts: LinkWriteOptions): AppError | null {
+  if (!needsOwnFlow(kind, to) || opts.owner === to) return null;
+  return {
+    code: "BUSINESS_RULE_VIOLATION",
+    message: OWN_FLOW_MESSAGE[to] ?? `${to} writes its own payments`,
+    retryable: false,
+    details: { ownFlow: to },
+  };
 }
 
 function endpointWhere(e: LinkEndpoint) {
@@ -109,6 +129,7 @@ export async function createLink(
   caller: CallerIdentity,
   audit: AuditLogger,
   input: CreateLinkInput,
+  opts: LinkWriteOptions = {},
 ): Promise<ServiceResult<LinkDto>> {
   const { from, to, kind } = input;
 
@@ -117,6 +138,8 @@ export async function createLink(
   if (!isKindAllowed(kind, from.type, to.type)) {
     return { error: violation(`Link kind '${kind}' does not accept ${from.type} → ${to.type}`) };
   }
+  const refused = ownFlowRefusal(kind, to.type, opts);
+  if (refused) return { error: refused };
 
   // Pre-check the unique tuple: a constraint violation would abort the surrounding Postgres transaction.
   const duplicate = await tx.link.findFirst({
@@ -264,10 +287,14 @@ export async function removeLink(
   _caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
+  opts: LinkWriteOptions = {},
 ): Promise<ServiceResult<{ removed: true }>> {
   const row = await tx.link.findUnique({ where: { id } });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Link not found: ${id}`, retryable: false } };
+  // removing an attach-made link here would leave the paid amount and the bank base on the entity (audit 4)
+  const refused = ownFlowRefusal(row.kind as LinkKind, row.toType as LinkableType, opts);
+  if (refused) return { error: refused };
   await tx.link.delete({ where: { id } });
   await audit.log({
     action: "delete",

@@ -27,3 +27,9 @@ export function entityHref(node: Pick<GraphNode, "type" | "id" | "label">): stri
       return "/journal";
   }
 }
+
+/** The panel that writes an entity's own payments (D37, F58), the bank row preselected (`&attach=`). */
+export function attachHref(to: LinkEndpoint, bankTransactionId: string): string {
+  const href = entityHref({ ...to, label: "" });
+  return `${href}${href.includes("?") ? "&" : "?"}attach=${bankTransactionId}`;
+}

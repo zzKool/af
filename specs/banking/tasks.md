@@ -43,3 +43,9 @@
 ## Dependencies
 
 T001–T003 → T004–T010 (T007 before T009) → T011–T012 → T013 → T014–T018 → part 2.
+
+## F65 — `feat/banking-account-lock-transfer-facts` (audit 20, D44)
+- [x] T025 `bank-accounts.ts`: `updateBankAccount` refuses a number / currency change once the account has an import; `getBankAccounts` returns `imports`; `bank-accounts-tab.tsx` disables the two fields
+- [x] T026 `transfer-pairs.ts`: `acceptTransfer` writes the link + the bank implicit rate only; `queries.ts` `deriveTransactionState` → `no_document` for a transfer leg
+- [x] T027 `import.test.ts`: US3 scenarios rewritten (no flag typed; pair → unpair leaves facts and states as before), a rule applies to an accepted leg, an imported account's currency / number refused
+- [x] T028 Docs: `banking.md`, `bank-accounts.md`, spec US3 / FR-010 / FR-011 / FR-017 / SC-004, D44, F65 row, lesson 20

@@ -1,6 +1,6 @@
 // Transfer pairs (specs/banking/spec.md US3, harvest §4.7, D25): a currency exchange or a move between own
 // accounts shows as two rows that justify each other. Pure detection (`transferCandidates`) + the service
-// (propose, accept → one `transfer` link, both entries flagged, the bank implicit rate on the foreign entry).
+// (propose, accept → one `transfer` link, the bank implicit rate on the foreign entry; the legs' facts untouched).
 // Thresholds are constants: a solo company with three accounts has nothing to configure here.
 import { Prisma } from "@/generated/prisma/browser";
 import type { AuditLogger } from "@/kernel/audit/types";
@@ -230,8 +230,9 @@ export async function proposeTransfers(
 }
 
 /**
- * Accept a pair: one `transfer` link debit → credit, both journal entries `no_document_needed`, the foreign
- * entry's bank implicit rate. Refused when either side is already paired or the pair is not a candidate.
+ * Accept a pair: one `transfer` link debit → credit and the foreign entry's bank implicit rate — nothing else is
+ * written on the legs (F65): their state derives `no_document` from the link. Refused when either side is already
+ * paired or the pair is not a candidate.
  */
 export async function acceptTransfer(
   tx: TransactionClient,
@@ -262,13 +263,11 @@ export async function acceptTransfer(
     match.from.id,
     match.to.id,
   ]);
+  // the owner's facts (category, partner, "no document needed", who categorised) stay as they were: "transfer"
+  // is the link itself, derived wherever it is read — unpairing leaves the legs as before, rules still see them
   for (const id of [match.from.id, match.to.id]) {
     const e = entries.get(id);
     if (!e) return { error: notFound("Journal entry of transaction", id) };
-    if (!e.noDocumentNeeded) {
-      const r = await journal.categorise(tx, caller, audit, e.id, { noDocumentNeeded: true });
-      if (r.error) return { error: r.error };
-    }
     const legCurrency = id === match.from.id ? match.from.currency : match.to.currency;
     if (legCurrency !== BASE_CURRENCY && match.ecb && !e.bankImplicitRate) {
       const r = await journal.setBankImplicitRate(tx, caller, audit, e.id, match.implied);
