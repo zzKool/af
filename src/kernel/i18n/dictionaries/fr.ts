@@ -977,7 +977,7 @@ export const fr: Dictionary = {
   "settings.rates.title": "Taux de change",
   "settings.rates.description": "Taux de référence BCE — couverture, et récupération à la demande.",
   "settings.preferences.title": "Mes préférences",
-  "settings.preferences.description": "La langue de l'interface.",
+  "settings.preferences.description": "La langue et les couleurs de l'interface.",
   "settings.preferences.locale": "Langue et format",
   "settings.preferences.localeHint":
     "La langue de l'interface et le format des dates et des nombres dans toute l'application.",
@@ -986,6 +986,12 @@ export const fr: Dictionary = {
   "settings.preferences.preview": "Aperçu ({locale})",
   "settings.preferences.date": "Date",
   "settings.preferences.number": "Nombre",
+  "settings.preferences.theme": "Thème",
+  "settings.preferences.themeHint": "Système suit le réglage clair ou sombre de votre ordinateur.",
+  "settings.preferences.themeSystem": "Système",
+  "settings.preferences.themeLight": "Clair",
+  "settings.preferences.themeDark": "Sombre",
+  "settings.preferences.themeSaveFailed": "Impossible d'enregistrer le thème",
   "settings.preferences.saveFailed": "Impossible d'enregistrer la langue",
 
   "settings.preferences.saved": "Préférences enregistrées",

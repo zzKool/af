@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { authedAction } from "@/kernel/actions/action-client";
 import { SUPPORTED_LOCALES } from "@/kernel/nav/constants";
+import { THEMES } from "@/kernel/ui/theme";
 import * as prefsService from "@/modules/settings/user-preferences";
 
 /**
@@ -27,4 +28,18 @@ export const updateUserLocaleAction = authedAction
   .metadata({ name: "updateUserLocale" })
   .action(async ({ ctx, parsedInput }) => {
     return prefsService.updateUserLocale(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.locale);
+  });
+
+/**
+ * Update the colour scheme (D43) — any authenticated user, their own. null = follow the system.
+ */
+export const updateUserThemeAction = authedAction
+  .schema(
+    z.object({
+      theme: z.enum(THEMES).nullable(),
+    }),
+  )
+  .metadata({ name: "updateUserTheme" })
+  .action(async ({ ctx, parsedInput }) => {
+    return prefsService.updateUserTheme(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.theme);
   });

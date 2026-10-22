@@ -968,7 +968,7 @@ export const en = {
   "settings.rates.title": "Exchange rates",
   "settings.rates.description": "ECB reference rates — coverage, and a fetch on demand.",
   "settings.preferences.title": "My Preferences",
-  "settings.preferences.description": "The language of the interface.",
+  "settings.preferences.description": "The language and the colours of the interface.",
   "settings.preferences.locale": "Display Locale",
   "settings.preferences.localeHint":
     "The language of the interface and how dates and numbers are formatted across the application.",
@@ -977,6 +977,12 @@ export const en = {
   "settings.preferences.preview": "Preview ({locale})",
   "settings.preferences.date": "Date",
   "settings.preferences.number": "Number",
+  "settings.preferences.theme": "Colour scheme",
+  "settings.preferences.themeHint": "System follows your computer's light or dark setting.",
+  "settings.preferences.themeSystem": "System",
+  "settings.preferences.themeLight": "Light",
+  "settings.preferences.themeDark": "Dark",
+  "settings.preferences.themeSaveFailed": "Failed to update the colour scheme",
   "settings.preferences.saveFailed": "Failed to update locale",
 
   "settings.preferences.saved": "Preferences saved",
