@@ -63,7 +63,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 1. **~~F56~~ (2026-10-23) · ~~F57~~ (2026-10-22) · F59 · F60 — the wrong figures the audit found** (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
 2. ~~**F58**~~ (2026-10-23, D37's small fix: generic `justifies` onto expenses / supplier invoices refused, the inbox opens their panel). ~~F39's restyle~~ (done 2026-10-22); its module follow-up **F71** goes one module at a time, after that module's round-1 fix.
 3. **F70 — base currency per tenant** (D39): the kernel + settings PR first, then one PR per module — after round 1, since it touches the same modules.
-4. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36), F61–F67, F69 and F71–F74.
+4. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36), F61–F67, F69 and F71–F74, and the convergence passes **F77–F80** (journal, rates, dashboard, traktamente — built without a full spec trail; docs PR each, any module whose round-1 fix has merged).
 
 F03 Members is *later*: the owner will not invite the accountant into the app for now (2026-10-22). The dispatch table is [[features]].
 
@@ -75,12 +75,22 @@ Decided 2026-10-22 (the audit's O3–O5, constitution 1.3): an open expense / su
 
 ## How we work
 
-The loop per feature, spec-kit as applied to AF (the skills are in `.claude/skills/`, the constitution check reads `docs/constitution.md`):
+**Three lanes (D44)** — the builder picks one from the row and names it in the PR body. Ceremony follows the risk of the change, not its size:
 
 ```
-harvest.md (once per module) ──► /speckit-specify ──► owner reads spec.md ──► /speckit-plan ──► /speckit-tasks ──► PRs ──► /speckit-converge
-skipped: /speckit-clarify (questions go to the owner in chat → docs/open-questions.md), checklist, analyze, taskstoissues
+Does it change a business rule? (money facts, VAT, rates, linking, a derived status, numbering, a new entity / table)
+ ├─ yes → FULL    /speckit-specify ─► owner reads spec.md ─► /speckit-tasks (/speckit-plan only when the schema changes) ─► PRs
+ └─ no  → a new or changed screen / behaviour the owner will see?
+           ├─ yes → LIGHT   a task line ticked in specs/<module>/tasks.md + a few lines in docs/<module>.md + tests ─► PR
+           └─ no  → DIRECT  fix / refactor / infra / docs ─► tests (a fix starts with the test that reproduces it) ─► PR
+Every lane: the features.md row updated · CI + architecture guard + lint rules (automatic)
+Per module, once its batch of rows is built: /speckit-converge ─► docs PR (gaps become tasks or rows)
 ```
+
+- **Not used**: `/speckit-clarify` (questions go to the owner in one batch → *Open decisions*), `checklist`, `analyze`, `taskstoissues`. No retro-specs for what is built: converge documents what exists.
+- **House skills, by trigger** (`.claude/skills/`): `server-action-pattern` — any action; `bas-accounting` — any money, VAT, BAS or rate; `invoice-pdf` — any rendered PDF; `af-design` — any UI; `test-conventions` — every lane; `module-slice` — a new module only.
+- **Stack docs**: `.mcp.json` (Context7, Microsoft Learn, Playwright, Postgres) loads only in a local Claude Code session. In a cloud session, check an API against the version in `package.json` and the types in `node_modules`, not against memory.
+- **Too much process** shows as: a one-line fix needing more than one PR, a builder reading process docs longer than code, `features.md` and a `tasks.md` disagreeing. Seen → a lesson + a simpler rule here, never a new tool.
 
 - `specs/<module>/`, not numbered feature folders; branches `feat/<module>-<topic>`; one spec can span several PRs.
 - The agent works autonomously: spec → implement → PR → **self-merge when CI is green** (`scripts/merge-when-green.sh <pr> "<title>"`). The owner is asked only for *Open decisions* and before anything irreversible (CLAUDE.md).
