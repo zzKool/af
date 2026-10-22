@@ -3,6 +3,7 @@ import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { formatDateTime } from "@/kernel/i18n/format-date";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { dashboardOverview, getDashboardData } from "@/modules/dashboard";
 import { ActionItemsWidget, BriefingWidget, BusinessPulseWidget } from "@/modules/dashboard/ui";
@@ -22,7 +23,7 @@ export default async function DashboardPage() {
     const overview = await dashboardOverview(tx, auth, today, since);
     return { header, prefs, overview };
   });
-  const locale = data.prefs.data?.locale ?? null;
+  const locale = await requestLocale(data.prefs.data?.locale);
   const t = translator(locale);
   const { header, overview } = data;
 

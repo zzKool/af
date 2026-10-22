@@ -111,7 +111,7 @@ export function InboxWorkbench({
   options: MakeItOptions | null;
 }) {
   const t = useT();
-  const { locale } = useLocale();
+  const { effectiveLocale: locale } = useLocale();
   const [data, setData] = useState<InboxData>(initial);
   const [tab, setTab] = useState<InboxTab>("all");
   const [q, setQ] = useState("");

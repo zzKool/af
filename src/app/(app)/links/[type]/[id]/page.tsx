@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { EntityPage } from "@/kernel/ui/shell/page";
 import {
@@ -39,7 +40,7 @@ export default async function LinkGraphPage({
     return { graph, prefs };
   });
   if (!data.graph) notFound();
-  const t = translator(data.prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   const graph = data.graph;
   const root = graph.nodes.find((n) => n.key === graph.root);
   if (!root) notFound();
