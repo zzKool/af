@@ -18,7 +18,7 @@ import type {
 } from "@/kernel/list-query/types";
 import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
-import { deriveState, remainingAmount } from "./derive";
+import { deriveState, receivableAmount } from "./derive";
 import { toInvoiceDto } from "./invoices";
 import type {
   InvoiceDerived,
@@ -137,10 +137,13 @@ function deriveFor(
       today,
     ),
     allocated,
-    remaining:
-      inv.status === "draft" || inv.type === "quote"
-        ? "0.00"
-        : remainingAmount(inv.totalAmount, allocated, credited),
+    remaining: receivableAmount({
+      type: inv.type,
+      status: inv.status,
+      totalAmount: inv.totalAmount,
+      allocated,
+      credited,
+    }),
     credited,
     convertedTo,
   };

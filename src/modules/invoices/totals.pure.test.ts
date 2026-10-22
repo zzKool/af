@@ -2,7 +2,14 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@/generated/prisma/browser";
 import fixture from "../../../specs/invoices/fixtures/invoice-totals-cases.json";
-import { formatVatPercent, invoiceTotals, type LineInput, lineTotals, TotalsError } from "./totals";
+import {
+  baseTotals,
+  formatVatPercent,
+  invoiceTotals,
+  type LineInput,
+  lineTotals,
+  TotalsError,
+} from "./totals";
 
 type FixtureLine = {
   quantity: string;
@@ -157,6 +164,69 @@ describe("invoice totals — property (200 runs)", () => {
         },
       ),
       { numRuns: 200 },
+    );
+  });
+});
+
+// --- base currency (F57, lessons audit 8): the SEK figures written once at issue reconcile ---
+
+describe("base totals", () => {
+  it("24 000 CHF, 10 % header discount, 8.1 % VAT at 11.987041: the subtotal is converted after the discount", () => {
+    const t = invoiceTotals([{ quantity: "20", unitPrice: "1200", vatRate: "8.1" }], "10");
+    expect(t).toMatchObject({ subtotal: "24000.00", discountAmount: "2400.00", vat: "1749.60" });
+    expect(
+      baseTotals(
+        { subtotal: t.subtotal, discountAmount: t.discountAmount, vat: t.vat },
+        "11.987041",
+      ),
+    ).toEqual({
+      subtotalBase: "258920.09", // 21 600 × rate — not 287 688.98 (24 000 × rate, before the discount)
+      vatBase: "20972.53",
+      totalBase: "279892.62", // = the two parts; total × rate would be 279 892.61 (one rounding fewer)
+    });
+  });
+
+  it("SEK → SEK at 1 is the document's own figures", () => {
+    expect(
+      baseTotals({ subtotal: "1000.00", discountAmount: "50.00", vat: "237.50" }, "1"),
+    ).toEqual({
+      subtotalBase: "950.00",
+      vatBase: "237.50",
+      totalBase: "1187.50",
+    });
+  });
+});
+
+// six-decimal ECB-style rates between 0.05 and 20
+const rate = fc
+  .integer({ min: 50_000, max: 20_000_000 })
+  .map((n) => new D(n).div(1_000_000).toFixed(6));
+
+describe("base totals — property (300 runs, a header discount on every document)", () => {
+  it("subtotalBase + vatBase = totalBase exactly; subtotalBase is the discounted net converted; total within 0.01 of total × rate", () => {
+    fc.assert(
+      fc.property(
+        fc.array(line, { minLength: 1, maxLength: 12 }),
+        amount(100, 0).filter((p) => p !== "0"),
+        rate,
+        (lines, headerPct, r) => {
+          const t = invoiceTotals(lines, headerPct);
+          const b = baseTotals(
+            { subtotal: t.subtotal, discountAmount: t.discountAmount, vat: t.vat },
+            r,
+          );
+          for (const v of [b.subtotalBase, b.vatBase, b.totalBase])
+            expect(v).toMatch(/^\d+\.\d{2}$/);
+          expect(new D(b.subtotalBase).add(new D(b.vatBase)).toFixed(2)).toBe(b.totalBase);
+          const round = (d: InstanceType<typeof D>) =>
+            d.toDecimalPlaces(2, D.ROUND_HALF_UP).toFixed(2);
+          expect(b.subtotalBase).toBe(round(new D(t.net).mul(new D(r))));
+          expect(b.vatBase).toBe(round(new D(t.vat).mul(new D(r))));
+          const direct = new D(t.total).mul(new D(r));
+          expect(new D(b.totalBase).sub(direct).abs().lte(new D("0.01"))).toBe(true);
+        },
+      ),
+      { numRuns: 300 },
     );
   });
 });

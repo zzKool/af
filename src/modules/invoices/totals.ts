@@ -150,6 +150,29 @@ export function invoiceTotals(
   };
 }
 
+export type BaseTotals = { subtotalBase: string; vatBase: string; totalBase: string };
+
+/**
+ * The base-currency figures written once at issue (FR-002). The subtotal is converted AFTER the header
+ * discount (the net the VAT is computed on), each part rounded half-up once, and the total is the sum of
+ * the converted parts — so `subtotalBase + vatBase = totalBase` holds exactly, discount or not (F57,
+ * lessons audit 8).
+ */
+export function baseTotals(
+  amounts: { subtotal: string; discountAmount: string; vat: string },
+  rate: string,
+): BaseTotals {
+  const r = new D(rate);
+  const net = new D(amounts.subtotal).sub(new D(amounts.discountAmount));
+  const subtotalBase = r2(net.mul(r));
+  const vatBase = r2(new D(amounts.vat).mul(r));
+  return {
+    subtotalBase: money(subtotalBase),
+    vatBase: money(vatBase),
+    totalBase: money(subtotalBase.add(vatBase)),
+  };
+}
+
 /** `8.1` → "8.1", `25` → "25", `2.60` → "2.6" — the printed VAT percent. */
 export function formatVatPercent(rate: string): string {
   const d = new D(rate);

@@ -21,7 +21,7 @@ import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import { declarationPeriodFor, isDeclarationPeriod } from "./derive";
-import { invoiceTotals, type LineInput, TotalsError } from "./totals";
+import { baseTotals, invoiceTotals, type LineInput, TotalsError } from "./totals";
 import type {
   InvoiceDto,
   InvoiceLineDto,
@@ -592,7 +592,15 @@ export async function issue(
         `No exchange rate ${row.currency}/${row.baseCurrency} for ${issueDate} — run the ECB sync`,
       ),
     };
-  const toBase = (d: Dec) => d.mul(base.rate).toDecimalPlaces(2, D.ROUND_HALF_UP);
+  // subtotal after the header discount, VAT, total = their sum (F57: reconciles with a discount too)
+  const based = baseTotals(
+    {
+      subtotal: row.subtotal.toFixed(2),
+      discountAmount: row.discountAmount.toFixed(2),
+      vat: row.vatAmount.toFixed(2),
+    },
+    base.rate.toString(),
+  );
 
   // declaration period (D12/D23): CH-registration invoices and credit notes
   const registration = await registrationById(tx, caller, row.vatRegistrationId);
@@ -653,10 +661,9 @@ export async function issue(
       rateToBase: base.rate,
       rateSource: base.source,
       rateDate: toDate(base.rateDate),
-      subtotalBase: toBase(row.subtotal),
-      vatBase: toBase(row.vatAmount),
-      // the base total is the sum of the converted parts, so the SEK figures reconcile line by line
-      totalBase: toBase(row.subtotal.sub(row.discountAmount)).add(toBase(row.vatAmount)),
+      subtotalBase: based.subtotalBase,
+      vatBase: based.vatBase,
+      totalBase: based.totalBase,
       declarationPeriod,
       printedParties: printedParties as unknown as Prisma.InputJsonValue,
     },
