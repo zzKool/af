@@ -16,7 +16,6 @@ import type {
   SortSpec,
 } from "@/kernel/list-query/types";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
-import { resolveDocumentData } from "./documents";
 import {
   duplicateOfMap,
   type InboxCounts,
@@ -27,16 +26,15 @@ import {
   inTab,
 } from "./inbox";
 import { unlinkedIds } from "./linkable";
+import { parseOcrPayload, resolveDocumentData } from "./ocr-payload";
 
 export {
-  getDocument,
   getDocumentDownloadUrl,
-  getDocumentForReview,
-  getDocumentOcrData,
   getDocumentStats,
   getDocuments,
   getRecentDocuments,
-} from "./documents";
+} from "./library";
+export { getDocument, getDocumentForReview, getDocumentOcrData } from "./review";
 
 export const DOCUMENT_COLUMNS = {
   businessKey: { type: "text", searchable: true },
@@ -128,9 +126,8 @@ async function loadRows(
     rows.map((r) => r.id),
   );
   const list: DocumentListRow[] = rows.map((r) => {
-    const parsed = r.ocrData as unknown as { extractedData?: OcrExtractedData } | null;
     const resolved = resolveDocumentData(
-      parsed?.extractedData ?? null,
+      parseOcrPayload(r.ocrData)?.extractedData ?? null,
       (r.corrections as Partial<OcrExtractedData> | null) ?? null,
     );
     return {
@@ -347,12 +344,9 @@ export async function listInbox(
       now,
     );
     if (!state) continue;
-    const parsed = d.ocrData as unknown as {
-      extractedData?: OcrExtractedData;
-      quality?: string;
-    } | null;
+    const payload = parseOcrPayload(d.ocrData);
     const resolved = resolveDocumentData(
-      parsed?.extractedData ?? null,
+      payload?.extractedData ?? null,
       (d.corrections as Partial<OcrExtractedData> | null) ?? null,
     );
     const oldest = dupOf.get(d.id) ?? null;
@@ -371,7 +365,7 @@ export async function listInbox(
       amount: resolved.invoiceTotal === undefined ? null : resolved.invoiceTotal.toFixed(2),
       currency: resolved.currency ?? null,
       documentDate: resolved.invoiceDate ?? resolved.transactionDate ?? null,
-      quality: parsed?.quality ?? null,
+      quality: payload?.quality ?? null,
       facts: Object.fromEntries(
         FACT_KEYS.filter((k) => resolved[k] !== undefined && resolved[k] !== null).map((k) => [
           k,
