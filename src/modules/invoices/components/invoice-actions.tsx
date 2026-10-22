@@ -25,6 +25,8 @@ import {
 import type { InvoiceState, InvoiceStatus, InvoiceType } from "@/modules/invoices/types";
 import { STATE_STYLE } from "./invoice-table";
 
+/** 10 polls × 2 s + 20 × 5 s ≈ 2 min — longer than the slowest render seen on CI. */
+const PDF_POLL_LIMIT = 30;
 export function InvoiceActions({
   id,
   type,
@@ -65,13 +67,18 @@ export function InvoiceActions({
   });
   const [pdfPolls, setPdfPolls] = useState(0);
 
-  // the PDF arrives a second or two after issue — refresh until it is there (bounded)
+  // the PDF arrives a second or two after issue — refresh until it is there. Bounded at ~2 min, not ~40 s:
+  // behind a queue of OCR jobs (one at a time) on a busy machine the render can take longer, and a page that
+  // stopped polling never shows the button without a reload. Every 2 s for 20 s, then every 5 s.
   useEffect(() => {
-    if (status === "draft" || pdfDocumentId || pdfPolls > 20) return;
-    const h = setTimeout(() => {
-      setPdfPolls((n) => n + 1);
-      router.refresh();
-    }, 2000);
+    if (status === "draft" || pdfDocumentId || pdfPolls >= PDF_POLL_LIMIT) return;
+    const h = setTimeout(
+      () => {
+        setPdfPolls((n) => n + 1);
+        router.refresh();
+      },
+      pdfPolls < 10 ? 2000 : 5000,
+    );
     return () => clearTimeout(h);
   }, [status, pdfDocumentId, pdfPolls, router]);
 
