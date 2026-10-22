@@ -47,6 +47,8 @@ type BankAccount = {
   bankFormatId: string;
   /** main (monthly accountant package) or savings (yearly) — D13/D31 */
   role: "main" | "savings";
+  /** CSV imports into this account — number and currency are locked when > 0 (F65) */
+  imports: number;
   bankFormat: BankFormat;
 };
 
@@ -130,6 +132,7 @@ export function BankAccountsTab({ initialAccounts, bankFormats }: Props) {
             bankFormatId: input.bankFormatId,
             iban: null,
             bic: null,
+            imports: 0,
             bankFormat: format,
           },
         ]);
@@ -351,6 +354,7 @@ function AccountCard({
             value={localAccountNumber}
             onChange={(e) => setLocalAccountNumber(e.target.value)}
             onBlur={() => onUpdateField(account.id, "accountNumber", localAccountNumber)}
+            disabled={account.imports > 0}
             className="h-8 text-sm"
           />
         </div>
@@ -399,6 +403,7 @@ function AccountCard({
           </Label>
           <Select
             value={account.currency}
+            disabled={account.imports > 0}
             onValueChange={(value) => {
               if (!value) return;
               onUpdateField(account.id, "currency", value);

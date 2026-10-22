@@ -75,7 +75,7 @@ Decided 2026-10-22 (the audit's O3–O5, constitution 1.3): an open expense / su
 
 ## How we work
 
-**Three lanes (D44)** — the builder picks one from the row and names it in the PR body. Ceremony follows the risk of the change, not its size:
+**Three lanes (D45)** — the builder picks one from the row and names it in the PR body. Ceremony follows the risk of the change, not its size:
 
 ```
 Does it change a business rule? (money facts, VAT, rates, linking, a derived status, numbering, a new entity / table)
