@@ -40,4 +40,4 @@ ALTER TABLE "contracts" ADD CONSTRAINT "contracts_vat_registration_id_fkey" FORE
 ALTER TABLE "contracts" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "contracts" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "contracts" USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "contracts" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "contracts" TO af_app;

@@ -49,19 +49,19 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: defterfab
+          POSTGRES_USER: af
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: defterfab_test
+          POSTGRES_DB: af_test
         ports:
           - 5433:5432
         options: >-
-          --health-cmd="pg_isready -U defterfab"
+          --health-cmd="pg_isready -U af -d af_test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/defterfab_test
-      DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      DATABASE_URL: postgresql://af_app:app@localhost:5433/af_test
+      DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -73,7 +73,7 @@ jobs:
       - name: Run migrations (superuser)
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+          DATABASE_URL: postgresql://af:test@localhost:5433/af_test
       # Hand-written migrations are the truth and the schema must describe them (constitution §3.1):
       # diff the migrated database against prisma/schema; any difference fails the job and is posted
       # as an annotation so it can be read without opening the logs.
@@ -89,8 +89,8 @@ jobs:
           cat drift.txt
           exit 1
         env:
-          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
-          DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+          DATABASE_URL: postgresql://af:test@localhost:5433/af_test
+          DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
       - run: npm run test
 
   build-and-e2e:
@@ -100,19 +100,19 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: defterfab
+          POSTGRES_USER: af
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: defterfab_test
+          POSTGRES_DB: af_test
         ports:
           - 5433:5432
         options: >-
-          --health-cmd="pg_isready -U defterfab"
+          --health-cmd="pg_isready -U af -d af_test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/defterfab_test
-      DATABASE_MIGRATION_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+      DATABASE_URL: postgresql://af_app:app@localhost:5433/af_test
+      DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
       AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
       AZURE_STORAGE_CONTAINER: documents
     steps:
@@ -146,12 +146,12 @@ jobs:
         run: npx prisma migrate deploy
         if: github.event_name != 'pull_request'
         env:
-          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+          DATABASE_URL: postgresql://af:test@localhost:5433/af_test
       - name: Seed database (superuser)
         if: github.event_name != 'pull_request'
         run: npx prisma db seed
         env:
-          DATABASE_URL: postgresql://defterfab:test@localhost:5433/defterfab_test
+          DATABASE_URL: postgresql://af:test@localhost:5433/af_test
       - name: Start Azurite blob storage
         if: github.event_name != 'pull_request'
         run: |

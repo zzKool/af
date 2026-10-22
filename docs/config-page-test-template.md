@@ -25,7 +25,7 @@ import {
 } from "@/server/test-utils/config-crud-helpers";
 
 const ADMIN_URL = process.env.DATABASE_TEST_MIGRATION_URL
-  || "postgresql://defterfab:test@localhost:5433/defterfab_test";
+  || "postgresql://af:test@localhost:5433/af_test";
 
 let adminPool: Pool;
 let tenantA: { id: string };

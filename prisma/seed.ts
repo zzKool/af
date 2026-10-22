@@ -1,5 +1,5 @@
 /**
- * Golden seed dataset for DefterFab development.
+ * Golden seed dataset for AF development.
  *
  * Creates via Better Auth API (not direct SQL):
  * - Owner: owner@dev.test

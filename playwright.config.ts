@@ -47,7 +47,7 @@ export default defineConfig({
         url: "http://localhost:3000",
         reuseExistingServer: true,
         env: {
-          DATABASE_URL: "postgresql://defterfab:test@localhost:5433/defterfab_test",
+          DATABASE_URL: "postgresql://af:test@localhost:5433/af_test",
         },
       },
 });

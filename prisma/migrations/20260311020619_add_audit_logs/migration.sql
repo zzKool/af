@@ -24,7 +24,7 @@ CREATE INDEX "audit_logs_tenant_id_created_at_idx" ON "audit_logs"("tenant_id", 
 CREATE INDEX "audit_logs_tenant_id_user_id_idx" ON "audit_logs"("tenant_id", "user_id");
 
 -- Explicit GRANT for app role (defensive — not relying solely on ALTER DEFAULT PRIVILEGES)
-GRANT SELECT, INSERT ON "audit_logs" TO defterfab_app;
+GRANT SELECT, INSERT ON "audit_logs" TO af_app;
 
 -- RLS policy with WITH CHECK to prevent cross-tenant INSERT
 ALTER TABLE "audit_logs" ENABLE ROW LEVEL SECURITY;

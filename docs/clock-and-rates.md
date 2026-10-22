@@ -1,6 +1,6 @@
 # Clock Abstraction & Exchange Rate Storage
 
-Testable time abstraction and immutable ECB rate cache for DefterFab.
+Testable time abstraction and immutable ECB rate cache for AF.
 
 ## Clock Interface
 

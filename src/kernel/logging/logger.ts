@@ -3,7 +3,7 @@ import pino from "pino";
 const logger = pino({
   level: process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug"),
   base: {
-    service: "defterfab",
+    service: "af",
     version: process.env.npm_package_version || "unknown",
     environment: process.env.NODE_ENV,
   },

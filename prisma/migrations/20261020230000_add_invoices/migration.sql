@@ -108,14 +108,14 @@ ALTER TABLE "invoices" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "invoices"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "invoices" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "invoices" TO af_app;
 
 ALTER TABLE "invoice_lines" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "invoice_lines" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "invoice_lines"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "invoice_lines" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "invoice_lines" TO af_app;
 
 -- Immutability (constitution §1: money facts are written once). Once a document leaves 'draft' only these
 -- columns may still change: status (issued → sent, accepted/declined), sent_at, decided_at,

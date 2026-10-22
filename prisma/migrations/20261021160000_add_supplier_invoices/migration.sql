@@ -111,11 +111,11 @@ ALTER TABLE "supplier_invoices" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "supplier_invoices"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "supplier_invoices" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "supplier_invoices" TO af_app;
 
 ALTER TABLE "supplier_invoice_lines" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "supplier_invoice_lines" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "supplier_invoice_lines"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "supplier_invoice_lines" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "supplier_invoice_lines" TO af_app;

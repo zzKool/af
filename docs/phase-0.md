@@ -13,7 +13,7 @@ Status board for everything before the first business feature. Tick, don't rewri
 
 ## Next — in order
 - [x] **0. GitHub repo** `zzKool/af` pushed (2026-10-20); CI green on `main`. Open: branch protection when on GitHub Pro.
-- [ ] **1. Rename pass** — README, `docs/index.md` title, seed tenant name, Docker DB names (`defterfab_dev` → `af_dev`) with `.env.example` and CI in the same PR. Optional; do it before any migration lands.
+- [x] **1. Rename pass** — README, `docs/index.md` title, seed tenant name, Docker DB names (`defterfab_dev` → `af_dev`) with `.env.example` and CI in the same PR. Optional; do it before any migration lands. *(F46, 2026-10-22 — the app role `af_app` renamed inside the existing migrations, nothing being deployed: D42.)*
 - [ ] **2. Tooling**
   - [x] Windows: postinstall replaced by `scripts/copy-pdf-worker.mjs` (no `cp`/`mkdir -p`)
   - [x] Prisma schema reconciled with the hand-written migrations (`migrate dev` no longer proposes a repair migration) — see `docs/prisma-rls-setup.md`

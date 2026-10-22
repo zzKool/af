@@ -18,7 +18,7 @@ Stories that create, update, or delete data (mutation stories) must include thes
 ### Required Tasks
 
 - [ ] **RLS policy task** — Ensure the new table has `ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`, and a `tenant_isolation` policy using `current_setting('app.tenant_id', true)::uuid`
-- [ ] **Specific GRANTs task** — Add explicit `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "new_table" TO defterfab_app` in the migration (never use `GRANT ALL`). Use `SELECT, INSERT` only for immutable/append-only tables
+- [ ] **Specific GRANTs task** — Add explicit `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "new_table" TO af_app` in the migration (never use `GRANT ALL`). Use `SELECT, INSERT` only for immutable/append-only tables
 - [ ] **Audit log integration task** — Wire the service to call `AuditLogger.log()` for create/update/delete operations. Include `old_data`/`new_data` for updates
 - [ ] **RLS isolation test** — Use `assertRlsIsolation()` from `config-crud-helpers.ts` to verify tenant isolation
 - [ ] **Audit log test** — Use `assertAuditLogged()` from `config-crud-helpers.ts` to verify audit entries

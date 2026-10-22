@@ -54,7 +54,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 - [x] **C1 UI/UX pass** — direction **D40 "Lakehouse"** (2026-10-22, Databricks-inspired; logos in `public/brand/`), and the **restyle of the shell + kernel kit** (F39, the same day): the modules inherit the tokens, the shell, the tabs, the buttons, the DataTable and the docked details panel. Left, one row each in [[features]]: **F71** each module adopts the kit (states, on-screen money, keys, row actions — one PR per module), F72 sidebar counts, F73 **+ New** opening the dialog, F74 the kit's English leftovers; then F69 (the banking *Months* panel).
 - [ ] **C2** ~~Remaining English: login / register pages, error fallbacks~~ (F04, 2026-10-22). Left: the owner's Swedish read of `sv.ts`.
-- [ ] **C3** Phase-0 leftovers: the rename pass (`defterfab_*` → `af_*`), branch protection on GitHub.
+- [ ] **C3** Phase-0 leftovers: ~~the rename pass (`defterfab_*` → `af_*`)~~ (F46, 2026-10-22, D42 — owner, once: `docker compose down`, `docker volume rm af_db-dev-data af_db-test-data af_pgdata-dev af_pgdata-test` (whichever exist), DB URLs from `.env.example` into `.env.local`, `docker compose up -d`, `npx prisma migrate deploy`, `npm run db:seed`). Left: branch protection on GitHub (owner, F47).
 - [x] **C4** Deferred mechanics: Sentry request context, the `.toNumber()` lint rule (F48); no e2e turned out to be quarantined.
 - Out of scope by decision: email sending, the cash-planning widget (D14, Growth), SIE, Swedish moms (the accountant's), mobile.
 

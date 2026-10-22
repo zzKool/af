@@ -32,7 +32,7 @@ ALTER TABLE "partners" ADD CONSTRAINT "partners_default_bas_category_code_fkey" 
 ALTER TABLE "partners" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "partners" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "partners" USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "partners" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "partners" TO af_app;
 
 -- Unique constraint: one org_number per tenant (when not null)
 CREATE UNIQUE INDEX idx_partners_tenant_org ON "partners" ("tenant_id", "org_number") WHERE "org_number" IS NOT NULL;

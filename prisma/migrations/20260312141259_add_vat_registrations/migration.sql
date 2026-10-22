@@ -59,4 +59,4 @@ CREATE POLICY tenant_isolation ON vat_registrations
 -- Grants: Full CRUD for app role
 -- ─────────────────────────────────────────────────────────────
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE vat_registrations TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE vat_registrations TO af_app;

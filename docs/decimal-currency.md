@@ -1,6 +1,6 @@
 # Decimal Arithmetic & Currency Formatting
 
-Conventions for handling money and decimal arithmetic in DefterFab.
+Conventions for handling money and decimal arithmetic in AF.
 
 ## The Boundary Rule
 

@@ -38,11 +38,10 @@ vi.mock("next/headers", () => ({
 }));
 
 const ADMIN_DATABASE_URL =
-  process.env.DATABASE_TEST_MIGRATION_URL ||
-  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+  process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 
 const APP_DATABASE_URL =
-  process.env.DATABASE_TEST_URL || "postgresql://defterfab_app:app@localhost:5433/defterfab_test";
+  process.env.DATABASE_TEST_URL || "postgresql://af_app:app@localhost:5433/af_test";
 
 let adminPool: Pool;
 let appPool: Pool;

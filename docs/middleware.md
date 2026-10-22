@@ -2,7 +2,7 @@
 
 ## Overview
 
-DefterFab uses Next.js 16.1's `proxy.ts` pattern (successor to `middleware.ts`) for client-side route protection. The proxy intercepts all app routes and checks for a valid Better Auth session cookie before allowing access.
+AF uses Next.js 16.1's `proxy.ts` pattern (successor to `middleware.ts`) for client-side route protection. The proxy intercepts all app routes and checks for a valid Better Auth session cookie before allowing access.
 
 ## How It Works
 

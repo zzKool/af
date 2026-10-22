@@ -12,7 +12,7 @@ function createTestLogger(level = "debug") {
     {
       level,
       base: {
-        service: "defterfab",
+        service: "af",
         version: "test",
         environment: "test",
       },
@@ -32,7 +32,7 @@ describe("logger", () => {
     expect(entry).toMatchObject({
       level: 30, // info
       msg: "test message",
-      service: "defterfab",
+      service: "af",
       version: "test",
       environment: "test",
     });
@@ -50,7 +50,7 @@ describe("logger", () => {
 
     const entry = JSON.parse(lines[0]);
     expect(entry).toMatchObject({
-      service: "defterfab",
+      service: "af",
       userId: "user-1",
       tenantId: "tenant-1",
       requestId: "req-1",

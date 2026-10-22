@@ -62,8 +62,7 @@ function createRealAuditLogger(
 }
 
 const ADMIN_DATABASE_URL =
-  process.env.DATABASE_TEST_MIGRATION_URL ||
-  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+  process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 
 let adminPool: Pool;
 const testClock = createTestClock(new Date("2026-03-14T15:00:00Z"));

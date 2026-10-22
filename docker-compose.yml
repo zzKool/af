@@ -5,13 +5,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: defterfab_dev
-      POSTGRES_USER: defterfab
+      POSTGRES_DB: af_dev
+      POSTGRES_USER: af
       POSTGRES_PASSWORD: dev
     volumes:
-      - pgdata-dev:/var/lib/postgresql/data
+      - db-dev-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U defterfab"]
+      test: ["CMD-SHELL", "pg_isready -U af -d af_dev"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,13 +22,13 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_DB: defterfab_test
-      POSTGRES_USER: defterfab
+      POSTGRES_DB: af_test
+      POSTGRES_USER: af
       POSTGRES_PASSWORD: test
     volumes:
-      - pgdata-test:/var/lib/postgresql/data
+      - db-test-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U defterfab"]
+      test: ["CMD-SHELL", "pg_isready -U af -d af_test"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -47,7 +47,9 @@ services:
     volumes:
       - azurite-data:/data
 
+# Volumes renamed with F46 (2026-10-22): the old `pgdata-dev` / `pgdata-test` are left as they were —
+# `docker volume rm af_pgdata-dev af_pgdata-test` once nothing in them is needed.
 volumes:
-  pgdata-dev:
-  pgdata-test:
+  db-dev-data:
+  db-test-data:
   azurite-data:

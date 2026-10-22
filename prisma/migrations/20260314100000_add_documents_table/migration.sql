@@ -34,7 +34,7 @@ ALTER TABLE "documents" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "documents"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "documents" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "documents" TO af_app;
 
 -- Counter Table for Business Key Sequences
 CREATE TABLE "document_key_counters" (
@@ -51,4 +51,4 @@ ALTER TABLE "document_key_counters" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "document_key_counters"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE ON TABLE "document_key_counters" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE ON TABLE "document_key_counters" TO af_app;

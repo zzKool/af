@@ -7,7 +7,7 @@ Stores are **session-only** (lost on page refresh) and hold UI-layer state such 
 
 ## Tenant-Scoped Stores
 
-All stores in DefterFab must reset when the user switches tenants to prevent cross-tenant state leakage. Use the `createTenantStore` factory for this.
+All stores in AF must reset when the user switches tenants to prevent cross-tenant state leakage. Use the `createTenantStore` factory for this.
 
 ### How It Works
 
