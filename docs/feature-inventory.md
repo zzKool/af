@@ -62,6 +62,8 @@ v1's budget went into features, v2's into foundations. v3 = v2's foundations + v
 | D32 | Documents: identical upload → `Use existing` (primary) / `Upload anyway` (owner); fuzzy duplicate ±1 % / ±7 days / same partner + currency, "Create anyway" on HIGH needs a note; OCR quality two levels; archive only inbox rows; keyboard map `j k x a o i e l d r z u ? Enter 1-3`. | D-d |
 | D33 | A `justifies` link does **not** fill in a blank partner on the bank row's journal entry: the journal's partner stays typed (by hand or by a rule); the link is the answer to "who was this paid to". Reversible later as a read-side rule (2026-10-21). | — |
 | D34 | A document leaves the inbox when it **became** something (`created_from`), was **filed** (reviewed with nothing created — *Mark as reviewed* and *Just file it* are the same fact) or was **archived**; no new status value (specs/documents, 2026-10-21). | — |
+| D35 | A supplier's invoice number is **unique per supplier, no exception**: an *exact* match (same partner + normalised number) is a refusal with a link to the existing invoice, never *Create anyway*. *Create anyway* with a note stays for the *hash* (same file) and *fuzzy* (±1 % / ±7 days) matches. The unique index stays (O1, 2026-10-22; amends D32 and documents US3-2). | O1 |
+| D36 | Deleting an expense or supplier invoice whose **only** link is its `created_from` removes that link (through linking) and the document returns to the inbox as *ready*, corrections kept, its key unchanged (keys are never reused). Any other link, a settlement line or a payment still blocks (a supplier invoice is cancelled instead). (O2, 2026-10-22; amends expenses US1-6 and supplier-invoices US1-8.) | O2 |
 
 ---
 

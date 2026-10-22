@@ -100,7 +100,7 @@ export function BusinessPulseWidget({ metrics }: { metrics: PulseMetric[] }) {
 
 export function BriefingWidget({ since, lines }: { since: string | null; lines: BriefingLine[] }) {
   const t = useT();
-  const { locale } = useLocale();
+  const { effectiveLocale: locale } = useLocale();
   return (
     <Card data-testid="briefing">
       <CardHeader>

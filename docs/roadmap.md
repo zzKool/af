@@ -38,7 +38,7 @@ upload ──► review ──► make it an expense / SI ──► link bank ro
 accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ```
 
-- [x] **A1 Document inbox** — `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
+- [x] **A1 Document inbox** — converged 2026-10-22: nine small gaps left as `specs/documents/tasks.md` Phase 3 (T019–T027; O1 / O2 decided as D35 / D36). `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
 - [ ] **A2 Members** — Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
 - [x] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` backfills every ECB day from that date ([[ecb-rates]]).
 - [x] **A4 Partners: contact persons** — the Contacts tab on the partner page (F08, [[partners]]).
@@ -53,18 +53,20 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ### C. Finish and polish
 
 - [ ] **C1 UI/UX pass** — direction first (density — the Excel-like tables stay —, typography, colour, panel vs page, chips, light/dark), decided with the owner on concrete options; written down in [[ui-conventions]] and as a repo skill `.claude/skills/af-design` so every later PR follows it; then one restyle of the shell + kernel kit, which the modules inherit. Not the shadcn default look.
-- [ ] **C2** Remaining English: login / register pages, error fallbacks. The owner's Swedish read of `sv.ts`.
+- [ ] **C2** ~~Remaining English: login / register pages, error fallbacks~~ (F04, 2026-10-22). Left: the owner's Swedish read of `sv.ts`.
 - [ ] **C3** Phase-0 leftovers: the rename pass (`defterfab_*` → `af_*`), branch protection on GitHub.
 - [x] **C4** Deferred mechanics: Sentry request context, the `.toNumber()` lint rule (F48); no e2e turned out to be quarantined.
 - Out of scope by decision: email sending, the cash-planning widget (D14, Growth), SIE, Swedish moms (the accountant's), mobile.
 
 ## Next up
 
-`/speckit-converge` on `specs/documents` (what the spec asks and the build lacks, appended as tasks), then **A2 Members**, A3, A4, then B with the owner.
+**F03 — A2 Members** (`modules/settings`, spec first: `/speckit-specify`; touches schema, nav, i18n). Then the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36), then B with the owner. The dispatch table is [[features]].
 
 ## Open decisions (the owner's)
 
-None open. Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
+None open.
+
+Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
 
 ## How we work
 

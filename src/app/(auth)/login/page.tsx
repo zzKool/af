@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/kernel/auth/auth-client";
+import { useT } from "@/kernel/i18n/use-t";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,7 +20,7 @@ export default function LoginPage() {
     setError("");
 
     if (!email || !password) {
-      setError("Please fill in all fields.");
+      setError(t("auth.error.missingFields"));
       return;
     }
 
@@ -29,7 +31,7 @@ export default function LoginPage() {
     });
 
     if (result.error) {
-      setError("Email or password didn't match. Try again or create an account.");
+      setError(t("auth.login.error.mismatch"));
       setLoading(false);
       return;
     }
@@ -48,12 +50,12 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
-        <h1 className="text-center text-2xl font-semibold">Sign in</h1>
+        <h1 className="text-center text-2xl font-semibold">{t("auth.login.title")}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="email" className="text-sm font-medium">
-              Email
+              {t("auth.field.email")}
             </label>
             <input
               id="email"
@@ -68,7 +70,7 @@ export default function LoginPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="password" className="text-sm font-medium">
-              Password
+              {t("auth.field.password")}
             </label>
             <input
               id="password"
@@ -85,20 +87,20 @@ export default function LoginPage() {
             <p className="text-destructive text-sm">
               {error}{" "}
               <Link href="/register" className="underline">
-                Create an account
+                {t("auth.login.createAccount")}
               </Link>
             </p>
           )}
 
           <Button type="submit" disabled={loading} className="w-full" size="lg">
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? t("auth.login.submitting") : t("auth.login.submit")}
           </Button>
         </form>
 
         <p className="text-muted-foreground text-center text-sm">
-          Don&apos;t have an account?{" "}
+          {t("auth.login.noAccount")}{" "}
           <Link href="/register" className="text-foreground underline">
-            Register
+            {t("auth.login.register")}
           </Link>
         </p>
       </div>

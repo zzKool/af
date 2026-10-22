@@ -6,11 +6,12 @@ import { type MessageKey, type MessageParams, translate, uiLanguage } from "./tr
 
 /**
  * `const t = useT(); t("contracts.rates.title")` — strings in the user's UI language.
- * The locale comes from LocaleProvider (user preference); null = browser language.
+ * The locale comes from LocaleProvider: the user's preference, else the browser's (Accept-Language).
  */
 export function useT() {
-  const { locale } = useLocale();
-  const resolved = locale ?? (typeof navigator !== "undefined" ? navigator.language : null) ?? null;
+  const { effectiveLocale } = useLocale();
+  const resolved =
+    effectiveLocale ?? (typeof navigator !== "undefined" ? navigator.language : null) ?? null;
   const lang = uiLanguage(resolved);
   return useCallback(
     (key: MessageKey, params?: MessageParams) => translate(lang, key, params),
