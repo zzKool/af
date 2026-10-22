@@ -1,7 +1,19 @@
+import type { Prisma } from "@/generated/prisma/client";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
-import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
-import { resolveDocumentData } from "./ocr-payload";
+import {
+  type CandidateQuery,
+  type EntityFacts,
+  type Linkable,
+  linksTouching,
+} from "@/modules/linking";
+import {
+  amountText,
+  knownCurrency,
+  parseCorrections,
+  parseOcrPayload,
+  resolveDocumentData,
+} from "./ocr-payload";
 
 /**
  * Documents are justification targets and belong to partners/contracts. A financial document carries the amount,
@@ -15,8 +27,8 @@ type Row = {
   status: string;
   documentType: string;
   createdAt: Date;
-  ocrData: unknown;
-  corrections: unknown;
+  ocrData: Prisma.JsonValue | null;
+  corrections: Prisma.JsonValue | null;
 };
 
 export const ROW_SELECT = {
@@ -31,26 +43,33 @@ export const ROW_SELECT = {
 } as const;
 
 function resolved(r: Row): Partial<OcrExtractedData> {
-  const parsed = r.ocrData as { extractedData?: OcrExtractedData } | null;
   return resolveDocumentData(
-    parsed?.extractedData ?? null,
-    (r.corrections as Partial<OcrExtractedData> | null) ?? null,
+    parseOcrPayload(r.ocrData)?.extractedData ?? null,
+    parseCorrections(r.corrections),
   );
 }
 
+/**
+ * What linking compares on its side when the document's currency is not known (OCR never reads a receipt's
+ * currency; the owner sets it on review). Linking's facts carry a currency it can format and score, so an unknown
+ * one cannot be said yet — F61-b: `EntityFacts.currency` nullable in linking, then this goes.
+ */
+const CURRENCY_NOT_READ = "SEK";
+
 export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
   const d = resolved(r);
-  const amount =
-    d.invoiceTotal !== undefined && d.invoiceTotal !== null ? Number(d.invoiceTotal) : 0;
-  const vendor = d.vendorName ?? d.merchantName ?? null;
+  const total = amountText(d.invoiceTotal);
+  const amount = total !== null && Number(total) > 0 ? total : "0.00";
+  const currency = knownCurrency(d.currency);
+  const vendor = d.vendorName || d.merchantName || null;
   return {
     type: "document",
     id: r.id,
-    label: `${r.businessKey || r.fileName}${vendor ? ` · ${vendor}` : ""}${amount ? ` · ${amount.toFixed(2)} ${d.currency ?? ""}` : ""}`,
-    amount: amount > 0 ? amount.toFixed(2) : "0.00",
-    currency: (d.currency ?? "").toUpperCase() || "SEK",
+    label: `${r.businessKey || r.fileName}${vendor ? ` · ${vendor}` : ""}${amount !== "0.00" ? ` · ${amount}${currency ? ` ${currency}` : ""}` : ""}`,
+    amount,
+    currency: currency ?? CURRENCY_NOT_READ,
     amountBase: null,
-    date: d.invoiceDate ?? d.transactionDate ?? r.createdAt.toISOString().slice(0, 10),
+    date: d.invoiceDate || d.transactionDate || r.createdAt.toISOString().slice(0, 10),
     reference: d.invoiceNumber ?? null,
     partnerName: vendor,
     texts: [r.businessKey, r.fileName, vendor ?? "", d.invoiceNumber ?? ""],
@@ -59,22 +78,37 @@ export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
   };
 }
 
+/**
+ * "Linked" — the one derived rule (never the stored status): something became from the document (`created_from`)
+ * or a bank row justifies it (`justifies`). The library's *Linked* column, the matcher's free documents, the
+ * reclassify guard read it. Through linking's read API.
+ */
+const LINKED_KINDS: ReadonlySet<string> = new Set(["created_from", "justifies"]);
+
+export async function linkedIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const wanted = new Set(ids);
+  const links = await linksTouching(tx, "document", ids);
+  return new Set(
+    links
+      .filter((l) => LINKED_KINDS.has(l.kind) && l.to.type === "document" && wanted.has(l.to.id))
+      .map((l) => l.to.id),
+  );
+}
+
+export async function isDocumentLinked(tx: TransactionClient, id: string): Promise<boolean> {
+  return (await linkedIds(tx, [id])).has(id);
+}
+
 /** Documents that became nothing (no `created_from`) and justify nothing yet. */
 export async function unlinkedIds(
   tx: TransactionClient,
   ids: readonly string[],
 ): Promise<Set<string>> {
-  if (ids.length === 0) return new Set();
-  const links = await tx.link.findMany({
-    where: {
-      OR: [
-        { kind: "created_from", toType: "document", toId: { in: [...ids] } },
-        { kind: "justifies", toType: "document", toId: { in: [...ids] } },
-      ],
-    },
-    select: { toId: true },
-  });
-  const taken = new Set(links.map((l) => l.toId));
+  const taken = await linkedIds(tx, ids);
   return new Set(ids.filter((id) => !taken.has(id)));
 }
 

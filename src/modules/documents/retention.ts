@@ -1,10 +1,12 @@
-// Retention (story 5.5): delete, refused for a linked or generated document; every attempt audited.
+// Retention (story 5.5): delete, refused for a generated or a linked document (derived from the links); every
+// owner attempt on an existing document audited.
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
+import { isLinked } from "@/modules/linking";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -25,23 +27,6 @@ export async function deleteDocument(
     return { error: { code: "NOT_FOUND", message: "Document not found", retryable: false } };
   }
 
-  if (doc.status === "linked") {
-    await audit.log({
-      action: "delete",
-      entityType: "document",
-      entityId: documentId,
-      oldData: toAuditData(doc),
-      newData: { outcome: "blocked", reason: "linked" },
-    });
-    return {
-      error: {
-        code: "BUSINESS_RULE_VIOLATION",
-        message: "Cannot delete — document is linked to a journal entry",
-        retryable: false,
-      },
-    };
-  }
-
   // A generated document (an issued invoice's PDF) is the proof of an immutable record — it lives as long as
   // its source does, and the source is never deleted.
   if (doc.status === "generated") {
@@ -54,9 +39,27 @@ export async function deleteDocument(
     };
   }
 
-  // Linked documents cannot be hard-deleted: the database trigger documents_block_delete_when_linked
-  // (migration 20261020060000_add_links) raises 'document_linked'; translated below.
-  // once document-transaction linking is implemented.
+  // Linked = any link touching it, derived through linking — the same test as the database trigger
+  // documents_block_delete_when_linked, checked first: once the trigger raises, the transaction is aborted and
+  // not even the "blocked" audit row could be written.
+  if (await isLinked(tx, { type: "document", id: documentId })) {
+    await audit.log({
+      action: "delete",
+      entityType: "document",
+      entityId: documentId,
+      oldData: toAuditData(doc),
+      newData: { outcome: "blocked", reason: "linked" },
+    });
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: "Cannot delete — the document is linked",
+        retryable: false,
+      },
+    };
+  }
+
+  await tx.document.delete({ where: { id: documentId } });
   await audit.log({
     action: "delete",
     entityType: "document",
@@ -64,27 +67,6 @@ export async function deleteDocument(
     oldData: toAuditData(doc),
     newData: { outcome: "deleted" },
   });
-
-  try {
-    await tx.document.delete({ where: { id: documentId } });
-  } catch (error: unknown) {
-    if (error instanceof Error && error.message.includes("document_linked")) {
-      await audit.log({
-        action: "delete",
-        entityType: "document",
-        entityId: documentId,
-        newData: { outcome: "blocked", reason: "linked" },
-      });
-      return {
-        error: {
-          code: "BUSINESS_RULE_VIOLATION",
-          message: "Cannot delete — document is linked",
-          retryable: false,
-        },
-      };
-    }
-    throw error;
-  }
 
   return { data: { businessKey: doc.businessKey, blobUrl: doc.blobUrl } };
 }

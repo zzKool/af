@@ -23,14 +23,7 @@ const QUALITY_CONFIG: Record<string, { label: MessageKey; className: string }> =
   },
 };
 
-const STATUS_KEYS = [
-  "uploaded",
-  "processing",
-  "extracted",
-  "ocr_failed",
-  "linked",
-  "generated",
-] as const;
+const STATUS_KEYS = ["uploaded", "processing", "extracted", "ocr_failed", "generated"] as const;
 type DocumentStatusKey = (typeof STATUS_KEYS)[number];
 const isKnownStatus = (s: string): s is DocumentStatusKey =>
   (STATUS_KEYS as readonly string[]).includes(s);

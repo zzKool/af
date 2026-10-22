@@ -11,9 +11,9 @@ import { extractBlobPath } from "@/kernel/ocr/ocr";
 import { createStorageService } from "@/kernel/storage/storage";
 import * as documentService from "@/modules/documents/documents";
 import { processDocumentJob } from "@/modules/documents/jobs/process-document";
+import { DOCUMENT_COLUMN_KEYS, type DocumentColumn } from "@/modules/documents/library-columns";
+import { correctionsPatchSchema } from "@/modules/documents/ocr-payload";
 import {
-  DOCUMENT_COLUMN_KEYS,
-  type DocumentColumn,
   distinctDocumentValues,
   documentDateHierarchy,
   listInbox,
@@ -109,19 +109,9 @@ export const getDocumentForReviewAction = authedAction
     );
   });
 
-const jsonValue: z.ZodType = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(jsonValue),
-    z.record(z.string(), jsonValue),
-  ]),
-);
 const correctionsSchema = z.object({
   documentId: uuid,
-  patch: z.record(z.string(), jsonValue),
+  patch: correctionsPatchSchema,
 });
 
 export const updateDocumentCorrectionsAction = authedAction
