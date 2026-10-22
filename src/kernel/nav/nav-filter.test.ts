@@ -1,20 +1,20 @@
 import { describe, expect, test } from "vitest";
-import { NAV_ITEMS, type NavItem } from "@/kernel/nav/constants";
+import { NAV_GROUPS, NAV_ITEMS, type NavItem, NEW_ITEMS } from "@/kernel/nav/constants";
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 
 describe("filterNavItems", () => {
-  test("owner sees Dashboard, Documents, Journal, Banking, Partners, Invoices, Expenses, Supplier invoices, Package, Declarations, and Settings", () => {
+  test("owner sees the monthly loop's order (D40): Banking before Documents, Settings last", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
     expect(labels).toEqual([
       "Dashboard",
+      "Banking",
       "Documents",
       "Journal",
-      "Banking",
       "Partners",
       "Invoices",
-      "Expenses",
       "Supplier invoices",
+      "Expenses",
       "Package",
       "Declarations",
       "Settings",
@@ -26,11 +26,11 @@ describe("filterNavItems", () => {
     const labels = result.map((i) => i.label);
     expect(labels).toEqual([
       "Dashboard",
-      "Journal",
       "Banking",
+      "Journal",
       "Invoices",
-      "Expenses",
       "Supplier invoices",
+      "Expenses",
       "Package",
       "Declarations",
       "Settings",
@@ -75,21 +75,25 @@ describe("NAV_ITEMS configuration", () => {
     }
   });
 
-  test("Dashboard, Documents, Journal, Banking, Partners, Invoices, Expenses, Supplier invoices, Package, Declarations, and Settings are enabled", () => {
-    const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.label);
-    expect(enabled).toEqual([
-      "Dashboard",
-      "Documents",
-      "Journal",
-      "Banking",
-      "Partners",
-      "Invoices",
-      "Expenses",
-      "Supplier invoices",
-      "Package",
-      "Declarations",
-      "Settings",
-    ]);
+  test("every item but Reconciliation is enabled", () => {
+    const disabled = NAV_ITEMS.filter((i) => !i.enabled).map((i) => i.label);
+    expect(disabled).toEqual(["Reconciliation"]);
+  });
+
+  test("groups come in NAV_GROUPS order, each in one block; Dashboard first, Settings pinned last", () => {
+    const groups = NAV_ITEMS.filter((i) => i.group).map((i) => i.group);
+    const blocks = groups.filter((g, i) => g !== groups[i - 1]);
+    expect(blocks).toEqual([...NAV_GROUPS]);
+    expect(NAV_ITEMS[0].path).toBe("/dashboard");
+    expect(NAV_ITEMS.filter((i) => i.bottom).map((i) => i.path)).toEqual(["/settings"]);
+    expect(NAV_ITEMS.at(-1)?.path).toBe("/settings");
+  });
+
+  test("every + New entry opens an enabled page", () => {
+    const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.path);
+    for (const n of NEW_ITEMS) {
+      expect(enabled.some((p) => n.href === p || n.href.startsWith(`${p}/`))).toBe(true);
+    }
   });
 
   test("all paths start with /", () => {

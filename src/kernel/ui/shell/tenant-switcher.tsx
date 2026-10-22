@@ -47,49 +47,43 @@ export function TenantSwitcher({
     }
   }
 
+  // compact, for the top bar (D40): the company's initials and name; a menu only with several companies
   if (!activeTenant) {
-    return (
-      <div className="flex items-center gap-3 px-3 py-2">
-        <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
-        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-      </div>
-    );
+    return <div className="h-7 w-28 animate-pulse rounded-md bg-hover" />;
   }
 
-  // Single tenant — display only, no dropdown
   if (tenants.length <= 1) {
     return (
-      <div className="flex items-center gap-3 px-3 py-2">
-        <CompanyAvatar name={activeTenant.name} />
-        <span className="truncate text-sm font-medium">{activeTenant.name}</span>
+      <div className="flex h-8 max-w-56 items-center gap-2 px-2 text-[13px]">
+        <CompanyAvatar name={activeTenant.name} className="size-5 rounded text-[10px]" />
+        <span className="truncate">{activeTenant.name}</span>
       </div>
     );
   }
 
-  // Multi-tenant — dropdown switcher
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-8 max-w-56 items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Current company: ${activeTenant.name}. Switch company.`}
         disabled={switching}
       >
         {switching ? (
-          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
         ) : (
-          <CompanyAvatar name={activeTenant.name} />
+          <CompanyAvatar name={activeTenant.name} className="size-5 rounded text-[10px]" />
         )}
-        <span className="flex-1 truncate text-sm font-medium">{activeTenant.name}</span>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{activeTenant.name}</span>
+        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
+      <DropdownMenuContent align="end" className="w-60">
         {tenants.map((tenant) => (
           <DropdownMenuItem
             key={tenant.id}
-            onSelect={() => handleSwitch(tenant)}
-            className="flex items-center gap-3"
+            onClick={() => handleSwitch(tenant)}
+            className="flex items-center gap-2"
           >
-            <CompanyAvatar name={tenant.name} className="h-8 w-8 text-xs" />
+            <CompanyAvatar name={tenant.name} className="size-6 rounded text-[10px]" />
             <span className="truncate">{tenant.name}</span>
             {tenant.id === activeTenant.id && (
               <span className="ml-auto text-xs text-muted-foreground">Active</span>

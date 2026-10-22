@@ -5,8 +5,7 @@ import { LocaleProvider } from "@/kernel/i18n/locale-provider";
 import { browserLocale } from "@/kernel/i18n/request-locale";
 import { TablePreferencesProvider } from "@/kernel/ui/data-table";
 import { Providers } from "@/kernel/ui/providers";
-import { Sidebar } from "@/kernel/ui/shell/sidebar";
-import { Topbar } from "@/kernel/ui/shell/topbar";
+import { AppShell } from "@/kernel/ui/shell/app-shell";
 import { upsertTablePreferenceAction } from "@/modules/settings";
 
 export default async function AppLayout({
@@ -50,24 +49,15 @@ export default async function AppLayout({
     browserLocale(),
   ]);
   const tableLayouts = Object.fromEntries(tablePrefs.map((p) => [p.tableKey, p.preferences]));
-  const currentTenant = tenants.find((t) => t.id === auth.tenantId);
 
   return (
     <Providers>
       <LocaleProvider initialLocale={userPref?.locale ?? null} browserLocale={browser}>
         <TablePreferencesProvider initial={tableLayouts} save={upsertTablePreferenceAction}>
-          {/* Full-width app shell (D19): sidebar · topbar · content that fills the viewport. */}
-          <div className="flex h-screen">
-            <Sidebar role={role} tenants={tenants} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <Topbar
-                tenantName={currentTenant?.name ?? ""}
-                userLabel={user?.name || user?.email || ""}
-              />
-              {/* main.overflow-auto is the intentional scroll container — do not change, sticky table headers depend on it */}
-              <main className="min-h-0 flex-1 overflow-auto">{children}</main>
-            </div>
-          </div>
+          {/* the D40 shell: top bar · sidebar · canvas (breadcrumb, page, docked details panel) */}
+          <AppShell role={role} tenants={tenants} userLabel={user?.name || user?.email || ""}>
+            {children}
+          </AppShell>
         </TablePreferencesProvider>
       </LocaleProvider>
     </Providers>

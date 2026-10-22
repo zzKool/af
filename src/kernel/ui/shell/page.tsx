@@ -1,9 +1,11 @@
-// Page archetypes (D19, ui-conventions): full width, dense, three shapes and nothing else.
+// Page archetypes (D19, D40 — ui-conventions *Page anatomy*): full width, dense, three shapes and nothing else.
 //   <ListPage title actions>     DataTable pages — content stretches, no max-w
-//   <EntityPage title meta tabs> header + tabs (overview, documents, links, audit)
+//   <EntityPage title meta tabs> title row + underline tabs (overview, documents, links, audit)
 //   <WorkPage left right>        split panes — list left, detail right
-// Server-component friendly (no hooks). Prose-length limits belong to prose, never to containers.
+// The breadcrumb sits above, in the shell (breadcrumb.tsx). Canvas padding 20 px sideways, 14 px on top.
+// Server-component friendly (no hooks here; the icon tile and the back link are small client leaves).
 import type { ReactNode } from "react";
+import { BackLink, SectionIcon } from "@/kernel/ui/shell/page-client";
 import { cn } from "@/lib/utils";
 
 export interface PageHeaderProps {
@@ -11,25 +13,53 @@ export interface PageHeaderProps {
   title?: ReactNode;
   /** One line under the title: counts, status, period. */
   meta?: ReactNode;
-  /** Primary actions, right-aligned. */
+  /** Metadata tags next to the title (bank, currency, type) — grey `<Tag>`s, never a state. */
+  tags?: ReactNode;
+  /** Secondary buttons then **one** primary (a `<SplitButton>` when it has variants), right-aligned. */
   actions?: ReactNode;
-  /** Breadcrumb-ish parent link rendered above the title. */
+  /**
+   * A parent link. Shown only where the breadcrumb has nothing (e.g. the link graph's "back to …");
+   * under a named parent the breadcrumb already says it.
+   */
   back?: ReactNode;
+  /** Underline tabs under the title row (`<Tabs>` from the kit). */
+  tabs?: ReactNode;
+  /** One `<InfoBanner>`: what to do next on this page — not errors. */
+  banner?: ReactNode;
   className?: string;
 }
 
-export function PageHeader({ title, meta, actions, back, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  meta,
+  tags,
+  actions,
+  back,
+  tabs,
+  banner,
+  className,
+}: PageHeaderProps) {
   return (
-    <header className={cn("flex flex-wrap items-end justify-between gap-3", className)}>
-      <div className="min-w-0">
-        {back && <div className="mb-1 text-xs text-muted-foreground">{back}</div>}
-        <h1 className="truncate text-xl font-semibold leading-tight">{title}</h1>
-        {meta && <div className="mt-0.5 text-sm text-muted-foreground">{meta}</div>}
+    <header className={cn("flex flex-col gap-3", className)}>
+      {back && <BackLink>{back}</BackLink>}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <SectionIcon />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="truncate text-xl font-semibold leading-7">{title}</h1>
+            {tags && <div className="flex flex-wrap items-center gap-1">{tags}</div>}
+          </div>
+          {meta && <div className="text-xs text-muted-foreground">{meta}</div>}
+        </div>
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {tabs}
+      {banner}
     </header>
   );
 }
+
+const PAGE = "flex min-h-full flex-col gap-4 px-5 pt-3.5 pb-5";
 
 export function ListPage({
   children,
@@ -37,7 +67,7 @@ export function ListPage({
   ...header
 }: PageHeaderProps & { children: ReactNode }) {
   return (
-    <div className={cn("flex min-h-full flex-col gap-4 p-4 md:p-6", className)}>
+    <div className={cn(PAGE, className)}>
       <PageHeader {...header} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
@@ -50,7 +80,7 @@ export function EntityPage({
   ...header
 }: PageHeaderProps & { children: ReactNode }) {
   return (
-    <div className={cn("flex min-h-full flex-col gap-4 p-4 md:p-6", className)}>
+    <div className={cn(PAGE, className)}>
       {header.title !== undefined && <PageHeader {...header} />}
       <div className="min-w-0 flex-1">{children}</div>
     </div>
@@ -72,13 +102,13 @@ export function WorkPage({
   ...header
 }: WorkPageProps) {
   return (
-    <div className={cn("flex h-full min-h-0 flex-col gap-4 p-4 md:p-6", className)}>
+    <div className={cn("flex h-full min-h-0 flex-col gap-4 px-5 pt-3.5 pb-5", className)}>
       <PageHeader {...header} />
       <div
         className="grid min-h-0 flex-1 gap-4"
         style={{ gridTemplateColumns: `${leftWidth} minmax(0, 1fr)` }}
       >
-        <section className="min-h-0 overflow-auto rounded-md border" aria-label="List">
+        <section className="min-h-0 overflow-auto rounded-lg border" aria-label="List">
           {left}
         </section>
         <section className="min-h-0 overflow-auto" aria-label="Detail">

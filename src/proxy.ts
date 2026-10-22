@@ -11,5 +11,8 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // /print/* is opened by the PDF renderer with a print token (kernel/pdf), never by a session.
-  matcher: ["/((?!api|_next/static|_next/image|login|register|favicon.ico|print/).*)"],
+  // icon.svg (the favicon) and brand/ (the logos) are public: the login page shows them too.
+  matcher: [
+    "/((?!api|_next/static|_next/image|login|register|favicon.ico|icon.svg|brand/|print/).*)",
+  ],
 };

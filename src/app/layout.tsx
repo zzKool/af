@@ -1,21 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
+// D40: the system font stack (globals.css) — no next/font, nothing downloaded in any environment.
+// The favicon is `app/icon.svg` (the AF sign, public/brand/af-sign.svg).
 export const metadata: Metadata = {
-  title: "DefterFab",
-  description: "Solo Swedish AB consultant business management",
+  title: "AF",
+  description: "AnalyticsFab — business administration",
 };
 
 export default function RootLayout({
@@ -25,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="antialiased">
         {children}
         <Toaster position="bottom-right" visibleToasts={3} />
       </body>
