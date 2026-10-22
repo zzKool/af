@@ -2,7 +2,7 @@
 
 <!-- one paragraph: module, behaviour added or changed, spec folder -->
 
-Spec: `specs/<module>/` · Decision log touched: no / D__
+Lane (D45): FULL / LIGHT / DIRECT · Spec: `specs/<module>/` · Decision log touched: no / D__
 
 ## Definition of done (constitution §4)
 
