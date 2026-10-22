@@ -12,6 +12,7 @@ import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
+import { isoDate, money, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as contracts from "@/modules/contracts";
 import { RATE_UNITS, type RateUnit } from "@/modules/contracts";
@@ -53,13 +54,10 @@ const notFound = (what: string, id: string): AppError => ({
 
 // --- Zod schemas (the boundary) ---
 
-const isoDate = z.string().date();
-const money2 = z.string().regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals");
 const percent = z
   .string()
   .regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals")
   .refine((v) => Number(v) <= 100, "At most 100");
-const uuid = z.string().uuid();
 
 export const lineInputSchema = z.object({
   description: z.string().trim().min(1, "Description is required").max(5000),
@@ -68,9 +66,9 @@ export const lineInputSchema = z.object({
     .regex(/^\d+(\.\d{1,4})?$/, "Quantity: digits with up to 4 decimals")
     .refine((v) => Number(v) <= 999999.9999, "Quantity too large"),
   unit: z.enum(RATE_UNITS as [RateUnit, ...RateUnit[]]).default("day"),
-  unitPrice: money2,
+  unitPrice: money,
   discountPercent: percent.nullable().optional(),
-  discountFixed: money2.nullable().optional(),
+  discountFixed: money.nullable().optional(),
   vatRate: percent,
   periodStart: isoDate.nullable().optional(),
   periodEnd: isoDate.nullable().optional(),

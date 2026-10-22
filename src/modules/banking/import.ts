@@ -9,6 +9,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import type { StorageService } from "@/kernel/storage/storage";
+import { uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
 import { accountLabel } from "./bank-accounts";
@@ -35,7 +36,7 @@ const notFound = (what: string, id: string): AppError => ({
 });
 
 export const importCsvSchema = z.object({
-  bankAccountId: z.string().uuid(),
+  bankAccountId: uuid,
   fileName: z.string().trim().min(1).max(255),
 });
 

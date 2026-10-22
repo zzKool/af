@@ -7,6 +7,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { enqueue } from "@/kernel/jobs/queue";
+import { uuid } from "@/kernel/validation/scalars";
 import { buildPackageJob } from "./jobs/build-package";
 import { buildRequestSchema, requestBuild } from "./package";
 import { isPackagePeriod } from "./period";
@@ -44,7 +45,7 @@ export const listPackageBuildsAction = authedAction
   });
 
 export const getPackageBuildAction = authedAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "getPackageBuild" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "accountant_package")) return forbidden;

@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { isoDate, uuid } from "@/kernel/validation/scalars";
 import { findSupplierInvoiceDuplicates } from "@/modules/supplier-invoices/duplicates";
 import * as payments from "@/modules/supplier-invoices/payments";
 import {
@@ -32,8 +33,6 @@ const forbidden = {
     retryable: false,
   },
 };
-const uuid = z.string().uuid();
-const isoDate = z.string().date();
 const listOptions = z.object({ query: listQuerySchema, groupId: uuid.optional() });
 
 // --- reads (the accountant may read) ---
@@ -134,8 +133,8 @@ export const inputVatForPeriodAction = authedAction
 export const checkSupplierInvoiceDuplicatesAction = ownerAction
   .schema(
     z.object({
-      documentId: z.string().uuid().optional(),
-      partnerId: z.string().uuid().nullable().optional(),
+      documentId: uuid.optional(),
+      partnerId: uuid.nullable().optional(),
       invoiceNumber: z.string().max(100).nullable().optional(),
       amount: z.string().max(20).nullable().optional(),
       currency: z.string().length(3).nullable().optional(),

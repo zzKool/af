@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { uuid } from "@/kernel/validation/scalars";
 import * as journal from "@/modules/journal/journal";
 import {
   distinctJournalValues,
@@ -26,7 +27,7 @@ const forbidden = {
 // --- reads (the accountant may read) ---
 
 export const getJournalEntryAction = authedAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "getJournalEntry" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "journal_entry")) return forbidden;
@@ -67,7 +68,7 @@ export const createManualEntryAction = ownerAction
   });
 
 export const categoriseEntryAction = ownerAction
-  .schema(journal.categoriseSchema.extend({ id: z.string().uuid() }))
+  .schema(journal.categoriseSchema.extend({ id: uuid }))
   .metadata({ name: "categoriseJournalEntry" })
   .action(async ({ ctx, parsedInput }) => {
     const { id, ...facts } = parsedInput;
@@ -75,7 +76,7 @@ export const categoriseEntryAction = ownerAction
   });
 
 export const deleteManualEntryAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteManualJournalEntry" })
   .action(async ({ ctx, parsedInput }) => {
     return journal.deleteManualEntry(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
