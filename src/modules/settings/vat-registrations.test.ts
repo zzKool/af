@@ -199,8 +199,7 @@ describe("vat registrations service", () => {
     const regs = await withTenantTransaction(prisma, tenantId, async (tx) => {
       return vatService.getVatRegistrations(tx, owner.callerIdentity);
     });
-    const schedule = regs.data?.[0].rateSchedule as { rates: number[] };
-    expect(schedule.rates).toEqual([25, 12, 6, 0]);
+    expect(regs.data?.[0].rateSchedule?.rates).toEqual([25, 12, 6, 0]);
   });
 
   it("update rate schedule to null: clears it, reads back null", async () => {
@@ -225,6 +224,37 @@ describe("vat registrations service", () => {
       vatService.getVatRegistrations(tx, owner.callerIdentity),
     );
     expect(regs.data?.[0].rateSchedule).toBeNull();
+    // one null only (V6): cleared = SQL NULL, the same as "never set" on create — not JSON 'null'
+    const { rows } = await adminPool.query(
+      "SELECT rate_schedule IS NULL AS sql_null FROM vat_registrations WHERE id = $1",
+      [created.data!.id],
+    );
+    expect(rows[0].sql_null).toBe(true);
+  });
+
+  it("V6: the pre-#62 write (plain null) stored JSON 'null' — the two nulls are real in old data", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const created = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "CH",
+        vatNumber: "CHE-123.456.789 MWST",
+        rateSchedule: { rates: [8.1] },
+      }),
+    );
+    // the old `updateData.rateSchedule = input.rateSchedule as any` with null
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      tx.vatRegistration.update({
+        where: { id: created.data!.id },
+        // biome-ignore lint/suspicious/noExplicitAny: reproduces the pre-#62 write on purpose
+        data: { rateSchedule: null as any },
+      }),
+    );
+    const { rows } = await adminPool.query(
+      "SELECT rate_schedule IS NULL AS sql_null FROM vat_registrations WHERE id = $1",
+      [created.data!.id],
+    );
+    expect(rows[0].sql_null).toBe(false); // JSON null, not SQL NULL — the read side maps both to null
   });
 
   it("delete: remove registration, verify audit captures old state", async () => {
@@ -562,5 +592,152 @@ describe("parseRateInput", () => {
 
   it("filters NaN values from mixed input", () => {
     expect(parseRateInput("25, abc, 12")).toEqual([25, 12]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Delete refused while used (lesson 19) — the real counters of invoices and exports, wired as in
+// src/instrumentation.ts
+// ─────────────────────────────────────────────────────────────
+describe("delete of a registration in use", () => {
+  beforeAll(async () => {
+    const invoices = await import("@/modules/invoices");
+    const exportsModule = await import("@/modules/exports");
+    vatService.setVatRegistrationUsage("invoices", invoices.vatRegistrationUsageFromInvoices);
+    vatService.setVatRegistrationUsage(
+      "declarations",
+      async (tx, id) =>
+        (await exportsModule.listDeclarations(tx)).filter((d) => d.vatRegistrationId === id).length,
+    );
+  });
+
+  async function registration(owner: Awaited<ReturnType<typeof createAuthenticatedContext>>) {
+    const created = await withTenantTransaction(prisma, owner.callerIdentity.tenantId, (tx) =>
+      vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "CH",
+        vatNumber: "CHE-123.456.789 MWST",
+        rateSchedule: { rates: [8.1, 2.6, 3.8] },
+      }),
+    );
+    return created.data!.id;
+  }
+
+  async function remaining(tenantId: string): Promise<number> {
+    const { rows } = await adminPool.query(
+      "SELECT count(*)::int AS n FROM vat_registrations WHERE tenant_id = $1",
+      [tenantId],
+    );
+    return rows[0].n;
+  }
+
+  it("a draft invoice carrying it → refused, the row stays", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const id = await registration(owner);
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      tx.invoice.create({
+        data: {
+          tenantId,
+          type: "invoice",
+          partnerId: crypto.randomUUID(),
+          vatRegistrationId: id,
+          issueDate: new Date("2026-10-01"),
+          currency: "CHF",
+          createdBy: owner.callerIdentity.userId,
+        },
+      }),
+    );
+
+    const result = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.deleteVatRegistration(tx, owner.callerIdentity, noopAudit, id),
+    );
+    expect(result.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    expect(result.error?.details).toEqual({ invoices: 1, declarations: 0 });
+    expect(await remaining(tenantId)).toBe(1);
+  });
+
+  it("a declaration carrying it → refused, also through the action", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const id = await registration(owner);
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      tx.swissVatDeclaration.create({
+        data: {
+          tenantId,
+          vatRegistrationId: id,
+          period: "CH 2026/Q3",
+          createdBy: owner.callerIdentity.userId,
+        },
+      }),
+    );
+
+    mockHeaders = owner.headers;
+    const result = await deleteVatAction({ id });
+    expect(result?.data?.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    expect(result?.data?.error?.details).toEqual({ invoices: 0, declarations: 1 });
+    expect(await remaining(tenantId)).toBe(1);
+  });
+
+  it("another registration's invoice does not block it → deleted", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const used = await registration(owner);
+    const unused = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "SE",
+        vatNumber: "SE556677889001",
+      }),
+    );
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      tx.invoice.create({
+        data: {
+          tenantId,
+          type: "invoice",
+          partnerId: crypto.randomUUID(),
+          vatRegistrationId: used,
+          issueDate: new Date("2026-10-01"),
+          currency: "CHF",
+          createdBy: owner.callerIdentity.userId,
+        },
+      }),
+    );
+
+    const result = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.deleteVatRegistration(tx, owner.callerIdentity, noopAudit, unused.data!.id),
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.data?.deleted).toBe(true);
+    expect(await remaining(tenantId)).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// rate_schedule parsed on read (lesson 19 / 29): a bad stored row reads as null, never cast
+// ─────────────────────────────────────────────────────────────
+describe("rate_schedule read side", () => {
+  it.each([
+    ["JSON null", "'null'::jsonb"],
+    ["a bare array", "'[25, 12]'::jsonb"],
+    ["a rate as text", `'{"rates":["25"]}'::jsonb`],
+    ["a rate above 100", `'{"rates":[125]}'::jsonb`],
+    ["an extra key", `'{"rates":[25],"label":"x"}'::jsonb`],
+  ])("%s stored → rateSchedule null", async (_label, sql) => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const created = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "SE",
+        vatNumber: "SE556677889001",
+        rateSchedule: { rates: [25] },
+      }),
+    );
+    await adminPool.query(`UPDATE vat_registrations SET rate_schedule = ${sql} WHERE id = $1`, [
+      created.data!.id,
+    ]);
+
+    const regs = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.getVatRegistrations(tx, owner.callerIdentity),
+    );
+    expect(regs.data?.[0].rateSchedule).toBeNull();
   });
 });

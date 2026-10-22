@@ -14,6 +14,8 @@ export async function register() {
         { expenseJobs },
         { traktamenteJobs },
         { packageJobs },
+        settings,
+        exportsModule,
       ] = await Promise.all([
         import("@/kernel/jobs/queue"),
         import("@/modules/documents"),
@@ -23,9 +25,19 @@ export async function register() {
         import("@/modules/expenses"),
         import("@/modules/traktamente"),
         import("@/modules/package"),
+        import("@/modules/settings"),
+        import("@/modules/exports"),
       ]);
       // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted)
       contracts.setRateUsage(invoices.rateUsageFromInvoiceLines);
+      // lesson 19: a VAT registration an invoice or a declaration carries cannot be deleted
+      settings.setVatRegistrationUsage("invoices", invoices.vatRegistrationUsageFromInvoices);
+      settings.setVatRegistrationUsage(
+        "declarations",
+        async (tx, id) =>
+          (await exportsModule.listDeclarations(tx)).filter((d) => d.vatRegistrationId === id)
+            .length,
+      );
       await startJobs(
         [
           ...documentJobs,
