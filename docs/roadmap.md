@@ -62,12 +62,20 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 **F03 — A2 Members** (`modules/settings`, spec first: `/speckit-specify`; touches schema, nav, i18n). Then the documents convergence (`specs/documents/tasks.md` Phase 3, T021–T027 — S each, one builder; T019 / T020 once O1 / O2 are answered), then B with the owner. The dispatch table is [[features]].
 
+The audit (2026-10-22) added F56–F67 to [[features]] in the order to do them. **F56, F57, F59, F60 give wrong figures today** (the Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback): S–M each, different modules, no shared file — they can run in parallel and come before new features. F58 waits for O3.
+
 ## Open decisions (the owner's)
 
 Found by `/speckit-converge` on `specs/documents` (2026-10-22): the documents spec and the module specs written the same day disagree. Answer → D35 / D36 in [[feature-inventory]], then T019 / T020.
 
 - **O1 — Same supplier, same invoice number twice.** Documents US3-2 says *Create anyway* with a note creates it; supplier-invoices FR-001 says refused, and the database holds the number unique per supplier. Today the dialog offers *Create anyway*, then the save fails. *Recommended:* keep it unique (a supplier never reissues a number; a corrected copy is the same invoice or a credit note) — the panel shows that match as a refusal with a link; *Create anyway* stays for the same file and the ±1 % / ±7 days matches. *Other option:* drop the unique index (one migration) and let a noted duplicate through.
 - **O2 — Deleting what a document became.** Documents FR-007 says deleting the expense / supplier invoice removes its `created_from` link and the document is back in the inbox; the expense and supplier-invoice specs refuse any delete while linked (a supplier invoice is cancelled instead). Today the delete is refused. *Recommended:* a delete whose only link is `created_from` removes it and the document returns to the inbox as *ready* (keeps the key it got); any other link still blocks. *Other option:* keep refusing, and the refusal says how to unlink first.
+
+Found by the read-only audit (2026-10-22, [[lessons]] *Code — the audit*): the code and the [[constitution]] disagree. Answer → D37–D39 in [[feature-inventory]], then F58 / F62 / F67.
+
+- **O3 — Money facts on open entities.** Constitution §6: amount, base, rate written once. Expenses and supplier invoices rewrite them while *open* (edit before payment; *attach* / *detach* rewrite base, rate, `paid_amount`), as their specs (D26) allow. *Recommended:* amend §6 — an entity's money facts are a draft until its first payment link or settlement line, then locked (a trigger, as for bank rows); the journal's bank base stays written once. F58 then takes its small fix. *Other option:* keep §6 literal — paid amount and bank base derived from the link at read time, the entity never rewritten (F58 grows to L).
+- **O4 — Two real cross-module foreign keys.** `trips.group_id` and `supplier_invoices.group_id` → `expense_groups` (Prisma relations, Cascade on trips); the constitution says validated UUIDs. *Recommended:* amend the rule — expense groups are a shared reference others may point at; reads still go through `expenses.getGroup`. *Other option:* drop both relations (two migrations).
+- **O5 — Base currency in two places.** `tenant.currency` is editable in the company profile, nothing reads it; every module uses `BASE_CURRENCY = "SEK"`. *Recommended:* take it off the form, keep the column (§4: a constant until two tenants differ). *Other option:* read the base currency from the tenant (a setting for one tenant).
 
 Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
 
