@@ -65,12 +65,8 @@ test.describe("Document review page — owner", () => {
   test("document detail page has back navigation", async ({ page }) => {
     await openOwnDocument(page);
 
-    // Click back link — by role, first: during a streamed re-render the page briefly holds two copies
-    // (main red on #81's merge, strict-mode violation; green on the PR's own run)
-    await page
-      .getByRole("link", { name: /Back to Documents/ })
-      .first()
-      .click();
+    // by role: the breadcrumb also says "Documents" (D40 shell)
+    await page.getByRole("link", { name: /Back to Documents/ }).click();
     await expect(page).toHaveURL(/\/documents$/);
   });
 

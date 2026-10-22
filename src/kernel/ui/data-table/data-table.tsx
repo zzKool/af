@@ -18,6 +18,7 @@ import {
   MoreVertical,
   Search,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -130,6 +131,9 @@ function safeMoney(amount: string, currency?: string | null): string {
   }
 }
 
+/** Elements inside a row that handle their own click — the row's open / navigate ignores clicks on them. */
+const INTERACTIVE = "a, button, input, select, textarea, label, [role=checkbox], [role=menuitem]";
+
 export function DataTable<Row extends { id: string }>({
   tableKey,
   columns: allColumns,
@@ -151,6 +155,7 @@ export function DataTable<Row extends { id: string }>({
   context,
 }: DataTableProps<Row>) {
   const t = useT();
+  const router = useRouter();
   const { query, isPending } = state;
   const tableLayout = useTableLayout(tableKey, allColumns);
   const { hidden, layout } = tableLayout;
@@ -484,9 +489,16 @@ export function DataTable<Row extends { id: string }>({
                   data-state={isSelected ? "selected" : undefined}
                   style={{ height: rowHeight }}
                   className={cn("border-b border-subtle", clickable && "cursor-pointer")}
-                  onClick={() => {
+                  onClick={(e) => {
+                    // a link, button or field inside the row does its own thing — the row must not also open
+                    // (a key link + the row's navigation = two navigations, the second a full reload)
+                    if ((e.target as Element).closest(INTERACTIVE)) return;
                     if (onRowClick) onRowClick(row);
-                    else if (rowHref) window.location.assign(rowHref(row));
+                    else if (rowHref) {
+                      const href = rowHref(row);
+                      if (e.metaKey || e.ctrlKey) window.open(href, "_blank", "noopener");
+                      else router.push(href);
+                    }
                   }}
                 >
                   {selectable && (

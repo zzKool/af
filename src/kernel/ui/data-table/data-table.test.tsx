@@ -2,6 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { DataTable } from "./data-table";
+
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 import { describeFilter } from "./filter-bar";
 import { compress, presetRange } from "./filters/date-filter";
 import { SAVE_DEBOUNCE_MS, TablePreferencesProvider } from "./preferences";
@@ -131,6 +135,28 @@ describe("DataTable", () => {
     fireEvent.click(await screen.findByText("Delete Valtech"));
     expect(remove).toHaveBeenCalledTimes(1);
     expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it("rowHref: a row click navigates in the app; a link inside the row navigates alone (no second, full reload)", () => {
+    push.mockClear();
+    const linked: DataTableColumn<(typeof rows)[number]>[] = columns.map((c, i) =>
+      i === 0 ? { ...c, cell: (row) => <a href={`/x/${row.id}`}>{`key ${row.id}`}</a> } : c,
+    );
+    render(
+      <DataTable
+        tableKey="t"
+        columns={linked}
+        result={{ rows, total: 2 }}
+        state={makeState()}
+        rowHref={(row) => `/x/${row.id}`}
+      />,
+    );
+    const link = screen.getByText(`key ${rows[0].id}`);
+    link.addEventListener("click", (e) => e.preventDefault()); // jsdom: no real navigation
+    fireEvent.click(link);
+    expect(push).not.toHaveBeenCalled();
+    fireEvent.click(link.closest("tr")?.querySelectorAll("td")[1] as HTMLElement);
+    expect(push).toHaveBeenCalledWith(`/x/${rows[0].id}`);
   });
 
   it("the enum header filter loads distinct values from the source and applies an `in` filter", async () => {
