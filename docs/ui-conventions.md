@@ -39,7 +39,9 @@ Chosen by the owner on 2026-10-22 from four mockups (A Ledger · B Workbench · 
 - Logo: `public/brand/af-logo.svg` (full, 1143 × 252) and `public/brand/af-sign.svg` (the sign, 167 × 252); `-dark` variants recolour the navy for dark mode. Full logo in the top bar at 24 px high; the sign is the favicon / app icon and the collapsed-sidebar mark. Never re-type the paths; never recolour beyond the two variants.
 - Brand colours: navy `#2C3241`, crimson `#CD1F3D`. Crimson appears in the logo and the **+ New** button only — it is not the action colour and not an error colour.
 
-### Tokens (CSS variables on `:root`, redefined under `@media (prefers-color-scheme: dark)`, mapped onto the shadcn names in `globals.css`)
+### Tokens (CSS variables on `:root`, redefined for dark — from the OS unless the user forced light, or forced dark (D43) — mapped onto the shadcn names in `globals.css`)
+
+Light / dark: System (the default) follows the OS; My Preferences can force Light or Dark (D43) — `<html data-theme="light|dark">`, set in the first HTML from the `af-theme` cookie. Colour through tokens and the `dark:` variant only; never `@media (prefers-color-scheme)` or a `<picture>` media query in a component (they ignore the user's choice). The two dark token blocks in `globals.css` stay equal (`kernel/ui/theme.pure.test.ts`).
 
 | token | light | dark | use |
 |---|---|---|---|

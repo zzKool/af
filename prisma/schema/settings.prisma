@@ -64,11 +64,20 @@ model UserPreference {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String   @unique @map("user_id") @db.Uuid // NO Prisma @relation — cross-schema FK, application-level enforcement
   locale    String?  @db.VarChar(10) // BCP 47 tag (e.g., "sv-SE", "en-US"), null = use browser locale
+  theme     ThemePreference? // light / dark; null = follow the system (D43)
   source    String   @default("manual") @db.VarChar(20) // Always "manual" for user preferences — mandatory template compliance
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("user_preferences")
+}
+
+/// The user's colour scheme (D43); no row value = follow the system's light / dark.
+enum ThemePreference {
+  light
+  dark
+
+  @@map("theme_preference")
 }
 
 /// User-scoped table preferences (not tenant-scoped). Access controlled by userId from auth context, not RLS.

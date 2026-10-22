@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { Msg } from "@/kernel/i18n/msg";
+import { parseTheme } from "@/kernel/ui/theme";
 import { MyPreferencesTab } from "@/modules/settings/ui";
 
 export default async function MyPreferencesSettingsPage() {
@@ -14,7 +15,7 @@ export default async function MyPreferencesSettingsPage() {
   // Direct Prisma query — UserPreference is user-scoped, no RLS
   const userPref = await prisma.userPreference.findUnique({
     where: { userId: auth.userId },
-    select: { locale: true },
+    select: { locale: true, theme: true },
   });
 
   return (
@@ -22,7 +23,10 @@ export default async function MyPreferencesSettingsPage() {
       <h1 className="mb-6 text-2xl font-semibold">
         <Msg k="settings.preferences.title" />
       </h1>
-      <MyPreferencesTab initialLocale={userPref?.locale ?? null} />
+      <MyPreferencesTab
+        initialLocale={userPref?.locale ?? null}
+        initialTheme={parseTheme(userPref?.theme)}
+      />
     </div>
   );
 }

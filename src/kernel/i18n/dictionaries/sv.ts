@@ -1518,7 +1518,7 @@ export const sv: Dictionary = {
   "settings.rates.title": "Valutakurser",
   "settings.rates.description": "ECB:s referenskurser — täckning, och hämtning på begäran.",
   "settings.preferences.title": "Mina inställningar",
-  "settings.preferences.description": "Gränssnittets språk.",
+  "settings.preferences.description": "Gränssnittets språk och färger.",
   "settings.preferences.locale": "Språk och format",
   "settings.preferences.localeHint":
     "Gränssnittets språk och hur datum och tal formateras i hela appen.",
@@ -1527,6 +1527,12 @@ export const sv: Dictionary = {
   "settings.preferences.preview": "Förhandsvisning ({locale})",
   "settings.preferences.date": "Datum",
   "settings.preferences.number": "Tal",
+  "settings.preferences.theme": "Färgtema",
+  "settings.preferences.themeHint": "System följer datorns ljusa eller mörka läge.",
+  "settings.preferences.themeSystem": "System",
+  "settings.preferences.themeLight": "Ljust",
+  "settings.preferences.themeDark": "Mörkt",
+  "settings.preferences.themeSaveFailed": "Kunde inte spara färgtemat",
   "settings.preferences.saveFailed": "Kunde inte spara språket",
 
   "settings.preferences.saved": "Inställningar sparade",
