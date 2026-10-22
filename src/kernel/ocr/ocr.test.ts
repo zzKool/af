@@ -203,15 +203,15 @@ describe("extractBlobPath", () => {
   });
 
   it("extracts path from Azure URL", () => {
-    expect(
-      extractBlobPath("https://defterfab.blob.core.windows.net/documents/abc-123/file.pdf"),
-    ).toBe("abc-123/file.pdf");
+    expect(extractBlobPath("https://afdocs.blob.core.windows.net/documents/abc-123/file.pdf")).toBe(
+      "abc-123/file.pdf",
+    );
   });
 
   it("strips query params from URL", () => {
     expect(
       extractBlobPath(
-        "https://defterfab.blob.core.windows.net/documents/abc-123/file.pdf?sv=2024&sig=xxx",
+        "https://afdocs.blob.core.windows.net/documents/abc-123/file.pdf?sv=2024&sig=xxx",
       ),
     ).toBe("abc-123/file.pdf");
   });

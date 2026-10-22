@@ -1,6 +1,6 @@
 # Local Environment Setup
 
-Quick guide to get DefterFab running locally from scratch, with Docker. In a cloud agent session (no Docker daemon, Prisma engine / Google Fonts / Playwright downloads blocked) run `scripts/dev-env.sh` instead — see `scripts/dev-env.md`.
+Quick guide to get AF running locally from scratch, with Docker. In a cloud agent session (no Docker daemon, Prisma engine / Google Fonts / Playwright downloads blocked) run `scripts/dev-env.sh` instead — see `scripts/dev-env.md`.
 
 ## Prerequisites
 
@@ -13,8 +13,8 @@ Quick guide to get DefterFab running locally from scratch, with Docker. In a clo
 ## 1. Clone & install
 
 ```bash
-git clone git@github.com:zzKool/defterfab.git
-cd defterfab
+git clone git@github.com:zzKool/af.git
+cd af
 git checkout develop
 npm install
 ```
@@ -135,7 +135,7 @@ Without these, uploads use a mock OCR service that returns fixture data.
 ## Troubleshooting
 
 - **Port 5432 conflict:** Another PostgreSQL instance may be running. Stop it or change the host port in `docker-compose.yml`.
-- **Migration fails with role error:** Make sure `DATABASE_MIGRATION_URL` uses the `defterfab` superuser (not `defterfab_app`).
+- **Migration fails with role error:** Make sure `DATABASE_MIGRATION_URL` uses the `af` superuser (not `defterfab_app`).
 - **Seed fails:** Ensure migrations ran first (`npm run db:migrate`) and the dev server is not running (both use the same DB).
 - **Azurite 403:** Expected for unauthenticated container listing. The service is running correctly.
 - **Docker not found:** Ensure Docker Desktop is installed and running. Verify with `docker compose version`.

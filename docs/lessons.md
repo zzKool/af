@@ -15,6 +15,7 @@
 
 - [ ] **A feature spec that overrides another module's rule must cite that rule.** `/speckit-converge` on documents (2026-10-22) found the documents spec and the supplier-invoices / expenses specs, all written on 2026-10-21, disagreeing twice (an exact invoice number: *Create anyway* vs unique; deleting what a document became: back to the inbox vs refused while linked). The code followed the module specs, the dialog followed the documents spec — a button that always fails. Action: when a spec changes behaviour owned by another module, name that module's FR and say "replaces" or "defers to"; converge every spec once its last PR merges (decided as D35 / D36; the three specs now cite each other).
 - [ ] **`docs/features.md` is the dispatch table**: every feature PR updates its row (status, what is left) — a stale row sends an agent to build what exists.
+- [ ] **A rename has to land before the first migration that names it** (F46, 2026-10-22): `defterfab_app` is created and granted by forward-only migrations, and Postgres role names are cluster-wide, so renaming it later costs a migration that fights the shadow database plus a production env edit — it stays (D41). Action: any new database object name (role, schema, extension) is chosen as final in its first migration.
 
 ## Code
 

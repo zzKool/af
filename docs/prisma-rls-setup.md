@@ -28,10 +28,12 @@ CREATE POLICY tenant_isolation ON <table_name>
 
 | Role | Purpose | Connection |
 |------|---------|------------|
-| `defterfab` (superuser) | Migrations, TRUNCATE, admin ops | `DATABASE_MIGRATION_URL` |
+| `af` (superuser) | Migrations, TRUNCATE, admin ops | `DATABASE_MIGRATION_URL` |
 | `defterfab_app` (app role) | Runtime queries, RLS enforced | `DATABASE_URL` |
 
 The app **never** connects as superuser in production.
+
+The app role keeps its v2 name `defterfab_app` (D41): the applied migrations create and grant it, and role names are cluster-wide, so a rename migration would break `prisma migrate dev`'s shadow replay. New migrations grant to `defterfab_app`.
 
 ## Tenant-Aware Client
 

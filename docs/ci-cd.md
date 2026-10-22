@@ -91,15 +91,15 @@ Sidebar navigation (all items are `<Link>` → `<a>` tags):
 
 ```bash
 # Build image
-docker build -t defterfab .
+docker build -t af .
 
 # Run (connect to local test DB)
 docker run -p 3000:3000 \
-  -e DATABASE_URL=postgresql://defterfab:test@host.docker.internal:5433/defterfab_test \
-  -e DATABASE_MIGRATION_URL=postgresql://defterfab:test@host.docker.internal:5433/defterfab_test \
+  -e DATABASE_URL=postgresql://af:test@host.docker.internal:5433/af_test \
+  -e DATABASE_MIGRATION_URL=postgresql://af:test@host.docker.internal:5433/af_test \
   -e AUTH_SECRET=your-secret-here \
   -e AUTH_URL=http://localhost:3000 \
-  defterfab
+  af
 ```
 
 ### Image Details
@@ -119,9 +119,9 @@ docker run -p 3000:3000 \
 2. Create Azure Container Registry (ACR)
 3. Add GitHub repository secrets:
    - `AZURE_CREDENTIALS` — Service principal JSON
-   - `ACR_LOGIN_SERVER` — e.g., `defterfab.azurecr.io`
+   - `ACR_LOGIN_SERVER` — e.g., `af.azurecr.io`
    - `ACR_USERNAME` / `ACR_PASSWORD` — ACR credentials
-   - `AZURE_RESOURCE_GROUP` — e.g., `defterfab-rg`
+   - `AZURE_RESOURCE_GROUP` — e.g., `af-rg`
    - `PRODUCTION_DATABASE_URL` — Production PostgreSQL connection string
 4. In `ci.yml`, change `if: false` to `if: github.ref == 'refs/heads/main' && github.event_name == 'push'`
 5. Add `main` branch to CI triggers
@@ -140,9 +140,9 @@ Migrations run BEFORE deploying the new image. If migration fails, the old conta
 2. **Redeploy last known good image:**
    ```bash
    az containerapp update \
-     --name defterfab \
-     --resource-group defterfab-rg \
-     --image defterfab.azurecr.io/defterfab:<last-good-sha>
+     --name af \
+     --resource-group af-rg \
+     --image af.azurecr.io/af:<last-good-sha>
    ```
 3. **Verify health:** Check container logs and hit `/login` to confirm app is serving
 4. **Validate data:** Log in as owner, verify tenant data is intact

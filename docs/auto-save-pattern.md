@@ -1,6 +1,6 @@
 # Auto-Save Pattern Reference
 
-Comprehensive guide for building auto-save forms in DefterFab. Consolidates all known edge cases from Epics 3–4.
+Comprehensive guide for building auto-save forms in AF. Consolidates all known edge cases from Epics 3–4.
 
 ## Auto-Save Lifecycle
 

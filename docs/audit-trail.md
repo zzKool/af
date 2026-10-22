@@ -4,7 +4,7 @@ Immutable, tenant-isolated audit trail capturing every mutation with source prov
 
 ## Overview
 
-Every state-changing operation in DefterFab records an audit entry in the `audit_logs` table. This provides a complete, tamper-proof history of all changes for legal compliance and accountability.
+Every state-changing operation in AF records an audit entry in the `audit_logs` table. This provides a complete, tamper-proof history of all changes for legal compliance and accountability.
 
 **Key properties:**
 - **Immutable** — PostgreSQL RULEs silently prevent UPDATE and DELETE operations

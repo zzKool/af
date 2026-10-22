@@ -4,7 +4,7 @@ Tenant profile configuration, tenant switching, and the dual-model pattern for o
 
 ## Tenant ↔ Organization Mapping
 
-DefterFab uses a dual-model pattern where Better Auth manages authentication and membership, while the app manages business data:
+AF uses a dual-model pattern where Better Auth manages authentication and membership, while the app manages business data:
 
 ```mermaid
 graph LR

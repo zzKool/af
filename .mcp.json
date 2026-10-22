@@ -16,7 +16,7 @@
       "command": "uvx",
       "args": ["postgres-mcp", "--access-mode=restricted"],
       "env": {
-        "DATABASE_URI": "postgresql://defterfab:dev@localhost:5432/defterfab_dev"
+        "DATABASE_URI": "postgresql://af:dev@localhost:5432/af_dev"
       }
     }
   }

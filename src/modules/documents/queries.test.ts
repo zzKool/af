@@ -16,8 +16,7 @@ import type { ListQuery } from "@/kernel/list-query/types";
 import { distinctDocumentValues, documentDateHierarchy, listDocuments } from "./queries";
 
 const ADMIN_DATABASE_URL =
-  process.env.DATABASE_TEST_MIGRATION_URL ||
-  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+  process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 
 let adminPool: Pool;
 let tenantId: string;
