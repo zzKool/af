@@ -63,6 +63,7 @@ beforeEach(async () => {
   // ECB reference rates around the owner's January invoice: 1 CHF = 11.1 / 0.926 = 11.987041 SEK
   await adminPool.query(
     `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES
+       ('2026-01-15', 'EUR/SEK', '11.1000'), ('2026-01-15', 'EUR/CHF', '0.9260'),
        ('2026-01-30', 'EUR/SEK', '11.1000'), ('2026-01-30', 'EUR/CHF', '0.9260'),
        ('2026-02-10', 'EUR/SEK', '11.2000'), ('2026-02-10', 'EUR/CHF', '0.9300')`,
   );

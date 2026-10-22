@@ -75,6 +75,16 @@ beforeEach(async () => {
   resetRateLimit();
   mockHeaders = new Headers();
   await seedRates(adminPool);
+  // the March bank days of the payment tests carry their own rate — a fallback is capped at 4 days (F60)
+  for (const [date, rate] of [
+    ["2026-03-20", "10.76"],
+    ["2026-03-25", "10.70"],
+    ["2026-03-26", "10.70"],
+  ])
+    await adminPool.query(
+      `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/SEK', $2), ($1, 'EUR/CHF', 1)`,
+      [date, rate],
+    );
   owner = await setupOwner(adminPool, nordeaFormatId);
   const vendor = await createTestPartner(adminPool, owner.caller.tenantId, owner.caller.userId, {
     name: "Skattepunkten Office Services AB",
