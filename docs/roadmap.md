@@ -61,20 +61,17 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ## Next up
 
 1. **F56 · F57 · F59 · F60 — the wrong figures the audit found** (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
-2. **The owner answers O3 → F58** (a link applied from the linking inbox leaves an expense *awaiting link*).
-3. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36) and F61–F67.
+2. **F58** (O3 decided as D37: the small fix) and **F39's restyle** (shell + kernel kit only, no module folders — it holds nav + i18n) — alongside round 1, no shared file in common.
+3. **F70 — base currency per tenant** (D39): the kernel + settings PR first, then one PR per module — after round 1, since it touches the same modules.
+4. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36), F61–F67 and F69.
 
 F03 Members is *later*: the owner will not invite the accountant into the app for now (2026-10-22). The dispatch table is [[features]].
 
 ## Open decisions (the owner's)
 
-Found by the read-only audit (2026-10-22, [[lessons]] *Code — the audit*): the code and the [[constitution]] disagree. Answer → D37–D39 in [[feature-inventory]], then F58 / F62 / F67.
+None open.
 
-- **O3 — Money facts on open entities.** Constitution §6: amount, base, rate written once. Expenses and supplier invoices rewrite them while *open* (edit before payment; *attach* / *detach* rewrite base, rate, `paid_amount`), as their specs (D26) allow. *Recommended:* amend §6 — an entity's money facts are a draft until its first payment link or settlement line, then locked (a trigger, as for bank rows); the journal's bank base stays written once. F58 then takes its small fix. *Other option:* keep §6 literal — paid amount and bank base derived from the link at read time, the entity never rewritten (F58 grows to L).
-- **O4 — Two real cross-module foreign keys.** `trips.group_id` and `supplier_invoices.group_id` → `expense_groups` (Prisma relations, Cascade on trips); the constitution says validated UUIDs. *Recommended:* amend the rule — expense groups are a shared reference others may point at; reads still go through `expenses.getGroup`. *Other option:* drop both relations (two migrations).
-- **O5 — Base currency in two places.** `tenant.currency` is editable in the company profile, nothing reads it; every module uses `BASE_CURRENCY = "SEK"`. *Recommended:* take it off the form, keep the column (§4: a constant until two tenants differ). *Other option:* read the base currency from the tenant (a setting for one tenant).
-
-Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
+Decided 2026-10-22 (the audit's O3–O5, constitution 1.3): an open expense / supplier invoice's money facts are a draft until its first payment, then locked (D37 → F58, F62); `expense_groups` is a shared reference other modules may FK to (D38); **each tenant has its own base currency**, locked once it has money (D39 → F70). Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
 
 ## How we work
 

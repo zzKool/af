@@ -21,9 +21,9 @@ Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 ·
 - `src/kernel/*` (auth + `can()`, tenancy, audit, money, clock, errors, logging, storage, ocr, jobs, pdf, ui, i18n, nav, stores) and `src/modules/<name>/` (`<entity>.ts` service, `<entity>.actions.ts`, `queries.ts`, `components/`, `stores/`, `jobs/`, tests, `index.ts`). Models in `prisma/schema/<name>.prisma`. `src/app/` is routes only; `src/components/ui` + `src/lib/utils.ts` are the shadcn kernel kit. Map: `docs/feature-folders.md`.
 - A module imports `kernel/*` and other modules' `index.ts` only. `index.ts` exposes DTOs, never Prisma types. Guard test enforces.
 - Hexagonal: actions → services → db. Services never import `next/*` or components; they take a tenant-scoped `tx` + `CallerIdentity` and return `ServiceResult`; actions never throw, they return `AppError`.
-- Multi-tenant via RLS (`SET LOCAL app.tenant_id`). Cross-module references are validated UUIDs, not cross-table FKs.
+- Multi-tenant via RLS (`SET LOCAL app.tenant_id`). Cross-module references are validated UUIDs, not cross-table FKs — except the shared reference `expense_groups` (D38).
 - `modules/linking` owns the `link` table; modules register as `linkable`. Suggestions, graph, exports are read models.
-- Money: Decimal in services, number only at the display boundary. Amount + currency + SEK base + rate + rate source written once, never updated.
+- Money: Decimal in services, number only at the display boundary. Amount + currency + base (the tenant's base currency, D39) + rate + rate source written once, never updated — an open expense / supplier invoice is a draft until its first payment (D37).
 - Statuses (paid, refunded, linked, due) are derived, never typed.
 - Azure SDKs only inside `kernel/storage` and `kernel/ocr`. Environment differences are env vars only; the same image runs locally, on the homelab and on Azure; nothing assumes continuous uptime.
 

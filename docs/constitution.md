@@ -1,6 +1,6 @@
 # AF — constitution
 
-Version 1.2 · 2026-10-20 · The rules every spec, agent and PR in this repo obeys. (1.1: layout amended for Prisma's single schema folder and the shadcn `components/ui` location — item 3a. 1.2: two module surfaces `index.ts` / `ui.ts`, `queries.ts` as the named read API, `…Action` naming — items 3b/3d.) Changes to this file are PRs of their own.
+Version 1.3 · 2026-10-22 · The rules every spec, agent and PR in this repo obeys. (1.1: layout amended for Prisma's single schema folder and the shadcn `components/ui` location — item 3a. 1.2: two module surfaces `index.ts` / `ui.ts`, `queries.ts` as the named read API, `…Action` naming — items 3b/3d. 1.3: the owner's answers to O3–O5 — §1.4 the base currency is a tenant's (D39), §1.6 money facts of an open entity are a draft until its first payment (D37), §2 expense groups are a shared reference (D38).) Changes to this file are PRs of their own.
 
 Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mapping.md` (business rules), `phase-0.md` (current todo).
 
@@ -11,9 +11,9 @@ Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mappin
 1. **The accountant books; the app proves.** AF organises documents, imports bank lines, categorises, links every transaction to its justification and produces a monthly package. No double-entry engine, no statutory statements.
 2. **Linking is the product.** The `link` table is the single source of truth for relationships. Everything above it (suggestions, graph, exports, dashboards) is a disposable read model. Nothing below it may be deleted while linked.
 3. **Simplify the mechanism, never the capability.** A feature from v1, v2 or the Excel is kept unless the inventory says *drop*; what changes is how it is built.
-4. **A setting exists only when two tenants need different values today.** Otherwise it is a constant in code (document prefixes, invoice series format, number formats).
+4. **A setting exists only when two tenants need different values today.** Otherwise it is a constant in code (document prefixes, invoice series format, number formats). One exception by the owner's decision (D39): the **base currency** is a tenant's own (`tenants.currency`), chosen at creation and locked once the tenant has a money fact.
 5. **Derived, never typed.** Paid / to refund / refunded / linked / due are computed from links and dates. No status column a human fills in.
-6. **Immutable money facts.** Amount, currency, SEK base, rate and rate source are written once per entry and never updated; corrections are new entries.
+6. **Immutable money facts.** Amount, currency, base (in the tenant's base currency), rate and rate source are written once per entry and never updated; corrections are new entries. A bank row's journal entry is written once at import. An **expense or supplier invoice** is a draft while it is open: its money facts may change (edit, *attach* / *detach* of the paying bank row) until its **first payment link or settlement line**, then they are locked by a trigger, as bank rows are (D37).
 7. **Build for one, architect for many.** One real tenant and one real user today. RLS, roles and `can()` exist from day one; their UI polish does not.
 8. **Local first, cloud agnostic.** The same image runs on a laptop, the homelab and Azure. Environment differences live in env vars only.
 9. **Nothing assumes continuous uptime.** The app may be scaled to zero for weeks. Jobs are queued in Postgres and resumable; scheduled work catches up on start.
@@ -57,7 +57,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod (field scalars — `uuid`, `isoDate`, `money`, `positiveMoney`, `basCode` — from `kernel/validation/scalars`, never redeclared), call the service, return `{ data | error: AppError }`.
 - Every mutation on a financial or linked entity writes an audit row with source provenance.
 - A module that can be linked exports `linkable: { type, exists(id), summary(id), amount(id) }` and registers it with `modules/linking`.
-- Cross-module references are UUIDs validated through the target module's `index.ts`, not cross-table FKs (RLS blocks them).
+- Cross-module references are UUIDs validated through the target module's `index.ts`, not cross-table FKs (RLS blocks them). **Shared references** are the named exception — a table other modules may point at with a real FK: today only `expense_groups` (from `traktamente.trips.group_id` and `supplier_invoices.group_id`, D38). Reads still go through the owner's `index.ts` (`expenses.getGroup`), never a Prisma relation include across modules; adding a shared reference is a constitution PR.
 
 ### Linking invariants — in the database and in the service
 - One writer: only `modules/linking` inserts or deletes rows in `link`.
