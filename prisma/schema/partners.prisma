@@ -31,8 +31,31 @@ model Partner {
 
   contracts         Contract[] @relation("PartnerContracts")
   employeeContracts Contract[] @relation("EmployeeContracts")
+  contacts          PartnerContact[]
 
   @@unique([tenantId, orgNumber], map: "idx_partners_tenant_org") // created as a partial index (WHERE org_number IS NOT NULL) in the migration
   @@unique([tenantId, shortCode], map: "idx_partners_tenant_short_code") // partial index (WHERE short_code IS NOT NULL)
   @@map("partners")
+}
+
+/// A contact person of a partner (F08, specs/partners/spec.md): name, role, e-mail, phone. Not linkable;
+/// deleted with its partner (intra-module FK, same tenant).
+model PartnerContact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  partnerId String   @map("partner_id") @db.Uuid
+  name      String   @db.VarChar(200)
+  role      String?  @db.VarChar(100)
+  email     String?  @db.VarChar(254)
+  phone     String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy String   @map("created_by") @db.Uuid
+  source    String   @default("web") @db.VarChar(20)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, partnerId], map: "idx_partner_contacts_tenant_partner")
+  @@map("partner_contacts")
 }

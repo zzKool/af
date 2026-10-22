@@ -17,6 +17,10 @@ import type { Currency } from "@/kernel/nav/constants";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { ContractList, type ContractRow } from "@/modules/contracts/ui";
 import { GraphLink } from "@/modules/linking/ui";
+import {
+  type PartnerContactRow,
+  PartnerContacts,
+} from "@/modules/partners/components/partner-contacts";
 import { type PartnerData, PartnerForm } from "@/modules/partners/components/partner-form";
 import {
   deactivatePartnerAction,
@@ -48,6 +52,7 @@ export type PartnerJournalRow = {
 interface PartnerDetailTabsProps {
   partner: PartnerData;
   contracts: ContractRow[];
+  contacts: PartnerContactRow[];
   vatRegistrations: VatOption[];
   employeePartners: EmployeeOption[];
   basOptions: BasOption[];
@@ -59,6 +64,7 @@ interface PartnerDetailTabsProps {
 export function PartnerDetailTabs({
   partner,
   contracts,
+  contacts,
   vatRegistrations,
   employeePartners,
   basOptions,
@@ -70,6 +76,7 @@ export function PartnerDetailTabs({
   const router = useRouter();
   const [isActive, setIsActive] = useState(partner.isActive);
   const [displayName, setDisplayName] = useState(partner.name);
+  const [contactCount, setContactCount] = useState(contacts.length);
   const { executeAsync: execDeactivate } = useAction(deactivatePartnerAction);
   const { executeAsync: execReactivate } = useAction(reactivatePartnerAction);
 
@@ -148,6 +155,9 @@ export function PartnerDetailTabs({
           <TabsTrigger value="contracts">
             {t("partners.tab.contracts", { count: contracts.length })}
           </TabsTrigger>
+          <TabsTrigger value="contacts">
+            {t("partners.tab.contacts", { count: contactCount })}
+          </TabsTrigger>
           <TabsTrigger value="transactions">
             {t("partners.tab.transactionsCount", { count: journal.total })}
           </TabsTrigger>
@@ -174,6 +184,10 @@ export function PartnerDetailTabs({
             <div>
               <dt className="text-muted-foreground">{t("partners.overview.totalContracts")}</dt>
               <dd className="font-medium">{contracts.length}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">{t("partners.overview.contacts")}</dt>
+              <dd className="font-medium">{contactCount}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">{t("partners.tab.transactions")}</dt>
@@ -216,6 +230,14 @@ export function PartnerDetailTabs({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="contacts" className="pt-4">
+          <PartnerContacts
+            partnerId={partner.id}
+            contacts={contacts}
+            onCountChange={setContactCount}
+          />
         </TabsContent>
 
         <TabsContent value="transactions" className="pt-4">

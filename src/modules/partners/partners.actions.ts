@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import * as contactService from "@/modules/partners/contacts";
 import { matchPartners } from "@/modules/partners/match";
 import * as partnerService from "@/modules/partners/partners";
 import {
@@ -132,3 +133,39 @@ export const matchPartnersAction = ownerAction
   .action(async ({ ctx, parsedInput }) => ({
     data: await matchPartners(ctx.tx, parsedInput),
   }));
+
+// --- contact persons (F08, specs/partners/spec.md) ---
+
+/** The contacts of one partner, sorted by name. */
+export const listPartnerContactsAction = ownerAction
+  .schema(z.object({ partnerId: z.string().uuid() }))
+  .metadata({ name: "listPartnerContacts" })
+  .action(async ({ ctx, parsedInput }) => {
+    return contactService.listPartnerContacts(ctx.tx, parsedInput.partnerId);
+  });
+
+export const createPartnerContactAction = ownerAction
+  .schema(contactService.createPartnerContactSchema)
+  .metadata({ name: "createPartnerContact" })
+  .action(async ({ ctx, parsedInput }) => {
+    return contactService.createPartnerContact(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
+  });
+
+export const updatePartnerContactAction = ownerAction
+  .schema(contactService.updatePartnerContactSchema)
+  .metadata({ name: "updatePartnerContact" })
+  .action(async ({ ctx, parsedInput }) => {
+    return contactService.updatePartnerContact(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
+  });
+
+export const deletePartnerContactAction = ownerAction
+  .schema(z.object({ id: z.string().uuid() }))
+  .metadata({ name: "deletePartnerContact" })
+  .action(async ({ ctx, parsedInput }) => {
+    return contactService.deletePartnerContact(
+      ctx.tx,
+      ctx.callerIdentity,
+      ctx.audit,
+      parsedInput.id,
+    );
+  });

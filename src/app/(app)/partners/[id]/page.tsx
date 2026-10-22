@@ -25,15 +25,17 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     ratesByContract,
     vatResult,
     employeesResult,
+    contactsResult,
     documents,
     journal,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [partner, basPrefs, contracts, vat, employees] = await Promise.all([
+    const [partner, basPrefs, contracts, vat, employees, contacts] = await Promise.all([
       partnerService.getPartner(tx, id),
       settingsService.getTenantBasPreferences(tx, callerIdentity),
       contractService.getContracts(tx, id, { includeInactive: true, today }),
       settingsService.getVatRegistrations(tx, callerIdentity),
       partnerService.getPartners(tx, { types: ["employee"] }),
+      partnerService.listPartnerContacts(tx, id),
     ]);
     // the rate history of every contract, one query (D24) — the contract rows carry it to the client
     const rates = await contractService.listContractRatesFor(
@@ -63,6 +65,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       ratesByContract: rates,
       vatResult: vat,
       employeesResult: employees,
+      contactsResult: contacts,
       documents,
       journal,
     };
@@ -118,11 +121,20 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     name: e.name,
   }));
 
+  const contacts = (contactsResult.data ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    role: c.role,
+    email: c.email,
+    phone: c.phone,
+  }));
+
   return (
     <EntityPage>
       <PartnerDetailTabs
         partner={partner}
         contracts={contracts}
+        contacts={contacts}
         vatRegistrations={vatRegistrations}
         employeePartners={employeePartners}
         basOptions={basOptions}

@@ -25,6 +25,7 @@ model Tenant {
   categorisationRules  CategorisationRule[]
   journalEntries       JournalEntry[]
   partners             Partner[]
+  partnerContacts      PartnerContact[]
   contracts            Contract[]
   contractRates        ContractRate[]
   invoices             Invoice[]

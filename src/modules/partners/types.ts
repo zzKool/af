@@ -66,3 +66,15 @@ export type PartnerMatch = {
   /** min(100, round(score / 140 × 100)) */
   percent: number;
 };
+
+// --- contact persons (F08, specs/partners/spec.md) ---
+export type PartnerContactDto = {
+  id: string;
+  partnerId: string;
+  name: string;
+  role: string | null;
+  email: string | null;
+  phone: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
