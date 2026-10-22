@@ -47,10 +47,10 @@ CREATE RULE no_delete_bank_formats AS ON DELETE TO bank_formats DO INSTEAD NOTHI
 CREATE RULE no_insert_bank_formats AS ON INSERT TO bank_formats DO INSTEAD NOTHING;
 
 -- Grants: SELECT-only for app role (seeding done via migration superuser)
-GRANT SELECT ON TABLE bank_formats TO defterfab_app;
+GRANT SELECT ON TABLE bank_formats TO af_app;
 
 -- Belt-and-suspenders: explicitly revoke write permissions
-REVOKE INSERT, UPDATE, DELETE ON TABLE bank_formats FROM defterfab_app;
+REVOKE INSERT, UPDATE, DELETE ON TABLE bank_formats FROM af_app;
 
 -- ============================================================================
 -- PART 2: Seed Nordea CSV (Sweden) format
@@ -136,4 +136,4 @@ CREATE POLICY tenant_isolation ON bank_accounts
     WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
 
 -- Grants: full CRUD for app role on tenant table
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE bank_accounts TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE bank_accounts TO af_app;

@@ -17,7 +17,7 @@ ALTER TABLE "number_series" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "number_series"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE ON TABLE "number_series" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE ON TABLE "number_series" TO af_app;
 
 -- Carry the monthly upload counters over: document_key_counters.next_val is the LAST value handed out
 -- (it is incremented on read), number_series.next_value is the NEXT one.

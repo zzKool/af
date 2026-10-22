@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.."
 ROOT=$PWD
 
 MIG_URL=${DATABASE_TEST_MIGRATION_URL:-postgresql://af:test@localhost:5433/af_test}
-APP_URL=${DATABASE_TEST_URL:-postgresql://defterfab_app:app@localhost:5433/af_test}
+APP_URL=${DATABASE_TEST_URL:-postgresql://af_app:app@localhost:5433/af_test}
 APP_PORT=${PORT:-3000}
 LOGS=${AF_DEV_ENV_LOGS:-${TMPDIR:-/tmp}/af-dev-env}
 AZURITE_CONN='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
@@ -28,7 +28,7 @@ docker_ok() { command -v docker >/dev/null && docker info >/dev/null 2>&1; }
 engine_present() { compgen -G "node_modules/@prisma/engines/schema-engine*" >/dev/null || [ -n "${PRISMA_SCHEMA_ENGINE_BINARY:-}" ]; }
 prisma() { if engine_present; then npx prisma "$@"; else PRISMA_SCHEMA_ENGINE_BINARY=/bin/true npx prisma "$@"; fi; }
 
-# ── Postgres on :5433 (roles of docker-compose.yml's db-test: af/test superuser; the migrations create defterfab_app/app)
+# ── Postgres on :5433 (roles of docker-compose.yml's db-test: af/test superuser; the migrations create af_app/app)
 db() {
   say "postgres :5433"
   if psql "$MIG_URL" -tAc 'select 1' >/dev/null 2>&1; then echo "  up"; return; fi

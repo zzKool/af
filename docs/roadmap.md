@@ -54,7 +54,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 - [ ] **C1 UI/UX pass** — ~~direction first, decided with the owner on concrete options, written down in [[ui-conventions]] and `.claude/skills/af-design`~~ (2026-10-22: **D40 "Lakehouse"**, Databricks-inspired; logos in `public/brand/`). Left: **one restyle PR** of the shell + kernel kit, which the modules inherit — the list is F39's row in [[features]]; then F69 (the banking *Months* panel). Holds the nav constants and the i18n dictionaries while it runs.
 - [ ] **C2** ~~Remaining English: login / register pages, error fallbacks~~ (F04, 2026-10-22). Left: the owner's Swedish read of `sv.ts`.
-- [ ] **C3** Phase-0 leftovers: ~~the rename pass (`defterfab_*` → `af_*`)~~ (F46, 2026-10-22; the app role `defterfab_app` stays — D41). Left: branch protection on GitHub (owner, F47).
+- [ ] **C3** Phase-0 leftovers: ~~the rename pass (`defterfab_*` → `af_*`)~~ (F46, 2026-10-22, D42 — owner, once: `docker compose down`, `docker volume rm af_db-dev-data af_db-test-data af_pgdata-dev af_pgdata-test` (whichever exist), DB URLs from `.env.example` into `.env.local`, `docker compose up -d`, `npx prisma migrate deploy`, `npm run db:seed`). Left: branch protection on GitHub (owner, F47).
 - [x] **C4** Deferred mechanics: Sentry request context, the `.toNumber()` lint rule (F48); no e2e turned out to be quarantined.
 - Out of scope by decision: email sending, the cash-planning widget (D14, Growth), SIE, Swedish moms (the accountant's), mobile.
 

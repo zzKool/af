@@ -30,4 +30,4 @@ ALTER TABLE "swiss_vat_declarations" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "swiss_vat_declarations"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "swiss_vat_declarations" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "swiss_vat_declarations" TO af_app;

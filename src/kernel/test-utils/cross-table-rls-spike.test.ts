@@ -23,7 +23,7 @@ import { assertCrossTableRlsIsolation } from "@/kernel/test-utils/config-crud-he
 const APP_URL =
   process.env.DATABASE_TEST_URL ||
   process.env.DATABASE_URL ||
-  "postgresql://defterfab_app:app@localhost:5433/af_test";
+  "postgresql://af_app:app@localhost:5433/af_test";
 
 const MIGRATION_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";

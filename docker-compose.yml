@@ -47,7 +47,7 @@ services:
     volumes:
       - azurite-data:/data
 
-# Volumes renamed with F46 (2026-10-22, `defterfab` → `af`): the old `pgdata-dev` / `pgdata-test` are left as they were —
+# Volumes renamed with F46 (2026-10-22): the old `pgdata-dev` / `pgdata-test` are left as they were —
 # `docker volume rm af_pgdata-dev af_pgdata-test` once nothing in them is needed.
 volumes:
   db-dev-data:

@@ -2,9 +2,9 @@
 --   PgBoss.getConstructionPlans('pgboss', { createSchema: false })
 -- and framed here by hand (D17: Postgres-backed queue, no external job service).
 --
--- Everything in the pgboss schema is OWNED BY the app role: pg-boss runs with DATABASE_URL (defterfab_app)
+-- Everything in the pgboss schema is OWNED BY the app role: pg-boss runs with DATABASE_URL (af_app)
 -- and creates one partition of pgboss.job per queue at runtime (createQueue), which needs ownership.
--- The migration user (database owner / superuser, creator of defterfab_app) can SET ROLE to it.
+-- The migration user (database owner / superuser, creator of af_app) can SET ROLE to it.
 --
 -- pg-boss starts with { migrate: false, createSchema: false } and refuses to run if the stored version
 -- differs from the package's — upgrading pg-boss therefore means a new migration generated with
@@ -12,10 +12,10 @@
 -- (kernel/jobs/queue.test.ts asserts the two versions match).
 
 CREATE SCHEMA IF NOT EXISTS pgboss;
-ALTER SCHEMA pgboss OWNER TO defterfab_app;
-GRANT USAGE ON SCHEMA pgboss TO defterfab_app;
+ALTER SCHEMA pgboss OWNER TO af_app;
+GRANT USAGE ON SCHEMA pgboss TO af_app;
 
-SET ROLE defterfab_app;
+SET ROLE af_app;
 
     CREATE TYPE pgboss.job_state AS ENUM (
       'created',

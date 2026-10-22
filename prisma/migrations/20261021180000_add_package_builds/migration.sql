@@ -35,4 +35,4 @@ ALTER TABLE "package_builds" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "package_builds"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "package_builds" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "package_builds" TO af_app;

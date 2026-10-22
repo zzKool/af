@@ -43,7 +43,7 @@ ALTER TABLE "contract_rates" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "contract_rates"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "contract_rates" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "contract_rates" TO af_app;
 
 -- Carry-over (spec FR-010): every contract that had a typed billing rate gets one open rate from its start date.
 INSERT INTO "contract_rates" ("tenant_id", "contract_id", "valid_from", "valid_to", "rate", "unit", "note", "updated_at", "created_by", "source")

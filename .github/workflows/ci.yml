@@ -60,7 +60,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/af_test
+      DATABASE_URL: postgresql://af_app:app@localhost:5433/af_test
       DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +111,7 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     env:
-      DATABASE_URL: postgresql://defterfab_app:app@localhost:5433/af_test
+      DATABASE_URL: postgresql://af_app:app@localhost:5433/af_test
       DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
       AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
       AZURE_STORAGE_CONTAINER: documents

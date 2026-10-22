@@ -26,4 +26,4 @@ ALTER TABLE "partner_contacts" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "partner_contacts"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "partner_contacts" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "partner_contacts" TO af_app;

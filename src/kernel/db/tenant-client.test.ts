@@ -16,7 +16,7 @@ const ADMIN_DATABASE_URL =
 
 // Non-superuser pool for RLS-enforced operations (app role)
 const APP_DATABASE_URL =
-  process.env.DATABASE_TEST_URL || "postgresql://defterfab_app:app@localhost:5433/af_test";
+  process.env.DATABASE_TEST_URL || "postgresql://af_app:app@localhost:5433/af_test";
 
 let adminPool: Pool;
 let appPool: Pool;
