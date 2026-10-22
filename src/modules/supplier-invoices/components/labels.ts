@@ -1,3 +1,2 @@
-// Client-safe labels shared by the components.
-export const groupLabel = (g: { number: number; description: string }) =>
-  `${g.number} — ${g.description}`;
+// Client-safe labels shared by the components — the group label is the expenses module's.
+export { groupLabel } from "@/modules/expenses/ui";

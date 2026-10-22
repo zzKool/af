@@ -4,6 +4,7 @@
 export * from "./components/duplicate-panel";
 export * from "./components/expense-panel";
 export * from "./components/expense-table";
+export * from "./components/group-picker";
 export * from "./components/groups-table";
 export * from "./components/labels";
 export * from "./components/new-expense-dialog";
