@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { addDays } from "@/kernel/clock/calendar";
 import cases from "../../../specs/contracts/fixtures/rate-history-cases.json";
-import { covers, overlaps, pickRate, rateState } from "./contract-rates";
+import { covers, lockedFieldsChanged, overlaps, pickRate, rateState } from "./contract-rates";
 
 type Rate = { id: string; validFrom: string; validTo: string | null; rate: string };
 
@@ -96,5 +96,25 @@ describe("rate lookup — property", () => {
       }),
       { numRuns: 200 },
     );
+  });
+});
+
+describe("a used rate only closes — the fields it refuses (F63)", () => {
+  const before = { validFrom: "2025-01-01", rate: "1000.00" };
+
+  it("start and amount are locked; end and note are not", () => {
+    expect(lockedFieldsChanged(before, { rate: "1100.00" })).toEqual(["rate"]);
+    expect(lockedFieldsChanged(before, { validFrom: "2025-02-01" })).toEqual(["validFrom"]);
+    expect(lockedFieldsChanged(before, { validFrom: "2024-12-01", rate: "1" })).toEqual([
+      "validFrom",
+      "rate",
+    ]);
+    expect(lockedFieldsChanged(before, {})).toEqual([]);
+  });
+
+  it("the same value sent again is not a change (decimal equality, not string)", () => {
+    expect(lockedFieldsChanged(before, { validFrom: "2025-01-01", rate: "1000" })).toEqual([]);
+    expect(lockedFieldsChanged(before, { rate: "1000.0" })).toEqual([]);
+    expect(lockedFieldsChanged(before, { rate: "1000.01" })).toEqual(["rate"]);
   });
 });
