@@ -190,12 +190,8 @@ export function SwissVatReturnPage({
     const ref500 = data.lines.find((l) => l.ref === "500")?.amount ?? "0.00";
     declareDialog.confirm(
       async () => {
-        const r = await declare({
-          vatRegistrationId: registrationId,
-          period,
-          declaredAt,
-          lines: data.lines,
-        });
+        // no figures sent: the server declares what it computes now (the confirm shows the same 500)
+        const r = await declare({ vatRegistrationId: registrationId, period, declaredAt });
         const error = extractError(r);
         if (error) throw new Error(error);
         toast.success(t("exports.vat.declared", { period }));
@@ -216,11 +212,11 @@ export function SwissVatReturnPage({
   }
 
   async function doMarkPaid() {
+    // with the vat_payment expense, paid on is the expense's date (derived on the server); else the typed date
     const r = await markPaid({
       vatRegistrationId: registrationId,
       period,
-      paidAt,
-      paymentExpenseId: paymentId || null,
+      ...(paymentId ? { paymentExpenseId: paymentId } : { paidAt }),
     });
     const error = extractError(r);
     if (error) return toast.error(error);
@@ -339,8 +335,9 @@ export function SwissVatReturnPage({
               </Button>
               <Input
                 type="date"
-                value={paidAt}
+                value={payments.find((p) => p.id === paymentId)?.date ?? paidAt}
                 onChange={(e) => setPaidAt(e.target.value)}
+                disabled={!!paymentId}
                 className="w-40"
                 aria-label={t("exports.vat.paidOn")}
               />

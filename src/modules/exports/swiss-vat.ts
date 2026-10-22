@@ -1,11 +1,13 @@
 // The Swiss VAT return — pure (specs/exports/spec.md US1; harvest specs/invoices/harvest.md H6 §4; D23).
 // FTA form "Décompte TVA", méthode effective, contre-prestations convenues, net mode, quarterly, CHF.
 //
-//   for each invoice of the period (membership by the STORED declaration period, D23):
-//     invoice, Swiss client:    200 += net ; 30x/31x/34x by the line's stored rate: base += net, tax += vat
-//     invoice, foreign client:  200 += net ; 221 += net                 (place of supply abroad, 0 %)
-//     credit note, Swiss:       235 += net ; the rate rows −= its lines (so 379 == 299 holds — the v1 bug, R34)
-//     credit note, foreign:     200 −= net ; 221 −= net                 (nets the abroad turnover, nothing taxable)
+//   for each invoice of the period (membership by the STORED declaration period, D23), by its STORED rates —
+//   the invoice's `vatByRate` (header discount included, rounded per rate: what the printed invoice says), never
+//   re-derived from the lines nor from the printed country (lessons 1, 21):
+//     invoice:      200 += taxed + zero-rated ; 30x/31x/34x per rate: base += base, tax += vat ; 221 += zero-rated
+//     credit note:  235 += taxed ; the rate rows −= its rates (so 379 == 299 holds — the v1 bug, R34) ;
+//                   200 −= zero-rated ; 221 −= zero-rated              (nets the abroad turnover)
+//   a 0 % part for a client whose printed country reads Swiss is a warning (exempt? → 220 / 230 by hand)
 //   289 = 220 + 221 + 225 + 230 + 235 + 280 ; 299 = 200 − 289 ; 379 = Σ bases ; warn when |379 − 299| > 0.01
 //   399 = Σ tax + 383 ; 400 = Σ input VAT of the sources ; 479 = 400 + 405 + 410 − 415 − 420
 //   500 = max(0, 399 − 479) ; 510 = max(0, 479 − 399)
@@ -240,11 +242,10 @@ const RATE_ROW: Record<string, SwissVatRef> = {
   "3.7": "342",
 };
 
+// The period's format and the date → period rule are the invoices module's (`declarationPeriodFor`,
+// `isDeclarationPeriod`; the server side of exports uses them through ./period). This file is pure and also runs
+// in the browser (the CSV), so it only reads a period back into its bounds — the inverse, which invoices lacks.
 const PERIOD = /^CH (\d{4})\/Q([1-4])$/;
-
-export function isSwissVatPeriod(value: string): boolean {
-  return PERIOD.test(value);
-}
 
 /** `CH 2026/Q2` → the quarter's ISO bounds. */
 export function quarterBounds(period: string): {
@@ -261,13 +262,6 @@ export function quarterBounds(period: string): {
   const from = `${year}-${String(firstMonth).padStart(2, "0")}-01`;
   const to = new Date(Date.UTC(year, firstMonth + 2, 0)).toISOString().slice(0, 10);
   return { year, quarter, from, to };
-}
-
-/** The quarter of an ISO date: `2026-05-12` → `CH 2026/Q2`. */
-export function periodOfDate(date: string): string {
-  const year = date.slice(0, 4);
-  const q = Math.floor((Number(date.slice(5, 7)) - 1) / 3) + 1;
-  return `CH ${year}/Q${q}`;
 }
 
 /** Every quarter from `first` to `last` inclusive, newest first. */
@@ -332,30 +326,40 @@ export function computeSwissVatReturn(input: ComputeInput): {
         rate: inv.conversion.rate,
       });
     }
-    if (!inv.swissClient) {
-      // place of supply abroad: counted in the total and deducted again under 221; a credit note nets both
-      add(amount, "200", new D(inv.net).mul(sign));
-      add(amount, "221", new D(inv.net).mul(sign));
-      continue;
+    // the 0 % part: place of supply abroad — counted in the total and deducted again under 221; a credit note nets both
+    const zero = new D(inv.zeroRated);
+    if (!zero.isZero()) {
+      add(amount, "200", zero.mul(sign));
+      add(amount, "221", zero.mul(sign));
+      if (inv.swissClient) {
+        warnings.push({
+          type: "zero_rate_swiss_client",
+          message: `${inv.number}: ${r2(zero)} CHF at 0 % for a client in Switzerland — counted as supplied abroad (221); if it is exempt, move it to 220 / 230 by hand`,
+          invoice: inv.number,
+          amount: r2(zero),
+        });
+      }
     }
-    if (inv.type === "credit_note") add(amount, "235", inv.net);
-    else add(amount, "200", inv.net);
-    for (const line of inv.lines) {
-      const key = rateKey(line.rate);
-      if (key === "0") continue;
-      const row = RATE_ROW[key];
+    // the taxed part, one row per stored rate
+    let taxed = ZERO;
+    for (const r of inv.rates) {
+      // turnover even when the form has no row for the rate — the plausibility check then shows the gap
+      taxed = taxed.plus(r.base);
+      const row = RATE_ROW[rateKey(r.rate)];
       if (!row) {
         warnings.push({
           type: "unknown_rate",
-          message: `${inv.number}: no form row for a ${line.rate} % line`,
+          message: `${inv.number}: no form row for a ${r.rate} % rate`,
           invoice: inv.number,
-          rate: line.rate,
+          rate: r.rate,
         });
         continue;
       }
-      add(base, row, new D(line.net).mul(sign));
-      add(amount, row, new D(line.vat).mul(sign));
+      add(base, row, new D(r.base).mul(sign));
+      add(amount, row, new D(r.vat).mul(sign));
     }
+    if (inv.type === "credit_note") add(amount, "235", taxed);
+    else add(amount, "200", taxed);
   }
 
   const get = (ref: SwissVatRef): Dec => amount.get(ref) ?? ZERO;
