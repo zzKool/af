@@ -17,6 +17,7 @@ export {
   unmarkPaid,
 } from "./declarations";
 export * from "./exports.actions";
+export { isSwissVatPeriod, periodOfDate } from "./period";
 export * from "./queries";
 export type { ComputeInput, FormField } from "./swiss-vat";
 export {
@@ -24,8 +25,6 @@ export {
   csvFileName,
   FORM_FIELDS,
   isManualRef,
-  isSwissVatPeriod,
-  periodOfDate,
   quarterBounds,
   quartersBetween,
   rateKey,

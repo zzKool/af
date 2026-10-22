@@ -1,5 +1,7 @@
 // The declaration record (D23: minimal — the manual refs typed on the form, the figures as declared, declared on /
 // paid on, the vat_payment expense). One row per CH registration and quarter, created on first save. Owner only.
+// The figures as declared are the server's own computation at the moment of declaring, never what a page sends
+// (lesson 2); "paid on" is the attached vat_payment expense's date when there is one (lesson 21).
 import { z } from "zod/v4";
 import { Prisma, type SwissVatDeclaration } from "@/generated/prisma/client";
 import type { AuditLogger } from "@/kernel/audit/types";
@@ -10,13 +12,17 @@ import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { isoDate, uuid } from "@/kernel/validation/scalars";
 import * as expenses from "@/modules/expenses";
 import * as settings from "@/modules/settings";
-import { isSwissVatPeriod } from "./swiss-vat";
 import {
-  MANUAL_REFS,
-  type ManualRefs,
-  type SwissVatDeclarationDto,
-  type SwissVatLine,
-} from "./types";
+  getDeclaration,
+  listDeclarations,
+  toDeclarationDto,
+  withPaymentDate,
+} from "./declaration-read";
+import { isSwissVatPeriod } from "./period";
+import { swissVatReturn } from "./queries";
+import { MANUAL_REFS, type SwissVatDeclarationDto } from "./types";
+
+export { getDeclaration, listDeclarations, toDeclarationDto };
 
 const money = z
   .string()
@@ -39,51 +45,25 @@ export const declareSchema = z.object({
   vatRegistrationId: uuid,
   period,
   declaredAt: isoDate,
-  /** the computed lines at this moment — the page sends what it shows; stored as the snapshot */
-  lines: z.array(
-    z.object({
-      ref: z.string(),
-      section: z.enum(["I", "II", "II-bis", "III"]),
-      labelFr: z.string(),
-      labelEn: z.string(),
-      source: z.enum(["auto", "calc", "manual", "zero"]),
-      amount: z.string(),
-      base: z.string().optional(),
-      rate: z.string().optional(),
-    }),
-  ),
 });
 export type DeclareInput = z.infer<typeof declareSchema>;
 
-export const markPaidSchema = z.object({
-  vatRegistrationId: uuid,
-  period,
-  paidAt: isoDate,
-  /** the `vat_payment` expense that paid it (optional) */
-  paymentExpenseId: uuid.nullable().optional(),
-});
+export const markPaidSchema = z
+  .object({
+    vatRegistrationId: uuid,
+    period,
+    /** typed only when no expense paid it; with an expense, paid on is the expense's date (derived) */
+    paidAt: isoDate.optional(),
+    /** the `vat_payment` expense that paid it */
+    paymentExpenseId: uuid.nullable().optional(),
+  })
+  .refine((v) => !!v.paidAt || !!v.paymentExpenseId, {
+    message: "Either the vat_payment expense or the date it was paid",
+    path: ["paidAt"],
+  });
 export type MarkPaidInput = z.infer<typeof markPaidSchema>;
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
-
-export function toDeclarationDto(row: SwissVatDeclaration): SwissVatDeclarationDto {
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    vatRegistrationId: row.vatRegistrationId,
-    period: row.period,
-    manual: (row.manual ?? {}) as ManualRefs,
-    snapshot: (row.snapshot as SwissVatLine[] | null) ?? null,
-    declaredAt: iso(row.declaredAt),
-    paidAt: iso(row.paidAt),
-    paymentExpenseId: row.paymentExpenseId,
-    note: row.note,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    createdBy: row.createdBy,
-    source: row.source,
-  };
-}
 
 const forbidden: { error: AppError } = {
   error: { code: "FORBIDDEN", message: "Only the owner declares", retryable: false },
@@ -91,21 +71,6 @@ const forbidden: { error: AppError } = {
 const violation = (message: string): { error: AppError } => ({
   error: { code: "BUSINESS_RULE_VIOLATION", message, retryable: false },
 });
-
-export async function getDeclaration(
-  tx: TransactionClient,
-  vatRegistrationId: string,
-  period: string,
-): Promise<SwissVatDeclarationDto | null> {
-  const row = await tx.swissVatDeclaration.findFirst({ where: { vatRegistrationId, period } });
-  return row ? toDeclarationDto(row) : null;
-}
-
-/** Every declaration, newest period first — "declared" on an invoice is derived from this set. */
-export async function listDeclarations(tx: TransactionClient): Promise<SwissVatDeclarationDto[]> {
-  const rows = await tx.swissVatDeclaration.findMany({ orderBy: [{ period: "desc" }] });
-  return rows.map(toDeclarationDto);
-}
 
 async function assertChRegistration(
   tx: TransactionClient,
@@ -172,7 +137,10 @@ export async function saveManual(
   return { data: toDeclarationDto(updated) };
 }
 
-/** Declared: the lines as shown become the snapshot; from now on every invoice of the period derives "declared". */
+/**
+ * Declared: the server computes the return of the period now and stores ITS lines as the snapshot — the page
+ * sends no figures (lesson 2). From now on every invoice of the period derives "declared".
+ */
 export async function declare(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -188,11 +156,18 @@ export async function declare(
   const row = await upsert(tx, caller, parsed.data.vatRegistrationId, parsed.data.period);
   if (row.declaredAt)
     return violation(`${row.period} is already declared (${iso(row.declaredAt)})`);
+  const computed = await swissVatReturn(tx, caller, {
+    registrationId: parsed.data.vatRegistrationId,
+    period: parsed.data.period,
+    today: parsed.data.declaredAt,
+  });
+  if (computed.error) return { error: computed.error };
+  const lines = computed.data.lines;
   const updated = await tx.swissVatDeclaration.update({
     where: { id: row.id },
     data: {
       declaredAt: new Date(`${parsed.data.declaredAt}T00:00:00Z`),
-      snapshot: parsed.data.lines,
+      snapshot: lines as unknown as Prisma.InputJsonValue,
     },
   });
   await audit.log({
@@ -202,11 +177,11 @@ export async function declare(
     newData: {
       period: row.period,
       declaredAt: parsed.data.declaredAt,
-      ref500: parsed.data.lines.find((l) => l.ref === "500")?.amount ?? null,
-      ref510: parsed.data.lines.find((l) => l.ref === "510")?.amount ?? null,
+      ref500: lines.find((l) => l.ref === "500")?.amount ?? null,
+      ref510: lines.find((l) => l.ref === "510")?.amount ?? null,
     },
   });
-  return { data: toDeclarationDto(updated) };
+  return { data: await withPaymentDate(tx, updated) };
 }
 
 /** Undo a declaration (nothing was paid yet): the snapshot goes, the figures are live again. */
@@ -221,10 +196,12 @@ export async function undeclare(
     where: { vatRegistrationId: input.vatRegistrationId, period: input.period },
   });
   if (!row || !row.declaredAt) return violation(`${input.period} is not declared`);
-  if (row.paidAt) return violation(`${input.period} is paid — undo the payment first`);
+  if ((await withPaymentDate(tx, row)).paidAt)
+    return violation(`${input.period} is paid — undo the payment first`);
   const updated = await tx.swissVatDeclaration.update({
     where: { id: row.id },
-    data: { declaredAt: null, snapshot: Prisma.DbNull },
+    // a payment expense that no longer exists goes with it (paid derives from it, so nothing is lost)
+    data: { declaredAt: null, snapshot: Prisma.DbNull, paidAt: null, paymentExpenseId: null },
   });
   await audit.log({
     action: "update",
@@ -235,7 +212,10 @@ export async function undeclare(
   return { data: toDeclarationDto(updated) };
 }
 
-/** Paid: the date and, when given, the `vat_payment` expense that paid it (validated: exists, is a VAT payment). */
+/**
+ * Paid. With the `vat_payment` expense that paid it (validated: exists, is a VAT payment), "paid on" is derived
+ * from that expense's date and no date is stored; without one, the typed date is stored.
+ */
 export async function markPaid(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -250,31 +230,30 @@ export async function markPaid(
     where: { vatRegistrationId: parsed.data.vatRegistrationId, period: parsed.data.period },
   });
   if (!row || !row.declaredAt) return violation(`${parsed.data.period} is not declared yet`);
-  if (parsed.data.paymentExpenseId) {
-    const e = await expenses.getExpenseDetail(tx, parsed.data.paymentExpenseId);
+  const expenseId = parsed.data.paymentExpenseId ?? null;
+  if (expenseId) {
+    const e = await expenses.getExpenseDetail(tx, expenseId);
     if (!e.data)
       return { error: { code: "NOT_FOUND", message: "Expense not found", retryable: false } };
     if (e.data.expense.kind !== "vat_payment")
       return violation(`${e.data.expense.key} is not a VAT payment`);
   }
+  const typed = expenseId ? null : (parsed.data.paidAt ?? null);
   const updated = await tx.swissVatDeclaration.update({
     where: { id: row.id },
     data: {
-      paidAt: new Date(`${parsed.data.paidAt}T00:00:00Z`),
-      paymentExpenseId: parsed.data.paymentExpenseId ?? null,
+      paidAt: typed ? new Date(`${typed}T00:00:00Z`) : null,
+      paymentExpenseId: expenseId,
     },
   });
+  const dto = await withPaymentDate(tx, updated);
   await audit.log({
     action: "update",
     entityType: "swiss_vat_declaration",
     entityId: row.id,
-    newData: {
-      period: row.period,
-      paidAt: parsed.data.paidAt,
-      paymentExpenseId: parsed.data.paymentExpenseId ?? null,
-    },
+    newData: { period: row.period, paidAt: dto.paidAt, paymentExpenseId: expenseId },
   });
-  return { data: toDeclarationDto(updated) };
+  return { data: dto };
 }
 
 export async function unmarkPaid(
@@ -287,7 +266,8 @@ export async function unmarkPaid(
   const row = await tx.swissVatDeclaration.findFirst({
     where: { vatRegistrationId: input.vatRegistrationId, period: input.period },
   });
-  if (!row || !row.paidAt) return violation(`${input.period} is not marked paid`);
+  if (!row || (!row.paidAt && !row.paymentExpenseId))
+    return violation(`${input.period} is not marked paid`);
   const updated = await tx.swissVatDeclaration.update({
     where: { id: row.id },
     data: { paidAt: null, paymentExpenseId: null },

@@ -10,7 +10,6 @@ import {
   computeSwissVatReturn,
   csvFileName,
   FORM_FIELDS,
-  periodOfDate,
   quarterBounds,
   quartersBetween,
   rateKey,
@@ -52,13 +51,26 @@ const TODAY = "2025-01-15";
 /** v3 membership: every issued document (SENT, PAID, PARTIALLY_PAID — and FINALIZED = issued, D23) dated in the quarter. */
 const ISSUED = new Set(["SENT", "PAID", "PARTIALLY_PAID", "FINALIZED"]);
 
+/**
+ * A v1 case as the v3 query hands it over: the taxed part per rate (as the invoice's stored `vatByRate`), the 0 %
+ * part apart. v1 put the rate on every line and decided "abroad" by the country; v3 stores 0 % for a client abroad
+ * (`vatTreatmentFor`) and decides by the stored rate (lesson 21) — so a v1 foreign line becomes a 0 % line here.
+ */
 function toInvoice(i: NonNullable<Fixture["cases"][number]["invoices"]>[number]): ReturnInvoice {
   const credit = new D(i.net).lt(0);
-  const lines = (i.lines ?? [{ net: i.net, rate: "8.1" }]).map((l) => {
-    const rate = l.rate ?? "8.1";
-    const net = new D(l.net).abs().toFixed(2);
-    return { net, rate, vat: new D(net).mul(rate).div(100).toDecimalPlaces(2).toFixed(2) };
-  });
+  const swiss = i.clientCountry === null || i.clientCountry === "CH";
+  const byRate = new Map<string, InstanceType<typeof D>>();
+  for (const l of i.lines ?? [{ net: i.net, rate: "8.1" }]) {
+    const rate = swiss ? (l.rate ?? "8.1") : "0";
+    byRate.set(rate, (byRate.get(rate) ?? new D(0)).plus(new D(l.net).abs()));
+  }
+  const rates = [...byRate.entries()]
+    .filter(([rate]) => rate !== "0")
+    .map(([rate, base]) => ({
+      rate,
+      base: base.toFixed(2),
+      vat: base.mul(rate).div(100).toDecimalPlaces(2).toFixed(2),
+    }));
   // a non-CHF invoice is converted at 1:1 here (the query converts for real; the warning is what matters)
   const conversion = i.currency === "CHF" ? null : { rate: "1.000000", source: "ecb_daily" };
   return {
@@ -68,11 +80,12 @@ function toInvoice(i: NonNullable<Fixture["cases"][number]["invoices"]>[number])
     issueDate: i.date,
     client: "Client",
     clientCountry: i.clientCountry,
-    swissClient: i.clientCountry === null || i.clientCountry === "CH",
+    swissClient: swiss,
     currency: i.currency,
     net: new D(i.net).abs().toFixed(2),
-    vat: lines.reduce((s, l) => s.plus(l.vat), new D(0)).toFixed(2),
-    lines,
+    vat: rates.reduce((s, r) => s.plus(r.vat), new D(0)).toFixed(2),
+    rates,
+    zeroRated: (byRate.get("0") ?? new D(0)).toFixed(2),
     conversion,
   };
 }
@@ -133,7 +146,6 @@ describe("the Swiss VAT return on the harvest's cases", () => {
         to: q.end,
       });
     }
-    for (const e of FIXTURE.periodLabelExamples) expect(periodOfDate(e.invoiceDate)).toBe(e.label);
     expect(quartersBetween("CH 2025/Q3", "CH 2026/Q2")).toEqual([
       "CH 2026/Q2",
       "CH 2026/Q1",
@@ -203,7 +215,8 @@ describe("v3 corrections", () => {
     currency: "CHF",
     net: "1000.00",
     vat: "81.00",
-    lines: [{ net: "1000.00", rate: "8.1", vat: "81.00" }],
+    rates: [{ rate: "8.1", base: "1000.00", vat: "81.00" }],
+    zeroRated: "0.00",
     conversion: null,
     ...over,
   });
@@ -216,7 +229,7 @@ describe("v3 corrections", () => {
           number: "A",
           net: "1000.00",
           vat: "77.00",
-          lines: [{ net: "1000.00", rate: "7.7", vat: "77.00" }],
+          rates: [{ rate: "7.7", base: "1000.00", vat: "77.00" }],
         }),
         inv({ number: "B" }),
       ],
@@ -235,7 +248,7 @@ describe("v3 corrections", () => {
   it("an unknown rate is a warning and lands nowhere (never defaulted to 8.1)", () => {
     const { lines, warnings } = computeSwissVatReturn({
       period: "CH 2026/Q2",
-      invoices: [inv({ lines: [{ net: "1000.00", rate: "5", vat: "50.00" }], vat: "50.00" })],
+      invoices: [inv({ rates: [{ rate: "5", base: "1000.00", vat: "50.00" }], vat: "50.00" })],
       inputSources: [],
       manual: {},
       today: "2026-08-01",
@@ -252,7 +265,8 @@ describe("v3 corrections", () => {
           number: "A",
           clientCountry: "DE",
           swissClient: false,
-          lines: [{ net: "1000.00", rate: "0", vat: "0.00" }],
+          rates: [],
+          zeroRated: "1000.00",
           vat: "0.00",
         }),
         inv({
@@ -262,7 +276,8 @@ describe("v3 corrections", () => {
           swissClient: false,
           net: "200.00",
           vat: "0.00",
-          lines: [{ net: "200.00", rate: "0", vat: "0.00" }],
+          rates: [],
+          zeroRated: "200.00",
         }),
         inv({ number: "B" }),
       ],
@@ -277,6 +292,39 @@ describe("v3 corrections", () => {
     expect(refs["299"]?.amount).toBe("1000.00");
     expect(refs["379"]?.amount).toBe("1000.00");
     expect(warnings).toEqual([]);
+  });
+
+  it("a client abroad billed at 8.1 % is taxed by the stored rate (303, 399), not counted as supplied abroad (lesson 21)", () => {
+    const { lines, warnings } = computeSwissVatReturn({
+      period: "CH 2026/Q2",
+      invoices: [inv({ clientCountry: "DE", swissClient: false })],
+      inputSources: [],
+      manual: {},
+      today: "2026-08-01",
+    });
+    const refs = byRef(lines);
+    expect(refs["221"]?.amount).toBe("0.00");
+    expect(refs["303"]).toMatchObject({ base: "1000.00", amount: "81.00" });
+    expect(refs["399"]?.amount).toBe("81.00");
+    expect(refs["299"]?.amount).toBe("1000.00");
+    expect(warnings).toEqual([]);
+  });
+
+  it("a mixed invoice: the taxed part on its rate row, the 0 % part on 221; 0 % for a Swiss client is flagged", () => {
+    const { lines, warnings } = computeSwissVatReturn({
+      period: "CH 2026/Q2",
+      invoices: [inv({ net: "1500.00", zeroRated: "500.00" })],
+      inputSources: [],
+      manual: {},
+      today: "2026-08-01",
+    });
+    const refs = byRef(lines);
+    expect(refs["200"]?.amount).toBe("1500.00");
+    expect(refs["221"]?.amount).toBe("500.00");
+    expect(refs["303"]).toMatchObject({ base: "1000.00", amount: "81.00" });
+    expect(refs["299"]?.amount).toBe("1000.00");
+    expect(refs["379"]?.amount).toBe("1000.00");
+    expect(warnings.map((w) => w.type)).toEqual(["zero_rate_swiss_client"]);
   });
 
   it("manual refs enter the sums with their sign; 500 / 510 never both", () => {

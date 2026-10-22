@@ -17,8 +17,8 @@ import {
   undeclare,
   unmarkPaid,
 } from "./declarations";
+import { isSwissVatPeriod } from "./period";
 import { chRegistrations, swissVatPeriods, swissVatReturn, vatPaymentOptions } from "./queries";
-import { isSwissVatPeriod } from "./swiss-vat";
 
 const clock = createClock();
 const forbidden = {

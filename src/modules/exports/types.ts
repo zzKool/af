@@ -56,9 +56,14 @@ export type SwissVatLine = {
 export type SwissVatWarning =
   | { type: "future_period"; message: string }
   | { type: "incomplete_period"; message: string }
+  | { type: "snapshot_unreadable"; message: string }
   | { type: "plausibility_mismatch"; message: string; ref299: string; ref379: string }
   | { type: "unknown_rate"; message: string; invoice: string; rate: string }
+  | { type: "zero_rate_swiss_client"; message: string; invoice: string; amount: string }
   | { type: "converted"; message: string; invoice: string; currency: string; rate: string };
+
+/** One invoice's VAT at one rate — the invoice's stored `vatByRate` row (header discount included), in CHF. */
+export type ReturnRate = { rate: string; base: string; vat: string };
 
 /** One invoice of the return, as the drill-down shows it (amounts in CHF). */
 export type ReturnInvoice = {
@@ -68,12 +73,17 @@ export type ReturnInvoice = {
   issueDate: string;
   client: string;
   clientCountry: string | null;
+  /** the printed country reads Swiss — information only: the rows are decided by the stored rates (lesson 21) */
   swissClient: boolean;
   currency: string;
-  /** net in CHF (converted when the invoice is not in CHF) */
+  /** net in CHF (converted when the invoice is not in CHF), after the header discount */
   net: string;
+  /** Σ `rates[].vat` */
   vat: string;
-  lines: { net: string; rate: string; vat: string }[];
+  /** the taxed part, one row per non-zero rate, from the invoice's `vatByRate` */
+  rates: ReturnRate[];
+  /** the part at 0 % (net − Σ taxed bases when the invoice has 0 % lines, else 0) → 221 */
+  zeroRated: string;
   /** the conversion applied, when any */
   conversion: { rate: string; source: string } | null;
 };
