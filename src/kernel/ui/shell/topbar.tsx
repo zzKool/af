@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -211,7 +212,10 @@ function UserMenu({ userLabel }: { userLabel: string }) {
         {initials(userLabel)}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate">{userLabel}</DropdownMenuLabel>
+        {/* Base UI: a menu label is a group label — outside a Menu.Group it throws when the menu opens */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="truncate">{userLabel}</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/settings/my-preferences" />}>
           <SlidersHorizontal aria-hidden />

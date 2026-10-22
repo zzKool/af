@@ -42,6 +42,7 @@ import {
   copyLastSupplierInvoiceAction,
   createSupplierInvoiceAction,
 } from "@/modules/supplier-invoices/supplier-invoices.actions";
+import { withCreatedSuppliers } from "@/modules/supplier-invoices/supplier-options";
 import type {
   CategoryOption,
   DocumentOption,
@@ -168,7 +169,8 @@ export function NewSupplierInvoiceDialog({
     setAckNote("");
   }, [open, defaultGroupId, groups, initial]);
 
-  const allSuppliers = extraSuppliers.length ? [...extraSuppliers, ...suppliers] : suppliers;
+  // created from the match card, then listed by the refreshed page too → once (the duplicate React key)
+  const allSuppliers = withCreatedSuppliers(extraSuppliers, suppliers);
   // the supplier's defaults pre-fill the currency, the category and the due date
   const supplier = allSuppliers.find((s) => s.id === partnerId);
   const initialCurrency = initial?.currency ?? null;
