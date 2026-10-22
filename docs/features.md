@@ -9,7 +9,7 @@ Dispatch rule: pick a row with status planned, give the builder its ID, the modu
 | F01 | Auth, sessions, organisation = tenant, roles owner / accountant | `kernel/auth`, `modules/settings` | built | Better Auth 1.5, `can()` role table, `requireCaller`; editor and superadmin roles exist in the table, no UI | [[authorization]], [[auth-setup]] | — | — |
 | F02 | Row-level tenant isolation | `kernel/db` | built | RLS on every tenant table, tenant-scoped client | [[prisma-rls-setup]] | — | — |
 | F03 | Members: invite the accountant, revoke, password reset | `modules/settings` (+ auth) | planned | nothing in the UI; `prisma/seed.ts` invites through the API. Spec first (`/speckit-specify`), one migration if invitations need a table of their own | roadmap A2 | schema, nav, i18n | M |
-| F04 | Login / register / error pages in fr + sv | `app/(auth)` | planned | English only; signed-in UI is en / fr / sv | roadmap C2 | i18n | S |
+| F04 | Login / register / error pages in fr + sv | `app/(auth)` | built | 2026-10-22: language from the browser's Accept-Language (first with a dictionary), `auth.*` / `errors.*` keys, the five error fallbacks; left: the owner's Swedish read (C2) | roadmap C2, [[ui-conventions]] | i18n | — |
 | F05 | Superadmin pages (tenants, users, bank formats, currencies) | `modules/settings` | later | constitution §6; one tenant today | — | nav | M |
 | F06 | Partner hub: types, identifiers, defaults (currency, BAS, terms), short code, soft delete | `modules/partners` | built | reference slice | [[partners]], `specs/partners` | — | — |
 | F07 | Partner 360°: documents, journal entries, graph on the entity page | `modules/partners` | built | 2026-10-21 | [[partners]] | — | — |

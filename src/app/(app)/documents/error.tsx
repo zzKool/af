@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/kernel/i18n/use-t";
 
 export default function DocumentsError({
   reset,
@@ -9,17 +10,16 @@ export default function DocumentsError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useT();
   return (
     <div className="p-4 md:p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Something went wrong</CardTitle>
+          <CardTitle>{t("errors.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">
-            We couldn't load the documents page. Please try again.
-          </p>
-          <Button onClick={reset}>Try again</Button>
+          <p className="text-muted-foreground">{t("errors.load.documents")}</p>
+          <Button onClick={reset}>{t("errors.tryAgain")}</Button>
         </CardContent>
       </Card>
     </div>

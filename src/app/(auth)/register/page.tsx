@@ -5,21 +5,26 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/kernel/auth/auth-client";
+import type { MessageKey } from "@/kernel/i18n/translate";
+import { useT } from "@/kernel/i18n/use-t";
+import { registerErrorKey } from "./register-error";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useT();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  // a message key, not a string: the message follows the page's language
+  const [error, setError] = useState<MessageKey | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setError(null);
 
     if (!email || !password) {
-      setError("Please fill in all fields.");
+      setError("auth.error.missingFields");
       return;
     }
 
@@ -32,20 +37,12 @@ export default function RegisterPage() {
       });
 
       if (signUpResult.error) {
-        if (
-          signUpResult.error.code === "USER_ALREADY_EXISTS" ||
-          signUpResult.error.message?.includes("already")
-        ) {
-          setError("EMAIL_TAKEN");
-          setLoading(false);
-          return;
-        }
-        setError(signUpResult.error.message ?? "Registration failed.");
+        setError(registerErrorKey(signUpResult.error));
         setLoading(false);
         return;
       }
 
-      const orgName = `${name || email.split("@")[0]}'s Business`;
+      const orgName = t("auth.register.orgName", { name: name || email.split("@")[0] });
       const slug = `${(name || email.split("@")[0]).toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}`;
 
       const orgResult = await authClient.organization.create({
@@ -54,7 +51,7 @@ export default function RegisterPage() {
       });
 
       if (orgResult.error) {
-        setError("Account created but setup incomplete. Please try again.");
+        setError("auth.register.error.setupIncomplete");
         setLoading(false);
         return;
       }
@@ -64,14 +61,14 @@ export default function RegisterPage() {
       });
 
       if (setActiveResult.error) {
-        setError("Account created but setup incomplete. Please try again.");
+        setError("auth.register.error.setupIncomplete");
         setLoading(false);
         return;
       }
 
       router.push("/dashboard");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("errors.generic");
       setLoading(false);
     }
   }
@@ -79,12 +76,12 @@ export default function RegisterPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
-        <h1 className="text-center text-2xl font-semibold">Create account</h1>
+        <h1 className="text-center text-2xl font-semibold">{t("auth.register.title")}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="name" className="text-sm font-medium">
-              Name
+              {t("auth.field.name")}
             </label>
             <input
               id="name"
@@ -98,7 +95,7 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="email" className="text-sm font-medium">
-              Email
+              {t("auth.field.email")}
             </label>
             <input
               id="email"
@@ -113,7 +110,7 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="password" className="text-sm font-medium">
-              Password
+              {t("auth.field.password")}
             </label>
             <input
               id="password"
@@ -127,26 +124,26 @@ export default function RegisterPage() {
             />
           </div>
 
-          {error === "EMAIL_TAKEN" ? (
+          {error === "auth.register.error.emailTaken" ? (
             <p className="text-destructive text-sm">
-              This email already has an account.{" "}
+              {t(error)}{" "}
               <Link href="/login" className="underline">
-                Sign in instead?
+                {t("auth.register.error.signInInstead")}
               </Link>
             </p>
           ) : error ? (
-            <p className="text-destructive text-sm">{error}</p>
+            <p className="text-destructive text-sm">{t(error)}</p>
           ) : null}
 
           <Button type="submit" disabled={loading} className="w-full" size="lg">
-            {loading ? "Creating account..." : "Create account"}
+            {loading ? t("auth.register.submitting") : t("auth.register.submit")}
           </Button>
         </form>
 
         <p className="text-muted-foreground text-center text-sm">
-          Already have an account?{" "}
+          {t("auth.register.haveAccount")}{" "}
           <Link href="/login" className="text-foreground underline">
-            Sign in
+            {t("auth.register.signIn")}
           </Link>
         </p>
       </div>
