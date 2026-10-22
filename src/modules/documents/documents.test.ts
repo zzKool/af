@@ -16,6 +16,7 @@ import {
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as documentService from "@/modules/documents/documents";
 import { resolveDocumentData } from "@/modules/documents/documents";
+import { inboxTotals } from "@/modules/documents/queries";
 
 // Mock next/headers
 let mockHeaders: Headers = new Headers();
@@ -65,6 +66,21 @@ const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 
 let adminPool: Pool;
+
+/** A real link onto the document — "linked" is derived from links, never typed as a status. */
+async function linkDocument(
+  tenantId: string,
+  documentId: string,
+  userId: string,
+  kind: "created_from" | "justifies",
+): Promise<void> {
+  const fromType = kind === "created_from" ? "expense" : "bank_transaction";
+  await adminPool.query(
+    `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+     VALUES ($1, $2, gen_random_uuid(), 'document', $3, $4, $5)`,
+    [tenantId, fromType, documentId, kind, userId],
+  );
+}
 const testClock = createTestClock(new Date("2026-03-14T15:00:00Z"));
 
 // PDF magic bytes; `pdf(label)` gives distinct bytes — the same bytes twice in one tenant is a duplicate (US2)
@@ -690,6 +706,32 @@ describe("documents service", () => {
       expect(result.error?.code).toBe("NOT_FOUND");
     });
 
+    it("refuses a correction that does not fit its field, and stores nothing", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
+        status: "extracted",
+      });
+
+      for (const bad of [{ invoiceTotal: null }, { currency: "GBP" }, { status: "linked" }]) {
+        const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          return documentService.updateDocumentCorrections(
+            tx,
+            owner.callerIdentity,
+            audit,
+            doc.id,
+            bad as never,
+          );
+        });
+        expect(result.error?.code, JSON.stringify(bad)).toBe("VALIDATION_ERROR");
+      }
+      const stored = await adminPool.query(`SELECT corrections FROM documents WHERE id = $1`, [
+        doc.id,
+      ]);
+      expect(stored.rows[0].corrections).toBeNull();
+    });
+
     it("logs audit trail for corrections", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const { tenantId } = owner.callerIdentity;
@@ -836,7 +878,7 @@ describe("documents service", () => {
       expect(result.error?.code).toBe("FORBIDDEN");
     });
 
-    it("blocks reclassification on linked status", async () => {
+    it("refuses to reclassify a document that became an expense (derived from the link)", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const { tenantId } = owner.callerIdentity;
 
@@ -852,10 +894,10 @@ describe("documents service", () => {
           "test.pdf",
           "expense",
         );
-        // Simulate linked status
-        await tx.document.update({ where: { id: stored(r).id }, data: { status: "linked" } });
         return stored(r).id;
       });
+      // it became an expense — the link, not a status
+      await linkDocument(tenantId, docId, owner.callerIdentity.userId, "created_from");
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
         const audit = createRealAuditLogger(tx, owner.callerIdentity);
@@ -1352,27 +1394,24 @@ describe("documents service", () => {
       expect(result.data?.byStatus["ocr_failed"]).toBe(1);
     });
 
-    it("counts unreviewed correctly (extracted + ocr_failed without reviewedAt)", async () => {
+    it("one 'to review' count: the inbox's total, not a second count in the stats", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const tenantId = owner.callerIdentity.tenantId;
 
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "extracted",
-      });
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "ocr_failed",
-      });
-      await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "uploaded",
-      });
+      for (const status of ["extracted", "ocr_failed", "uploaded"]) {
+        await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, { status });
+      }
 
-      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentStats(tx, owner.callerIdentity);
-      });
+      const [stats, inbox] = await withTenantTransaction(prisma, tenantId, async (tx) =>
+        Promise.all([
+          documentService.getDocumentStats(tx, owner.callerIdentity),
+          inboxTotals(tx, owner.callerIdentity),
+        ]),
+      );
 
-      expect(result.error).toBeUndefined();
-      // extracted + ocr_failed without reviewedAt = 2 unreviewed
-      expect(result.data?.unreviewed).toBe(2);
+      expect(stats.data).not.toHaveProperty("unreviewed");
+      // ready (extracted) + pending (ocr_failed, needs OCR) — what the library's "to review" and the inbox link show
+      expect(inbox.total).toBe(3);
     });
 
     it("accountant stats only count financial documents", async () => {
@@ -1434,8 +1473,9 @@ describe("documents service", () => {
       const { tenantId } = owner.callerIdentity;
 
       const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "linked",
+        status: "extracted",
       });
+      await linkDocument(tenantId, doc.id, owner.callerIdentity.userId, "justifies");
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
         const audit = createRealAuditLogger(tx, owner.callerIdentity);
@@ -1444,7 +1484,7 @@ describe("documents service", () => {
 
       expect(result.error).toBeDefined();
       expect(result.error?.code).toBe("BUSINESS_RULE_VIOLATION");
-      expect(result.error?.message).toContain("linked to a journal entry");
+      expect(result.error?.message).toContain("linked");
 
       // Document must still exist
       const still = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -1515,9 +1555,12 @@ describe("documents service", () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const { tenantId } = owner.callerIdentity;
 
+      // the stored status says nothing; the link decides — and is checked before the trigger could abort the
+      // transaction (the audit row below would then be lost)
       const doc = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId, {
-        status: "linked",
+        status: "extracted",
       });
+      await linkDocument(tenantId, doc.id, owner.callerIdentity.userId, "created_from");
 
       await withTenantTransaction(prisma, tenantId, async (tx) => {
         const audit = createRealAuditLogger(tx, owner.callerIdentity);

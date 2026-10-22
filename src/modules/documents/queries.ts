@@ -13,9 +13,9 @@ import type {
   DistinctValue,
   ListQuery,
   ListResult,
-  SortSpec,
 } from "@/kernel/list-query/types";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
+import { linksTouching } from "@/modules/linking";
 import {
   duplicateOfMap,
   type InboxCounts,
@@ -25,8 +25,9 @@ import {
   inboxState,
   inTab,
 } from "./inbox";
+import { DOCUMENT_COLUMNS, DOCUMENT_DEFAULT_SORT, type DocumentColumn } from "./library-columns";
 import { unlinkedIds } from "./linkable";
-import { parseOcrPayload, resolveDocumentData } from "./ocr-payload";
+import { amountText, parseCorrections, parseOcrPayload, resolveDocumentData } from "./ocr-payload";
 
 export {
   getDocumentDownloadUrl,
@@ -34,28 +35,13 @@ export {
   getDocuments,
   getRecentDocuments,
 } from "./library";
+export {
+  DOCUMENT_COLUMN_KEYS,
+  DOCUMENT_COLUMNS,
+  DOCUMENT_DEFAULT_SORT,
+  type DocumentColumn,
+} from "./library-columns";
 export { getDocument, getDocumentForReview, getDocumentOcrData } from "./review";
-
-export const DOCUMENT_COLUMNS = {
-  businessKey: { type: "text", searchable: true },
-  fileName: { type: "text", searchable: true },
-  prefixType: { type: "enum" },
-  documentType: { type: "enum" },
-  status: { type: "enum" },
-  mimeType: { type: "enum" },
-  fileSize: { type: "number" },
-  vendor: { type: "text", searchable: true },
-  amount: { type: "money" },
-  currency: { type: "enum" },
-  documentDate: { type: "date" },
-  linked: { type: "boolean" },
-  reviewedAt: { type: "date" },
-  createdAt: { type: "date" },
-} as const satisfies ColumnMap;
-
-export type DocumentColumn = keyof typeof DOCUMENT_COLUMNS;
-export const DOCUMENT_COLUMN_KEYS = Object.keys(DOCUMENT_COLUMNS) as DocumentColumn[];
-export const DOCUMENT_DEFAULT_SORT: SortSpec[] = [{ col: "createdAt", dir: "desc" }];
 
 const DERIVED: ReadonlySet<string> = new Set([
   "vendor",
@@ -128,7 +114,7 @@ async function loadRows(
   const list: DocumentListRow[] = rows.map((r) => {
     const resolved = resolveDocumentData(
       parseOcrPayload(r.ocrData)?.extractedData ?? null,
-      (r.corrections as Partial<OcrExtractedData> | null) ?? null,
+      parseCorrections(r.corrections),
     );
     return {
       id: r.id,
@@ -140,7 +126,7 @@ async function loadRows(
       mimeType: r.mimeType,
       fileSize: r.fileSize,
       vendor: resolved.vendorName ?? resolved.merchantName ?? null,
-      amount: resolved.invoiceTotal === undefined ? null : resolved.invoiceTotal.toFixed(2),
+      amount: amountText(resolved.invoiceTotal),
       currency: resolved.currency ?? null,
       documentDate: resolved.invoiceDate ?? resolved.transactionDate ?? null,
       linked: !free.has(r.id),
@@ -319,11 +305,14 @@ export async function listInbox(
   });
   const became = new Set(
     (
-      await tx.link.findMany({
-        where: { kind: "created_from", toType: "document" },
-        select: { toId: true },
-      })
-    ).map((l) => l.toId),
+      await linksTouching(
+        tx,
+        "document",
+        docs.map((d) => d.id),
+      )
+    )
+      .filter((l) => l.kind === "created_from" && l.to.type === "document")
+      .map((l) => l.to.id),
   );
   const dupOf = duplicateOfMap(docs);
   const twinOf = new Map<string, number>();
@@ -347,7 +336,7 @@ export async function listInbox(
     const payload = parseOcrPayload(d.ocrData);
     const resolved = resolveDocumentData(
       payload?.extractedData ?? null,
-      (d.corrections as Partial<OcrExtractedData> | null) ?? null,
+      parseCorrections(d.corrections),
     );
     const oldest = dupOf.get(d.id) ?? null;
     all.push({
@@ -362,7 +351,7 @@ export async function listInbox(
       duplicateOf: oldest ? { id: oldest, businessKey: keyOf.get(oldest) ?? "" } : null,
       hasTwin: d.contentHash ? (twinOf.get(d.contentHash) ?? 0) > 1 : false,
       vendor: resolved.vendorName ?? resolved.merchantName ?? null,
-      amount: resolved.invoiceTotal === undefined ? null : resolved.invoiceTotal.toFixed(2),
+      amount: amountText(resolved.invoiceTotal),
       currency: resolved.currency ?? null,
       documentDate: resolved.invoiceDate ?? resolved.transactionDate ?? null,
       quality: payload?.quality ?? null,

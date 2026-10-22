@@ -17,6 +17,17 @@ resolveDocumentData(extractedData, corrections)
 
 This utility is exported for reuse in Epic 7 match scoring.
 
+### The corrections schema (F61)
+
+`ocr-payload.ts` holds one zod schema per field — `vendorName`, `vendorTaxId`, `merchantName`, `invoiceNumber` (text ≤ 500), `invoiceDate`, `transactionDate`, `dueDate` (ISO day or `""` = cleared), `currency` (one of `CURRENCIES`), `invoiceTotal`, `subtotal`, `totalTax` (finite numbers), `items` (line items, ≤ 500). Used twice:
+
+```
+write  correctionsPatchSchema (strict) ── action + updateDocumentCorrections ── a bad patch → VALIDATION_ERROR, nothing stored
+read   parseCorrections (per field)    ── library, inbox, review, linkable ── a stored value that does not fit is dropped → the OCR value shows
+```
+
+So `{invoiceTotal: null}` (an emptied number field used to send it) is refused on save, and an old row holding it still lists. Amounts reach the lists through `amountText` (finite number → 2 decimals, else null). The matcher gets a currency only when it is a code the app knows (`knownCurrency`); OCR's `prebuilt-receipt` reads none, so **set the currency on review** — a receipt corrected to CHF is compared as CHF. An uncorrected receipt is still compared as SEK until linking accepts an unknown currency (F61-b).
+
 ### Why not mutate extractedData?
 
 - **Audit trail**: original OCR output always available for comparison
@@ -93,7 +104,7 @@ OCR quality classification from Story 5.2 is displayed in the header:
 
 Owners can reclassify documents by changing the category (financial/relationship) and sub-type (expense, invoice, contract, nda, certificate). This updates `documentType` and `prefixType` but **never changes the business key** (immutable after generation).
 
-Linked documents cannot be reclassified.
+A **linked** document cannot be reclassified: something became from it (`created_from`) or a bank row justifies it (`justifies`). Linked is derived from the links (`linkable.ts` — `linkedIds` / `isDocumentLinked`, through `linking.linksTouching`), never from the stored status; `"linked"` is not a status value. Deleting a document asks `linking.isLinked` (any link — the database trigger's own test) before writing anything, so the *blocked* audit row survives.
 
 ## Document Preview
 

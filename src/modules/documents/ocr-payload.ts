@@ -1,6 +1,8 @@
 // The OCR facts of a document: the `ocr_data` JSONB the OCR job writes (`{ extractedData, rawResponse, quality }`)
 // read back in one place, and the owner's corrections laid over them. Pure — no db, no storage.
+import { z } from "zod/v4";
 import type { Prisma } from "@/generated/prisma/client";
+import { CURRENCIES, type Currency } from "@/kernel/nav/constants";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
 
 /** What the services read from `documents.ocr_data`; `rawResponse` stays in the column. */
@@ -22,6 +24,66 @@ export function parseOcrPayload(ocrData: Prisma.JsonValue | null): OcrPayload | 
       : null,
     quality: typeof ocrData.quality === "string" ? ocrData.quality : null,
   };
+}
+
+// --- The owner's corrections (`documents.corrections`, a JSONB patch merged by key) ---
+// One schema per field, used twice: strict on write (the action and the service refuse a bad patch) and per field
+// on read (a stored value that does not fit is dropped, so one bad row never breaks the library or the inbox).
+
+const text = z.string().max(500);
+const isoDate = z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]);
+const amount = z.number().finite();
+const lineItem = z
+  .object({
+    description: text.optional(),
+    quantity: amount.optional(),
+    unitPrice: amount.optional(),
+    amount: amount.optional(),
+    tax: amount.optional(),
+  })
+  .strict();
+
+const CORRECTION_FIELDS = {
+  vendorName: text,
+  vendorTaxId: text,
+  merchantName: text,
+  invoiceNumber: text,
+  invoiceDate: isoDate,
+  transactionDate: isoDate,
+  dueDate: isoDate,
+  currency: z.enum(CURRENCIES),
+  invoiceTotal: amount,
+  subtotal: amount,
+  totalTax: amount,
+  items: z.array(lineItem).max(500),
+} as const;
+
+/** A corrections patch as the review page sends it — any subset of the fields, nothing else, no nulls. */
+export const correctionsPatchSchema = z.object(CORRECTION_FIELDS).partial().strict();
+export type CorrectionsPatch = z.infer<typeof correctionsPatchSchema>;
+
+/** `corrections` → the fields that fit their schema; a value that does not is dropped (never thrown). */
+export function parseCorrections(value: unknown): Partial<OcrExtractedData> | null {
+  if (!isRecord(value)) return null;
+  const out: Record<string, unknown> = {};
+  for (const [key, schema] of Object.entries(CORRECTION_FIELDS)) {
+    if (!(key in value)) continue;
+    const parsed = (schema as z.ZodType).safeParse(value[key]);
+    if (parsed.success) out[key] = parsed.data;
+  }
+  return out as Partial<OcrExtractedData>;
+}
+
+/** An OCR or corrected amount as a 2-decimal string, or null when there is none. */
+export function amountText(value: unknown): string | null {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : null;
+}
+
+/** The document's currency when it is one the app knows (OCR's code or the owner's correction), else null. */
+export function knownCurrency(value: unknown): Currency | null {
+  if (typeof value !== "string") return null;
+  const code = value.trim().toUpperCase();
+  return (CURRENCIES as readonly string[]).includes(code) ? (code as Currency) : null;
 }
 
 // --- Shared utility: resolve corrections over OCR data ---

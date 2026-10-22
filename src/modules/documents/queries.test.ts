@@ -13,7 +13,8 @@ import {
   createTestUser,
 } from "@/kernel/db/test-fixtures";
 import type { ListQuery } from "@/kernel/list-query/types";
-import { distinctDocumentValues, documentDateHierarchy, listDocuments } from "./queries";
+import { getDocuments } from "./library";
+import { distinctDocumentValues, documentDateHierarchy, listDocuments, listInbox } from "./queries";
 
 const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
@@ -234,5 +235,44 @@ describe("listDocuments", () => {
       { value: "OpenAI", count: 1 },
       { value: "SBB", count: 1 },
     ]);
+  });
+});
+
+describe("a stored correction that does not fit its field (lessons audit 11)", () => {
+  it("the row still lists in the library, the inbox and the paged list, with the OCR value", async () => {
+    // a null total and a number for a currency — what the old `record(string, json)` action let through
+    await adminPool.query(`UPDATE documents SET corrections = $2::jsonb WHERE id = $1`, [
+      ids.invoice,
+      JSON.stringify({ invoiceTotal: null, currency: 42, vendorName: "OpenAI Ireland" }),
+    ]);
+
+    const library = await run(owner, (tx) => listDocuments(tx, owner, q()));
+    expect(library.rows.find((d) => d.id === ids.invoice)).toMatchObject({
+      vendor: "OpenAI Ireland",
+      amount: "20.00",
+      currency: "USD",
+    });
+
+    const inbox = await run(owner, (tx) => listInbox(tx, owner));
+    expect(inbox.rows.find((d) => d.id === ids.invoice)).toMatchObject({
+      vendor: "OpenAI Ireland",
+      amount: "20.00",
+    });
+
+    const paged = await run(owner, (tx) =>
+      getDocuments(
+        tx,
+        owner,
+        {},
+        { field: "createdAt", direction: "desc" },
+        {
+          page: 1,
+          pageSize: 25,
+        },
+      ),
+    );
+    expect(paged.data?.items.find((d) => d.id === ids.invoice)).toMatchObject({
+      extractedAmount: 20,
+    });
   });
 });

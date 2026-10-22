@@ -38,6 +38,14 @@ Notes from the build (2026-10-21): the DB tests of T011 / T012 live in `inbox.te
 - [ ] T022 Hide *Make it…* on an archived document: `document-review-client.tsx` renders `MakeItSection` whatever `archivedAt`; show an *Archived* line with *Restore* instead; review-client test per FR-001 (contradicts)
 - [ ] T023 Show what a document became in the library: the *Linked / Not linked* badge → *Expense {key}* / *Supplier invoice {key}* linking to the entity (`becameHref`), from the same `created_from` read per FR-005 (partial)
 - [ ] T024 Complete the upload duplicate card: the uploader's name (`createdBy` is returned, never shown — resolve the name in the action, outside the tenant transaction) and the key of what it became (*Became expense Ex213-Tr-04*, today the type only) per FR-009, US2/AC1 (partial)
-- [ ] T025 Read the `created_from` targets through a linking read API (`linking.createdFromTargets(tx, documentIds)`) instead of `tx.link` in `upload.ts`, `queries.ts` and `inbox-writes.ts` per plan: *became* read through the linking module (contradicts)
+- [ ] T025 Read the `created_from` targets through a linking read API (`linking.createdFromTargets(tx, documentIds)`) instead of `tx.link` in `upload.ts`, `queries.ts` and `inbox-writes.ts` per plan: *became* read through the linking module (contradicts) — *F61 (2026-10-23): `queries.ts` (`listInbox`) and `linkable.ts` (`linkedIds`) now read through `linking.linksTouching`; left `upload.ts:87`, `inbox-writes.ts:35`. A batch `createdFromTargets` is F66's (audit 22).*
 - [ ] T026 Extract the vendor address in `kernel/ocr` (`vendorAddress`, Azure DI's `VendorAddress`) and pass it to the supplier match (its +20) and to *Create new partner* (today `address: {}`) per FR-003, US1/AC4 (partial)
 - [ ] T027 Count twins among generated documents for *Duplicates* and *Duplicate of* (`listInbox` reads non-generated rows only, so a forced upload of the client's copy of an issued invoice is never captioned) per FR-011, US2/AC4 (partial)
+
+## F61 — documents figures (2026-10-23, `feat/documents-figures`)
+
+- [x] Linked derived from links (reclassify, inbox, delete); `"linked"` out of the status vocabulary; delete checks links before auditing
+- [x] Corrections: `correctionsPatchSchema` on write, `parseCorrections` on every read
+- [x] Currency: known codes only to the matcher; a corrected CHF receipt scores as CHF
+- [x] One "to review" count (`inboxTotals`)
+- [ ] F61-b (linking): an unknown currency stays unknown — `EntityFacts.currency` nullable, see [[features]]

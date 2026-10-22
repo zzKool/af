@@ -52,7 +52,7 @@ export default async function DocumentsPage({
       title={t("documents.title")}
       meta={t("documents.meta", {
         total: data.stats?.totalCount ?? data.result.total,
-        unreviewed: data.stats?.unreviewed ?? 0,
+        unreviewed: data.inbox.total,
         failed: data.stats?.byStatus?.ocr_failed ?? 0,
       })}
       actions={

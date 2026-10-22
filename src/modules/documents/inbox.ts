@@ -33,13 +33,12 @@ export type InboxDocumentFacts = {
 
 /**
  * The inbox state of a document, or null when it is out of the inbox: generated PDFs never enter; a document
- * that became something, was filed (reviewed with nothing created) or whose pipeline reached `linked` has had
- * its decision. Archived rows keep their state under the Archived tab.
+ * that became something or was filed (reviewed with nothing created) has had its decision (D34). Archived rows keep their state under the Archived tab.
  */
 export function inboxState(doc: InboxDocumentFacts, now: Date): InboxState | null {
   if (doc.status === "generated") return null;
   if (doc.archivedAt) return "archived";
-  if (doc.became || doc.reviewedAt || doc.status === "linked") return null;
+  if (doc.became || doc.reviewedAt) return null;
   switch (doc.status) {
     case "uploaded":
       return "needs_ocr";

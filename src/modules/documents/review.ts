@@ -10,7 +10,14 @@ import { SIGNED_URL_TTL_SECONDS } from "@/kernel/nav/constants";
 import { extractBlobPath, type OcrExtractedData } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
 import { getDocumentClassification } from "@/modules/documents/business-key";
-import { parseOcrPayload, resolveDocumentData } from "./ocr-payload";
+import { isDocumentLinked } from "./linkable";
+import {
+  type CorrectionsPatch,
+  correctionsPatchSchema,
+  parseCorrections,
+  parseOcrPayload,
+  resolveDocumentData,
+} from "./ocr-payload";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -114,7 +121,7 @@ export async function getDocumentForReview(
   const extractedData = payload?.extractedData ?? null;
   const quality = payload?.quality ?? null;
 
-  const corrections = (doc.corrections as Partial<OcrExtractedData>) ?? null;
+  const corrections = parseCorrections(doc.corrections);
   const resolvedData = resolveDocumentData(extractedData, corrections);
 
   // Generate signed URL
@@ -151,8 +158,8 @@ export async function updateDocumentCorrections(
   caller: CallerIdentity,
   audit: AuditLogger,
   documentId: string,
-  patch: Record<string, unknown>,
-): Promise<ServiceResult<{ corrections: Record<string, unknown> }>> {
+  patch: CorrectionsPatch,
+): Promise<ServiceResult<{ corrections: Partial<OcrExtractedData> }>> {
   // Owner-only (fail-closed)
   if (!can(caller, "update", "financial_document")) {
     return {
@@ -160,17 +167,17 @@ export async function updateDocumentCorrections(
     };
   }
 
-  // Atomic JSONB merge — concurrent-safe, bypasses Prisma read-then-write
-  // RLS CRITICAL: tenant_id = current_setting('app.tenant_id') is the safety net
-  let patchJson: string;
-  try {
-    patchJson = JSON.stringify(patch);
-  } catch {
+  // Each field against its schema — the action parses too, the service is where the rule lives
+  const parsed = correctionsPatchSchema.safeParse(patch);
+  if (!parsed.success) {
     return {
       error: { code: "VALIDATION_ERROR", message: "Invalid correction data", retryable: false },
     };
   }
+  const patchJson = JSON.stringify(parsed.data);
 
+  // Atomic JSONB merge — concurrent-safe, bypasses Prisma read-then-write
+  // RLS CRITICAL: tenant_id = current_setting('app.tenant_id') is the safety net
   const result = await tx.$queryRaw<{ corrections: unknown }[]>`
     UPDATE documents
     SET corrections = COALESCE(corrections, '{}'::jsonb) || ${patchJson}::jsonb,
@@ -190,10 +197,10 @@ export async function updateDocumentCorrections(
     action: "update",
     entityType: "document",
     entityId: documentId,
-    newData: { correctionsPatch: patch },
+    newData: { correctionsPatch: parsed.data },
   });
 
-  return { data: { corrections: result[0].corrections as Record<string, unknown> } };
+  return { data: { corrections: parseCorrections(result[0].corrections) ?? {} } };
 }
 
 export async function classifyDocument(
@@ -231,8 +238,8 @@ export async function classifyDocument(
     };
   }
 
-  // Block reclassification on linked status (future-proof for Epic 7)
-  if (doc.status === "linked") {
+  // A document that became something or that a bank row justifies keeps its kind (derived from the links)
+  if (await isDocumentLinked(tx, documentId)) {
     return {
       error: {
         code: "VALIDATION_ERROR",

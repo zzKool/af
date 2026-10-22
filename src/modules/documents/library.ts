@@ -4,9 +4,9 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can, documentSubject } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import { extractBlobPath, type OcrExtractedData } from "@/kernel/ocr/ocr";
+import { extractBlobPath } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
-import { parseOcrPayload, resolveDocumentData } from "./ocr-payload";
+import { parseCorrections, parseOcrPayload, resolveDocumentData } from "./ocr-payload";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -118,7 +118,7 @@ export async function getDocuments(
   // Resolve extracted data for list display
   const items: DocumentListItem[] = docs.map((doc) => {
     const extractedData = parseOcrPayload(doc.ocrData)?.extractedData ?? null;
-    const corrections = (doc.corrections as Partial<OcrExtractedData>) ?? null;
+    const corrections = parseCorrections(doc.corrections);
     const resolved = resolveDocumentData(extractedData, corrections);
 
     return {
@@ -149,7 +149,6 @@ export async function getDocumentStats(
     totalCount: number;
     byStatus: Record<string, number>;
     byType: Record<string, number>;
-    unreviewed: number;
   }>
 > {
   // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
@@ -158,7 +157,8 @@ export async function getDocumentStats(
     where.documentType = "financial";
   }
 
-  const [totalCount, statusGroups, typeGroups, unreviewed] = await Promise.all([
+  // "to review" is the inbox's number (`inboxTotals`), not a second count here
+  const [totalCount, statusGroups, typeGroups] = await Promise.all([
     tx.document.count({ where }),
     tx.document.groupBy({
       by: ["status"],
@@ -169,13 +169,6 @@ export async function getDocumentStats(
       by: ["documentType"],
       where,
       _count: true,
-    }),
-    tx.document.count({
-      where: {
-        ...where,
-        status: { in: ["extracted", "ocr_failed"] },
-        reviewedAt: null,
-      },
     }),
   ]);
 
@@ -189,7 +182,7 @@ export async function getDocumentStats(
     byType[g.documentType] = g._count;
   }
 
-  return { data: { totalCount, byStatus, byType, unreviewed } };
+  return { data: { totalCount, byStatus, byType } };
 }
 
 export async function getDocumentDownloadUrl(
