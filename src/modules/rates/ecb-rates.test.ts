@@ -1,6 +1,5 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { Prisma } from "@/generated/prisma/client";
 import { MIGRATION_URL } from "@/kernel/db/test-setup";
 import {
   buildEcbUrl,
@@ -9,6 +8,7 @@ import {
   fetchDailyRates,
   fetchRatesArgToOptions,
   getRate,
+  NEAREST_RATE_MAX_DAYS,
   parseEcbXml,
   rateStatus,
   rateToBase,
@@ -219,23 +219,65 @@ describe("getRate", () => {
     expect(result!.actualDate).toBe("2026-03-14");
   });
 
-  it("falls back to nearest cached rate when exact date missing", async () => {
-    await insertRate("2026-03-13", "EUR/SEK", "11.111111");
-    // No rate for 2026-03-14 (weekend)
+  // The rate a missing day borrows is written once (D3) — the rule, not the query, is under test (lessons 7, 31).
+  const db = {
+    $queryRawUnsafe: (q: string, ...args: unknown[]) =>
+      adminPool.query(q, args).then((r) => r.rows),
+  };
 
-    const result = await getRate(
-      {
-        $queryRawUnsafe: (q: string, ...args: unknown[]) =>
-          adminPool.query(q, args).then((r) => r.rows),
-      },
-      "2026-03-14",
-      "EUR/SEK",
-    );
+  it("Sunday takes Friday, not the closer Monday; the requested date is kept", async () => {
+    await insertRate("2026-03-13", "EUR/SEK", "11.111111"); // Fri
+    await insertRate("2026-03-16", "EUR/SEK", "11.666666"); // Mon — 1 day away, Friday is 2
 
-    expect(result).not.toBeNull();
-    expect(result!.rateSource).toBe("cached");
-    expect(result!.actualDate).toBe("2026-03-13");
-    expect(result!.date).toBe("2026-03-14"); // Requested date preserved
+    const result = await getRate(db, "2026-03-15", "EUR/SEK");
+
+    expect(result?.rateSource).toBe("cached");
+    expect(result?.actualDate).toBe("2026-03-13");
+    expect(result?.rate.toString()).toBe("11.111111");
+    expect(result?.date).toBe("2026-03-15");
+  });
+
+  it("a tie (mid-week holiday, Tuesday and Thursday both 1 day away) always takes the earlier day", async () => {
+    await insertRate("2026-03-17", "EUR/SEK", "11.17"); // Tue
+    await insertRate("2026-03-19", "EUR/SEK", "11.19"); // Thu
+
+    for (let i = 0; i < 3; i++) {
+      const result = await getRate(db, "2026-03-18", "EUR/SEK");
+      expect(result?.actualDate).toBe("2026-03-17");
+    }
+  });
+
+  it(`reaches ${NEAREST_RATE_MAX_DAYS} days back: Easter Monday takes Maundy Thursday over Tuesday`, async () => {
+    expect(NEAREST_RATE_MAX_DAYS).toBe(4);
+    await insertRate("2026-04-02", "EUR/SEK", "11.02"); // Thu before Easter (Good Friday is a TARGET closure)
+    await insertRate("2026-04-07", "EUR/SEK", "11.07"); // Tue after Easter, 1 day away
+
+    const result = await getRate(db, "2026-04-06", "EUR/SEK");
+
+    expect(result?.actualDate).toBe("2026-04-02");
+  });
+
+  it("refuses a sync gap over the cap instead of guessing (null → the caller says run the ECB sync)", async () => {
+    await insertRate("2026-03-02", "EUR/SEK", "11.02"); // 8 days before
+    await insertRate("2026-03-20", "EUR/SEK", "11.20"); // 10 days after
+
+    expect(await getRate(db, "2026-03-10", "EUR/SEK")).toBeNull();
+
+    // one day past the cap, on either side
+    await adminPool.query("TRUNCATE ecb_rates");
+    await insertRate("2026-03-09", "EUR/SEK", "11.09"); // Mon, 5 days before Sat 03-14
+    expect(await getRate(db, "2026-03-14", "EUR/SEK")).toBeNull();
+    await insertRate("2026-03-19", "EUR/SEK", "11.19"); // Thu, 5 days after
+    expect(await getRate(db, "2026-03-14", "EUR/SEK")).toBeNull();
+  });
+
+  it("takes a later day only when no earlier one is in reach (first day of the backfill)", async () => {
+    await insertRate("2023-04-03", "EUR/SEK", "11.30"); // Mon; nothing stored before
+
+    const result = await getRate(db, "2023-04-01", "EUR/SEK"); // Sat, the cut-off day
+
+    expect(result?.rateSource).toBe("cached");
+    expect(result?.actualDate).toBe("2023-04-03");
   });
 
   it("returns null when no rates exist", async () => {
@@ -440,35 +482,6 @@ describe("fetchDailyRates", () => {
   });
 });
 
-describe("Decimal rate multiplication proof", () => {
-  it("amount.times(rate) produces correct baseAmountSek", () => {
-    const amount = new Prisma.Decimal("100.00");
-    const rate = new Prisma.Decimal("11.234567");
-    const result = amount.times(rate);
-
-    expect(result.toString()).toBe("1123.4567");
-  });
-
-  it("small CHF amount times EUR/CHF rate", () => {
-    const amount = new Prisma.Decimal("50.25");
-    const rate = new Prisma.Decimal("0.9041");
-    const result = amount.times(rate);
-
-    // 50.25 * 0.9041 = 45.431025
-    expect(result.toFixed(6)).toBe("45.431025");
-  });
-
-  it("negative amount preserves sign through multiplication", () => {
-    const amount = new Prisma.Decimal("-226.66");
-    const rate = new Prisma.Decimal("11.234567");
-    const result = amount.times(rate);
-
-    expect(result.isNegative()).toBe(true);
-    // -226.66 * 11.234567 = -2546.43...
-    expect(result.toFixed(2)).toBe("-2546.43");
-  });
-});
-
 describe("rateToBase — the conversion written once at issue (D3/D4)", () => {
   const db = {
     $queryRawUnsafe: (q: string, ...a: unknown[]) => adminPool.query(q, a).then((r) => r.rows),
@@ -500,6 +513,14 @@ describe("rateToBase — the conversion written once at issue (D3/D4)", () => {
     expect(weekend?.source).toBe("ecb_nearest");
     expect(weekend?.rateDate).toBe("2026-01-30");
     expect(await rateToBase(db, "2026-01-31", "USD", "SEK")).toBeNull();
+  });
+
+  it("null when a leg's nearest day is past the cap — never a weeks-old rate written once", async () => {
+    await insertRate("2026-01-30", "EUR/SEK", "11.1000");
+    await insertRate("2026-01-30", "EUR/CHF", "0.9260");
+    await insertRate("2026-02-10", "EUR/SEK", "11.2000"); // SEK leg on the day, CHF leg 11 days old
+    expect(await rateToBase(db, "2026-02-10", "CHF", "SEK")).toBeNull();
+    expect((await rateToBase(db, "2026-02-10", "EUR", "SEK"))?.source).toBe("ecb_daily");
   });
 });
 

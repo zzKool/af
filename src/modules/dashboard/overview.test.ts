@@ -56,6 +56,10 @@ beforeEach(async () => {
       [date],
     );
   }
+  // the Friday before the CHF invoice issued Sun 05-10 (a fallback is capped at 4 days, F60)
+  await adminPool.query(
+    `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ('2026-05-08', 'EUR/SEK', 10.75), ('2026-05-08', 'EUR/CHF', 1)`,
+  );
   owner = await setupOwner(adminPool, nordeaFormatId);
 });
 afterAll(async () => {

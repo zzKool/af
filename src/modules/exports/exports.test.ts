@@ -52,6 +52,7 @@ beforeEach(async () => {
     "2026-06-01",
     "2026-06-15",
     "2026-07-15",
+    "2026-07-24", // the Friday before the VAT payment of Sat 07-25 (a fallback is capped at 4 days, F60)
   ]) {
     // 1 CHF = 10.75 SEK; 1 EUR = 0.93 CHF → EUR/CHF 0.93, EUR/SEK 10.00
     await adminPool.query(

@@ -214,8 +214,19 @@ export function fetchRatesArgToOptions(
 }
 
 /**
- * Look up cached rate for a given date and currency pair.
- * Falls back to nearest available date if exact date missing.
+ * How far (calendar days) a missing day may borrow another day's rate. 4 covers every TARGET closure:
+ * a weekend (Sat/Sun → Fri), a holiday next to a weekend (Mon → Fri = 3), Easter Monday (→ Thursday = 4).
+ * Beyond it the gap is a sync gap, not a market holiday — and the rate is written once (D3), so we refuse.
+ */
+export const NEAREST_RATE_MAX_DAYS = 4;
+
+/**
+ * Look up the cached rate for a date and currency pair.
+ * Exact day → `ecb_daily`. Otherwise the nearest stored day within NEAREST_RATE_MAX_DAYS → `cached`:
+ * an earlier day always wins over a later one (Sunday → Friday, a mid-week holiday → the day before), the
+ * closest earlier first; a later day only when no earlier one is in reach (e.g. the first day of a backfill).
+ * The date is unique per pair, so the choice is deterministic. Null beyond the cap — the caller says
+ * "run the ECB sync" rather than lock a guessed rate.
  */
 export async function getRate(
   prisma: { $queryRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown[]> },
@@ -239,14 +250,16 @@ export async function getRate(
     };
   }
 
-  // Fallback: nearest cached rate (prefer earlier date, then later)
+  // Fallback: within the cap, earlier days before later ones, then the closest.
   const nearestRows = (await prisma.$queryRawUnsafe(
     `SELECT date::text, currency_pair, rate::text FROM ecb_rates
      WHERE currency_pair = $1
-     ORDER BY ABS(date - $2::date) ASC
+       AND date BETWEEN $2::date - $3::int AND $2::date + $3::int
+     ORDER BY (date > $2::date) ASC, ABS(date - $2::date) ASC
      LIMIT 1`,
     currencyPair,
     date,
+    NEAREST_RATE_MAX_DAYS,
   )) as Array<{ date: string; currency_pair: string; rate: string }>;
 
   if (nearestRows.length > 0) {
@@ -338,7 +351,8 @@ export type BaseRateResult = {
 
 /**
  * Conversion rate `from` → `to` on `date` from the ECB reference rates (EUR-based: X/Y = EUR/Y ÷ EUR/X).
- * Used once, at issue, to write the SEK base of a non-SEK document (D3, D4). Null when a leg has no rate at all.
+ * Used once, at issue, to write the SEK base of a non-SEK document (D3, D4). Null when a leg has no rate on the
+ * day nor within NEAREST_RATE_MAX_DAYS of it (see getRate) — callers refuse with "run the ECB sync".
  */
 export async function rateToBase(
   db: { $queryRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown[]> },

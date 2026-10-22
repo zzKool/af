@@ -42,11 +42,24 @@ message:GenericData → message:DataSet → generic:Series[]
 - **Schema:** `(date DATE, currency_pair TEXT, rate DECIMAL(18,6), fetched_at TIMESTAMPTZ)`
 - **Primary key:** `(date, currency_pair)` — one rate per day per pair
 
-## Fallback Strategy
+## Fallback Strategy (F60)
 
-When exact date rate is missing (weekends, holidays):
-1. Try exact date match → `rate_source: 'ecb_daily'`
-2. Fall back to nearest cached rate (by date distance) → `rate_source: 'cached'`
+The rate a document uses is written once (D3), so a wrong fallback is permanent. `getRate(db, date, pair)`:
+
+```
+exact day stored?  ── yes ──► ecb_daily
+        │ no
+earlier day within 4? ── yes ──► the closest earlier one ──► cached   (Sun → Fri, holiday → the day before)
+        │ no
+later day within 4?   ── yes ──► the closest later one   ──► cached   (only when nothing earlier: a backfill's first day)
+        │ no
+      null ──► the caller refuses: "No exchange rate for <day> — run the ECB sync"
+```
+
+- **Cap** `NEAREST_RATE_MAX_DAYS = 4` calendar days: the widest ECB/TARGET closure is Easter Monday → Maundy Thursday (Good Friday closed). Anything wider is a sync gap, not a market holiday — refuse rather than lock a weeks-old rate.
+- **Earlier wins**, even when a later day is closer (Sunday takes Friday, not Monday) — the previous published day, as the accountant books it. A mid-week tie (Tue / Thu around a holiday) is therefore always the earlier day; one row per day and pair makes the choice deterministic.
+- `rateToBase` passes the refusal on: a null leg → null, source `ecb_nearest` when a leg borrowed a day, `rateDate` = that day.
+- A transaction entered before the ECB's ~16:00 publication takes the previous day's rate (within the cap) — the same rule.
 
 ## Gap Detection
 
@@ -64,7 +77,7 @@ Scans `ecb_rates` for gaps exceeding 3 **weekdays** between consecutive rates.
 ```typescript
 // Outside tenant boundary — no CallerIdentity, no RLS, base Prisma client
 fetchDailyRates(prisma, options?)  // Fetch from ECB API, store in DB
-getRate(prisma, date, currencyPair)  // Lookup with fallback
+getRate(prisma, date, currencyPair)  // Exact day, else earlier-first within 4 days, else null (F60)
 detectGaps(prisma, currencyPair, from, to)  // Find missing weekday rates
 ```
 
