@@ -283,12 +283,11 @@ async function juneFixture(): Promise<Fixture> {
       { page: 1, pageSize: 10, sort: [], filters: {} },
       { today: TODAY },
     );
-    const supplier = await linking.createLink(tx, caller, audit(tx), {
-      from: { type: "bank_transaction", id: rows.supplierPayment },
-      to: { type: "supplier_invoice", id: si.rows[0]?.id as string },
-      kind: "justifies",
-      allocatedAmount: "1250.00",
-      currency: "SEK",
+    // a supplier invoice's payment is written by its own module (D37, F58)
+    const supplier = await supplierInvoices.recordPayment(tx, caller, audit(tx), {
+      invoiceId: si.rows[0]?.id as string,
+      bankTransactionId: rows.supplierPayment,
+      amount: "1250.00",
     });
     if (supplier.error) throw new Error(supplier.error.message);
     const transfer = await banking.acceptTransfer(tx, caller, audit(tx), {

@@ -1,7 +1,9 @@
 "use client";
 
 // The payments section of the supplier-invoice panel: the linked payments (remove), and *Link payment* — rows of
-// the invoice currency first with an optional allocation; a row in another currency attaches the D-g way.
+// the invoice currency first with an optional allocation; a row in another currency attaches the D-g way. The
+// linking inbox sends the owner here for a payment (D37, F58): `?open=<invoice>&attach=<bank row>` preselects it.
+import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -39,7 +41,11 @@ export function SupplierInvoicePaymentsSection({
 }) {
   const t = useT();
   const ids = useId();
-  const [payId, setPayId] = useState(NONE);
+  const params = useSearchParams();
+  const [payId, setPayId] = useState(() => {
+    const wanted = params.get("open") === detail.invoice.id ? params.get("attach") : null;
+    return wanted && payable.some((p) => p.id === wanted) ? wanted : NONE;
+  });
   const [payAmount, setPayAmount] = useState("");
   const { executeAsync: record, isPending: recording } = useAction(recordSupplierPaymentAction);
   const { executeAsync: attach, isPending: attaching } = useAction(attachSupplierPaymentAction);

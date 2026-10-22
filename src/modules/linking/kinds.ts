@@ -33,3 +33,16 @@ export const ALLOCATING_KINDS: readonly LinkKind[] = ["justifies", "settles"];
 
 /** Kinds where each endpoint may take part in at most one link of that kind (one origin, one outcome). */
 export const EXCLUSIVE_KINDS: readonly LinkKind[] = ["created_from"];
+
+/**
+ * Entities whose payments their own module writes (D37, F58): the bank row's amount, base and rate land on the
+ * entity together with the `justifies` link (*attach* / *record payment*), and come off with it (*detach* /
+ * *remove payment*). Linking's generic paths (inbox apply, *Link to…*, *Unlink*) refuse a `justifies` onto
+ * them — the inbox opens the entity's panel instead. The owning module passes `{ owner }` to write.
+ */
+export const OWN_PAYMENT_FLOW: readonly LinkableType[] = ["expense", "supplier_invoice"];
+
+/** True when a `kind` link onto `to` must go through `to`'s own module. */
+export function needsOwnFlow(kind: LinkKind, to: LinkableType): boolean {
+  return kind === "justifies" && OWN_PAYMENT_FLOW.includes(to);
+}

@@ -535,13 +535,19 @@ export async function attachBankTransaction(
       rateSource: "bank",
     },
   });
-  const link = await linking.createLink(tx, caller, audit, {
-    from: { type: "bank_transaction", id: t.id },
-    to: { type: "expense", id: row.id },
-    kind: "justifies",
-    allocatedAmount: paid.toFixed(2),
-    currency: t.currency,
-  });
+  const link = await linking.createLink(
+    tx,
+    caller,
+    audit,
+    {
+      from: { type: "bank_transaction", id: t.id },
+      to: { type: "expense", id: row.id },
+      kind: "justifies",
+      allocatedAmount: paid.toFixed(2),
+      currency: t.currency,
+    },
+    { owner: "expense" },
+  );
   if (link.error) throw new RollbackError(link.error);
   return { data: toExpenseDto(updated) };
 }
@@ -561,7 +567,7 @@ export async function detachBankTransaction(
     select: { id: true },
   });
   for (const l of links) {
-    const removed = await linking.removeLink(tx, caller, audit, l.id);
+    const removed = await linking.removeLink(tx, caller, audit, l.id, { owner: "expense" });
     if (removed.error) return { error: removed.error };
   }
   const source = await resolveSource(tx, row.paymentSourceId, false);

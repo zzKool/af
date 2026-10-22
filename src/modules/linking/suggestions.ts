@@ -244,9 +244,9 @@ export type ApplyInput = {
 };
 
 /**
- * Apply one suggestion (FR-004): the `justifies` link with the allocation in the target's currency. A
- * cross-currency target is refused here — supplier invoices and expenses have their own attach path (the bank
- * row's amount becomes their paid amount, D-g / D26) and a client invoice is never paid in another currency (B9).
+ * Apply one suggestion (FR-004): the `justifies` link with the allocation in the target's currency. Supplier
+ * invoices and expenses are refused by `createLink` in any currency — their own panel writes the payment with its
+ * paid amount and base (D37, F58; D-g / D26); a client invoice is never paid in another currency (B9).
  */
 export async function applySuggestion(
   tx: TransactionClient,
