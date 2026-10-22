@@ -98,14 +98,20 @@ export async function recordPayment(
     remaining.gt(0) && remaining.lte(settlementTolerance(row.amountTotal))
       ? `Rounding adjustment: ${row.currency} ${remaining.toFixed(2)} (settlement tolerance)`
       : null;
-  const link = await linking.createLink(tx, caller, audit, {
-    from: { type: "bank_transaction", id: t.data.id },
-    to: { type: "supplier_invoice", id: row.id },
-    kind: "justifies",
-    allocatedAmount: amount.toFixed(2),
-    currency: row.currency,
-    note,
-  });
+  const link = await linking.createLink(
+    tx,
+    caller,
+    audit,
+    {
+      from: { type: "bank_transaction", id: t.data.id },
+      to: { type: "supplier_invoice", id: row.id },
+      kind: "justifies",
+      allocatedAmount: amount.toFixed(2),
+      currency: row.currency,
+      note,
+    },
+    { owner: "supplier_invoice" },
+  );
   if (link.error) return { error: link.error };
   await audit.log({
     action: "update",
@@ -144,7 +150,9 @@ export async function removePayment(
   if (!link) return { error: notFound("Payment link", input.linkId) };
   if (row.paidAmount)
     return { error: violation(`${row.key} was paid by an attached bank row — detach it instead`) };
-  const removed = await linking.removeLink(tx, caller, audit, link.id);
+  const removed = await linking.removeLink(tx, caller, audit, link.id, {
+    owner: "supplier_invoice",
+  });
   if (removed.error) return { error: removed.error };
   return { data: toSupplierInvoiceDto(row) };
 }
@@ -217,13 +225,19 @@ export async function attachPayment(
       rateSource: "bank",
     },
   });
-  const link = await linking.createLink(tx, caller, audit, {
-    from: { type: "bank_transaction", id: t.data.id },
-    to: { type: "supplier_invoice", id: row.id },
-    kind: "justifies",
-    allocatedAmount: paid.toFixed(2),
-    currency: t.data.currency,
-  });
+  const link = await linking.createLink(
+    tx,
+    caller,
+    audit,
+    {
+      from: { type: "bank_transaction", id: t.data.id },
+      to: { type: "supplier_invoice", id: row.id },
+      kind: "justifies",
+      allocatedAmount: paid.toFixed(2),
+      currency: t.data.currency,
+    },
+    { owner: "supplier_invoice" },
+  );
   if (link.error) throw new RollbackError(link.error);
   return { data: toSupplierInvoiceDto(updated) };
 }
@@ -251,7 +265,9 @@ export async function detachPayment(
     select: { id: true },
   });
   for (const l of links) {
-    const removed = await linking.removeLink(tx, caller, audit, l.id);
+    const removed = await linking.removeLink(tx, caller, audit, l.id, {
+      owner: "supplier_invoice",
+    });
     if (removed.error) return { error: removed.error };
   }
   const date = row.invoiceDate.toISOString().slice(0, 10);

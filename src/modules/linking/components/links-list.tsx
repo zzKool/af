@@ -1,7 +1,9 @@
 "use client";
 
 // The links of one entity as a list — kind, the other side's label, the allocation — with *Unlink* for the
-// owner (US2). Shared by the banking panel, the invoice page and the entity panels.
+// owner (US2). Shared by the banking panel, the invoice page and the entity panels. A payment of an expense or a
+// supplier invoice is removed from that entity's panel (D37, F58): *Open* there instead of *Unlink*.
+import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +14,8 @@ import { formatCurrency } from "@/kernel/money/format-currency";
 import type { Currency } from "@/kernel/nav/constants";
 import { removeLinkAction } from "@/modules/linking/linking.actions";
 import type { LinkDto, LinkEndpoint } from "@/modules/linking/types";
+import { entityHref } from "../hrefs";
+import { needsOwnFlow } from "../kinds";
 
 export type LinkRow = Omit<LinkDto, "createdAt"> & { createdAt: string; otherLabel: string | null };
 
@@ -68,7 +72,18 @@ export function LinksList({
                   {l.currency ?? fallbackCurrency}
                 </span>
               )}
-              {canWrite && l.kind !== "created_from" && (
+              {canWrite && needsOwnFlow(l.kind, l.to.type) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  nativeButton={false}
+                  render={<Link href={entityHref({ ...l.to, label: l.otherLabel ?? "" })} />}
+                  data-testid="open-own"
+                >
+                  {t("linking.graph.openEntity")}
+                </Button>
+              )}
+              {canWrite && l.kind !== "created_from" && !needsOwnFlow(l.kind, l.to.type) && (
                 <Button
                   size="sm"
                   variant="ghost"

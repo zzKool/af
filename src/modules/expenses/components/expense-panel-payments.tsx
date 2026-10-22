@@ -1,8 +1,10 @@
 "use client";
 
 // The payment side of the expense panel: attach / detach the bank row of a company-paid expense (rows of the
-// payer's account), and the owner settlements the expense took part in.
+// payer's account), and the owner settlements the expense took part in. The linking inbox sends the owner here for
+// an expense's payment (D37, F58): `?open=<expense>&attach=<bank row>` preselects that row.
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -40,16 +42,19 @@ export function ExpenseAttachRow({
 }) {
   const t = useT();
   const ids = useId();
-  const [attachId, setAttachId] = useState(NONE);
-  const { executeAsync: attach, isPending: attaching } = useAction(attachBankTransactionAction);
-  const { executeAsync: detach, isPending: detaching } = useAction(detachBankTransactionAction);
-
+  const params = useSearchParams();
   const e = detail.expense;
   const companyPaid = detail.paymentSource.kind === "bank_account";
   const attachable = transactions.filter(
     (tx) =>
       tx.bankAccountId === sources.find((s) => s.id === detail.paymentSource.id)?.bankAccountId,
   );
+  const [attachId, setAttachId] = useState(() => {
+    const wanted = params.get("open") === e.id ? params.get("attach") : null;
+    return wanted && attachable.some((tx) => tx.id === wanted) ? wanted : NONE;
+  });
+  const { executeAsync: attach, isPending: attaching } = useAction(attachBankTransactionAction);
+  const { executeAsync: detach, isPending: detaching } = useAction(detachBankTransactionAction);
 
   async function attachRow() {
     if (attachId === NONE) return;

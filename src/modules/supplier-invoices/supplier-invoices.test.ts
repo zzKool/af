@@ -783,6 +783,77 @@ describe("US2 — paid by a link", () => {
     expect(d.payments).toEqual([]);
   });
 
+  it("the inbox opens the panel (F58, D37): a generic justifies is refused both ways, paid follows the panel's payment", async () => {
+    const r = await create(julyInvoice());
+    const si = { type: "supplier_invoice" as const, id: r.data!.id };
+    const row = await chfRow("2026-03-31", "-1297.20");
+    const [sekRow] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-31", amount: "-14000.00", name: "Skattepunkten" },
+      ]),
+    );
+    const paidState = async () => {
+      const d = await detail(r.data!.id);
+      return { status: d.status, paidAmount: d.invoice.paidAmount, payments: d.payments.length };
+    };
+
+    // the inbox's apply and a generic link write nothing
+    await run(owner.caller, async (tx) => {
+      const applied = await linking.applySuggestion(tx, owner.caller, noopAudit, {
+        bankTransactionId: row,
+        to: si,
+      });
+      expect(applied.error?.message).toMatch(/invoice's own panel/);
+      expect(applied.error?.details).toEqual({ ownFlow: "supplier_invoice" });
+      const generic = await linking.createLink(tx, owner.caller, noopAudit, {
+        from: { type: "bank_transaction", id: sekRow },
+        to: si,
+        kind: "justifies",
+        allocatedAmount: "14000.00",
+        currency: "SEK",
+      });
+      expect(generic.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    });
+    expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
+
+    // same currency: the panel's payment → paid; a generic unlink refused; the panel's remove → unpaid
+    await run(owner.caller, (tx) =>
+      recordPayment(tx, owner.caller, noopAudit, { invoiceId: r.data!.id, bankTransactionId: row }),
+    );
+    expect(await paidState()).toEqual({ status: "paid", paidAmount: null, payments: 1 });
+    const [payment] = (await detail(r.data!.id)).payments;
+    await run(owner.caller, async (tx) => {
+      const removed = await linking.removeLink(tx, owner.caller, noopAudit, payment!.linkId);
+      expect(removed.error?.message).toMatch(/invoice's own panel/);
+    });
+    expect(await paidState()).toEqual({ status: "paid", paidAmount: null, payments: 1 });
+    await run(owner.caller, (tx) =>
+      removePayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        linkId: payment!.linkId,
+      }),
+    );
+    expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
+
+    // another currency: attach → paid with the paid amount; a generic unlink would leave it behind — refused;
+    // detach takes the link and the paid amount together
+    await run(owner.caller, (tx) =>
+      attachPayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        bankTransactionId: sekRow,
+      }),
+    );
+    expect(await paidState()).toEqual({ status: "paid", paidAmount: "14000.00", payments: 1 });
+    const [attachedLink] = (await detail(r.data!.id)).payments;
+    await run(owner.caller, async (tx) => {
+      const removed = await linking.removeLink(tx, owner.caller, noopAudit, attachedLink!.linkId);
+      expect(removed.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    });
+    expect(await paidState()).toEqual({ status: "paid", paidAmount: "14000.00", payments: 1 });
+    await run(owner.caller, (tx) => detachPayment(tx, owner.caller, noopAudit, r.data!.id));
+    expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
+  });
+
   it("overdue with the days; cancel (typed flag) and uncancel; delete only while unlinked and documentless", async () => {
     const r = await create(julyInvoice({ dueDate: "2026-03-20" }));
     expect(await detail(r.data!.id, "2026-03-27")).toMatchObject({
@@ -908,13 +979,20 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
         bankTransactionId: bankRow,
       });
       expect(paid.error).toBeUndefined();
-      const viaJournal = await linking.createLink(tx, owner.caller, noopAudit, {
-        from: { type: "journal_entry", id: entryId },
-        to: { type: "supplier_invoice", id: si.data!.id },
-        kind: "justifies",
-        allocatedAmount: "300.00",
-        currency: "CHF",
-      });
+      // a journal-entry payer written as the module writes its payments (D37: generic justifies are refused)
+      const viaJournal = await linking.createLink(
+        tx,
+        owner.caller,
+        noopAudit,
+        {
+          from: { type: "journal_entry", id: entryId },
+          to: { type: "supplier_invoice", id: si.data!.id },
+          kind: "justifies",
+          allocatedAmount: "300.00",
+          currency: "CHF",
+        },
+        { owner: "supplier_invoice" },
+      );
       expect(viaJournal.error).toBeUndefined();
     });
     const list = await run(owner.caller, (tx) =>

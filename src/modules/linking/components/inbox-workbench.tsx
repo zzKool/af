@@ -2,7 +2,8 @@
 
 // The inbox (specs/linking/spec.md US3, harvest H7): the rows needing attention on the left — best candidate
 // first — the selected row in full on the right, the keyboard the owner drives it with, *Apply HIGH* on the
-// selection with its applied / skipped report, and the unlinked documents on a second tab.
+// selection with its applied / skipped report, and the unlinked documents on a second tab. A candidate that is an
+// expense or a supplier invoice opens its panel instead (D37, F58); *Apply HIGH* reports it as not applied.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -31,6 +32,8 @@ import {
   removeLinkAction,
 } from "@/modules/linking/linking.actions";
 import type { BulkApplyResult, EntityFacts, Suggestion } from "@/modules/linking/types";
+import { attachHref } from "../hrefs";
+import { needsOwnFlow } from "../kinds";
 import { CONFIDENCE_STYLE, SuggestionsSection, useReasonLabel } from "./suggestions-section";
 
 const money = (amount: string, currency: string) =>
@@ -123,6 +126,11 @@ export function InboxWorkbench({
   const applyOne = useCallback(
     async (row: InboxRow, s: Suggestion) => {
       if (!canWrite) return;
+      // an expense / supplier invoice writes its own payment (D37, F58): its panel, the row preselected
+      if (needsOwnFlow("justifies", s.candidate.type)) {
+        router.push(attachHref({ type: s.candidate.type, id: s.candidate.id }, row.row.id));
+        return;
+      }
       if (s.allocation === null) {
         toast.error(t("linking.crossCurrencyHint"));
         return;
