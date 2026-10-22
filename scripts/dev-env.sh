@@ -12,8 +12,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
 
-MIG_URL=${DATABASE_TEST_MIGRATION_URL:-postgresql://defterfab:test@localhost:5433/defterfab_test}
-APP_URL=${DATABASE_TEST_URL:-postgresql://defterfab_app:app@localhost:5433/defterfab_test}
+MIG_URL=${DATABASE_TEST_MIGRATION_URL:-postgresql://af:test@localhost:5433/af_test}
+APP_URL=${DATABASE_TEST_URL:-postgresql://defterfab_app:app@localhost:5433/af_test}
 APP_PORT=${PORT:-3000}
 LOGS=${AF_DEV_ENV_LOGS:-${TMPDIR:-/tmp}/af-dev-env}
 AZURITE_CONN='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
@@ -28,7 +28,7 @@ docker_ok() { command -v docker >/dev/null && docker info >/dev/null 2>&1; }
 engine_present() { compgen -G "node_modules/@prisma/engines/schema-engine*" >/dev/null || [ -n "${PRISMA_SCHEMA_ENGINE_BINARY:-}" ]; }
 prisma() { if engine_present; then npx prisma "$@"; else PRISMA_SCHEMA_ENGINE_BINARY=/bin/true npx prisma "$@"; fi; }
 
-# ── Postgres on :5433 (roles of docker-compose.yml's db-test: defterfab/test superuser; the migrations create defterfab_app/app)
+# ── Postgres on :5433 (roles of docker-compose.yml's db-test: af/test superuser; the migrations create defterfab_app/app)
 db() {
   say "postgres :5433"
   if psql "$MIG_URL" -tAc 'select 1' >/dev/null 2>&1; then echo "  up"; return; fi
@@ -42,13 +42,13 @@ db() {
     fi
     pg_ctlcluster "$ver" aftest start 2>/dev/null || true
     wait_port 5433 30
-    runuser -u postgres -- psql -p 5433 -qtAc "select 1 from pg_roles where rolname='defterfab'" | grep -q 1 ||
-      runuser -u postgres -- psql -p 5433 -qc "CREATE ROLE defterfab LOGIN SUPERUSER PASSWORD 'test'"
-    runuser -u postgres -- psql -p 5433 -qtAc "select 1 from pg_database where datname='defterfab_test'" | grep -q 1 ||
-      runuser -u postgres -- psql -p 5433 -qc "CREATE DATABASE defterfab_test OWNER defterfab"
+    runuser -u postgres -- psql -p 5433 -qtAc "select 1 from pg_roles where rolname='af'" | grep -q 1 ||
+      runuser -u postgres -- psql -p 5433 -qc "CREATE ROLE af LOGIN SUPERUSER PASSWORD 'test'"
+    runuser -u postgres -- psql -p 5433 -qtAc "select 1 from pg_database where datname='af_test'" | grep -q 1 ||
+      runuser -u postgres -- psql -p 5433 -qc "CREATE DATABASE af_test OWNER af"
     # the cluster inherits the box's time zone; CI's and the image's Postgres run in UTC, and a date filter
     # test (partners › dates by year) fails around midnight otherwise — see docs/lessons.md
-    runuser -u postgres -- psql -p 5433 -qc "ALTER DATABASE defterfab_test SET timezone TO 'UTC'"
+    runuser -u postgres -- psql -p 5433 -qc "ALTER DATABASE af_test SET timezone TO 'UTC'"
   fi
   for _ in $(seq 1 30); do psql "$MIG_URL" -tAc 'select 1' >/dev/null 2>&1 && { echo "  up"; return; }; sleep 1; done
   echo "postgres not reachable at $MIG_URL" >&2; return 1

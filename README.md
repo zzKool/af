@@ -36,10 +36,10 @@ docker compose up -d
 
 ```bash
 # PostgreSQL dev
-docker compose exec db-dev psql -U defterfab -d defterfab_dev -c "SELECT 1;"
+docker compose exec db-dev psql -U af -d af_dev -c "SELECT 1;"
 
 # PostgreSQL test
-docker compose exec db-test psql -U defterfab -d defterfab_test -c "SELECT 1;"
+docker compose exec db-test psql -U af -d af_test -c "SELECT 1;"
 
 # Azurite (returns 403 — expected, confirms service is running)
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:10000/devstoreaccount1?comp=list

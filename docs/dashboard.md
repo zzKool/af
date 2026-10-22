@@ -4,7 +4,7 @@ The dashboard is the landing page for all authenticated users. It follows the **
 
 ## Page Archetypes
 
-DefterFab uses five page archetypes to maintain consistent UX:
+AF uses five page archetypes to maintain consistent UX:
 
 | Archetype | Example | Key Traits |
 |---|---|---|

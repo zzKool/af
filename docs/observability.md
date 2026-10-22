@@ -1,6 +1,6 @@
 # Observability
 
-DefterFab uses three distinct observability systems, each serving a different purpose with independent storage and retention.
+AF uses three distinct observability systems, each serving a different purpose with independent storage and retention.
 
 ## Three-System Design
 
@@ -41,7 +41,7 @@ Every business log entry from a Server Action includes:
   "userId": "uuid",
   "requestId": "uuid",
   "action": "createPartner",
-  "service": "defterfab",
+  "service": "af",
   "environment": "production"
 }
 ```

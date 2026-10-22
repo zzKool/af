@@ -3,8 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { auth, getAuthContext } from "@/kernel/auth/auth";
 
 const ADMIN_DATABASE_URL =
-  process.env.DATABASE_TEST_MIGRATION_URL ||
-  "postgresql://defterfab:test@localhost:5433/defterfab_test";
+  process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 
 let adminPool: Pool;
 

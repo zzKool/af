@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DefterFab",
+  title: "AF",
   description: "Solo Swedish AB consultant business management",
 };
 
