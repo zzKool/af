@@ -6,6 +6,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
+import { uuid } from "@/kernel/validation/scalars";
 import {
   declare,
   declareSchema,
@@ -27,7 +28,6 @@ const forbidden = {
     retryable: false,
   },
 };
-const uuid = z.string().uuid();
 const period = z.string().refine(isSwissVatPeriod, "Expected a period like CH 2026/Q2");
 
 export const getSwissVatReturnAction = authedAction

@@ -5,6 +5,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import { uuid } from "@/kernel/validation/scalars";
 import type { ExternalIdentifier, PartnerAddress, PartnerDto, PartnerSummaryDto } from "./types";
 
 // MUST NOT import from next/* or src/components/*
@@ -57,7 +58,7 @@ export const createPartnerSchema = z.object({
 });
 
 export const updatePartnerSchema = createPartnerSchema.partial().extend({
-  id: z.string().uuid(),
+  id: uuid,
 });
 
 export type CreatePartnerInput = z.input<typeof createPartnerSchema>;

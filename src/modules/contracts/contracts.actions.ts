@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
 import { createClock } from "@/kernel/clock/clock";
+import { uuid } from "@/kernel/validation/scalars";
 import * as rateService from "@/modules/contracts/contract-rates";
 import * as contractService from "@/modules/contracts/contracts";
 
@@ -14,7 +15,7 @@ const clock = createClock();
 export const getContractsAction = ownerAction
   .schema(
     z.object({
-      partnerId: z.string().uuid(),
+      partnerId: uuid,
       includeInactive: z.boolean().optional(),
     }),
   )
@@ -30,7 +31,7 @@ export const getContractsAction = ownerAction
  * Get a single contract by ID — owner only.
  */
 export const getContractAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "getContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.getContract(ctx.tx, parsedInput.id, { today: clock.today() });
@@ -61,7 +62,7 @@ export const updateContractAction = ownerAction
  * Deactivate (soft-delete) a contract — owner only.
  */
 export const deactivateContractAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deactivateContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.deactivateContract(
@@ -76,7 +77,7 @@ export const deactivateContractAction = ownerAction
  * Reactivate a previously deactivated contract — owner only.
  */
 export const reactivateContractAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "reactivateContract" })
   .action(async ({ ctx, parsedInput }) => {
     return contractService.reactivateContract(
@@ -91,7 +92,7 @@ export const reactivateContractAction = ownerAction
 
 /** Rates of one contract, newest first, with the derived state — owner only. */
 export const getContractRatesAction = ownerAction
-  .schema(z.object({ contractId: z.string().uuid() }))
+  .schema(z.object({ contractId: uuid }))
   .metadata({ name: "getContractRates" })
   .action(async ({ ctx, parsedInput }) => {
     return rateService.listContractRates(ctx.tx, parsedInput.contractId, clock.today());
@@ -115,7 +116,7 @@ export const updateContractRateAction = ownerAction
 
 /** Delete a rate no invoice line uses — owner only. */
 export const deleteContractRateAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteContractRate" })
   .action(async ({ ctx, parsedInput }) => {
     return rateService.deleteContractRate(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);

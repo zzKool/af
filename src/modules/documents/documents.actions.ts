@@ -29,6 +29,8 @@ export type {
   DocumentSort,
 } from "@/modules/documents/documents";
 
+import { uuid } from "@/kernel/validation/scalars";
+
 const uploadSchema = zfd.formData({
   file: zfd.file(
     z
@@ -93,7 +95,7 @@ export const getRecentDocumentsAction = authedAction
 
 // --- Story 5.3: Document Review & Correction ---
 
-const documentIdSchema = z.object({ documentId: z.string().uuid() });
+const documentIdSchema = z.object({ documentId: uuid });
 
 export const getDocumentForReviewAction = authedAction
   .schema(documentIdSchema)
@@ -118,7 +120,7 @@ const jsonValue: z.ZodType = z.lazy(() =>
   ]),
 );
 const correctionsSchema = z.object({
-  documentId: z.string().uuid(),
+  documentId: uuid,
   patch: z.record(z.string(), jsonValue),
 });
 
@@ -136,7 +138,7 @@ export const updateDocumentCorrectionsAction = authedAction
   });
 
 const classifySchema = z.object({
-  documentId: z.string().uuid(),
+  documentId: uuid,
   documentType: z.enum(["expense", "invoice", "contract", "nda", "certificate"]),
 });
 
@@ -221,7 +223,7 @@ export const getDocumentStatsAction = authedAction
     return documentService.getDocumentStats(ctx.tx, ctx.callerIdentity);
   });
 
-const downloadSchema = z.object({ documentId: z.string().uuid() });
+const downloadSchema = z.object({ documentId: uuid });
 
 export const getDocumentDownloadUrlAction = authedAction
   .schema(downloadSchema)
@@ -238,7 +240,7 @@ export const getDocumentDownloadUrlAction = authedAction
 // --- Story 5.5: Document Deletion & Retention Enforcement ---
 
 const deleteDocumentSchema = z.object({
-  documentId: z.string().uuid(),
+  documentId: uuid,
 });
 
 export const deleteDocumentAction = ownerAction
@@ -297,7 +299,7 @@ export const documentDateHierarchyAction = authedAction
 // --- the inbox (specs/documents US4) ---
 
 const idsSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(documentService.ARCHIVE_BULK_MAX),
+  ids: z.array(uuid).min(1).max(documentService.ARCHIVE_BULK_MAX),
 });
 
 /** Park inbox rows (owner); per-id outcomes for the undo stack. */
@@ -318,7 +320,7 @@ export const unarchiveDocumentsAction = ownerAction
 
 /** Run the OCR again on a failed / stuck document (owner); `force` for a completed one. The job is queued after the commit. */
 export const runOcrAction = ownerAction
-  .schema(z.object({ documentId: z.string().uuid(), force: z.boolean().optional() }))
+  .schema(z.object({ documentId: uuid, force: z.boolean().optional() }))
   .metadata({ name: "runOcr" })
   .action(async ({ ctx, parsedInput }) => {
     const result = await documentService.prepareOcrRerun(

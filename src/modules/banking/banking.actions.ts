@@ -6,6 +6,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { createStorageService } from "@/kernel/storage/storage";
+import { uuid } from "@/kernel/validation/scalars";
 import { detectAccountFromFilename, pickAccount } from "@/modules/banking/account-detect";
 import { deleteImport, importCsv } from "@/modules/banking/import";
 import {
@@ -61,7 +62,7 @@ export const transactionDateHierarchyAction = authedAction
   });
 
 export const getTransactionAction = authedAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "getBankTransaction" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
@@ -93,7 +94,7 @@ export const listRulesAction = authedAction
   });
 
 export const proposeTransfersAction = authedAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "proposeTransfers" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
@@ -108,7 +109,7 @@ const importSchema = zfd.formData({
       .instanceof(File)
       .refine((f) => f.size <= MAX_CSV_MB * 1024 * 1024, `File exceeds ${MAX_CSV_MB} MB limit`),
   ),
-  bankAccountId: zfd.text(z.string().uuid()),
+  bankAccountId: zfd.text(uuid),
 });
 
 export const importCsvAction = ownerAction
@@ -139,7 +140,7 @@ export const detectAccountAction = ownerAction
   });
 
 export const deleteImportAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteBankImport" })
   .action(async ({ ctx, parsedInput }) => {
     return deleteImport(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
@@ -162,7 +163,7 @@ export const updateRuleAction = ownerAction
   });
 
 export const deleteRuleAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteCategorisationRule" })
   .action(async ({ ctx, parsedInput }) => {
     return rules.deleteRule(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
@@ -185,7 +186,7 @@ export const applyRulesAction = ownerAction
 export const createRuleFromTransactionAction = ownerAction
   .schema(
     z.object({
-      transactionId: z.string().uuid(),
+      transactionId: uuid,
       name: z.string().trim().min(1).max(200).optional(),
       matchType: z.enum(["contains", "starts_with", "ends_with", "exact", "regex"]).optional(),
       matchPattern: z.string().trim().min(1).max(500).optional(),
@@ -197,7 +198,7 @@ export const createRuleFromTransactionAction = ownerAction
         .regex(/^\d{3,4}$/)
         .nullable()
         .optional(),
-      partnerId: z.string().uuid().nullable().optional(),
+      partnerId: uuid.nullable().optional(),
       noDocumentNeeded: z.boolean().optional(),
       priority: z.number().int().min(0).max(999).optional(),
     }),
@@ -210,7 +211,7 @@ export const createRuleFromTransactionAction = ownerAction
 // --- transfer pairs (owner only) ---
 
 export const acceptTransferAction = ownerAction
-  .schema(z.object({ fromId: z.string().uuid(), toId: z.string().uuid() }))
+  .schema(z.object({ fromId: uuid, toId: uuid }))
   .metadata({ name: "acceptTransferPair" })
   .action(async ({ ctx, parsedInput }) => {
     return acceptTransfer(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);

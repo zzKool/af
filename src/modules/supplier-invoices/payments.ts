@@ -10,6 +10,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { settlementTolerance } from "@/kernel/money/settlement";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
+import { positiveMoney, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
@@ -26,12 +27,6 @@ import type { SupplierInvoiceDto } from "./types";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
-
-const uuid = z.string().uuid();
-const positiveMoney = z
-  .string()
-  .regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals")
-  .refine((v) => Number(v) > 0, "The amount must be positive");
 
 export const recordPaymentSchema = z.object({
   invoiceId: uuid,

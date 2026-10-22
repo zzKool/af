@@ -9,6 +9,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { money, positiveMoney } from "@/kernel/validation/scalars";
 import type { NormalbeloppDto, RateRow } from "./types";
 
 const D = Prisma.Decimal;
@@ -24,8 +25,6 @@ const invalid = (message: string): AppError => ({
   retryable: false,
 });
 
-const money = z.string().regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals");
-const positiveMoney = money.refine((v) => Number(v) > 0, "The amount must be positive");
 const year = z.number().int().min(2000).max(2100);
 const countryCode = z
   .string()

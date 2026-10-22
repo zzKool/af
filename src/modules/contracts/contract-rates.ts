@@ -10,6 +10,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import { isoDate, uuid } from "@/kernel/validation/scalars";
 import type { ContractRateDto, ContractRateWithState, RateState, RateUnit } from "./types";
 import { RATE_UNITS } from "./types";
 
@@ -30,7 +31,6 @@ const notFound = (id: string): AppError => ({
 
 // --- Zod schemas (the boundary) ---
 
-const isoDate = z.string().date();
 const money = z
   .string()
   .regex(/^\d+(\.\d{1,2})?$/, "Invalid rate format — use digits with up to 2 decimal places")
@@ -45,14 +45,14 @@ const rateFields = {
 };
 
 export const createContractRateSchema = z
-  .object({ contractId: z.string().uuid(), ...rateFields })
+  .object({ contractId: uuid, ...rateFields })
   .refine((d) => !d.validTo || d.validTo >= d.validFrom, {
     message: "Valid to must be on or after valid from",
     path: ["validTo"],
   });
 
 export const updateContractRateSchema = z
-  .object({ id: z.string().uuid() })
+  .object({ id: uuid })
   .extend({
     validFrom: isoDate.optional(),
     validTo: isoDate.nullable().optional(),

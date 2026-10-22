@@ -5,6 +5,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { uuid } from "@/kernel/validation/scalars";
 import { findExpenseDuplicates } from "@/modules/expenses/duplicates";
 import * as expenseService from "@/modules/expenses/expenses";
 import * as groups from "@/modules/expenses/groups";
@@ -31,7 +32,6 @@ const columnSchema = z.enum(EXPENSE_COLUMN_KEYS as [ExpenseColumn, ...ExpenseCol
 const forbidden = {
   error: { code: "FORBIDDEN" as const, message: "Not allowed to read expenses", retryable: false },
 };
-const uuid = z.string().uuid();
 const listOptions = z.object({ query: listQuerySchema, groupId: uuid.optional() });
 
 // --- reads (the accountant may read) ---
