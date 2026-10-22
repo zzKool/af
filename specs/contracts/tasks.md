@@ -36,3 +36,11 @@
 
 ## Dependencies
 T001 ∥ T002–T004 → T005–T006 → T007–T009 → T010 → T011–T012 → T013–T014 → T015 → T016–T018. T001 is independent of the schema work.
+
+## Phase 8: F63 — a used rate only closes; one lookup rule (audit lesson 18) · branch `feat/contracts-used-rate-closes`
+- [x] T019 `updateContractRate`: `lockedFieldsChanged(before, patch)` (start, amount; decimal equality) → when non-empty and `rateUsage > 0`, `BUSINESS_RULE_VIOLATION` with `details {usedOn, fields}`; `validTo` / note and the auto-close stay allowed (FR-006 amended)
+- [x] T020 `rateFor` / `currentRatesFor` load candidates (`valid_from ≤ day`) and call `pickRate` — the rule lives once
+- [x] T021 Tests: pure `lockedFieldsChanged`; DB — used rate's amount / start / mixed edit refused and unchanged, same value re-posted accepted, closing works + audited, a date after `validTo` picks the next rate (manual close and auto-close, `currentRate`), fixture cases through `rateFor` / `currentRatesFor`
+- [x] T022 Docs: `docs/contracts.md`, F63 row, lesson 18
+- [ ] T023 *(next contracts PR, i18n slot)* `contracts.rates.error.usedLocked` in en / fr / sv + the component maps `details.usedOn`
+- [ ] T024 *(invoices + contracts)* refuse closing a used rate before the last `period_start` priced on it — needs a richer usage hook from invoices
