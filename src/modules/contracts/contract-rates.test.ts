@@ -15,6 +15,7 @@ import {
   createTestPartner,
 } from "@/kernel/db/test-fixtures";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import fixture from "../../../specs/contracts/fixtures/rate-history-cases.json";
 import * as rates from "./contract-rates";
 import * as contractService from "./contracts";
 
@@ -354,6 +355,149 @@ describe("US3 — correct or remove a rate", () => {
       // without a today the DTO carries no derived value (writes don't need it)
       const plain = await contractService.getContracts(tx, partnerId);
       expect(plain.data?.[0].currentRate).toBeNull();
+    });
+  });
+});
+
+describe("F63 — a rate used by invoice lines only closes", () => {
+  /** One open rate from 2025-01-01, marked as used by 2 invoice lines through the usage hook. */
+  async function usedRate(caller: CallerIdentity) {
+    const { contractId } = await setup(caller);
+    const created = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      add(tx, caller, contractId, "2025-01-01", "1000.00", null),
+    );
+    const id = created.data?.id as string;
+    rates.setRateUsage(async (_tx, rateId) => (rateId === id ? 2 : 0));
+    return { contractId, id };
+  }
+
+  it("editing the amount or the start of a used rate is refused and changes nothing", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { contractId, id } = await usedRate(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const amount = await rates.updateContractRate(tx, caller, noopAudit, { id, rate: "1100.00" });
+      expect(amount.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(amount.error?.message).toContain("used on 2 invoice line(s)");
+      expect(amount.error?.details).toEqual({ usedOn: 2, fields: "rate" });
+
+      const start = await rates.updateContractRate(tx, caller, noopAudit, {
+        id,
+        validFrom: "2025-02-01",
+      });
+      expect(start.error?.details).toEqual({ usedOn: 2, fields: "validFrom" });
+
+      // a mixed edit is refused whole: the allowed note does not slip through
+      const mixed = await rates.updateContractRate(tx, caller, noopAudit, {
+        id,
+        rate: "1100.00",
+        note: "typo",
+      });
+      expect(mixed.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+
+      const [row] = (await rates.listContractRates(tx, contractId, "2025-06-01")).data ?? [];
+      expect(row).toMatchObject({ validFrom: "2025-01-01", rate: "1000.00", note: null });
+      expect((await rates.rateFor(tx, contractId, "2025-03-01"))?.rate).toBe("1000.00");
+
+      // the same values sent again (the UI posts on blur) are not a change
+      const same = await rates.updateContractRate(tx, caller, noopAudit, {
+        id,
+        validFrom: "2025-01-01",
+        rate: "1000",
+      });
+      expect(same.error).toBeUndefined();
+    });
+  });
+
+  it("closing a used rate (valid to + note) works and is audited", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { id } = await usedRate(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const closed = await rates.updateContractRate(tx, caller, realAudit(tx, caller), {
+        id,
+        validTo: "2025-06-30",
+        note: "renegotiated from July",
+      });
+      expect(closed.error).toBeUndefined();
+      expect(closed.data).toMatchObject({
+        validFrom: "2025-01-01",
+        validTo: "2025-06-30",
+        rate: "1000.00",
+        note: "renegotiated from July",
+      });
+    });
+    await assertAuditLogged(adminPool, caller.tenantId, "update", "contract_rate", id);
+    const audit = await adminPool.query(
+      "SELECT old_data->>'validTo' AS before, new_data->>'validTo' AS after FROM audit_logs WHERE entity_id = $1 AND action = 'update'",
+      [id],
+    );
+    expect(audit.rows[0]).toEqual({ before: null, after: "2025-06-30" });
+  });
+
+  it("an invoice date after the used rate's valid to picks the next rate (rateFor and currentRate)", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { contractId, id } = await usedRate(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      expect(
+        (await rates.updateContractRate(tx, caller, noopAudit, { id, validTo: "2025-06-30" }))
+          .error,
+      ).toBeUndefined();
+      const next = await add(tx, caller, contractId, "2025-07-01", "1100.00");
+      expect(next.error).toBeUndefined();
+
+      const at = async (d: string) => (await rates.rateFor(tx, contractId, d))?.id ?? null;
+      expect(await at("2025-06-30")).toBe(id); // last day of the closed rate, inclusive
+      expect(await at("2025-07-01")).toBe(next.data?.id);
+      expect(await at("2025-11-15")).toBe(next.data?.id);
+
+      // a used open rate is also closed by the auto-close of a newer open rate — that is closing, allowed
+      rates.setRateUsage(async () => 2);
+      const r2026 = await add(tx, caller, contractId, "2026-01-01", "1200.00");
+      expect(r2026.error).toBeUndefined();
+      expect(await at("2025-12-31")).toBe(next.data?.id);
+      expect(await at("2026-02-02")).toBe(r2026.data?.id);
+
+      const contract = await contractService.getContract(tx, contractId, { today: "2025-08-01" });
+      expect(contract.data?.currentRate?.id).toBe(next.data?.id);
+    });
+  });
+
+  it("the production lookup answers the fixture cases the pure tests answer (one rule, pickRate)", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { contractId: owners } = await setup(caller);
+    const { contractId: gapped } = await setup(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const ids = new Map<string, string>();
+      const load = async (
+        contractId: string,
+        list: ReadonlyArray<{
+          id: string;
+          validFrom: string;
+          validTo: string | null;
+          rate: string;
+        }>,
+      ) => {
+        for (const r of list) {
+          const made = await add(tx, caller, contractId, r.validFrom, r.rate, r.validTo);
+          expect(made.error).toBeUndefined();
+          ids.set(made.data?.id as string, r.id);
+        }
+      };
+      await load(owners, fixture.rates);
+      await load(gapped, fixture.gapScenario.rates);
+      const label = (dto: { id: string } | null | undefined) => (dto ? ids.get(dto.id) : null);
+
+      for (const c of fixture.lookupCases) {
+        const hit = await rates.rateFor(tx, owners, c.date);
+        expect(label(hit), c.case).toBe(c.expectRateId);
+        expect(hit?.rate ?? null, c.case).toBe(c.expectRate);
+        const current = await rates.currentRatesFor(tx, [owners, gapped], c.date);
+        expect(label(current.get(owners)) ?? null, c.case).toBe(c.expectRateId);
+      }
+      for (const c of fixture.gapScenario.cases) {
+        expect(label(await rates.rateFor(tx, gapped, c.date)), c.case).toBe(c.expectRateId);
+        const current = await rates.currentRatesFor(tx, [owners, gapped], c.date);
+        expect(label(current.get(gapped)) ?? null, c.case).toBe(c.expectRateId);
+      }
     });
   });
 });

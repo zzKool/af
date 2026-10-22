@@ -90,6 +90,21 @@ export function pickRate<T extends RateInterval>(rates: readonly T[], date: stri
   return hits.reduce((best, r) => (r.validFrom > best.validFrom ? r : best));
 }
 
+/**
+ * The fields of an update that a used rate refuses: its start and its amount. `validTo` (closing) and `note`
+ * stay open. Same value sent again is not a change (the UI posts on blur; "1200" = "1200.00").
+ */
+export function lockedFieldsChanged(
+  before: { validFrom: string; rate: string },
+  patch: { validFrom?: string; rate?: string },
+): Array<"validFrom" | "rate"> {
+  const out: Array<"validFrom" | "rate"> = [];
+  if (patch.validFrom !== undefined && patch.validFrom !== before.validFrom) out.push("validFrom");
+  if (patch.rate !== undefined && !new Prisma.Decimal(patch.rate).equals(before.rate))
+    out.push("rate");
+  return out;
+}
+
 export function rateState(r: RateInterval, today: string): RateState {
   if (r.validFrom > today) return "future";
   if (r.validTo !== null && r.validTo < today) return "expired";
@@ -167,25 +182,21 @@ export async function listContractRatesFor(
 /**
  * The rate valid on `date` (ISO calendar day), or null — the invoice line asks for `period_start` (D24).
  * Independent of today, of the contract's own dates and of its active flag (a rate is a fact about a period).
+ * The query only loads candidates (started on or before the day); the choice is `pickRate`'s, the one tested
+ * rule (fixture + property in rate-for.pure.test.ts) — lesson 18, F63.
  */
 export async function rateFor(
   tx: TransactionClient,
   contractId: string,
   date: string,
 ): Promise<ContractRateDto | null> {
-  const d = toDate(date);
-  const row = await tx.contractRate.findFirst({
-    where: {
-      contractId,
-      validFrom: { lte: d },
-      OR: [{ validTo: null }, { validTo: { gte: d } }],
-    },
-    orderBy: { validFrom: "desc" },
+  const rows = await tx.contractRate.findMany({
+    where: { contractId, validFrom: { lte: toDate(date) } },
   });
-  return row ? toContractRateDto(row) : null;
+  return pickRate(rows.map(toContractRateDto), date);
 }
 
-/** `rateFor(today)` for many contracts at once — what `getContracts` uses for `currentRate`. */
+/** `rateFor(today)` for many contracts at once — what `getContracts` uses for `currentRate`. Same `pickRate`. */
 export async function currentRatesFor(
   tx: TransactionClient,
   contractIds: readonly string[],
@@ -193,16 +204,19 @@ export async function currentRatesFor(
 ): Promise<Map<string, ContractRateDto>> {
   const out = new Map<string, ContractRateDto>();
   if (contractIds.length === 0) return out;
-  const d = toDate(today);
   const rows = await tx.contractRate.findMany({
-    where: {
-      contractId: { in: [...contractIds] },
-      validFrom: { lte: d },
-      OR: [{ validTo: null }, { validTo: { gte: d } }],
-    },
-    orderBy: { validFrom: "desc" },
+    where: { contractId: { in: [...contractIds] }, validFrom: { lte: toDate(today) } },
   });
-  for (const r of rows) if (!out.has(r.contractId)) out.set(r.contractId, toContractRateDto(r));
+  const byContract = new Map<string, ContractRateDto[]>();
+  for (const r of rows) {
+    const list = byContract.get(r.contractId) ?? [];
+    list.push(toContractRateDto(r));
+    byContract.set(r.contractId, list);
+  }
+  for (const [contractId, candidates] of byContract) {
+    const hit = pickRate(candidates, today);
+    if (hit) out.set(contractId, hit);
+  }
   return out;
 }
 
@@ -319,7 +333,10 @@ export async function createContractRate(
   }
 }
 
-/** Edit dates, amount or note; the corrected interval must still overlap nothing (itself excluded). */
+/**
+ * Edit dates, amount or note; the corrected interval must still overlap nothing (itself excluded).
+ * Once an invoice line uses the rate (`rateUsage` > 0) only `validTo` and `note` change — F63, lesson 18.
+ */
 export async function updateContractRate(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -340,6 +357,20 @@ export async function updateContractRate(
   const row = await tx.contractRate.findUnique({ where: { id } });
   if (!row) return { error: notFound(id) };
   const before = toContractRateDto(row);
+
+  // A rate an invoice line snapshot points at is a fact about a past period: it only closes (F63).
+  const locked = lockedFieldsChanged(before, data);
+  if (locked.length > 0) {
+    const used = await rateUsage(tx, id);
+    if (used > 0) {
+      return {
+        error: violation(
+          `This rate is used on ${used} invoice line(s) — only its end date and note can change; close it and add a new rate instead`,
+          { usedOn: used, fields: locked.join(",") },
+        ),
+      };
+    }
+  }
 
   const next: RateInterval = {
     validFrom: data.validFrom ?? before.validFrom,
