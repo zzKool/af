@@ -45,7 +45,7 @@ The preview loads a fresh signed URL per document (`refreshSignedUrlAction`).
 
 ## Archive, restore, undo
 
-- `archiveDocuments` / `unarchiveDocuments` (`documents.ts`): 1 – 50 ids, owner only, a per-id outcome (`archived` / `restored` / `refused` / `missing`). Archive refuses what is not a live inbox row (became, filed, generated, already archived) — archive parks, it is not history (D32). Restore clears `archived_at / archived_by` and nothing else. Each write is audited (`event: archive | restore`).
+- `archiveDocuments` / `unarchiveDocuments` (`inbox-writes.ts`): 1 – 50 ids, owner only, a per-id outcome (`archived` / `restored` / `refused` / `missing`). Archive refuses what is not a live inbox row (became, filed, generated, already archived) — archive parks, it is not history (D32). Restore clears `archived_at / archived_by` and nothing else. Each write is audited (`event: archive | restore`).
 - The undo stack is the page's (lost on reload), 20 entries, each holding **exactly the ids that succeeded**; `u` / `z` or the bar's *Undo* runs the inverse. An undo whose documents changed meanwhile restores the others and says so.
 
 ## The keyboard
@@ -68,6 +68,6 @@ Quiet while typing in a field or while a dialog / list is open.
 
 ## Files
 
-`modules/documents/inbox.ts` (state, twins, counts, tabs — `inbox.pure.test.ts` on `specs/documents/fixtures/inbox-state-cases.json`) · `queries.ts` (`listInbox`, `inboxTotals`, `toInboxData`) · `documents.ts` (archive / restore / OCR re-run — `inbox.test.ts`) · `documents.actions.ts` (`archiveDocumentsAction`, `unarchiveDocumentsAction`, `runOcrAction`, `listInboxAction`) · `components/inbox-workbench.tsx` (`inbox-workbench.test.tsx` on `inbox-shortcuts.json`) · `app/(app)/documents/inbox/page.tsx` · `e2e/document-inbox.spec.ts` · screenshots `specs/documents/screenshots/inbox*.png`.
+`modules/documents/inbox.ts` (state, twins, counts, tabs — `inbox.pure.test.ts` on `specs/documents/fixtures/inbox-state-cases.json`) · `queries.ts` (`listInbox`, `inboxTotals`, `toInboxData`) · `inbox-writes.ts` (archive / restore / OCR re-run — `inbox.test.ts`) · `documents.actions.ts` (`archiveDocumentsAction`, `unarchiveDocumentsAction`, `runOcrAction`, `listInboxAction`) · `components/inbox-workbench.tsx` (`inbox-workbench.test.tsx` on `inbox-shortcuts.json`) · `app/(app)/documents/inbox/page.tsx` · `e2e/document-inbox.spec.ts` · screenshots `specs/documents/screenshots/inbox*.png`.
 
 Related: [[document-library]] · [[document-review]] · [[document-upload]] · [[linking]] · [[dashboard]]

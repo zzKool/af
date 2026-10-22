@@ -95,7 +95,7 @@ A retry re-runs the whole handler: phase 1 sees `processing` and skips, phase 2 
 }
 ```
 
-Accessed via `getDocumentOcrData()` in `src/modules/documents/documents.ts`.
+Read back by `parseOcrPayload()` in `src/modules/documents/ocr-payload.ts` — the one place that turns the column into `{ extractedData, quality }` (null when the OCR has not run); `getDocumentOcrData()` (`review.ts`), the review page, the library and the inbox all go through it. `rawResponse` is never read by the app.
 
 ## Environment Variables
 
