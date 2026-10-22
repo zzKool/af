@@ -31,6 +31,12 @@ test.describe("Auth pages in French", () => {
     await expect(page.getByRole("navigation", { name: "Main navigation" })).toContainText(
       "Tableau de bord",
     );
+    // no preference yet: the server-rendered page follows the browser too, not English (F56)
+    await expect(
+      page.getByRole("heading", { name: `Bon retour, Fr Owner ${stamp}` }),
+    ).toBeVisible();
+    await page.goto("/invoices");
+    await expect(page.getByRole("heading", { name: "Factures" })).toBeVisible();
   });
 
   test("login in French, with the error message", async ({ page }) => {

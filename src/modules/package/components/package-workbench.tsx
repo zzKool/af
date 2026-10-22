@@ -80,7 +80,7 @@ export function PackageWorkbench({
 }) {
   const t = useT();
   const router = useRouter();
-  const { locale } = useLocale();
+  const { effectiveLocale: locale } = useLocale();
   const lang = uiLanguage(locale ?? null);
   const [rows, setRows] = useState(overview);
   const [seen, setSeen] = useState(overview);

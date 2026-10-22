@@ -3,6 +3,7 @@ import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { LIVE_MONTHS, periodOverview } from "@/modules/package";
@@ -21,7 +22,7 @@ export default async function PackagePage() {
     ]);
     return { overview, prefs };
   });
-  const t = translator(data.prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   const months = data.overview.filter((o) => o.kind === "month");
   const flags = months.slice(0, LIVE_MONTHS).reduce((s, m) => s + m.flags, 0);
   const builds = data.overview.reduce(
