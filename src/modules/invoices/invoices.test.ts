@@ -400,6 +400,34 @@ describe("US1 — draft and issue a monthly invoice", () => {
   });
 });
 
+describe("F57 — base figures with a header discount", () => {
+  it("10 % header discount: subtotalBase is the discounted net converted, subtotalBase + vatBase = totalBase", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const d = await januaryDraft(caller, w);
+    const issued = await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const disc = await invoices.updateDraft(tx, caller, noopAudit, {
+        id: d.id,
+        discountPercent: "10",
+      });
+      expect(disc.data).toMatchObject({
+        subtotal: "24000.00",
+        discountAmount: "2400.00",
+        vatAmount: "1749.60",
+        totalAmount: "23349.60",
+      });
+      return invoices.issue(tx, caller, noopAudit, NOW, { id: d.id });
+    });
+    expect(issued.error).toBeUndefined();
+    expect(issued.data).toMatchObject({
+      rateToBase: "11.987041",
+      subtotalBase: "258920.09", // 21 600 × 11.987041 — no longer 24 000 × rate
+      vatBase: "20972.53",
+      totalBase: "279892.62",
+    });
+  });
+});
+
 describe("US3 — credit notes", () => {
   it("full credit note: VA26-CN-001 with the original's totals; the original reads credited (scenario 1)", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
@@ -457,6 +485,18 @@ describe("US3 — credit notes", () => {
         state: "issued",
         credited: "6486.00",
         remaining: "19458.00",
+      });
+      // F57: a year on, the original is overdue on what is left; the credit note (due = issue) is
+      // neither overdue nor open — it is never a receivable
+      const later = "2027-02-10";
+      expect((await queries.getInvoice(tx, d.id, later)).data).toMatchObject({
+        state: "overdue",
+        remaining: "19458.00",
+      });
+      expect((await queries.getInvoice(tx, partial.data?.id as string, later)).data).toMatchObject({
+        type: "credit_note",
+        state: "issued",
+        remaining: "0.00",
       });
 
       expect(

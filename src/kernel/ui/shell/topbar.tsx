@@ -47,12 +47,24 @@ export function Topbar({
         <PanelLeft className="size-4" />
       </button>
       <Link href="/dashboard" className="flex h-8 items-center px-1" aria-label="AF — Dashboard">
-        {/* the logo swaps file in dark mode, never colour (D40) */}
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcSet="/brand/af-logo-dark.svg" />
-          {/* biome-ignore lint/performance/noImgElement: a static SVG in public/, nothing for next/image to optimise */}
-          <img src="/brand/af-logo.svg" alt="AF" height={24} width={109} className="h-6 w-auto" />
-        </picture>
+        {/* the logo swaps file in dark mode, never colour (D40); by the `dark:` variant, so a theme picked in
+            My Preferences (D43) swaps it too — a <picture> media query would only follow the OS */}
+        {/* biome-ignore lint/performance/noImgElement: a static SVG in public/, nothing for next/image to optimise */}
+        <img
+          src="/brand/af-logo.svg"
+          alt="AF"
+          height={24}
+          width={109}
+          className="h-6 w-auto dark:hidden"
+        />
+        {/* biome-ignore lint/performance/noImgElement: as above */}
+        <img
+          src="/brand/af-logo-dark.svg"
+          alt="AF"
+          height={24}
+          width={109}
+          className="hidden h-6 w-auto dark:block"
+        />
       </Link>
       <div className="flex flex-1 justify-center px-4">
         <PageSearch role={role} />

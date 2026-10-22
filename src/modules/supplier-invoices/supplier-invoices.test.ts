@@ -384,6 +384,80 @@ describe("US1 — record a supplier invoice", () => {
     });
   });
 
+  it("an edit keeps a manual rate and a typed due date; a defaulted due date follows the date and terms (audit 5)", async () => {
+    await run(owner.caller, (tx) =>
+      partners.updatePartner(tx, owner.caller, noopAudit, skattepunkten, { paymentTermsDays: 20 }),
+    );
+    const r = await create(julyInvoice({ invoiceDate: "2026-03-11", rate: "10.5" }));
+    expect(r.data).toMatchObject({
+      amountBase: "13620.60",
+      rate: "10.5",
+      rateSource: "manual",
+      dueDate: "2026-03-31",
+      dueDateDefaulted: true,
+    });
+    const update = (input: Parameters<typeof updateSupplierInvoice>[4]) =>
+      run(owner.caller, (tx) =>
+        updateSupplierInvoice(tx, owner.caller, noopAudit, r.data!.id, input),
+      );
+    // a money field that is neither the rate, the currency, the date nor the total: nothing re-runs
+    const renumbered = await update({ invoiceNumber: "9160-A" });
+    expect(renumbered.data).toMatchObject({
+      amountBase: "13620.60",
+      rate: "10.5",
+      rateSource: "manual",
+    });
+    // a new total: the manual rate stays, only the base follows (1 405.30 × 10.5)
+    const retotalled = await update({
+      amountNet: "1300.00",
+      vatAmount: "105.30",
+      amountTotal: "1405.30",
+    });
+    expect(retotalled.data).toMatchObject({
+      amountBase: "14755.65",
+      rate: "10.5",
+      rateSource: "manual",
+      rateDate: null,
+    });
+    // a new date: the manual rate stays; the defaulted due date follows with the supplier's 20 days
+    const redated = await update({ invoiceDate: "2026-03-13" });
+    expect(redated.data).toMatchObject({
+      rateSource: "manual",
+      amountBase: "14755.65",
+      dueDate: "2026-04-02",
+      dueDateDefaulted: true,
+    });
+    // a typed due date is kept by a later date change
+    await update({ dueDate: "2026-04-30" });
+    const typed = await update({ invoiceDate: "2026-03-12", amountTotal: "1405.30" });
+    expect(typed.data).toMatchObject({
+      dueDate: "2026-04-30",
+      dueDateDefaulted: false,
+      rateSource: "manual",
+    });
+    // an ECB rate is asked again only when the date (or the currency) moves
+    const ecb = await create(julyInvoice({ invoiceNumber: "9180" }));
+    const ecbRenumbered = await run(owner.caller, (tx) =>
+      updateSupplierInvoice(tx, owner.caller, noopAudit, ecb.data!.id, { invoiceNumber: "9181" }),
+    );
+    expect(ecbRenumbered.data).toMatchObject({
+      amountBase: "13957.87",
+      rateSource: "ecb_nearest",
+      rateDate: "2026-03-13",
+    });
+    const ecbRedated = await run(owner.caller, (tx) =>
+      updateSupplierInvoice(tx, owner.caller, noopAudit, ecb.data!.id, {
+        invoiceDate: "2026-03-11",
+      }),
+    );
+    // 1 297.20 × 10.80 (03-11, ecb_daily)
+    expect(ecbRedated.data).toMatchObject({
+      amountBase: "14009.76",
+      rateSource: "ecb_daily",
+      rateDate: "2026-03-11",
+    });
+  });
+
   it("copy last: the supplier's latest invoice as a prefill", async () => {
     expect((await run(owner.caller, (tx) => copyLastPrefill(tx, skattepunkten))).data).toBeNull();
     await create(julyInvoice({ invoiceDate: "2026-03-10", note: "older" }));
@@ -818,6 +892,62 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
     expect(byNumber.rows.map((r) => r.id)).toEqual([soon.data!.id]);
     const section = await run(owner.caller, (tx) => listForGroup(tx, groupId));
     expect(section).toHaveLength(3);
+  });
+
+  it("one allocated sum (audit 6): a bank row and a journal entry both count — list, detail, payments' open agree", async () => {
+    const si = await create(julyInvoice());
+    const bankRow = await chfRow("2026-03-20", "-600.00");
+    const otherRow = await chfRow("2026-03-21", "-300.00");
+    const entry = await adminPool.query(`SELECT id FROM journal_entries WHERE source_id = $1`, [
+      otherRow,
+    ]);
+    const entryId: string = entry.rows[0].id;
+    await run(owner.caller, async (tx) => {
+      const paid = await recordPayment(tx, owner.caller, noopAudit, {
+        invoiceId: si.data!.id,
+        bankTransactionId: bankRow,
+      });
+      expect(paid.error).toBeUndefined();
+      const viaJournal = await linking.createLink(tx, owner.caller, noopAudit, {
+        from: { type: "journal_entry", id: entryId },
+        to: { type: "supplier_invoice", id: si.data!.id },
+        kind: "justifies",
+        allocatedAmount: "300.00",
+        currency: "CHF",
+      });
+      expect(viaJournal.error).toBeUndefined();
+    });
+    const list = await run(owner.caller, (tx) =>
+      listSupplierInvoices(tx, Q, { today: "2026-03-25" }),
+    );
+    const row = list.rows.find((r) => r.id === si.data!.id);
+    expect(row).toMatchObject({ status: "partially_paid", allocated: "900.00", open: "397.20" });
+    const d = await detail(si.data!.id, "2026-03-25");
+    expect(d).toMatchObject({ status: "partially_paid", allocated: "900.00", open: "397.20" });
+    // the panel's list adds up to the same sum, the journal entry shown by its label
+    expect(d.payments).toHaveLength(2);
+    const sum = d.payments.reduce((acc, p) => acc + Number(p.allocated), 0);
+    expect(sum.toFixed(2)).toBe(d.allocated);
+    const journalPayer = d.payments.find((p) => p.bankTransactionId === null);
+    expect(journalPayer).toMatchObject({ allocated: "300.00" });
+    expect(journalPayer?.payerLabel).toBeTruthy();
+    // the payments service sees the same open: 397.30 is beyond it, 397.20 closes it
+    const third = await chfRow("2026-03-24", "-397.30");
+    await run(owner.caller, async (tx) => {
+      const over = await recordPayment(tx, owner.caller, noopAudit, {
+        invoiceId: si.data!.id,
+        bankTransactionId: third,
+        amount: "397.30",
+      });
+      expect(over.error?.message).toMatch(/exceeds the open 397.20/);
+      const closes = await recordPayment(tx, owner.caller, noopAudit, {
+        invoiceId: si.data!.id,
+        bankTransactionId: third,
+      });
+      expect(closes.data?.allocated).toBe("397.20");
+    });
+    const after = await detail(si.data!.id, "2026-03-25");
+    expect(after).toMatchObject({ status: "paid", allocated: "1297.20", open: "0.00" });
   });
 
   it("KPIs: open (two), overdue (one), due in 14 days (one), paid this month (one) — SEK", async () => {

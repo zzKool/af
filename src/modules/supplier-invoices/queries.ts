@@ -23,6 +23,7 @@ import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { sumAllocated } from "./allocated";
 import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
 import { toSupplierInvoiceDto } from "./supplier-invoices";
 import type {
@@ -98,9 +99,9 @@ const STORED_COLUMNS: ColumnMap = Object.fromEntries(
 const ROW_CAP = 20_000;
 
 type Facts = {
-  /** Σ justifies allocations from bank rows per invoice, in the linkable's currency */
+  /** Σ allocations per invoice — the one rule of `./allocated` (bank rows and journal entries alike) */
   allocated: Map<string, Dec>;
-  /** the paying bank rows per invoice */
+  /** the paying bank rows per invoice (their booking dates date a payment) */
   payers: Map<string, string[]>;
   /** invoices with a created_from document, or any document justifying them */
   hasDocument: Set<string>;
@@ -116,14 +117,19 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
         { fromType: "supplier_invoice", fromId: { in: [...ids] }, kind: "created_from" },
       ],
     },
-    select: { kind: true, fromType: true, fromId: true, toId: true, allocatedAmount: true },
+    select: {
+      kind: true,
+      fromType: true,
+      fromId: true,
+      toType: true,
+      toId: true,
+      allocatedAmount: true,
+    },
   });
+  f.allocated = sumAllocated(links);
   for (const l of links) {
     if (l.kind === "created_from") f.hasDocument.add(l.fromId);
     else if (l.kind === "justifies" && l.fromType === "bank_transaction") {
-      if (l.allocatedAmount) {
-        f.allocated.set(l.toId, (f.allocated.get(l.toId) ?? new D(0)).plus(l.allocatedAmount));
-      }
       f.payers.set(l.toId, [...(f.payers.get(l.toId) ?? []), l.fromId]);
     } else if (l.kind === "justifies" && l.fromType === "document") f.hasDocument.add(l.toId);
   }
@@ -284,9 +290,13 @@ export async function listForGroup(
 
 // --- one invoice ---
 
+/** One allocation onto the invoice — the panel's list sums to the detail's `allocated`. */
 export type SupplierInvoicePayment = {
   linkId: string;
-  bankTransactionId: string;
+  /** the paying bank row; null when another payer (a journal entry) justifies the invoice */
+  bankTransactionId: string | null;
+  /** the payer's label when it is not a bank row */
+  payerLabel: string | null;
   bookingDate: string | null;
   accountLabel: string | null;
   rowAmount: string | null;
@@ -358,16 +368,19 @@ export async function getSupplierInvoiceDetail(
     document = d ?? null;
   }
   const payments: SupplierInvoicePayment[] = [];
-  for (const l of all.filter((l) => l.kind === "justifies" && l.from.type === "bank_transaction")) {
-    const t = await banking.getBankTransaction(tx, l.from.id);
+  for (const l of withLabels) {
+    if (l.kind !== "justifies" || l.to.id !== id || l.allocatedAmount === null) continue;
+    const t =
+      l.from.type === "bank_transaction" ? await banking.getBankTransaction(tx, l.from.id) : null;
     payments.push({
       linkId: l.id,
-      bankTransactionId: l.from.id,
+      bankTransactionId: l.from.type === "bank_transaction" ? l.from.id : null,
+      payerLabel: l.from.type === "bank_transaction" ? null : l.otherLabel,
       bookingDate: t?.bookingDate ?? null,
       accountLabel: t?.accountLabel ?? null,
       rowAmount: t?.amount ?? null,
       rowCurrency: t?.currency ?? null,
-      allocated: new D(l.allocatedAmount ?? 0).toFixed(2),
+      allocated: new D(l.allocatedAmount).toFixed(2),
       currency: l.currency ?? dto.paidCurrency ?? dto.currency,
       note: l.note,
     });

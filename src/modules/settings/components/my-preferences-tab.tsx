@@ -1,7 +1,7 @@
 "use client";
 
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Select,
@@ -16,10 +16,16 @@ import { useT } from "@/kernel/i18n/use-t";
 import { formatNumber } from "@/kernel/money/format-number";
 import type { SupportedLocale } from "@/kernel/nav/constants";
 import { SUPPORTED_LOCALES } from "@/kernel/nav/constants";
-import { updateUserLocaleAction } from "@/modules/settings/user-preferences.actions";
+import { applyTheme, parseTheme, type Theme } from "@/kernel/ui/theme";
+import {
+  updateUserLocaleAction,
+  updateUserThemeAction,
+} from "@/modules/settings/user-preferences.actions";
 
 type Props = {
   initialLocale: string | null;
+  /** light / dark; null = follow the system (D43) */
+  initialTheme: Theme | null;
 };
 
 const LOCALE_DISPLAY_NAMES: Record<string, string> = {
@@ -31,11 +37,35 @@ const LOCALE_DISPLAY_NAMES: Record<string, string> = {
 };
 
 const BROWSER_DEFAULT_VALUE = "__browser__";
+const SYSTEM_THEME_VALUE = "__system__";
 
-export function MyPreferencesTab({ initialLocale }: Props) {
+export function MyPreferencesTab({ initialLocale, initialTheme }: Props) {
   const { locale, setLocale } = useLocale();
   const t = useT();
   const { executeAsync: execUpdate } = useAction(updateUserLocaleAction);
+  const { executeAsync: execTheme } = useAction(updateUserThemeAction);
+  const [theme, setTheme] = useState<Theme | null>(initialTheme);
+
+  // the theme shows at once (and in the cookie the root layout reads); a refused save puts the old one back
+  const handleTheme = useCallback(
+    async (value: string | null) => {
+      if (value == null) return;
+      const next = value === SYSTEM_THEME_VALUE ? null : parseTheme(value);
+      const previous = theme;
+      setTheme(next);
+      applyTheme(next);
+      const result = await execTheme({ theme: next });
+      const failed = !result || result.serverError || result.validationErrors || result.data?.error;
+      if (failed) {
+        setTheme(previous);
+        applyTheme(previous);
+        toast.error(t("settings.preferences.themeSaveFailed"));
+        return;
+      }
+      toast.success(t("settings.preferences.saved"));
+    },
+    [execTheme, theme, t],
+  );
 
   const currentLocale = locale ?? initialLocale;
   const selectValue = currentLocale ?? BROWSER_DEFAULT_VALUE;
@@ -98,6 +128,33 @@ export function MyPreferencesTab({ initialLocale }: Props) {
                 {LOCALE_DISPLAY_NAMES[loc] ?? loc}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="theme-select" className="text-sm font-medium">
+          {t("settings.preferences.theme")}
+        </label>
+        <p className="text-xs text-muted-foreground">{t("settings.preferences.themeHint")}</p>
+        <Select value={theme ?? SYSTEM_THEME_VALUE} onValueChange={handleTheme}>
+          <SelectTrigger id="theme-select" className="w-64" data-testid="theme-select">
+            <SelectValue>
+              {(v: string) =>
+                v === "light"
+                  ? t("settings.preferences.themeLight")
+                  : v === "dark"
+                    ? t("settings.preferences.themeDark")
+                    : t("settings.preferences.themeSystem")
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SYSTEM_THEME_VALUE}>
+              {t("settings.preferences.themeSystem")}
+            </SelectItem>
+            <SelectItem value="light">{t("settings.preferences.themeLight")}</SelectItem>
+            <SelectItem value="dark">{t("settings.preferences.themeDark")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
