@@ -32,7 +32,7 @@
 ## Phase 7: Polish
 - [x] T016 `e2e/contracts.spec.ts`: partner → contract → add 2025 rate → add 2026 rate → chips Current/Expired, first row closed 2025-12-31
 - [x] T017 `docs/contracts.md` (module doc), `docs/index.md`, `docs/feature-folders.md`, `contract-pattern.md` billing-rate pipeline section rewritten; screenshots in `specs/contracts/screenshots/`
-- [ ] T018 Gate: lint, typecheck, full tests, build; PR with screenshots; merge; main e2e green
+- [x] T018 Gate: lint, typecheck, full tests, build; PR with screenshots; merge; main e2e green — merged as #15
 
 ## Dependencies
 T001 ∥ T002–T004 → T005–T006 → T007–T009 → T010 → T011–T012 → T013–T014 → T015 → T016–T018. T001 is independent of the schema work.
