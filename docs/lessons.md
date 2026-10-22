@@ -113,6 +113,61 @@ Order: linking first (it unblocks 6 and the known *Reads of `link`* item above).
 - **O5 · Base currency twice.** `tenant.currency` is editable in the profile, nothing reads it for money; every module uses `BASE_CURRENCY = "SEK"` (`kernel/nav/constants.ts:136`). Constitution §4 says a constant — drop the field from the form?
 - Lower stakes, the agent's call when touched: settlement totals stored next to their lines (`prisma/schema/expenses.prisma:152-160`, lines unlocked); `base_provisional` stored (`expenses/expenses.ts:177,328`); `bankImplicitRate` kept after unpairing; `per_diem_document_id` / `statement_document_id` duplicating `created_from` links (fine as job idempotency markers); invoice header totals not checked against the lines at issue (`prisma/schema/invoices.prisma:59-65`); package overview showing an old build's flags as current for months past `LIVE_MONTHS` (`package/queries.ts:57-71`); the notes.md VAT section as a third "VAT per period" (`package/collect.ts:622-652`).
 
+## Review — the PRs of rounds 1–4 (2026-10-22, read-only)
+
+Each merged PR read against its spec (feature row, spec folder or lessons action) and the [[constitution]]: (1) does what the spec says, (2) derived not typed, (3) imports through `index.ts` / `ui.ts`, (4) tests test the rule not the mock, (5) refactors behaviour-neutral, (6) definition of done. Spec + diff only; nothing fixed. Findings already in *Code — the audit* are tagged *(audit #N)*, not repeated. `path:line` = on the PR's head.
+
+```
+R1 00:30–01:30  #56 features table · #57 F29 rates backfill · #58 F49 dev-env · #59 F48 lint rule + Sentry
+R2 07:40–09:35  #60 F51 docs · #61 F50-a GroupPicker · #62 F50-b JSON mappers · #63 F50-d panel split · #64 F50-c documents split
+R3 10:30–11:30  #65 + #66 F08 contacts · #68 documents converge · #69 F04 auth pages fr/sv
+R4 12:20–13:20  #67 F52 row · #70 audit · #71 F56–F67 rows · #72 D35/D36 · #73 F68 locale · #74 PDF poll + e2e lessons
+```
+
+| PR | 1 spec | 2 derived | 3 imports | 4 tests | 5 neutral | 6 done | Worst |
+|---|---|---|---|---|---|---|---|
+| #57 F29 | ✓ | ✓ insert-only, never overwrites | ✓ | ✗ backfill tested by URL shape | n.a. | ✓ | med |
+| #58 F49 | ✓ | n.a. | n.a. | n.a. | n.a. | ✓ no secrets, no prod leak | med |
+| #59 F48 | ✓ | n.a. | ✓ no exemptions | ✓ real DB, real events | n.a. | ✗ constitution edited in a feature PR | med |
+| #61 F50-a | ✓ | n.a. | ✓ (a test reaches internals) | ✓ mostly | ✓ one edge | ✓ | low |
+| #62 F50-b | ✓ 3 modules in one PR | n.a. | ✓ | ✗ reject paths untested | ✓ for valid data; null-clear to verify | ✓ docs overclaim | med |
+| #63 F50-d | ✓ | ✓ nothing new (audit #14) | ✓ | n.a. | ✓ testids, keys, conditions identical | ✓ | low |
+| #64 F50-c | ✓ | n.a. (audit #9 moved verbatim) | ✓ | ✗ guard untested | ✓ one safe drift | ✓ docs overclaim | med |
+| #65/#66 F08 | ✓ | ✓ no stored count/flag | ✗ read bypasses `queries.ts` | ✓ real DB + RLS; no FORBIDDEN | n.a. | ✓ RLS, audit, en/fr/sv, screenshot | med |
+| #69 F04 | ✓ | n.a. | ✓ | ✓ literals | n.a. | ✓ 1415 keys × 3 | low |
+| #73 F68 | ✗ two pages left | n.a. | ✓ `next/headers` in kernel only | ✗ `requestLocale` untested | n.a. | ✓ | med |
+| #74 fix | ✓ | ✓ polls `pdfDocumentId` | ✓ | n.a. (e2e) | n.a. | ✓ | low |
+| docs #56 #60 #67 #68 #70–#72 | ✓ | — | — | — | — | ✓ claims match code, D35/D36 logged | — |
+
+Clean everywhere: no status or amount newly typed; no new cross-module internal import in app code; no Prisma type through an `index.ts`; shared files serialised (#65 schema + i18n merged before #69 branched); no `console.*` in server code; no secrets.
+
+### Findings — V1–V12, each box one PR, in this order
+
+Medium:
+
+- [ ] **V1 · F68 left two pages and a date component on the raw preference** *(#73)*: `app/(app)/expenses/settlements/[id]/page.tsx:25` passes `prefs.locale ?? null` to `StatementSheet` → with no preference the statement is English under a French page (the bug F68 fixes); `expenses/groups/[id]/page.tsx:69` same into `TripPanel` (harmless today); `kernel/i18n/formatted-date.tsx:10` reads `locale`, not `effectiveLocale` → server and browser format dates differently (hydration warning). Same PR: the rule `pref ?? browser` is written twice (`request-locale.ts:14`, `locale-provider.tsx:41`, plus `use-t.ts:14`'s `navigator.language`) → one `effectiveLocale(pref, browser)` in `locale.ts`; a unit test of `requestLocale` (stored `sv` + header `fr` → `sv`; none + `fr-CH` → `fr-CH`) — today "preference wins" is untested; `(auth)/layout.tsx:12` uses `browserLocale()`; `e2e/auth-i18n.spec.ts:34` comment says F56, means F68.
+- [ ] **V2 · The `.toNumber()` rule misses optional chains** *(#59)*: `biome-plugins/decimal-to-number.grit:5` matches `$value.toNumber()` only; `x?.toNumber()` and `x.toNumber?.()` pass (probed with Biome 2.4.6). Fix: `or { … }` over the three forms, a probe file in the plugin's test. Same PR: a test that `kernel/jobs/queue.ts:117` really wraps handlers in `runReported`.
+- [ ] **V3 · A cloud session has no pre-commit hook** *(#58)*: `scripts/dev-env.sh:61` runs `npm ci --ignore-scripts`, which skips husky's `prepare` — so #59's lint gate and the *format before commit* lesson do not run on commit there. Fix: `npx husky` after `npm ci`. Same PR: `psql -1` per migration (`:121`) so a half-applied file cannot block the rerun; the roadmap's `npm run db:seed` (`prisma db seed`) vs dev-env.md's "seed as the migration role" — one of them is wrong, align.
+- [ ] **V4 · Partners: the contacts read bypasses `queries.ts`, and no role test** *(#65)*: `app/(app)/partners/[id]/page.tsx:38` reads `listPartnerContacts` re-exported from the service in `index.ts:503-511` (constitution §2: pages read through `queries.ts`) → re-export from `queries.ts` like `getPartner`. `contacts.test.ts` has tenant isolation but no *member / accountant refused* on the four actions → one FORBIDDEN test (shape of `partners.test.ts:621`).
+- [ ] **V5 · JSON mappers: the reject path is never run** *(#62)*: every new test round-trips valid data; nothing writes a bad row and reads the DTO (`contracts.test.ts:129-144`, `partners.test.ts:113`, `table-preferences.ts` none). Fix: per module one `$executeRaw` of a bad value (`external_references = '[{"label":1},{"label":"a","value":"b"}]'`, `address = '"x"'`, `preferences = '[1]'`) → `[{label:"a",value:"b"}]` / `null` / `{}`. Same PR: `vat-registrations.test.ts:207` asserts `rate_schedule IS NULL` vs `= 'null'::jsonb` by SQL.
+- [ ] **V6 · Is the "two nulls" in `rate_schedule` real?** *(#62, to verify)*: the comment at `settings/vat-registrations.ts:168-170` says clearing stored JSON `null` "as it always was"; the old code passed a plain `null` (`as any`) to a `Json?` field, which Prisma refuses at runtime — no test or UI caller cleared the rates before #62. If `SELECT count(*) FROM vat_registrations WHERE rate_schedule = 'null'::jsonb` is 0 on the homelab, write `Prisma.DbNull`, drop the comment and the *two nulls* item above (no data fix). If not, the item stands.
+- [ ] **V7 · `parseOcrPayload` has no test of its own** *(#64)*: the guard is where the split changed behaviour (garbage now reads as no OCR), and only the happy shape and a null column are covered. Fix: `ocr-payload.pure.test.ts` — `null`, `[]`, `{}`, `{extractedData:"x"}`, facts without `quality`, `{quality:1}`. Same PR: the sixth hand-parse `documents/linkable.ts:34` (lessons says "all go through"); `review.ts:82` `getDocumentOcrData` now returns null when `quality` is missing (old: data with `quality` undefined) — safer, no real row affected, say so in the note.
+- [ ] **V8 · Rates backfill: "today" is the UTC day** *(#57; audit #28's pattern)*: `rates/ecb-rates.ts:203` `new Date().toISOString().slice(0,10)` → between 00:00 and 02:00 Stockholm today's date is refused as future (refuses, never writes a wrong rate). Fix: `clock.today()`. Same PR: the backfill test (`ecb-rates.test.ts:395`) checks the URL sent to a mocked fetch — a DB test with one stored day inside a three-day range: inserted 2, skipped 1, stored value unchanged.
+
+Low — together in one hygiene PR per module when next touched:
+
+- [ ] **V9 · expenses / supplier-invoices** *(#61, #63)*: `group-picker.tsx:101` — creation returns no id → submit stops silently (before: a toast) → `toast.error`; `new-supplier-invoice-dialog.test.tsx:15-19` mocks `expenses/expenses.actions` and loads `expenses/components/group-picker` (another module's internals from a test) → `importActual("@/modules/expenses/ui")`; no test of the panels' reset-on-new-detail rule (same detail keeps the edit, new detail resets); `supplier-invoice-panel.tsx:96`, `-payments.tsx:123,138` decide *settled* / *partly used* by string equality on amounts (`"0.00"`, `replace("-","")`) → booleans from the detail; `expense-panel.tsx:103-104` client copy of *open* (audit #14 — the action should return `editable`).
+- [ ] **V10 · partners** *(#65, #62)*: `specs/partners/spec.md:67` (a read-only role sees the tab without controls) is not built — the page is owner-only → reword as deferred; the e-mail rule twice (`partner-contacts.tsx:44` regex vs `contacts.ts:27` `z.email()`); `plan.md:29` says SQL `lower(name)`, the code sorts in JS (`contacts.ts:94-95`); `partner-contacts.tsx:88,93` English `"Error"` / NOT_FOUND text → `common.*` keys; `isPartnerAddress` (`partners.ts:103`) accepts any all-string object. Note: a contact's partner is checked in the same tenant by the service only (`contacts.ts:111`, like `contract_rates`) — a composite FK `(tenant_id, partner_id)` if ever wanted.
+- [ ] **V11 · kernel/i18n** *(#69)*: `locale.ts:7` the old `resolveLocale` (second q-parser, used only by its test) → delete; `locale.ts:42` re-splits tags like `uiLanguage()` → reuse it; `sv.ts:49` `"{name}s företag"` gives *Larss företag* → for the owner's Swedish read (C2); the root `<html lang="en">` (`app/layout.tsx:27`) still open, as the Product item says.
+- [ ] **V12 · invoices** *(#74)*: after 30 polls (`invoice-actions.tsx:74`) the page goes quiet → a *still rendering — reload* hint.
+
+Process:
+
+- [ ] **The contract-select race is a product bug filed under Process** (#74's item (2)): give it a [[features]] row in `modules/invoices` so a builder picks it up.
+- [ ] **Docs claimed more than the code did, twice**: #62 says `rate_schedule` is typed both ways (only the write side is — the read is audit #19); #64 says all OCR hand-parses go through `parseOcrPayload` (one is left). A *Done* note is checked against `grep`, not memory.
+- [ ] **Rules bent quietly**: #59 edited `docs/constitution.md` §2 inside a feature PR (the file says changes are PRs of their own; version not bumped) → the next constitution PR makes it 1.3 and records "enforced since F48"; #62 did three modules in one PR against F50's "one module at a time" — fine for a mechanical change, but the PR should say why.
+- [ ] **Tests that test the call, not the rule** — the one pattern seen in four PRs (#57 URL shape, #61 the mock's id passed through, #62 valid data only, #64 happy shape only): the review question that catches them is "which input makes this test fail if the rule is wrong?". Add it to the reviewer role in [[roadmap]] *How we work*.
+
 ## Product
 
 - [x] **`Make it…` on a relationship document** (contract, NDA) offers *Expense* / *Supplier invoice*, which make no sense there. Action (part 2): hide those two when `documentType !== "financial"`, keep *Just file it* and *Link to…*. Done in part 2 (review page and inbox).
