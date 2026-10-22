@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { declarationPeriodFor, deriveState, isDeclarationPeriod, remainingAmount } from "./derive";
+import {
+  declarationPeriodFor,
+  deriveState,
+  isDeclarationPeriod,
+  receivableAmount,
+  remainingAmount,
+} from "./derive";
 
 const base = {
   type: "invoice" as const,
@@ -42,6 +48,29 @@ describe("derived invoice state (never typed)", () => {
     expect(deriveState({ ...base, type: "credit_note", credited: "999.00" }, "2026-02-01")).toBe(
       "issued",
     );
+  });
+
+  it("a credit note is never overdue and never a receivable (F57)", () => {
+    // createCreditNote stores due date = issue date: the day after, it must still not read overdue
+    const cn = {
+      ...base,
+      type: "credit_note" as const,
+      totalAmount: "5837.40",
+      dueDate: "2026-02-01",
+    };
+    expect(deriveState(cn, "2026-02-02")).toBe("issued");
+    expect(deriveState({ ...cn, status: "sent" }, "2027-01-01")).toBe("sent");
+    // refunded to the client through a bank row: settled like any document
+    expect(deriveState({ ...cn, allocated: "5837.40" }, "2026-03-01")).toBe("paid");
+    expect(receivableAmount(cn)).toBe("0.00");
+    expect(receivableAmount({ ...cn, status: "sent" })).toBe("0.00");
+    // the invoice it credits is the receivable, reduced by the credit note
+    expect(receivableAmount({ ...base, credited: "5837.40" })).toBe("20106.60");
+    expect(receivableAmount({ ...base, credited: "5837.40", allocated: "20106.60" })).toBe("0.00");
+    expect(receivableAmount({ ...base, status: "draft" })).toBe("0.00");
+    expect(receivableAmount({ ...base, type: "quote" })).toBe("0.00");
+    // an invoice past its due date still goes overdue
+    expect(deriveState(base, "2026-03-03")).toBe("overdue");
   });
 
   it("quotes: accepted / declined by hand, expired by date, converted once the invoice is issued", () => {
