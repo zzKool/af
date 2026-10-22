@@ -2,6 +2,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { listGroups } from "@/modules/expenses";
@@ -14,7 +15,7 @@ export default async function ExpenseGroupsPage() {
     const [groups, prefs] = await Promise.all([listGroups(tx), getUserPreferences(tx, auth)]);
     return { groups, prefs };
   });
-  const t = translator(data.prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   return (
     <ListPage
       title={t("expenses.groups.title")}

@@ -38,7 +38,7 @@ upload ──► review ──► make it an expense / SI ──► link bank ro
 accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ```
 
-- [x] **A1 Document inbox** — converged 2026-10-22: nine small gaps left as `specs/documents/tasks.md` Phase 3 (T019–T027, two wait for O1 / O2). `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
+- [x] **A1 Document inbox** — converged 2026-10-22: nine small gaps left as `specs/documents/tasks.md` Phase 3 (T019–T027; O1 / O2 decided as D35 / D36). `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
 - [ ] **A2 Members** — *later, parked by the owner 2026-10-22 (F03).* Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
 - [x] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` backfills every ECB day from that date ([[ecb-rates]]).
 - [x] **A4 Partners: contact persons** — the Contacts tab on the partner page (F08, [[partners]]).
@@ -62,16 +62,11 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 1. **F56 · F57 · F59 · F60 — the wrong figures the audit found** (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
 2. **The owner answers O3 → F58** (a link applied from the linking inbox leaves an expense *awaiting link*).
-3. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T021–T027 — S each, one builder; T019 / T020 once O1 / O2 are answered) and F61–F67.
+3. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T019–T027 — S each, one builder; T019 / T020 follow D35 / D36) and F61–F67.
 
 F03 Members is *later*: the owner will not invite the accountant into the app for now (2026-10-22). The dispatch table is [[features]].
 
 ## Open decisions (the owner's)
-
-Found by `/speckit-converge` on `specs/documents` (2026-10-22): the documents spec and the module specs written the same day disagree. Answer → D35 / D36 in [[feature-inventory]], then T019 / T020.
-
-- **O1 — Same supplier, same invoice number twice.** Documents US3-2 says *Create anyway* with a note creates it; supplier-invoices FR-001 says refused, and the database holds the number unique per supplier. Today the dialog offers *Create anyway*, then the save fails. *Recommended:* keep it unique (a supplier never reissues a number; a corrected copy is the same invoice or a credit note) — the panel shows that match as a refusal with a link; *Create anyway* stays for the same file and the ±1 % / ±7 days matches. *Other option:* drop the unique index (one migration) and let a noted duplicate through.
-- **O2 — Deleting what a document became.** Documents FR-007 says deleting the expense / supplier invoice removes its `created_from` link and the document is back in the inbox; the expense and supplier-invoice specs refuse any delete while linked (a supplier invoice is cancelled instead). Today the delete is refused. *Recommended:* a delete whose only link is `created_from` removes it and the document returns to the inbox as *ready* (keeps the key it got); any other link still blocks. *Other option:* keep refusing, and the refusal says how to unlink first.
 
 Found by the read-only audit (2026-10-22, [[lessons]] *Code — the audit*): the code and the [[constitution]] disagree. Answer → D37–D39 in [[feature-inventory]], then F58 / F62 / F67.
 
@@ -79,7 +74,7 @@ Found by the read-only audit (2026-10-22, [[lessons]] *Code — the audit*): the
 - **O4 — Two real cross-module foreign keys.** `trips.group_id` and `supplier_invoices.group_id` → `expense_groups` (Prisma relations, Cascade on trips); the constitution says validated UUIDs. *Recommended:* amend the rule — expense groups are a shared reference others may point at; reads still go through `expenses.getGroup`. *Other option:* drop both relations (two migrations).
 - **O5 — Base currency in two places.** `tenant.currency` is editable in the company profile, nothing reads it; every module uses `BASE_CURRENCY = "SEK"`. *Recommended:* take it off the form, keep the column (§4: a constant until two tenants differ). *Other option:* read the base currency from the tenant (a setting for one tenant).
 
-Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
+Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
 
 ## How we work
 

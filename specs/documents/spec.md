@@ -70,7 +70,7 @@ Before an expense or a supplier invoice is created from a document (US1), the ap
 **Acceptance Scenarios**:
 
 1. **Given** supplier invoice 9160 of *Skattepunkten AB* exists **When** *Make it… → Supplier invoice* is chosen on a document whose OCR number is `9160` (or ` 9160`, or `9160 ` — trimmed, spaces collapsed, case-folded) and the match card resolved the same partner **Then** a *high* match blocks with *Invoice #9160 from Skattepunkten AB already exists* and a link to it.
-2. **Given** the block **When** the owner types a note (*the October copy, different period*) and clicks *Create anyway* **Then** the invoice is created, the note is stored on it and the audit trail carries it; without a note the button stays disabled.
+2. *(Amended by D35, 2026-10-22: an exact number match is refused with a link, never created; the note path applies to the hash and fuzzy matches.)* 2. **Given** the block **When** the owner types a note (*the October copy, different period*) and clicks *Create anyway* **Then** the invoice is created, the note is stored on it and the audit trail carries it; without a note the button stays disabled.
 3. **Given** the same bytes already became expense `Ex213-Tr-04` (via *Upload anyway*) **When** *Make it… → Expense* is chosen on the copy **Then** a *high* match says *This exact file was already used to create expense Ex213-Tr-04*.
 4. **Given** a supplier invoice of the same partner, 1 290.00 SEK, dated 5 days earlier **When** the dialog opens with 1 297.20 SEK **Then** a *medium* match warns inline (*Similar invoice exists: #9158 for 1 290.00 SEK on 2026-07-03*) and *Create* stays enabled; the same amounts in CHF do not match; 1.5 % off or 8 days off do not match.
 5. **Given** several matches **When** shown **Then** each existing entity appears once, *high* before *medium*, at most five.
@@ -136,7 +136,7 @@ Before an expense or a supplier invoice is created from a document (US1), the ap
 - **FR-012**: Before a supplier invoice is created from a document the app MUST check: same partner + same number (normalised: trimmed, spaces collapsed, case-folded) → *high*; same bytes already became a supplier invoice → *high*; same partner, same currency, amount within ±1 %, date within ±7 days → *medium*.
 - **FR-013**: Before an expense is created from a document the app MUST check: same bytes already became an expense → *high*; same currency, amount within ±1 %, date within ±7 days, and the same partner or the same merchant name (case-folded) → *medium*.
 - **FR-014**: Matches MUST be de-duplicated by entity, ordered *high* then *medium*, at most five, each with a human reason and a link to the entity.
-- **FR-015**: A *high* match MUST block creation until *Create anyway* with a non-empty note; the note MUST be stored on the created entity and in the audit trail. A *medium* match MUST warn without blocking.
+- **FR-015**: A *high* match MUST block creation until *Create anyway* with a non-empty note — except an *exact* match (same partner + number), which is refused outright (D35, 2026-10-22); the note MUST be stored on the created entity and in the audit trail. A *medium* match MUST warn without blocking.
 
 **The inbox (US4)**
 

@@ -1,6 +1,7 @@
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
@@ -28,7 +29,7 @@ export default async function PartnersPage({
     ]);
     return { result, prefs };
   });
-  const t = translator(prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(prefs.data?.locale));
 
   return (
     <ListPage title={t("partners.title")} meta={t("partners.meta.count", { count: result.total })}>

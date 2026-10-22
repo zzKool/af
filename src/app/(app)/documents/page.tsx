@@ -3,6 +3,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
@@ -39,7 +40,7 @@ export default async function DocumentsPage({
     ]);
     return { result, stats: stats.data ?? null, inbox, prefs };
   });
-  const t = translator(data.prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   const canUpload = can(auth, "create", "financial_document");
   // The upload form offers the fixed document kinds (D6: no prefix settings).
   const prefixOptions = canUpload
