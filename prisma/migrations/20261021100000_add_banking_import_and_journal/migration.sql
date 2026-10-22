@@ -233,7 +233,7 @@ ALTER TABLE "bank_imports" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "bank_imports"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "bank_imports" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "bank_imports" TO af_app;
 
 ALTER TABLE "bank_transactions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "bank_transactions" FORCE ROW LEVEL SECURITY;
@@ -241,18 +241,18 @@ CREATE POLICY tenant_isolation ON "bank_transactions"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
 -- no UPDATE grant: the trigger refuses it anyway, the grant makes the intent visible
-GRANT SELECT, INSERT, DELETE ON TABLE "bank_transactions" TO defterfab_app;
+GRANT SELECT, INSERT, DELETE ON TABLE "bank_transactions" TO af_app;
 
 ALTER TABLE "categorisation_rules" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "categorisation_rules" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "categorisation_rules"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "categorisation_rules" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "categorisation_rules" TO af_app;
 
 ALTER TABLE "journal_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "journal_entries" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "journal_entries"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "journal_entries" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "journal_entries" TO af_app;

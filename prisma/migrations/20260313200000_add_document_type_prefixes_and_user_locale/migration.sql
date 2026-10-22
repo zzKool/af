@@ -45,7 +45,7 @@ CREATE POLICY tenant_isolation ON document_type_prefixes
     WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
 
 -- Grants: full CRUD for app role
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE document_type_prefixes TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE document_type_prefixes TO af_app;
 
 -- ============================================================================
 -- PART 2: user_preferences (user-scoped, NO RLS)
@@ -62,4 +62,4 @@ CREATE TABLE user_preferences (
 );
 
 -- Grants: full CRUD for app role (no RLS — access controlled at application level by userId)
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE user_preferences TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE user_preferences TO af_app;

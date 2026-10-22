@@ -4,7 +4,7 @@ Every difference between a laptop, the homelab and Azure is an env var (constitu
 
 | variable | required | read by | meaning |
 |---|---|---|---|
-| `DATABASE_URL` | yes | `kernel/db` (Prisma + pg), pg-boss | the **app role** (`defterfab_app`), RLS-enforced; also the jobs queue's connection |
+| `DATABASE_URL` | yes | `kernel/db` (Prisma + pg), pg-boss | the **app role** (`af_app`), RLS-enforced; also the jobs queue's connection |
 | `DATABASE_MIGRATION_URL` | migrations | `prisma.config.ts` | the migration role (owner of the schema) — `prisma migrate deploy`, the migrate image |
 | `DATABASE_TEST_URL`, `DATABASE_TEST_MIGRATION_URL` | tests | Vitest setup, the e2e server | the test database (port 5433 locally and in CI) |
 | `AUTH_SECRET` | yes | Better Auth | ≥ 32 random bytes; rotating it logs everyone out |

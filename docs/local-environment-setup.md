@@ -67,7 +67,7 @@ npm run db:migrate
 
 This runs `prisma migrate dev` which:
 - Creates all tables, enums, and indexes
-- Creates the `defterfab_app` role (used by the app at runtime with RLS enforced)
+- Creates the `af_app` role (used by the app at runtime with RLS enforced)
 - Sets up Row-Level Security policies
 - Generates the Prisma client
 
@@ -135,7 +135,7 @@ Without these, uploads use a mock OCR service that returns fixture data.
 ## Troubleshooting
 
 - **Port 5432 conflict:** Another PostgreSQL instance may be running. Stop it or change the host port in `docker-compose.yml`.
-- **Migration fails with role error:** Make sure `DATABASE_MIGRATION_URL` uses the `af` superuser (not `defterfab_app`).
+- **Migration fails with role error:** Make sure `DATABASE_MIGRATION_URL` uses the `af` superuser (not `af_app`).
 - **Seed fails:** Ensure migrations ran first (`npm run db:migrate`) and the dev server is not running (both use the same DB).
 - **Azurite 403:** Expected for unauthenticated container listing. The service is running correctly.
 - **Docker not found:** Ensure Docker Desktop is installed and running. Verify with `docker compose version`.

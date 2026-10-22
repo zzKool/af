@@ -9,7 +9,7 @@ CREATE TABLE "ecb_rates" (
 );
 
 -- Explicit GRANT for app role — ecb_rates is global (no RLS), read/write by app
-GRANT SELECT, INSERT ON "ecb_rates" TO defterfab_app;
+GRANT SELECT, INSERT ON "ecb_rates" TO af_app;
 
 -- Immutability: prevent UPDATE and DELETE (silently drops — does NOT throw)
 CREATE RULE ecb_rates_no_update AS ON UPDATE TO ecb_rates DO INSTEAD NOTHING;

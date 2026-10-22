@@ -305,21 +305,21 @@ ALTER TABLE "expense_groups" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "expense_groups"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "expense_groups" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "expense_groups" TO af_app;
 
 ALTER TABLE "payment_sources" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "payment_sources" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "payment_sources"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "payment_sources" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "payment_sources" TO af_app;
 
 ALTER TABLE "expenses" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "expenses" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "expenses"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "expenses" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "expenses" TO af_app;
 
 ALTER TABLE "settlements" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "settlements" FORCE ROW LEVEL SECURITY;
@@ -327,25 +327,25 @@ CREATE POLICY tenant_isolation ON "settlements"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
 -- no DELETE grant: a settlement is cancelled, never deleted (its number and statement stay)
-GRANT SELECT, INSERT, UPDATE ON TABLE "settlements" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE ON TABLE "settlements" TO af_app;
 
 ALTER TABLE "settlement_lines" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "settlement_lines" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "settlement_lines"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "settlement_lines" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "settlement_lines" TO af_app;
 
 ALTER TABLE "normalbelopp" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "normalbelopp" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "normalbelopp"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "normalbelopp" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "normalbelopp" TO af_app;
 
 ALTER TABLE "trips" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "trips" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "trips"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "trips" TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "trips" TO af_app;

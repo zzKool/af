@@ -27,10 +27,10 @@ Like CI, everything runs on the **test** database — app, unit tests, e2e. No `
 
 | Variable | Value | Used by |
 |---|---|---|
-| `DATABASE_URL` / `DATABASE_TEST_URL` | `postgresql://defterfab_app:app@localhost:5433/af_test` | the app (RLS enforced), tests |
+| `DATABASE_URL` / `DATABASE_TEST_URL` | `postgresql://af_app:app@localhost:5433/af_test` | the app (RLS enforced), tests |
 | `DATABASE_MIGRATION_URL` / `DATABASE_TEST_MIGRATION_URL` | `postgresql://af:test@localhost:5433/af_test` | migrations, seed, `reset-e2e-data.sh` |
 
-- `af` (superuser) is created by the script; `defterfab_app` by the first migration.
+- `af` (superuser) is created by the script; `af_app` by the first migration.
 - `.env.local` is written once (random `AUTH_SECRET`, Azurite's well-known key, `CHROMIUM_PATH`) and never overwritten — delete it to regenerate. Git ignores it.
 
 ## Migrations without the Prisma engine

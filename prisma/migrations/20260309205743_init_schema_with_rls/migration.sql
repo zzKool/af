@@ -143,12 +143,12 @@ CREATE POLICY tenant_isolation ON "tenant_configs"
 -- ─────────────────────────────────────────────────────────────
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'defterfab_app') THEN
-    CREATE ROLE defterfab_app WITH LOGIN PASSWORD 'app';
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'af_app') THEN
+    CREATE ROLE af_app WITH LOGIN PASSWORD 'app';
   END IF;
 END
 $$;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO defterfab_app;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO defterfab_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO defterfab_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO defterfab_app;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO af_app;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO af_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO af_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO af_app;

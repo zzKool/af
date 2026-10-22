@@ -35,7 +35,7 @@ ALTER TABLE "links" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "links"
     USING ("tenant_id" = current_setting('app.tenant_id', true)::uuid)
     WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true)::uuid);
-GRANT SELECT, INSERT, DELETE ON TABLE "links" TO defterfab_app;
+GRANT SELECT, INSERT, DELETE ON TABLE "links" TO af_app;
 
 -- Invariant (constitution §2): a linked document cannot be hard-deleted. Enforced in the database,
 -- independent of the service layer. The service translates SQLSTATE P0001 / 'document_linked' into

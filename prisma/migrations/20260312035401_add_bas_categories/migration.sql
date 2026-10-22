@@ -36,7 +36,7 @@ CREATE RULE no_update_bas AS ON UPDATE TO bas_categories DO INSTEAD NOTHING;
 CREATE RULE no_delete_bas AS ON DELETE TO bas_categories DO INSTEAD NOTHING;
 
 -- SELECT-only grant — no write permissions for app role
-GRANT SELECT ON TABLE bas_categories TO defterfab_app;
+GRANT SELECT ON TABLE bas_categories TO af_app;
 
 -- ============================================================
 -- PART 2: Seed BAS categories (~472 entries)
@@ -549,7 +549,7 @@ CREATE INDEX "tenant_bas_preferences_tenant_id_is_favorite_idx" ON "tenant_bas_p
 CREATE INDEX "tenant_bas_preferences_tenant_id_bas_code_idx" ON "tenant_bas_preferences"("tenant_id", "bas_code");
 
 -- Full CRUD grant for app role
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tenant_bas_preferences TO defterfab_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tenant_bas_preferences TO af_app;
 
 -- RLS: tenant isolation with both USING and WITH CHECK (matching audit_logs pattern)
 ALTER TABLE "tenant_bas_preferences" ENABLE ROW LEVEL SECURITY;

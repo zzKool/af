@@ -12,7 +12,7 @@ const MIGRATION_URL =
 const APP_URL =
   process.env.DATABASE_TEST_URL ||
   process.env.DATABASE_URL ||
-  "postgresql://defterfab_app:app@localhost:5433/af_test";
+  "postgresql://af_app:app@localhost:5433/af_test";
 
 // Override DATABASE_URL so app code uses the test database
 process.env.DATABASE_URL = APP_URL;

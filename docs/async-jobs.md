@@ -67,7 +67,7 @@ export const ecbSyncSchedule: ScheduleDefinition<EcbSyncData> = {
 
 - One pg-boss instance per process, kept on `globalThis` (Next.js gives instrumentation and routes separate module graphs). `startJobs` is idempotent, logs and returns `false` instead of throwing — the app keeps serving pages when the queue is unavailable.
 - `JOBS_DISABLED=1` skips the worker (builds, scripts, tests that never need it). `JOBS_POOL_MAX` (default 2) sizes pg-boss's own pool.
-- pg-boss runs as the app role (`DATABASE_URL`) with `migrate: false`. The schema was installed by the `add_pgboss` migration, which `SET ROLE defterfab_app` so the app role owns it (`createQueue` creates a partition per queue at runtime and needs ownership). **Upgrading pg-boss** = a new migration from `PgBoss.getMigrationPlans("pgboss", <stored version>)`; `queue.test.ts` fails when the package's schema version and the stored one differ.
+- pg-boss runs as the app role (`DATABASE_URL`) with `migrate: false`. The schema was installed by the `add_pgboss` migration, which `SET ROLE af_app` so the app role owns it (`createQueue` creates a partition per queue at runtime and needs ownership). **Upgrading pg-boss** = a new migration from `PgBoss.getMigrationPlans("pgboss", <stored version>)`; `queue.test.ts` fails when the package's schema version and the stored one differ.
 - Inspect: `select name, state, retry_count, data, output from pgboss.job order by created_on desc;` — `output` holds the last error of a failed job. Dead-letter queues are plain queues: `select * from pgboss.job where name like '%.dead'`.
 
 ## Testing
