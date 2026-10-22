@@ -15,6 +15,7 @@ import * as banking from "@/modules/banking";
 import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
+import { allocatedTo } from "./allocated";
 import { openAmount } from "./status";
 import {
   baseAmount,
@@ -37,20 +38,6 @@ export const recordPaymentSchema = z.object({
 export type RecordPaymentInput = z.input<typeof recordPaymentSchema>;
 
 export const attachPaymentSchema = z.object({ invoiceId: uuid, bankTransactionId: uuid });
-
-/** Σ `justifies` allocations onto the invoice (in the linkable's currency). */
-export async function allocatedTo(tx: TransactionClient, invoiceId: string): Promise<Dec> {
-  const rows = await tx.link.findMany({
-    where: {
-      kind: "justifies",
-      toType: "supplier_invoice",
-      toId: invoiceId,
-      allocatedAmount: { not: null },
-    },
-    select: { allocatedAmount: true },
-  });
-  return rows.reduce<Dec>((acc, r) => acc.plus(r.allocatedAmount as Dec), new D(0));
-}
 
 async function outgoingRow(tx: TransactionClient, id: string) {
   const t = await banking.getBankTransaction(tx, id);
