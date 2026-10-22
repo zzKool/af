@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import type { Contract } from "@/generated/prisma/client";
+import type { Contract, Prisma } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -53,6 +53,28 @@ export const updateContractSchema = contractBaseSchema
 export type CreateContractInput = z.input<typeof createContractSchema>;
 export type UpdateContractInput = z.input<typeof updateContractSchema>;
 
+// --- JSON column (`external_references`) — typed once, both ways ---
+
+function isExternalReference(v: unknown): v is ExternalReference {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    !Array.isArray(v) &&
+    "label" in v &&
+    typeof v.label === "string" &&
+    "value" in v &&
+    typeof v.value === "string"
+  );
+}
+
+function toReferences(json: Prisma.JsonValue): ExternalReference[] {
+  return Array.isArray(json) ? json.filter(isExternalReference) : [];
+}
+
+function referencesToJson(refs: ExternalReference[]): Prisma.InputJsonArray {
+  return refs.map((r) => ({ ...r }));
+}
+
 // --- DTO mapping (Prisma rows never leave the module) ---
 
 export function toContractDto(row: Contract, currentRate: CurrentRate | null = null): ContractDto {
@@ -68,7 +90,7 @@ export function toContractDto(row: Contract, currentRate: CurrentRate | null = n
     currency: row.currency,
     paymentTerms: row.paymentTerms,
     vatRegistrationId: row.vatRegistrationId,
-    externalReferences: (row.externalReferences as ExternalReference[] | null) ?? [],
+    externalReferences: toReferences(row.externalReferences),
     isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -94,8 +116,7 @@ export async function getContracts(
   partnerId: string,
   options?: { includeInactive?: boolean; today?: string },
 ): Promise<ServiceResult<ContractDto[]>> {
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic where clause construction
-  const where: any = { partnerId };
+  const where: Prisma.ContractWhereInput = { partnerId };
   if (!options?.includeInactive) {
     where.isActive = true;
   }
@@ -221,8 +242,7 @@ export async function createContract(
       currency: data.currency || null,
       paymentTerms: data.paymentTerms || null,
       vatRegistrationId: data.vatRegistrationId || null,
-      // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-      externalReferences: (data.externalReferences ?? []) as any,
+      externalReferences: referencesToJson(data.externalReferences ?? []),
       createdBy: caller.userId,
       source: caller.source,
     },
@@ -308,8 +328,7 @@ export async function updateContract(
   }
 
   // Build update data — only include provided fields
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic update data construction
-  const updateData: any = {};
+  const updateData: Prisma.ContractUncheckedUpdateInput = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
@@ -320,7 +339,7 @@ export async function updateContract(
   if (data.vatRegistrationId !== undefined)
     updateData.vatRegistrationId = data.vatRegistrationId || null;
   if (data.externalReferences !== undefined)
-    updateData.externalReferences = data.externalReferences;
+    updateData.externalReferences = referencesToJson(data.externalReferences);
 
   const updated = await tx.contract.update({
     where: { id },

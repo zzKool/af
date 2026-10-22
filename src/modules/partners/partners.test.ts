@@ -110,6 +110,43 @@ describe("partner service", () => {
     expect(partners.data?.[0].defaultBasCategoryCode).toBe("501");
   });
 
+  it("JSON columns round-trip: identifiers and address, undefined address keys dropped", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+
+    const created = await withTenantTransaction(prisma, tenantId, (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "Json AB",
+        types: ["vendor"],
+        externalIdentifiers: [{ label: "Supplier Number", value: "SUP-1" }],
+        address: { street: "Storgatan 1", city: undefined, country: "SE" },
+      }),
+    );
+    const id = created.data!.id;
+    const read = () =>
+      withTenantTransaction(prisma, tenantId, (tx) => partnerService.getPartner(tx, id));
+
+    const first = (await read()).data!;
+    expect(first.externalIdentifiers).toEqual([{ label: "Supplier Number", value: "SUP-1" }]);
+    expect(first.address).toEqual({ street: "Storgatan 1", country: "SE" });
+    expect(Object.keys(first.address ?? {})).not.toContain("city");
+
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      partnerService.updatePartner(tx, owner.callerIdentity, noopAudit, id, {
+        externalIdentifiers: [
+          { label: "Supplier Number", value: "SUP-2" },
+          { label: "IBAN", value: "SE00" },
+        ],
+      }),
+    );
+    const second = (await read()).data!;
+    expect(second.externalIdentifiers).toEqual([
+      { label: "Supplier Number", value: "SUP-2" },
+      { label: "IBAN", value: "SE00" },
+    ]);
+    expect(second.address).toEqual({ street: "Storgatan 1", country: "SE" }); // not in the update → kept
+  });
+
   it("create: partner with minimum fields (name + types)", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;

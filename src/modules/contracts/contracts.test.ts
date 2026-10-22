@@ -126,6 +126,22 @@ describe("contract service", () => {
     expect(contracts.data?.[0].name).toBe("Consulting Agreement");
     expect(contracts.data?.[0].currency).toBe("SEK");
     expect(contracts.data?.[0].paymentTerms).toBe("NET_30");
+    expect(contracts.data?.[0].externalReferences).toEqual([
+      { label: "Purchase Order", value: "PO-2026-1138" },
+    ]);
+
+    // the JSON column round-trips on update too
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      contractService.updateContract(tx, owner.callerIdentity, noopAudit, result.data!.id, {
+        externalReferences: [{ label: "Purchase Order", value: "PO-2027-0001" }],
+      }),
+    );
+    const after = await withTenantTransaction(prisma, tenantId, (tx) =>
+      contractService.getContract(tx, result.data!.id),
+    );
+    expect(after.data?.externalReferences).toEqual([
+      { label: "Purchase Order", value: "PO-2027-0001" },
+    ]);
   });
 
   it("create: contract with minimum fields (name + startDate)", async () => {

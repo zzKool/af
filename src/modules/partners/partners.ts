@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import type { Partner } from "@/generated/prisma/client";
+import type { Partner, Prisma } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -90,6 +90,42 @@ async function validateBasCategoryFK(
   return null;
 }
 
+// --- JSON columns (`external_identifiers`, `address`) — typed once, both ways ---
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function isExternalIdentifier(v: unknown): v is ExternalIdentifier {
+  return isRecord(v) && typeof v.label === "string" && typeof v.value === "string";
+}
+
+function isPartnerAddress(v: unknown): v is PartnerAddress {
+  return isRecord(v) && Object.values(v).every((x) => x === undefined || typeof x === "string");
+}
+
+function toIdentifiers(json: Prisma.JsonValue): ExternalIdentifier[] {
+  return Array.isArray(json) ? json.filter(isExternalIdentifier) : [];
+}
+
+function toAddress(json: Prisma.JsonValue | null): PartnerAddress | null {
+  return isPartnerAddress(json) ? json : null;
+}
+
+function identifiersToJson(ids: ExternalIdentifier[]): Prisma.InputJsonArray {
+  return ids.map((i) => ({ ...i }));
+}
+
+/** Drops the undefined keys — what JSON serialisation did before, now visible to the type. */
+function addressToJson(
+  address: PartnerAddress | null | undefined,
+): Prisma.InputJsonObject | undefined {
+  if (!address) return undefined;
+  return Object.fromEntries(
+    Object.entries(address).filter((e): e is [string, string] => typeof e[1] === "string"),
+  );
+}
+
 // --- DTO mapping (Prisma rows never leave the module) ---
 
 export function toPartnerDto(row: Partner): PartnerDto {
@@ -105,10 +141,10 @@ export function toPartnerDto(row: Partner): PartnerDto {
     defaultLanguage: row.defaultLanguage,
     defaultBasCategoryCode: row.defaultBasCategoryCode,
     paymentTermsDays: row.paymentTermsDays,
-    externalIdentifiers: (row.externalIdentifiers as ExternalIdentifier[] | null) ?? [],
+    externalIdentifiers: toIdentifiers(row.externalIdentifiers),
     email: row.email,
     phone: row.phone,
-    address: (row.address as PartnerAddress | null) ?? null,
+    address: toAddress(row.address),
     isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -123,8 +159,7 @@ export async function getPartners(
   tx: TransactionClient,
   options?: { includeInactive?: boolean; search?: string; types?: string[] },
 ): Promise<ServiceResult<PartnerDto[]>> {
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic where clause construction
-  const where: any = {};
+  const where: Prisma.PartnerWhereInput = {};
   if (!options?.includeInactive) {
     where.isActive = true;
   }
@@ -207,12 +242,10 @@ export async function createPartner(
         defaultLanguage: data.defaultLanguage || null,
         defaultBasCategoryCode: data.defaultBasCategoryCode || null,
         paymentTermsDays: data.paymentTermsDays ?? null,
-        // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-        externalIdentifiers: (data.externalIdentifiers ?? []) as any,
+        externalIdentifiers: identifiersToJson(data.externalIdentifiers ?? []),
         email: data.email || null,
         phone: data.phone || null,
-        // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-        address: (data.address as any) ?? undefined,
+        address: addressToJson(data.address),
         createdBy: caller.userId,
         source: caller.source,
       },
@@ -328,8 +361,7 @@ export async function updatePartner(
   }
 
   // Build update data — only include provided fields
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic update data construction
-  const updateData: any = {};
+  const updateData: Prisma.PartnerUncheckedUpdateInput = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.shortCode !== undefined) updateData.shortCode = data.shortCode || null;
   if (data.orgNumber !== undefined) updateData.orgNumber = data.orgNumber || null;
@@ -341,10 +373,10 @@ export async function updatePartner(
     updateData.defaultBasCategoryCode = data.defaultBasCategoryCode || null;
   if (data.paymentTermsDays !== undefined) updateData.paymentTermsDays = data.paymentTermsDays;
   if (data.externalIdentifiers !== undefined)
-    updateData.externalIdentifiers = data.externalIdentifiers;
+    updateData.externalIdentifiers = identifiersToJson(data.externalIdentifiers);
   if (data.email !== undefined) updateData.email = data.email || null;
   if (data.phone !== undefined) updateData.phone = data.phone || null;
-  if (data.address !== undefined) updateData.address = data.address ?? undefined;
+  if (data.address !== undefined) updateData.address = addressToJson(data.address);
 
   try {
     const updated = await tx.partner.update({

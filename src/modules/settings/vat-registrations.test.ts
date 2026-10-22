@@ -204,6 +204,30 @@ describe("vat registrations service", () => {
     expect(schedule.rates).toEqual([25, 12, 6, 0]);
   });
 
+  it("update rate schedule to null: clears it, reads back null", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+
+    const created = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "CH",
+        vatNumber: "CHE-123.456.789 MWST",
+        rateSchedule: { rates: [8.1, 2.6, 3.8] },
+      }),
+    );
+    const updated = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.updateVatRegistration(tx, owner.callerIdentity, noopAudit, created.data!.id, {
+        rateSchedule: null,
+      }),
+    );
+    expect(updated.error).toBeUndefined();
+
+    const regs = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.getVatRegistrations(tx, owner.callerIdentity),
+    );
+    expect(regs.data?.[0].rateSchedule).toBeNull();
+  });
+
   it("delete: remove registration, verify audit captures old state", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;
