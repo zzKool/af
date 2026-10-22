@@ -30,7 +30,6 @@ import { CURRENCIES } from "@/kernel/nav/constants";
 import {
   checkExpenseDuplicatesAction,
   createExpenseAction,
-  createExpenseGroupAction,
 } from "@/modules/expenses/expenses.actions";
 import type {
   CategoryOption,
@@ -40,7 +39,7 @@ import type {
 } from "@/modules/expenses/types";
 import { EXPENSE_KINDS, type ExpenseKind } from "@/modules/expenses/types";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
-import { groupLabel } from "./labels";
+import { GroupPicker, initialGroupId, useCreateGroupIfNew } from "./group-picker";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
 export type ExpenseInitial = {
@@ -54,7 +53,6 @@ export type ExpenseInitial = {
 };
 
 const NONE = "__none__";
-const NEW_GROUP = "__new__";
 
 export function NewExpenseDialog({
   open,
@@ -82,7 +80,7 @@ export function NewExpenseDialog({
   const ids = useId();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
+  const [groupId, setGroupId] = useState(initialGroupId(groups, defaultGroupId));
   const [newGroup, setNewGroup] = useState("");
   const [kind, setKind] = useState<ExpenseKind>("receipt");
   const [date, setDate] = useState(today);
@@ -97,8 +95,7 @@ export function NewExpenseDialog({
   const [note, setNote] = useState("");
   const [ackNote, setAckNote] = useState("");
   const { executeAsync: create, isPending } = useAction(createExpenseAction);
-  const { executeAsync: createGroup, isPending: creatingGroup } =
-    useAction(createExpenseGroupAction);
+  const { resolveGroupId, isPending: creatingGroup } = useCreateGroupIfNew();
   const { executeAsync: checkDuplicates } = useAction(checkExpenseDuplicatesAction);
 
   // what the dialog sets when it opens — once per opening: the page may re-render while it is open (a server action
@@ -112,7 +109,7 @@ export function NewExpenseDialog({
     }
     if (opened.current) return;
     opened.current = true;
-    setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
+    setGroupId(initialGroupId(groups, defaultGroupId));
     // the document's facts fill the form when the dialog opens from the review page or the inbox
     if (!initial) return;
     if (initial.date) setDate(initial.date);
@@ -168,16 +165,8 @@ export function NewExpenseDialog({
   }, [sourceCurrency]);
 
   async function submit() {
-    let targetGroup = groupId;
-    if (groupId === NEW_GROUP) {
-      const g = await createGroup({ description: newGroup.trim() });
-      const error = extractError(g);
-      if (error) {
-        toast.error(error);
-        return;
-      }
-      targetGroup = g?.data?.data?.id ?? "";
-    }
+    const targetGroup = await resolveGroupId(groupId, newGroup);
+    if (!targetGroup) return;
     const r = await create({
       groupId: targetGroup,
       kind,
@@ -232,38 +221,15 @@ export function NewExpenseDialog({
             void submit();
           }}
         >
-          <div className={groupId === NEW_GROUP ? "" : "sm:col-span-2"}>
-            <label htmlFor={`${ids}-group`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.group")}
-            </label>
-            <Select value={groupId} onValueChange={(v) => v && setGroupId(v)}>
-              <SelectTrigger id={`${ids}-group`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {groups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {groupLabel(g)}
-                  </SelectItem>
-                ))}
-                <SelectItem value={NEW_GROUP}>{t("expenses.form.newGroup")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {groupId === NEW_GROUP && (
-            <div>
-              <label htmlFor={`${ids}-newgroup`} className="mb-1 block text-xs font-medium">
-                {t("expenses.form.newGroupDescription")}
-              </label>
-              <Input
-                id={`${ids}-newgroup`}
-                value={newGroup}
-                onChange={(e) => setNewGroup(e.target.value)}
-                required
-                data-testid="new-group-description"
-              />
-            </div>
-          )}
+          <GroupPicker
+            idPrefix={ids}
+            label={t("expenses.form.group")}
+            groups={groups}
+            value={groupId}
+            onChange={setGroupId}
+            newDescription={newGroup}
+            onNewDescription={setNewGroup}
+          />
           <div>
             <label htmlFor={`${ids}-kind`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.kind")}

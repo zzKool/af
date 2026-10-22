@@ -12,8 +12,12 @@ vi.mock("@/modules/supplier-invoices/supplier-invoices.actions", () => ({
   copyLastSupplierInvoiceAction: vi.fn(),
   createSupplierInvoiceAction: vi.fn(),
 }));
-vi.mock("@/modules/expenses/ui", () => ({
-  createExpenseGroupAction: vi.fn(),
+vi.mock("@/modules/expenses/expenses.actions", () => ({ createExpenseGroupAction: vi.fn() }));
+// the real GroupPicker (the test types a new group into it); the rest of the barrel stubbed
+vi.mock("@/modules/expenses/ui", async () => ({
+  ...(await vi.importActual<typeof import("@/modules/expenses/components/group-picker")>(
+    "@/modules/expenses/components/group-picker",
+  )),
   DuplicatePanel: () => null,
   hasHighMatch: () => false,
   useDuplicateCheck: () => [],

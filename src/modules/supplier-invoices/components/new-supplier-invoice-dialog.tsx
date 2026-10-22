@@ -30,9 +30,11 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import {
-  createExpenseGroupAction,
   DuplicatePanel,
+  GroupPicker,
   hasHighMatch,
+  initialGroupId,
+  useCreateGroupIfNew,
   useDuplicateCheck,
 } from "@/modules/expenses/ui";
 import {
@@ -47,7 +49,6 @@ import type {
   RegistrationOption,
   SupplierOption,
 } from "@/modules/supplier-invoices/types";
-import { groupLabel } from "./labels";
 import { SupplierMatchCard, type VendorFacts } from "./supplier-match-card";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
@@ -65,7 +66,6 @@ export type SupplierInvoiceInitial = {
 };
 
 const NONE = "__none__";
-const NEW_GROUP = "__new__";
 const DEFAULT_TERMS = 30;
 
 function addDays(date: string, days: number): string {
@@ -110,7 +110,7 @@ export function NewSupplierInvoiceDialog({
   const ids = useId();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
+  const [groupId, setGroupId] = useState(initialGroupId(groups, defaultGroupId));
   const [newGroup, setNewGroup] = useState("");
   const [partnerId, setPartnerId] = useState(initial?.vendor ? "" : (suppliers[0]?.id ?? ""));
   const [extraSuppliers, setExtraSuppliers] = useState<SupplierOption[]>([]);
@@ -130,8 +130,7 @@ export function NewSupplierInvoiceDialog({
   const [documentMissing, setDocumentMissing] = useState(false);
   const [note, setNote] = useState("");
   const { executeAsync: create, isPending } = useAction(createSupplierInvoiceAction);
-  const { executeAsync: createGroup, isPending: creatingGroup } =
-    useAction(createExpenseGroupAction);
+  const { resolveGroupId, isPending: creatingGroup } = useCreateGroupIfNew();
   const { executeAsync: copyLast, isPending: copying } = useAction(copyLastSupplierInvoiceAction);
   const { executeAsync: checkDuplicates } = useAction(checkSupplierInvoiceDuplicatesAction);
 
@@ -146,7 +145,7 @@ export function NewSupplierInvoiceDialog({
     }
     if (opened.current) return;
     opened.current = true;
-    setGroupId(defaultGroupId ?? groups[0]?.id ?? NEW_GROUP);
+    setGroupId(initialGroupId(groups, defaultGroupId));
     // the document's facts fill the form when the dialog opens from the review page or the inbox
     if (!initial) return;
     if (initial.invoiceNumber) setInvoiceNumber(initial.invoiceNumber);
@@ -269,16 +268,8 @@ export function NewSupplierInvoiceDialog({
   }
 
   async function submit() {
-    let targetGroup = groupId;
-    if (groupId === NEW_GROUP) {
-      const g = await createGroup({ description: newGroup.trim() });
-      const error = extractError(g);
-      if (error) {
-        toast.error(error);
-        return;
-      }
-      targetGroup = g?.data?.data?.id ?? "";
-    }
+    const targetGroup = await resolveGroupId(groupId, newGroup);
+    if (!targetGroup) return;
     const r = await create({
       groupId: targetGroup,
       partnerId,
@@ -378,38 +369,15 @@ export function NewSupplierInvoiceDialog({
               {t("supplierInvoices.form.copyLast")}
             </Button>
           </div>
-          <div className={groupId === NEW_GROUP ? "" : "sm:col-span-2"}>
-            <label htmlFor={`${ids}-group`} className="mb-1 block text-xs font-medium">
-              {t("supplierInvoices.form.group")}
-            </label>
-            <Select value={groupId} onValueChange={(v) => v && setGroupId(v)}>
-              <SelectTrigger id={`${ids}-group`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {groups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {groupLabel(g)}
-                  </SelectItem>
-                ))}
-                <SelectItem value={NEW_GROUP}>{t("expenses.form.newGroup")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {groupId === NEW_GROUP && (
-            <div>
-              <label htmlFor={`${ids}-newgroup`} className="mb-1 block text-xs font-medium">
-                {t("expenses.form.newGroupDescription")}
-              </label>
-              <Input
-                id={`${ids}-newgroup`}
-                value={newGroup}
-                onChange={(e) => setNewGroup(e.target.value)}
-                required
-                data-testid="new-group-description"
-              />
-            </div>
-          )}
+          <GroupPicker
+            idPrefix={ids}
+            label={t("supplierInvoices.form.group")}
+            groups={groups}
+            value={groupId}
+            onChange={setGroupId}
+            newDescription={newGroup}
+            onNewDescription={setNewGroup}
+          />
           <div>
             <label htmlFor={`${ids}-number`} className="mb-1 block text-xs font-medium">
               {t("supplierInvoices.form.number")}
