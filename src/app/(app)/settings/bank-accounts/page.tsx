@@ -33,6 +33,7 @@ export default async function BankAccountsSettingsPage() {
         iban: a.iban,
         bic: a.bic,
         role: a.role,
+        imports: a.imports,
         bankFormat: {
           id: a.bankFormat.id,
           name: a.bankFormat.name,
