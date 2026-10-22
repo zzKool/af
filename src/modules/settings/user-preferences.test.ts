@@ -40,6 +40,7 @@ afterAll(async () => {
 import {
   getUserPreferencesAction as getPrefsAction,
   updateUserLocaleAction as updateLocaleAction,
+  updateUserThemeAction as updateThemeAction,
 } from "@/modules/settings/user-preferences.actions";
 
 // ─────────────────────────────────────────────────────────────
@@ -195,5 +196,71 @@ describe("user preferences actions RBAC", () => {
     const result = await getPrefsAction({});
     expect(result?.serverError).toBeDefined();
     expect(result?.serverError).toMatchObject({ code: "UNAUTHORIZED" });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// The colour scheme (D43): light / dark, null = follow the system
+// ─────────────────────────────────────────────────────────────
+describe("user preferences — theme", () => {
+  async function read(ctx: Awaited<ReturnType<typeof createAuthenticatedContext>>) {
+    return withTenantTransaction(prisma, ctx.callerIdentity.tenantId, (tx) =>
+      prefsService.getUserPreferences(tx, ctx.callerIdentity),
+    );
+  }
+
+  it("a new user follows the system (null)", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    expect((await read(owner)).data?.theme).toBeNull();
+  });
+
+  it("dark is stored, then back to the system with null", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      prefsService.updateUserTheme(tx, owner.callerIdentity, noopAudit, "dark"),
+    );
+    expect((await read(owner)).data?.theme).toBe("dark");
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      prefsService.updateUserTheme(tx, owner.callerIdentity, noopAudit, null),
+    );
+    expect((await read(owner)).data?.theme).toBeNull();
+  });
+
+  it("the theme and the locale are saved independently — one never clears the other", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      prefsService.updateUserLocale(tx, owner.callerIdentity, noopAudit, "sv-SE"),
+    );
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      prefsService.updateUserTheme(tx, owner.callerIdentity, noopAudit, "light"),
+    );
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      prefsService.updateUserLocale(tx, owner.callerIdentity, noopAudit, "fr-FR"),
+    );
+    expect((await read(owner)).data).toEqual({ locale: "fr-FR", theme: "light" });
+  });
+
+  it("the action refuses a theme that is not light / dark / null", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    mockHeaders = owner.headers;
+    // @ts-expect-error — what a hand-crafted request could send
+    const result = await updateThemeAction({ theme: "blue" });
+    expect(result?.validationErrors).toBeDefined();
+    expect((await read(owner)).data?.theme).toBeNull();
+  });
+
+  it("the accountant sets their own theme; the owner's stays", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const member = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    mockHeaders = member.headers;
+    const result = await updateThemeAction({ theme: "dark" });
+    expect(result?.serverError).toBeUndefined();
+    expect((await read(member)).data?.theme).toBe("dark");
+    expect((await read(owner)).data?.theme).toBeNull();
   });
 });

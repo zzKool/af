@@ -56,7 +56,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Landmark names stay English (`Main navigation`, `Breadcrumb`) — the e2e and screen readers rely on them.
 
 ## Light / dark
-- [ ] Light by default, dark from `prefers-color-scheme`; check both before the PR. The logo swaps file, not colour.
+- [ ] Light by default, dark from `prefers-color-scheme` — unless the user forced one in My Preferences (D43, `<html data-theme>`); check both before the PR. Dark styling through tokens and `dark:` only, never a `prefers-color-scheme` media query in a component. The logo swaps file (by `dark:`), not colour.
 
 ## Definition of done (UI part)
 - [ ] A screenshot of every new or changed page in the PR, light — and dark when the change touches colour (from `e2e/screenshots.spec.ts`, which shoots both schemes; add a new page to its `PAGES`).
