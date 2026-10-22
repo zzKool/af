@@ -11,6 +11,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
+import { basCode, isoDate, money, positiveMoney, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
@@ -32,18 +33,10 @@ type Dec = InstanceType<typeof Prisma.Decimal>;
 
 // --- Zod schemas (the boundary) ---
 
-const isoDate = z.string().date();
-const positiveMoney = z
-  .string()
-  .regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals")
-  .refine((v) => Number(v) > 0, "The amount must be positive");
-const nonNegativeMoney = z.string().regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals");
 const positiveRate = z
   .string()
   .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
   .refine((v) => Number(v) > 0, "The rate must be positive");
-const uuid = z.string().uuid();
-const basCode = z.string().regex(/^\d{3,4}$/, "A BAS code is 3 or 4 digits");
 
 export const duplicateAckSchema = z.object({
   entityIds: z.array(uuid).min(1).max(5),
@@ -68,7 +61,7 @@ export const expenseInputSchema = z.object({
   basCode,
   amount: positiveMoney,
   currency: z.enum(CURRENCIES),
-  vatAmount: nonNegativeMoney.nullable().optional(),
+  vatAmount: money.nullable().optional(),
   vatRegistrationId: uuid.nullable().optional(),
   paymentSourceId: uuid,
   /** typed by hand → rate_source = manual; omitted → ECB of the date */

@@ -11,6 +11,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
+import { money, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
@@ -36,11 +37,7 @@ import type {
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
-const uuid = z.string().uuid();
-const positiveMoney = z
-  .string()
-  .regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals")
-  .refine((v) => Number(v) > 0, "The allocation must be positive");
+const positiveAllocation = money.refine((v) => Number(v) > 0, "The allocation must be positive");
 
 export const proposeSchema = z.object({
   bankTransactionId: uuid,
@@ -53,7 +50,7 @@ export type ProposeInput = z.input<typeof proposeSchema>;
 export const confirmSchema = z.object({
   bankTransactionId: uuid,
   paymentSourceId: uuid,
-  lines: z.array(z.object({ expenseId: uuid, allocatedBase: positiveMoney })).min(1),
+  lines: z.array(z.object({ expenseId: uuid, allocatedBase: positiveAllocation })).min(1),
   confirmExchangeDifference: z.boolean().optional(),
   exchangeDifferenceBasCode: z
     .string()

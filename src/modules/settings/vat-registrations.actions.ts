@@ -2,6 +2,7 @@
 
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
+import { uuid } from "@/kernel/validation/scalars";
 import * as vatService from "@/modules/settings/vat-registrations";
 
 /**
@@ -39,7 +40,7 @@ export const createVatRegistrationAction = ownerAction
 export const updateVatRegistrationAction = ownerAction
   .schema(
     z.object({
-      id: z.string().uuid(),
+      id: uuid,
       vatNumber: z.string().min(1).max(50).trim().optional(),
       rateSchedule: vatService.rateScheduleSchema.nullable().optional(),
     }),
@@ -54,7 +55,7 @@ export const updateVatRegistrationAction = ownerAction
  * Delete a VAT registration — owner only.
  */
 export const deleteVatRegistrationAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteVatRegistration" })
   .action(async ({ ctx, parsedInput }) => {
     return vatService.deleteVatRegistration(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);

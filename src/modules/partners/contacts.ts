@@ -7,6 +7,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { uuid } from "@/kernel/validation/scalars";
 import type { PartnerContactDto } from "./types";
 
 // MUST NOT import from next/* or src/components/*
@@ -30,7 +31,7 @@ const emailSchema = optionalText(254).refine(
 );
 
 export const createPartnerContactSchema = z.object({
-  partnerId: z.string().uuid(),
+  partnerId: uuid,
   name: nameSchema,
   role: optionalText(100),
   email: emailSchema,
@@ -38,7 +39,7 @@ export const createPartnerContactSchema = z.object({
 });
 
 export const updatePartnerContactSchema = z.object({
-  id: z.string().uuid(),
+  id: uuid,
   name: nameSchema.optional(),
   role: optionalText(100),
   email: emailSchema,

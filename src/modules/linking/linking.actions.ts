@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import "./linkables"; // make sure every module's linkable is registered before a link is validated
+import { uuid } from "@/kernel/validation/scalars";
 import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
 import * as linkingService from "./linking";
 import { linksWithLabels } from "./queries";
@@ -22,7 +23,7 @@ const endpointSchema = z.object({
     "expense",
     "settlement",
   ]),
-  id: z.string().uuid(),
+  id: uuid,
 });
 
 export const getLinksForAction = authedAction
@@ -59,7 +60,7 @@ export const createLinkAction = ownerAction
   );
 
 export const removeLinkAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "removeLink" })
   .action(async ({ ctx, parsedInput }) =>
     linkingService.removeLink(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id),
@@ -93,7 +94,7 @@ export const graphAction = authedAction
   });
 
 export const suggestionsForTransactionAction = authedAction
-  .schema(z.object({ bankTransactionId: z.string().uuid() }))
+  .schema(z.object({ bankTransactionId: uuid }))
   .metadata({ name: "suggestionsForTransaction" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
@@ -130,7 +131,7 @@ export const searchLinkablesAction = authedAction
 export const applySuggestionAction = ownerAction
   .schema(
     z.object({
-      bankTransactionId: z.string().uuid(),
+      bankTransactionId: uuid,
       to: endpointSchema,
       allocatedAmount: z
         .string()
@@ -146,7 +147,7 @@ export const applySuggestionAction = ownerAction
   );
 
 export const bulkApplyHighAction = ownerAction
-  .schema(z.object({ bankTransactionIds: z.array(z.string().uuid()).min(1).max(200) }))
+  .schema(z.object({ bankTransactionIds: z.array(uuid).min(1).max(200) }))
   .metadata({ name: "bulkApplyHigh" })
   .action(async ({ ctx, parsedInput }) => ({
     data: await suggestions.bulkApplyHigh(

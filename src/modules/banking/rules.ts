@@ -10,6 +10,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { basCode, uuid } from "@/kernel/validation/scalars";
 import * as journal from "@/modules/journal";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
@@ -133,9 +134,6 @@ export function regexError(pattern: string): string | null {
 }
 
 // --- Zod schemas (the boundary) ---
-
-const uuid = z.string().uuid();
-const basCode = z.string().regex(/^\d{3,4}$/, "A BAS code is 3 or 4 digits");
 
 export const ruleInputSchema = z
   .object({

@@ -25,7 +25,7 @@ Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mappin
 ```
 src/
   kernel/            auth, can(), tenancy (RLS client, CallerIdentity), audit, money, clock, errors, logging,
-                     storage (blob adapter), ocr (adapter), jobs (pg-boss), pdf (Chromium), ui, i18n, nav, stores
+                     storage (blob adapter), ocr (adapter), jobs (pg-boss), pdf (Chromium), ui, i18n, nav, stores, validation (Zod scalars)
   modules/<name>/    service(s)  queries.ts  actions  components/  stores/  jobs/  *.test.ts  index.ts
   app/               Next.js routes only — thin, import from modules/*/index.ts and queries.ts
   components/ui/     shadcn primitives (kernel UI kit, kept where the shadcn CLI expects them); lib/utils.ts = cn()
@@ -54,7 +54,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - `queries.ts` names the module's read API. Pages and other modules read through it (via `index.ts`); writes go through actions → services.
 - Server actions are named `<verb><Entity>Action` (`createPartnerAction`), never the same name as the service function.
 - Services take a tenant-scoped `tx` (RLS session set) and a `CallerIdentity`; return `ServiceResult<T>`; never throw for business errors.
-- Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod, call the service, return `{ data | error: AppError }`.
+- Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod (field scalars — `uuid`, `isoDate`, `money`, `positiveMoney`, `basCode` — from `kernel/validation/scalars`, never redeclared), call the service, return `{ data | error: AppError }`.
 - Every mutation on a financial or linked entity writes an audit row with source provenance.
 - A module that can be linked exports `linkable: { type, exists(id), summary(id), amount(id) }` and registers it with `modules/linking`.
 - Cross-module references are UUIDs validated through the target module's `index.ts`, not cross-table FKs (RLS blocks them).

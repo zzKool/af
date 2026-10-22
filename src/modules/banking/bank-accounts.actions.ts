@@ -2,6 +2,7 @@
 
 import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
+import { uuid } from "@/kernel/validation/scalars";
 import * as bankService from "@/modules/banking/bank-accounts";
 
 /**
@@ -36,7 +37,7 @@ export const createBankAccountAction = ownerAction
       accountAlias: z.string().trim().max(100).optional(),
       accountNumber: z.string().trim().min(1).max(50),
       currency: z.string().toUpperCase().length(3),
-      bankFormatId: z.string().uuid(),
+      bankFormatId: uuid,
       role: z.enum(["main", "savings"]).optional(),
     }),
   )
@@ -51,11 +52,11 @@ export const createBankAccountAction = ownerAction
 export const updateBankAccountAction = ownerAction
   .schema(
     z.object({
-      id: z.string().uuid(),
+      id: uuid,
       accountAlias: z.string().trim().max(100).nullable().optional(),
       accountNumber: z.string().trim().min(1).max(50).optional(),
       currency: z.string().toUpperCase().length(3).optional(),
-      bankFormatId: z.string().uuid().optional(),
+      bankFormatId: uuid.optional(),
       role: z.enum(["main", "savings"]).optional(),
       iban: z.string().trim().max(34).nullable().optional(),
       bic: z.string().trim().max(11).nullable().optional(),
@@ -71,7 +72,7 @@ export const updateBankAccountAction = ownerAction
  * Delete a bank account — owner only.
  */
 export const deleteBankAccountAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteBankAccount" })
   .action(async ({ ctx, parsedInput }) => {
     return bankService.deleteBankAccount(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);

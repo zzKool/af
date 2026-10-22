@@ -7,6 +7,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { isoDate, uuid } from "@/kernel/validation/scalars";
 import * as expenses from "@/modules/expenses";
 import * as settings from "@/modules/settings";
 import { isSwissVatPeriod } from "./swiss-vat";
@@ -17,12 +18,10 @@ import {
   type SwissVatLine,
 } from "./types";
 
-const uuid = z.string().uuid();
 const money = z
   .string()
   .trim()
   .regex(/^\d{1,13}(\.\d{1,2})?$/, "Expected a positive amount with up to two decimals");
-const isoDate = z.string().date();
 const period = z.string().refine(isSwissVatPeriod, "Expected a period like CH 2026/Q2");
 
 export const saveManualSchema = z.object({

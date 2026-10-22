@@ -5,6 +5,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import { isoDate, uuid } from "@/kernel/validation/scalars";
 import { currentRatesFor } from "./contract-rates";
 import type { ContractDto, CurrentRate, ExternalReference } from "./types";
 
@@ -20,14 +21,14 @@ const externalReferenceSchema = z.object({
 });
 
 const contractBaseSchema = z.object({
-  partnerId: z.string().uuid(),
+  partnerId: uuid,
   name: z.string().min(1).max(200),
-  startDate: z.string().date(), // ISO date string "YYYY-MM-DD"
-  endDate: z.string().date().optional(),
-  assignedEmployeeId: z.string().uuid().optional(),
+  startDate: isoDate, // ISO date string "YYYY-MM-DD"
+  endDate: isoDate.optional(),
+  assignedEmployeeId: uuid.optional(),
   currency: z.enum(["SEK", "CHF", "EUR", "USD"]).optional(),
   paymentTerms: z.string().max(50).optional(),
-  vatRegistrationId: z.string().uuid().optional(),
+  vatRegistrationId: uuid.optional(),
   externalReferences: z.array(externalReferenceSchema).max(5).default([]),
 });
 
@@ -43,7 +44,7 @@ export const updateContractSchema = contractBaseSchema
   .partial()
   .omit({ partnerId: true })
   .extend({
-    id: z.string().uuid(),
+    id: uuid,
   })
   .refine((data) => !data.startDate || !data.endDate || data.startDate <= data.endDate, {
     message: "End date must be after start date",

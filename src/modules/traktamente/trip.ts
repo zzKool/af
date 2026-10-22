@@ -10,6 +10,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { uuid } from "@/kernel/validation/scalars";
 import * as expenses from "@/modules/expenses";
 import {
   computePerDiem,
@@ -43,7 +44,7 @@ const count = z.number().int().min(0).max(999);
 
 export const tripInputSchema = z
   .object({
-    groupId: z.string().uuid(),
+    groupId: uuid,
     /** ISO timestamps (with offset) or local `YYYY-MM-DDTHH:mm` in the tenant zone */
     departureAt: z.string().min(16),
     returnAt: z.string().min(16),

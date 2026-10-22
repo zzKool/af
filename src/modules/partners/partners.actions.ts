@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { ownerAction } from "@/kernel/actions/action-client";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { uuid } from "@/kernel/validation/scalars";
 import * as contactService from "@/modules/partners/contacts";
 import { matchPartners } from "@/modules/partners/match";
 import * as partnerService from "@/modules/partners/partners";
@@ -59,7 +60,7 @@ export const getPartnersAction = ownerAction
  * Get a single partner by ID — owner only.
  */
 export const getPartnerAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "getPartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.getPartner(ctx.tx, parsedInput.id);
@@ -90,7 +91,7 @@ export const updatePartnerAction = ownerAction
  * Deactivate (soft-delete) a partner — owner only.
  */
 export const deactivatePartnerAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deactivatePartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.deactivatePartner(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
@@ -100,7 +101,7 @@ export const deactivatePartnerAction = ownerAction
  * Reactivate a previously deactivated partner — owner only.
  */
 export const reactivatePartnerAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "reactivatePartner" })
   .action(async ({ ctx, parsedInput }) => {
     return partnerService.reactivatePartner(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
@@ -138,7 +139,7 @@ export const matchPartnersAction = ownerAction
 
 /** The contacts of one partner, sorted by name. */
 export const listPartnerContactsAction = ownerAction
-  .schema(z.object({ partnerId: z.string().uuid() }))
+  .schema(z.object({ partnerId: uuid }))
   .metadata({ name: "listPartnerContacts" })
   .action(async ({ ctx, parsedInput }) => {
     return contactService.listPartnerContacts(ctx.tx, parsedInput.partnerId);
@@ -159,7 +160,7 @@ export const updatePartnerContactAction = ownerAction
   });
 
 export const deletePartnerContactAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deletePartnerContact" })
   .action(async ({ ctx, parsedInput }) => {
     return contactService.deletePartnerContact(

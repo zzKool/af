@@ -10,6 +10,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
+import { uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import { invalid, notFound, violation } from "./errors";
 import { PAYMENT_SOURCE_KINDS, type PaymentSourceDto, type PaymentSourceKind } from "./types";
@@ -18,7 +19,7 @@ export const paymentSourceInputSchema = z
   .object({
     label: z.string().trim().min(1, "Label is required").max(60),
     kind: z.enum(PAYMENT_SOURCE_KINDS),
-    bankAccountId: z.string().uuid().nullable().optional(),
+    bankAccountId: uuid.nullable().optional(),
     currency: z.enum(CURRENCIES),
   })
   .refine((v) => (v.kind === "bank_account") === Boolean(v.bankAccountId), {

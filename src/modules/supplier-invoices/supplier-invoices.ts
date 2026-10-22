@@ -11,6 +11,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
+import { basCode, isoDate, money, positiveMoney, uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
 import { noteWithAck } from "@/modules/expenses";
 import * as linking from "@/modules/linking";
@@ -55,15 +56,10 @@ export const notFound = (what: string, id: string): AppError => ({
 
 // --- Zod schemas (the boundary) ---
 
-const isoDate = z.string().date();
-const money = z.string().regex(/^\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals");
-const positiveMoney = money.refine((v) => Number(v) > 0, "The amount must be positive");
 const positiveRate = z
   .string()
   .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
   .refine((v) => Number(v) > 0, "The rate must be positive");
-const uuid = z.string().uuid();
-const basCode = z.string().regex(/^\d{3,4}$/, "A BAS code is 3 or 4 digits");
 
 export const lineSchema = z.object({
   lineNo: z.number().int().min(1),

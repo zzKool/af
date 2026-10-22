@@ -6,6 +6,7 @@ import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
+import { isoDate, uuid } from "@/kernel/validation/scalars";
 import * as invoiceService from "@/modules/invoices/invoices";
 import { renderInvoicePdfJob } from "@/modules/invoices/jobs/render-pdf";
 import {
@@ -28,7 +29,7 @@ const forbidden = {
 // --- reads (the accountant may read) ---
 
 export const getInvoiceAction = authedAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "getInvoice" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "invoice")) return forbidden;
@@ -74,7 +75,7 @@ export const invoiceDateHierarchyAction = authedAction
   });
 
 export const relatedDocumentsAction = authedAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "relatedInvoiceDocuments" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "invoice")) return forbidden;
@@ -86,7 +87,7 @@ export const nextNumberHintAction = ownerAction
     z.object({
       type: z.enum(["quote", "invoice", "credit_note"]),
       partnerShortCode: z.string().nullable(),
-      issueDate: z.string().date(),
+      issueDate: isoDate,
     }),
   )
   .metadata({ name: "nextInvoiceNumberHint" })
@@ -124,7 +125,7 @@ export const updateDraftAction = ownerAction
   });
 
 export const deleteDraftAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "deleteInvoiceDraft" })
   .action(async ({ ctx, parsedInput }) => {
     return invoiceService.deleteDraft(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
@@ -157,7 +158,7 @@ export const issueInvoiceAction = ownerAction
   });
 
 export const markSentAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "markInvoiceSent" })
   .action(async ({ ctx, parsedInput }) => {
     return invoiceService.markSent(
@@ -170,7 +171,7 @@ export const markSentAction = ownerAction
   });
 
 export const decideQuoteAction = ownerAction
-  .schema(z.object({ id: z.string().uuid(), decision: z.enum(["accepted", "declined"]) }))
+  .schema(z.object({ id: uuid, decision: z.enum(["accepted", "declined"]) }))
   .metadata({ name: "decideQuote" })
   .action(async ({ ctx, parsedInput }) => {
     return invoiceService.decideQuote(
@@ -184,7 +185,7 @@ export const decideQuoteAction = ownerAction
   });
 
 export const convertQuoteAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "convertQuote" })
   .action(async ({ ctx, parsedInput }) => {
     return invoiceService.convertQuote(
@@ -197,7 +198,7 @@ export const convertQuoteAction = ownerAction
   });
 
 export const copyToDraftAction = ownerAction
-  .schema(z.object({ id: z.string().uuid() }))
+  .schema(z.object({ id: uuid }))
   .metadata({ name: "copyInvoiceToDraft" })
   .action(async ({ ctx, parsedInput }) => {
     return invoiceService.copyToDraft(

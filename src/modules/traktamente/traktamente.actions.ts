@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { enqueue } from "@/kernel/jobs/queue";
+import { uuid } from "@/kernel/validation/scalars";
 import { renderPerDiemJob } from "@/modules/traktamente/jobs/render-per-diem";
 import {
   countryOptions,
@@ -18,7 +19,6 @@ import * as trips from "@/modules/traktamente/trip";
 const forbidden = {
   error: { code: "FORBIDDEN" as const, message: "Not allowed to read expenses", retryable: false },
 };
-const uuid = z.string().uuid();
 const year = z.number().int().min(2000).max(2100);
 
 // --- reads ---
