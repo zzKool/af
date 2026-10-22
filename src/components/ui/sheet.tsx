@@ -1,15 +1,25 @@
 "use client";
 
-// shadcn (base-nova) Sheet on Base UI's Dialog — the side panel of a list page (ui-conventions: list +
-// optional side panel for the selected row). Slides in from the right; the table stays full width.
+// shadcn (base-nova) Sheet on Base UI's Dialog — the side panel of a list page. Since D40 it is the **docked
+// details panel**: inside the app shell a right-side SheetContent renders into the canvas's dock (details-dock),
+// the table narrows, nothing is covered — no backdrop, no focus trap, a click on another row does not close it
+// (Escape and the close button do). Outside the shell (tests, print) it falls back to the overlay.
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
+import { useDetailsDock } from "@/kernel/ui/shell/details-dock";
 import { cn } from "@/lib/utils";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+  const dock = useDetailsDock();
+  return (
+    <SheetPrimitive.Root
+      data-slot="sheet"
+      {...(dock ? { modal: false, disablePointerDismissal: true } : {})}
+      {...props}
+    />
+  );
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
@@ -26,6 +36,38 @@ function SheetContent({
   side = "right",
   ...props
 }: SheetPrimitive.Popup.Props & { side?: "right" | "left" }) {
+  const dock = useDetailsDock();
+  if (dock && side === "right") {
+    return (
+      <SheetPrimitive.Portal container={dock}>
+        <SheetPrimitive.Popup
+          data-slot="sheet-content"
+          data-side="right"
+          data-docked=""
+          className={cn(
+            "relative flex h-full w-[380px] flex-col gap-4 overflow-y-auto border-l bg-surface px-4 py-3.5 outline-none xl:w-[400px]",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          <SheetPrimitive.Close
+            data-slot="sheet-close"
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-3 right-3"
+                aria-label="Close"
+              />
+            }
+          >
+            <XIcon />
+          </SheetPrimitive.Close>
+        </SheetPrimitive.Popup>
+      </SheetPrimitive.Portal>
+    );
+  }
   return (
     <SheetPrimitive.Portal>
       <SheetPrimitive.Backdrop
@@ -36,7 +78,7 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "fixed inset-y-0 z-50 flex w-full flex-col gap-4 overflow-y-auto bg-background p-4 shadow-lg ring-1 ring-foreground/10 duration-200 outline-none sm:max-w-xl data-open:animate-in data-closed:animate-out",
+          "fixed inset-y-0 z-50 flex w-full flex-col gap-4 overflow-y-auto bg-surface p-4 shadow-lg ring-1 ring-border duration-200 outline-none sm:max-w-xl data-open:animate-in data-closed:animate-out",
           side === "right"
             ? "right-0 data-open:slide-in-from-right data-closed:slide-out-to-right"
             : "left-0 data-open:slide-in-from-left data-closed:slide-out-to-left",
@@ -51,7 +93,7 @@ function SheetContent({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="absolute top-3 right-3 text-muted-foreground"
+              className="absolute top-3 right-3"
               aria-label="Close"
             />
           }
@@ -77,7 +119,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("text-base font-semibold", className)}
+      className={cn("text-[15px] font-semibold", className)}
       {...props}
     />
   );

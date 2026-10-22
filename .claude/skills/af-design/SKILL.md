@@ -10,6 +10,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 ## Before you build
 - Which archetype is it — **list**, **entity** or **work**? Nothing else exists. A fourth shape is a constitution question, not a component.
 - Read the module's spec folder and its `docs/<module>.md`; reuse the kernel kit (`kernel/ui/*`, `components/ui/*`) — never restyle a shadcn primitive inside a module.
+- The kit (built by F39; the map is *Where it lives* in `docs/ui-conventions.md`): `ListPage` / `EntityPage` / `WorkPage` + `PageHeader` (`tags`, `meta`, `actions`, `tabs`, `banner`) · `DataTable` (`quickFilter`, `rowActions`, `context`) · `<StateLabel>` · `<Tag>` `<CodeChip>` `<CountBadge>` · `<InfoBanner>` · `<SplitButton>` · `DetailsSection` / `DetailsGrid` inside the Sheet (it docks) · `formatMoney` · `Button` sizes `default` / `sm`.
 
 ## Every page
 - [ ] No `max-w-*` on the page; canvas padding 20 px sideways, 14 px top.
@@ -27,7 +28,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Contrast ≥ 4.5:1 for any text, in light **and** dark.
 
 ## Numbers and dates
-- [ ] Money through the one kernel formatter: `−2 312.43 SEK` (U+202F thousands, `.` decimals, U+2212 minus, code after) — the same in every UI language. Never `toLocaleString` or `Intl` in a component.
+- [ ] Money on screen through the one kernel formatter `formatMoney` (`kernel/money/format-money`): `−2 312.43 SEK` (U+202F thousands, `.` decimals, U+2212 minus, code after) — the same in every UI language. Never `toLocaleString` or `Intl` in a component. `formatCurrency` is for **printed** sheets only.
 - [ ] Dates `yyyy-mm-dd`. Figures `tabular-nums`, right-aligned in tables.
 - [ ] Keys (`VA26-INV-007`) as a mono code chip; copyable in a title.
 
@@ -51,10 +52,12 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 ## Shell (only F39's builder and later shell PRs)
 - [ ] Top bar 44 px: toggle · logo (`public/brand/af-logo.svg`, `-dark` in dark) · search `Ctrl P` · tenant · avatar.
 - [ ] Sidebar order: Dashboard · *Records* Banking, Documents, Journal · *Sales* Partners, Invoices · *Costs* Supplier invoices, Expenses · *Close* Package, Declarations · Settings at the bottom. The nav constants and i18n dictionaries are shared files — one PR at a time.
+- [ ] A new page: its nav item gets a `group` (where it falls in the monthly loop); a named sub-page goes in `SUB_PAGES` (`kernel/ui/shell/routes.ts`) so the breadcrumb and the search know it.
+- [ ] Landmark names stay English (`Main navigation`, `Breadcrumb`) — the e2e and screen readers rely on them.
 
 ## Light / dark
 - [ ] Light by default, dark from `prefers-color-scheme`; check both before the PR. The logo swaps file, not colour.
 
 ## Definition of done (UI part)
-- [ ] A screenshot of every new or changed page in the PR, light — and dark when the change touches colour (from `e2e/screenshots.spec.ts`).
+- [ ] A screenshot of every new or changed page in the PR, light — and dark when the change touches colour (from `e2e/screenshots.spec.ts`, which shoots both schemes; add a new page to its `PAGES`).
 - [ ] `docs/<module>.md` updated; this skill and `docs/ui-conventions.md` updated if a rule changed.

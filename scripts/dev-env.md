@@ -4,8 +4,8 @@
 
 ```
 scripts/dev-env.sh  =  db ─► deps ─► env ─► migrate ─► seed ─► azurite ─► chromium ─► build ─► start ─► status
-                       :5433                 psql if no   as the      :10000      /opt/pw-    font      :3000
-                                             engine       migration   + container  browsers    stub
+                       :5433                 psql if no   as the      :10000      /opt/pw-              :3000
+                                             engine       migration   + container  browsers
                                                           role        + CORS       symlink
 ```
 
@@ -17,7 +17,6 @@ Run one step: `scripts/dev-env.sh <step>`; also `stop`, `reset` (empty the e2e d
 |---|---|---|
 | Docker daemon | `docker compose up` fails | a local Postgres cluster `aftest` on **:5433** (`pg_createcluster`), Azurite from npm (`npx azurite-blob`). With Docker it uses `docker-compose.yml`'s `db-test` + `azurite`. |
 | `binaries.prisma.sh` (403) | `npm ci` fails in postinstall; `prisma generate` / `migrate` fail fetching `schema-engine` | `npm ci --ignore-scripts`; `prisma generate` with `PRISMA_SCHEMA_ENGINE_BINARY=/bin/true` (generate does not use it); migrations **by psql** (below) |
-| `fonts.googleapis.com` | `next build` fails on `next/font/google` (Geist) | `make-font-stub.cjs` writes a mock, passed as `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` (below) |
 | `cdn.playwright.dev` | `npx playwright install` 403 | the image's `/opt/pw-browsers/chromium-1194` symlinked under the revision Playwright 1.58 expects (1208); also `CHROMIUM_PATH` for the PDFs |
 | a UTC Postgres | partners › *dates by year* fails around midnight | `ALTER DATABASE … SET timezone TO 'UTC'`, like CI's container ([[lessons]]) |
 
@@ -43,9 +42,9 @@ Not available without the engine: the CI **drift check** (`prisma migrate diff`)
 
 `DATABASE_URL=<migration URL> npx tsx prisma/seed.ts` — the seed creates the tenant, which the RLS app role cannot. The two `[Better Auth] User not found` lines on a fresh database are the seed's sign-in-first idempotency, not errors.
 
-## next/font stub
+## Fonts
 
-Next reads `NEXT_FONT_GOOGLE_MOCKED_RESPONSES`: a module `{ cssUrl: css }`; with it set, a font file URL is taken as the file's bytes. Turbopack bundles that module in its own context — no `require`, no Proxy — so `make-font-stub.cjs` **generates** plain data: the URL Next computes for a default call of every Google family (1 907), each a one-line `@font-face` with an absolute `fonts.gstatic.com` URL (a relative one fails to resolve). The page falls back to the system font; the layout is unchanged. A call with explicit weights or `display`: add it to `EXTRA` in the generator. Used only when `fonts.googleapis.com` is unreachable; never by CI or the image.
+None to fetch: the app uses the system font stack since D40 (F39), so `next build` needs no `fonts.googleapis.com` — the old `next/font` stub is gone.
 
 ## Server
 

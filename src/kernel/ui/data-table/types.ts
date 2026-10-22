@@ -28,6 +28,16 @@ export interface DataTableColumn<Row> {
   defaultHidden?: boolean;
   /** Cannot be hidden (the identifying column, the actions column). */
   alwaysVisible?: boolean;
+  /** A filter button in the filter bar even while inactive (a common filter: Month, Account). */
+  quickFilter?: boolean;
+}
+
+/** One entry of a row's ⋮ menu (the table's last cell). Destructive ones go through a ConfirmDialog. */
+export interface RowAction {
+  label: string;
+  onClick: () => void;
+  destructive?: boolean;
+  disabled?: boolean;
 }
 
 /** What a module gives the table to fill its header filters (server actions behind the scenes). */

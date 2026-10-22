@@ -17,7 +17,6 @@ APP_URL=${DATABASE_TEST_URL:-postgresql://af_app:app@localhost:5433/af_test}
 APP_PORT=${PORT:-3000}
 LOGS=${AF_DEV_ENV_LOGS:-${TMPDIR:-/tmp}/af-dev-env}
 AZURITE_CONN='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
-FONT_STUB=$LOGS/next-font-mock.js
 mkdir -p "$LOGS"
 
 say() { printf '\033[1m▸ %s\033[0m\n' "$*"; }
@@ -175,16 +174,10 @@ chromium() {
   done
 }
 
-# ── production build, like CI (no standalone); next/font stubbed when Google Fonts is unreachable
+# ── production build, like CI (no standalone); the system font stack (D40) — nothing to download
 build() {
   say "build"
-  local font=()
-  if ! curl -sS -o /dev/null --max-time 5 https://fonts.googleapis.com/ 2>/dev/null; then
-    echo "  fonts.googleapis.com unreachable — next/font stub"
-    node scripts/dev-env/make-font-stub.cjs "$FONT_STUB"
-    font=(NEXT_FONT_GOOGLE_MOCKED_RESPONSES="$FONT_STUB")
-  fi
-  env "${font[@]}" NEXT_OUTPUT_STANDALONE=false npm run build >"$LOGS/build.log" 2>&1 || {
+  NEXT_OUTPUT_STANDALONE=false npm run build >"$LOGS/build.log" 2>&1 || {
     tail -40 "$LOGS/build.log"
     return 1
   }

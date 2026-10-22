@@ -1,20 +1,32 @@
 "use client";
 
-// The kernel DataTable (D20): one page of rows from the server, Excel-style typed header filters,
-// server-side distinct values, URL state (useListQuery), chips, footer with count and sums.
-// Modules declare columns and a filter source; they never write filter UI.
+// The kernel DataTable (D20, D40): one page of rows from the server, Excel-style typed header filters,
+// server-side distinct values, URL state (useListQuery); the filter bar (Filter rows… · one filter button per
+// active or quick column · Clear filters), 32 px rows, ⋮ row actions and the column chooser in the last
+// column, the footer with count, sums and the pager. Modules declare columns and a filter source; they never
+// write filter UI.
 import {
   ArrowDown,
   ArrowUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   ChevronUp,
   Columns3,
   Filter as FilterIcon,
+  MoreVertical,
+  Search,
 } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -33,6 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useT } from "@/kernel/i18n/use-t";
 import type {
   ColumnType,
   DateHierarchy,
@@ -42,17 +55,17 @@ import type {
   SortSpec,
 } from "@/kernel/list-query/types";
 import { PAGE_SIZE_OPTIONS } from "@/kernel/list-query/types";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import { cn } from "@/lib/utils";
-import { FilterChips } from "./filter-chips";
+import { describeFilter } from "./filter-bar";
 import { CheckboxFilter } from "./filters/checkbox-filter";
 import { DateFilter } from "./filters/date-filter";
 import { RangeFilter } from "./filters/range-filter";
 import { TextFilter } from "./filters/text-filter";
 import { isPinned, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderColumns, RESIZE_STEP } from "./layout";
 import { type TableLayoutState, useTableLayout } from "./preferences";
-import type { BulkAction, DataTableColumn, DataTableFilterSource } from "./types";
+import type { BulkAction, DataTableColumn, DataTableFilterSource, RowAction } from "./types";
 import type { ListQueryState } from "./use-list-query";
 
 export interface DataTableProps<Row extends { id: string }> {
@@ -74,8 +87,12 @@ export interface DataTableProps<Row extends { id: string }> {
   searchPlaceholder?: string;
   toolbar?: ReactNode;
   emptyState?: ReactNode;
-  /** Row height in px (density). */
+  /** Row height in px (density; D40: 32). */
   rowHeight?: number;
+  /** The row's ⋮ menu, in the last column (next to the column chooser in the header). */
+  rowActions?: (row: Row) => RowAction[];
+  /** Right-aligned context in the filter bar (a balance, an as-of date). */
+  context?: ReactNode;
 }
 
 const RIGHT_TYPES: ColumnType[] = ["number", "money"];
@@ -86,11 +103,7 @@ function defaultCell<Row>(row: Row, column: DataTableColumn<Row>, currency?: Cur
     return <span className="text-muted-foreground">—</span>;
   switch (column.type) {
     case "money":
-      return (
-        <span className="tabular-nums">
-          {currency ? `${formatCurrency(String(raw), currency)} ${currency}` : String(raw)}
-        </span>
-      );
+      return <span className="tabular-nums">{safeMoney(String(raw), currency)}</span>;
     case "number":
       return <span className="tabular-nums">{String(raw)}</span>;
     case "date": {
@@ -108,6 +121,15 @@ function defaultCell<Row>(row: Row, column: DataTableColumn<Row>, currency?: Cur
   }
 }
 
+/** The one on-screen money format (D40); an unexpected value shows as it came rather than breaking the page. */
+function safeMoney(amount: string, currency?: string | null): string {
+  try {
+    return formatMoney(amount, currency);
+  } catch {
+    return currency ? `${amount} ${currency}` : amount;
+  }
+}
+
 export function DataTable<Row extends { id: string }>({
   tableKey,
   columns: allColumns,
@@ -121,11 +143,14 @@ export function DataTable<Row extends { id: string }>({
   rowHref,
   selectable = false,
   bulkActions = [],
-  searchPlaceholder = "Search…",
+  searchPlaceholder,
   toolbar,
   emptyState,
-  rowHeight = 36,
+  rowHeight = 32,
+  rowActions,
+  context,
 }: DataTableProps<Row>) {
+  const t = useT();
   const { query, isPending } = state;
   const tableLayout = useTableLayout(tableKey, allColumns);
   const { hidden, layout } = tableLayout;
@@ -219,7 +244,11 @@ export function DataTable<Row extends { id: string }>({
     }
   }
 
-  const colSpan = columns.length + (selectable ? 1 : 0);
+  const colSpan = columns.length + (selectable ? 1 : 0) + 1;
+  const activeFilters = Object.keys(query.filters);
+  const barColumns = allColumns.filter(
+    (c) => c.filterable !== false && (c.key in query.filters || c.quickFilter),
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -229,25 +258,73 @@ export function DataTable<Row extends { id: string }>({
             e.preventDefault();
             state.setSearch(search);
           }}
-          className="flex items-center gap-1"
+          className="relative flex items-center"
         >
+          <Search
+            className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground"
+            aria-hidden
+          />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="h-8 w-64"
-            aria-label="Search"
+            placeholder={searchPlaceholder ?? t("table.filterRows")}
+            className="h-8 w-60 pl-7"
+            aria-label={t("table.search")}
           />
         </form>
+        {barColumns.map((column) => {
+          const f = query.filters[column.key];
+          const barKey = `bar:${column.key}`;
+          return (
+            <Popover
+              key={column.key}
+              open={openFilter === barKey}
+              onOpenChange={(o) => setOpenFilter(o ? barKey : null)}
+            >
+              <PopoverTrigger
+                data-filter-button={column.key}
+                data-active={f ? true : undefined}
+                className={cn(
+                  "inline-flex h-8 max-w-72 items-center gap-1 rounded-md border bg-surface px-2.5 text-[13px] hover:bg-hover",
+                  f && "border-primary bg-selection hover:bg-selection",
+                )}
+              >
+                <span className="truncate">
+                  {column.header}
+                  {f &&
+                    `: ${describeFilter(f, valueLabel ? (v) => valueLabel(column.key, v) : undefined)}`}
+                </span>
+                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto">
+                {openFilter === barKey && filterPopover(column)}
+              </PopoverContent>
+            </Popover>
+          );
+        })}
+        {(activeFilters.length > 0 || query.search) && (
+          <Button
+            variant="link"
+            size="sm"
+            className="text-[13px]"
+            onClick={() => {
+              state.clearFilters();
+              setSearch("");
+            }}
+          >
+            {t("table.clearFilters")}
+          </Button>
+        )}
         {selectable && selectedRows.length > 0 && bulkActions.length > 0 && (
           <div className="flex items-center gap-1 text-xs">
-            <span className="text-muted-foreground">{selectedRows.length} selected</span>
+            <span className="text-muted-foreground">
+              {t("table.selected", { count: selectedRows.length })}
+            </span>
             {bulkActions.map((a) => (
               <Button
                 key={a.label}
                 size="sm"
                 variant={a.variant === "destructive" ? "destructive" : "outline"}
-                className="h-7"
                 onClick={() => a.onClick(selectedRows)}
               >
                 {a.label}
@@ -255,34 +332,21 @@ export function DataTable<Row extends { id: string }>({
             ))}
           </div>
         )}
-        <div className="ml-auto flex items-center gap-2">
-          {toolbar}
-          <ColumnsMenu columns={allColumns} layout={tableLayout} />
-        </div>
+        {(toolbar || context) && (
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            {context}
+            {toolbar}
+          </div>
+        )}
       </div>
 
-      <FilterChips
-        query={query}
-        columns={allColumns}
-        valueLabel={valueLabel}
-        onRemove={(c) => applyFilter(c, null)}
-        onClearAll={() => {
-          state.clearFilters();
-          setSearch("");
-        }}
-        onClearSearch={() => {
-          setSearch("");
-          state.setSearch("");
-        }}
-      />
-
       <div
-        className={cn("relative overflow-auto rounded-md border", isPending && "opacity-60")}
+        className={cn("relative overflow-auto border-b border-subtle", isPending && "opacity-60")}
         aria-busy={isPending}
       >
         <Table className="text-[13px]">
-          <TableHeader className="sticky top-0 z-10 bg-background">
-            <TableRow className="hover:bg-transparent">
+          <TableHeader className="sticky top-0 z-10 bg-surface">
+            <TableRow className="border-b border-border hover:bg-transparent">
               {selectable && (
                 <TableHead className="w-8 px-2">
                   <Checkbox
@@ -309,7 +373,7 @@ export function DataTable<Row extends { id: string }>({
                     aria-sort={sort ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                     style={width ? { width, minWidth: width, maxWidth: width } : undefined}
                     className={cn(
-                      "relative h-9 px-2 font-medium",
+                      "relative h-8 px-2 font-semibold",
                       right && "text-right",
                       dragging === column.key && "opacity-50",
                     )}
@@ -389,6 +453,11 @@ export function DataTable<Row extends { id: string }>({
                   </TableHead>
                 );
               })}
+              {/* the last column: the column chooser here, each row's ⋮ menu below */}
+              {/* sticky on the right: reachable without scrolling a wide table sideways */}
+              <TableHead className="sticky right-0 z-10 w-9 bg-surface px-1 text-right">
+                <ColumnsMenu columns={allColumns} layout={tableLayout} />
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -399,9 +468,9 @@ export function DataTable<Row extends { id: string }>({
                     <Skeleton className="mx-auto h-4 w-40" />
                   ) : (
                     (emptyState ??
-                    (Object.keys(query.filters).length || query.search
-                      ? "Nothing matches the active filters."
-                      : "Nothing here yet."))
+                    (activeFilters.length || query.search
+                      ? t("table.emptyFiltered")
+                      : t("table.empty")))
                   )}
                 </TableCell>
               </TableRow>
@@ -414,7 +483,7 @@ export function DataTable<Row extends { id: string }>({
                   key={row.id}
                   data-state={isSelected ? "selected" : undefined}
                   style={{ height: rowHeight }}
-                  className={cn(clickable && "cursor-pointer")}
+                  className={cn("border-b border-subtle", clickable && "cursor-pointer")}
                   onClick={() => {
                     if (onRowClick) onRowClick(row);
                     else if (rowHref) window.location.assign(rowHref(row));
@@ -459,6 +528,14 @@ export function DataTable<Row extends { id: string }>({
                       </TableCell>
                     );
                   })}
+                  <TableCell
+                    className="sticky right-0 w-9 bg-surface px-1 py-0 text-right [tr:hover_&]:bg-hover [tr[data-state=selected]_&]:bg-selection"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {rowActions && (
+                      <RowActionsMenu actions={rowActions(row)} label={t("table.rowActions")} />
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -466,9 +543,9 @@ export function DataTable<Row extends { id: string }>({
         </Table>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <span>
-          {first}–{last} of {result.total}
+      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+        <span className="tabular-nums">
+          {t("table.range", { first, last, total: result.total })}
         </span>
         {result.sums &&
           Object.entries(result.sums).map(([col, sum]) => {
@@ -476,7 +553,7 @@ export function DataTable<Row extends { id: string }>({
             return (
               <span key={col} className="tabular-nums">
                 Σ {column?.header ?? col}:{" "}
-                {sumCurrency ? `${formatCurrency(sum, sumCurrency)} ${sumCurrency}` : sum}
+                <span className="font-semibold text-foreground">{safeMoney(sum, sumCurrency)}</span>
               </span>
             );
           })}
@@ -485,7 +562,7 @@ export function DataTable<Row extends { id: string }>({
             value={String(query.pageSize)}
             onValueChange={(v) => state.setPageSize(Number(v))}
           >
-            <SelectTrigger className="h-7 w-20" aria-label="Rows per page">
+            <SelectTrigger className="h-[26px] w-20" aria-label={t("table.rowsPerPage")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -497,29 +574,59 @@ export function DataTable<Row extends { id: string }>({
             </SelectContent>
           </Select>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="h-7"
+            className="text-foreground"
             disabled={query.page <= 1}
             onClick={() => state.setPage(query.page - 1)}
           >
-            Previous
+            <ChevronLeft aria-hidden />
+            {t("table.previous")}
           </Button>
           <span className="tabular-nums">
             {query.page} / {totalPages}
           </span>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="h-7"
+            className="text-foreground"
             disabled={query.page >= totalPages}
             onClick={() => state.setPage(query.page + 1)}
           >
-            Next
+            {t("table.next")}
+            <ChevronRight aria-hidden />
           </Button>
         </div>
       </div>
     </div>
+  );
+}
+
+// --- a row's ⋮ menu ---
+
+function RowActionsMenu({ actions, label }: { actions: RowAction[]; label: string }) {
+  if (actions.length === 0) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
+        aria-label={label}
+      >
+        <MoreVertical className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto min-w-40">
+        {actions.map((a) => (
+          <DropdownMenuItem
+            key={a.label}
+            disabled={a.disabled}
+            variant={a.destructive ? "destructive" : "default"}
+            onClick={a.onClick}
+          >
+            {a.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -532,6 +639,7 @@ function ColumnsMenu<Row>({
   columns: DataTableColumn<Row>[];
   layout: TableLayoutState;
 }) {
+  const t = useT();
   const { hidden, setHidden, move, reset, isDefault } = layout;
   const ordered = orderColumns(columns, layout.layout.order).filter((c) => !isPinned(c));
   const toggleable = ordered.filter((c) => c.header);
@@ -539,11 +647,11 @@ function ColumnsMenu<Row>({
   return (
     <Popover>
       <PopoverTrigger
-        className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs text-muted-foreground hover:text-foreground"
-        aria-label="Choose columns"
+        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
+        aria-label={t("table.chooseColumns")}
+        title={t("table.columns")}
       >
         <Columns3 className="size-3.5" />
-        Columns
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64">
         <div className="flex flex-col gap-1" data-testid="columns-menu">
@@ -595,7 +703,7 @@ function ColumnsMenu<Row>({
               onClick={reset}
               data-testid="columns-reset"
             >
-              Reset layout
+              {t("table.resetLayout")}
             </Button>
           )}
         </div>

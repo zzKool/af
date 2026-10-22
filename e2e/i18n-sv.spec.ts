@@ -39,10 +39,12 @@ test.describe("Swedish UI", () => {
     await page.goto("/expenses");
     await expect(page.getByRole("heading", { name: "Utlägg" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Nytt utlägg" })).toBeVisible();
-    // the shell too: the sidebar and the breadcrumb
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toContainText(
-      "Leverantörsfakturor",
-    );
+    // the shell too: the sidebar (its current item) and, on a sub-page, the breadcrumb (D40: the current page
+    // is not repeated in it — a top page has none)
+    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    await expect(nav).toContainText("Leverantörsfakturor");
+    await expect(nav.getByRole("link", { name: "Utlägg" })).toHaveAttribute("aria-current", "page");
+    await page.goto("/expenses/groups");
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Utlägg");
     await page.goto("/partners");
     await expect(page.getByRole("heading", { name: "Partner" })).toBeVisible();

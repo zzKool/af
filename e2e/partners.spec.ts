@@ -38,8 +38,8 @@ test.describe("Partners", () => {
     await expect(page.getByRole("link", { name: `${name} vendor` })).toHaveCount(0);
 
     // Search box narrows further
-    await page.getByLabel("Search").fill(name);
-    await page.getByLabel("Search").press("Enter");
+    await page.getByRole("textbox", { name: "Search", exact: true }).fill(name);
+    await page.getByRole("textbox", { name: "Search", exact: true }).press("Enter");
     await expect(page).toHaveURL(/q=E2E/);
     await expect(page.getByText("1–1 of 1")).toBeVisible();
 

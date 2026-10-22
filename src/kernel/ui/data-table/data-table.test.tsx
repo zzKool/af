@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { DataTable } from "./data-table";
-import { describeFilter } from "./filter-chips";
+import { describeFilter } from "./filter-bar";
 import { compress, presetRange } from "./filters/date-filter";
 import { SAVE_DEBOUNCE_MS, TablePreferencesProvider } from "./preferences";
 import type { DataTableColumn } from "./types";
@@ -58,7 +58,10 @@ describe("DataTable", () => {
       />,
     );
     expect(screen.getByText("Valtech")).toBeTruthy();
-    expect(screen.getByText("1'200.00 CHF")).toBeTruthy();
+    // the one on-screen money format (D40): U+202F thousands, "." decimals, U+2212 minus, code after
+    const exact = { normalizer: (t: string) => t };
+    expect(screen.getByText("1\u202F200.00\u00A0CHF", exact)).toBeTruthy();
+    expect(screen.getByText("\u22125.50\u00A0CHF", exact)).toBeTruthy();
     expect(screen.getByText("2026-10-20")).toBeTruthy();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getByText("1–2 of 2")).toBeTruthy();
@@ -78,7 +81,7 @@ describe("DataTable", () => {
     ]);
   });
 
-  it("shows chips for active filters and removes one through its chip", () => {
+  it("shows a filter button per active filter (D40) that opens the column's popover; Clear filters clears", async () => {
     const state = makeState({
       filters: {
         currency: { kind: "in", values: ["CHF", null] },
@@ -86,12 +89,48 @@ describe("DataTable", () => {
       },
     });
     render(<DataTable tableKey="t" columns={columns} result={{ rows, total: 2 }} state={state} />);
-    expect(screen.getByText('contains "val"')).toBeTruthy();
-    expect(screen.getByText("CHF, (Blanks)")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Remove filter on Currency" }));
-    expect(state.calls.setFilter).toEqual(["currency", null]);
-    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(screen.getByRole("button", { name: 'Name: contains "val"' })).toBeTruthy();
+    const currency = screen.getByRole("button", { name: "Currency: CHF, (Blanks)" });
+    expect(currency.getAttribute("data-active")).toBe("true");
+    // no removable chips any more
+    expect(screen.queryByRole("button", { name: /Remove filter/ })).toBeNull();
+    // the button opens the same text popover as the header
+    fireEvent.click(screen.getByRole("button", { name: 'Name: contains "val"' }));
+    expect(await screen.findByPlaceholderText("Text…")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(state.calls.clearFilters).toEqual([]);
+  });
+
+  it("a quick-filter column shows its button while inactive; no filter, no Clear filters", () => {
+    const quick = columns.map((c) => (c.key === "created" ? { ...c, quickFilter: true } : c));
+    render(
+      <DataTable tableKey="t" columns={quick} result={{ rows, total: 2 }} state={makeState()} />,
+    );
+    const created = document.querySelector("[data-filter-button=created]") as HTMLElement;
+    expect(created.textContent).toBe("Created");
+    expect(created.getAttribute("data-active")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+  });
+
+  it("row actions: a ⋮ menu per row in the last column, the click does not open the row", async () => {
+    const onRowClick = vi.fn();
+    const remove = vi.fn();
+    render(
+      <DataTable
+        tableKey="t"
+        columns={columns}
+        result={{ rows, total: 2 }}
+        state={makeState()}
+        onRowClick={onRowClick}
+        rowActions={(row) => [{ label: `Delete ${row.name}`, onClick: remove, destructive: true }]}
+      />,
+    );
+    const menus = screen.getAllByRole("button", { name: "Row actions" });
+    expect(menus).toHaveLength(2);
+    fireEvent.click(menus[0]);
+    fireEvent.click(await screen.findByText("Delete Valtech"));
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(onRowClick).not.toHaveBeenCalled();
   });
 
   it("the enum header filter loads distinct values from the source and applies an `in` filter", async () => {

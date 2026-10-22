@@ -4,6 +4,12 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { MessageKey } from "@/kernel/i18n/dictionaries/en";
 
 // Navigation configuration
+
+/** The sidebar's groups (D40): the order follows the owner's monthly loop — the bank statement first, then a
+ *  document for each line, then sales, costs and the close. Labels are `nav.group.<group>`. */
+export const NAV_GROUPS = ["records", "sales", "costs", "close"] as const;
+export type NavGroup = (typeof NAV_GROUPS)[number];
+
 export type NavItem = {
   path: string;
   /** English label — the sidebar and the breadcrumb show `t(labelKey)` in the user's language */
@@ -12,11 +18,15 @@ export type NavItem = {
   icon: string; // lucide-react icon name — resolved in sidebar component
   roles: CallerIdentity["role"][];
   enabled: boolean;
+  /** the sidebar group; null = ungrouped at the top (Dashboard) */
+  group: NavGroup | null;
+  /** pinned to the bottom of the sidebar (Settings) */
+  bottom?: true;
 };
 
 /**
- * Central navigation items config. Sidebar reads from this array.
- * To enable a new route: set enabled: true when the page is built.
+ * Central navigation items config. Sidebar reads from this array, in this order (grouped by `group`).
+ * To enable a new route: set enabled: true when the page is built; place it where it falls in the monthly loop.
  * Security note: All paths are visible in the client bundle even when disabled.
  * Server Actions enforce RBAC — sidebar hiding is UI convenience only.
  */
@@ -28,22 +38,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "LayoutDashboard",
     roles: ["owner", "accountant"],
     enabled: true,
-  },
-  {
-    path: "/documents",
-    label: "Documents",
-    labelKey: "nav.documents",
-    icon: "FileText",
-    roles: ["owner"],
-    enabled: true,
-  },
-  {
-    path: "/journal",
-    label: "Journal",
-    labelKey: "nav.journal",
-    icon: "BookOpen",
-    roles: ["owner", "accountant"],
-    enabled: true,
+    group: null,
   },
   {
     path: "/banking",
@@ -52,14 +47,25 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "Landmark",
     roles: ["owner", "accountant"],
     enabled: true,
+    group: "records",
   },
   {
-    path: "/partners",
-    label: "Partners",
-    labelKey: "nav.partners",
-    icon: "Users",
+    path: "/documents",
+    label: "Documents",
+    labelKey: "nav.documents",
+    icon: "FileText",
     roles: ["owner"],
     enabled: true,
+    group: "records",
+  },
+  {
+    path: "/journal",
+    label: "Journal",
+    labelKey: "nav.journal",
+    icon: "BookOpen",
+    roles: ["owner", "accountant"],
+    enabled: true,
+    group: "records",
   },
   {
     path: "/reconciliation",
@@ -68,6 +74,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "ArrowLeftRight",
     roles: ["owner"],
     enabled: false,
+    group: "records",
+  },
+  {
+    path: "/partners",
+    label: "Partners",
+    labelKey: "nav.partners",
+    icon: "Users",
+    roles: ["owner"],
+    enabled: true,
+    group: "sales",
   },
   {
     path: "/invoices",
@@ -76,14 +92,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "Receipt",
     roles: ["owner", "accountant"],
     enabled: true,
-  },
-  {
-    path: "/expenses",
-    label: "Expenses",
-    labelKey: "nav.expenses",
-    icon: "Wallet",
-    roles: ["owner", "accountant"],
-    enabled: true,
+    group: "sales",
   },
   {
     path: "/supplier-invoices",
@@ -92,6 +101,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "ReceiptText",
     roles: ["owner", "accountant"],
     enabled: true,
+    group: "costs",
+  },
+  {
+    path: "/expenses",
+    label: "Expenses",
+    labelKey: "nav.expenses",
+    icon: "Wallet",
+    roles: ["owner", "accountant"],
+    enabled: true,
+    group: "costs",
   },
   {
     path: "/package",
@@ -100,6 +119,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "Archive",
     roles: ["owner", "accountant"],
     enabled: true,
+    group: "close",
   },
   {
     path: "/exports",
@@ -108,6 +128,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "FileSpreadsheet",
     roles: ["owner", "accountant"],
     enabled: true,
+    group: "close",
   },
   {
     path: "/settings",
@@ -116,7 +137,29 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "Settings",
     roles: ["owner", "accountant"],
     enabled: true,
+    group: null,
+    bottom: true,
   },
+];
+
+/** The sidebar's **+ New** menu: each entry opens the page whose primary action makes the thing. */
+export type NewItem = {
+  href: string;
+  labelKey: Extract<MessageKey, `nav.new.${string}`>;
+  icon: string;
+  roles: CallerIdentity["role"][];
+};
+export const NEW_ITEMS: readonly NewItem[] = [
+  { href: "/documents", labelKey: "nav.new.document", icon: "Upload", roles: ["owner"] },
+  { href: "/banking", labelKey: "nav.new.csv", icon: "Landmark", roles: ["owner"] },
+  { href: "/invoices/new", labelKey: "nav.new.invoice", icon: "Receipt", roles: ["owner"] },
+  {
+    href: "/supplier-invoices",
+    labelKey: "nav.new.supplierInvoice",
+    icon: "ReceiptText",
+    roles: ["owner"],
+  },
+  { href: "/expenses", labelKey: "nav.new.expense", icon: "Wallet", roles: ["owner"] },
 ];
 
 /**
