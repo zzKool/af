@@ -11,6 +11,10 @@ on:
       - '_bmad*/**'
   pull_request:
     branches: [main]
+    paths-ignore: # same list as push: a docs-only PR runs nothing (merge-when-green.sh merges it directly)
+      - '**.md'
+      - 'docs/**'
+      - '_bmad*/**'
   workflow_dispatch:
 
 env:

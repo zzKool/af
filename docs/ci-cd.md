@@ -26,7 +26,7 @@ graph LR
 | **publish** (`publish.yml`, main + tags) | `docker build` of the `runner` and `migrate` stages → `ghcr.io/zzkool/af:{main,sha-…,v…}` | <6 min (layer cache) |
 | **deploy** | Azure Container Apps (disabled until provisioned; [[deployment]]) | N/A |
 
-**Triggers:** Every push to `develop` and every PR targeting `develop`. Pushes that only change `.md`, `docs/`, or `_bmad*/` files are skipped (`paths-ignore`).
+**Triggers:** Every push to `main` and every PR targeting `main`. A change that only touches `.md`, `docs/` or `_bmad*/` files runs nothing — not the PR checks, not CI on `main`, not `publish` (`paths-ignore` on all three triggers, 2026-10-22); `scripts/merge-when-green.sh` merges such a PR without waiting. A PR that mixes code and docs runs everything. Release tags (`v*`) always publish.
 
 ## Local Development
 
