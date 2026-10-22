@@ -42,7 +42,7 @@ export const sv: Dictionary = {
   "nav.expand": "Fäll ut sidofältet",
   "nav.main": "Huvudnavigering",
   "shell.search.placeholder": "Sök sida",
-  "shell.search.label": "Sök",
+  "shell.search.label": "Sök sida",
   "shell.search.empty": "Ingen sida matchar",
   "shell.breadcrumb": "Brödsmulor",
   "shell.account": "Konto",

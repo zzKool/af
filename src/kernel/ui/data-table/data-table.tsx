@@ -454,7 +454,8 @@ export function DataTable<Row extends { id: string }>({
                 );
               })}
               {/* the last column: the column chooser here, each row's ⋮ menu below */}
-              <TableHead className="w-9 px-1 text-right">
+              {/* sticky on the right: reachable without scrolling a wide table sideways */}
+              <TableHead className="sticky right-0 z-10 w-9 bg-surface px-1 text-right">
                 <ColumnsMenu columns={allColumns} layout={tableLayout} />
               </TableHead>
             </TableRow>
@@ -528,7 +529,7 @@ export function DataTable<Row extends { id: string }>({
                     );
                   })}
                   <TableCell
-                    className="w-9 px-1 py-0 text-right"
+                    className="sticky right-0 w-9 bg-surface px-1 py-0 text-right [tr:hover_&]:bg-hover [tr[data-state=selected]_&]:bg-selection"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {rowActions && (

@@ -36,8 +36,14 @@ const PAGES: Record<string, string> = {
 /** list → the entity page its first row opens (href pattern of that row's link) */
 const ENTITIES: Record<string, { list: string; link: string }> = {
   "partner-entity": { list: "/partners", link: 'a[href^="/partners/"]' },
-  "invoice-entity": { list: "/invoices", link: 'a[href^="/invoices/"]:not([href="/invoices/new"])' },
-  "document-entity": { list: "/documents", link: 'a[href^="/documents/"]:not([href="/documents/inbox"])' },
+  "invoice-entity": {
+    list: "/invoices",
+    link: 'a[href^="/invoices/"]:not([href="/invoices/new"])',
+  },
+  "document-entity": {
+    list: "/documents",
+    link: 'a[href^="/documents/"]:not([href="/documents/inbox"])',
+  },
   "expense-group-entity": { list: "/expenses/groups", link: 'a[href^="/expenses/groups/"]' },
 };
 

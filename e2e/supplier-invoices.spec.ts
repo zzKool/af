@@ -34,6 +34,8 @@ test.describe("Supplier invoices", () => {
       await page.getByLabel("vendor").check();
       await page.getByRole("button", { name: "Create", exact: true }).click();
       await expect(page.getByText("Partner created")).toBeVisible();
+      // open it by deep link: with many partners the new row may not be on the first page (lessons, fragility 3)
+      await page.goto(`/partners?q=${encodeURIComponent(vendor)}`);
       await page.getByRole("link", { name: vendor }).click();
       await expect(page).toHaveURL(/\/partners\/[0-9a-f-]{36}$/);
       await page.getByLabel("Payment terms (days)").fill("20");

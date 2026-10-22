@@ -59,7 +59,10 @@ test.describe("Document Library", () => {
     await page.getByRole("button", { name: "OK", exact: true }).click();
     await expect(page).toHaveURL(/f\.status=in%3A/);
     // D40: the active filter is a button in the filter bar; Clear filters removes it
-    await expect(page.locator("[data-filter-button=status]")).toHaveAttribute("data-active", "true");
+    await expect(page.locator("[data-filter-button=status]")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page).not.toHaveURL(/f\.status/);
 

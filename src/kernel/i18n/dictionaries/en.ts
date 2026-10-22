@@ -40,7 +40,7 @@ export const en = {
   "nav.expand": "Expand sidebar",
   "nav.main": "Main navigation",
   "shell.search.placeholder": "Search pages",
-  "shell.search.label": "Search",
+  "shell.search.label": "Search pages",
   "shell.search.empty": "No page matches",
   "shell.breadcrumb": "Breadcrumb",
   "shell.account": "Account",

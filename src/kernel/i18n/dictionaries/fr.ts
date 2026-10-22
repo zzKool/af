@@ -40,7 +40,7 @@ export const fr: Dictionary = {
   "nav.expand": "Déplier la barre latérale",
   "nav.main": "Navigation principale",
   "shell.search.placeholder": "Rechercher une page",
-  "shell.search.label": "Rechercher",
+  "shell.search.label": "Rechercher une page",
   "shell.search.empty": "Aucune page ne correspond",
   "shell.breadcrumb": "Fil d'Ariane",
   "shell.account": "Compte",
