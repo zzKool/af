@@ -8,6 +8,15 @@ PR=${1:?pr number}; TITLE=${2:?squash commit title}
 REPO=${GH_REPO:-$(git remote get-url origin | sed -E "s#.*github\.com[:/]##; s#\.git\$##")}
 BODY=$(mktemp)
 trap 'rm -f "$BODY"' EXIT
+# Docs-only PR (every file matches ci.yml's paths-ignore): CI never starts, so there is nothing to wait for.
+FILES=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+if [ -n "$FILES" ] && ! echo "$FILES" | grep -qvE '\.md$|^docs/|^_bmad[^/]*/'; then
+  echo "DOCS-ONLY — no CI to wait for"
+  printf '{"merge_method":"squash","commit_title":%s,"commit_message":""}' \
+    "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$TITLE")" > "$BODY"
+  gh api "repos/$REPO/pulls/$PR/merge" --method PUT --input "$BODY" --jq '{merged, sha, message}'
+  exit 0
+fi
 MIN_RUNS=${MIN_RUNS:-4}   # lint, typecheck, unit-test, build — fewer means the run has not been created yet
 for _ in $(seq 1 80); do
   SHA=$(gh api "repos/$REPO/pulls/$PR" --jq '.head.sha')
