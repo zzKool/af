@@ -47,7 +47,9 @@ What a twenty-minute scan found; none of it needs a framework, each is a small P
 - [ ] **The upload duplicate card shows the date, not the uploader's name** (the spec said both). Minor; the user table is outside the tenant transaction. Decide: drop it from the spec or resolve the name in the action.
 - [x] **The dashboard's *documents to review* counts unreviewed documents; the inbox counts pending + ready** (archived and became excluded, D34). Align the dashboard item on the inbox's `total` and point it at `/documents/inbox` (part 2, T014). Done in part 2 (`inboxTotals`).
 - [ ] **Expense dialog: no partner, so no partner default for the BAS category** (the spec's "partner default when a partner matches" applies to supplier invoices only). Either accept (expenses are merchant-level) or add an optional partner to expenses later — not now.
-- [ ] **Login / register and error pages are English only**; the signed-in UI is en / fr / sv. Roadmap C2.
+- [x] **Login / register and error pages are English only**; the signed-in UI is en / fr / sv. Roadmap C2. Done (F04, 2026-10-22).
+- [ ] **A user with no language preference gets a mixed page**: client strings (`useT`) follow the browser (`fr-CH` → fr), server pages that build `translator(prefs.locale)` fall back to English — a new French user's dashboard says *Welcome back* under a French sidebar (found by F04's e2e). Action: `(app)/layout.tsx` resolves `prefs.locale ?? uiLanguageFromAcceptLanguage(header)` once and both the `LocaleProvider` and the server pages use that; one small PR in the shell, not per module (found 2026-10-22, F04).
+- [ ] **The root `<html lang="en">` and the Next default 404** stay English (outside `(auth)` / `(app)`); the auth layout sets `lang` on its own wrapper. Worth a line when the shell fix above lands.
 
 ## Working with the agent — for the owner
 
