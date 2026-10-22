@@ -3,6 +3,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { categoryOptions, partnerOptions } from "@/modules/journal";
@@ -24,7 +25,7 @@ export default async function InboxPage() {
     ]);
     return { rows, documents, categories, partners, prefs };
   });
-  const t = translator(data.prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   const high = data.rows.filter((r) => r.top?.confidence === "HIGH").length;
 
   return (

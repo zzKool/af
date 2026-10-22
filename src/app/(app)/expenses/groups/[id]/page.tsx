@@ -4,6 +4,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { formatCurrency } from "@/kernel/money/format-currency";
@@ -64,7 +65,7 @@ export default async function ExpenseGroupPage({
     };
   });
   if (!data) notFound();
-  const t = translator(data.prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   const locale = (data.prefs.data?.locale ?? null) as "en" | "fr" | null;
   const canWrite = can(auth, "update", "expense");
   const g = data.group;

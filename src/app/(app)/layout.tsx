@@ -2,6 +2,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { LocaleProvider } from "@/kernel/i18n/locale-provider";
+import { browserLocale } from "@/kernel/i18n/request-locale";
 import { TablePreferencesProvider } from "@/kernel/ui/data-table";
 import { Providers } from "@/kernel/ui/providers";
 import { Sidebar } from "@/kernel/ui/shell/sidebar";
@@ -37,7 +38,7 @@ export default async function AppLayout({
 
   // Fetch user locale preference — direct Prisma query, NOT withTenantTransaction
   // (UserPreference is user-scoped with no RLS)
-  const [userPref, user, tablePrefs] = await Promise.all([
+  const [userPref, user, tablePrefs, browser] = await Promise.all([
     prisma.userPreference.findUnique({ where: { userId: auth.userId }, select: { locale: true } }),
     prisma.user.findUnique({ where: { id: auth.userId }, select: { email: true, name: true } }),
     // the user's table layouts (user-scoped, no RLS) — every DataTable reads its own under its key
@@ -45,13 +46,15 @@ export default async function AppLayout({
       where: { userId: auth.userId },
       select: { tableKey: true, preferences: true },
     }),
+    // no preference = the browser's language, taken from the request so server pages and client agree
+    browserLocale(),
   ]);
   const tableLayouts = Object.fromEntries(tablePrefs.map((p) => [p.tableKey, p.preferences]));
   const currentTenant = tenants.find((t) => t.id === auth.tenantId);
 
   return (
     <Providers>
-      <LocaleProvider initialLocale={userPref?.locale ?? null}>
+      <LocaleProvider initialLocale={userPref?.locale ?? null} browserLocale={browser}>
         <TablePreferencesProvider initial={tableLayouts} save={upsertTablePreferenceAction}>
           {/* Full-width app shell (D19): sidebar · topbar · content that fills the viewport. */}
           <div className="flex h-screen">

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { EntityPage } from "@/kernel/ui/shell/page";
 import { resolveStatement } from "@/modules/expenses";
@@ -22,7 +23,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   });
   if (!data.statement) notFound();
   const locale = (data.prefs.data?.locale ?? null) as "en" | "fr" | null;
-  const t = translator(locale);
+  const t = translator(await requestLocale(data.prefs.data?.locale));
   return (
     <EntityPage
       back={<Link href="/expenses/settlements">← {t("expenses.settlements.title")}</Link>}

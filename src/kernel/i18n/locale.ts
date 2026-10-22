@@ -1,4 +1,4 @@
-import { SUPPORTED_UI_LANGUAGES } from "./translate";
+import { SUPPORTED_UI_LANGUAGES, uiLanguage } from "./translate";
 
 /**
  * Resolve display locale from Accept-Language header.
@@ -24,10 +24,12 @@ export function resolveLocale(acceptLanguageHeader: string | null): string {
 }
 
 /**
- * The UI language for a page outside the signed-in shell (login, register): the first language in the
- * Accept-Language header, by quality, that has a dictionary — `de-CH,fr;q=0.9` → `fr`. English when none has.
+ * The browser's preferred locale tag that has a dictionary — the first by quality in the Accept-Language header,
+ * kept whole for formatting (`de-CH,fr-CH;q=0.9` → `fr-CH`). Null when none has one (the UI is then English).
  */
-export function uiLanguageFromAcceptLanguage(acceptLanguageHeader: string | null): string {
+export function acceptLanguageTagWithDictionary(
+  acceptLanguageHeader: string | null,
+): string | null {
   const tags = (acceptLanguageHeader ?? "")
     .split(",")
     .map((part, index) => {
@@ -39,8 +41,15 @@ export function uiLanguageFromAcceptLanguage(acceptLanguageHeader: string | null
     // stable: equal qualities keep the header's order
     .sort((a, b) => b.quality - a.quality || a.index - b.index);
   for (const { tag } of tags) {
-    const lang = tag.toLowerCase().split(/[-_]/)[0];
-    if (SUPPORTED_UI_LANGUAGES.includes(lang)) return lang;
+    if (SUPPORTED_UI_LANGUAGES.includes(tag.toLowerCase().split(/[-_]/)[0])) return tag;
   }
-  return "en";
+  return null;
+}
+
+/**
+ * The UI language for a page outside the signed-in shell (login, register): the first language in the
+ * Accept-Language header, by quality, that has a dictionary — `de-CH,fr;q=0.9` → `fr`. English when none has.
+ */
+export function uiLanguageFromAcceptLanguage(acceptLanguageHeader: string | null): string {
+  return uiLanguage(acceptLanguageTagWithDictionary(acceptLanguageHeader));
 }

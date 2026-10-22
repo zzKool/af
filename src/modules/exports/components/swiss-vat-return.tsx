@@ -90,7 +90,7 @@ export function SwissVatReturnPage({
   const t = useT();
   const router = useRouter();
   const ids = useId();
-  const { locale } = useLocale();
+  const { effectiveLocale: locale } = useLocale();
   const lang = uiLanguage(locale ?? null);
   const [registrationId, setRegistrationId] = useState(
     initial?.registrationId ?? registrations[0]?.id ?? "",

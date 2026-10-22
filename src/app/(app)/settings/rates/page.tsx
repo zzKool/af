@@ -3,6 +3,7 @@ import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { rateStatus } from "@/modules/rates";
 import { RatesTab } from "@/modules/rates/ui";
@@ -17,7 +18,7 @@ export default async function RatesSettingsPage() {
     rateStatus(prisma, today),
     withTenantTransaction(prisma, auth.tenantId, (tx) => getUserPreferences(tx, auth)),
   ]);
-  const t = translator(prefs.data?.locale ?? null);
+  const t = translator(await requestLocale(prefs.data?.locale));
   return (
     <div className="p-4 md:p-6">
       <h1 className="mb-1 text-2xl font-semibold">{t("rates.title")}</h1>
