@@ -39,7 +39,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ```
 
 - [x] **A1 Document inbox** — converged 2026-10-22: nine small gaps left as `specs/documents/tasks.md` Phase 3 (T019–T027, two wait for O1 / O2). `specs/documents/`: part 1 (*Make it…* on the review page, the upload duplicate card, the entity duplicate check, the supplier match — #50) and part 2 (the work page `/documents/inbox`: states, counts, duplicates, archive + undo, OCR re-run, the keyboard; the dashboard item opens it — [[document-inbox]]).
-- [ ] **A2 Members** — Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
+- [ ] **A2 Members** — *later, parked by the owner 2026-10-22 (F03).* Settings → Members: invite the accountant by email (role accountant), show the invitation link for the owner to send himself (no email sending in v1), revoke; a password-reset path. Today only `prisma/seed.ts` does this through the API.
 - [x] **A3 Rates backfill by date** — `scripts/fetch-rates.ts 2023-04-01` backfills every ECB day from that date ([[ecb-rates]]).
 - [x] **A4 Partners: contact persons** — the Contacts tab on the partner page (F08, [[partners]]).
 
@@ -60,9 +60,11 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ## Next up
 
-**F03 — A2 Members** (`modules/settings`, spec first: `/speckit-specify`; touches schema, nav, i18n). Then the documents convergence (`specs/documents/tasks.md` Phase 3, T021–T027 — S each, one builder; T019 / T020 once O1 / O2 are answered), then B with the owner. The dispatch table is [[features]].
+1. **F56 · F57 · F59 · F60 — the wrong figures the audit found** (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
+2. **The owner answers O3 → F58** (a link applied from the linking inbox leaves an expense *awaiting link*).
+3. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3, T021–T027 — S each, one builder; T019 / T020 once O1 / O2 are answered) and F61–F67.
 
-The audit (2026-10-22) added F56–F67 to [[features]] in the order to do them. **F56, F57, F59, F60 give wrong figures today** (the Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback): S–M each, different modules, no shared file — they can run in parallel and come before new features. F58 waits for O3.
+F03 Members is *later*: the owner will not invite the accountant into the app for now (2026-10-22). The dispatch table is [[features]].
 
 ## Open decisions (the owner's)
 
