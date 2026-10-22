@@ -29,7 +29,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     const [related, partner, declared] = await Promise.all([
       relatedDocuments(tx, id),
       getPartner(tx, ctx.invoice.partnerId),
-      declaredOn(tx, ctx.invoice.declarationPeriod),
+      declaredOn(tx, ctx.invoice.declarationPeriod, ctx.invoice.vatRegistrationId),
     ]);
     return { ctx, related, partner: partner.data ?? null, declared };
   });
