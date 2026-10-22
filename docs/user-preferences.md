@@ -40,11 +40,26 @@ The locale is **not** used for currency formatting. Currency formatting follows 
 
 **Critical:** `formatNumber()` is for non-monetary values only. Currency amounts MUST use `formatCurrency()` from [[decimal-currency|format-currency.ts]].
 
+## Colour Scheme (D43)
+
+*System* (the default, `theme = null`), *Light* or *Dark* — My Preferences, under the locale.
+
+```
+choose Dark ──► applyTheme(): <html data-theme="dark"> + cookie af-theme=dark ──► updateUserThemeAction → user_preferences.theme
+next request ──► app/layout.tsx reads the cookie ──► <html data-theme="dark"> in the first HTML (no flash)
+new browser  ──► no cookie: OS colours first ──► (app)/layout.tsx passes the stored theme to ThemeSync ──► applied + cookie set
+```
+
+- `kernel/ui/theme.ts`: `THEMES`, `parseTheme` (anything but light / dark = system), `applyTheme` (attribute + cookie, a year).
+- The service `updateUserTheme` upserts like the locale; neither ever clears the other.
+- CSS: `globals.css` — the `dark:` variant and the dark tokens hold under an OS dark unless `data-theme="light"`, and under `data-theme="dark"` (two token blocks, kept equal by `theme.pure.test.ts`).
+
 ## Data Model
 
 - **Model:** `UserPreference` in `app.prisma` — user-scoped (NOT tenant-scoped), NO RLS
 - **Unique key:** `userId` — one preference row per user
-- **Upsert semantics:** First locale selection creates the row; subsequent changes update it. Pass `null` to reset to browser default
+- **Columns:** `locale` (null = browser), `theme` (`theme_preference` enum light / dark, null = system)
+- **Upsert semantics:** the first change (locale or theme) creates the row; later changes update only their column. Pass `null` to reset to the browser / system default
 
 ## Anti-Patterns
 

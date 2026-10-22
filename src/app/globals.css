@@ -2,9 +2,19 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* D40 "Lakehouse" (docs/ui-conventions.md *Visual direction*): light by default, dark from the OS.
-   No theme setting — `dark:` follows prefers-color-scheme. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* D40 "Lakehouse" (docs/ui-conventions.md *Visual direction*): light by default, dark from the OS — unless the
+   user picked one in My Preferences (D43): then <html data-theme="light|dark"> forces it (kernel/ui/theme.ts).
+   `dark:` = the OS says dark and the user did not force light, or the user forced dark. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+}
 
 @theme inline {
   /* the shadcn names the kit and the modules already use, mapped onto the D40 tokens below */
@@ -128,8 +138,10 @@
   color-scheme: light;
 }
 
+/* the dark tokens, twice: from the OS (unless the user forced light), and forced (D43).
+   Keep the two blocks equal — theme.pure.test.ts compares them. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --app: #1f2428;
     --surface: #16191c;
     --border: #2f3940;
@@ -152,6 +164,30 @@
     --tag: #26303a;
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --app: #1f2428;
+  --surface: #16191c;
+  --border: #2f3940;
+  --border-subtle: #232b31;
+  --text: #e8ecf0;
+  --text-muted: #9aabb9;
+  --primary: #4299e0;
+  --primary-hover: #8acaff;
+  --primary-fg: #0b0f12;
+  --hover: #232a30;
+  --selection: #132c44;
+  --nav-active: #2a3540;
+  --brand: #ec4a64;
+  --brand-tint: #2b151b;
+  --state-done: #6cc08a;
+  --state-progress: #6fb4f0;
+  --state-attention: #f0b65a;
+  --state-neutral: #8396a5;
+  --destructive: #f28b9e;
+  --tag: #26303a;
+  color-scheme: dark;
 }
 
 @layer base {

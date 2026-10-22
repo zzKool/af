@@ -6,6 +6,8 @@ import { browserLocale } from "@/kernel/i18n/request-locale";
 import { TablePreferencesProvider } from "@/kernel/ui/data-table";
 import { Providers } from "@/kernel/ui/providers";
 import { AppShell } from "@/kernel/ui/shell/app-shell";
+import { parseTheme } from "@/kernel/ui/theme";
+import { ThemeSync } from "@/kernel/ui/theme-sync";
 import { upsertTablePreferenceAction } from "@/modules/settings";
 
 export default async function AppLayout({
@@ -38,7 +40,10 @@ export default async function AppLayout({
   // Fetch user locale preference — direct Prisma query, NOT withTenantTransaction
   // (UserPreference is user-scoped with no RLS)
   const [userPref, user, tablePrefs, browser] = await Promise.all([
-    prisma.userPreference.findUnique({ where: { userId: auth.userId }, select: { locale: true } }),
+    prisma.userPreference.findUnique({
+      where: { userId: auth.userId },
+      select: { locale: true, theme: true },
+    }),
     prisma.user.findUnique({ where: { id: auth.userId }, select: { email: true, name: true } }),
     // the user's table layouts (user-scoped, no RLS) — every DataTable reads its own under its key
     prisma.tablePreference.findMany({
@@ -52,6 +57,7 @@ export default async function AppLayout({
 
   return (
     <Providers>
+      <ThemeSync theme={parseTheme(userPref?.theme)} />
       <LocaleProvider initialLocale={userPref?.locale ?? null} browserLocale={browser}>
         <TablePreferencesProvider initial={tableLayouts} save={upsertTablePreferenceAction}>
           {/* the D40 shell: top bar · sidebar · canvas (breadcrumb, page, docked details panel) */}
