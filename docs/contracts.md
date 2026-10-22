@@ -26,10 +26,11 @@ No currency on the rate: the contract's currency is the one (one contract per cu
 | `valid_to ≥ valid_from`, `rate > 0` | Zod schemas | `contract_rates_valid_range_check`, `contract_rates_rate_positive_check` |
 | adding an **open** rate closes the earlier open rate on `valid_from − 1` | `createContractRate` — only when the open rate started earlier; audited as `update` with `reason: auto-close` | — |
 | a **closed** rate closes nothing — it must fit a gap | `createContractRate` | exclusion constraint |
-| `rate_for(contract, date)` = the one interval containing the day | `rateFor(tx, contractId, iso)` — independent of today, of the contract's dates and of `is_active` | index |
-| current rate is derived | `getContract(s)(tx, …, { today })` → `currentRate` via `currentRatesFor` (one query for a partner's contracts); without `today` the DTO carries null | no column |
+| `rate_for(contract, date)` = the one interval containing the day | `rateFor(tx, contractId, iso)` — independent of today, of the contract's dates and of `is_active`. The query loads the candidates (`valid_from ≤ day`), **`pickRate` chooses** — the same function the fixture and property tests cover (F63) | index |
+| current rate is derived | `getContract(s)(tx, …, { today })` → `currentRate` via `currentRatesFor` (one query for a partner's contracts, `pickRate` per contract); without `today` the DTO carries null | no column |
 | states `current / expired / future` are derived | `rateState(rate, today)` in `listContractRates` | no column |
-| a rate used by an invoice line cannot be deleted | `deleteContractRate` asks the `rateUsage` hook (`setRateUsage` — wired by the invoices module, 0 until then) → "used on n invoice line(s) — close it instead" | the invoices slice adds the trigger with `invoice_lines` |
+| a rate used by an invoice line cannot be deleted | `deleteContractRate` asks the `rateUsage` hook (`setRateUsage` — wired by the invoices module in `instrumentation.ts`) → "used on n invoice line(s) — close it instead" | the invoices slice adds the trigger with `invoice_lines` |
+| a rate used by an invoice line **only closes**: `valid_to` and note change, `valid_from` and the amount do not (F63) | `updateContractRate` → `lockedFieldsChanged(before, patch)` (decimal equality: `1000` = `1000.00`), then the `rateUsage` hook → `BUSINESS_RULE_VIOLATION` "used on n invoice line(s) — only its end date and note can change…" with `details {usedOn, fields}`. The auto-close of a newer open rate is a close, so it stays allowed. A wrong amount on a used rate is fixed by closing it and adding a new rate | — |
 | every write audited | `contract_rate` create / update / delete with before/after | — |
 | owner only | `ownerAction` (`can()`) | — |
 
@@ -43,7 +44,7 @@ Calendar dates travel as ISO `YYYY-MM-DD` strings in the DTO (`ContractRateDto`)
 
 ## UI
 
-The Rates section sits inside the contract's expanded row on the partner page (child of a child — no route): newest first, inline add (valid from = today, valid to, rate, note, the tip "Leave *valid to* empty for an ongoing rate."), edit-in-place on blur (dates, note; the amount by click), delete with confirm, state chip. The contract row and form show *Current rate* read-only. After every change the section reloads its list from the server and hands it up (`onRatesChange`) so the derived current rate follows.
+The Rates section sits inside the contract's expanded row on the partner page (child of a child — no route): newest first, inline add (valid from = today, valid to, rate, note, the tip "Leave *valid to* empty for an ongoing rate."), edit-in-place on blur (dates, note; the amount by click — on a used rate only *valid to* and note are accepted, the refusal is an English toast until its dictionary key lands, lesson 18), delete with confirm, state chip. The contract row and form show *Current rate* read-only. After every change the section reloads its list from the server and hands it up (`onRatesChange`) so the derived current rate follows.
 
 Strings are keys in the kernel dictionary (`contracts.rates.*`, `contracts.currentRate*`, en + fr) — the first module on it; see [[ui-conventions]] §i18n. Errors arrive in English with `details`; the component renders the overlap / in-use messages in the user's language from those details.
 
@@ -61,6 +62,6 @@ Split proposal when `rate.validTo` falls inside the invoiced period: one line pe
 
 ## Tests
 
-`rate-for.pure.test.ts` (fixture cases from `specs/contracts/fixtures/rate-history-cases.json` + fast-check property: non-overlapping history → unique containing interval or null) · `contract-rates.test.ts` (DB, RLS on: the spec's acceptance scenarios, audit rows, exclusion constraint and CHECKs hit by direct SQL, FK RESTRICT, cross-tenant) · `contracts.test.ts` (v2 CRUD, `billingRate` removed) · `e2e/contracts.spec.ts` (partner → contract → two rates → auto-close → overlap refused → delete).
+`rate-for.pure.test.ts` (fixture cases from `specs/contracts/fixtures/rate-history-cases.json` + fast-check property: non-overlapping history → unique containing interval or null; `lockedFieldsChanged`) · `contract-rates.test.ts` (DB, RLS on: the spec's acceptance scenarios, audit rows, exclusion constraint and CHECKs hit by direct SQL, FK RESTRICT, cross-tenant; F63: a used rate refuses amount / start, closes, the next rate is picked after its `valid_to`, and the fixture cases through `rateFor` / `currentRatesFor`) · `contracts.test.ts` (v2 CRUD, `billingRate` removed) · `e2e/contracts.spec.ts` (partner → contract → two rates → auto-close → overlap refused → delete).
 
 Related: [[contract-pattern]] (v2 child-entity pattern; its billing-rate pipeline section is superseded by this page), [[partners]], [[numbering]], [[feature-inventory]] D24.

@@ -48,7 +48,7 @@ Another module (invoices, next slice) asks "which rate applies to this contract 
 
 ### User Story 3 - Correct or remove a rate (Priority: P2)
 
-A rate typed wrong is fixed in place (amount, dates, note) as long as the corrected interval still overlaps nothing. A rate no invoice line has used can be deleted; one that has been used cannot (it is closed instead). The current-rate figure on the contract follows the history, it is never typed.
+A rate typed wrong is fixed in place (amount, dates, note) as long as the corrected interval still overlaps nothing and no invoice line uses it yet; a used rate only closes (end date, note — F63). A rate no invoice line has used can be deleted; one that has been used cannot (it is closed instead). The current-rate figure on the contract follows the history, it is never typed.
 
 **Why this priority**: mistakes happen at entry; the guard against deleting a used rate protects issued invoices' provenance.
 
@@ -90,7 +90,7 @@ Contracts created before this feature carry one `billing rate` field. After the 
 - **FR-003**: Adding an open-ended rate closes the contract's open rate (if any, and only if it started earlier) on `valid_from − 1 day`; adding a closed rate closes nothing. Every automatic close is audited as its own change.
 - **FR-004**: `rate_for(contract, date)` returns the single rate whose interval contains the date, or none — independent of today.
 - **FR-005**: The current rate shown on a contract is `rate_for(contract, today)`; it is derived, never stored. The former `billing_rate` field is removed after its value is carried into the history (FR-010).
-- **FR-006**: A rate can be edited (`valid_from`, `valid_to`, `rate`, `note`) subject to FR-002, and deleted while no invoice line references it. Edits and deletes are audited with before/after.
+- **FR-006**: A rate can be edited (`valid_from`, `valid_to`, `rate`, `note`) subject to FR-002, and deleted while no invoice line references it. Once an invoice line references it, only `valid_to` and `note` change (it is closed, never rewritten — F63). Edits and deletes are audited with before/after.
 - **FR-007**: The list of a contract's rates is ordered newest first and labels each row **Current** (contains today), **Expired** (ended before today) or **Future** (starts after today) — derived at read time.
 - **FR-008**: The rates section lives inside the contract's expanded row on the partner page (child of a child: no route of its own), with an inline add row (`valid from` defaulting to today, `rate`, `note`) and the tip "Leave *valid to* empty for an ongoing rate."
 - **FR-009**: Strings exist in English and French from day one (`contracts.rates.*`, harvest §5.4), through the kernel dictionary; a Swedish dictionary later is a data file, not a code change.
