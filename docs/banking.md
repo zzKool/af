@@ -2,7 +2,7 @@
 
 Module `src/modules/banking` · schema `prisma/schema/banking.prisma` · migration `20261021100000_add_banking_import_and_journal` · spec `specs/banking/` (harvest, spec, plan, tasks) · decisions D3, D13, D18, D25, D31. Part 1: model, parser edits, import, rules, transfer pairs, linkables, queries. Part 2: the workbench, the imports and rules pages (the journal page in [[journal]]).
 
-> A bank transaction is one CSV row, kept verbatim and never updated. The owner's facts about it — BAS category, partner, note, *no document needed* — live on its [[journal]] entry. *Open / partially linked / linked / no document needed* are **derived** from the links and the journal flag. Rules set facts, never a status; transfer pairs are `transfer` links.
+> A bank transaction is one CSV row, kept verbatim and never updated. The owner's facts about it — BAS category, partner, note, *no document needed* — live on its [[journal]] entry. *Open / partially linked / linked / no document needed* are **derived** from the links and the journal flag. Rules set facts, never a status; transfer pairs are `transfer` links — and only links: accepting one writes nothing on the legs' entries (F65).
 
 ## Model
 
@@ -53,13 +53,17 @@ A hit writes through `journal.categorise(…, {by: "rule", ruleId})`: category w
 
 Pure `transferCandidates(a, others, ecbRate)`: another own account, opposite sign, ≤ 2 days apart; same currency → equal amounts (rate 1); else `implied = |SEK| ÷ |foreign|` within 5 % of the ECB rate of `a`'s date. Hints (`CHANGE`, `CHFSEK`, `ÖVERFÖRING`, the other account's number in the text) raise the confidence shown, never required. Constants, not settings.
 
-`proposeTransfers(tx, id)` (empty once paired) · `acceptTransfer(tx, caller, audit, {fromId, toId})` → one `transfer` link debit → credit (through [[linking]]), both journal entries `no_document_needed`, the foreign entry's `bank_implicit_rate = implied` (its `rate` / `amount_base` stay ECB, D3). The owner's July pair: −20 000.00 CHF ↔ +237 740.00 SEK → 11.887 (fixtures `nordea-transfer-pair-*.csv`).
+`proposeTransfers(tx, id)` (empty once paired) · `acceptTransfer(tx, caller, audit, {fromId, toId})` → one `transfer` link debit → credit (through [[linking]]) and the foreign entry's `bank_implicit_rate = implied` (its `rate` / `amount_base` stay ECB, D3). **Nothing else is written on the legs** (F65, D44): no `no_document_needed`, no `categorised_by = manual` — so rules still categorise an accepted leg, and unpairing (removing the link) leaves both rows exactly as before. The state *no document needed* of a leg is derived from the link. The bank implicit rate is set once (database trigger) and stays after an unpairing. The owner's July pair: −20 000.00 CHF ↔ +237 740.00 SEK → 11.887 (fixtures `nordea-transfer-pair-*.csv`).
 
 ## Derived state and lists — `queries.ts`
 
-`deriveTransactionState({amount, allocated, inTransfer, noDocumentNeeded})`: `no_document` when the flag is set; `linked` on a transfer link or `Σ allocations ≥ |amount| − tolerance` (`settlementTolerance`, D25); `partial` when Σ > 0; else `open`. Never stored.
+`deriveTransactionState({amount, allocated, inTransfer, noDocumentNeeded})`: `no_document` when the flag is set **or the row is in a `transfer` link** (the other statement row is its proof — F65); `linked` when `Σ allocations ≥ |amount| − tolerance` (`settlementTolerance`, D25); `partial` when Σ > 0; else `open`. Never stored.
 
 `TRANSACTION_COLUMNS` is the DataTable contract; the list runs in two steps (Prisma on the stored columns → the journal facts, Σ allocations from `links`, partner names and BAS labels joined over that set → derived filters, search, sort, page and sums in memory through `kernel/list-query/memory`, cap 20 000). `distinctTransactionValues` / `transactionDateHierarchy` keep Excel semantics. `getTransaction` returns the raw row, the entry, the state, the links with the other side's label and the transfer proposals. `listImports`, `listRulesWithLabels`, `accountBalances` (the balance of the latest booking date that has one — no stored running balance). `rawRowsForPeriod({from, to, by: "booking" | "import", role?})` — the raw rows of a period with their account, source file and the account's CSV conventions, booking date then file order: what the [[accountant-package]] writes as `bank-statements/*.csv`.
+
+## Accounts — `bank-accounts.ts`
+
+CRUD on Settings → Bank accounts ([[bank-accounts]]). Once a CSV is imported into an account its **number and currency are locked** (F65): `updateBankAccount` refuses a change of either with *This account has N import(s); its number and currency can no longer change* (`BUSINESS_RULE_VIOLATION`, `details.imports`) — they say which rows belong to it. Alias, IBAN / BIC, format and role still change. `getBankAccounts` returns `imports` (the count) and the settings tab disables the two fields when it is > 0. Delete is refused while imports exist.
 
 ## Linkable
 
@@ -85,7 +89,7 @@ E2E `e2e/banking.spec.ts` (SEK only — CI has no ECB rates): the July sample �
 
 ## Tests
 
-`csv-parser.test.ts` (v2 + D25: `Date` header, July sample, Swedish headers rejected, space thousands, calendar dates, hash independence) · `counterparty.pure.test.ts` · `account-detect.pure.test.ts` · `dedup.pure.test.ts` (fast-check: re-import = 0 new, superset = the extra rows, balance/notes outside the key) · `rules.pure.test.ts` (fixture cases, `all`, invalid regex, ordering) · `transfer-pairs.pure.test.ts` · `import.test.ts` (DB: US1 scenarios on the fixtures, immutability by SQL, delete with/without links, RLS; US3 the pair and the savings move; US4/US5 state and the source-side invariant) · `rules.test.ts` (DB: defaults on first import, apply dry/real, partner default, manual never overwritten, learned rule, refusals, RLS).
+`csv-parser.test.ts` (v2 + D25: `Date` header, July sample, Swedish headers rejected, space thousands, calendar dates, hash independence) · `counterparty.pure.test.ts` · `account-detect.pure.test.ts` · `dedup.pure.test.ts` (fast-check: re-import = 0 new, superset = the extra rows, balance/notes outside the key) · `rules.pure.test.ts` (fixture cases, `all`, invalid regex, ordering) · `transfer-pairs.pure.test.ts` · `import.test.ts` (DB: US1 scenarios on the fixtures, immutability by SQL, delete with/without links, RLS; US3 the pair and the savings move, pair → unpair leaves the facts and states as before, a rule categorises an accepted leg; F65 an imported account's number / currency refused; US4/US5 state and the source-side invariant) · `rules.test.ts` (DB: defaults on first import, apply dry/real, partner default, manual never overwritten, learned rule, refusals, RLS).
 
 Seed: the three accounts with roles and the two default rules (`prisma/seed.ts`).
 

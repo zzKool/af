@@ -134,15 +134,18 @@ async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise
   return facts;
 }
 
-/** `no_document` when the flag is set; `linked` on a transfer or when Σ ≥ |amount| − tolerance; `partial` when Σ > 0; else `open`. */
+/**
+ * `no_document` when the flag is set or the row is a transfer leg (the other statement row is its proof — derived
+ * from the `transfer` link, never written on the entry: F65); `linked` when Σ ≥ |amount| − tolerance; `partial`
+ * when Σ > 0; else `open`.
+ */
 export function deriveTransactionState(input: {
   amount: string;
   allocated: string;
   inTransfer: boolean;
   noDocumentNeeded: boolean;
 }): TransactionState {
-  if (input.noDocumentNeeded) return "no_document";
-  if (input.inTransfer) return "linked";
+  if (input.noDocumentNeeded || input.inTransfer) return "no_document";
   const abs = new D(input.amount).abs();
   const allocated = new D(input.allocated);
   if (allocated.lte(0)) return "open";

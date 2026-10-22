@@ -43,6 +43,8 @@ export async function getBankAccounts(
       role: BankAccountRole;
       iban: string | null;
       bic: string | null;
+      /** CSV imports into this account — number and currency are locked when > 0 (F65) */
+      imports: number;
       bankFormat: {
         id: string;
         name: string;
@@ -59,10 +61,16 @@ export async function getBankAccounts(
   >
 > {
   const accounts = await tx.bankAccount.findMany({
-    include: { bankFormat: true },
+    include: { bankFormat: true, _count: { select: { imports: true } } },
     orderBy: [{ accountNumber: "asc" }, { currency: "asc" }],
   });
-  return { data: accounts.map((a) => ({ ...a, role: a.role as BankAccountRole })) };
+  return {
+    data: accounts.map(({ _count, ...a }) => ({
+      ...a,
+      role: a.role as BankAccountRole,
+      imports: _count.imports,
+    })),
+  };
 }
 
 /** `Plusgirokonto SEK` — the alias, else `{number} {currency}` */
@@ -230,6 +238,24 @@ export async function updateBankAccount(
         retryable: false,
       },
     };
+  }
+
+  // the number and currency say which CSV rows belong here: once a statement is imported they are history (F65)
+  const lockedChange =
+    (input.accountNumber !== undefined && input.accountNumber !== existing.accountNumber) ||
+    (input.currency !== undefined && input.currency !== existing.currency);
+  if (lockedChange) {
+    const imports = await tx.bankImport.count({ where: { bankAccountId: id } });
+    if (imports > 0) {
+      return {
+        error: {
+          code: "BUSINESS_RULE_VIOLATION",
+          message: `This account has ${imports} import(s); its number and currency can no longer change`,
+          retryable: false,
+          details: { imports },
+        },
+      };
+    }
   }
 
   const updateData: {
