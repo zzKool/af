@@ -13,7 +13,7 @@ Dispatch rule: pick a row with status planned, give the builder its ID, the modu
 | F05 | Superadmin pages (tenants, users, bank formats, currencies) | `modules/settings` | later | constitution §6; one tenant today | — | nav | M |
 | F06 | Partner hub: types, identifiers, defaults (currency, BAS, terms), short code, soft delete | `modules/partners` | built | reference slice | [[partners]], `specs/partners` | — | — |
 | F07 | Partner 360°: documents, journal entries, graph on the entity page | `modules/partners` | built | 2026-10-21 | [[partners]] | — | — |
-| F08 | Contact persons on a partner | `modules/partners` | planned | not built | roadmap A4 | schema, i18n | S |
+| F08 | Contact persons on a partner: name, role, e-mail, phone; the Contacts tab | `modules/partners` | built | 2026-10-22, `partner_contacts` | [[partners]], `specs/partners` | — | — |
 | F09 | Supplier match (OCR vendor → partner) | `modules/partners` | built | `match.ts`, `matchPartnersAction`, the card in the supplier-invoice dialog | [[partners]] | — | — |
 | F10 | Contracts with dated rate history, rate used by invoice lines cannot be deleted | `modules/contracts` | built | `contract_rates`, `rateFor` | [[contracts]], `specs/contracts` | — | — |
 | F11 | Quotes → invoices → credit notes, `{client}{yy}-{nnn}` series, lifecycle, derived paid / overdue / credited | `modules/invoices` | built | two PRs 2026-10-20 | [[invoices]], `specs/invoices` | — | — |

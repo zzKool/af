@@ -7,18 +7,21 @@ A client, vendor or employee (`types[]`, at least one) with org/VAT numbers, def
 
 ## The module, file by file
 ```
-prisma/schema/partners.prisma      model + partial unique indexes (org number, short code)
+prisma/schema/partners.prisma      models Partner + PartnerContact; partial unique indexes (org number, short code)
 src/modules/partners/
   types.ts            PartnerDto, PartnerSummaryDto, PartnerType, ExternalIdentifier, PartnerAddress
   partners.ts         service: Zod schemas, toPartnerDto, create/update/deactivate/reactivate, getPartner(s), searchPartners
+  contacts.ts         contact persons (F08): schemas, toPartnerContactDto, list / create / update / delete, audited
   queries.ts          READ API — PARTNER_COLUMNS (ColumnMap), listPartners(tx, q), distinctPartnerValues, partnerDateHierarchy
   partners.actions.ts ownerAction wrappers: CRUD + distinctPartnersAction + partnerDateHierarchyAction (ListQuery validated by listQuerySchema)
   linkable.ts         partnerLinkable (exists/summary) registered in modules/linking/linkables.ts
   components/
     partner-table.tsx   the list on kernel DataTable: columns, filterSource (the two actions), create form, row actions
     partner-form.tsx    autosave-on-blur edit form (short code, numbers, defaults, identifiers, address)
-    partner-detail-tabs.tsx  entity page: header + tabs (overview, contracts, transactions, documents)
+    partner-detail-tabs.tsx  entity page: header + tabs (overview, contracts, contacts, transactions, documents)
+    partner-contacts.tsx     the Contacts tab: inline add, row view ↔ row edit, delete with confirm
   partners.test.ts    service rules (types, FK validation, soft delete, RLS)
+  contacts.test.ts    contact rules (validation, sort, scoping to the partner and the tenant, audit)
   queries.test.ts     the ListQuery contract on the real DB: paging, sorting, every filter kind, search, distinct with Excel semantics, date hierarchy
   index.ts / ui.ts    surfaces
 src/app/(app)/partners/page.tsx        list page: parseListQuery(searchParams) → listPartners → <ListPage><PartnerTable/></ListPage>
@@ -35,6 +38,14 @@ src/app/(app)/partners/[id]/page.tsx   entity page: <EntityPage> around the tabs
 ## The entity page's relationships (2026-10-21)
 
 `/partners/[id]` composes three read models of other modules on top of the partner itself — the page does it, never the partners module (cycles): `linking.linksTouching(tx, "partner", [id])` → the documents linked to the partner (`documents.documentsByIds`) for the *Documents* tab; `journal.listJournalEntries` filtered on `partnerId` (newest 25, with the total) for the *Transactions* tab, which links to the journal filtered on the partner; the tab labels and the overview carry the counts. The header's *Graph* button opens `/links/partner/<id>` (the linking graph). The strings are `partners.*` in the dictionary (en / fr / sv) since the same day.
+
+## Contact persons (F08 — 2026-10-22, `specs/partners/spec.md`)
+
+A partner has zero or more contact persons: **name** (required, ≤ 200), **role** (≤ 100), **e-mail** (a valid address, ≤ 254), **phone** (free text, ≤ 50). Trimmed; an empty string is stored as `null`. They live in `partner_contacts` (RLS, `partner_id → partners ON DELETE CASCADE` — intra-module, a contact never outlives its partner); not linkable, no history beyond the audit trail (`partner_contact`). The partner's own e-mail and phone stay the company's switchboard; nothing moves between them.
+
+The entity page loads them in its tenant transaction (`listPartnerContacts`, sorted by name case-insensitively) and shows the **Contacts (n)** tab plus the count in the overview. Writes are `ownerAction`s (`create / update / delete PartnerContactAction`); the page itself is owner-only today (`requireCaller manage partner`), so a read-only role does not reach the tab. The client validates the name and the e-mail first (messages in the user's language); the service validates again and returns `details.field` so the client can translate a server refusal too.
+
+Not built, by decision: a contact on the invoice (*Attn* / *Your reference*), a primary flag, notes, a cross-partner contacts page, contacts in search.
 
 ## The supplier match — `match.ts` (specs/documents US1, harvest R39 — 2026-10-21)
 

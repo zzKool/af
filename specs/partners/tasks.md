@@ -8,6 +8,6 @@ Plan: [plan.md](plan.md). State is left here so any session can continue: tick a
 - [x] T004 Actions in `partners.actions.ts`; exports in `index.ts` / `ui.ts`; `cleanupTestData` lists the table
 - [x] T005 `components/partner-contacts.tsx`; the tab + overview count in `partner-detail-tabs.tsx`; the page loads the contacts
 - [x] T006 i18n `partners.contacts.*` + `partners.tab.contacts*` in en / fr / sv
-- [ ] T007 e2e journey in `e2e/partners.spec.ts`; the tab in `e2e/screenshots.spec.ts` if the partner page is there
-- [ ] T008 Screenshot under `specs/partners/screenshots/`; `docs/partners.md`; F08 row in `docs/features.md`; roadmap A4; feature-inventory §3.3 status
+- [x] T007 e2e journey in `e2e/partners.spec.ts`; the tab in `e2e/screenshots.spec.ts` if the partner page is there
+- [x] T008 Screenshot under `specs/partners/screenshots/`; `docs/partners.md`; F08 row in `docs/features.md`; roadmap A4; feature-inventory §3.3 status
 - [ ] T009 lint, typecheck, unit (partners), build, e2e (partners); PR; `scripts/merge-when-green.sh`; watch `main`'s build-and-e2e

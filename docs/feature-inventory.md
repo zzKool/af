@@ -151,7 +151,7 @@ Verdict legend: **v2** keep v2 code · **harvest** rebuild on v2 foundation from
 | What | `Partner` + `Contact`; separate clients / suppliers pages | `Partner` with `types[]`, org + VAT number, labelled external identifiers (supplier number etc.), soft-delete, tabbed entity view; pattern-setter module |
 | Keeps | everything in v2 + contact persons + per-partner defaults (BAS category, currency, payment terms) + partner short code (`VA`) + 360° view: documents, transactions, invoices, supplier invoices, contracts |
 | Mechanism | three pages → one partner hub filtered by type |
-| Status | The reference slice (2026-10-20). **2026-10-21**: the entity page's *Transactions* and *Documents* tabs read the journal and the links (counts, the newest entries with a jump to the journal, the linked documents, a *Graph* button); the module's strings in the dictionary. Contact persons: not built. |
+| Status | The reference slice (2026-10-20). **2026-10-21**: the entity page's *Transactions* and *Documents* tabs read the journal and the links (counts, the newest entries with a jump to the journal, the linked documents, a *Graph* button); the module's strings in the dictionary. **2026-10-22**: contact persons (name, role, e-mail, phone) on the *Contacts* tab — F08, `specs/partners/spec.md`. |
 
 ### 3.4 Contracts and rates — v2 + v1 rate history
 
