@@ -25,6 +25,22 @@ function rateScheduleToJson(schedule: RateSchedule): Prisma.InputJsonObject {
   return { ...schedule };
 }
 
+/** The stored `rate_schedule`, or null when there is none or it does not read as a schedule (never cast, lesson 29). */
+export function parseRateSchedule(value: unknown): RateSchedule | null {
+  if (value === null || value === undefined) return null;
+  const parsed = rateScheduleSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export type VatRegistrationDto = {
+  id: string;
+  country: string;
+  vatNumber: string;
+  rateSchedule: RateSchedule | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 /**
  * Get all VAT registrations for the tenant (RLS-scoped by middleware).
  * Read-only — no audit param needed.
@@ -32,22 +48,36 @@ function rateScheduleToJson(schedule: RateSchedule): Prisma.InputJsonObject {
 export async function getVatRegistrations(
   tx: TransactionClient,
   _caller: CallerIdentity,
-): Promise<
-  ServiceResult<
-    {
-      id: string;
-      country: string;
-      vatNumber: string;
-      rateSchedule: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }[]
-  >
-> {
+): Promise<ServiceResult<VatRegistrationDto[]>> {
   const registrations = await tx.vatRegistration.findMany({
     orderBy: [{ country: "asc" }, { vatNumber: "asc" }],
   });
-  return { data: registrations };
+  return {
+    data: registrations.map((r) => ({
+      id: r.id,
+      country: r.country,
+      vatNumber: r.vatNumber,
+      rateSchedule: parseRateSchedule(r.rateSchedule),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    })),
+  };
+}
+
+// --- usage (lesson 19) ---
+
+/** The modules that keep a registration's id on their rows; each counts its own (constitution §2). */
+export const VAT_REGISTRATION_USERS = ["invoices", "declarations"] as const;
+export type VatRegistrationUser = (typeof VAT_REGISTRATION_USERS)[number];
+
+/** Hook: how many rows of one module carry this registration. Wired by the composition root (src/instrumentation.ts). */
+export type VatRegistrationUsage = (
+  tx: TransactionClient,
+  registrationId: string,
+) => Promise<number>;
+const usage = new Map<VatRegistrationUser, VatRegistrationUsage>();
+export function setVatRegistrationUsage(user: VatRegistrationUser, fn: VatRegistrationUsage): void {
+  usage.set(user, fn);
 }
 
 /**
@@ -165,9 +195,8 @@ export async function updateVatRegistration(
   const updateData: Prisma.VatRegistrationUncheckedUpdateInput = {};
   if (input.vatNumber !== undefined) updateData.vatNumber = input.vatNumber;
   if (input.rateSchedule !== undefined) {
-    // null clears the rates: stored as JSON `null`, as it always was (DB NULL is "never set", on create)
     updateData.rateSchedule =
-      input.rateSchedule === null ? Prisma.JsonNull : rateScheduleToJson(input.rateSchedule);
+      input.rateSchedule === null ? Prisma.DbNull : rateScheduleToJson(input.rateSchedule);
   }
 
   try {
@@ -205,8 +234,8 @@ export async function updateVatRegistration(
 }
 
 /**
- * Delete a VAT registration.
- * Read-before-delete for audit oldData.
+ * Delete a VAT registration — refused while an invoice or a declaration carries its id (lesson 19), else their
+ * VAT treatment and the quarter's return would point at nothing. Read-before-delete for audit oldData.
  */
 export async function deleteVatRegistration(
   tx: TransactionClient,
@@ -214,7 +243,6 @@ export async function deleteVatRegistration(
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ deleted: boolean }>> {
-  // TODO: Epic 4/10 — check for partner/invoice/contract references before allowing delete
   const existing = await tx.vatRegistration.findUnique({ where: { id } });
   if (!existing) {
     return {
@@ -222,6 +250,19 @@ export async function deleteVatRegistration(
         code: "NOT_FOUND",
         message: `VAT registration not found: ${id}`,
         retryable: false,
+      },
+    };
+  }
+
+  const counts: Record<VatRegistrationUser, number> = { invoices: 0, declarations: 0 };
+  for (const [user, count] of usage) counts[user] = await count(tx, id);
+  if (counts.invoices > 0 || counts.declarations > 0) {
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: `This VAT registration is used by ${counts.invoices} invoice(s) and ${counts.declarations} declaration(s) and cannot be deleted`,
+        retryable: false,
+        details: counts,
       },
     };
   }

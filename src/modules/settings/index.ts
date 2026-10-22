@@ -30,12 +30,20 @@ export { getTablePreferenceAction, upsertTablePreferenceAction } from "./table-p
 export type { UserPreferences } from "./user-preferences";
 export { updateUserLocale } from "./user-preferences";
 export { getUserPreferencesAction, updateUserLocaleAction } from "./user-preferences.actions";
-export type { RateSchedule } from "./vat-registrations";
+export type {
+  RateSchedule,
+  VatRegistrationDto,
+  VatRegistrationUsage,
+  VatRegistrationUser,
+} from "./vat-registrations";
 export {
   createVatRegistration,
   deleteVatRegistration,
+  parseRateSchedule,
   rateScheduleSchema,
+  setVatRegistrationUsage,
   updateVatRegistration,
+  VAT_REGISTRATION_USERS,
 } from "./vat-registrations";
 export {
   createVatRegistrationAction,

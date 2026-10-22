@@ -35,7 +35,7 @@ export type { RenderInvoicePdfData } from "./jobs/render-pdf";
 export { invoiceJobs, printPath, renderInvoicePdfJob } from "./jobs/render-pdf";
 export { invoiceLinkable } from "./linkable";
 export * from "./queries";
-export { rateUsageFromInvoiceLines } from "./rate-usage";
+export { rateUsageFromInvoiceLines, vatRegistrationUsageFromInvoices } from "./rate-usage";
 export { resolveSheetContext, type SheetContext } from "./sheet-context";
 export type { InvoiceTotals, LineInput, LineTotals } from "./totals";
 export { formatVatPercent, invoiceTotals, lineTotals, TotalsError } from "./totals";
