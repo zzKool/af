@@ -108,6 +108,8 @@ Order: linking first (it unblocks 6 and the known *Reads of `link`* item above).
 
 ### Need the owner — O3–O5 in the roadmap's *Open decisions*
 
+Answered 2026-10-22: O3 → D37 (drafts until the first payment, then locked), O4 → D38 (`expense_groups` a shared reference), O5 → D39 (a base currency per tenant — F70). Constitution 1.3.
+
 - **O3 · Money facts on open entities.** The constitution says amount, base, rate are written once (§6); expenses and supplier invoices rewrite them while *open* (`expenses/expenses.ts:413`, attach/detach `:516,578`, `supplier-invoices/payments.ts:209-218,278-288`), and `paid_amount` copies the bank row. Either the constitution gains an "open entities are drafts" clause, or the bank base becomes a new fact derived from the link (the real fix of PR 4).
 - **O4 · Cross-module FKs that exist.** `trips.group_id → expense_groups` (Cascade, `prisma/schema/traktamente.prisma:274`) and `supplier_invoices.group_id` (`supplier-invoices.prisma:56`) are real FKs read through Prisma relations; the constitution says UUIDs validated through `index.ts`. Keep them and amend the rule (expenses' groups as a shared reference), or drop the relations.
 - **O5 · Base currency twice.** `tenant.currency` is editable in the profile, nothing reads it for money; every module uses `BASE_CURRENCY = "SEK"` (`kernel/nav/constants.ts:136`). Constitution §4 says a constant — drop the field from the form?
