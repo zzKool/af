@@ -46,5 +46,12 @@
 - [x] T027 Tests: derive cases, base totals example + property (300 runs, a discount on every document), DB: discounted issue, credit note a year on; docs (F57 row, [[invoices]], lessons 3 · 8)
 - [ ] Left outside F57's scope: the receivables hint counts quotes (`dashboard/overview.ts:118`)
 
+## F76 — `feat/invoices-contract-race` (lessons Process (2), V12, F56's leftover)
+
+- [x] T028 `new-invoice-form.tsx`: the contract list is stored with the client it was loaded for; a client change clears the pick in the same render; the Contract select and *Create draft* are disabled until the new client's list is there; only a contract of that list is sent
+- [x] T029 `invoice-actions.tsx` (V12): after the 30th poll *PDF is being generated… Try again* (`errors.tryAgain`, no new key); the click resets the count and refreshes
+- [x] T030 `app/(app)/invoices/[id]/page.tsx`: `declaredOn(tx, period, invoice.vatRegistrationId)`
+- [x] T031 Tests: `new-invoice-form.test.tsx` (the actions are fakes with the service's rule; B's list held back; fails on the old form with *ca* refused), `invoice-actions.test.tsx` (fake timers: 29 polls no hint, 30th hint, quiet after, click → polling again); docs (F76 row, F56 row, [[invoices]], lessons)
+
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.

@@ -36,7 +36,11 @@ export function NewInvoiceForm({
   const router = useRouter();
   const [type, setType] = useState<"invoice" | "quote">(initialType);
   const [partnerId, setPartnerId] = useState<string>(clients[0]?.id ?? "");
-  const [contracts, setContracts] = useState<ContractOption[]>([]);
+  // the contract list carries the client it was loaded for: a list (or a pick) of another client is never shown
+  // nor submitted — client A → contract → client B used to submit A's contract while B's list loaded (F76)
+  const [loaded, setLoaded] = useState<{ partnerId: string; contracts: ContractOption[] } | null>(
+    null,
+  );
   const [contractId, setContractId] = useState<string>("");
   const [issueDate, setIssueDate] = useState(today);
   const [periodLabel, setPeriodLabel] = useState("");
@@ -55,7 +59,7 @@ export function NewInvoiceForm({
         name: c.name,
         currency: c.currency,
       }));
-      setContracts(list);
+      setLoaded({ partnerId, contracts: list });
       setContractId(list[0]?.id ?? "");
     })();
     return () => {
@@ -63,12 +67,23 @@ export function NewInvoiceForm({
     };
   }, [partnerId, loadContracts]);
 
+  const contractsReady = loaded?.partnerId === partnerId;
+  const contracts = contractsReady ? loaded.contracts : [];
+  // only a contract of the list loaded for this client goes out
+  const pickedContract = contracts.some((c) => c.id === contractId) ? contractId : "";
+
+  function changePartner(next: string) {
+    if (next === partnerId) return;
+    setContractId(""); // in the same render as the client: no frame where B is paired with A's contract
+    setPartnerId(next);
+  }
+
   async function submit() {
-    if (!partnerId) return;
+    if (!partnerId || !contractsReady) return;
     const r = await create({
       type,
       partnerId,
-      contractId: contractId || null,
+      contractId: pickedContract || null,
       issueDate,
       periodLabel: periodLabel.trim() || null,
       periodStart: periodStart || null,
@@ -110,7 +125,7 @@ export function NewInvoiceForm({
         <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
           {t("invoices.form.partner")}
         </label>
-        <Select value={partnerId} onValueChange={(v) => v && setPartnerId(v)}>
+        <Select value={partnerId} onValueChange={(v) => v && changePartner(v)}>
           <SelectTrigger id={`${ids}-partner`}>
             <SelectValue />
           </SelectTrigger>
@@ -131,7 +146,8 @@ export function NewInvoiceForm({
           {t("invoices.form.contract")}
         </label>
         <Select
-          value={contractId || "__none__"}
+          value={pickedContract || "__none__"}
+          disabled={!contractsReady}
           onValueChange={(v) => setContractId(!v || v === "__none__" ? "" : v)}
         >
           <SelectTrigger id={`${ids}-contract`}>
@@ -183,7 +199,7 @@ export function NewInvoiceForm({
         <p className="mt-1 text-xs text-muted-foreground">{t("invoices.form.periodStartHint")}</p>
       </div>
       <div className="sm:col-span-2">
-        <Button type="submit" disabled={isPending || !partnerId}>
+        <Button type="submit" disabled={isPending || !partnerId || !contractsReady}>
           {t("invoices.form.create")}
         </Button>
       </div>

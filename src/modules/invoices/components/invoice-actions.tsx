@@ -242,6 +242,21 @@ export function InvoiceActions({
         ) : (
           <span className="text-xs text-muted-foreground" data-testid="pdf-pending">
             {t("invoices.action.pdfPending")}
+            {/* V12: the polls ran out while the render still queues — say so and let one click start them again */}
+            {pdfPolls >= PDF_POLL_LIMIT && (
+              <Button
+                size="sm"
+                variant="link"
+                className="ml-1 h-auto p-0 text-xs"
+                data-testid="pdf-poll-again"
+                onClick={() => {
+                  setPdfPolls(0);
+                  router.refresh();
+                }}
+              >
+                {t("errors.tryAgain")}
+              </Button>
+            )}
           </span>
         ))}
       <ConfirmDialog {...issueDialog.dialogProps} />
