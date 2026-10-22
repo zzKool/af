@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-22
 
-**Status**: Read by the owner 2026-10-22 ("go") — planned
+**Status**: Built — PR #65, merged 2026-10-22
 
 **Input**: "F08 contact persons on a partner, module partners: name, role, email, phone; shown on the partner page." Roadmap A4; [[feature-inventory]] §3.3 keeps "contact persons" from v1 (`Partner` + `Contact`).
 
