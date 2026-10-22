@@ -96,8 +96,14 @@ export function SupplierInvoicePaymentsSection({
           {detail.payments.map((p) => (
             <li key={p.linkId} className="flex items-center justify-between gap-2 px-3 py-1.5">
               <span className="min-w-0 truncate">
-                {p.bookingDate ?? "?"} · {p.accountLabel ?? ""}
-                {p.rowAmount ? ` · ${money(p.rowAmount, p.rowCurrency ?? p.currency)}` : ""}
+                {p.bankTransactionId ? (
+                  <>
+                    {p.bookingDate ?? "?"} · {p.accountLabel ?? ""}
+                    {p.rowAmount ? ` · ${money(p.rowAmount, p.rowCurrency ?? p.currency)}` : ""}
+                  </>
+                ) : (
+                  (p.payerLabel ?? "?")
+                )}
                 {p.note ? (
                   <span className="ml-1 text-xs text-muted-foreground">({p.note})</span>
                 ) : null}

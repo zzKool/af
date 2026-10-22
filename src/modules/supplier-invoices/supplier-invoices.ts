@@ -235,6 +235,32 @@ async function baseFor(
   };
 }
 
+/**
+ * The base of an edited open invoice (audit 5, D37): a typed rate is manual; another currency, or another date on a
+ * rate that came from the ECB, asks the ECB again; otherwise the stored rate stays — a manual rate is never replaced
+ * by an edit that did not touch it — and only the base follows a new total.
+ */
+async function rebase(
+  tx: TransactionClient,
+  row: Pick<SupplierInvoice, "invoiceDate" | "currency" | "rate" | "rateSource" | "rateDate">,
+  next: { invoiceDate: string; total: string; currency: string; typedRate: string | undefined },
+): Promise<ServiceResult<Base>> {
+  const currencyChanged = next.currency !== row.currency;
+  const dateChanged = next.invoiceDate !== iso(row.invoiceDate);
+  const ecbRate = row.rateSource !== "manual" && row.rateSource !== "same_currency";
+  if (next.typedRate !== undefined || currencyChanged || (dateChanged && ecbRate)) {
+    return baseFor(tx, next.invoiceDate, new D(next.total), next.currency, next.typedRate);
+  }
+  return {
+    data: {
+      amountBase: baseAmount(next.total, row.rate),
+      rate: row.rate,
+      rateSource: row.rateSource as SupplierInvoiceRateSource,
+      rateDate: iso(row.rateDate),
+    },
+  };
+}
+
 // --- validation ---
 
 const TOTAL_TOLERANCE = new D("0.01");
@@ -539,9 +565,11 @@ export async function updateSupplierInvoice(
       };
     }
     const partnerId = v.partnerId ?? row.partnerId;
+    let terms: number | null = null;
     if (v.partnerId !== undefined) {
       const supplier = await resolveSupplier(tx, partnerId);
       if (supplier.error) return { error: supplier.error };
+      terms = supplier.data.paymentTermsDays ?? DEFAULT_PAYMENT_TERMS_DAYS;
     }
     const invoiceNumber = v.invoiceNumber ?? row.invoiceNumber;
     const duplicate = await checkDuplicateNumber(tx, partnerId, invoiceNumber, id);
@@ -555,22 +583,34 @@ export async function updateSupplierInvoice(
     const linesError = checkLines(lines, net, vat) ?? (await checkLineCategories(tx, lines));
     if (linesError) return { error: linesError };
     const invoiceDate = v.invoiceDate ?? (iso(row.invoiceDate) as string);
+    // the due date (audit 5): a typed one wins and stays typed; a defaulted one follows the invoice date and the
+    // supplier's terms; a typed one is never re-defaulted by another edit
+    const redefault =
+      v.dueDate === undefined &&
+      row.dueDateDefaulted &&
+      ((v.invoiceDate !== undefined && v.invoiceDate !== iso(row.invoiceDate)) ||
+        (v.partnerId !== undefined && v.partnerId !== row.partnerId));
+    if (redefault && terms === null) {
+      const supplier = await resolveSupplier(tx, partnerId);
+      if (supplier.error) return { error: supplier.error };
+      terms = supplier.data.paymentTermsDays ?? DEFAULT_PAYMENT_TERMS_DAYS;
+    }
     const dueDate =
       v.dueDate ??
-      (v.invoiceDate
-        ? addDays(invoiceDate, DEFAULT_PAYMENT_TERMS_DAYS)
+      (redefault
+        ? addDays(invoiceDate, terms ?? DEFAULT_PAYMENT_TERMS_DAYS)
         : (iso(row.dueDate) as string));
     if (dueDate < invoiceDate)
       return { error: invalid("The due date cannot be before the invoice date") };
     const currency = v.currency ?? row.currency;
-    const base = await baseFor(tx, invoiceDate, new D(total), currency, v.rate);
+    const base = await rebase(tx, row, { invoiceDate, total, currency, typedRate: v.rate });
     if (base.error) return { error: base.error };
     Object.assign(data, {
       partnerId,
       invoiceNumber,
       invoiceDate: new Date(invoiceDate),
       dueDate: new Date(dueDate),
-      dueDateDefaulted: v.dueDate ? false : row.dueDateDefaulted,
+      dueDateDefaulted: v.dueDate !== undefined ? false : row.dueDateDefaulted,
       currency,
       amountNet: new D(net),
       vatAmount: new D(vat),
