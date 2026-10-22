@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { AppError } from "@/kernel/errors/app-error";
 
@@ -14,6 +14,24 @@ export type TablePreferenceData = {
   preferences: Record<string, unknown>;
   updatedAt: Date;
 };
+
+function isJsonObject(v: unknown): v is Prisma.JsonObject {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** The `preferences` JSONB column as read: an object, or `{}` if a row ever held something else. */
+function toPreferences(json: Prisma.JsonValue): Record<string, unknown> {
+  return isJsonObject(json) ? json : {};
+}
+
+/**
+ * The client's preferences as Prisma writes them. The JSON round trip is what Prisma's own serialisation
+ * does (undefined keys dropped, dates as ISO strings); doing it here makes the value JSON by construction.
+ */
+function preferencesToJson(preferences: Record<string, unknown>): Prisma.InputJsonObject {
+  const json: unknown = JSON.parse(JSON.stringify(preferences));
+  return isJsonObject(json) ? json : {};
+}
 
 /**
  * Get table preference for a specific table key.
@@ -41,7 +59,7 @@ export async function getTablePreference(
     data: {
       id: pref.id,
       tableKey: pref.tableKey,
-      preferences: pref.preferences as Record<string, unknown>,
+      preferences: toPreferences(pref.preferences),
       updatedAt: pref.updatedAt,
     },
   };
@@ -57,9 +75,7 @@ export async function upsertTablePreference(
   tableKey: string,
   preferences: Record<string, unknown>,
 ): Promise<ServiceResult<TablePreferenceData>> {
-  // Cast to satisfy Prisma InputJsonValue — Record<string, unknown> is always valid JSON
-  // biome-ignore lint/suspicious/noExplicitAny: Prisma Json type requires compatible cast
-  const jsonPreferences = preferences as any;
+  const jsonPreferences = preferencesToJson(preferences);
 
   const result = await prisma.tablePreference.upsert({
     where: {
@@ -82,7 +98,7 @@ export async function upsertTablePreference(
     data: {
       id: result.id,
       tableKey: result.tableKey,
-      preferences: result.preferences as Record<string, unknown>,
+      preferences: toPreferences(result.preferences),
       updatedAt: result.updatedAt,
     },
   };

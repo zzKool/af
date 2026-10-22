@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { Prisma } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -18,6 +19,11 @@ export const rateScheduleSchema = z
   .strict();
 
 export type RateSchedule = z.infer<typeof rateScheduleSchema>;
+
+/** The `rate_schedule` JSONB column as Prisma writes it. */
+function rateScheduleToJson(schedule: RateSchedule): Prisma.InputJsonObject {
+  return { ...schedule };
+}
 
 /**
  * Get all VAT registrations for the tenant (RLS-scoped by middleware).
@@ -86,8 +92,7 @@ export async function createVatRegistration(
         tenantId: caller.tenantId,
         country: input.country,
         vatNumber: input.vatNumber,
-        // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-        rateSchedule: (input.rateSchedule as any) ?? undefined,
+        rateSchedule: input.rateSchedule ? rateScheduleToJson(input.rateSchedule) : undefined,
         createdBy: caller.userId,
         source: caller.source,
       },
@@ -157,11 +162,12 @@ export async function updateVatRegistration(
     };
   }
 
-  const updateData: Record<string, unknown> = {};
+  const updateData: Prisma.VatRegistrationUncheckedUpdateInput = {};
   if (input.vatNumber !== undefined) updateData.vatNumber = input.vatNumber;
   if (input.rateSchedule !== undefined) {
-    // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-    updateData.rateSchedule = input.rateSchedule as any;
+    // null clears the rates: stored as JSON `null`, as it always was (DB NULL is "never set", on create)
+    updateData.rateSchedule =
+      input.rateSchedule === null ? Prisma.JsonNull : rateScheduleToJson(input.rateSchedule);
   }
 
   try {
