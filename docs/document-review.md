@@ -119,7 +119,7 @@ Linked documents cannot be reclassified.
 
 ## Key Files
 
-- `src/modules/documents/documents.ts` — service methods (getDocumentForReview, updateDocumentCorrections, classifyDocument, markDocumentReviewed, refreshSignedUrl)
+- `src/modules/documents/review.ts` — service methods (getDocumentForReview, updateDocumentCorrections, classifyDocument, markDocumentReviewed, refreshSignedUrl); `ocr-payload.ts` — `parseOcrPayload` (the `ocr_data` reader) and `resolveDocumentData` (corrections over the OCR facts)
 - `src/modules/documents/documents.actions.ts` — server action wrappers
 - `src/app/(app)/documents/[id]/page.tsx` — server component entry
 - `src/modules/documents/components/document-review-client.tsx` — main orchestrator

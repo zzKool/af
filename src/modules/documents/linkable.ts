@@ -1,7 +1,7 @@
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
 import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
-import { resolveDocumentData } from "./documents";
+import { resolveDocumentData } from "./ocr-payload";
 
 /**
  * Documents are justification targets and belong to partners/contracts. A financial document carries the amount,
