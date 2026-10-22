@@ -8,7 +8,8 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 - [[lessons]] — Findings of the 2026-10-20 → 21 build with their actions: process (e2e ownership, CI logs, the cloud session's environment), code (load cycles through the linking registry, link reads), product gaps, how to work with the agent
 - [[roadmap]] — What is done, what is left to a first real version, what is next, how we work (the spec-kit loop as applied, self-merge when green, the local test loop)
 - [[constitution]] — Rules, import boundaries, linking invariants, portability, definition of done, process
-- [[feature-inventory]] — v1 vs v2 vs Excel: scope, decisions D1–D18, module verdicts, harvest list
+- [[feature-inventory]] — v1 vs v2 vs Excel: scope, decisions D1–D40, module verdicts, harvest list
+- [[ui-conventions]] — Layout (three archetypes, full width), the visual direction "Lakehouse" (D40: tokens light + dark, type, one money format, states vs tags, shell, page anatomy, the docked details panel), the Excel-style DataTable and `ListQuery`, i18n; its checklist form is the `af-design` skill
 - [[excel-to-v3-mapping]] — The owner's tracking Excel mapped column by column to the v3 model
 - [[phase-0]] — Status board of the organisation work before the first business feature
 - [[feature-folders]] — The kernel / modules layout (3a): what lives where, rules enforced now, v2 → 3a path map
