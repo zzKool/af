@@ -15,7 +15,6 @@ export {
   deleteManualEntry,
   manualEntrySchema,
   resolveRate,
-  setBankImplicitRate,
 } from "./journal";
 export {
   categoriseEntryAction,

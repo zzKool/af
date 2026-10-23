@@ -17,7 +17,7 @@ The banking import creates one entry per new transaction: date, description, cou
 **Acceptance Scenarios**:
 
 1. **Given** a CHF transaction of −20 000.00 on 2026-07-08 and ECB CHF→SEK 11.90 that day **When** the entry is created **Then** `amount = −20000.00`, `currency = CHF`, `amount_base = −238000.00`, `rate = 11.900000`, `rate_source = ecb_daily`, `rate_date = 2026-07-08`; **Given** no rate on the day but one on 2026-07-07 **Then** `ecb_nearest` with `rate_date = 2026-07-07`.
-2. **Given** an entry **When** `amount`, `currency`, `amount_base`, `rate`, `rate_source`, `rate_date`, `entry_date`, `source_type` or `source_id` is updated by any route **Then** refused by the database (trigger); `bas_code`, `partner_id`, `note`, `no_document_needed`, `categorised_by`, `rule_id`, `bank_implicit_rate` (set once) are the mutable fields.
+2. **Given** an entry **When** `amount`, `currency`, `amount_base`, `rate`, `rate_source`, `rate_date`, `entry_date`, `source_type` or `source_id` is updated by any route **Then** refused by the database (trigger); `bas_code`, `partner_id`, `note`, `no_document_needed`, `categorised_by`, `rule_id` are the mutable fields.
 3. **Given** a bank transaction **When** its import is deleted **Then** its entry goes with it (banking calls the journal); a manual entry is deleted by hand only.
 4. **Given** two creations for the same source **Then** the second is refused (unique on `(source_type, source_id)`).
 
@@ -59,15 +59,15 @@ The owner sets the BAS category (from the tenant's active set, favourites first,
 ### Edge Cases
 
 - A bank entry's `description` and `counterparty_key` are copies taken at import (the journal never reads banking); they are immutable like the money facts.
-- `bank_implicit_rate` is informational (shown beside the ECB rate, D3 / bas-accounting skill); it never replaces `rate`.
+- the bank implicit rate is informational and derived from the `transfer` link, never stored (T005, F86) (shown beside the ECB rate, D3 / bas-accounting skill); it never replaces `rate`.
 - Entries are never "posted": no debit/credit, no fiscal-year lock (D1). The accountant package reads them.
 - Manual entries in SEK: `rate_source = same_currency`.
 
 ## Requirements *(mandatory)*
 
-- **FR-001** `journal_entries`: `source_type ∈ bank_transaction | manual`, `source_id?` (validated UUID, unique with the type when set), `entry_date`, `description`, `counterparty_key?`, `amount` (signed, 2 dp), `currency`, `amount_base` (2 dp), `rate` (6 dp), `rate_source ∈ same_currency | ecb_daily | ecb_nearest | manual`, `rate_date?`, `bank_implicit_rate?` (6 dp), `bas_code?` (exists in `bas_categories`), `partner_id?`, `note?`, `no_document_needed`, `categorised_by ∈ manual | rule | partner_default` (null = uncategorised), `rule_id?`, template columns. RLS; indexes on `(tenant, entry_date)`, `(tenant, bas_code)`, `(tenant, partner_id)`, `(tenant, source_type, source_id)`.
-- **FR-002** Immutability of the money facts by trigger `journal_entries_lock_money` (refuses changes to the columns of US1-2 and to `bank_implicit_rate` once set); `block_delete_when_linked('journal_entry')`.
-- **FR-003** Service: `createBankEntries(tx, caller, audit, rows[])` (batch; base through `rates.rateToBase`; refused when a rate is missing), `createManualEntry`, `categorise(id, {basCode?, partnerId?, note?, noDocumentNeeded?, by, ruleId?})` with the never-overwrite rules, `setBankImplicitRate(id, rate)` (once), `deleteBySource(sourceType, sourceIds[])`, `deleteManualEntry`. Reads: `entriesForSources(sourceType, ids)` (the banking workbench joins on it), `listJournalEntries` (ListQuery), `distinctJournalValues`, `journalDateHierarchy`, `getJournalEntry`.
+- **FR-001** `journal_entries`: `source_type ∈ bank_transaction | manual`, `source_id?` (validated UUID, unique with the type when set), `entry_date`, `description`, `counterparty_key?`, `amount` (signed, 2 dp), `currency`, `amount_base` (2 dp), `rate` (6 dp), `rate_source ∈ same_currency | ecb_daily | ecb_nearest | manual`, `rate_date?`, `bas_code?` (exists in `bas_categories`), `partner_id?`, `note?`, `no_document_needed`, `categorised_by ∈ manual | rule | partner_default` (null = uncategorised), `rule_id?`, template columns. RLS; indexes on `(tenant, entry_date)`, `(tenant, bas_code)`, `(tenant, partner_id)`, `(tenant, source_type, source_id)`.
+- **FR-002** Immutability of the money facts by trigger `journal_entries_lock_money` (refuses changes to the columns of US1-2); `block_delete_when_linked('journal_entry')`.
+- **FR-003** Service: `createBankEntries(tx, caller, audit, rows[])` (batch; base through `rates.rateToBase`; refused when a rate is missing), `createManualEntry`, `categorise(id, {basCode?, partnerId?, note?, noDocumentNeeded?, by, ruleId?})` with the never-overwrite rules, `deleteBySource(sourceType, sourceIds[])`, `deleteManualEntry`. Reads: `entriesForSources(sourceType, ids)` (the banking workbench joins on it), `listJournalEntries` (ListQuery), `distinctJournalValues`, `journalDateHierarchy`, `getJournalEntry`.
 - **FR-004** `journal_entry` registers as linkable (label `2026-03-01 · 1 200.00 EUR · Prepaid licence`, amount `|amount|`, currency) — only manual entries are offered as link sources; bank entries are reached through their transaction.
 - **FR-005** Every write audited; the owner writes, the accountant reads (`can(read, journal_entry)` — new resource in `can.ts`).
 - **FR-006** Page `/journal` (part 2): `ListPage` + `JournalTable` + *New entry* dialog + side panel with the categorise form (shared component with the banking workbench). Nav *Journal* for owner and accountant. Strings `journal.*` en + fr.

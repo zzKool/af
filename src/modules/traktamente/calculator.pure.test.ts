@@ -8,10 +8,10 @@ import { Prisma } from "@/generated/prisma/browser";
 import {
   computePerDiem,
   countDays,
-  nextDate,
   PerDiemError,
   perDiemDescription,
   perDiemNote,
+  rateYearBounds,
   toLocal,
 } from "./calculator";
 import type { RateRow } from "./types";
@@ -94,8 +94,16 @@ describe("countDays — day-count-cases.json, the v3 column (US1)", () => {
     // summer: 10:30 UTC = 12:30 Stockholm → a half departure day
     const r = countDays(new Date("2026-07-01T10:30:00Z"), new Date("2026-07-02T20:00:00Z"));
     expect(r.perDay.map((d) => d.kind)).toEqual(["half", "full"]);
-    expect(nextDate("2026-10-25")).toBe("2026-10-26");
-    expect(nextDate("2026-12-31")).toBe("2027-01-01");
+    // the days step on the date string: the DST change (2026-10-25) and the year end never skip or repeat a day
+    expect(countDays("2026-10-24T10:00", "2026-10-26T20:00").perDay.map((d) => d.date)).toEqual([
+      "2026-10-24",
+      "2026-10-25",
+      "2026-10-26",
+    ]);
+    expect(countDays("2026-12-31T10:00", "2027-01-01T20:00").perDay.map((d) => d.date)).toEqual([
+      "2026-12-31",
+      "2027-01-01",
+    ]);
     expect(() => countDays("2026-03-10T10:00", "2026-03-10T09:00")).toThrow(/after the departure/);
   });
 });
@@ -302,5 +310,13 @@ describe("property (SC-002)", () => {
       ),
       { numRuns: 200 },
     );
+  });
+});
+
+describe("rateYearBounds — a rate year in Stockholm, not UTC (audit 28)", () => {
+  it("runs from 1 January 00:00 to the next 1 January 00:00, Stockholm time", () => {
+    const { from, to } = rateYearBounds(2026);
+    expect(from.toISOString()).toBe("2025-12-31T23:00:00.000Z");
+    expect(to.toISOString()).toBe("2026-12-31T23:00:00.000Z");
   });
 });
