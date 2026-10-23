@@ -18,6 +18,7 @@ import {
   setupOwner,
   storage,
 } from "@/modules/expenses/__fixtures__/harness";
+import { createManualEntry } from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
@@ -988,12 +989,17 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
   it("one allocated sum (audit 6): a bank row and a journal entry both count — list, detail, payments' open agree", async () => {
     const si = await create(julyInvoice());
     const bankRow = await chfRow("2026-03-20", "-600.00");
-    const otherRow = await chfRow("2026-03-21", "-300.00");
-    const entry = await adminPool.query(`SELECT id FROM journal_entries WHERE source_id = $1`, [
-      otherRow,
-    ]);
-    const entryId: string = entry.rows[0].id;
     await run(owner.caller, async (tx) => {
+      // a manual journal entry — a bank entry is reached through its transaction, never a link source (FR-004)
+      const manual = await createManualEntry(tx, owner.caller, noopAudit, {
+        entryDate: "2026-03-21",
+        description: "Paid from the private account",
+        amount: "-300.00",
+        currency: "CHF",
+        rate: "11.5",
+      });
+      expect(manual.error).toBeUndefined();
+      const entryId = manual.data!.id;
       const paid = await recordPayment(tx, owner.caller, noopAudit, {
         invoiceId: si.data!.id,
         bankTransactionId: bankRow,

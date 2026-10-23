@@ -34,7 +34,7 @@ Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_
 - `index.ts`: service, schemas, queries, actions, `journalEntryLinkable`, DTOs.
 - `ui.ts`: actions + types.
 - Actions: reads on `authedAction` + `can(read, journal_entry)`; `createManualEntryAction`, `categoriseEntryAction`, `deleteManualEntryAction` on `ownerAction`.
-- Linkable: manual entries carry `|amount|` and can be the source of a `justifies` link; bank entries are reached through their transaction.
+- Linkable: manual entries carry `|amount|` and can be the source of a `justifies` link; bank entries are reached through their transaction — `exists` answers false for them, so `createLink` refuses a bank entry as an endpoint (T001: the same movement allocated twice otherwise).
 
 ## Page (part 2)
 
