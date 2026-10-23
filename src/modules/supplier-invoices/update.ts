@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/browser";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import * as settings from "@/modules/settings";
@@ -11,7 +12,7 @@ import { iso, toLineDto, toSupplierInvoiceDto } from "./dto";
 import { invalid, notFound, violation } from "./errors";
 import { rebase } from "./rate-base";
 import { type UpdateSupplierInvoiceInput, updateSupplierInvoiceSchema } from "./schemas";
-import { addDays, DEFAULT_PAYMENT_TERMS_DAYS } from "./status";
+import { DEFAULT_PAYMENT_TERMS_DAYS } from "./status";
 import type { SupplierInvoiceDto } from "./types";
 import {
   checkAmounts,
