@@ -106,9 +106,10 @@ test.describe("Page screenshots", () => {
         await shoot(page, `partner-contacts-${scheme}`);
       });
 
-      // F87: the expense dialog with a partner picked (its category proposed), the dialog from a document with
-      // the match card, the list's Partner column, the partner's Expenses tab — the expenses journey leaves
-      // "E2E Bistro …" with one expense behind
+      // F87: the expense dialog with a partner picked (its category proposed), the list's Partner column, the
+      // partner's Expenses tab — the expenses journey leaves "E2E Bistro …" with one expense behind. The dialog
+      // from a document (the match card) is not shot here: it needs a document no other journey takes meanwhile
+      // (it raced document-review on main, 2026-10-24) — its screenshots are in specs/expense-partner/screenshots/
       test(`screenshot expense-partner-dialog (${scheme})`, async ({ page }) => {
         mkdirSync("e2e-screenshots", { recursive: true });
         await page.goto("/expenses");
@@ -120,21 +121,6 @@ test.describe("Page screenshots", () => {
         test.skip((await bistro.count()) === 0, "no E2E Bistro vendor");
         await bistro.click();
         await shoot(page, `expense-partner-dialog-${scheme}`);
-      });
-
-      test(`screenshot expense-partner-card (${scheme})`, async ({ page }) => {
-        mkdirSync("e2e-screenshots", { recursive: true });
-        await page.goto("/documents/inbox");
-        const first = page
-          .locator('main a[href^="/documents/"]:not([href="/documents/inbox"])')
-          .first();
-        test.skip((await first.count()) === 0, "no document in the inbox");
-        await page.goto((await first.getAttribute("href")) ?? "/documents");
-        const makeIt = page.getByTestId("make-it-expense");
-        test.skip((await makeIt.count()) === 0, "the document already became something");
-        await makeIt.click();
-        await page.getByTestId("partner-match").waitFor();
-        await shoot(page, `expense-partner-card-${scheme}`);
       });
 
       test(`screenshot expense-partner-list (${scheme})`, async ({ page }) => {
