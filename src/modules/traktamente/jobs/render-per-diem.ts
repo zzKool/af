@@ -61,10 +61,13 @@ export async function renderPerDiem(
     });
     if (stored.error) throw new Error(`traktamente.render-per-diem: ${stored.error.message}`);
     // an earlier breakdown's created_from link goes (one document per entity); the document itself stays
-    const previous = await tx.link.findMany({
-      where: { kind: "created_from", fromType: "expense", fromId: target.expense.id },
-      select: { id: true },
+    const touching = await linking.linksTouching(tx, "expense", [target.expense.id], {
+      kinds: ["created_from"],
     });
+    // the expense's own (from it); a link pointing at it stays
+    const previous = touching.filter(
+      (l) => l.from.type === "expense" && l.from.id === target.expense.id,
+    );
     for (const l of previous) {
       const removed = await linking.removeLink(tx, caller, audit, l.id);
       if (removed.error) throw new Error(`traktamente.render-per-diem: ${removed.error.message}`);
