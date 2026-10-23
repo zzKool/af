@@ -296,24 +296,24 @@ describe("getRate", () => {
 describe("countWeekdaysBetween", () => {
   it("Friday → Monday is 0 missing weekdays (normal weekend)", () => {
     // 2026-03-13 is Friday, 2026-03-16 is Monday
-    const count = countWeekdaysBetween(new Date("2026-03-13"), new Date("2026-03-16"));
+    const count = countWeekdaysBetween("2026-03-13", "2026-03-16");
     expect(count).toBe(0);
   });
 
   it("Friday → Wednesday is 2 missing weekdays (Monday + Tuesday)", () => {
     // 2026-03-13 is Friday, 2026-03-18 is Wednesday
-    const count = countWeekdaysBetween(new Date("2026-03-13"), new Date("2026-03-18"));
+    const count = countWeekdaysBetween("2026-03-13", "2026-03-18");
     expect(count).toBe(2);
   });
 
   it("Friday → Thursday is 3 missing weekdays (Mon + Tue + Wed)", () => {
     // 2026-03-13 is Friday, 2026-03-19 is Thursday
-    const count = countWeekdaysBetween(new Date("2026-03-13"), new Date("2026-03-19"));
+    const count = countWeekdaysBetween("2026-03-13", "2026-03-19");
     expect(count).toBe(3);
   });
 
   it("Monday → Tuesday is 0 missing weekdays (consecutive)", () => {
-    const count = countWeekdaysBetween(new Date("2026-03-16"), new Date("2026-03-17"));
+    const count = countWeekdaysBetween("2026-03-16", "2026-03-17");
     expect(count).toBe(0);
   });
 });

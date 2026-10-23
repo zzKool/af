@@ -3,6 +3,5 @@
 // Never import this file from a client component — use ./ui for components and stores.
 
 export type { DashboardData } from "./dashboard";
-export { getDashboardDataAction } from "./dashboard.actions";
 export * from "./queries";
 export type * from "./types";
