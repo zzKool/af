@@ -3,6 +3,7 @@
 // in two steps like the invoices list: Prisma filters the stored columns, the journal facts and allocations
 // are joined over that set, and the derived filters / search / sort / page run in memory (cap 20 000 rows).
 import { Prisma } from "@/generated/prisma/browser";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -15,7 +16,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
-import { settlementTolerance } from "@/kernel/money/settlement";
+import { isSettled } from "@/kernel/money/settlement";
 import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
@@ -170,7 +171,7 @@ export function deriveTransactionState(input: {
   const abs = new D(input.amount).abs();
   const allocated = new D(input.allocated);
   if (allocated.lte(0)) return "open";
-  if (allocated.gte(abs.minus(settlementTolerance(abs)))) return "linked";
+  if (isSettled(abs, [allocated])) return "linked";
   return "partial";
 }
 
@@ -644,8 +645,7 @@ export async function rawRowsForPeriod(
   period: { from: string; to: string; by: "booking" | "import"; role?: BankAccountRole },
 ): Promise<RawPeriodRow[]> {
   const from = new Date(`${period.from}T00:00:00Z`);
-  const toExclusive = new Date(`${period.to}T00:00:00Z`);
-  toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
+  const toExclusive = new Date(`${addDays(period.to, 1)}T00:00:00Z`);
   const rows = await tx.bankTransaction.findMany({
     where: {
       ...(period.by === "booking"
