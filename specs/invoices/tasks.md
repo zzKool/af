@@ -57,5 +57,14 @@
 
 - [x] T032 States → `<StateLabel>` through one map (`state-family.ts`, `InvoiceStateLabel`); on-screen money → `formatMoney` (list, title meta, side panel, related; the sheet keeps `formatCurrency`); keys → `<CodeChip>`; type / currency / VAT period → `<Tag>`; ⋮ `rowActions`; the page's aside → `InvoiceDetails` (`DetailsSection`s); one primary per title row (`NewDocumentButton` *New invoice ▾ New quote*; on the page *Issue* or the `<SplitButton>` *Create credit note / Convert to invoice ▾ Copy*); `quickFilter` Date (the Month tree) and Client (`partnerName` → enum); footer Σ never across currencies (`list-sums.ts`); lesson 19 (b) — `vat-treatment.ts` takes `RateSchedule | null`, no cast. Tests: `state-family.pure.test.ts`, `list-sums.pure.test.ts`, `print-identity.pure.test.tsx` (baseline committed before the change); `e2e/linking.spec.ts` reads `data-amount`. Left: a copy button on a key title and *History* in the panel (no kit piece / no key — F74), the English column headers *Issued at · Sent at · Created · Updated* (F74, i18n)
 
+## Lane 5 — cleanup round (lessons audit 22 · 27 · 29–31, contracts T024) · DIRECT, behaviour-neutral, one PR each
+
+- [x] T033 `feat/invoices-exports` — exports other modules asked for: `signedTotal` / `creditSign` (`signed.ts`), `DEFAULT_PAYMENT_TERMS_DAYS` + `QUOTE_VALIDITY_DAYS` (`defaults.ts`; the three literal 30s), `creditedSum(ids)` (`credited.ts`; `queries.ts` and `issue.ts`'s credit limit use it), `ratePricingFromInvoiceLines` → `{ lines, lastPeriodStart }` (`rate-usage.ts`, for contracts T024 — contracts wires it). Tests: `signed.pure.test.ts` (property: an invoice and its full credit note net to 0), DB: `creditedSum` (drafts left out), `ratePricing` (line period → document period → issue date)
+- [ ] T034 `queries.ts` allocations → `linking.allocatedSums` (no `tx.link` in the module; `settles` never targets an invoice, so the kinds filter changes nothing)
+- [ ] T035 audit 27 adoption: `derive.ts` `remainingAmount` → the kernel's `openAmount`; `components/sheet-document.ts` `daysBetween` → `daysUntil`
+- [ ] T036 audit 29: `printedReferences` / `printedParties` / `vatByRate` parsed on read (a read mapper per column) and written through a write mapper
+- [ ] T037 audit 30: currencies parsed, not cast
+- [ ] T038 audit 31: `invoices.test.ts` uses banking's real `bank_transaction` linkable instead of the fake
+
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.
