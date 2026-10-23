@@ -533,3 +533,36 @@ describe("bas preferences actions", () => {
     expect(result?.serverError).toMatchObject({ code: "UNAUTHORIZED" });
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// isBasActivated — the read API partners asks (audit 25)
+// ─────────────────────────────────────────────────────────────
+describe("isBasActivated", () => {
+  it("is false before activation, true after, false again once deactivated", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const asked = () => withTenantTransaction(prisma, tenantId, (tx) => basService.isBasActivated(tx, "501"));
+
+    expect(await asked()).toBe(false);
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]),
+    );
+    expect(await asked()).toBe(true);
+    await withTenantTransaction(prisma, tenantId, (tx) =>
+      basService.deactivateBasCategory(tx, owner.callerIdentity, noopAudit, "501"),
+    );
+    expect(await asked()).toBe(false);
+  });
+
+  it("does not see another tenant's activation (RLS)", async () => {
+    const a = await createAuthenticatedContext(auth, "owner");
+    const b = await createAuthenticatedContext(auth, "owner");
+    await withTenantTransaction(prisma, a.callerIdentity.tenantId, (tx) =>
+      basService.activateBasCategories(tx, a.callerIdentity, noopAudit, ["620"]),
+    );
+    const seenByB = await withTenantTransaction(prisma, b.callerIdentity.tenantId, (tx) =>
+      basService.isBasActivated(tx, "620"),
+    );
+    expect(seenByB).toBe(false);
+  });
+});
