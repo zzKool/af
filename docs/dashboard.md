@@ -60,7 +60,7 @@ page.tsx ── withTenantTransaction (one interactive transaction, the reads on
    └─ overview.ts   dashboardOverview(tx, caller, today, since)   items · pulse · briefing
 ```
 
-`getDashboardData` takes two clients on purpose: the base `prisma` for Better Auth's `user` and `session` (no `tenant_id`, outside RLS) and `tx` for the tenant row. Open gaps: *Convergence* below.
+`getDashboardData` takes two clients on purpose: the base `prisma` for Better Auth's `user` and `session` (no `tenant_id`, outside RLS) and `tx` for the tenant row. The `tx` read is never caught: a failed statement aborts the page's one transaction, so an error reaches `error.tsx` with its first cause, not as an empty company name and a misleading *current transaction is aborted* on the next read (T001). The base-client `session` read keeps its fallback (no last login). The header has no partner or contract counts — nothing rendered them (lessons audit 25). Open gaps: *Convergence* below.
 
 ## The overview — `overview.ts` (v3, feature inventory §3.14)
 
@@ -92,7 +92,7 @@ The suspects (the briefing's audit read, the rates gap check) are cheap; the 2.5
 
 ## Convergence (F79, 2026-10-23)
 
-`specs/dashboard/tasks.md` Phase 1: T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`), ~~T002 the quarter's name and the *main* role re-stated here~~ (2026-10-23), ~~T003 SC-001's world misses four item kinds~~ (2026-10-23), T004 the briefing's English entity names and two missing actions (i18n), T005 the page's dates, T006 the *due within 14 days* link unfiltered. Owned elsewhere: F66 (the partner / contract counts), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
+`specs/dashboard/tasks.md` Phase 1: ~~T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`)~~ (2026-10-23), ~~T002 the quarter's name and the *main* role re-stated here~~ (2026-10-23), ~~T003 SC-001's world misses four item kinds~~ (2026-10-23), T004 the briefing's English entity names and two missing actions (i18n), T005 the page's dates, T006 the *due within 14 days* link unfiltered. Owned elsewhere: ~~F66 (the partner / contract counts)~~ (gone with T001), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
 
 ## Related
 

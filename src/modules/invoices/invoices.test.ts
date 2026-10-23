@@ -15,9 +15,11 @@ import * as linking from "@/modules/linking";
 import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { creditedSum } from "./credited";
 import * as invoices from "./invoices";
 import { invoiceLinkable } from "./linkable";
 import * as queries from "./queries";
+import { ratePricingFromInvoiceLines, rateUsageFromInvoiceLines } from "./rate-usage";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 function realAudit(tx: TransactionClient, caller: CallerIdentity): AuditLogger {
@@ -592,6 +594,74 @@ describe("US4 — quotes", () => {
         status: "draft",
         relatedInvoiceId: null,
         number: null,
+      });
+    });
+  });
+});
+
+describe("lane 5 — the module's exports (lessons audit 27, contracts T024)", () => {
+  it("creditedSum: Σ issued credit notes per original, drafts left out", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const d = await januaryDraft(caller, w);
+    const other = await januaryDraft(caller, w);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      await invoices.issue(tx, caller, noopAudit, NOW, { id: d.id });
+      await invoices.issue(tx, caller, noopAudit, NOW, { id: other.id });
+      const lineId = (await queries.getInvoice(tx, d.id, TODAY)).data?.lines[0].id as string;
+      const credit = (quantity: string) =>
+        invoices.createCreditNote(tx, caller, noopAudit, TODAY, {
+          originalId: d.id,
+          lines: [{ lineId, quantity }],
+        });
+      const five = await credit("5");
+      await invoices.issue(tx, caller, noopAudit, NOW, { id: five.data?.id as string });
+      const two = await credit("2");
+      await invoices.issue(tx, caller, noopAudit, NOW, { id: two.data?.id as string });
+      await credit("1"); // a draft: not a credit yet
+      const sums = await creditedSum(tx, [d.id, other.id]);
+      expect(sums.get(d.id)).toBe("9080.40"); // (5 + 2) × 1 200 × 1.081
+      expect(sums.has(other.id)).toBe(false);
+      expect((await creditedSum(tx, [])).size).toBe(0);
+    });
+  });
+
+  it("ratePricingFromInvoiceLines: lines priced on a rate and the last day priced", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const jan = await januaryDraft(caller, w);
+    const rateId = jan.lines[0].rateSourceId as string;
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      expect(await ratePricingFromInvoiceLines(tx, rateId)).toEqual({
+        lines: 1,
+        lastPeriodStart: "2026-01-01", // no line period → the document's period start
+      });
+      // a March draft priced on the same rate, its line carrying its own period
+      const march = await invoices.createDraft(tx, caller, noopAudit, TODAY, {
+        partnerId: w.partnerId,
+        contractId: w.contractId,
+        issueDate: "2026-03-31",
+        periodStart: "2026-03-01",
+        periodEnd: "2026-03-31",
+      });
+      expect(march.data?.lines[0]).toMatchObject({
+        rateSourceId: rateId,
+        periodStart: "2026-03-01",
+      });
+      // no period at all → the issue date
+      await invoices.createDraft(tx, caller, noopAudit, TODAY, {
+        partnerId: w.partnerId,
+        contractId: w.contractId,
+        issueDate: "2026-02-15",
+      });
+      expect(await ratePricingFromInvoiceLines(tx, rateId)).toEqual({
+        lines: 3,
+        lastPeriodStart: "2026-03-01",
+      });
+      expect(await rateUsageFromInvoiceLines(tx, rateId)).toBe(3);
+      expect(await ratePricingFromInvoiceLines(tx, crypto.randomUUID())).toEqual({
+        lines: 0,
+        lastPeriodStart: null,
       });
     });
   });

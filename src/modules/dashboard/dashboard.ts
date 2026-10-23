@@ -24,10 +24,14 @@ export type DashboardData = {
   companyName: string | null;
   lastLoginAt: string | null;
   role: string;
-  partnerCount: number;
-  activeContractCount: number;
 };
 
+/**
+ * The page header. The `tx` read is not caught: the page runs every read in one interactive transaction, and a
+ * failed statement aborts it — swallowing the error here would hide the first cause behind the next read's
+ * "current transaction is aborted". The base-client reads (`user`, `session`) run outside that transaction and
+ * keep their fallback.
+ */
 export async function getDashboardData(
   prisma: PrismaClient,
   tx: TransactionClient,
@@ -39,17 +43,11 @@ export async function getDashboardData(
     select: { name: true },
   });
 
-  // Fetch company name from tenant table (RLS-scoped)
-  let companyName: string | null = null;
-  try {
-    const tenant = await tx.tenant.findUnique({
-      where: { id: caller.tenantId },
-      select: { name: true },
-    });
-    companyName = tenant?.name ?? null;
-  } catch {
-    // Graceful degradation — show greeting without company name
-  }
+  // Company name from the tenant row (RLS-scoped) — throws with the transaction
+  const tenant = await tx.tenant.findUnique({
+    where: { id: caller.tenantId },
+    select: { name: true },
+  });
 
   // Last login: second most recent session (skip current session)
   let lastLoginAt: string | null = null;
@@ -64,27 +62,13 @@ export async function getDashboardData(
       lastLoginAt = sessions[1].createdAt.toISOString();
     }
   } catch {
-    // Graceful degradation — hide last login field
-  }
-
-  // Fetch partner and contract counts (RLS-scoped)
-  let partnerCount = 0;
-  let activeContractCount = 0;
-  try {
-    [partnerCount, activeContractCount] = await Promise.all([
-      tx.partner.count({ where: { isActive: true } }),
-      tx.contract.count({ where: { isActive: true } }),
-    ]);
-  } catch {
-    // Graceful degradation — show dashboard without counts
+    // Graceful degradation — hide last login field (base client, outside the tenant transaction)
   }
 
   return {
     userName: user?.name ?? "User",
-    companyName,
+    companyName: tenant?.name ?? null,
     lastLoginAt,
     role: caller.role,
-    partnerCount,
-    activeContractCount,
   };
 }
