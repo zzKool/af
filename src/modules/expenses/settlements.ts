@@ -426,10 +426,9 @@ export async function cancelSettlement(
   const row = await tx.settlement.findUnique({ where: { id }, include: { lines: true } });
   if (!row) return { error: notFound("Settlement", id) };
   if (row.status === "cancelled") return { error: violation(`${row.number} is already cancelled`) };
-  const links = await tx.link.findMany({
-    where: { kind: "settles", toType: "settlement", toId: id },
-    select: { id: true },
-  });
+  const links = (
+    await linking.linksTouching(tx, "settlement", [id], { kinds: ["settles"] })
+  ).filter((l) => l.to.type === "settlement" && l.to.id === id);
   for (const l of links) {
     const removed = await linking.removeLink(tx, caller, audit, l.id);
     if (removed.error) return { error: removed.error };
