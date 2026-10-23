@@ -1,6 +1,8 @@
 // Derived status (FR-003, US2-6) — pure.
 import { describe, expect, it } from "vitest";
-import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
+import { addDays } from "@/kernel/clock/calendar";
+import { openAmount } from "@/kernel/money/settlement";
+import { deriveSupplierInvoiceStatus } from "./status";
 
 const base = { cancelled: false, total: "1297.20", dueDate: "2026-08-23" };
 

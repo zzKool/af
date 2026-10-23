@@ -22,3 +22,4 @@
 ## Cleanup lane 7 (2026-10-23, lessons audit 23 / 25 / 26 / 29 / 30 — DIRECT, behaviour-neutral)
 
 - [x] T016 `PackageBuildStatus` pinned to the Postgres enum: `toBuildDto` reads `row.status` without a cast (a member the DTO list lacks no longer compiles), `state-family.pure.test.ts` holds `PACKAGE_BUILD_STATUSES` equal to the enum (lessons audit 30) — *`feat/package-build-status-enum`*
+- [x] T017 A build's `counts` parsed on read: `parsePackageCounts` (`counts.ts`, pure — a known key holding a whole non-negative number, else 0; other keys dropped; not an object → no counts) in `toBuildDto` instead of `as Partial<PackageCounts>`; `counts.pure.test.ts` (round trip, older rows, bad values) (lessons audit 29) — *`feat/package-counts-parse`*

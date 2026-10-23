@@ -4,6 +4,7 @@
 import { Prisma } from "@/generated/prisma/browser";
 import { getAuditLog } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -16,6 +17,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import { openAmount } from "@/kernel/money/settlement";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
@@ -26,7 +28,7 @@ import * as settings from "@/modules/settings";
 import { allocatedSums } from "./allocated";
 import { historyEvent, type SupplierInvoiceHistoryEntry } from "./history";
 import { supplierInvoiceListSums } from "./list-sums";
-import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
+import { deriveSupplierInvoiceStatus } from "./status";
 import { toSupplierInvoiceDto } from "./supplier-invoices";
 import type {
   SupplierInvoiceDto,
@@ -358,11 +360,8 @@ export async function getSupplierInvoiceDetail(
   const origin = all.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: SupplierInvoiceDetail["document"] = null;
   if (origin) {
-    const d = await tx.document.findUnique({
-      where: { id: origin.to.id },
-      select: { id: true, businessKey: true, fileName: true },
-    });
-    document = d ?? null;
+    const d = (await documents.getDocument(tx, origin.to.id)).data;
+    document = d ? { id: d.id, businessKey: d.businessKey, fileName: d.fileName } : null;
   }
   const payments: SupplierInvoicePayment[] = [];
   for (const l of withLabels) {
