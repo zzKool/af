@@ -9,7 +9,8 @@ import { expect, type Page, test } from "@playwright/test";
 async function openOwnDocument(page: Page): Promise<void> {
   await page.goto("/documents");
   await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
-  const stamp = String(Date.now()).slice(-6);
+  // random, not the clock: parallel journeys starting in the same millisecond would upload the same bytes (a duplicate)
+  const stamp = crypto.randomUUID().slice(0, 8);
   const name = `e2e-review-${stamp}.pdf`;
   await page.locator('input[type="file"]').setInputFiles({
     name,
