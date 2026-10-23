@@ -30,7 +30,7 @@ export type {
   DocumentSort,
 } from "@/modules/documents/documents";
 
-import { uuid } from "@/kernel/validation/scalars";
+import { isoDate, uuid } from "@/kernel/validation/scalars";
 
 const uploadSchema = zfd.formData({
   file: zfd.file(
@@ -193,8 +193,8 @@ const documentsQuerySchema = z.object({
       status: z.array(z.string()).optional(),
       documentType: z.array(z.string()).optional(),
       prefixType: z.array(z.string()).optional(),
-      dateFrom: z.string().optional(),
-      dateTo: z.string().optional(),
+      dateFrom: isoDate.optional(),
+      dateTo: isoDate.optional(),
       search: z.string().max(200).optional(),
     })
     .optional(),
