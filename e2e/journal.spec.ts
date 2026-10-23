@@ -43,6 +43,11 @@ test.describe("Journal — owner writes, accountant reads", () => {
     await expect(panel.getByTestId("journal-proof")).toContainText("Not linked to anything yet.");
     await expect(panel.getByTestId("journal-link-to")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Delete entry" })).toBeVisible();
+    // F71: the panel's sections (About · Proof · Categorisation · History) — History collapsed, its trail on open
+    await expect(panel.getByTestId("journal-panel-state")).toHaveAttribute("data-state", "none");
+    await panel.getByRole("button", { name: "History" }).click();
+    await expect(panel.getByTestId("journal-history-item")).toHaveCount(1);
+    await expect(panel.getByTestId("journal-history-item")).toContainText("Created");
     await snap(page, "journal-manual-entry-panel");
 
     // 3. the accountant: the same entry, read only

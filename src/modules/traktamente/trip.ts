@@ -20,25 +20,9 @@ import {
   perDiemNote,
   TENANT_ZONE,
 } from "./calculator";
+import { invalid, notFound, violation } from "./errors";
 import { ratesForYears } from "./rates";
 import type { PerDiemResult, PerDiemWarning, TripDto } from "./types";
-
-const violation = (message: string, details?: Record<string, string | number>): AppError => ({
-  code: "BUSINESS_RULE_VIOLATION",
-  message,
-  retryable: false,
-  ...(details ? { details } : {}),
-});
-const invalid = (message: string): AppError => ({
-  code: "VALIDATION_ERROR",
-  message,
-  retryable: false,
-});
-const notFound = (what: string, id: string): AppError => ({
-  code: "NOT_FOUND",
-  message: `${what} not found: ${id}`,
-  retryable: false,
-});
 
 const count = z.number().int().min(0).max(999);
 
