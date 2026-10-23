@@ -6,6 +6,7 @@ import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { uuid } from "@/kernel/validation/scalars";
 import * as journal from "@/modules/journal/journal";
+import { linkEntry, linkEntrySchema } from "@/modules/journal/links";
 import {
   distinctJournalValues,
   getJournalEntry,
@@ -80,4 +81,12 @@ export const deleteManualEntryAction = ownerAction
   .metadata({ name: "deleteManualJournalEntry" })
   .action(async ({ ctx, parsedInput }) => {
     return journal.deleteManualEntry(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
+  });
+
+/** *Link to…* on a manual entry's panel (T003): a document or a client invoice, the allocation proposed. */
+export const linkEntryAction = ownerAction
+  .schema(linkEntrySchema)
+  .metadata({ name: "linkJournalEntry" })
+  .action(async ({ ctx, parsedInput }) => {
+    return linkEntry(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
   });

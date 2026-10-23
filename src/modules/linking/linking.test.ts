@@ -20,7 +20,7 @@ import { documentLinkable } from "@/modules/documents";
 import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/linking";
 import { partnerLinkable } from "@/modules/partners";
 import * as linking from "./linking";
-import { createdFromTargets } from "./queries";
+import { allocatedFrom, createdFromTargets, linksTouching } from "./queries";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 
@@ -355,6 +355,47 @@ describe("linking service", () => {
         allocatedAmount: "1.00",
       });
       expect(partnerLike.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    });
+  });
+
+  it("allocatedFrom: Σ of the allocations from each source, allocating kinds only; linksTouching narrowed by kind", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const [a, b, idle] = [uuid(), uuid(), uuid()];
+    for (const id of [a, b, idle]) fakeTransactions.add(id);
+    const [inv1, inv2] = [uuid(), uuid()];
+    fakeInvoices.set(inv1, { label: "VA26-INV-001", amount: "1000.00", currency: "CHF" });
+    fakeInvoices.set(inv2, { label: "VA26-INV-002", amount: "1000.00", currency: "CHF" });
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const link = (from: string, to: string, allocatedAmount?: string) =>
+        linking.createLink(tx, caller, noopAudit, {
+          from: { type: "bank_transaction", id: from },
+          to: { type: "invoice", id: to },
+          kind: "justifies",
+          ...(allocatedAmount ? { allocatedAmount, currency: "CHF" } : {}),
+        });
+      expect((await link(a, inv1, "250.50")).error).toBeUndefined();
+      expect((await link(a, inv2, "100.25")).error).toBeUndefined();
+      expect((await link(b, inv1)).error).toBeUndefined(); // no allocation: not counted
+      // a transfer carries no allocation and is not an allocating kind
+      expect(
+        (
+          await linking.createLink(tx, caller, noopAudit, {
+            from: { type: "bank_transaction", id: b },
+            to: { type: "bank_transaction", id: idle },
+            kind: "transfer",
+          })
+        ).error,
+      ).toBeUndefined();
+      const sums = await allocatedFrom(tx, "bank_transaction", [a, b, idle]);
+      expect(Object.fromEntries(sums)).toEqual({ [a]: "350.75" });
+      // linksTouching narrowed by kind
+      const transfers = await linksTouching(tx, "bank_transaction", [a, b], {
+        kinds: ["transfer"],
+      });
+      expect(transfers.map((l) => [l.kind, l.from.id, l.to.id])).toEqual([["transfer", b, idle]]);
+      expect(await linksTouching(tx, "bank_transaction", [a, b])).toHaveLength(4);
+      expect((await allocatedFrom(tx, "journal_entry", [a])).size).toBe(0); // the type is part of the key
+      expect((await allocatedFrom(tx, "bank_transaction", [])).size).toBe(0);
     });
   });
 

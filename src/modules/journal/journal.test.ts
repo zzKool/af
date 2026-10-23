@@ -16,6 +16,8 @@ import {
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as linking from "@/modules/linking";
 import * as journal from "./journal";
+import { linkEntry } from "./links";
+import { deriveLinksState } from "./links-state";
 import { distinctJournalValues, listJournalEntries } from "./queries";
 
 let mockHeaders: Headers = new Headers();
@@ -549,6 +551,192 @@ describe("edge case — bank_implicit_rate is informational (T005)", () => {
       journal.categorise(tx, caller, noopAudit, entry.id, { note: "exchange" }),
     );
     expect(saved.data?.bankImplicitRate).toBe("11.9");
+  });
+});
+
+/** A financial document whose OCR (corrected) total is `total` in `currency`; no total → no amount. */
+async function documentWith(caller: CallerIdentity, total?: { amount: number; currency: string }) {
+  const doc = await adminPool.query(
+    `INSERT INTO documents (tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type, document_type, status, created_by, updated_at, corrections)
+     VALUES ($1, $2, 'r.pdf', 'https://x', 'application/pdf', 1, 'expense', 'financial', 'uploaded', $3, now(), $4::jsonb) RETURNING id`,
+    [
+      caller.tenantId,
+      `exp_${uuid().slice(0, 8)}`,
+      caller.userId,
+      total ? JSON.stringify({ invoiceTotal: total.amount, currency: total.currency }) : null,
+    ],
+  );
+  return doc.rows[0].id as string;
+}
+
+describe("US3 — a manual entry justified from its panel (T003)", () => {
+  it("Link to… proposes min(entry left, target open); refuses another currency, a used-up entry, a bank entry", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const [a, b, none, eur, late] = [
+      await documentWith(caller, { amount: 300, currency: "SEK" }),
+      await documentWith(caller, { amount: 400, currency: "SEK" }),
+      await documentWith(caller),
+      await documentWith(caller, { amount: 50, currency: "EUR" }),
+      await documentWith(caller, { amount: 10, currency: "SEK" }),
+    ];
+    await run(caller, async (tx) => {
+      const audit = realAudit(tx, caller);
+      const entry = (
+        await journal.createManualEntry(tx, caller, noopAudit, {
+          entryDate: "2026-03-02",
+          description: "Prepaid licences",
+          amount: "-500.00",
+          currency: "SEK",
+        })
+      ).data!;
+      const to = (id: string) => ({ id: entry.id, to: { type: "document" as const, id } });
+      const first = await linkEntry(tx, caller, audit, to(a));
+      expect(first.data).toMatchObject({
+        kind: "justifies",
+        from: { type: "journal_entry", id: entry.id },
+        allocatedAmount: "300.00",
+        currency: "SEK",
+      });
+      expect((await linkEntry(tx, caller, audit, to(eur))).error?.message).toMatch(
+        /document is in EUR, the entry in SEK/,
+      );
+      expect((await linkEntry(tx, caller, audit, to(b))).data?.allocatedAmount).toBe("200.00");
+      expect((await linkEntry(tx, caller, audit, to(none))).data?.allocatedAmount).toBeNull();
+      expect((await linkEntry(tx, caller, audit, to(late))).error?.message).toMatch(/nothing left/);
+
+      const bank = (
+        await journal.createBankEntries(tx, caller, noopAudit, [
+          {
+            sourceId: uuid(),
+            entryDate: "2026-03-02",
+            description: "x",
+            counterpartyKey: "X",
+            amount: "-10.00",
+            currency: "SEK",
+          },
+        ])
+      ).data![0];
+      const refused = await linkEntry(tx, caller, audit, {
+        id: bank.id,
+        to: { type: "document", id: late },
+      });
+      expect(refused.error?.message).toMatch(/justified from its transaction/);
+      // supplier invoices and expenses write their own payments (D37): not a target here
+      const own = await linkEntry(tx, caller, audit, {
+        id: entry.id,
+        to: { type: "supplier_invoice" as "document", id: uuid() },
+      });
+      expect(own.error?.code).toBe("VALIDATION_ERROR");
+    });
+    await assertAuditLogged(adminPool, caller.tenantId, "create", "link");
+  });
+});
+
+describe("US4 — the links state column (T004)", () => {
+  it("deriveLinksState: the flag or a transfer → no document; Σ within the settlement tolerance → justified", () => {
+    const s = (
+      amount: string,
+      allocated: string,
+      extra: Partial<{ inTransfer: boolean; noDocumentNeeded: boolean }> = {},
+    ) =>
+      deriveLinksState({ amount, allocated, inTransfer: false, noDocumentNeeded: false, ...extra });
+    expect(s("-1000.00", "0.00")).toBe("none");
+    expect(s("-1000.00", "994.99")).toBe("partly"); // tolerance max(0.05, 0.5 %) = 5.00
+    expect(s("-1000.00", "995.00")).toBe("justified");
+    expect(s("25000.00", "25000.00")).toBe("justified");
+    expect(s("-5.00", "4.95")).toBe("justified"); // the 0.05 floor
+    expect(s("-5.00", "4.94")).toBe("partly");
+    expect(s("-1000.00", "0.00", { inTransfer: true })).toBe("no_document");
+    expect(s("-1000.00", "1000.00", { noDocumentNeeded: true })).toBe("no_document");
+  });
+
+  it("each row's state from its links — a bank entry from its transaction's, a manual one from its own — and filterable", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const [paid, half, transferA, transferB, flagged, open] = [
+      await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "-300.00" }),
+      await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "-300.00" }),
+      await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "-50.00" }),
+      await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "50.00" }),
+      await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "-9.00" }),
+      await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "-1.00" }),
+    ];
+    const doc = await documentWith(caller, { amount: 600, currency: "SEK" });
+    const ids = await run(caller, async (tx) => {
+      const rows = [paid, half, transferA, transferB, flagged, open].map((sourceId, i) => ({
+        sourceId,
+        entryDate: "2026-07-08",
+        description: `row ${i}`,
+        counterpartyKey: "X",
+        amount: ["-300.00", "-300.00", "-50.00", "50.00", "-9.00", "-1.00"][i] as string,
+        currency: "SEK",
+      }));
+      const entries = (await journal.createBankEntries(tx, caller, noopAudit, rows)).data!;
+      const link = (from: string, allocatedAmount: string) =>
+        linking.createLink(tx, caller, noopAudit, {
+          from: { type: "bank_transaction", id: from },
+          to: { type: "document", id: doc },
+          kind: "justifies",
+          allocatedAmount,
+          currency: "SEK",
+        });
+      expect((await link(paid, "300.00")).error).toBeUndefined();
+      expect((await link(half, "100.00")).error).toBeUndefined();
+      expect(
+        (
+          await linking.createLink(tx, caller, noopAudit, {
+            from: { type: "bank_transaction", id: transferA },
+            to: { type: "bank_transaction", id: transferB },
+            kind: "transfer",
+          })
+        ).error,
+      ).toBeUndefined();
+      await journal.categorise(tx, caller, noopAudit, entries[4]!.id, { noDocumentNeeded: true });
+      const manual = (
+        await journal.createManualEntry(tx, caller, noopAudit, {
+          entryDate: "2026-07-08",
+          description: "manual",
+          amount: "-200.00",
+          currency: "SEK",
+        })
+      ).data!;
+      const other = await documentWith(caller, { amount: 200, currency: "SEK" });
+      expect(
+        (
+          await linkEntry(tx, caller, noopAudit, {
+            id: manual.id,
+            to: { type: "document", id: other },
+          })
+        ).error,
+      ).toBeUndefined();
+      return { entries, manual };
+    });
+    const Q = { page: 1, pageSize: 50, sort: [], filters: {} };
+    const list = await run(caller, (tx) => listJournalEntries(tx, Q));
+    const stateOf = (id: string) => list.rows.find((r) => r.id === id)?.linksState;
+    expect(ids.entries.map((e) => stateOf(e.id))).toEqual([
+      "justified",
+      "partly",
+      "no_document",
+      "no_document",
+      "no_document",
+      "none",
+    ]);
+    expect(stateOf(ids.manual.id)).toBe("justified");
+
+    const filtered = await run(caller, (tx) =>
+      listJournalEntries(tx, {
+        ...Q,
+        filters: { linksState: { kind: "in", values: ["none", "partly"] } },
+      }),
+    );
+    expect(filtered.rows.map((r) => r.linksState).sort()).toEqual(["none", "partly"]);
+    const distinct = await run(caller, (tx) => distinctJournalValues(tx, "linksState", Q));
+    expect(Object.fromEntries(distinct.map((d) => [d.value, d.count]))).toEqual({
+      justified: 2,
+      partly: 1,
+      no_document: 3,
+      none: 1,
+    });
   });
 });
 

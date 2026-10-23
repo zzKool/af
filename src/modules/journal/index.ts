@@ -23,10 +23,13 @@ export {
   distinctJournalValuesAction,
   getJournalEntryAction,
   journalDateHierarchyAction,
+  linkEntryAction,
   listJournalEntriesAction,
 } from "./journal.actions";
 export { journalEntryLinkable } from "./linkable";
+export { ENTRY_LINK_TARGETS, linkEntry, linkEntrySchema } from "./links";
+export { deriveLinksState } from "./links-state";
 export { categoryOptions, partnerOptions } from "./options";
 export * from "./queries";
 export type * from "./types";
-export { JOURNAL_SOURCES, RATE_SOURCES } from "./types";
+export { JOURNAL_SOURCES, LINKS_STATES, RATE_SOURCES } from "./types";

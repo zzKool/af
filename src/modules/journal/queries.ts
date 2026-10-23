@@ -16,6 +16,7 @@ import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { withImplicitRates } from "./implicit-rate";
 import { toJournalEntryDto } from "./journal";
+import { linksStates } from "./links-state";
 import type { JournalListRow } from "./types";
 
 export { entriesForSources, getJournalEntry } from "./journal";
@@ -38,6 +39,7 @@ export const JOURNAL_COLUMNS = {
   noDocumentNeeded: { type: "boolean" },
   categorisedBy: { type: "enum" },
   note: { type: "text", searchable: true },
+  linksState: { type: "enum" },
   createdAt: { type: "date" },
   updatedAt: { type: "date" },
 } as const satisfies ColumnMap;
@@ -49,8 +51,13 @@ export const JOURNAL_DEFAULT_SORT: SortSpec[] = [
   { col: "createdAt", dir: "desc" },
 ];
 
-// bankImplicitRate is derived from the transfer link (T005) — filtered in memory, never on the stored column
-const DERIVED: ReadonlySet<string> = new Set(["partnerName", "basLabel", "bankImplicitRate"]);
+// derived on read — filtered in memory: the bank implicit rate from the transfer link (T005), the links state (T004)
+const DERIVED: ReadonlySet<string> = new Set([
+  "partnerName",
+  "basLabel",
+  "bankImplicitRate",
+  "linksState",
+]);
 const STORED_COLUMNS: ColumnMap = Object.fromEntries(
   Object.entries(JOURNAL_COLUMNS).filter(([k]) => !DERIVED.has(k)),
 );
@@ -76,8 +83,10 @@ async function loadRows(
     settings.basLabels(tx, codes),
   ]);
   const entries = await withImplicitRates(tx, rows.map(toJournalEntryDto));
+  const states = await linksStates(tx, entries);
   const list: JournalListRow[] = entries.map((r) => ({
     ...r,
+    linksState: states.get(r.id)?.state ?? "none",
     partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,
     basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
   }));
