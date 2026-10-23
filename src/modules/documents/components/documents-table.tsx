@@ -229,13 +229,17 @@ export function DocumentsTable({
         // FR-005: what the document became, linking to it; a document only a bank row justifies stays *Linked*
         cell: (row) =>
           row.became ? (
-            <Link href={becameHref(row.became)} data-testid="document-became-link">
+            <Link
+              href={becameHref(row.became)}
+              title={row.became.label ?? undefined}
+              data-testid="document-became-link"
+            >
               <Badge variant="default" className="hover:underline">
                 {t(
                   row.became.type === "expense"
                     ? "documents.became.expense"
                     : "documents.became.supplierInvoice",
-                  { key: row.became.label ?? "" },
+                  { key: row.became.key ?? "" },
                 )}
               </Badge>
             </Link>

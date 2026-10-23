@@ -59,6 +59,8 @@ const ROW_CAP = 20_000;
 export type DocumentBecame = {
   type: "expense" | "supplier_invoice";
   id: string;
+  /** the entity's key (Ex213-Tr-04) and its full label (key · date · amount · text) */
+  key: string | null;
   label: string | null;
 };
 
@@ -176,7 +178,7 @@ export async function listDocuments(
     rows: page.rows.map((r) => {
       const b = became.get(r.id);
       return b && (b.type === "expense" || b.type === "supplier_invoice")
-        ? { ...r, became: { type: b.type, id: b.id, label: b.label } }
+        ? { ...r, became: { type: b.type, id: b.id, key: b.key, label: b.label } }
         : r;
     }),
   };
