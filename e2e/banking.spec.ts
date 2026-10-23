@@ -108,5 +108,19 @@ test.describe("Banking", () => {
     ]) {
       await expect(page.getByTestId("import-row").filter({ hasText: name })).toHaveCount(1);
     }
+
+    // 5. the Months panel (F69): July has rows; a click on its bar is the Month filter, a second click clears it.
+    // The banner's month depends on every journey's data (two workers) — only that it shows is asserted.
+    await page.goto("/banking");
+    const months = page.getByTestId("months-panel");
+    await expect(months).toBeVisible();
+    await expect(page.getByTestId("months-banner")).toBeVisible();
+    const july = months.locator('button[data-month="2026-07"]');
+    await july.click();
+    await expect(page).toHaveURL(/f\.bookingDate=dates(%3A|:)2026-07/);
+    await expect(july).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toBeVisible();
+    await july.click();
+    await expect(page).not.toHaveURL(/f\.bookingDate/);
   });
 });

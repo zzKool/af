@@ -10,7 +10,7 @@ import { settlementTolerance } from "@/kernel/money/settlement";
 import { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 import { getLinkable, listLinkableTypes } from "./linkable";
 import { createLink } from "./linking";
-import { AMBIGUITY_GAP, type RowFacts, rank, scoreMatch } from "./scoring";
+import { AMBIGUITY_GAP, proposedAllocation, type RowFacts, rank, scoreMatch } from "./scoring";
 import type {
   BulkApplyResult,
   EntityFacts,
@@ -134,9 +134,11 @@ function toSuggestion(
 ): Suggestion | null {
   const m = scoreMatch(row, candidate);
   if (!m) return null;
-  const allocation = m.crossCurrency
-    ? null
-    : D.min(new D(rowRemaining), new D(candidate.remaining)).toFixed(2);
+  const allocation = proposedAllocation(
+    m,
+    { remaining: rowRemaining, currency: row.currency },
+    candidate,
+  );
   return { ...m, candidate, allocation };
 }
 
@@ -208,9 +210,7 @@ export async function suggestionsForEntity(
         entity,
       );
       if (!m) return null;
-      const allocation = m.crossCurrency
-        ? null
-        : D.min(new D(r.remaining), new D(entity.remaining)).toFixed(2);
+      const allocation = proposedAllocation(m, r, entity);
       return { ...m, candidate: r, allocation } satisfies Suggestion;
     })
     .filter((s): s is Suggestion => s !== null);
@@ -262,8 +262,9 @@ export async function applySuggestion(
   if (!targetFacts) return { error: notFound(`${input.to.type} ${input.to.id} not found`) };
   const [target] = await withRemaining(tx, "to", [targetFacts], true);
   if (!target) return { error: notFound(`${input.to.type} ${input.to.id} not found`) };
-  // a document without an amount (no OCR total) is linked without an allocation
-  if (new D(target.amount).lte(0)) {
+  // a document without an amount (no OCR total) or whose currency was not read (F61-b) is linked without an
+  // allocation — there is nothing to allocate in a currency nobody knows
+  if (new D(target.amount).lte(0) || target.currency === null) {
     return createLink(tx, caller, audit, {
       from: { type: "bank_transaction", id: input.bankTransactionId },
       to: input.to,
@@ -338,7 +339,12 @@ export async function bulkApplyHigh(
       continue;
     }
     if (top.crossCurrency || top.allocation === null) {
-      skip("CURRENCY_MISMATCH", `${top.candidate.label} is in ${top.candidate.currency}`);
+      skip(
+        "CURRENCY_MISMATCH",
+        top.candidate.currency === null
+          ? `${top.candidate.label}: currency not read — link it from the row`
+          : `${top.candidate.label} is in ${top.candidate.currency}`,
+      );
       continue;
     }
     if (new D(top.allocation).lte(0)) {

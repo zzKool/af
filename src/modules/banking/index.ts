@@ -36,6 +36,16 @@ export {
   statementKey,
 } from "./import";
 export { bankTransactionLinkable } from "./linkable";
+export type { MonthsInput } from "./months";
+export {
+  addMonths,
+  assembleMonths,
+  bankMonths,
+  linkFactsOf,
+  MONTHS_WINDOW,
+  monthRange,
+  needsProof,
+} from "./months";
 export * from "./queries";
 export type { EntryTarget, RuleInput, RuleLike, UpdateRuleInput } from "./rules";
 export {

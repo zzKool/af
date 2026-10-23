@@ -15,8 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
 import {
   applySuggestionAction,
   searchLinkablesAction,
@@ -32,15 +30,13 @@ import type {
 } from "@/modules/linking/types";
 import { attachHref } from "../hrefs";
 import { needsOwnFlow } from "../kinds";
+import { moneyText } from "./money";
 
 export const CONFIDENCE_STYLE: Record<Confidence, string> = {
   HIGH: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
   LOW: "bg-muted text-muted-foreground",
 };
-
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
 
 /** The scorer's reasons are English data; the known ones have a key, the parametrised ones print as they are. */
 const REASON_KEY: Record<string, string> = {
@@ -249,9 +245,11 @@ export function SuggestionsSection({
     <section data-testid="suggestions">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-medium">{t("linking.suggestions.title")}</h3>
-        {self && (
+        {self && moneyText(self.remaining, self.currency) && (
           <span className="text-xs text-muted-foreground tabular-nums">
-            {t("linking.suggestions.remaining", { amount: money(self.remaining, self.currency) })}
+            {t("linking.suggestions.remaining", {
+              amount: moneyText(self.remaining, self.currency) ?? "",
+            })}
           </span>
         )}
       </div>
@@ -317,7 +315,8 @@ export function SuggestionsSection({
                       />
                       <span className="text-xs text-muted-foreground">{s.candidate.currency}</span>
                     </>
-                  ) : (
+                  ) : s.candidate.currency === null || self?.currency === null ? null : (
+                    // currency not read (F61-b): *Link* links it without an allocation
                     <span className="text-xs text-muted-foreground">
                       {t("linking.crossCurrencyHint")}
                     </span>
@@ -381,7 +380,7 @@ export function SuggestionsSection({
                         {h.label}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                        {Number(h.remaining) > 0 ? money(h.remaining, h.currency) : ""}
+                        {Number(h.remaining) > 0 ? (moneyText(h.remaining, h.currency) ?? "") : ""}
                       </span>
                       {ownFlowHref(h) !== null ? (
                         <OwnFlowButton href={ownFlowHref(h) as string} variant="outline" />

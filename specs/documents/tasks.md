@@ -48,4 +48,4 @@ Notes from the build (2026-10-21): the DB tests of T011 / T012 live in `inbox.te
 - [x] Corrections: `correctionsPatchSchema` on write, `parseCorrections` on every read
 - [x] Currency: known codes only to the matcher; a corrected CHF receipt scores as CHF
 - [x] One "to review" count (`inboxTotals`)
-- [ ] F61-b (linking): an unknown currency stays unknown — `EntityFacts.currency` nullable, see [[features]]
+- [x] F61-b (linking, 2026-10-23): an unknown currency stays unknown — `EntityFacts.currency` nullable, see [[features]]

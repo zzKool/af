@@ -10,12 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
 import { removeLinkAction } from "@/modules/linking/linking.actions";
 import type { LinkDto, LinkEndpoint } from "@/modules/linking/types";
 import { entityHref } from "../hrefs";
 import { needsOwnFlow } from "../kinds";
+import { moneyText } from "./money";
 
 export type LinkRow = Omit<LinkDto, "createdAt"> & { createdAt: string; otherLabel: string | null };
 
@@ -68,8 +67,8 @@ export function LinksList({
             <span className="flex shrink-0 items-center gap-2">
               {l.allocatedAmount && (
                 <span className="tabular-nums">
-                  {formatCurrency(l.allocatedAmount, (l.currency ?? fallbackCurrency) as Currency)}{" "}
-                  {l.currency ?? fallbackCurrency}
+                  {moneyText(l.allocatedAmount, l.currency ?? fallbackCurrency) ??
+                    l.allocatedAmount}
                 </span>
               )}
               {canWrite && needsOwnFlow(l.kind, l.to.type) && (

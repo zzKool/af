@@ -49,13 +49,6 @@ function resolved(r: Row): Partial<OcrExtractedData> {
   );
 }
 
-/**
- * What linking compares on its side when the document's currency is not known (OCR never reads a receipt's
- * currency; the owner sets it on review). Linking's facts carry a currency it can format and score, so an unknown
- * one cannot be said yet — F61-b: `EntityFacts.currency` nullable in linking, then this goes.
- */
-const CURRENCY_NOT_READ = "SEK";
-
 export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
   const d = resolved(r);
   const total = amountText(d.invoiceTotal);
@@ -67,7 +60,7 @@ export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
     id: r.id,
     label: `${r.businessKey || r.fileName}${vendor ? ` · ${vendor}` : ""}${amount !== "0.00" ? ` · ${amount}${currency ? ` ${currency}` : ""}` : ""}`,
     amount,
-    currency: currency ?? CURRENCY_NOT_READ,
+    currency, // null when not read: linking compares reference, name and date only (F61-b)
     amountBase: null,
     date: d.invoiceDate || d.transactionDate || r.createdAt.toISOString().slice(0, 10),
     reference: d.invoiceNumber ?? null,

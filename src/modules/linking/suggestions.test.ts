@@ -281,6 +281,105 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
   });
 });
 
+// F61-b (lessons audit 10): OCR reads no currency on a receipt (`prebuilt-receipt`). Until the owner sets one,
+// the matcher sees it as unknown — never SEK: no amount points, no penalty, no allocation.
+describe("a receipt whose currency was not read (F61-b)", () => {
+  async function unreadReceipt(): Promise<string> {
+    return run(owner.caller, async (tx) => {
+      const doc = await tx.document.create({
+        data: {
+          tenantId: owner.caller.tenantId,
+          businessKey: "Up26-03-0002",
+          fileName: "migros-receipt.jpg",
+          blobUrl: "https://blob.test/y",
+          mimeType: "image/jpeg",
+          fileSize: 10,
+          prefixType: "expense",
+          documentType: "financial",
+          status: "extracted",
+          ocrData: {
+            extractedData: {
+              merchantName: "Migros",
+              invoiceTotal: 45.9,
+              transactionDate: "2026-03-12",
+              confidence: 0.9,
+              modelUsed: "prebuilt-receipt",
+              pageCount: 1,
+              processingTimeMs: 1,
+            },
+          },
+          createdBy: owner.caller.userId,
+        },
+      });
+      return doc.id;
+    });
+  }
+
+  it("never scores as SEK: a SEK row of the same amount earns no amount points, a CHF row the same score", async () => {
+    const documentId = await unreadReceipt();
+    const [sekRow] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS NEUCHATEL" },
+      ]),
+    );
+    const [chfRow] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+        { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS NEUCHATEL" },
+      ]),
+    );
+    const sek = await run(owner.caller, (tx) => suggestionsForTransaction(tx, sekRow as string));
+    const chf = await run(owner.caller, (tx) => suggestionsForTransaction(tx, chfRow as string));
+    const s = sek.data?.suggestions.find((x) => x.candidate.id === documentId);
+    const c = chf.data?.suggestions.find((x) => x.candidate.id === documentId);
+    expect(s).toMatchObject({
+      candidate: { currency: null },
+      allocation: null,
+      crossCurrency: false,
+    });
+    expect(s?.reasons.some((r) => /amount|currency/i.test(r))).toBe(false);
+    expect(c).toBeDefined(); // not dropped as a cross-currency pair without a base
+    expect(c?.score).toBe(s?.score);
+    // the other way round: the receipt's own panel finds both rows, nothing proposed to allocate
+    const e = await run(owner.caller, (tx) =>
+      suggestionsForEntity(tx, { type: "document", id: documentId }),
+    );
+    expect(e.data?.entity.currency).toBeNull();
+    expect(e.data?.suggestions.map((x) => x.allocation)).toEqual([null, null]);
+  });
+
+  it("its suggestion applies without an allocation; bulk apply leaves it to the owner", async () => {
+    const documentId = await unreadReceipt();
+    const [row, other] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+        { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS NEUCHATEL" },
+        { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS NEUCHATEL" },
+      ]),
+    );
+    const bulk = await run(owner.caller, (tx) =>
+      bulkApplyHigh(tx, owner.caller, noopAudit, [other as string]),
+    );
+    expect(bulk.applied).toEqual([]);
+    expect(bulk.skipped[0]).toMatchObject({ reason: "CURRENCY_MISMATCH" });
+    expect(bulk.skipped[0]?.detail).toMatch(/currency not read/);
+    const applied = await run(owner.caller, (tx) =>
+      applySuggestion(tx, owner.caller, realAudit(tx, owner.caller), {
+        bankTransactionId: row as string,
+        to: { type: "document", id: documentId },
+      }),
+    );
+    expect(applied.error).toBeUndefined();
+    expect(applied.data).toMatchObject({
+      kind: "justifies",
+      allocatedAmount: null,
+      currency: null,
+    });
+    const links = await run(owner.caller, (tx) =>
+      getLinksFor(tx, { type: "document", id: documentId }),
+    );
+    expect(links.data).toHaveLength(1);
+  });
+});
+
 describe("US2 — apply, allocate, unlink", () => {
   it("applies with the proposed allocation; the invoice derives paid; unlinking reopens both", async () => {
     const { invoice } = await issuedInvoice(owner.caller);

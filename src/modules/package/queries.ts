@@ -19,6 +19,20 @@ export async function listBuilds(tx: TransactionClient): Promise<PackageBuildDto
   return rows.map(toBuildDto);
 }
 
+/** Which of `periods` have a built package (any version) — banking's Months panel and its banner ask (F69). */
+export async function builtPeriods(
+  tx: TransactionClient,
+  periods: readonly string[],
+): Promise<Set<string>> {
+  if (periods.length === 0) return new Set();
+  const rows = await tx.packageBuild.findMany({
+    where: { period: { in: [...periods] }, status: "built" },
+    select: { period: true },
+    distinct: ["period"],
+  });
+  return new Set(rows.map((r) => r.period));
+}
+
 /** The first month that has a bank row (ISO `YYYY-MM`), or null before the first import. */
 export async function firstMonth(tx: TransactionClient): Promise<string | null> {
   const first = await tx.bankTransaction.findFirst({
