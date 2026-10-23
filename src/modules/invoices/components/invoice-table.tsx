@@ -1,13 +1,18 @@
 "use client";
 
-// The documents list on the kernel DataTable (D20): derived state chips, money in the row's currency,
-// header filters from the module's distinct/hierarchy actions, "new" buttons in the toolbar.
+// The documents list on the kernel DataTable (D20) and the D40 kit (F71): the derived state as <StateLabel>
+// through the module's one family map, the number as a code chip, money through the table's formatMoney, the
+// row's ⋮ actions, Date and Client as filter buttons. The "new" primary lives in the title row (NewDocumentButton).
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAction } from "next-safe-action/hooks";
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import type { ListResult } from "@/kernel/list-query/types";
+import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import {
   DataTable,
@@ -15,12 +20,17 @@ import {
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { CodeChip } from "@/kernel/ui/tags";
+import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
+  copyToDraftAction,
+  deleteDraftAction,
   distinctInvoicesAction,
   invoiceDateHierarchyAction,
 } from "@/modules/invoices/invoices.actions";
 import type { InvoiceColumn } from "@/modules/invoices/queries";
 import type { InvoiceListRow, InvoiceState } from "@/modules/invoices/types";
+import { InvoiceStateLabel } from "./invoice-state-label";
 
 /** Dates serialised for the client. */
 export type InvoiceRow = Omit<InvoiceListRow, "issuedAt" | "sentAt" | "createdAt" | "updatedAt"> & {
@@ -56,20 +66,6 @@ const DEFAULT_SORT = [
   { col: "createdAt", dir: "desc" as const },
 ];
 
-export const STATE_STYLE: Record<InvoiceState, string> = {
-  draft: "bg-muted text-muted-foreground",
-  issued: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  partially_paid: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  overdue: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  credited: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  declined: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  expired: "bg-muted text-muted-foreground",
-  converted: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-};
-
 export function InvoiceTable({
   result,
   partnerNames,
@@ -81,7 +77,15 @@ export function InvoiceTable({
   canWrite: boolean;
 }) {
   const t = useT();
+  const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
+  const { executeAsync: copy } = useAction(copyToDraftAction);
+  const { executeAsync: remove } = useAction(deleteDraftAction);
+  const deleteDialog = useConfirmDialog({
+    title: t("invoices.action.deleteConfirm.title"),
+    variant: "destructive",
+    confirmLabel: t("common.delete"),
+  });
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -112,8 +116,10 @@ export function InvoiceTable({
         width: "8rem",
         alwaysVisible: true,
         cell: (row) => (
-          <Link href={`/invoices/${row.id}`} className="font-medium tabular-nums hover:underline">
-            {row.number ?? (
+          <Link href={`/invoices/${row.id}`} className="hover:underline">
+            {row.number ? (
+              <CodeChip>{row.number}</CodeChip>
+            ) : (
               <span className="text-muted-foreground">{t("invoices.state.draft")}</span>
             )}
           </Link>
@@ -131,20 +137,28 @@ export function InvoiceTable({
         header: t("invoices.col.state"),
         type: "enum",
         width: "8rem",
-        cell: (row) => (
-          <Badge variant="outline" className={STATE_STYLE[row.state]}>
-            {t(`invoices.state.${row.state}`)}
-          </Badge>
-        ),
+        cell: (row) => <InvoiceStateLabel state={row.state} />,
       },
-      { key: "partnerName", header: t("invoices.col.partner"), type: "text", width: "14rem" },
+      {
+        key: "partnerName",
+        header: t("invoices.col.partner"),
+        type: "enum",
+        width: "14rem",
+        quickFilter: true,
+      },
       {
         key: "partnerId",
         header: `${t("invoices.col.partner")} (id)`,
         type: "enum",
         defaultHidden: true,
       },
-      { key: "issueDate", header: t("invoices.col.issueDate"), type: "date", width: "7rem" },
+      {
+        key: "issueDate",
+        header: t("invoices.col.issueDate"),
+        type: "date",
+        width: "7rem",
+        quickFilter: true,
+      },
       { key: "dueDate", header: t("invoices.col.dueDate"), type: "date", width: "7rem" },
       { key: "periodLabel", header: t("invoices.col.period"), type: "text", width: "9rem" },
       { key: "currency", header: t("invoices.col.currency"), type: "enum", width: "5rem" },
@@ -163,6 +177,13 @@ export function InvoiceTable({
         type: "money",
         width: "8rem",
         defaultHidden: true,
+        // in the base currency, not the row's — the header names it
+        cell: (row) =>
+          row.totalBase === null ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <span className="tabular-nums">{formatMoney(row.totalBase, null, { bare: true })}</span>
+          ),
       },
       {
         key: "declarationPeriod",
@@ -185,51 +206,76 @@ export function InvoiceTable({
     [t],
   );
 
+  const go = async (r: unknown) => {
+    const error = extractError(r);
+    if (error) return toast.error(error);
+    const id = (r as { data?: { data?: { id?: string } } })?.data?.data?.id;
+    toast.success(t("invoices.created"));
+    if (id) router.push(`/invoices/${id}`);
+  };
+
   return (
-    <DataTable
-      tableKey="invoices"
-      columns={columns}
-      result={result}
-      state={state}
-      filterSource={filterSource}
-      valueLabel={(column, value) => {
-        if (value === null) return "(Blanks)";
-        if (column === "state") return t(`invoices.state.${value as InvoiceState}`);
-        if (column === "type")
-          return t(`invoices.type.${value as "invoice" | "quote" | "credit_note"}`);
-        if (column === "partnerId") return partnerNames[value] ?? value;
-        return value;
-      }}
-      rowCurrency={(row) => row.currency as Currency}
-      sumCurrency={result.rows[0]?.currency as Currency | undefined}
-      rowHref={(row) => `/invoices/${row.id}`}
-      searchPlaceholder={t("invoices.search")}
-      toolbar={
-        canWrite && (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              nativeButton={false}
-              render={<Link href="/invoices/new?type=invoice" />}
-            >
-              {t("invoices.new.invoice")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/invoices/new?type=quote" />}
-            >
-              {t("invoices.new.quote")}
-            </Button>
-          </div>
-        )
-      }
-      emptyState={
-        Object.keys(state.query.filters).length || state.query.search
-          ? t("invoices.emptyFiltered")
-          : t("invoices.empty")
-      }
-    />
+    <>
+      <DataTable
+        tableKey="invoices"
+        columns={columns}
+        result={result}
+        state={state}
+        filterSource={filterSource}
+        valueLabel={(column, value) => {
+          if (value === null) return t("common.blanks");
+          if (column === "state") return t(`invoices.state.${value as InvoiceState}`);
+          if (column === "type")
+            return t(`invoices.type.${value as "invoice" | "quote" | "credit_note"}`);
+          if (column === "partnerId") return partnerNames[value] ?? value;
+          return value;
+        }}
+        rowCurrency={(row) => row.currency as Currency}
+        // the server keeps Σ total / remaining only when the filtered set has one currency (list-sums.ts)
+        sumCurrency={
+          result.sums?.totalAmount !== undefined
+            ? (result.rows[0]?.currency as Currency | undefined)
+            : undefined
+        }
+        rowHref={(row) => `/invoices/${row.id}`}
+        rowActions={(row) => [
+          { label: t("common.open"), onClick: () => router.push(`/invoices/${row.id}`) },
+          ...(canWrite
+            ? [
+                {
+                  label: t("invoices.action.copy"),
+                  onClick: async () => go(await copy({ id: row.id })),
+                },
+              ]
+            : []),
+          ...(canWrite && row.status === "draft"
+            ? [
+                {
+                  label: t("invoices.action.deleteDraft"),
+                  destructive: true,
+                  onClick: () =>
+                    deleteDialog.confirm(
+                      async () => {
+                        const r = await remove({ id: row.id });
+                        const error = extractError(r);
+                        if (error) throw new Error(error);
+                        toast.success(t("invoices.deleted"));
+                        router.refresh();
+                      },
+                      { description: t("invoices.action.deleteConfirm.description") },
+                    ),
+                },
+              ]
+            : []),
+        ]}
+        searchPlaceholder={t("invoices.search")}
+        emptyState={
+          Object.keys(state.query.filters).length || state.query.search
+            ? t("invoices.emptyFiltered")
+            : t("invoices.empty")
+        }
+      />
+      <ConfirmDialog {...deleteDialog.dialogProps} />
+    </>
   );
 }

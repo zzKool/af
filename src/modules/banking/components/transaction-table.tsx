@@ -1,15 +1,14 @@
 "use client";
 
-// The transactions workbench (D20): DataTable on TRANSACTION_COLUMNS with the derived state chips, the money in
-// the row's currency, footer sums, the side panel for the selected row, the import dialog in the toolbar.
-import Link from "next/link";
+// The transactions workbench (D20, D40): DataTable on TRANSACTION_COLUMNS with the derived state as a
+// <StateLabel>, the money in the row's currency (`formatMoney`, signed), Month and Account as quick filters,
+// the balances as the filter bar's context, the docked details panel for the selected row. The title row's
+// actions (Import CSV, Inbox, Imports, Rules) are `header-actions.tsx`.
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
 import type { ListResult } from "@/kernel/list-query/types";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import {
   DataTable,
@@ -29,9 +28,10 @@ import type {
   TransactionState,
 } from "@/modules/banking/types";
 import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
-import { type AccountOption, ImportDialog } from "./import-dialog";
+import type { AccountOption } from "./import-dialog";
 import { MonthsPanel } from "./months-panel";
-import { STATE_STYLE, TransactionPanel } from "./transaction-panel";
+import { TransactionPanel } from "./transaction-panel";
+import { TransactionStateLabel } from "./transaction-state";
 
 /** Dates serialised for the client. */
 export type TransactionRow = Omit<TransactionListRow, "createdAt"> & { createdAt: string };
@@ -95,7 +95,6 @@ export function TransactionTable({
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
-  const [importOpen, setImportOpen] = useState(false);
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -137,6 +136,8 @@ export function TransactionTable({
     () => Object.fromEntries(accounts.map((a) => [a.id, a.label])),
     [accounts],
   );
+  const accountFilter = state.query.filters.accountLabel;
+  const activeAccounts = accountFilter?.kind === "in" ? accountFilter.values : [];
   const categoryLabels = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.code, c.label])),
     [categories],
@@ -154,8 +155,15 @@ export function TransactionTable({
         type: "date",
         width: "6.5rem",
         alwaysVisible: true,
+        quickFilter: true,
       },
-      { key: "accountLabel", header: t("banking.col.account"), type: "text", width: "9rem" },
+      {
+        key: "accountLabel",
+        header: t("banking.col.account"),
+        type: "enum",
+        width: "9rem",
+        quickFilter: true,
+      },
       {
         key: "bankAccountId",
         header: `${t("banking.col.account")} (id)`,
@@ -186,10 +194,8 @@ export function TransactionTable({
         type: "money",
         width: "8rem",
         cell: (row) => (
-          <span
-            className={`tabular-nums ${row.amount.startsWith("-") ? "" : "text-green-700 dark:text-green-400"}`}
-          >
-            {formatCurrency(row.amount, row.currency as Currency)} {row.currency}
+          <span className={`tabular-nums ${row.amount.startsWith("-") ? "" : "text-state-done"}`}>
+            {formatMoney(row.amount, row.currency, { signed: true })}
           </span>
         ),
       },
@@ -238,12 +244,8 @@ export function TransactionTable({
         key: "state",
         header: t("banking.col.state"),
         type: "enum",
-        width: "9rem",
-        cell: (row) => (
-          <Badge variant="outline" className={STATE_STYLE[row.state]}>
-            {t(`banking.state.${row.state}`)}
-          </Badge>
-        ),
+        width: "11.5rem",
+        cell: (row) => <TransactionStateLabel state={row.state} />,
       },
       { key: "note", header: t("banking.col.note"), type: "text", width: "10rem" },
       {
@@ -309,37 +311,49 @@ export function TransactionTable({
         width: "10rem",
         defaultHidden: true,
       },
-      { key: "createdAt", header: "Imported", type: "date", width: "7rem", defaultHidden: true },
+      {
+        key: "createdAt",
+        header: t("banking.imports.col.date"),
+        type: "date",
+        width: "7rem",
+        defaultHidden: true,
+      },
     ],
     [t],
   );
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2 text-xs" data-testid="account-balances">
-        {balances.map((b) => (
+  // each account's latest balance, right of the filters; a click = the Account filter on that account
+  const balancesContext = (
+    <div className="flex flex-wrap items-center gap-1" data-testid="account-balances">
+      {balances.map((b) => {
+        const active = activeAccounts.length === 1 && activeAccounts[0] === b.label;
+        return (
           <button
             type="button"
             key={b.bankAccountId}
-            className="rounded-md border px-3 py-1.5 text-left hover:bg-muted"
+            aria-pressed={active}
+            title={
+              b.balanceDate
+                ? t("banking.balances.asOf", { date: b.balanceDate })
+                : t("banking.balances.never")
+            }
+            className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs hover:bg-hover ${active ? "bg-selection" : ""}`}
             onClick={() =>
-              state.setFilter("bankAccountId", { kind: "in", values: [b.bankAccountId] })
+              state.setFilter("accountLabel", active ? null : { kind: "in", values: [b.label] })
             }
           >
-            <span className="font-medium">{b.label}</span>
-            <span className="ml-2 tabular-nums">
-              {b.balance
-                ? `${formatCurrency(b.balance, b.currency as Currency)} ${b.currency}`
-                : "—"}
-            </span>
-            <span className="ml-2 text-muted-foreground">
-              {b.balanceDate
-                ? t("banking.balances.asOf", { date: b.balanceDate })
-                : t("banking.balances.never")}
+            <span className="text-muted-foreground">{b.label}</span>
+            <span className="tabular-nums">
+              {b.balance ? formatMoney(b.balance, b.currency) : "—"}
             </span>
           </button>
-        ))}
-      </div>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
       {months && (
         <MonthsPanel
           overview={months}
@@ -356,7 +370,7 @@ export function TransactionTable({
         state={state}
         filterSource={filterSource}
         valueLabel={(column, value) => {
-          if (value === null) return "(Blanks)";
+          if (value === null) return t("common.blanks");
           if (column === "state") return t(`banking.state.${value as TransactionState}`);
           if (column === "bankAccountId") return accountLabels[value] ?? value;
           if (column === "basCode") return categoryLabels[value] ?? value;
@@ -376,40 +390,7 @@ export function TransactionTable({
         sumCurrency={result.rows[0]?.currency as Currency | undefined}
         onRowClick={(row) => setSelectedId(row.id)}
         searchPlaceholder={t("banking.search")}
-        toolbar={
-          <div className="flex gap-2">
-            {canWrite && (
-              <Button size="sm" onClick={() => setImportOpen(true)} data-testid="open-import">
-                {t("banking.import.button")}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/banking/inbox" />}
-              data-testid="go-inbox"
-            >
-              {t("banking.nav.inbox")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/banking/imports" />}
-            >
-              {t("banking.nav.imports")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/banking/rules" />}
-            >
-              {t("banking.nav.rules")}
-            </Button>
-          </div>
-        }
+        context={balancesContext}
         emptyState={
           Object.keys(state.query.filters).length || state.query.search
             ? t("banking.emptyFiltered")
@@ -424,9 +405,6 @@ export function TransactionTable({
         canWrite={canWrite}
         onChanged={() => router.refresh()}
       />
-      {canWrite && (
-        <ImportDialog open={importOpen} onOpenChange={setImportOpen} accounts={accounts} />
-      )}
     </div>
   );
 }

@@ -138,7 +138,7 @@ export function NewInvoiceForm({
           </SelectContent>
         </Select>
         {partner && !partner.shortCode && (
-          <p className="mt-1 text-xs text-amber-700">{t("invoices.form.noShortCode")}</p>
+          <p className="mt-1 text-xs text-state-attention">{t("invoices.form.noShortCode")}</p>
         )}
       </div>
       <div>

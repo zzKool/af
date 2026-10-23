@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { zfd } from "zod-form-data";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { createClock } from "@/kernel/clock/clock";
+import { prisma } from "@/kernel/db/client";
 import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
@@ -70,6 +71,20 @@ export const uploadDocumentAction = authedAction
       prefixType,
       { force: force === "true" },
     );
+
+    // FR-009: the card names the uploader; `users` is read outside the tenant transaction
+    if (result.data?.kind === "duplicate") {
+      const existing = result.data.existing;
+      return {
+        data: {
+          kind: "duplicate" as const,
+          existing: {
+            ...existing,
+            uploadedByName: await documentService.uploaderName(prisma, existing.createdBy),
+          },
+        },
+      };
+    }
 
     if (result.data?.kind === "stored") {
       const documentId = result.data.id;

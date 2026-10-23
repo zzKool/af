@@ -11,11 +11,19 @@ import { detectAccountFromFilename, pickAccount } from "@/modules/banking/accoun
 import { deleteImport, importCsv } from "@/modules/banking/import";
 import {
   accountBalances,
+  distinctImportValues,
+  distinctRuleValues,
   distinctTransactionValues,
   getTransaction,
+  IMPORT_COLUMN_KEYS,
+  type ImportColumn,
+  importDateHierarchy,
   listImports,
   listRulesWithLabels,
   listTransactions,
+  RULE_COLUMN_KEYS,
+  type RuleColumn,
+  ruleDateHierarchy,
   TRANSACTION_COLUMN_KEYS,
   type TransactionColumn,
   transactionDateHierarchy,
@@ -25,6 +33,8 @@ import { acceptTransfer, proposeTransfers } from "@/modules/banking/transfer-pai
 
 const MAX_CSV_MB = 10;
 const columnSchema = z.enum(TRANSACTION_COLUMN_KEYS as [TransactionColumn, ...TransactionColumn[]]);
+const importColumnSchema = z.enum(IMPORT_COLUMN_KEYS as [ImportColumn, ...ImportColumn[]]);
+const ruleColumnSchema = z.enum(RULE_COLUMN_KEYS as [RuleColumn, ...RuleColumn[]]);
 const forbidden = {
   error: { code: "FORBIDDEN" as const, message: "Not allowed to read banking", retryable: false },
 };
@@ -77,6 +87,22 @@ export const listImportsAction = authedAction
     return { data: await listImports(ctx.tx) };
   });
 
+export const distinctImportsAction = authedAction
+  .schema(z.object({ column: importColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "distinctBankImports" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return { data: await distinctImportValues(ctx.tx, parsedInput.column, parsedInput.query) };
+  });
+
+export const importDateHierarchyAction = authedAction
+  .schema(z.object({ column: importColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "bankImportDateHierarchy" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return { data: await importDateHierarchy(ctx.tx, parsedInput.column, parsedInput.query) };
+  });
+
 export const accountBalancesAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "bankAccountBalances" })
@@ -91,6 +117,22 @@ export const listRulesAction = authedAction
   .action(async ({ ctx }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
     return { data: await listRulesWithLabels(ctx.tx) };
+  });
+
+export const distinctRulesAction = authedAction
+  .schema(z.object({ column: ruleColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "distinctCategorisationRules" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return { data: await distinctRuleValues(ctx.tx, parsedInput.column, parsedInput.query) };
+  });
+
+export const ruleDateHierarchyAction = authedAction
+  .schema(z.object({ column: ruleColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "categorisationRuleDateHierarchy" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return { data: await ruleDateHierarchy(ctx.tx, parsedInput.column, parsedInput.query) };
   });
 
 export const proposeTransfersAction = authedAction

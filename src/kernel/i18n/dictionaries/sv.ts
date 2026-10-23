@@ -1009,6 +1009,10 @@ export const sv: Dictionary = {
   "supplierInvoices.form.note": "Anteckning",
   "supplierInvoices.form.create": "Skapa leverantörsfaktura",
   "supplierInvoices.form.created": "Leverantörsfaktura {key} skapad",
+  "supplierInvoices.form.numberTaken": "Leverantörens fakturanummer finns redan registrerat",
+  "supplierInvoices.form.numberTakenBy": "Nr {n} är {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "En leverantörs fakturanummer är unikt — rätta numret eller öppna den befintliga fakturan.",
   "supplierInvoices.panel.money": "Belopp",
   "supplierInvoices.panel.base": "{base} SEK till kurs {rate} ({source})",
   "supplierInvoices.panel.paidBy": "{amount} betalt av banken",
@@ -1203,6 +1207,8 @@ export const sv: Dictionary = {
   "documents.needsReview": "behöver granskas",
   "documents.linked": "Kopplat",
   "documents.notLinked": "Inte kopplat",
+  "documents.became.expense": "Utgift {key}",
+  "documents.became.supplierInvoice": "Leverantörsfaktura {key}",
   "documents.download": "Ladda ner",
   "documents.delete": "Ta bort",
   "documents.deleteConfirm":
@@ -1251,6 +1257,7 @@ export const sv: Dictionary = {
   "documents.review.rerunOcr": "Kör OCR igen",
   "documents.review.rerunOcrConfirm":
     "OCR körs igen på dokumentet. Dina korrigeringar behålls; de extraherade uppgifterna ersätts av den nya läsningen.",
+  "documents.review.restored": "{key} är tillbaka i inkorgen",
   "documents.category.financial": "Ekonomiskt",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Utlägg",
@@ -1308,8 +1315,9 @@ export const sv: Dictionary = {
   "documents.upload.duplicate.body":
     "Ett dokument med identiskt innehåll finns redan — inget sparades.",
   "documents.upload.duplicate.uploaded": "Uppladdat {date}",
-  "documents.upload.duplicate.becameExpense": "blev en utgift",
-  "documents.upload.duplicate.becameSupplierInvoice": "blev en leverantörsfaktura",
+  "documents.upload.duplicate.uploadedBy": "Uppladdat {date} av {name}",
+  "documents.upload.duplicate.becameExpense": "blev utgift {key}",
+  "documents.upload.duplicate.becameSupplierInvoice": "blev leverantörsfaktura {key}",
   "documents.upload.duplicate.useExisting": "Använd befintligt dokument",
   "documents.upload.duplicate.uploadAnyway": "Ladda upp ändå",
   "documents.duplicate.panel.title": "Möjlig dubblett upptäckt",

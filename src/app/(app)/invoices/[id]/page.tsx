@@ -1,24 +1,30 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { requestLocale } from "@/kernel/i18n/request-locale";
+import { translator } from "@/kernel/i18n/translate";
+import { formatMoney } from "@/kernel/money/format-money";
 import { EntityPage } from "@/kernel/ui/shell/page";
+import { Tag } from "@/kernel/ui/tags";
 import { declaredOn } from "@/modules/exports";
 import { relatedDocuments, resolveSheetContext } from "@/modules/invoices";
 import {
   InvoiceActions,
+  InvoiceDetails,
   InvoiceEditor,
-  InvoiceLinks,
   InvoiceSheet,
+  InvoiceStateLabel,
   toSheetDocument,
 } from "@/modules/invoices/ui";
 import { getPartner } from "@/modules/partners";
+import { getUserPreferences } from "@/modules/settings";
 
 // The document page: the sheet in edit mode while draft (autosave), the print mode once issued, the
-// lifecycle actions above it (D7). The PDF is the stored document, never re-rendered.
+// lifecycle actions in the title row (D7), the side panel of sections beside it (D40, F71). The PDF is the
+// stored document, never re-rendered — the sheet keeps the printed format; everything around it formatMoney.
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireCaller({ action: "read", subject: "invoice" });
@@ -26,56 +32,44 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const ctx = await resolveSheetContext(tx, auth, id, today);
     if (!ctx) return null;
-    const [related, partner, declared] = await Promise.all([
+    const [related, partner, declared, prefs] = await Promise.all([
       relatedDocuments(tx, id),
       getPartner(tx, ctx.invoice.partnerId),
       declaredOn(tx, ctx.invoice.declarationPeriod, ctx.invoice.vatRegistrationId),
+      getUserPreferences(tx, auth),
     ]);
-    return { ctx, related, partner: partner.data ?? null, declared };
+    return { ctx, related, partner: partner.data ?? null, declared, prefs: prefs.data };
   });
   if (!data) notFound();
-  const { ctx, related, partner, declared } = data;
+  const { ctx, related, partner, declared, prefs } = data;
   const inv = ctx.invoice;
   const canWrite = can(auth, "update", "invoice");
-  const title =
-    inv.number ??
-    `${inv.type === "quote" ? "Quote" : inv.type === "credit_note" ? "Credit note" : "Invoice"} (draft)`;
+  const t = translator(await requestLocale(prefs?.locale));
+  const docType = t(`invoices.type.${inv.type}`);
 
   return (
     <EntityPage
-      title={title}
-      meta={
+      title={
+        inv.number ? (
+          <span className="font-mono">{inv.number}</span>
+        ) : (
+          `${docType} · ${t("invoices.state.draft")}`
+        )
+      }
+      tags={
         <>
-          {`${partner?.name ?? ""} · ${inv.currency} ${inv.totalAmount}`}
-          {inv.declarationPeriod && (
-            <>
-              {" · "}
-              <Link href={`/exports?period=${encodeURIComponent(inv.declarationPeriod)}`}>
-                {inv.declarationPeriod}
-              </Link>
-              {/* "declared" is derived (D-e): the quarter has a declaration row */}
-              {declared && (
-                <span
-                  className="ml-1 text-green-700 dark:text-green-400"
-                  data-testid="invoice-declared"
-                >
-                  {declared.paidAt
-                    ? `· declared ${declared.declaredAt}, paid ${declared.paidAt}`
-                    : `· declared ${declared.declaredAt}`}
-                </span>
-              )}
-            </>
-          )}
+          <InvoiceStateLabel state={inv.state} testId="invoice-state" className="mr-1" />
+          {inv.number && <Tag>{docType}</Tag>}
+          <Tag>{inv.currency}</Tag>
         </>
       }
-      back={<Link href="/invoices">← Invoices</Link>}
+      meta={`${partner?.name ?? ""} · ${formatMoney(inv.totalAmount, inv.currency)}`}
       actions={
         <InvoiceActions
           id={inv.id}
           type={inv.type}
           status={inv.status}
           state={inv.state}
-          number={inv.number}
           numberHint={ctx.numberHint}
           pdfDocumentId={inv.pdfDocumentId}
           canWrite={canWrite}
@@ -83,7 +77,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       }
     >
       <div className="flex flex-col gap-4 xl:flex-row">
-        <div className="min-w-0 flex-1 rounded-lg border bg-neutral-100 p-4 dark:bg-neutral-900">
+        <div className="min-w-0 flex-1 rounded-lg border bg-app p-4">
           {inv.status === "draft" && canWrite ? (
             <InvoiceEditor
               invoice={{
@@ -114,49 +108,34 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             />
           )}
         </div>
-        <aside className="w-full shrink-0 space-y-3 text-sm xl:w-72">
-          {inv.status !== "draft" && (
-            <div className="rounded-lg border p-3">
-              <div className="text-xs font-medium text-muted-foreground">Payment</div>
-              <div data-testid="invoice-payment">
-                Paid {inv.allocated} · Remaining{" "}
-                <span data-testid="invoice-remaining">{inv.remaining}</span>
-              </div>
-              {Number(inv.credited) > 0 && <div>Credited {inv.credited}</div>}
-              {inv.totalBase && (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {inv.baseCurrency} {inv.totalBase} at {inv.rateToBase} ({inv.rateSource},{" "}
-                  {inv.rateDate})
-                </div>
-              )}
-            </div>
-          )}
-          {inv.status !== "draft" && inv.type !== "quote" && (
-            <InvoiceLinks invoiceId={inv.id} currency={inv.currency} canWrite={canWrite} />
-          )}
-          {related.length > 0 && (
-            <div className="rounded-lg border p-3">
-              <div className="text-xs font-medium text-muted-foreground">Related documents</div>
-              <ul>
-                {related.map((r) => (
-                  <li key={r.id}>
-                    <Link href={`/invoices/${r.id}`} className="hover:underline">
-                      {r.number ?? `${r.type} (draft)`}
-                    </Link>{" "}
-                    <span className="text-muted-foreground">
-                      {r.status} · {r.totalAmount}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {inv.internalNote && (
-            <div className="rounded-lg border p-3">
-              <div className="text-xs font-medium text-muted-foreground">Internal note</div>
-              <div className="whitespace-pre-wrap">{inv.internalNote}</div>
-            </div>
-          )}
+        <aside className="w-full shrink-0 xl:w-[380px] xl:border-l xl:pl-4">
+          <InvoiceDetails
+            invoice={{
+              id: inv.id,
+              type: inv.type,
+              status: inv.status,
+              state: inv.state,
+              partnerName: partner?.name ?? null,
+              issueDate: inv.issueDate,
+              dueDate: inv.dueDate,
+              periodLabel: inv.periodLabel,
+              currency: inv.currency,
+              totalAmount: inv.totalAmount,
+              allocated: inv.allocated,
+              remaining: inv.remaining,
+              credited: inv.credited,
+              baseCurrency: inv.baseCurrency,
+              totalBase: inv.totalBase,
+              rateToBase: inv.rateToBase,
+              rateSource: inv.rateSource,
+              rateDate: inv.rateDate,
+              declarationPeriod: inv.declarationPeriod,
+              internalNote: inv.internalNote,
+            }}
+            related={related}
+            declared={declared}
+            canWrite={canWrite}
+          />
         </aside>
       </div>
     </EntityPage>

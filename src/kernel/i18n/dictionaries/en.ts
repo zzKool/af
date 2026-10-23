@@ -1145,6 +1145,10 @@ export const en = {
   "supplierInvoices.form.note": "Note",
   "supplierInvoices.form.create": "Create supplier invoice",
   "supplierInvoices.form.created": "Supplier invoice {key} created",
+  "supplierInvoices.form.numberTaken": "This supplier's invoice number is already recorded",
+  "supplierInvoices.form.numberTakenBy": "Number {n} is {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "A supplier's invoice number is unique — correct the number, or open the existing invoice.",
   "supplierInvoices.panel.money": "Money",
   "supplierInvoices.panel.base": "{base} SEK at {rate} ({source})",
   "supplierInvoices.panel.paidBy": "paid {amount} by the bank",
@@ -1340,6 +1344,8 @@ export const en = {
   "documents.needsReview": "needs review",
   "documents.linked": "Linked",
   "documents.notLinked": "Not linked",
+  "documents.became.expense": "Expense {key}",
+  "documents.became.supplierInvoice": "Supplier invoice {key}",
   "documents.download": "Download",
   "documents.delete": "Delete",
   "documents.deleteConfirm":
@@ -1388,6 +1394,7 @@ export const en = {
   "documents.review.rerunOcr": "Re-run OCR",
   "documents.review.rerunOcrConfirm":
     "The OCR runs again on this document. Your corrections stay; the extracted facts are replaced by the new reading.",
+  "documents.review.restored": "{key} is back in the inbox",
   "documents.category.financial": "Financial",
   "documents.category.relationship": "Relationship",
   "documents.prefix.expense": "Expense",
@@ -1444,8 +1451,9 @@ export const en = {
   "documents.upload.duplicate.body":
     "A document with identical content already exists — nothing was stored.",
   "documents.upload.duplicate.uploaded": "Uploaded {date}",
-  "documents.upload.duplicate.becameExpense": "became an expense",
-  "documents.upload.duplicate.becameSupplierInvoice": "became a supplier invoice",
+  "documents.upload.duplicate.uploadedBy": "Uploaded {date} by {name}",
+  "documents.upload.duplicate.becameExpense": "became expense {key}",
+  "documents.upload.duplicate.becameSupplierInvoice": "became supplier invoice {key}",
   "documents.upload.duplicate.useExisting": "Use existing document",
   "documents.upload.duplicate.uploadAnyway": "Upload anyway",
   "documents.duplicate.panel.title": "Possible duplicate detected",
