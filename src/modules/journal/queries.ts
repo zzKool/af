@@ -17,7 +17,7 @@ import * as settings from "@/modules/settings";
 import { withImplicitRates } from "./implicit-rate";
 import { toJournalEntryDto } from "./journal";
 import { linksStates } from "./links-state";
-import type { JournalListRow } from "./types";
+import type { JournalListRow, JournalSource, UncategorisedEntry } from "./types";
 
 export { entriesForSources, getJournalEntry } from "./journal";
 
@@ -118,6 +118,23 @@ function searchHit(row: JournalListRow, term: string): boolean {
     row.basLabel,
     row.accountAlias,
   ].some((v) => (v ?? "").toLowerCase().includes(t));
+}
+
+/**
+ * The entries of a source nothing has categorised yet (`categorised_by` null), newest first, at most `limit` —
+ * the candidates of banking's on-demand rule apply, so banking stops reading `journal_entries` (lessons audit 24).
+ */
+export async function uncategorisedEntries(
+  tx: TransactionClient,
+  sourceType: JournalSource,
+  limit: number,
+): Promise<UncategorisedEntry[]> {
+  return tx.journalEntry.findMany({
+    where: { sourceType, categorisedBy: null },
+    select: { id: true, sourceId: true },
+    orderBy: { entryDate: "desc" },
+    take: limit,
+  });
 }
 
 export async function listJournalEntries(

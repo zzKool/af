@@ -5,6 +5,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { isoDate, uuid } from "@/kernel/validation/scalars";
+import { toSupplierInvoiceDetailWire } from "@/modules/supplier-invoices/detail-wire";
 import { findSupplierInvoiceDuplicates } from "@/modules/supplier-invoices/duplicates";
 import * as payments from "@/modules/supplier-invoices/payments";
 import {
@@ -76,7 +77,8 @@ export const getSupplierInvoiceAction = authedAction
   .metadata({ name: "getSupplierInvoice" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "supplier_invoice")) return forbidden;
-    return getSupplierInvoiceDetail(ctx.tx, ctx.callerIdentity, parsedInput.id);
+    const r = await getSupplierInvoiceDetail(ctx.tx, ctx.callerIdentity, parsedInput.id);
+    return r.error ? { error: r.error } : { data: toSupplierInvoiceDetailWire(r.data) };
   });
 
 export const supplierInvoiceKpisAction = authedAction

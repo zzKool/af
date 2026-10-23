@@ -31,6 +31,12 @@ const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 let adminPool: Pool;
 
+/** The usage hook's answer: `n` invoice lines, priced up to `last` (null = no day known). */
+const used = (n: number, last: string | null = null): rates.RatePricing => ({
+  lines: n,
+  lastPeriodStart: n > 0 ? last : null,
+});
+
 beforeAll(async () => {
   adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
 });
@@ -38,7 +44,7 @@ beforeEach(async () => {
   await cleanupTestData(adminPool);
   resetRateLimit();
   mockHeaders = new Headers();
-  rates.setRateUsage(async () => 0);
+  rates.setRateUsage(async () => used(0));
 });
 afterAll(async () => {
   await adminPool.end();
@@ -322,7 +328,7 @@ describe("US3 — correct or remove a rate", () => {
     );
     const id = created.data?.id as string;
 
-    rates.setRateUsage(async (_tx, rateId) => (rateId === id ? 3 : 0));
+    rates.setRateUsage(async (_tx, rateId) => used(rateId === id ? 3 : 0));
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
       const refused = await rates.deleteContractRate(tx, caller, noopAudit, id);
       expect(refused.error?.code).toBe("BUSINESS_RULE_VIOLATION");
@@ -332,7 +338,7 @@ describe("US3 — correct or remove a rate", () => {
       expect(refused.error?.details).toEqual({ n: 3 });
     });
 
-    rates.setRateUsage(async () => 0);
+    rates.setRateUsage(async () => used(0));
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
       const ok = await rates.deleteContractRate(tx, caller, realAudit(tx, caller), id);
       expect(ok.data).toEqual({ id });
@@ -367,7 +373,7 @@ describe("F63 — a rate used by invoice lines only closes", () => {
       add(tx, caller, contractId, "2025-01-01", "1000.00", null),
     );
     const id = created.data?.id as string;
-    rates.setRateUsage(async (_tx, rateId) => (rateId === id ? 2 : 0));
+    rates.setRateUsage(async (_tx, rateId) => used(rateId === id ? 2 : 0));
     return { contractId, id };
   }
 
@@ -450,7 +456,7 @@ describe("F63 — a rate used by invoice lines only closes", () => {
       expect(await at("2025-11-15")).toBe(next.data?.id);
 
       // a used open rate is also closed by the auto-close of a newer open rate — that is closing, allowed
-      rates.setRateUsage(async () => 2);
+      rates.setRateUsage(async () => used(2));
       const r2026 = await add(tx, caller, contractId, "2026-01-01", "1200.00");
       expect(r2026.error).toBeUndefined();
       expect(await at("2025-12-31")).toBe(next.data?.id);
@@ -547,6 +553,71 @@ describe("invariants in the database", () => {
       expect((await rates.listContractRates(tx, contractId, "2026-10-20")).data).toEqual([]);
       expect(await rates.rateFor(tx, contractId, "2026-06-01")).toBeNull();
       expect((await add(tx, b, contractId, "2027-01-01", "1.00")).error?.code).toBe("NOT_FOUND");
+    });
+  });
+});
+
+describe("T024 — a used rate never closes before the last day it priced", () => {
+  /** One open rate from 2026-01-01, used by 2 invoice lines priced up to 2026-03-01. */
+  async function pricedRate(caller: CallerIdentity) {
+    const { contractId } = await setup(caller);
+    const created = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      add(tx, caller, contractId, "2026-01-01", "1000.00", null),
+    );
+    const id = created.data?.id as string;
+    rates.setRateUsage(async (_tx, rateId) => used(rateId === id ? 2 : 0, "2026-03-01"));
+    return { contractId, id };
+  }
+
+  it("closing by hand: before the day is refused and changes nothing; on or after it is accepted", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { contractId, id } = await pricedRate(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const early = await rates.updateContractRate(tx, caller, noopAudit, {
+        id,
+        validTo: "2026-02-28",
+      });
+      expect(early.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(early.error?.details).toEqual({ pricedUntil: "2026-03-01", validTo: "2026-02-28" });
+      expect((await rates.rateFor(tx, contractId, "2026-06-01"))?.id).toBe(id); // still open
+
+      const onTheDay = await rates.updateContractRate(tx, caller, noopAudit, {
+        id,
+        validTo: "2026-03-01",
+      });
+      expect(onTheDay.data?.validTo).toBe("2026-03-01"); // inclusive: the priced day stays covered
+      expect((await rates.rateFor(tx, contractId, "2026-03-01"))?.id).toBe(id);
+    });
+  });
+
+  it("the auto-close of a newer open rate obeys the same day; nothing is written when refused", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { contractId, id } = await pricedRate(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const tooEarly = await add(tx, caller, contractId, "2026-03-01", "1100.00");
+      expect(tooEarly.error?.details).toEqual({ pricedUntil: "2026-03-01", validTo: "2026-02-28" });
+      const after = (await rates.listContractRates(tx, contractId, "2026-10-23")).data ?? [];
+      expect(after.map((r) => [r.id, r.validTo])).toEqual([[id, null]]);
+
+      const next = await add(tx, caller, contractId, "2026-03-02", "1100.00");
+      expect(next.error).toBeUndefined();
+      expect((await rates.rateFor(tx, contractId, "2026-03-01"))?.id).toBe(id);
+      expect((await rates.rateFor(tx, contractId, "2026-03-02"))?.id).toBe(next.data?.id);
+    });
+  });
+
+  it("an unused rate, or a note-only edit of a used one, never asks the day", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { id } = await pricedRate(caller);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      expect(
+        (await rates.updateContractRate(tx, caller, noopAudit, { id, note: "kept" })).error,
+      ).toBeUndefined();
+      rates.setRateUsage(async () => used(0));
+      expect(
+        (await rates.updateContractRate(tx, caller, noopAudit, { id, validTo: "2026-01-31" }))
+          .error,
+      ).toBeUndefined();
     });
   });
 });
