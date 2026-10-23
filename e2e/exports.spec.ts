@@ -41,12 +41,15 @@ test.describe("Swiss VAT return", () => {
       await expect(page.getByTestId("vat-warnings")).toContainText("incomplete_period");
 
       // 3. a manual ref (220, exempt supplies) changes the taxable turnover
-      const before = (await page.getByTestId("vat-amount-299").innerText()).trim();
+      const before = await page.getByTestId("vat-amount-299").getAttribute("data-amount");
       const manual = page.getByTestId("vat-manual-220");
       await manual.fill("100");
       await manual.blur();
-      await expect(page.getByTestId("vat-amount-289")).toContainText("100.00");
-      await expect(page.getByTestId("vat-amount-299")).not.toHaveText(before);
+      await expect(page.getByTestId("vat-amount-289")).toHaveAttribute("data-amount", "100.00");
+      await expect(page.getByTestId("vat-amount-299")).not.toHaveAttribute(
+        "data-amount",
+        before ?? "",
+      );
       await snap(page, "swiss-vat-return");
 
       // 4. Declare → frozen; the status says so; undo reopens
@@ -56,7 +59,7 @@ test.describe("Swiss VAT return", () => {
       await expect(page.getByRole("alertdialog")).toBeHidden();
       await expect(page.getByTestId("vat-status")).toContainText("Declared");
       await expect(page.getByTestId("vat-manual-220")).toHaveCount(0);
-      await expect(page.getByTestId("vat-amount-220")).toContainText("100.00");
+      await expect(page.getByTestId("vat-amount-220")).toHaveAttribute("data-amount", "100.00");
       await expect(page.getByTestId("vat-mark-paid")).toBeVisible();
       await snap(page, "swiss-vat-declared");
       await page.getByTestId("vat-undeclare").click();
@@ -66,7 +69,7 @@ test.describe("Swiss VAT return", () => {
       const again = page.getByTestId("vat-manual-220");
       await again.fill("");
       await again.blur();
-      await expect(page.getByTestId("vat-amount-289")).toContainText("0.00");
+      await expect(page.getByTestId("vat-amount-289")).toHaveAttribute("data-amount", "0.00");
     });
   });
 });
