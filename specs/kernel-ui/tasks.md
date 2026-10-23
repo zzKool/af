@@ -19,3 +19,12 @@ Direction and rules: `docs/ui-conventions.md` *Visual direction* + `.claude/skil
 - [x] T8 new kit pieces: `StateLabel`, `Tag` / `CodeChip` / `CountBadge`, `InfoBanner`, `SplitButton`, `DetailsSection` / `DetailsGrid`; `formatMoney` (+ property test)
 - [x] T9 tests: `routes.pure.test.ts`, `format-money.test.ts`, `kit.test.tsx`, DataTable tests on the filter bar and row actions; e2e adapted (sv breadcrumb on a sub-page, Clear filters); `e2e/screenshots.spec.ts` shoots light + dark of every page
 - [x] T10 docs: ui-conventions *Where it lives*, af-design, features F39 + F71–F74, roadmap C1, lessons
+
+# Tasks — F74, the kit's leftovers (2026-10-23, lane DIRECT)
+Kit only (`kernel/ui`, `components/ui`, `kernel/i18n`); no module folder, no schema, no nav. Branch `feat/kernel-ui-kit-leftovers`.
+- [x] T1 filter popovers in the UI language: `table.filter.*` keys (en / fr / sv) in `TextFilter` (operators `TEXT_OP_KEYS`), `RangeFilter`, `CheckboxFilter`, `DateFilter` (presets, From / To, Expand / Collapse, month names via `monthName` + `Intl`); `(Blanks)` = `common.blanks`; `describeFilter(f, label, t)`; the DataTable's aria labels (`table.filterColumn`, `moveUp` / `moveDown`, `resize`, `selectPage` / `selectRow`) and boolean cells (`common.yes` / `no`); `useUiLanguage()` in `kernel/i18n/use-t.ts`
+- [x] T2 `SelectValue` renders the item's label from the collected items (or `items`, record or `{ value, label }[]`), else the placeholder, else nothing — never the raw value (`selectedLabel`)
+- [x] T3 docked panel open / hidden per table: `TableLayout.panelHidden` (normalised, kept by *Reset layout*, not a column change), `useTableLayout().setPanelHidden`; `useDockedPanel` registers it with `DockedCanvas`; `SheetContent` docked: *Hide* beside × (`details.hide`), hidden = rail with *Show* (`details.show`); × label `details.close`; `SheetHeader` `pr-16` for the two buttons
+- [x] T4 `details.about` / `details.proof` / `details.history` keys for the modules' panels
+- [x] T5 tests: `data-table.test.tsx` — a Swedish user's four popovers and filter button, `describeFilter` with the sv translator, Hide → rail → saved → reload keeps it → Show; `kit.test.tsx` — an id value shows its label, the none sentinel its label, a child-component item via `items`, unknown → placeholder / blank, never the id
+- [x] T6 docs: features F74 (+ F71's History note), ui-conventions (panel, DataTable i18n, select), feature-inventory D40, lessons, banking, roadmap

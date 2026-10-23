@@ -14,7 +14,7 @@ Spec: `spec.md`. No `plan.md` (D45: a plan only on a schema change) and no phase
 - [ ] T006 Show the bank account alias in the *Source* column and the panel badge (*Nordea CHF* rather than *Bank*): a banking read API `accountAliasesFor(tx, transactionIds)` joined in `queries.ts` like the partner name — the journal still never reads banking's tables. LIGHT per US4 (partial, LOW)
 - [ ] T007 Show the bank implicit rate beside the ECB rate in the panel's description when set (today only in a hidden column). LIGHT per edge case *bank_implicit_rate* (partial, LOW)
 - [ ] T008 Test the accountant on the journal: categorise and manual-entry actions refuse her (`FORBIDDEN`), `/journal` renders with no *New entry*, no form, no *Delete* — an e2e step with `accountant.json`, like `settings-rates.spec.ts`. The rule holds through `ownerAction`; nothing proves it for this module. DIRECT per US2/AC4, US4/AC2 (partial, LOW)
-- [ ] T009 Translate the ledger's last English: `Created`, `Updated`, `(code)`, `(id)` and `(Blanks)` in `journal-table.tsx` → `journal.col.*` / `table.*` keys (en / fr / sv). Touches **i18n** — serialised; rides with F71's journal PR or F74. LIGHT per FR-006 (partial, LOW)
+- [ ] T009 Translate the ledger's last English: `Created`, `Updated`, `(code)`, `(id)` and `(Blanks)` in `journal-table.tsx` → `journal.col.*` / `table.*` keys (en / fr / sv). Touches **i18n** — serialised; rides with F71's journal PR (F74, 2026-10-23, did the kit only: `(Blanks)` is `common.blanks`, the popovers are translated — the ledger's own column names are left here). LIGHT per FR-006 (partial, LOW)
 
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 

@@ -1,13 +1,17 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { LocaleProvider } from "@/kernel/i18n/locale-provider";
+import { translator } from "@/kernel/i18n/translate";
 import type { ListQuery } from "@/kernel/list-query/types";
+import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
 import { DataTable } from "./data-table";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 import { describeFilter } from "./filter-bar";
-import { compress, presetRange } from "./filters/date-filter";
+import { compress, monthName, presetRange } from "./filters/date-filter";
 import { SAVE_DEBOUNCE_MS, TablePreferencesProvider } from "./preferences";
 import type { DataTableColumn } from "./types";
 import type { ListQueryState } from "./use-list-query";
@@ -360,5 +364,180 @@ describe("date filter helpers", () => {
     expect(describeFilter({ kind: "range", min: "5", max: "5" })).toBe("= 5");
     expect(describeFilter({ kind: "text", op: "empty" })).toBe("is empty");
     expect(describeFilter({ kind: "in", values: ["a", "b", "c", "d"] })).toBe("a, b, c +1");
+  });
+});
+
+describe("F74 — the filter popovers speak the UI language", () => {
+  const sv = (ui: React.ReactNode) => <LocaleProvider initialLocale="sv-SE">{ui}</LocaleProvider>;
+  const source = {
+    distinct: async () => [
+      { value: "CHF", count: 3 },
+      { value: null, count: 2 },
+    ],
+    dateHierarchy: async () => ({
+      years: [
+        {
+          year: 2026,
+          count: 2,
+          months: [{ month: "2026-07", count: 2, days: [{ day: "2026-07-03", count: 2 }] }],
+        },
+      ],
+      empty: 1,
+    }),
+  };
+
+  /** a fresh page per popover — one open popover at a time, as a user has it */
+  async function openIn(column: string) {
+    cleanup();
+    localStorage.clear(); // another test's stored layout may hide a column
+    const state = makeState({ filters: { name: { kind: "text", op: "empty" } } });
+    render(
+      sv(
+        <DataTable
+          tableKey="sv"
+          columns={columns}
+          result={{ rows, total: 2 }}
+          state={state}
+          filterSource={source}
+        />,
+      ),
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: `Filtrera ${column}` })[0]);
+    await screen.findByRole("button", { name: "OK" });
+  }
+  const noEnglish = () => {
+    for (const word of [
+      "OK ",
+      "Clear",
+      "Cancel",
+      "This month",
+      "(Blanks)",
+      "Is empty",
+      "Search values…",
+    ])
+      expect(screen.queryByText(word)).toBeNull();
+  };
+
+  it("text: Swedish buttons, the operator's label (never its value), the filter button's words", async () => {
+    await openIn("Name");
+    expect(document.querySelector("[data-filter-button=name]")?.textContent).toContain("är tom");
+    expect(screen.getByText("Är tom")).toBeTruthy();
+    expect(screen.queryByText("empty")).toBeNull();
+    expect(screen.getByRole("button", { name: "Rensa" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Avbryt" })).toBeTruthy();
+    noEnglish();
+  });
+
+  it("range: the presets and the word between the bounds", async () => {
+    await openIn("Amount");
+    expect(screen.getByRole("button", { name: "Tom" })).toBeTruthy();
+    expect(screen.getByText("till")).toBeTruthy();
+    noEnglish();
+  });
+
+  it("values: search, select all, blanks", async () => {
+    await openIn("Currency");
+    expect(await screen.findByText("(Tomma)")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Sök värden…")).toBeTruthy();
+    expect(screen.getByText("Markera alla")).toBeTruthy();
+    noEnglish();
+  });
+
+  it("dates: presets, the month's name, blanks", async () => {
+    await openIn("Created");
+    expect(screen.getByRole("button", { name: "Denna månad" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Förra året" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "(Tomma)" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Expandera" }));
+    expect(monthName("2026-07", "sv")).toMatch(/^juli/);
+    expect(screen.getByText(monthName("2026-07", "sv"))).toBeTruthy();
+    noEnglish();
+  });
+
+  it("describeFilter takes the translator; English when none is given", () => {
+    expect(describeFilter({ kind: "dates", to: "2026-01-31" })).toBe("to 2026-01-31");
+    expect(describeFilter({ kind: "in", values: [null, "CHF"] })).toBe("(Blanks), CHF");
+    const sv = translator("sv");
+    expect(describeFilter({ kind: "in", values: [null, "CHF"] }, undefined, sv)).toBe(
+      "(Tomma), CHF",
+    );
+    expect(describeFilter({ kind: "dates", from: "2026-01-01" }, undefined, sv)).toBe(
+      "från 2026-01-01",
+    );
+  });
+});
+
+describe("F74 — the docked panel remembers open / hidden per table", () => {
+  beforeEach(() => localStorage.clear());
+
+  function Page({
+    initial,
+    save,
+  }: {
+    initial: Record<string, unknown>;
+    save: () => Promise<undefined>;
+  }) {
+    return (
+      <TablePreferencesProvider initial={initial} save={save}>
+        <DockedCanvas>
+          <main>
+            <DataTable
+              tableKey="tx"
+              columns={columns}
+              result={{ rows, total: 2 }}
+              state={makeState()}
+            />
+          </main>
+          <Sheet open onOpenChange={() => {}}>
+            <SheetContent data-testid="panel">
+              <SheetTitle>Row</SheetTitle>
+            </SheetContent>
+          </Sheet>
+        </DockedCanvas>
+      </TablePreferencesProvider>
+    );
+  }
+
+  it("Hide collapses the panel to a rail, the choice is saved with the table, and a reload keeps it", async () => {
+    vi.useFakeTimers();
+    const save = vi.fn(async () => undefined);
+    render(<Page initial={{}} save={save} />);
+    expect(screen.getByTestId("panel")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide the panel" }));
+    expect(screen.queryByTestId("panel")).toBeNull();
+    expect(document.querySelector("[data-slot=details-rail]")).not.toBeNull();
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS + 10);
+    expect(save).toHaveBeenCalledWith({
+      tableKey: "tx",
+      preferences: { hidden: [], order: [], widths: {}, panelHidden: true },
+    });
+    vi.useRealTimers();
+    const stored = (save.mock.calls[0] as unknown as [{ preferences: Record<string, unknown> }])[0]
+      .preferences;
+
+    // the reload: the server hands back what was saved
+    cleanup();
+    render(<Page initial={{ tx: stored }} save={save} />);
+    expect(screen.queryByTestId("panel")).toBeNull();
+    const show = screen.getByRole("button", { name: "Show the panel" });
+    fireEvent.click(show);
+    expect(screen.getByTestId("panel")).toBeTruthy();
+    expect(
+      JSON.parse(localStorage.getItem("af.table.tx.layout") ?? "{}").panelHidden,
+    ).toBeUndefined();
+  });
+
+  it("another table's choice does not leak; hiding the panel is not a column change (no Reset layout)", () => {
+    render(
+      <Page
+        initial={{ other: { hidden: [], order: [], widths: {}, panelHidden: true } }}
+        save={async () => undefined}
+      />,
+    );
+    expect(screen.getByTestId("panel")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide the panel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
+    expect(screen.queryByTestId("columns-reset")).toBeNull(); // the panel is not a column matter
   });
 });
