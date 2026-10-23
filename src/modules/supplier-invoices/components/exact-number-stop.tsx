@@ -5,7 +5,7 @@
 import { Ban } from "lucide-react";
 import Link from "next/link";
 import { useT } from "@/kernel/i18n/use-t";
-import type { DuplicateMatch } from "@/modules/expenses";
+import type { DuplicateMatch } from "@/modules/expenses/ui";
 
 /** The matches D35 refuses outright: same supplier + normalised number. */
 export function exactMatches(matches: readonly DuplicateMatch[]): DuplicateMatch[] {
