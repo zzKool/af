@@ -1241,6 +1241,16 @@ export const en = {
   "supplierInvoices.panel.deleteConfirm": "Delete {key}? The key is never reused.",
   "supplierInvoices.panel.deleted": "Supplier invoice deleted",
   "supplierInvoices.group.title": "{count} supplier invoice(s) in this group",
+  "supplierInvoices.history.empty": "No history yet.",
+  "supplierInvoices.history.created": "Created",
+  "supplierInvoices.history.edited": "Edited",
+  "supplierInvoices.history.cancelled": "Cancelled",
+  "supplierInvoices.history.reinstated": "Reinstated",
+  "supplierInvoices.history.paymentLinked": "Payment linked",
+  "supplierInvoices.history.rowAttached": "Bank row attached (another currency)",
+  "supplierInvoices.history.rowDetached": "Bank row detached",
+  "supplierInvoices.history.deleted": "Deleted",
+  "supplierInvoices.action.openGroup": "Open the group",
 
   // --- package (specs/accountant-package) ---
   "package.title": "Accountant package",

@@ -1253,6 +1253,16 @@ export const fr: Dictionary = {
   "supplierInvoices.panel.deleteConfirm": "Supprimer {key} ? La clé n'est jamais réutilisée.",
   "supplierInvoices.panel.deleted": "Facture fournisseur supprimée",
   "supplierInvoices.group.title": "{count} facture(s) fournisseur dans ce groupe",
+  "supplierInvoices.history.empty": "Pas encore d'historique.",
+  "supplierInvoices.history.created": "Créée",
+  "supplierInvoices.history.edited": "Modifiée",
+  "supplierInvoices.history.cancelled": "Annulée",
+  "supplierInvoices.history.reinstated": "Rétablie",
+  "supplierInvoices.history.paymentLinked": "Paiement lié",
+  "supplierInvoices.history.rowAttached": "Ligne bancaire rattachée (autre devise)",
+  "supplierInvoices.history.rowDetached": "Ligne bancaire détachée",
+  "supplierInvoices.history.deleted": "Supprimée",
+  "supplierInvoices.action.openGroup": "Ouvrir le groupe",
 
   // --- package (specs/accountant-package) ---
   "package.title": "Dossier comptable",
