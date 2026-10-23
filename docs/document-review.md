@@ -92,6 +92,10 @@ Access enforced in both `getDocumentForReview` service (server) and UI (readOnly
 
 ## Quality Indicator
 
+## Re-run OCR (FR-021)
+
+On an **extracted** document the owner has *Re-run OCR* in the header. It asks first ("your corrections stay; the extracted facts are replaced"), then calls `runOcrAction({ documentId, force: true })`: the document goes back to *uploaded*, the job is queued after the commit (one per document, `singletonKey`), the page refreshes. `corrections` is never touched, so every field fixed by hand keeps its value over the new reading. A pending, stuck or failed document is re-run from the inbox (*Run OCR*, `o`), which refuses an extracted one and points here. The accountant never sees the button.
+
 OCR quality classification from Story 5.2 is displayed in the header:
 
 | Quality | Badge | Color |

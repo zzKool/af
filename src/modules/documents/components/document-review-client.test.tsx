@@ -19,6 +19,7 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   markDocumentReviewedAction: mockMarkReviewedAction,
   refreshSignedUrlAction: vi.fn(),
   classifyDocumentAction: vi.fn(),
+  runOcrAction: vi.fn(),
   unarchiveDocumentsAction: mockUnarchive,
 }));
 
@@ -244,6 +245,27 @@ describe("DocumentReviewClient", () => {
   });
 
   // --- Back navigation ---
+  // --- Re-run OCR (FR-021) ---
+  it("offers Re-run OCR to the owner on an extracted document", () => {
+    render(<DocumentReviewClient data={makeReviewData({ status: "extracted" })} />);
+    expect(screen.getByTestId("rerun-ocr")).toBeInTheDocument();
+  });
+
+  it("does not offer Re-run OCR to the accountant", () => {
+    render(<DocumentReviewClient data={makeReviewData({ status: "extracted", readOnly: true })} />);
+    expect(screen.queryByTestId("rerun-ocr")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "uploaded",
+    "processing",
+    "ocr_failed",
+    "generated",
+  ])("does not offer Re-run OCR on a %s document (the inbox's Run OCR covers pending / failed)", (status) => {
+    render(<DocumentReviewClient data={makeReviewData({ status })} />);
+    expect(screen.queryByTestId("rerun-ocr")).not.toBeInTheDocument();
+  });
+
   // --- Archived (FR-001, T022) ---
   const makeItOptions = {
     expense: { groups: [], categories: [], sources: [] },
