@@ -661,4 +661,20 @@ describe("US3 — the inbox read model", () => {
     expect(docs.map((d) => d.id)).toEqual([docId]);
     expect(docs[0]).toMatchObject({ type: "document", amount: "0.00", remaining: "0.00" });
   });
+
+  it("pages over main-account rows only: newer savings rows never crowd an older main row out (lessons audit 32)", async () => {
+    const main = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-02", amount: "-450.00", name: "CLAS OHLSON" },
+      ]).then((ids) => ids[0]),
+    );
+    await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sav, "SEK", [
+        { date: "2026-03-18", amount: "5000.00", details: "INSATTNING" },
+        { date: "2026-03-19", amount: "-800.00", details: "UTTAG" },
+      ]),
+    );
+    const rows = await run(owner.caller, (tx) => inboxRows(tx, 2));
+    expect(rows.map((r) => r.row.id)).toEqual([main]);
+  });
 });
