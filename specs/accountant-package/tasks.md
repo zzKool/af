@@ -18,3 +18,7 @@
 - [x] T013 The months as a DataTable: `month-columns.ts`, `periodRow` / `listMonths` / `distinctMonthValues` / `monthDateHierarchy` in memory over `periodOverview`, the two filter actions; *Month* quick filter; keys → `<CodeChip>`; row buttons → ⋮ `rowActions`; the years a kit `Table` with `RowActionsMenu`; DB test on the state, the Month and the state filters
 - [x] T014 The docked panel (`package-panel.tsx`): one primary (*Build* / *Rebuild*) beside *Download v{n}*, `DetailsSection`s (Flags · Documents · `notes.md` · Built versions), build statuses as `<StateLabel>`; flags on screen through `formatMoney` / `<CodeChip>` (`flag-list.tsx` + its test) — the flag carries `amount` / `currency` / `account` / `date` for the screen only
 - [x] T015 Strings en / fr / sv (`package.col.month` / `state`, `package.state.*`, `package.flag.open`, `package.downloadVersion`, `package.version.flags`, `package.empty`; `package.status.*` capitalised; ten unused keys dropped); e2e `package.spec.ts` on the table and the panel; screenshots light + dark; [[accountant-package]]
+
+## Cleanup lane 7 (2026-10-23, lessons audit 23 / 25 / 26 / 29 / 30 — DIRECT, behaviour-neutral)
+
+- [x] T018 The package reads through the owners: `firstMonth` → `banking.firstBookingDate`; the *missing document* flag → the supplier invoices' / expenses' own `hasDocument` (lessons audit 23 follow-up, 25, 26). Same flags on the fixture (`package.test.ts` unchanged) — *`feat/package-owner-reads`*

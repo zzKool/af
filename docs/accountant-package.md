@@ -33,7 +33,7 @@ Stored as a generated document `Package_2026-06.zip` (`_v2`, `_v3` … on rebuil
 | `jobs/build-package.ts` | `package.build` (pg-boss, exclusive per build): collect in one transaction → `documents.documentReaders` → download outside any transaction → zip → `storeGeneratedDocument` + `markBuilt` in one short transaction; any error → `markFailed` with the message, nothing stored |
 | `state-family.ts` | pure, client-safe: `periodState` — the checklist state derived from a period's counts, flags and builds (`building` · `failed` · `flagged` · `built` · `ready` · `empty`) — and the one map of those states and of the build statuses → the D40 families |
 | `month-columns.ts` | the months table's columns (a leaf file: the actions read it at load) |
-| `queries.ts` | `listBuilds`, `periodOverview` (the months from the first bank row to today, live counts and flags for the latest 12, the last build's for older ones; one row per year), `livePreview` (the notes and flags of a period as they would be built now), `builtPeriods(periods)` (which have a built package, any version — the banking *Months* banner, F69), `periodRow` / `listMonths` / `distinctMonthValues` / `monthDateHierarchy` (the months as a DataTable, in memory over the overview) |
+| `queries.ts` | `listBuilds`, `periodOverview` (the months from the first bank row — `banking.firstBookingDate` — to today, live counts and flags for the latest 12, the last build's for older ones; one row per year), `livePreview` (the notes and flags of a period as they would be built now), `builtPeriods(periods)` (which have a built package, any version — the banking *Months* banner, F69), `periodRow` / `listMonths` / `distinctMonthValues` / `monthDateHierarchy` (the months as a DataTable, in memory over the overview) |
 | `package.actions.ts` | `buildPackageAction` (owner; enqueues on commit), `listPackageBuildsAction`, `getPackageBuildAction`, `packagePreviewAction`, `distinctPackageMonthsAction` / `packageMonthDatesAction` (the header filters) (owner + accountant) |
 | `components/package-workbench.tsx` | the page: the months' DataTable, the years, the polling of the builds every 2 s while one runs |
 | `components/package-panel.tsx` | the docked panel of a period: *Build* / *Rebuild* (the one primary) and *Download v{n}*, then Flags · Documents that go in · `notes.md` · Built versions |
@@ -54,7 +54,7 @@ Building never blocks. `notes.md`, the *Flags* sheet, the page and the build row
 
 | kind | when |
 |---|---|
-| `missing_document` | an expense or supplier invoice without its document |
+| `missing_document` | an expense or supplier invoice without its document — the owner's `hasDocument` (a `created_from` document; a per-diem breakdown is one), not a rule of the package's |
 | `unlinked_row` | a main-account row in state `open` (not a transfer, not *no document needed*) |
 | `delta` | a `partial` row whose open amount exceeds the D25 tolerance |
 | `unpaid_invoice` | an invoice of the period not `paid` / `credited` |
