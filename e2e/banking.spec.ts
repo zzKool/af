@@ -13,6 +13,7 @@ test.describe("Banking", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
 
   test("import, categorise, rule from a row, transfer pair, journal", async ({ page }) => {
+    test.setTimeout(240_000); // five pages, four imports — a long journey (lessons: e2e budgets)
     // 1. the July sample into the SEK account (pre-selected from the file name)
     await page.goto("/banking");
     await page.getByTestId("open-import").click();
@@ -38,7 +39,8 @@ test.describe("Banking", () => {
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
     const panel = page.getByTestId("transaction-panel");
     await expect(panel).toBeVisible();
-    await expect(panel.getByTestId("panel-amount")).toContainText("132,52 SEK");
+    // D40 money: U+2212 minus, "." decimals, U+202F / no-break spaces (lessons: match with \s)
+    await expect(panel.getByTestId("panel-amount")).toHaveText(/^−132\.52\sSEK$/);
     await expect(panel.getByTestId("panel-state")).toHaveText("Open");
     await panel.getByLabel("Category").click();
     await page.getByRole("option", { name: /654 · IT-tjänster/ }).click();
@@ -106,7 +108,7 @@ test.describe("Banking", () => {
       "SPARKONTO FÖRETAG 1234 56 78901 - 2026-12-31 10.00.00.csv",
       "PLUSGIROKONTO FTG 123 45 67-8 - 2026-01-05 08.00.00.csv",
     ]) {
-      await expect(page.getByTestId("import-row").filter({ hasText: name })).toHaveCount(1);
+      await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(1);
     }
 
     // 5. the Months panel (F69): July has rows; a click on its bar is the Month filter, a second click clears it.
