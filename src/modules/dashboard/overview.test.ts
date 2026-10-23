@@ -1,5 +1,7 @@
-// The overview on the real modules (feature inventory §3.14): an open bank row, an overdue client invoice, a
-// private expense, a supplier invoice overdue, a CH registration with last quarter undeclared → the action items
+// The overview on the real modules (feature inventory §3.14), SC-001's world with one of each item: an open bank row,
+// an overdue client invoice, a private expense, a company-card expense without its row, a supplier invoice overdue
+// and one due soon, a filed receipt linked to nothing, last month's package built with flags, a CH registration
+// with last quarter undeclared → the action items
 // with their counts and pages, the pulse, the briefing from the audit trail; the accountant's subset.
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,11 +19,12 @@ import {
   setupOwner,
 } from "@/modules/expenses/__fixtures__/harness";
 import * as invoices from "@/modules/invoices";
+import * as packageModule from "@/modules/package";
 import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import * as supplierInvoices from "@/modules/supplier-invoices";
-import { dashboardOverview, daysBefore, previousMonth, previousQuarter } from "./overview";
+import { dashboardOverview, previousMonth, previousQuarter } from "./overview";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("@/kernel/logging/logger", () => ({
@@ -68,12 +71,13 @@ afterAll(async () => {
 });
 
 describe("pure helpers", () => {
-  it("previous month, previous quarter, days before", () => {
+  it("previous month, previous quarter", () => {
     expect(previousMonth("2026-07-15")).toBe("2026-06");
     expect(previousMonth("2026-01-03")).toBe("2025-12");
     expect(previousQuarter("2026-07-15")).toBe("CH 2026/Q2");
     expect(previousQuarter("2026-02-01")).toBe("CH 2025/Q4");
-    expect(daysBefore("2026-07-15", 30)).toBe("2026-06-15");
+    expect(previousQuarter("2026-04-01")).toBe("CH 2026/Q1");
+    expect(previousQuarter("2026-12-31")).toBe("CH 2026/Q3");
   });
 });
 
@@ -186,6 +190,52 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       basCode: "653",
     });
     if (si.error) throw new Error(si.error.message);
+    // a supplier invoice due within 14 days of TODAY
+    const soon = await supplierInvoices.createSupplierInvoice(tx, owner.caller, noopAudit, {
+      groupId: batch.data?.id as string,
+      partnerId: vendor.id,
+      invoiceNumber: "9161",
+      invoiceDate: "2026-07-01",
+      dueDate: "2026-07-25",
+      amountNet: "400.00",
+      vatAmount: "100.00",
+      amountTotal: "500.00",
+      basCode: "653",
+    });
+    if (soon.error) throw new Error(soon.error.message);
+    // a company-card expense whose bank row is not there yet
+    const card = await expenses.createExpense(tx, owner.caller, noopAudit, {
+      groupId: batch.data?.id as string,
+      date: "2026-07-02",
+      description: "Figma",
+      basCode: "580",
+      amount: "150.00",
+      currency: "SEK",
+      paymentSourceId: owner.sources.afSek.id,
+    });
+    if (card.error) throw new Error(card.error.message);
+  });
+  // a filed receipt linked to nothing (reviewed, so not in the inbox)
+  const { tenantId, userId } = owner.caller;
+  const loose = await createTestDocument(adminPool, tenantId, userId, { status: "extracted" });
+  await adminPool.query(`UPDATE documents SET reviewed_at = now() WHERE id = $1`, [loose.id]);
+  // last month's package built — the live preview still has flags (the June row, the receipts)
+  const zip = await createTestDocument(adminPool, tenantId, userId, {
+    documentType: "generated",
+    status: "generated",
+    mimeType: "application/zip",
+  });
+  await run(owner.caller, async (tx) => {
+    const b = await packageModule.requestBuild(tx, owner.caller, noopAudit, { period: "2026-06" });
+    if (b.error) throw new Error(b.error.message);
+    await packageModule.markBuilding(tx, b.data?.id as string);
+    await packageModule.markBuilt(tx, noopAudit, b.data?.id as string, {
+      documentId: zip.id,
+      counts: packageModule.EMPTY_COUNTS,
+      flags: 1,
+      notes: "",
+      builtAt: new Date("2026-07-01T08:00:00Z"),
+    });
   });
   return ids;
 }
@@ -211,15 +261,38 @@ describe("the owner's dashboard", () => {
       count: 1,
       amount: { value: "1290.00", currency: "SEK" },
     });
-    expect(byKind.receipts_missing).toMatchObject({ count: 1, priority: "low" });
+    expect(byKind.unlinked_documents).toMatchObject({
+      count: 1,
+      priority: "medium",
+      href: "/banking/inbox",
+    });
+    expect(byKind.supplier_invoices_due).toMatchObject({
+      count: 1,
+      priority: "medium",
+      amount: { value: "500.00", currency: "SEK" },
+      href: "/supplier-invoices",
+    });
+    expect(byKind.expenses_awaiting_row).toMatchObject({
+      count: 1,
+      priority: "low",
+      href: "/expenses?f.status=in:awaiting_link",
+    });
+    // the train and the company-card purchase: neither has its receipt
+    expect(byKind.receipts_missing).toMatchObject({
+      count: 2,
+      priority: "low",
+      href: "/expenses?f.hasDocument=in:false",
+    });
     // ECB days without a rate: 07-07 … 07-09, missing in SEK and CHF alike, counted once each
     expect(byKind.rate_gaps).toMatchObject({ count: 3, href: "/settings/rates" });
-    expect(byKind.package_not_built).toMatchObject({
+    // built, and the live preview still flags three things: the June row, the receipts of 9160 and the train
+    expect(byKind.package_flags).toMatchObject({
+      count: 3,
       period: "2026-06",
-      priority: "medium",
+      priority: "low",
       href: "/package",
     });
-    expect(byKind.package_not_built?.count).toBeGreaterThanOrEqual(1);
+    expect(byKind.package_not_built).toBeUndefined();
     expect(byKind.vat_not_declared).toMatchObject({
       period: "CH 2026/Q2",
       href: expect.stringMatching(/^\/exports\?period=CH%202026%2FQ2&registration=[0-9a-f-]{36}$/),
@@ -241,7 +314,7 @@ describe("the owner's dashboard", () => {
     expect(pulse["balance:Sparkonto"]).toBeUndefined();
     // 10 000 + 8.1 % Swiss VAT
     expect(pulse.receivables).toMatchObject({ value: "10810.00", currency: "CHF", hint: "1" });
-    expect(pulse.payables).toMatchObject({ value: "1250.00", currency: "SEK", hint: "1" });
+    expect(pulse.payables).toMatchObject({ value: "1750.00", currency: "SEK", hint: "2" });
     expect(pulse.liability).toMatchObject({ value: "1290.00", currency: "SEK", hint: "1" });
     expect(pulse.invoicedYear).toMatchObject({ value: "116207.50", currency: "SEK", hint: "2026" });
 
@@ -257,7 +330,7 @@ describe("the owner's dashboard", () => {
     await world();
     const accountant: CallerIdentity = { ...owner.caller, role: "accountant" };
     const o = await run(owner.caller, (tx) => dashboardOverview(tx, accountant, TODAY, null));
-    expect(o.items.map((i) => i.kind).sort()).toEqual(["package_not_built", "vat_not_declared"]);
+    expect(o.items.map((i) => i.kind).sort()).toEqual(["package_flags", "vat_not_declared"]);
     expect(o.pulse.length).toBeGreaterThan(3);
     expect(o.briefing).toEqual({ since: null, lines: [] });
   });

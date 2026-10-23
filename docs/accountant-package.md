@@ -29,7 +29,8 @@ Stored as a generated document `Package_2026-06.zip` (`_v2`, `_v3` … on rebuil
 | `summary.ts` | pure: the seven sheets with SheetJS (`xlsx`), money as numbers with a two-decimal format, the workbook dated at the period's end |
 | `notes.ts` | pure: `notes.md` |
 | `zip.ts` | pure: `monthEntries`, `yearEntries`, `zipBytes` (fflate, sorted paths, one fixed mtime) |
-| `package.ts` | the build rows: `requestBuild` (owner, version `max + 1`, refused while one runs), `markBuilding` / `markBuilt` / `markFailed` |
+| `package.ts` | the build rows: `requestBuild` (owner, version `max + 1`, refused while one runs), `markBuilding` / `markBuilt` / `markFailed`; `toBuildDto` (the status is the Postgres enum's, no cast) |
+| `counts.ts` | pure: `EMPTY_COUNTS`, `parsePackageCounts` — the `counts` JSONB read back (a known key with a whole non-negative number, else 0) |
 | `jobs/build-package.ts` | `package.build` (pg-boss, exclusive per build): collect in one transaction → `documents.documentReaders` → download outside any transaction → zip → `storeGeneratedDocument` + `markBuilt` in one short transaction; any error → `markFailed` with the message, nothing stored |
 | `state-family.ts` | pure, client-safe: `periodState` — the checklist state derived from a period's counts, flags and builds (`building` · `failed` · `flagged` · `built` · `ready` · `empty`) — and the one map of those states and of the build statuses → the D40 families |
 | `month-columns.ts` | the months table's columns (a leaf file: the actions read it at load) |
