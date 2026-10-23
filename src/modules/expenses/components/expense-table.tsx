@@ -49,6 +49,8 @@ const COLUMN_KEYS = [
   "groupDescription",
   "date",
   "description",
+  "partnerName",
+  "partnerId",
   "kind",
   "basCode",
   "basLabel",
@@ -203,6 +205,31 @@ export function ExpenseTable({
             {row.description}
           </span>
         ),
+      },
+      {
+        key: "partnerName",
+        header: t("expenses.partner"),
+        type: "enum",
+        width: "8rem",
+        cell: (row) =>
+          row.partnerName ? (
+            <Link
+              href={`/partners/${row.partnerId}`}
+              className="block truncate text-primary hover:text-primary-hover hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              title={row.partnerName}
+            >
+              {row.partnerName}
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        key: "partnerId",
+        header: `${t("expenses.partner")} (id)`,
+        type: "enum",
+        defaultHidden: true,
       },
       {
         key: "kind",

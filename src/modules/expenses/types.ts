@@ -80,6 +80,8 @@ export type ExpenseDto = {
   paidCurrency: string | null;
   paymentSourceId: string;
   documentMissing: boolean;
+  /** the merchant as a partner (F87) — a vendor, validated through partners; never on a per-diem */
+  partnerId: string | null;
   note: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -176,6 +178,9 @@ export type ExpenseListRow = {
   groupDescription: string;
   date: string;
   description: string;
+  /** the partner (F87): stored id, name joined over the set; null without one */
+  partnerId: string | null;
+  partnerName: string | null;
   kind: ExpenseKind;
   basCode: string;
   basLabel: string;
@@ -217,6 +222,8 @@ export type SourceOption = {
   isActive: boolean;
 };
 export type CategoryOption = { code: string; label: string };
+/** A vendor the expense's partner picker offers (F87): active vendors only. */
+export type VendorOption = { id: string; name: string; defaultBasCategoryCode: string | null };
 export type DocumentOption = { id: string; businessKey: string; fileName: string; status: string };
 export type TransactionOption = {
   id: string;

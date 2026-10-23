@@ -25,6 +25,7 @@ export const HISTORY_FIELDS = [
   "paymentSourceId",
   "paidAmount",
   "documentMissing",
+  "partnerId",
   "note",
 ] as const;
 export type HistoryField = (typeof HISTORY_FIELDS)[number];

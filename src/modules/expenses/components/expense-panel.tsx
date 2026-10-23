@@ -244,6 +244,27 @@ function aboutRows(detail: ExpensePanelDetail, t: T): [ReactNode, ReactNode][] {
     ],
     [t("expenses.form.kind"), <Tag key="kind">{t(`expenses.kind.${e.kind}`)}</Tag>],
     [t("expenses.form.category"), detail.basLabel],
+    [
+      t("expenses.partner"),
+      detail.partner ? (
+        <Link
+          key="partner"
+          href={`/partners/${detail.partner.id}`}
+          className={
+            detail.partner.isActive ? "text-primary hover:underline" : "text-muted-foreground"
+          }
+          data-testid="panel-partner"
+        >
+          {detail.partner.isActive
+            ? detail.partner.name
+            : t("expenses.partnerInactive", { name: detail.partner.name })}
+        </Link>
+      ) : (
+        <span key="partner" className="text-muted-foreground">
+          {t("expenses.partnerNone")}
+        </span>
+      ),
+    ],
     [t("expenses.form.paidBy"), <Tag key="payer">{detail.paymentSource.label}</Tag>],
     [
       t("expenses.col.amountBase"),

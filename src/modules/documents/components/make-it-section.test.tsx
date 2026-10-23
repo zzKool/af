@@ -71,6 +71,11 @@ describe("MakeItSection (specs/documents US1)", () => {
       vatAmount: "6.44",
       documentId: "doc-1",
       documentKey: "exp_20260304_001",
+      // F87: the merchant (else the vendor) and its address reach the expense dialog's match card
+      vendor: {
+        name: "SBB CFF FFS",
+        address: { street: "Wylerstrasse 123", postalCode: "3000", city: "Bern", country: "CH" },
+      },
     });
     expect(i.supplier).toMatchObject({
       vendor: {
@@ -96,7 +101,12 @@ describe("MakeItSection (specs/documents US1)", () => {
       pageCount: 1,
       processingTimeMs: 1,
     });
-    expect(r.expense).toMatchObject({ date: "2026-03-05", description: "Coop", amount: "12.50" });
+    expect(r.expense).toMatchObject({
+      date: "2026-03-05",
+      description: "Coop",
+      amount: "12.50",
+      vendor: { name: "Coop", address: null },
+    });
     expect(r.supplier.invoiceNumber).toBeNull();
     // no address read (a receipt never has one) → none passed, not an empty object
     expect(r.supplier.vendor?.address).toBeNull();

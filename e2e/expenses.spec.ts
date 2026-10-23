@@ -179,6 +179,81 @@ test.describe("Expenses", () => {
     });
   });
 
+  // F87 (specs/expense-partner): an optional partner — its default category proposed, the Partner column, the
+  // partner's Expenses tab with its total, *Open in Expenses* landing filtered. Owns its data (vendor, group).
+  test("an expense with a partner: default category, Partner column, the partner's Expenses tab", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await trackToasts(page);
+    await withToastReport(page, async () => {
+      const vendorName = `E2E Bistro ${stamp}`;
+      const batch = `Dinners ${stamp}`;
+
+      // the vendor, with 583 as its default category
+      await page.goto("/partners");
+      await page.getByRole("button", { name: "Add partner" }).click();
+      await page.getByRole("textbox", { name: "Name" }).fill(vendorName);
+      await page.getByLabel("client").uncheck();
+      await page.getByLabel("vendor").check();
+      await page.getByRole("button", { name: "Create", exact: true }).click();
+      await expect(page.getByText("Partner created")).toBeVisible();
+      await page.goto(`/partners?q=${encodeURIComponent(vendorName)}`);
+      await page.getByRole("link", { name: vendorName }).click();
+      await expect(page).toHaveURL(/\/partners\/[0-9a-f-]{36}$/);
+      const partnerUrl = page.url();
+      const basField = page.getByText("BAS Category", { exact: true }).locator("..");
+      await basField.getByRole("combobox").click();
+      await page.getByRole("option", { name: /^583/ }).click();
+      await expect(async () => {
+        await page.reload();
+        await expect(
+          page.getByText("BAS Category", { exact: true }).locator("..").getByRole("combobox"),
+        ).toContainText("583", { timeout: 2_000 });
+      }).toPass({ timeout: 20_000 });
+
+      // a group of its own
+      await page.goto("/expenses/groups");
+      await page.getByTestId("open-new-group").click();
+      await page.getByTestId("group-description").fill(batch);
+      await page.getByTestId("save-group").click();
+      await expectToast(page, "created");
+
+      // the expense: picking the partner proposes its category, marked *from partner*
+      await page.goto("/expenses");
+      const dialog = page.getByTestId("new-expense-dialog");
+      const pick = async (label: string, option: RegExp | string) => {
+        await dialog.getByLabel(label, { exact: true }).click();
+        await page.getByRole("option", { name: option }).click();
+      };
+      await page.getByTestId("open-new-expense").click();
+      await expect(dialog).toBeVisible();
+      await pick("Group", new RegExp(batch));
+      await pick("Paid by", "Private SE");
+      await dialog.getByLabel("Date", { exact: true }).fill("2025-04-02");
+      await page.getByTestId("expense-description").fill("Dinner with the client");
+      await pick("Partner", vendorName);
+      await expect(dialog.getByLabel("Category", { exact: true })).toContainText(/^583/);
+      await expect(dialog.getByTestId("category-from-partner")).toBeVisible();
+      await page.getByTestId("expense-amount").fill("842.00");
+      await page.getByTestId("create-expense").click();
+      await expectToast(page, "Rep-01 created");
+      await expect(dialog).not.toBeVisible();
+
+      // the partner's Expenses tab: the count, the total, the row; Open in Expenses lands filtered
+      await page.goto(partnerUrl);
+      await page.getByRole("tab", { name: /^Expenses/ }).click();
+      await expect(page.getByTestId("partner-expenses-total")).toContainText("Expenses: 1");
+      await expect(page.getByTestId("partner-expenses-total")).toContainText("842.00");
+      await expect(page.getByTestId("partner-expenses")).toContainText("Dinner with the client");
+      await page.getByTestId("partner-expenses-open").click();
+      await expect(page).toHaveURL(/\/expenses\?f\.partnerId=in(%3A|:)[0-9a-f-]{36}/);
+      const row = page.getByRole("row").filter({ hasText: "Dinner with the client" });
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText(vendorName);
+    });
+  });
+
   test("the accountant reads expenses and settlements, writes nothing", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: "e2e/.auth/accountant.json" });
     const page = await ctx.newPage();

@@ -106,6 +106,54 @@ test.describe("Page screenshots", () => {
         await shoot(page, `partner-contacts-${scheme}`);
       });
 
+      // F87: the expense dialog with a partner picked (its category proposed), the dialog from a document with
+      // the match card, the list's Partner column, the partner's Expenses tab — the expenses journey leaves
+      // "E2E Bistro …" with one expense behind
+      test(`screenshot expense-partner-dialog (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/expenses");
+        await page.getByTestId("open-new-expense").click();
+        const dialog = page.getByTestId("new-expense-dialog");
+        await dialog.waitFor();
+        await dialog.getByLabel("Partner", { exact: true }).click();
+        const bistro = page.getByRole("option", { name: /E2E Bistro/ }).first();
+        test.skip((await bistro.count()) === 0, "no E2E Bistro vendor");
+        await bistro.click();
+        await shoot(page, `expense-partner-dialog-${scheme}`);
+      });
+
+      test(`screenshot expense-partner-card (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/documents/inbox");
+        const first = page
+          .locator('main a[href^="/documents/"]:not([href="/documents/inbox"])')
+          .first();
+        test.skip((await first.count()) === 0, "no document in the inbox");
+        await page.goto((await first.getAttribute("href")) ?? "/documents");
+        const makeIt = page.getByTestId("make-it-expense");
+        test.skip((await makeIt.count()) === 0, "the document already became something");
+        await makeIt.click();
+        await page.getByTestId("partner-match").waitFor();
+        await shoot(page, `expense-partner-card-${scheme}`);
+      });
+
+      test(`screenshot expense-partner-list (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/expenses?q=E2E%20Bistro");
+        await shoot(page, `expense-partner-list-${scheme}`);
+      });
+
+      test(`screenshot partner-expenses (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/partners?q=E2E%20Bistro");
+        const first = page.locator('main a[href^="/partners/"]').first();
+        test.skip((await first.count()) === 0, "no E2E Bistro vendor");
+        await page.goto((await first.getAttribute("href")) ?? "/partners");
+        await page.getByRole("tab", { name: /^Expenses/ }).click();
+        await page.getByTestId("partner-expenses").waitFor();
+        await shoot(page, `partner-expenses-${scheme}`);
+      });
+
       for (const [name, { list, link }] of Object.entries(ENTITIES)) {
         test(`screenshot ${name} (${scheme})`, async ({ page }) => {
           mkdirSync("e2e-screenshots", { recursive: true });

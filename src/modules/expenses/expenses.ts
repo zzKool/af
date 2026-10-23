@@ -17,6 +17,7 @@ import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import { expenseDocumentKey, expenseRef, expenseSeries, nextInSeries } from "@/modules/numbering";
+import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import { invalid, notFound, violation } from "./errors";
@@ -67,6 +68,8 @@ export const expenseInputSchema = z.object({
   /** typed by hand → rate_source = manual; omitted → ECB of the date */
   rate: positiveRate.optional(),
   documentMissing: z.boolean().optional(),
+  /** the merchant as a partner (F87): an active vendor of the tenant; null clears it */
+  partnerId: uuid.nullable().optional(),
   note: z.string().trim().max(2000).nullable().optional(),
   /** the uploaded receipt this expense is created from (D27) */
   documentId: uuid.optional(),
@@ -112,6 +115,7 @@ export function toExpenseDto(row: Expense): ExpenseDto {
     paidCurrency: row.paidCurrency,
     paymentSourceId: row.paymentSourceId,
     documentMissing: row.documentMissing,
+    partnerId: row.partnerId,
     note: row.note,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -235,6 +239,31 @@ async function checkVatRegistration(
 }
 
 /**
+ * The expense's partner (F87, FR-001): a partner of this tenant (RLS — another tenant's id is not found), active,
+ * with the type `vendor`; a per-diem never has one. Not a money fact — allowed in every state.
+ */
+async function checkPartner(
+  tx: TransactionClient,
+  id: string | null | undefined,
+  kind: ExpenseKind,
+): Promise<AppError | null> {
+  if (!id) return null;
+  if (kind === "per_diem") {
+    return violation("A per-diem has no partner — it is written by its trip", {
+      field: "partnerId",
+    });
+  }
+  const p = await partners.getPartner(tx, id);
+  if (!p.data || !p.data.isActive) {
+    return violation("Unknown or inactive partner", { field: "partnerId" });
+  }
+  if (!p.data.types.includes("vendor")) {
+    return violation(`Pick a vendor — ${p.data.name} is not one`, { field: "partnerId" });
+  }
+  return null;
+}
+
+/**
  * THE "open" rule (D37, F62): an expense is a draft — its money facts may change — until its first payment, i.e.
  * a settlement line (any, a cancelled settlement's too: "from then on") or a `justifies` link onto it (the paying
  * bank row; linking lets only *attach* write it, F58). The lock trigger `expenses_lock_when_settled` tests the same
@@ -271,6 +300,8 @@ export async function createExpense(
   if (source.error) return { error: source.error };
   const vatError = await checkVatRegistration(tx, caller, v.vatRegistrationId);
   if (vatError) return { error: vatError };
+  const partnerError = await checkPartner(tx, v.partnerId, v.kind ?? "receipt");
+  if (partnerError) return { error: partnerError };
   const amount = new D(v.amount);
   const base = await baseFor(tx, v.date, amount, v.currency, v.rate);
   if (base.error) return { error: base.error };
@@ -317,6 +348,7 @@ export async function createExpense(
       baseProvisional: isProvisional(source.data, v.currency),
       paymentSourceId: source.data.id,
       documentMissing: v.documentMissing ?? false,
+      partnerId: v.partnerId ?? null,
       note: noteWithAck(v.note, v.duplicateAck),
       createdBy: caller.userId,
       source: caller.source,
@@ -373,6 +405,11 @@ export async function updateExpense(
   }
   const vatError = await checkVatRegistration(tx, caller, v.vatRegistrationId);
   if (vatError) return { error: vatError };
+  // a partner that stays as it is (a deactivated one kept on the row) is not re-validated; a new one is
+  if (v.partnerId !== undefined && v.partnerId !== row.partnerId) {
+    const partnerError = await checkPartner(tx, v.partnerId, row.kind as ExpenseKind);
+    if (partnerError) return { error: partnerError };
+  }
 
   const moneyChange = MONEY_FIELDS.some((f) => v[f] !== undefined);
   const data: Prisma.ExpenseUpdateInput = {
@@ -381,6 +418,7 @@ export async function updateExpense(
     ...(v.vatAmount !== undefined ? { vatAmount: v.vatAmount ? new D(v.vatAmount) : null } : {}),
     ...(v.vatRegistrationId !== undefined ? { vatRegistrationId: v.vatRegistrationId } : {}),
     ...(v.documentMissing !== undefined ? { documentMissing: v.documentMissing } : {}),
+    ...(v.partnerId !== undefined ? { partnerId: v.partnerId } : {}),
     ...(v.note !== undefined ? { note: v.note } : {}),
   };
   if (moneyChange) {
