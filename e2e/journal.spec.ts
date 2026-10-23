@@ -1,5 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { expect, type Page, test } from "@playwright/test";
 import { expectToast, trackToasts } from "./fixtures/toasts";
+
+const SHOTS = join(__dirname, "..", "specs", "journal", "screenshots");
+
+async function snap(page: Page, name: string) {
+  if (!process.env.E2E_SCREENSHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true });
+}
 
 // The journal (specs/journal): the owner types a manual entry — its Proof is *None* and its panel offers
 // *Link to…* — and the accountant reads the same ledger with nothing to change: no *New entry*, no form, no
@@ -32,6 +42,7 @@ test.describe("Journal — owner writes, accountant reads", () => {
     await expect(panel.getByTestId("categorise-form")).toBeVisible();
     await expect(panel.getByTestId("journal-link-to")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Delete entry" })).toBeVisible();
+    await snap(page, "journal-manual-entry-panel");
 
     // 3. the accountant: the same entry, read only
     const context = await browser.newContext({ storageState: "e2e/.auth/accountant.json" });
@@ -48,6 +59,7 @@ test.describe("Journal — owner writes, accountant reads", () => {
       await expect(herPanel.getByTestId("categorise-form")).toHaveCount(0);
       await expect(herPanel.getByTestId("journal-link-to")).toHaveCount(0);
       await expect(herPanel.getByRole("button", { name: "Delete entry" })).toHaveCount(0);
+      await snap(hers, "journal-accountant-panel");
     } finally {
       await context.close();
     }
