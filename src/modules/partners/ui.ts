@@ -5,5 +5,6 @@
 export * from "./components/partner-detail-tabs";
 export * from "./components/partner-form";
 export * from "./components/partner-table";
+export * from "./ocr-address";
 export * from "./partners.actions";
 export type * from "./types";

@@ -1,8 +1,8 @@
 "use client";
 
 // The supplier match card (specs/documents US1, harvest R39): the OCR vendor against the partners — *Use match*
-// on the best one (shown from 60 %), the other matches, or *New vendor* pre-filled with the OCR facts, created
-// through the partners module and selected at once.
+// on the best one (shown from 60 %), the other matches, or *New vendor* pre-filled with the OCR facts (name, VAT
+// number, address — documents T026), created through the partners module and selected at once.
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -10,15 +10,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import type { OcrAddress } from "@/kernel/ocr/ocr";
 import type { PartnerMatch } from "@/modules/partners/ui";
-import { createPartnerAction, matchPartnersAction } from "@/modules/partners/ui";
+import {
+  createPartnerAction,
+  matchPartnersAction,
+  ocrAddressText,
+  partnerAddressFromOcr,
+} from "@/modules/partners/ui";
 
 const BEST_FROM = 60;
 
 export type VendorFacts = {
   name?: string | null;
   vatNumber?: string | null;
-  address?: string | null;
+  /** the OCR's vendor address (`OcrExtractedData.vendorAddress`) */
+  address?: OcrAddress | null;
 };
 
 export function SupplierMatchCard({
@@ -40,7 +47,8 @@ export function SupplierMatchCard({
   const { executeAsync: match } = useAction(matchPartnersAction);
   const { executeAsync: createPartner, isPending } = useAction(createPartnerAction);
 
-  const key = JSON.stringify([vendor.name ?? "", vendor.vatNumber ?? "", vendor.address ?? ""]);
+  const addressText = ocrAddressText(vendor.address);
+  const key = JSON.stringify([vendor.name ?? "", vendor.vatNumber ?? "", addressText ?? ""]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` serialises the vendor facts
   useEffect(() => {
     let live = true;
@@ -51,7 +59,7 @@ export function SupplierMatchCard({
     match({
       name: vendor.name ?? undefined,
       vatNumber: vendor.vatNumber ?? undefined,
-      address: vendor.address ?? undefined,
+      address: addressText?.slice(0, 400) ?? undefined,
       type: "vendor",
     }).then((r) => {
       if (live) setMatches(r?.data?.data ?? []);
@@ -66,7 +74,7 @@ export function SupplierMatchCard({
       name: name.trim(),
       types: ["vendor"],
       vatNumber: vatNumber.trim() || undefined,
-      address: {},
+      address: partnerAddressFromOcr(vendor.address),
       externalIdentifiers: [],
     });
     const error = extractError(r);
@@ -149,6 +157,14 @@ export function SupplierMatchCard({
           >
             {t("partners.match.create")}
           </Button>
+          {addressText && (
+            <p
+              className="text-xs text-muted-foreground sm:col-span-3"
+              data-testid="new-vendor-address"
+            >
+              {addressText}
+            </p>
+          )}
         </div>
       ) : (
         <Button
