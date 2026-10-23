@@ -30,7 +30,7 @@ Derived, never stored (`modules/documents/inbox.ts`, `listInbox` in `queries.ts`
 
 ## The pane
 
-Key, state, file; *Duplicate of* links the oldest twin. Actions by state:
+Key (code chip), state (`<DocumentStateLabel>` — the module's one family map, the same word as the library and the review page: *Needs OCR* / *Processing* / *Ready* in progress ◐, *Processing* stuck / *OCR failed* attention !, *Archived* neutral –), kind (tag), file; *Duplicate of* links the oldest twin. One primary in the pane: *Run OCR* while the OCR is due, *Expense* once the facts are there; the rest are secondaries, *Open* a link. Then the D40 `DetailsSection`s: *Financial Details* (the facts, `DetailsGrid`, the amount through `formatMoney`), the suggestions (`SuggestionsSection`, its own *Suggestions* heading — the kit's *Proof* title waits for F74's keys), *Document preview*. The tabs are underline tabs (the counts stay in the words until F74), the list's date is `yyyy-mm-dd`. Actions by state:
 
 | State | Actions |
 |---|---|

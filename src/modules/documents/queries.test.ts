@@ -185,6 +185,24 @@ describe("listDocuments", () => {
     });
   });
 
+  it("F71: each row carries the inbox's state on the same facts — became / filed out, justified-only still ready, parked archived", async () => {
+    await adminPool.query(
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+       VALUES ($1, 'bank_transaction', gen_random_uuid(), 'document', $2, 'justifies', $3)`,
+      [tenantId, ids.invoice, owner.userId],
+    );
+    await adminPool.query(`UPDATE documents SET archived_at = now() WHERE id = $1`, [ids.contract]);
+    const r = await run(owner, (tx) => listDocuments(tx, owner, q()));
+    const stateOf = (id: string) => r.rows.find((d) => d.id === id)?.state;
+    expect(stateOf(ids.receipt)).toBe("filed");
+    expect(stateOf(ids.invoice)).toBe("ready"); // FR-016: a bank row justifies it, the decision is still open
+    expect(stateOf(ids.contract)).toBe("archived");
+    expect(stateOf(ids.generated)).toBe("generated");
+    // the facts the state reads stay in the read model
+    expect(r.rows[0]).not.toHaveProperty("archivedAt");
+    expect(r.rows[0]).not.toHaveProperty("updatedAt");
+  });
+
   it("the accountant sees financial documents only — on the list, the distinct values and the hierarchy", async () => {
     const r = await run(accountant, (tx) => listDocuments(tx, accountant, q()));
     expect(r.total).toBe(3);

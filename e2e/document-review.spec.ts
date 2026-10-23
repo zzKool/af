@@ -32,8 +32,8 @@ test.describe("Document review page — owner", () => {
   test("owner can navigate to a document detail page from list", async ({ page }) => {
     await openOwnDocument(page);
 
-    // Verify dual-pane layout elements
-    await expect(page.getByText(/Back to Documents/)).toBeVisible();
+    // the title row (D40, F71): the key with its derived state as icon + word
+    await expect(page.getByTestId("document-review-state")).toBeVisible();
 
     // Verify review controls are present for owner
     const reviewButton = page.getByRole("button", {
@@ -66,15 +66,18 @@ test.describe("Document review page — owner", () => {
   test("document detail page has back navigation", async ({ page }) => {
     await openOwnDocument(page);
 
-    // by role: the breadcrumb also says "Documents" (D40 shell)
-    await page.getByRole("link", { name: /Back to Documents/ }).click();
+    // D40: the breadcrumb is the way back (no back link of the page's own under a named parent)
+    await page
+      .getByRole("navigation", { name: "Breadcrumb" })
+      .getByRole("link", { name: "Documents" })
+      .click();
     await expect(page).toHaveURL(/\/documents$/);
   });
 
   test("document review page passes automated accessibility checks", async ({ page }) => {
     await openOwnDocument(page);
     // Wait for content to load
-    await expect(page.getByText(/Back to Documents/)).toBeVisible();
+    await expect(page.getByTestId("document-review-state")).toBeVisible();
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .exclude(".react-pdf__Document") // Exclude PDF canvas elements (third-party)
@@ -125,7 +128,7 @@ test.describe("Document review page — owner", () => {
     expect(href).toMatch(/^\/expenses\?open=[0-9a-f-]{36}$/);
 
     // FR-005: the library says it too — Expense {key}, linking to the same expense
-    const docKey = (await page.locator("h1.font-mono").textContent())?.trim() ?? "";
+    const docKey = (await page.getByTestId("document-review-key").textContent())?.trim() ?? "";
     await page.goto(`/documents?q=${encodeURIComponent(docKey)}`);
     const libraryBecame = page.getByTestId("document-became-link");
     await expect(libraryBecame).toContainText(/Expense Ex\d+-\w+-\d+/);
@@ -136,12 +139,19 @@ test.describe("Document review page — owner", () => {
     await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-\w+-\d+/);
   });
 
-  test("documents list shows review status badges for extracted documents", async ({ page }) => {
+  test("documents list shows each row's derived state as icon + word", async ({ page }) => {
     await openOwnDocument(page);
     await page.goto("/documents");
-    // Review status is a chip next to the Status badge — "needs review" until reviewed
-    const reviewBadge = page.getByText(/needs review|extracted|uploaded|processing/i).first();
-    await expect(reviewBadge).toBeVisible();
+    // F71: the inbox's word through the module's one family map — Ready until it is decided, never a pill
+    const state = page.getByTestId("document-state").first();
+    await expect(state).toBeVisible();
+    await expect(state).toHaveText(
+      /Needs OCR|Processing|OCR failed|Ready|Archived|Filed|generated/,
+    );
+    await expect(state.locator("[data-state-family]")).toHaveAttribute(
+      "data-state-family",
+      /attention|progress|done|neutral/,
+    );
   });
 });
 
