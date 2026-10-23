@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
@@ -7,8 +6,9 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
 import { EntityPage } from "@/kernel/ui/shell/page";
+import { Tag } from "@/kernel/ui/tags";
 import {
   EXPENSE_COLUMN_KEYS,
   EXPENSE_DEFAULT_SORT,
@@ -76,16 +76,22 @@ export default async function ExpenseGroupPage({
 
   return (
     <EntityPage
-      back={<Link href="/expenses/groups">{t("expenses.group.back")}</Link>}
       title={g.label}
+      tags={<Tag>{t(`expenses.groups.kind.${g.kind}`)}</Tag>}
       meta={t("expenses.group.meta", {
         count: g.expenseCount,
-        total: formatCurrency(g.totalBase, "SEK"),
-        open: formatCurrency(g.openBase, "SEK"),
+        total: formatMoney(g.totalBase, "SEK", { bare: true }),
+        open: formatMoney(g.openBase, "SEK", { bare: true }),
       })}
       actions={
         <GroupHeaderActions
           group={{ id: g.id, description: g.description, kind: g.kind, hasTrip: g.hasTrip }}
+          options={{
+            groups: data.options.groups,
+            categories: data.options.categories,
+            sources: data.options.sources,
+            documents: data.options.documents,
+          }}
           canWrite={canWrite}
         />
       }

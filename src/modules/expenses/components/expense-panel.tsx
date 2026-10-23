@@ -1,11 +1,13 @@
 "use client";
 
-// The side panel of one expense: loads the detail and saves patches; the sections render it —
-// money (editable while open) with the bank row (company-paid) · facts and document · settlements · links —
-// and the panel ends with delete.
+// The side panel of one expense (D40 details panel): loads the detail and saves patches. The title line — key,
+// amount, state — then About (group, date, category, payer, the base and the bank's amount) · Proof (the receipt,
+// the bank row of a company-paid expense, the settlements, the links) · Money (editable while open) · Facts ·
+// History (collapsed); the panel ends with delete.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,9 @@ import {
 } from "@/components/ui/sheet";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { formatMoney } from "@/kernel/money/format-money";
+import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   deleteExpenseAction,
@@ -26,12 +31,13 @@ import {
   updateExpenseAction,
 } from "@/modules/expenses/expenses.actions";
 import type { CategoryOption, SourceOption, TransactionOption } from "@/modules/expenses/types";
-import { ExpenseDocumentSection, ExpenseFactsSection } from "./expense-panel-facts";
-import { ExpenseLinksSection } from "./expense-panel-links";
+import { ExpenseDocumentLine, ExpenseFactsSection } from "./expense-panel-facts";
+import { ExpenseHistoryList } from "./expense-panel-history";
+import { ExpenseLinksList } from "./expense-panel-links";
 import { ExpenseMoneySection } from "./expense-panel-money";
-import { ExpenseAttachRow, ExpenseSettlementsSection } from "./expense-panel-payments";
+import { ExpenseAttachRow, ExpenseSettlementsList } from "./expense-panel-payments";
 import { type ExpensePanelDetail, type ExpensePatch, money } from "./expense-panel-shared";
-import { StatusBadge } from "./status-badge";
+import { ExpenseStateLabel } from "./expense-state";
 
 export function ExpensePanel({
   expenseId,
@@ -109,48 +115,69 @@ export function ExpensePanel({
           <>
             <SheetHeader>
               <SheetTitle className="flex flex-wrap items-center gap-2">
-                <span className="font-mono" data-testid="panel-key">
-                  {e.key}
-                </span>
-                <span className="tabular-nums" data-testid="panel-amount">
+                <span
+                  className="text-[22px] leading-7 font-semibold tabular-nums"
+                  data-testid="panel-amount"
+                >
                   {money(e.amount, e.currency)}
                 </span>
-                <StatusBadge status={detail.status} testId="panel-status" />
+                <ExpenseStateLabel status={detail.status} testId="panel-status" />
               </SheetTitle>
-              <SheetDescription>
-                <Link href={`/expenses/groups/${e.groupId}`} className="hover:underline">
-                  {detail.groupLabel}
-                </Link>{" "}
-                · {t(`expenses.kind.${e.kind}`)} · {detail.basLabel}
+              <SheetDescription className="flex flex-wrap items-center gap-1.5">
+                <span data-testid="panel-key" className="inline-flex">
+                  <CodeChip>{e.key}</CodeChip>
+                </span>
+                <span className="min-w-0 break-words text-foreground">{e.description}</span>
               </SheetDescription>
             </SheetHeader>
 
-            <ExpenseMoneySection
-              detail={detail}
-              sources={sources}
-              canWrite={canWrite}
-              isOpen={isOpen}
-              save={save}
-              saving={saving}
-            >
-              <ExpenseAttachRow
-                detail={detail}
-                sources={sources}
-                transactions={transactions}
-                canWrite={canWrite}
-                onChanged={changed}
-              />
-            </ExpenseMoneySection>
-            <ExpenseFactsSection
-              detail={detail}
-              categories={categories}
-              canWrite={canWrite}
-              save={save}
-              saving={saving}
-            />
-            <ExpenseDocumentSection detail={detail} />
-            <ExpenseSettlementsSection detail={detail} />
-            <ExpenseLinksSection detail={detail} />
+            <div className="flex flex-col">
+              <DetailsSection title={t("details.about")}>
+                <DetailsGrid rows={aboutRows(detail, t)} />
+              </DetailsSection>
+
+              <DetailsSection title={t("details.proof")}>
+                <div className="flex flex-col gap-3">
+                  <ExpenseDocumentLine detail={detail} />
+                  <ExpenseAttachRow
+                    detail={detail}
+                    sources={sources}
+                    transactions={transactions}
+                    canWrite={canWrite}
+                    onChanged={changed}
+                  />
+                  <ExpenseSettlementsList detail={detail} />
+                  <ExpenseLinksList detail={detail} />
+                </div>
+              </DetailsSection>
+
+              {canWrite && (
+                <DetailsSection title={t("expenses.panel.money")}>
+                  <ExpenseMoneySection
+                    detail={detail}
+                    sources={sources}
+                    canWrite={canWrite}
+                    isOpen={isOpen}
+                    save={save}
+                    saving={saving}
+                  />
+                </DetailsSection>
+              )}
+
+              <DetailsSection title={t("expenses.panel.facts")}>
+                <ExpenseFactsSection
+                  detail={detail}
+                  categories={categories}
+                  canWrite={canWrite}
+                  save={save}
+                  saving={saving}
+                />
+              </DetailsSection>
+
+              <DetailsSection title={t("details.history")} defaultOpen={false}>
+                <ExpenseHistoryList detail={detail} />
+              </DetailsSection>
+            </div>
 
             {canWrite && isOpen && detail.links.every((l) => l.kind === "created_from") && (
               <div className="flex justify-end">
@@ -187,4 +214,77 @@ export function ExpensePanel({
       </SheetContent>
     </Sheet>
   );
+}
+
+type T = ReturnType<typeof useT>;
+
+/** About this expense: where it sits, who paid, and its money facts as written (the base, the rate, the bank). */
+function aboutRows(detail: ExpensePanelDetail, t: T): [ReactNode, ReactNode][] {
+  const e = detail.expense;
+  const rateSource =
+    e.rateSource === "bank"
+      ? t("expenses.rateSource.bank")
+      : t(`journal.rateSource.${e.rateSource}`);
+  const rows: [ReactNode, ReactNode][] = [
+    [
+      t("expenses.col.group"),
+      <Link
+        key="group"
+        href={`/expenses/groups/${e.groupId}`}
+        className="text-primary hover:underline"
+      >
+        {detail.groupLabel}
+      </Link>,
+    ],
+    [
+      t("expenses.form.date"),
+      <span key="date" className="tabular-nums">
+        {e.date}
+      </span>,
+    ],
+    [t("expenses.form.kind"), <Tag key="kind">{t(`expenses.kind.${e.kind}`)}</Tag>],
+    [t("expenses.form.category"), detail.basLabel],
+    [t("expenses.form.paidBy"), <Tag key="payer">{detail.paymentSource.label}</Tag>],
+    [
+      t("expenses.col.amountBase"),
+      <span key="base" className="tabular-nums" data-testid="panel-base">
+        {t("expenses.panel.base", {
+          base: formatMoney(e.amountBase, "SEK", { bare: true }),
+          rate: e.rate,
+          source: rateSource,
+        })}
+        {e.baseProvisional ? ` · ${t("expenses.panel.provisional")}` : ""}
+      </span>,
+    ],
+  ];
+  if (e.paidAmount)
+    rows.push([
+      t("expenses.col.paid"),
+      <span key="paid" className="tabular-nums">
+        {money(e.paidAmount, e.paidCurrency ?? "SEK")}
+      </span>,
+    ]);
+  if (detail.paymentSource.kind === "private")
+    rows.push(
+      [
+        t("expenses.col.allocated"),
+        <span key="alloc" className="tabular-nums">
+          {formatMoney(detail.allocatedBase, "SEK")}
+        </span>,
+      ],
+      [
+        t("expenses.col.open"),
+        <span key="open" className="tabular-nums">
+          {formatMoney(detail.openBase, "SEK")}
+        </span>,
+      ],
+    );
+  if (e.vatAmount)
+    rows.push([
+      t("expenses.col.vat"),
+      <span key="vat" className="tabular-nums">
+        {money(e.vatAmount, e.currency)}
+      </span>,
+    ]);
+  return rows;
 }

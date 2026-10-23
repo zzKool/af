@@ -1,8 +1,8 @@
 "use client";
 
-// The money section of the expense panel: the SEK base line, then the money form while the expense is open
-// (amount, currency, date, paid by — saved on *Save*) or the locked read-out. `children` is the bank-row block.
-import { type ReactNode, useId, useState } from "react";
+// The money form of the expense panel while the expense is open (amount, currency, date, paid by — saved on
+// *Save*), else the one line saying why it is locked. The base, the rate and the bank's amount are in *About*.
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,10 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import type { SourceOption } from "@/modules/expenses/types";
-import { type ExpensePanelDetail, money, type SaveExpense } from "./expense-panel-shared";
+import type { ExpensePanelDetail, SaveExpense } from "./expense-panel-shared";
 
 export function ExpenseMoneySection({
   detail,
@@ -25,7 +24,6 @@ export function ExpenseMoneySection({
   isOpen,
   save,
   saving,
-  children,
 }: {
   detail: ExpensePanelDetail;
   sources: SourceOption[];
@@ -34,7 +32,6 @@ export function ExpenseMoneySection({
   isOpen: boolean;
   save: SaveExpense;
   saving: boolean;
-  children?: ReactNode;
 }) {
   const t = useT();
   const ids = useId();
@@ -57,22 +54,7 @@ export function ExpenseMoneySection({
     setForm((f) => ({ ...f, ...patch }));
 
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-medium">{t("expenses.panel.money")}</h3>
-      <p className="mb-2 text-xs text-muted-foreground tabular-nums">
-        {t("expenses.panel.base", {
-          base: formatCurrency(e.amountBase, "SEK"),
-          rate: e.rate,
-          source:
-            e.rateSource === "bank"
-              ? t("expenses.rateSource.bank")
-              : t(`journal.rateSource.${e.rateSource}`),
-        })}
-        {e.baseProvisional ? ` · ${t("expenses.panel.provisional")}` : ""}
-        {e.paidAmount
-          ? ` · ${t("expenses.panel.paid", { amount: money(e.paidAmount, e.paidCurrency ?? "SEK") })}`
-          : ""}
-      </p>
+    <div>
       {canWrite && isOpen ? (
         <form
           className="grid grid-cols-2 gap-2"
@@ -159,19 +141,10 @@ export function ExpenseMoneySection({
           </div>
         </form>
       ) : (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">{t("expenses.form.date")}</dt>
-          <dd>{e.date}</dd>
-          <dt className="text-muted-foreground">{t("expenses.form.paidBy")}</dt>
-          <dd>{detail.paymentSource.label}</dd>
-          {canWrite && !isOpen && (
-            <dd className="col-span-2 text-xs text-muted-foreground">
-              {t("expenses.panel.moneyLocked")}
-            </dd>
-          )}
-        </dl>
+        canWrite && (
+          <p className="text-xs text-muted-foreground">{t("expenses.panel.moneyLocked")}</p>
+        )
       )}
-      {children}
-    </section>
+    </div>
   );
 }

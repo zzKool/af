@@ -6,7 +6,7 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { listGroups } from "@/modules/expenses";
-import { GroupsTable } from "@/modules/expenses/ui";
+import { GroupsActions, GroupsTable } from "@/modules/expenses/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 export default async function ExpenseGroupsPage() {
@@ -16,10 +16,12 @@ export default async function ExpenseGroupsPage() {
     return { groups, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
+  const canWrite = can(auth, "create", "expense");
   return (
     <ListPage
       title={t("expenses.groups.title")}
       meta={t("expenses.groups.meta", { count: data.groups.length })}
+      actions={canWrite && <GroupsActions />}
     >
       <GroupsTable
         rows={data.groups.map((g) => ({
@@ -27,7 +29,7 @@ export default async function ExpenseGroupsPage() {
           createdAt: g.createdAt.toISOString(),
           updatedAt: g.updatedAt.toISOString(),
         }))}
-        canWrite={can(auth, "create", "expense")}
+        canWrite={canWrite}
       />
     </ListPage>
   );

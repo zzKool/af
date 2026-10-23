@@ -49,6 +49,10 @@
 - [x] T023 Traktamente: a failed computation clears `trips.computed`; `parsePerDiemResult` (Zod) on read (test).
 - [ ] T024 Drop `settlements.statement_superseded` — waits for the owner's OK (irreversible).
 
+## F71 — the D40 kit (`feat/expenses-d40-kit`, lane LIGHT)
+
+- [x] T025 States → `<StateLabel>` through one map (`state-family.ts`, `ExpenseStateLabel` / `SettlementStateLabel`; `StatusBadge` gone); on-screen money → `formatMoney` (list, KPIs, panel, groups, group meta, settle page, settlements; the statement sheet keeps `formatCurrency`); keys → `<CodeChip>`; kind / payer / group kind / link kind → `<Tag>`; no palette colour; one primary per title row (`header-actions.tsx`); groups and settlements ⋮ `RowActionsMenu`; the panel in `DetailsSection`s About · Proof · Money · Facts · History (`history.ts` from the audit trail); quick filters Date + Paid by; no Σ of the mixed-currency amount; the SEK base column hidden by default (the row fits the canvas). Tests `state-family.pure.test.ts`, `history.pure.test.ts`, DB sums + history; `e2e/expenses.spec.ts` on the D40 amount and the settlement link; screenshots light + dark.
+
 ## Dependencies
 
 T001 → T002/T003 → T004 → T005 → T006 → T007 → T008 → T009 → T010 → T011 → T012 → (merge) → T013–T018.

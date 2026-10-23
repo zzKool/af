@@ -781,6 +781,8 @@ describe("US5 — the list, the groups, the ledger", () => {
         "to_refund",
       ]);
       expect(all.sums?.amountBase).toBe("11248.75");
+      // no Σ of the amounts: the set mixes CHF and SEK, the footer would label it with one currency (F71)
+      expect(all.sums?.amount).toBeUndefined();
       const open = await listExpenses(tx, {
         ...Q,
         filters: { status: { kind: "in", values: ["to_refund"] } },
@@ -814,6 +816,39 @@ describe("US5 — the list, the groups, the ledger", () => {
         openCount: 3,
       });
       expect(ledger.awaitingLinkCount).toBe(1);
+    });
+  });
+
+  it("the panel's History: the expense's audit trail, newest first, the changed fields named (F71)", async () => {
+    const g = await group213();
+    const e = await run(owner.caller, (tx) =>
+      createExpense(
+        tx,
+        owner.caller,
+        realAudit(tx, owner.caller),
+        fixtureInput(g.id, FIXTURE.expenses[0]),
+      ),
+    );
+    await run(owner.caller, (tx) =>
+      updateExpense(tx, owner.caller, realAudit(tx, owner.caller), e.data!.id, {
+        note: "Booked online",
+        basCode: "583",
+      }),
+    );
+    // an amount edit is named too — the trail keeps money as decimal strings (F84)
+    await run(owner.caller, (tx) =>
+      updateExpense(tx, owner.caller, realAudit(tx, owner.caller), e.data!.id, {
+        amount: "6500.00",
+      }),
+    );
+    await run(owner.caller, async (tx) => {
+      const history = (await getExpenseDetail(tx, e.data!.id)).data!.history;
+      expect(history[0]?.action).toBe("update");
+      expect(history[0]?.fields).toContain("amount");
+      expect(history.slice(1).map((h) => [h.action, h.fields])).toEqual([
+        ["update", ["basCode", "note"]],
+        ["create", []],
+      ]);
     });
   });
 

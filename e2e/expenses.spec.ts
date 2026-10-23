@@ -123,7 +123,7 @@ test.describe("Expenses", () => {
       await page.getByRole("option", { name: new RegExp(`Zikrija ${stamp}`) }).click();
       await expect(page.getByTestId("settle-summary")).toBeVisible();
       // the proposal lands asynchronously — wait for its ticks before adjusting them
-      await expect(page.getByTestId("settle-selected")).not.toContainText("Selected: 0,00");
+      await expect(page.getByTestId("settle-selected")).not.toContainText("Selected: 0.00");
       // the FIFO proposal ticks the oldest open expenses; keep only this run's three receipts (a developer's
       // database may hold earlier runs), hotel and transport in full, 1 630 of the meals
       for (const row of await page.getByTestId("settle-row").all()) {
@@ -134,23 +134,24 @@ test.describe("Expenses", () => {
         if (mine && key.endsWith("Rep-01")) await row.getByRole("textbox").fill("1630.00");
       }
       await expect(page.getByTestId("settle-hint")).toHaveText("Exact match");
-      await expect(page.getByTestId("settle-selected")).toContainText("9 700,00");
+      // D40 on-screen money: U+202F thousands, "." decimals (the printed statement keeps its own format)
+      await expect(page.getByTestId("settle-selected")).toContainText(/9\u202F700\.00/);
       await page.getByTestId("open-confirm").click();
       await expect(page.getByTestId("confirm-state")).toContainText(
-        "Partial — 1 065,00 SEK stays open",
+        /Partial — 1\u202F065\.00 SEK stays open/,
       );
       await page.getByTestId("confirm-settlement").click();
       await expectToast(page, "Settlement ST25-");
       await expect(page).toHaveURL(/\/expenses\/settlements$/);
       const settlement = page.getByTestId("settlement-row").first();
       await expect(settlement).toContainText(/ST25-\d{3}/);
-      await expect(settlement).toContainText("9 700,00");
+      await expect(settlement).toContainText(/9\u202F700\.00/);
       await expect(settlement.getByTestId("settlement-status")).toHaveText("Active");
       // the statement is a stored PDF once the job ran
       await expect(settlement.getByTestId("download-statement")).toBeVisible({ timeout: 90_000 });
 
       // the statement page
-      await settlement.getByRole("link", { name: "→" }).click();
+      await settlement.getByTestId("settlement-link").click();
       await expect(page.getByTestId("statement-sheet")).toBeVisible();
       await expect(page.getByTestId("statement-total")).toContainText("9 700,00");
 

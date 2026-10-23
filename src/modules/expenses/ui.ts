@@ -3,14 +3,15 @@
 
 export * from "./components/duplicate-panel";
 export * from "./components/expense-panel";
+export * from "./components/expense-state";
 export * from "./components/expense-table";
 export * from "./components/group-picker";
 export * from "./components/groups-table";
+export * from "./components/header-actions";
 export * from "./components/labels";
 export * from "./components/new-expense-dialog";
 export * from "./components/settle-work";
 export * from "./components/settlements-table";
 export * from "./components/statement-sheet";
-export * from "./components/status-badge";
 export * from "./expenses.actions";
 export type * from "./types";

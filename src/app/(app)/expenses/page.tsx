@@ -13,7 +13,7 @@ import {
   ledgerSnapshot,
   listExpenses,
 } from "@/modules/expenses";
-import { ExpenseTable } from "@/modules/expenses/ui";
+import { ExpensesActions, ExpenseTable } from "@/modules/expenses/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 // The expenses list (specs/expenses US5) — the URL is the query, the status derived server-side.
@@ -38,11 +38,18 @@ export default async function ExpensesPage({
     return { result, ledger, options, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
+  const { groups, categories, sources, documents } = data.options;
 
   return (
     <ListPage
       title={t("expenses.title")}
       meta={t("expenses.meta.count", { count: data.result.total })}
+      actions={
+        <ExpensesActions
+          options={{ groups, categories, sources, documents }}
+          canWrite={can(auth, "create", "expense")}
+        />
+      }
     >
       <ExpenseTable
         result={{
