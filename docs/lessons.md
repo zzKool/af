@@ -241,6 +241,11 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **Small lists were plain `Table`s, so "row buttons → `rowActions`" meant moving them onto the DataTable** (imports, rules). With `kernel/list-query/memory` that is ~40 lines a list (`memoryTable` in `banking/queries.ts`: every column evaluated in memory). If a second module needs the same, lift `memoryTable` into `kernel/list-query/memory.ts` (one test) rather than copying it.
 - [ ] **The banking journey had no budget of its own** and failed on its last assertion at the default 30 s on a cold server (every step had passed). It has `test.setTimeout(240_000)` now — the lessons' rule for long journeys, applied where it was missing.
 
+## F71 build (documents adopt the D40 kit, 2026-10-23)
+
+- [ ] **A derived state in the cell, a stored step in the header filter.** The library's Status cell now shows the derived state (the inbox's word), its header filter still filters the stored OCR step — *extracted* holds *Ready* and *Filed* rows. The cell is right (one word on every page); making the filter say the same is a derived `state` column (in-memory, like `linked`: `DERIVED` + an enum in `DOCUMENT_COLUMNS`) — a documents PR of its own, no i18n needed (the words exist).
+- [ ] **An own back link disappears under a named parent.** `PageHeader`'s `back` renders only where the breadcrumb is empty (D40), so moving a page onto `PageHeader` silently drops its *Back to …* link and any test that clicks it. Use the breadcrumb (`navigation "Breadcrumb"`) in e2e; a unit test rendering `PageHeader` needs `usePathname` in its `next/navigation` mock.
+
 ## Documents Phase 3 build (T021–T025, T027, F50-f — 2026-10-23, #106 #108 #113 #114 #115 #116)
 
 - [ ] **Shared-file contention appears mid-session**: no PR held the dictionaries at the start; #107 (T019) opened one an hour later, and #108 went up beside it. Converting #108 to a draft is refused from a cloud session, so the merge was held until #107 landed, then `origin/main` merged in. Rule: check open PRs' files **right before each push that opens a PR**, not once per session; when caught late, hold the merge, never the push.

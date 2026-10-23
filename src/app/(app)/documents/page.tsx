@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
@@ -56,13 +57,14 @@ export default async function DocumentsPage({
         failed: data.stats?.byStatus?.ocr_failed ?? 0,
       })}
       actions={
-        <Link
-          href="/documents/inbox"
-          className="text-sm font-medium underline-offset-4 hover:underline"
-          data-testid="documents-inbox-link"
+        // a secondary: the page's one primary is *Upload document* in the upload zone (owner)
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/documents/inbox" data-testid="documents-inbox-link" />}
         >
-          {t("documents.inbox.libraryLink", { count: data.inbox.total })} →
-        </Link>
+          {t("documents.inbox.libraryLink", { count: data.inbox.total })}
+        </Button>
       }
     >
       <DocumentsTable

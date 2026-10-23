@@ -47,8 +47,15 @@ test.describe("Document Library", () => {
       .first();
     await expect(row.getByTestId("document-key")).toHaveText(/^exp_/, { timeout: 15_000 });
     await expect(row).toBeVisible({ timeout: 15_000 });
-    await expect(row.getByTestId("document-download")).toBeVisible();
-    await expect(row.getByTestId("document-delete")).toBeVisible();
+    // F71: the row's derived state as icon + word, its actions in the ⋮ menu
+    await expect(row.getByTestId("document-state")).toHaveText(/Needs OCR|Processing|Ready/);
+    await row.getByRole("button", { name: "Row actions" }).click();
+    const rowMenu = page.getByRole("menu");
+    await expect(rowMenu.getByRole("menuitem", { name: "Open" })).toBeVisible();
+    await expect(rowMenu.getByRole("menuitem", { name: "Download" })).toBeVisible();
+    await expect(rowMenu.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(rowMenu).toBeHidden();
 
     // the header filter on Status narrows the list (the URL carries the query)
     await page.getByRole("button", { name: "Filter Status" }).click();
@@ -73,13 +80,14 @@ test.describe("Document Library", () => {
     await expect(page).toHaveURL(new RegExp(`q=${key}`), { timeout: 10_000 });
     await expect(page.getByTestId("document-key").filter({ hasText: key })).toBeVisible();
 
-    // delete with its confirmation
+    // delete with its confirmation (the row's ⋮ menu)
     await page
       .getByRole("row")
       .filter({ hasText: key })
       .first()
-      .getByTestId("document-delete")
+      .getByRole("button", { name: "Row actions" })
       .click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText(key);
@@ -98,6 +106,12 @@ test.describe("Document Library — the accountant", () => {
     await page.goto("/documents");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload document" })).toHaveCount(0);
-    await expect(page.getByTestId("document-delete")).toHaveCount(0);
+    // no Delete in any row's ⋮ menu
+    const firstRowMenu = page.getByRole("button", { name: "Row actions" }).first();
+    if (await firstRowMenu.count()) {
+      await firstRowMenu.click();
+      await expect(page.getByRole("menuitem", { name: "Download" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "Delete" })).toHaveCount(0);
+    }
   });
 });

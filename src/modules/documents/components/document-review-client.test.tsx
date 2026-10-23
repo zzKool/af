@@ -23,7 +23,10 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   unarchiveDocumentsAction: mockUnarchive,
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh, push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mockRefresh, push: vi.fn() }),
+  usePathname: () => "/documents/doc-1",
+}));
 vi.mock("next-safe-action/hooks", () => ({
   useAction: (action: unknown) => ({ executeAsync: action, isPending: false }),
 }));
@@ -153,17 +156,17 @@ describe("DocumentReviewClient", () => {
   });
 
   // --- Header quality badges ---
-  it("shows high quality badge with green indicator", () => {
+  it("shows the high quality tag", () => {
     render(<DocumentReviewClient data={makeReviewData({ quality: "high" })} />);
     expect(screen.getByText(/Review extracted data/)).toBeInTheDocument();
   });
 
-  it("shows low quality badge with yellow indicator", () => {
+  it("shows the low quality tag", () => {
     render(<DocumentReviewClient data={makeReviewData({ quality: "low" })} />);
     expect(screen.getByText(/Low Confidence/)).toBeInTheDocument();
   });
 
-  it("shows none quality badge with gray indicator", () => {
+  it("shows the none quality tag", () => {
     render(<DocumentReviewClient data={makeReviewData({ quality: "none" })} />);
     expect(screen.getByText(/Manual Entry Required/)).toBeInTheDocument();
   });
@@ -171,6 +174,29 @@ describe("DocumentReviewClient", () => {
   it("hides quality badge for read-only (accountant) view", () => {
     render(<DocumentReviewClient data={makeReviewData({ readOnly: true })} />);
     expect(screen.queryByText(/Review extracted data/)).not.toBeInTheDocument();
+  });
+
+  // --- The derived state (F71: the inbox's word, the D40 family) ---
+  it("shows the document's state as icon + word: ready until filed, filed once reviewed", () => {
+    const { unmount } = render(
+      <DocumentReviewClient data={makeReviewData({ status: "extracted", reviewedAt: null })} />,
+    );
+    const ready = screen.getByTestId("document-review-state");
+    expect(ready).toHaveTextContent("Ready");
+    expect(ready.querySelector("[data-state-family]")).toHaveAttribute(
+      "data-state-family",
+      "progress",
+    );
+    unmount();
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({ status: "extracted", reviewedAt: new Date("2026-03-15T12:00:00Z") })}
+      />,
+    );
+    expect(screen.getByTestId("document-review-state")).toHaveAttribute(
+      "data-document-state",
+      "filed",
+    );
   });
 
   // --- Review status ---
@@ -209,7 +235,7 @@ describe("DocumentReviewClient", () => {
     expect(reviewedButton).toBeInTheDocument();
   });
 
-  it("shows amber update review button when modified after review", () => {
+  it("shows the update review button when modified after review", () => {
     render(
       <DocumentReviewClient
         data={makeReviewData({
@@ -329,10 +355,10 @@ describe("DocumentReviewClient", () => {
     expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
   });
 
-  it("shows back link to documents list", () => {
+  it("has no back link of its own — the shell's breadcrumb names Documents (D40)", () => {
     render(<DocumentReviewClient data={makeReviewData()} />);
-    const backLink = screen.getByText(/Back to Documents/);
-    expect(backLink.closest("a")).toHaveAttribute("href", "/documents");
+    expect(screen.queryByText(/Back to Documents/)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("exp_20260315_001");
   });
 
   // --- Auto-save status ---
