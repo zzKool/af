@@ -23,6 +23,29 @@ export async function linksWithLabels(
 }
 
 /**
+ * True when `endpoint` takes part in at least one link of `kind`, on either side — the existence check a module's
+ * guard asks (no `justifies` yet on an open expense / supplier invoice, no `created_from` on a document yet) instead of
+ * counting `tx.link` itself (lessons audit 22). Any kind at all: `isLinked`.
+ */
+export async function hasLinks(
+  tx: TransactionClient,
+  endpoint: LinkEndpoint,
+  kind: LinkKind,
+): Promise<boolean> {
+  const hit = await tx.link.findFirst({
+    where: {
+      kind,
+      OR: [
+        { fromType: endpoint.type, fromId: endpoint.id },
+        { toType: endpoint.type, toId: endpoint.id },
+      ],
+    },
+    select: { id: true },
+  });
+  return hit !== null;
+}
+
+/**
  * Every link touching any of `ids` of one type, in one query — the package's *Links* sheet and the document set of a
  * period (specs/accountant-package/spec.md FR-002). Ordered by creation, the deterministic order of its R6.
  * `kinds` narrows it (the journal reads only the `transfer` links of its bank entries, T004 / T005).

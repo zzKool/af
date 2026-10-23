@@ -14,8 +14,14 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { registerLinkable } from "@/modules/linking";
-import { getDocuments } from "./library";
-import { distinctDocumentValues, documentDateHierarchy, listDocuments, listInbox } from "./queries";
+import { documentsByIds, getDocuments } from "./library";
+import {
+  candidateDocuments,
+  distinctDocumentValues,
+  documentDateHierarchy,
+  listDocuments,
+  listInbox,
+} from "./queries";
 
 const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
@@ -329,5 +335,99 @@ describe("a stored correction that does not fit its field (lessons audit 11)", (
     expect(paged.data?.items.find((d) => d.id === ids.invoice)).toMatchObject({
       extractedAmount: 20,
     });
+  });
+});
+
+describe("candidateDocuments (lessons audit 26)", () => {
+  // a document of `prefixType`, created `minutesAgo`, in the state the SQL puts it in
+  const doc = async (
+    prefixType: string,
+    minutesAgo: number,
+    sql = "",
+    status = "extracted",
+  ): Promise<string> => {
+    const d = await createTestDocument(adminPool, tenantId, owner.userId, { prefixType, status });
+    await adminPool.query(
+      `UPDATE documents SET created_at = now() - make_interval(mins => $2)${sql ? `, ${sql}` : ""} WHERE id = $1`,
+      [d.id, minutesAgo],
+    );
+    return d.id;
+  };
+  const became = (documentId: string) =>
+    adminPool.query(
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+       VALUES ($1, 'supplier_invoice', gen_random_uuid(), 'document', $2, 'created_from', $3)`,
+      [tenantId, documentId, owner.userId],
+    );
+
+  it("only what still waits in the inbox: became, filed, archived and generated are out; newest first, with the state", async () => {
+    const archived = await doc("invoice", 1, "archived_at = now()");
+    const filed = await doc("expense", 2, "reviewed_at = now()");
+    const pending = await doc("expense", 3, "", "uploaded");
+    const r = await run(owner, (tx) => candidateDocuments(tx, owner, ["invoice", "expense"]));
+    // the fixtures: the receipt became an expense, the generated PDF never waits — only the free invoice is left
+    expect(r.map((d) => d.id)).toEqual([ids.invoice, pending]);
+    expect(r.map((d) => d.state)).toEqual(["ready", "needs_ocr"]);
+    expect(r.map((d) => d.id)).not.toContain(archived);
+    expect(r.map((d) => d.id)).not.toContain(filed);
+    expect(r[0]).toEqual({
+      id: ids.invoice,
+      businessKey: "inv_20260312_001",
+      fileName: "openai.pdf",
+      status: "extracted",
+      state: "ready",
+    });
+  });
+
+  it("keeps the asked types only", async () => {
+    const receipt = await doc("expense", 1);
+    const r = await run(owner, (tx) => candidateDocuments(tx, owner, ["expense"]));
+    expect(r.map((d) => d.id)).toEqual([receipt]);
+    expect(await run(owner, (tx) => candidateDocuments(tx, owner, []))).toEqual([]);
+  });
+
+  it("filters before it pages: newer documents that became something never hide an older free one", async () => {
+    await adminPool.query(
+      `UPDATE documents SET created_at = now() - interval '1 hour' WHERE id = $1`,
+      [ids.invoice],
+    );
+    for (const minutes of [1, 2, 3]) await became(await doc("invoice", minutes));
+    const r = await run(owner, (tx) => candidateDocuments(tx, owner, ["invoice"], { limit: 1 }));
+    expect(r.map((d) => d.id)).toEqual([ids.invoice]);
+  });
+
+  it("the accountant sees financial documents only, like the inbox", async () => {
+    expect(
+      (await run(owner, (tx) => candidateDocuments(tx, owner, ["contract"]))).map((d) => d.id),
+    ).toEqual([ids.contract]);
+    expect(await run(accountant, (tx) => candidateDocuments(tx, accountant, ["contract"]))).toEqual(
+      [],
+    );
+  });
+});
+
+describe("documentsByIds carries the derived state (partners T011)", () => {
+  it("became → filed, waiting → its inbox state, generated → generated, parked → archived; stuck by the clock", async () => {
+    await adminPool.query(`UPDATE documents SET archived_at = now() WHERE id = $1`, [ids.contract]);
+    const r = await run(owner, (tx) =>
+      documentsByIds(tx, [ids.receipt, ids.invoice, ids.generated, ids.contract]),
+    );
+    const state = Object.fromEntries(r.map((d) => [d.id, d.documentState]));
+    expect(state).toEqual({
+      [ids.receipt]: "filed",
+      [ids.invoice]: "ready",
+      [ids.generated]: "generated",
+      [ids.contract]: "archived",
+    });
+
+    await adminPool.query(
+      `UPDATE documents SET status = 'processing', updated_at = now() WHERE id = $1`,
+      [ids.invoice],
+    );
+    const later = new Date(Date.now() + 10 * 60_000);
+    const [processing] = await run(owner, (tx) => documentsByIds(tx, [ids.invoice]));
+    const [stuck] = await run(owner, (tx) => documentsByIds(tx, [ids.invoice], { now: later }));
+    expect(processing?.documentState).toBe("processing");
+    expect(stuck?.documentState).toBe("stuck");
   });
 });
