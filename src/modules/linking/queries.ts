@@ -73,6 +73,34 @@ export async function allocatedFrom(
   return out;
 }
 
+/**
+ * Σ of the allocations ONTO each of `ids` (allocating kinds only — `justifies`, `settles`), whatever the source —
+ * a bank row or a journal entry — in one grouped query; ids with no allocation are absent. In the target's currency
+ * (an allocation is written in it). What "how much of this invoice / expense / settlement is paid" reads — the
+ * mirror of `allocatedFrom` and the rule `getAllocationStatus` applies to one entity (audit 22).
+ */
+export async function allocatedSums(
+  tx: TransactionClient,
+  type: LinkableType,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const sums = await tx.link.groupBy({
+    by: ["toId"],
+    where: {
+      toType: type,
+      toId: { in: [...ids] },
+      kind: { in: [...ALLOCATING_KINDS] },
+      allocatedAmount: { not: null },
+    },
+    _sum: { allocatedAmount: true },
+  });
+  for (const s of sums)
+    if (s._sum.allocatedAmount) out.set(s.toId, s._sum.allocatedAmount.toFixed(2));
+  return out;
+}
+
 /** What a document became: the entity on the other end of its `created_from` link. */
 export type CreatedFromTarget = LinkEndpoint & {
   /** the entity's label through its linkable's summary; null unless asked for, or when it is gone */
