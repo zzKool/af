@@ -4,6 +4,7 @@
 // SE registration → Swedish client at the standard rate, EU business with a VAT number 0 % (reverse charge),
 // anywhere else 0 % (export); any other registration → its standard rate.
 import { Prisma } from "@/generated/prisma/browser";
+import type { RateSchedule } from "@/modules/settings";
 
 const D = Prisma.Decimal;
 
@@ -11,7 +12,8 @@ export type Registration = {
   id: string;
   country: string;
   vatNumber: string;
-  rateSchedule: unknown;
+  /** parsed by settings (`VatRegistrationDto`, F64) — never a cast here */
+  rateSchedule: RateSchedule | null;
 };
 
 const SWISS = new Set(["ch", "che", "switzerland", "suisse", "schweiz", "svizzera"]);
@@ -55,9 +57,7 @@ export const isSwedishCountry = (c: string | null | undefined): boolean =>
   norm(c) === "" || SWEDISH.has(norm(c));
 
 export function registrationRates(reg: Registration | null | undefined): string[] {
-  const schedule = reg?.rateSchedule as { rates?: unknown } | null | undefined;
-  const list = Array.isArray(schedule?.rates) ? schedule.rates : [];
-  return list.filter((r): r is number => typeof r === "number").map((r) => new D(r).toString());
+  return (reg?.rateSchedule?.rates ?? []).map((r) => new D(r).toString());
 }
 
 export type VatTreatment = "standard" | "reverse_charge" | "export" | "none";

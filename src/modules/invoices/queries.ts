@@ -20,6 +20,7 @@ import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
 import { deriveState, receivableAmount } from "./derive";
 import { toInvoiceDto } from "./invoices";
+import { invoiceListSums } from "./list-sums";
 import type {
   InvoiceDerived,
   InvoiceDto,
@@ -36,7 +37,7 @@ export const INVOICE_COLUMNS = {
   type: { type: "enum" },
   state: { type: "enum" },
   partnerId: { type: "enum" },
-  partnerName: { type: "text", searchable: true },
+  partnerName: { type: "enum", searchable: true },
   issueDate: { type: "date" },
   dueDate: { type: "date" },
   periodLabel: { type: "text", searchable: true },
@@ -187,11 +188,18 @@ export async function relatedDocuments(
   tx: TransactionClient,
   id: string,
 ): Promise<
-  { id: string; type: InvoiceType; number: string | null; status: string; totalAmount: string }[]
+  {
+    id: string;
+    type: InvoiceType;
+    number: string | null;
+    status: string;
+    currency: string;
+    totalAmount: string;
+  }[]
 > {
   const rows = await tx.invoice.findMany({
     where: { relatedInvoiceId: id },
-    select: { id: true, type: true, number: true, status: true, totalAmount: true },
+    select: { id: true, type: true, number: true, status: true, currency: true, totalAmount: true },
     orderBy: { createdAt: "asc" },
   });
   return rows.map((r) => ({ ...r, totalAmount: r.totalAmount.toFixed(2) }));
@@ -295,7 +303,14 @@ export async function listInvoices(
   today: string,
 ): Promise<ListResult<InvoiceListRow>> {
   const all = await loadRows(tx, q, today);
-  return finishList(all, q, INVOICE_COLUMNS, INVOICE_DEFAULT_SORT);
+  const list = finishList(all, q, INVOICE_COLUMNS, INVOICE_DEFAULT_SORT);
+  return {
+    ...list,
+    sums: invoiceListSums(
+      all.map((r) => r.currency),
+      list.sums,
+    ),
+  };
 }
 
 export async function distinctInvoiceValues(

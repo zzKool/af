@@ -1,11 +1,13 @@
 "use client";
 
 // The invoice page's bank side (specs/linking US1-6, US2): the rows that pay it — linked ones with *Unlink*,
-// the suggested ones with *Link* — so a client invoice can be justified from its own page.
+// the suggested ones with *Link* — so a client invoice can be justified from its own page. The side panel's
+// Proof section (D40, F71).
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
+import { DetailsSection } from "@/kernel/ui/details-section";
 import {
   GraphLink,
   getLinksWithLabelsAction,
@@ -46,32 +48,31 @@ export function InvoiceLinks({
   }
 
   return (
-    <div className="rounded-lg border p-3" data-testid="invoice-links">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
-          {t("invoices.links.title")}
-        </span>
-        <GraphLink self={{ type: "invoice", id: invoiceId }} />
+    <DetailsSection title={t("invoices.links.title")}>
+      <div data-testid="invoice-links">
+        <div className="mb-2 flex justify-end">
+          <GraphLink self={{ type: "invoice", id: invoiceId }} />
+        </div>
+        <div className="mb-3">
+          {links === null ? (
+            <p className="text-sm text-muted-foreground">…</p>
+          ) : (
+            <LinksList
+              self={{ type: "invoice", id: invoiceId }}
+              links={links}
+              canWrite={canWrite}
+              fallbackCurrency={currency}
+              onChanged={changed}
+            />
+          )}
+        </div>
+        <SuggestionsSection
+          target={{ endpoint: { type: "invoice", id: invoiceId } }}
+          canWrite={canWrite}
+          onLinked={changed}
+          refreshKey={version}
+        />
       </div>
-      <div className="mb-3">
-        {links === null ? (
-          <p className="text-sm text-muted-foreground">…</p>
-        ) : (
-          <LinksList
-            self={{ type: "invoice", id: invoiceId }}
-            links={links}
-            canWrite={canWrite}
-            fallbackCurrency={currency}
-            onChanged={changed}
-          />
-        )}
-      </div>
-      <SuggestionsSection
-        target={{ endpoint: { type: "invoice", id: invoiceId } }}
-        canWrite={canWrite}
-        onLinked={changed}
-        refreshKey={version}
-      />
-    </div>
+    </DetailsSection>
   );
 }
