@@ -14,7 +14,7 @@ import { describe, expect, test } from "vitest";
  * entry passes (parallel builders remove uses without touching this file); lower the entry when you
  * pass by, and delete it at zero. New code reads `CURRENCIES` (kernel/nav) for a currency list.
  *
- * Counted 2026-10-23: 46 BASE_CURRENCY + 63 "SEK" in 41 files.
+ * Counted 2026-10-23: 46 BASE_CURRENCY + 63 "SEK" in 41 files. Lowered 2026-10-24: 45 + 63 in 41.
  */
 
 // [BASE_CURRENCY, "SEK"]
@@ -35,7 +35,7 @@ const ALLOWED: Record<string, readonly [number, number]> = {
   "src/kernel/money/format-currency.ts": [0, 1],
   "src/kernel/ocr/ocr.ts": [0, 2],
   "src/modules/banking/components/transaction-panel.tsx": [0, 1],
-  "src/modules/banking/transfer-pairs.ts": [8, 0],
+  "src/modules/banking/transfer-pairs.ts": [7, 0],
   "src/modules/contracts/components/contract-list.tsx": [0, 1],
   "src/modules/contracts/contracts.ts": [0, 1],
   "src/modules/dashboard/overview.ts": [0, 7],
