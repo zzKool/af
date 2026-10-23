@@ -18,6 +18,7 @@ import {
   setupOwner,
   storage,
 } from "@/modules/expenses/__fixtures__/harness";
+import { toInstant } from "./calculator";
 import { renderPerDiem } from "./jobs/render-per-diem";
 import { countryOptions } from "./queries";
 import {
@@ -30,13 +31,7 @@ import {
   upsertRate,
 } from "./rates";
 import { resolvePerDiemStatement } from "./statement";
-import {
-  createOrReplacePerDiemExpense,
-  getTrip,
-  previewPerDiem,
-  toInstant,
-  upsertTrip,
-} from "./trip";
+import { createOrReplacePerDiemExpense, getTrip, previewPerDiem, upsertTrip } from "./trip";
 
 let mockHeaders: Headers = new Headers();
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
@@ -500,6 +495,40 @@ describe("US4 — the rate table", () => {
         /used by 1 trip/,
       );
       expect((await deleteRate(tx, owner.caller, noopAudit, al.id)).data?.deleted).toBe(true);
+    });
+  });
+
+  it("the delete guard counts a rate year in Stockholm, not UTC (audit 28)", async () => {
+    // a return at 00:30 on 1 January 2026 (23:30 UTC the day before) touches 2026: the CH 2026 row stays
+    const g1 = await tripGroup();
+    await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, {
+        groupId: g1.id,
+        departureAt: "2025-12-28T09:00",
+        returnAt: "2026-01-01T00:30",
+        countryCode: "ch",
+      }),
+    );
+    // a departure at 00:30 on 1 January 2027 (23:30 UTC on 31 December) does not touch 2026: the SE row may go
+    const g2 = await run(owner.caller, (tx) =>
+      expenses.createGroup(tx, owner.caller, noopAudit, { description: "New year in SE" }),
+    );
+    await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, {
+        groupId: g2.data!.id,
+        departureAt: "2027-01-01T00:30",
+        returnAt: "2027-01-03T18:00",
+        countryCode: "se",
+      }),
+    );
+    await run(owner.caller, async (tx) => {
+      const rows = await listRates(tx, 2026);
+      const ch = rows.find((r) => r.countryCode === "CH")!;
+      const se = rows.find((r) => r.countryCode === "SE")!;
+      expect((await deleteRate(tx, owner.caller, noopAudit, ch.id)).error?.message).toMatch(
+        /used by 1 trip/,
+      );
+      expect((await deleteRate(tx, owner.caller, noopAudit, se.id)).data?.deleted).toBe(true);
     });
   });
 });

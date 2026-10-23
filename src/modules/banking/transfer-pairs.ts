@@ -263,15 +263,10 @@ export async function acceptTransfer(
     match.to.id,
   ]);
   // the owner's facts (category, partner, "no document needed", who categorised) stay as they were: "transfer"
-  // is the link itself, derived wherever it is read — unpairing leaves the legs as before, rules still see them
+  // is the link itself, derived wherever it is read — the bank's implied rate too (journal `withImplicitRates`,
+  // F86 dropped the stored copy) — unpairing leaves the legs as before, rules still see them
   for (const id of [match.from.id, match.to.id]) {
-    const e = entries.get(id);
-    if (!e) return { error: notFound("Journal entry of transaction", id) };
-    const legCurrency = id === match.from.id ? match.from.currency : match.to.currency;
-    if (legCurrency !== BASE_CURRENCY && match.ecb && !e.bankImplicitRate) {
-      const r = await journal.setBankImplicitRate(tx, caller, audit, e.id, match.implied);
-      if (r.error) return { error: r.error };
-    }
+    if (!entries.get(id)) return { error: notFound("Journal entry of transaction", id) };
   }
   return { data: { linkId: link.data.id, implied: match.implied } };
 }
