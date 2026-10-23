@@ -8,6 +8,7 @@ import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { invalid, notFound, violation } from "./errors";
+import { normaliseInvoiceNumber } from "./invoice-number";
 import type { LineInput } from "./schemas";
 
 const D = Prisma.Decimal;
@@ -111,19 +112,24 @@ export async function checkLineCategories(
   return null;
 }
 
-/** The same supplier never gets the same number twice (case- and space-insensitive). */
+/**
+ * The same supplier never gets the same number twice (D35) — by `normaliseInvoiceNumber`, the one rule the
+ * duplicate finder applies too (trim, collapse spaces, case-fold: `91 60` = `91  60`, audit 32).
+ */
 export async function checkDuplicateNumber(
   tx: TransactionClient,
   partnerId: string,
   invoiceNumber: string,
   exceptId?: string,
 ): Promise<AppError | null> {
-  const rows = await tx.$queryRawUnsafe<{ id: string; key: string }[]>(
-    `SELECT id, key FROM supplier_invoices WHERE partner_id = $1::uuid AND lower(btrim(invoice_number)) = lower(btrim($2)) LIMIT 2`,
-    partnerId,
-    invoiceNumber,
+  const number = normaliseInvoiceNumber(invoiceNumber);
+  const rows = await tx.supplierInvoice.findMany({
+    where: { partnerId },
+    select: { id: true, key: true, invoiceNumber: true },
+  });
+  const hit = rows.find(
+    (r) => r.id !== exceptId && normaliseInvoiceNumber(r.invoiceNumber) === number,
   );
-  const hit = rows.find((r) => r.id !== exceptId);
   if (hit)
     return violation(
       `Invoice ${invoiceNumber} of this supplier is already recorded as ${hit.key}`,
