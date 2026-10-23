@@ -70,7 +70,7 @@ page.tsx ── withTenantTransaction (one interactive transaction, the reads on
 - **Business pulse** (`pulse`): the main accounts' balances (`banking.listMainAccountIds` says which) as of their last booking date, receivables open per currency (Σ `remaining` of issued / sent / partially paid / overdue **invoices** — quotes and credit notes are no claim, F57; the hint counts the same invoices), payables open (SEK, the supplier KPIs), owed to the owner (SEK), invoiced this year (SEK base, credit notes deducted).
 - **Briefing** (`briefing`): the audit trail since the last login grouped by entity type and action (`kernel/audit.activitySince`) — "2 bank transaction created, 1 invoice updated". Every write is audited, so the trail is the briefing; nothing else records events.
 
-Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widgets.tsx`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with every kind of item, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
+Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widgets.tsx`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with one of every kind of item — `documents_to_review` and `vat_not_paid` in their own tests —, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
 
 ## Speed (F55, measured 2026-10-23)
 
@@ -92,7 +92,7 @@ The suspects (the briefing's audit read, the rates gap check) are cheap; the 2.5
 
 ## Convergence (F79, 2026-10-23)
 
-`specs/dashboard/tasks.md` Phase 1: T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`), ~~T002 the quarter's name and the *main* role re-stated here~~ (2026-10-23), T003 SC-001's world misses four item kinds, T004 the briefing's English entity names and two missing actions (i18n), T005 the page's dates, T006 the *due within 14 days* link unfiltered. Owned elsewhere: F66 (the partner / contract counts), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
+`specs/dashboard/tasks.md` Phase 1: T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`), ~~T002 the quarter's name and the *main* role re-stated here~~ (2026-10-23), ~~T003 SC-001's world misses four item kinds~~ (2026-10-23), T004 the briefing's English entity names and two missing actions (i18n), T005 the page's dates, T006 the *due within 14 days* link unfiltered. Owned elsewhere: F66 (the partner / contract counts), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
 
 ## Related
 
