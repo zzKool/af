@@ -72,7 +72,11 @@ export function initialFromFacts(
       documentKey,
     },
     supplier: {
-      vendor: { name: vendor, vatNumber: facts.vendorTaxId ?? null },
+      vendor: {
+        name: vendor,
+        vatNumber: facts.vendorTaxId ?? null,
+        address: facts.vendorAddress ?? null,
+      },
       invoiceNumber: facts.invoiceNumber ?? null,
       invoiceDate: date,
       dueDate: isoDay(facts.dueDate),
