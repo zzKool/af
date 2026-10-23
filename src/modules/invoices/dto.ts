@@ -2,13 +2,8 @@
 import type { Prisma } from "@/generated/prisma/browser";
 import type { Invoice, InvoiceLine } from "@/generated/prisma/client";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type {
-  InvoiceDto,
-  InvoiceLineDto,
-  PrintedParties,
-  PrintedReference,
-  VatByRate,
-} from "./types";
+import { parsePrintedParties, parsePrintedReferences, parseVatByRate } from "./json-columns";
+import type { InvoiceDto, InvoiceLineDto } from "./types";
 
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
@@ -55,8 +50,8 @@ export function toInvoiceDto(row: Invoice & { lines: InvoiceLine[] }): InvoiceDt
     periodEnd: iso(row.periodEnd),
     currency: row.currency,
     language: row.language,
-    printedReferences: (row.printedReferences as PrintedReference[] | null) ?? [],
-    printedParties: (row.printedParties as PrintedParties | null) ?? null,
+    printedReferences: parsePrintedReferences(row.printedReferences),
+    printedParties: parsePrintedParties(row.printedParties),
     notes: row.notes,
     internalNote: row.internalNote,
     paymentTermsText: row.paymentTermsText,
@@ -66,7 +61,7 @@ export function toInvoiceDto(row: Invoice & { lines: InvoiceLine[] }): InvoiceDt
     netAmount: row.netAmount.toFixed(2),
     vatAmount: row.vatAmount.toFixed(2),
     totalAmount: row.totalAmount.toFixed(2),
-    vatByRate: (row.vatByRate as VatByRate[] | null) ?? [],
+    vatByRate: parseVatByRate(row.vatByRate),
     baseCurrency: row.baseCurrency,
     rateToBase: row.rateToBase ? row.rateToBase.toString() : null,
     rateSource: row.rateSource,
