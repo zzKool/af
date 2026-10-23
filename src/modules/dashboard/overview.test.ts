@@ -21,7 +21,7 @@ import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import * as supplierInvoices from "@/modules/supplier-invoices";
-import { dashboardOverview, daysBefore, previousMonth, previousQuarter } from "./overview";
+import { dashboardOverview, previousMonth, previousQuarter } from "./overview";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("@/kernel/logging/logger", () => ({
@@ -68,12 +68,13 @@ afterAll(async () => {
 });
 
 describe("pure helpers", () => {
-  it("previous month, previous quarter, days before", () => {
+  it("previous month, previous quarter", () => {
     expect(previousMonth("2026-07-15")).toBe("2026-06");
     expect(previousMonth("2026-01-03")).toBe("2025-12");
     expect(previousQuarter("2026-07-15")).toBe("CH 2026/Q2");
     expect(previousQuarter("2026-02-01")).toBe("CH 2025/Q4");
-    expect(daysBefore("2026-07-15", 30)).toBe("2026-06-15");
+    expect(previousQuarter("2026-04-01")).toBe("CH 2026/Q1");
+    expect(previousQuarter("2026-12-31")).toBe("CH 2026/Q3");
   });
 });
 

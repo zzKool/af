@@ -25,7 +25,7 @@ export type {
   ParseResult,
   ValidationResult,
 } from "./csv-parser";
-export { dedupHash, headerError, parse, validateFormat } from "./csv-parser";
+export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
 export { transactionHistory } from "./history";
 export {
   deleteImport,

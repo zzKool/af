@@ -2,6 +2,8 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and types.
 
+export { creditedSum } from "./credited";
+export { DEFAULT_PAYMENT_TERMS_DAYS, QUOTE_VALIDITY_DAYS } from "./defaults";
 export { declarationPeriodFor, deriveState, isDeclarationPeriod, remainingAmount } from "./derive";
 export type {
   CreateDraftInput,
@@ -35,8 +37,14 @@ export type { RenderInvoicePdfData } from "./jobs/render-pdf";
 export { invoiceJobs, printPath, renderInvoicePdfJob } from "./jobs/render-pdf";
 export { invoiceLinkable } from "./linkable";
 export * from "./queries";
-export { rateUsageFromInvoiceLines, vatRegistrationUsageFromInvoices } from "./rate-usage";
+export {
+  type RatePricing,
+  ratePricingFromInvoiceLines,
+  rateUsageFromInvoiceLines,
+  vatRegistrationUsageFromInvoices,
+} from "./rate-usage";
 export { resolveSheetContext, type SheetContext } from "./sheet-context";
+export { creditSign, signedTotal } from "./signed";
 export type { InvoiceTotals, LineInput, LineTotals } from "./totals";
 export { formatVatPercent, invoiceTotals, lineTotals, TotalsError } from "./totals";
 export type * from "./types";
