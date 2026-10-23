@@ -64,7 +64,7 @@ T001–T003 → T004–T010 (T007 before T009) → T011–T012 → T013 → T014
 
 ## Lane 2 — cleanup round (lane DIRECT, behaviour-neutral; lessons audit 22, 23, 27, 29, 30, 32)
 - [x] T033 `transactionStates(tx, ids)` (+ `TransactionStateFacts`) in the read API — state, Σ allocated, transfer leg; for `package/collect.ts` (lessons 23; the caller moves in package's lane). Tests in `reads.test.ts`, `import.test.ts`
-- [ ] T034 banking's `tx.link` reads → linking (`allocatedFrom`, `linksTouching` with `kinds`, `hasLinks` / `linksTouching`): `queries.ts` `linkFacts`, `transfer-pairs.ts` `pairedIds`, `import.ts` `deleteImport`; the allocation sum takes linking's kind filter — totals proven unchanged on the seed (lessons 22)
+- [x] T034 banking's `tx.link` reads → linking: `queries.ts` `linkFacts` (`allocatedFrom` + `linksTouching({ kinds: ['transfer'] })` — also behind `transactionStates`), `transfer-pairs.ts` `pairedIds` (`linksTouching` transfer), `import.ts` `deleteImport` (`linksTouching` — many ids, any kind, so not `hasLinks`). The allocation sum now takes linking's kind filter (`justifies`, `settles`): `createLink` already refuses an allocation on any other kind, and on the database the e2e journeys fill (21 bank rows, 6 links, 3 allocating) Σ 15 497.20 with and without the filter, 0 rows differ (lessons 22)
 - [ ] T035 kernel helpers: `isSettled` in `deriveTransactionState`, `daysBetween` / `addDays` in `transfer-pairs.ts` (lessons 27)
 - [ ] T036 `columnMapping` parsed on read (`formatConfig`) (lessons 29)
 - [ ] T037 the local `ServiceResult` and Decimal look-alike in `linkable.ts`; `getBankFormats` → a DTO (lessons 30)
