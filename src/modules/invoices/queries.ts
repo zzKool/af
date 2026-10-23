@@ -3,7 +3,6 @@
 // then the derived read model is computed over that set (allocations from `links`, issued credit notes,
 // converted quotes) and the derived filters, the sort and the page are applied in memory. A solo company
 // has hundreds of documents a year — the cap is 20 000 rows, far above that.
-import { Prisma } from "@/generated/prisma/browser";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -16,8 +15,10 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import * as linking from "@/modules/linking";
 import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
+import { creditedSum } from "./credited";
 import { deriveState, receivableAmount } from "./derive";
 import { toInvoiceDto } from "./invoices";
 import { invoiceListSums } from "./list-sums";
@@ -28,8 +29,6 @@ import type {
   InvoiceType,
   InvoiceWithDerived,
 } from "./types";
-
-const D = Prisma.Decimal;
 
 /** Columns of the list. `derived: true` ones are computed here, not stored. */
 export const INVOICE_COLUMNS = {
@@ -75,36 +74,20 @@ type Sums = {
   converted: Map<string, string>;
 };
 
-/** Σ allocations, Σ issued credit notes and converted-quote numbers for a set of invoice ids — three queries. */
+/** Σ allocations (linking's read API), Σ issued credit notes and converted-quote numbers for a set of invoice ids — three queries. */
 async function derivedSums(tx: TransactionClient, ids: readonly string[]): Promise<Sums> {
   const sums: Sums = { allocated: new Map(), credited: new Map(), converted: new Map() };
   if (ids.length === 0) return sums;
-  const [links, credits, conversions] = await Promise.all([
-    tx.link.groupBy({
-      by: ["toId"],
-      where: {
-        toType: "invoice",
-        toId: { in: [...ids] },
-        kind: "justifies",
-        allocatedAmount: { not: null },
-      },
-      _sum: { allocatedAmount: true },
-    }),
-    tx.invoice.groupBy({
-      by: ["relatedInvoiceId"],
-      where: { type: "credit_note", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
-      _sum: { totalAmount: true },
-    }),
+  const [allocated, credits, conversions] = await Promise.all([
+    linking.allocatedSums(tx, "invoice", ids),
+    creditedSum(tx, ids),
     tx.invoice.findMany({
       where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
       select: { relatedInvoiceId: true, number: true },
     }),
   ]);
-  for (const l of links)
-    sums.allocated.set(l.toId, (l._sum.allocatedAmount ?? new D(0)).toFixed(2));
-  for (const c of credits)
-    if (c.relatedInvoiceId)
-      sums.credited.set(c.relatedInvoiceId, (c._sum.totalAmount ?? new D(0)).toFixed(2));
+  sums.allocated = allocated;
+  sums.credited = credits;
   for (const c of conversions)
     if (c.relatedInvoiceId && c.number) sums.converted.set(c.relatedInvoiceId, c.number);
   return sums;

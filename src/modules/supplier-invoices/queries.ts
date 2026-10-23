@@ -358,11 +358,8 @@ export async function getSupplierInvoiceDetail(
   const origin = all.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: SupplierInvoiceDetail["document"] = null;
   if (origin) {
-    const d = await tx.document.findUnique({
-      where: { id: origin.to.id },
-      select: { id: true, businessKey: true, fileName: true },
-    });
-    document = d ?? null;
+    const d = (await documents.getDocument(tx, origin.to.id)).data;
+    document = d ? { id: d.id, businessKey: d.businessKey, fileName: d.fileName } : null;
   }
   const payments: SupplierInvoicePayment[] = [];
   for (const l of withLabels) {

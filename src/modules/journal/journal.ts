@@ -261,7 +261,7 @@ export async function createManualEntry(
 
   let base: Base;
   if (e.rate) {
-    if (e.currency === BASE_CURRENCY && e.rate !== "1")
+    if (e.currency === BASE_CURRENCY && !new D(e.rate).eq(1))
       return { error: invalid(`A ${BASE_CURRENCY} entry has rate 1`) };
     base = {
       amountBase: baseAmount(e.amount, e.rate),
@@ -308,8 +308,9 @@ export async function createManualEntry(
 }
 
 export type CategoriseOptions = {
-  /** who is setting the facts: the owner (default) or a rule (then `ruleId`) */
-  by?: CategorisedBy;
+  /** who is setting the facts: the owner (default) or a rule (then `ruleId`). Never `partner_default` (audit 32):
+   * a rule that brings its partner's default category is still the rule — `rule_id` names it. */
+  by?: Exclude<CategorisedBy, "partner_default">;
   ruleId?: string | null;
 };
 

@@ -56,6 +56,7 @@
 ## Cleanup round — lane 3 (lane DIRECT, behaviour-neutral except F88)
 
 - [x] T026 F88 (D47): the statement prints *owed* — `resolveStatement` on `owedBase`; test: the 0.30 residual's statement prints 0.00, residual = ledger.
+- [x] T027 Read API for the other modules (lessons audit 23, 25): `activeSettlementTransactionIds(among?)` (supplier invoices' picker, instead of `tx.settlement`); `getGroup(id)` was already exported through `queries.ts`.
 
 ## Dependencies
 
