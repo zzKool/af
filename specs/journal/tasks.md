@@ -17,6 +17,10 @@ Spec: `spec.md`. No `plan.md` (D45: a plan only on a schema change) and no phase
 - [x] T009 Translate the ledger's last English: `Created`, `Updated`, `(code)`, `(id)` and `(Blanks)` in `journal-table.tsx` → `journal.col.*` / `table.*` keys (en / fr / sv). Touches **i18n** — serialised; rides with F71's journal PR (F74, 2026-10-23, did the kit only: `(Blanks)` is `common.blanks`, the popovers are translated — the ledger's own column names are left here). LIGHT per FR-006 (partial, LOW)
 - [ ] T010 Drop `journal_entries.bank_implicit_rate` (unread since T005), its clause in `journal_entries_lock_money`, `setBankImplicitRate` and banking's call to it (`transfer-pairs.ts`) — a forward-only migration that drops data, so **the owner's OK first** ([[roadmap]] O8). Touches **schema** — serialised. DIRECT
 
+## Phase 2: The D40 kit (F71)
+
+- [x] T011 Adopt the D40 kit on `/journal` (F71, 2026-10-23): the derived *Proof* through `state-family.ts` + `JournalProofLabel` (the cell and the panel title), money through `formatMoney` with `data-amount` (no palette green — `text-state-done` for money in), the source / account and the BAS code as `<Tag>`s (`basName` drops the code from the words beside it), the counterparty key as a `<CodeChip>`, ⋮ `rowActions` (a bank entry: *Open the bank row*; a manual entry, owner: *Delete entry* through `ConfirmDialog`), the panel as `DetailsSection`s — About · Proof · Categorisation · **History** (collapsed; `history.ts` reads the entry's audit trail: created, then each change of the owner's facts, *by a rule* when a rule wrote it) —, *New entry* as the one primary in the title row (`NewEntryButton`), Date and Account (`accountAlias`, a derived column; a manual entry under *Manual*) as quick filters. Touches **i18n** (7 `journal.*` keys, en / fr / sv). LIGHT
+
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
 - banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24)
@@ -25,4 +29,4 @@ Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never
 - `rate_source` VarChar + CHECK and a second `RateSource` type → **F67** (audit 30)
 - `positiveRate` declared in three modules → **F50-j**
 - `SEK` / `BASE_CURRENCY` in the service, the footer sum and the panel → **F70** (D39)
-- the D40 kit (states, on-screen money) → **F71**
+- the D40 kit (states, on-screen money) → **F71** (built: T011)
