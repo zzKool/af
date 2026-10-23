@@ -8,7 +8,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
-import { settlementTolerance } from "@/kernel/money/settlement";
+import { openAmount, settlementTolerance } from "@/kernel/money/settlement";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { positiveMoney, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
@@ -16,7 +16,6 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { allocatedTo } from "./allocated";
-import { openAmount } from "./status";
 import {
   baseAmount,
   invalid,
@@ -143,10 +142,9 @@ export async function removePayment(
     include: { lines: true },
   });
   if (!row) return { error: notFound("Supplier invoice", input.invoiceId) };
-  const link = await tx.link.findFirst({
-    where: { id: input.linkId, kind: "justifies", toType: "supplier_invoice", toId: row.id },
-    select: { id: true },
-  });
+  const link = (
+    await linking.linksTouching(tx, "supplier_invoice", [row.id], { kinds: ["justifies"] })
+  ).find((l) => l.id === input.linkId && l.to.type === "supplier_invoice" && l.to.id === row.id);
   if (!link) return { error: notFound("Payment link", input.linkId) };
   if (row.paidAmount)
     return { error: violation(`${row.key} was paid by an attached bank row — detach it instead`) };
@@ -255,15 +253,14 @@ export async function detachPayment(
   });
   if (!row) return { error: notFound("Supplier invoice", invoiceId) };
   if (!row.paidAmount) return { error: violation(`${row.key} has no attached bank row`) };
-  const links = await tx.link.findMany({
-    where: {
-      kind: "justifies",
-      fromType: "bank_transaction",
-      toType: "supplier_invoice",
-      toId: invoiceId,
-    },
-    select: { id: true },
-  });
+  const links = (
+    await linking.linksTouching(tx, "supplier_invoice", [invoiceId], { kinds: ["justifies"] })
+  ).filter(
+    (l) =>
+      l.from.type === "bank_transaction" &&
+      l.to.type === "supplier_invoice" &&
+      l.to.id === invoiceId,
+  );
   for (const l of links) {
     const removed = await linking.removeLink(tx, caller, audit, l.id, {
       owner: "supplier_invoice",

@@ -18,7 +18,7 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import { createBankAccount, updateBankAccount } from "./bank-accounts";
 import { deleteImport, importCsv } from "./import";
-import { accountAliasesFor, getTransaction, listTransactions } from "./queries";
+import { accountAliasesFor, getTransaction, listTransactions, transactionStates } from "./queries";
 import { applyRules, createRule } from "./rules";
 import { acceptTransfer, proposeTransfers } from "./transfer-pairs";
 
@@ -666,6 +666,12 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
       const d = await getTransaction(tx, txId);
       expect(d.data?.state).toBe("partial");
       expect(d.data?.allocated).toBe("400.00");
+      // the read API other modules call gives the same state and facts (lessons audit 23)
+      expect((await transactionStates(tx, [txId])).get(txId)).toEqual({
+        state: "partial",
+        allocated: "400.00",
+        inTransfer: false,
+      });
     });
     const bigger = await createIssuedInvoice(caller, "700.00");
     const over = await run(caller, (tx) =>
@@ -702,6 +708,11 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
     expect(ok.error).toBeUndefined();
     await run(caller, async (tx) => {
       expect((await getTransaction(tx, txId)).data?.state).toBe("linked");
+      expect((await transactionStates(tx, [txId])).get(txId)).toEqual({
+        state: "linked",
+        allocated: "999.96",
+        inTransfer: false,
+      });
       const list = await listTransactions(tx, {
         page: 1,
         pageSize: 10,

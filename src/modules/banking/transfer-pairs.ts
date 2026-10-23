@@ -12,6 +12,7 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { accountLabel } from "./bank-accounts";
+import { bankText } from "./rules";
 import type { TransferProposal } from "./types";
 
 const D = Prisma.Decimal;
@@ -161,7 +162,7 @@ async function legOf(
     bookingDate: iso(t.bookingDate),
     amount: t.amount.toFixed(2),
     currency: t.currency,
-    text: [t.name, t.additionalDetails, t.message, t.sender, t.recipient].filter(Boolean).join(" "),
+    text: bankText(t),
     row: { id: t.id },
   };
 }
@@ -215,9 +216,7 @@ export async function proposeTransfers(
       bookingDate: iso(t.bookingDate),
       amount: t.amount.toFixed(2),
       currency: t.currency,
-      text: [t.name, t.additionalDetails, t.message, t.sender, t.recipient]
-        .filter(Boolean)
-        .join(" "),
+      text: bankText(t),
     }));
   // the ECB rate of a's date for the foreign currency of the pair (SEK per unit)
   let ecb: Dec | null = null;
@@ -264,15 +263,10 @@ export async function acceptTransfer(
     match.to.id,
   ]);
   // the owner's facts (category, partner, "no document needed", who categorised) stay as they were: "transfer"
-  // is the link itself, derived wherever it is read — unpairing leaves the legs as before, rules still see them
+  // is the link itself, derived wherever it is read — the bank's implied rate too (journal `withImplicitRates`,
+  // F86 dropped the stored copy) — unpairing leaves the legs as before, rules still see them
   for (const id of [match.from.id, match.to.id]) {
-    const e = entries.get(id);
-    if (!e) return { error: notFound("Journal entry of transaction", id) };
-    const legCurrency = id === match.from.id ? match.from.currency : match.to.currency;
-    if (legCurrency !== BASE_CURRENCY && match.ecb && !e.bankImplicitRate) {
-      const r = await journal.setBankImplicitRate(tx, caller, audit, e.id, match.implied);
-      if (r.error) return { error: r.error };
-    }
+    if (!entries.get(id)) return { error: notFound("Journal entry of transaction", id) };
   }
   return { data: { linkId: link.data.id, implied: match.implied } };
 }
