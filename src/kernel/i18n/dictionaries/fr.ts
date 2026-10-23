@@ -1399,6 +1399,9 @@ export const fr: Dictionary = {
   "documents.review.content": "Contenu du document",
   "documents.review.rawText": "Texte extrait (lecture seule)",
   "documents.review.noText": "Aucun texte extrait",
+  "documents.review.rerunOcr": "Relancer l'OCR",
+  "documents.review.rerunOcrConfirm":
+    "L'OCR est relancé sur ce document. Vos corrections sont conservées ; les données extraites sont remplacées par la nouvelle lecture.",
   "documents.category.financial": "Financier",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Dépense",
