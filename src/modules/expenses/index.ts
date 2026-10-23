@@ -38,7 +38,6 @@ export type { GroupInput, UpdateGroupInput } from "./groups";
 export {
   createGroup,
   deleteGroup,
-  EXPENSE_GROUP_SERIES,
   groupInputSchema,
   groupLabel,
   updateGroup,

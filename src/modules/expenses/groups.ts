@@ -8,11 +8,9 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import { nextInSeries } from "@/modules/numbering";
+import { EXPENSE_GROUP_SERIES, nextInSeries } from "@/modules/numbering";
 import { invalid, notFound, violation } from "./errors";
 import { EXPENSE_GROUP_KINDS, type ExpenseGroupDto, type ExpenseGroupKind } from "./types";
-
-export const EXPENSE_GROUP_SERIES = "expense_group";
 
 export const groupInputSchema = z.object({
   description: z.string().trim().min(1, "Description is required").max(200),

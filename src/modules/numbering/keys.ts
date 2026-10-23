@@ -93,6 +93,9 @@ function assertBasAlias(basAlias: string): void {
     throw new Error(`BAS alias must be letters, got "${basAlias}"`);
 }
 
+/** Expense groups: one tenant-wide counter — `213 — Travel to CH in March 2026`; the number is never reused. */
+export const EXPENSE_GROUP_SERIES = "expense_group";
+
 /**
  * Expense / supplier-invoice sequence series: one per (group, BAS alias) — `exg-213-Tr` — so the two `Tr`
  * receipts of group 213 are `Ex213-Tr-01` and `-02` while its first meal is `Ex213-Rep-01` (D28: an `SI` in the
