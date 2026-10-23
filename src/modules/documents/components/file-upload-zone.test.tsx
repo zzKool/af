@@ -49,7 +49,10 @@ function successResult(overrides?: Partial<{ id: string; businessKey: string; fi
   };
 }
 
-function duplicateResult(becameType: "expense" | null = null) {
+function duplicateResult(
+  became: { type: "expense"; id: string; label: string } | null = null,
+  uploadedByName: string | null = "Zikrija Saric",
+) {
   return {
     data: {
       data: {
@@ -61,7 +64,8 @@ function duplicateResult(becameType: "expense" | null = null) {
           status: "extracted",
           createdAt: new Date("2026-03-01T10:00:00Z"),
           createdBy: "user-1",
-          becameType,
+          uploadedByName,
+          became,
         },
       },
     },
@@ -168,7 +172,9 @@ describe("FileUploadZone", () => {
   });
 
   it("shows the duplicate card instead of storing; Upload anyway re-posts with force", async () => {
-    mockExecuteAsync.mockResolvedValueOnce(duplicateResult("expense"));
+    mockExecuteAsync.mockResolvedValueOnce(
+      duplicateResult({ type: "expense", id: "exp-1", label: "Ex213-Tr-04" }),
+    );
     mockExecuteAsync.mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_002" }));
 
     render(<FileUploadZone {...defaultProps} />);
@@ -181,7 +187,11 @@ describe("FileUploadZone", () => {
     // the card: the existing key, what it became, the two ways out
     expect(screen.getByTestId("upload-duplicate")).toBeInTheDocument();
     expect(screen.getByTestId("upload-duplicate-key")).toHaveTextContent("exp_20260301_004");
-    expect(screen.getByText(/became an expense/)).toBeInTheDocument();
+    // FR-009, US2/AC1: the uploader's name and the key of what it became
+    expect(screen.getByText(/Uploaded 2026-03-01 by Zikrija Saric/)).toBeInTheDocument();
+    expect(screen.getByTestId("upload-duplicate-became")).toHaveTextContent(
+      "became expense Ex213-Tr-04",
+    );
     expect(screen.getByRole("link", { name: "Use existing document" })).toHaveAttribute(
       "href",
       "/documents/doc-0",
@@ -195,6 +205,19 @@ describe("FileUploadZone", () => {
     const formData = mockExecuteAsync.mock.calls[1][0] as FormData;
     expect(formData.get("force")).toBe("true");
     expect(screen.getByText("exp_20260314_002")).toBeInTheDocument();
+  });
+
+  it("a duplicate whose uploader is gone and that became nothing shows the date alone", async () => {
+    mockExecuteAsync.mockResolvedValueOnce(duplicateResult(null, null));
+    render(<FileUploadZone {...defaultProps} />);
+    const input = document.querySelector("input[type='file']") as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, {
+        target: { files: [new File(["pdf"], "photo.pdf", { type: "application/pdf" })] },
+      });
+    });
+    expect(screen.getByText("Uploaded 2026-03-01")).toBeInTheDocument();
+    expect(screen.queryByTestId("upload-duplicate-became")).not.toBeInTheDocument();
   });
 
   it("shows error state when server returns business error", async () => {

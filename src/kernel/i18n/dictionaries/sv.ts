@@ -1307,8 +1307,9 @@ export const sv: Dictionary = {
   "documents.upload.duplicate.body":
     "Ett dokument med identiskt innehåll finns redan — inget sparades.",
   "documents.upload.duplicate.uploaded": "Uppladdat {date}",
-  "documents.upload.duplicate.becameExpense": "blev en utgift",
-  "documents.upload.duplicate.becameSupplierInvoice": "blev en leverantörsfaktura",
+  "documents.upload.duplicate.uploadedBy": "Uppladdat {date} av {name}",
+  "documents.upload.duplicate.becameExpense": "blev utgift {key}",
+  "documents.upload.duplicate.becameSupplierInvoice": "blev leverantörsfaktura {key}",
   "documents.upload.duplicate.useExisting": "Använd befintligt dokument",
   "documents.upload.duplicate.uploadAnyway": "Ladda upp ändå",
   "documents.duplicate.panel.title": "Möjlig dubblett upptäckt",

@@ -1443,8 +1443,9 @@ export const en = {
   "documents.upload.duplicate.body":
     "A document with identical content already exists — nothing was stored.",
   "documents.upload.duplicate.uploaded": "Uploaded {date}",
-  "documents.upload.duplicate.becameExpense": "became an expense",
-  "documents.upload.duplicate.becameSupplierInvoice": "became a supplier invoice",
+  "documents.upload.duplicate.uploadedBy": "Uploaded {date} by {name}",
+  "documents.upload.duplicate.becameExpense": "became expense {key}",
+  "documents.upload.duplicate.becameSupplierInvoice": "became supplier invoice {key}",
   "documents.upload.duplicate.useExisting": "Use existing document",
   "documents.upload.duplicate.uploadAnyway": "Upload anyway",
   "documents.duplicate.panel.title": "Possible duplicate detected",

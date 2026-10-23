@@ -299,17 +299,25 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
               <span className="text-muted-foreground"> · {duplicateOf.fileName}</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              {t("documents.upload.duplicate.uploaded", {
-                date: new Date(duplicateOf.createdAt).toISOString().slice(0, 10),
-              })}
-              {duplicateOf.becameType && (
+              {duplicateOf.uploadedByName
+                ? t("documents.upload.duplicate.uploadedBy", {
+                    date: new Date(duplicateOf.createdAt).toISOString().slice(0, 10),
+                    name: duplicateOf.uploadedByName,
+                  })
+                : t("documents.upload.duplicate.uploaded", {
+                    date: new Date(duplicateOf.createdAt).toISOString().slice(0, 10),
+                  })}
+              {duplicateOf.became && (
                 <>
                   {" · "}
-                  {t(
-                    duplicateOf.becameType === "expense"
-                      ? "documents.upload.duplicate.becameExpense"
-                      : "documents.upload.duplicate.becameSupplierInvoice",
-                  )}
+                  <span data-testid="upload-duplicate-became">
+                    {t(
+                      duplicateOf.became.type === "expense"
+                        ? "documents.upload.duplicate.becameExpense"
+                        : "documents.upload.duplicate.becameSupplierInvoice",
+                      { key: duplicateOf.became.label ?? "" },
+                    )}
+                  </span>
                 </>
               )}
             </p>

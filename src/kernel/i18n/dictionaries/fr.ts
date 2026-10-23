@@ -1458,8 +1458,9 @@ export const fr: Dictionary = {
   "documents.upload.duplicate.body":
     "Un document au contenu identique existe déjà — rien n'a été enregistré.",
   "documents.upload.duplicate.uploaded": "Téléversé le {date}",
-  "documents.upload.duplicate.becameExpense": "devenu une dépense",
-  "documents.upload.duplicate.becameSupplierInvoice": "devenu une facture fournisseur",
+  "documents.upload.duplicate.uploadedBy": "Téléversé le {date} par {name}",
+  "documents.upload.duplicate.becameExpense": "devenu la dépense {key}",
+  "documents.upload.duplicate.becameSupplierInvoice": "devenu la facture fournisseur {key}",
   "documents.upload.duplicate.useExisting": "Utiliser le document existant",
   "documents.upload.duplicate.uploadAnyway": "Téléverser quand même",
   "documents.duplicate.panel.title": "Doublon possible détecté",

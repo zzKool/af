@@ -176,7 +176,7 @@ Process:
 ## Product
 
 - [x] **`Make it…` on a relationship document** (contract, NDA) offers *Expense* / *Supplier invoice*, which make no sense there. Action (part 2): hide those two when `documentType !== "financial"`, keep *Just file it* and *Link to…*. Done in part 2 (review page and inbox).
-- [ ] **The upload duplicate card shows the date, not the uploader's name** (the spec said both). Minor; the user table is outside the tenant transaction. Decide: drop it from the spec or resolve the name in the action. Converge kept the spec: `specs/documents` T024.
+- [x] **The upload duplicate card shows the date, not the uploader's name** (the spec said both). Minor; the user table is outside the tenant transaction. Decide: drop it from the spec or resolve the name in the action. Converge kept the spec: `specs/documents` T024. *Done (T024, 2026-10-23): resolved in the action, outside the tenant transaction.*
 - [x] **The dashboard's *documents to review* counts unreviewed documents; the inbox counts pending + ready** (archived and became excluded, D34). Align the dashboard item on the inbox's `total` and point it at `/documents/inbox` (part 2, T014). Done in part 2 (`inboxTotals`).
 - [ ] **Expense dialog: no partner, so no partner default for the BAS category** (the spec's "partner default when a partner matches" applies to supplier invoices only). Either accept (expenses are merchant-level) or add an optional partner to expenses later — not now.
 - [x] **Login / register and error pages are English only**; the signed-in UI is en / fr / sv. Roadmap C2. Done (F04, 2026-10-22).
