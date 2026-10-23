@@ -42,6 +42,7 @@ import {
   ledgerSnapshot,
   listExpenses,
   listGroups,
+  toExpenseDetailView,
 } from "./queries";
 
 let mockHeaders: Headers = new Headers();
@@ -292,6 +293,19 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       expect(detail.data?.links.map((l) => [l.kind, l.allocatedAmount, l.currency])).toEqual([
         ["justifies", "523.17", "SEK"],
       ]);
+      // what the panel's action returns: the same detail, its timestamps as ISO strings (lessons audit 29)
+      if (detail.data) {
+        const view = toExpenseDetailView(detail.data);
+        expect(view.expense.createdAt).toBe(detail.data.expense.createdAt.toISOString());
+        expect(view.group.updatedAt).toBe(detail.data.group.updatedAt.toISOString());
+        expect(view.links[0]?.createdAt).toBe(detail.data.links[0]?.createdAt.toISOString());
+        expect({ ...view, expense: {}, group: {}, links: [] }).toEqual({
+          ...detail.data,
+          expense: {},
+          group: {},
+          links: [],
+        });
+      }
       // the money facts are written now
       const change = await updateExpense(tx, owner.caller, noopAudit, e.data!.id, {
         amount: "46.00",

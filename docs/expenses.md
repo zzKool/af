@@ -61,7 +61,7 @@ The owner's fixture (`specs/expenses/fixtures/owner-flow-settlement.json`): 6 45
 
 - `index.ts`: services, schemas, pure helpers, queries, actions, job, linkables, DTOs.
 - `ui.ts`: actions + types (components with part 2).
-- Actions: reads on `authedAction` + `can(read, expense | settlement)` (the accountant reads everything); groups / sources / expenses / attach / detach / confirm / cancel on `ownerAction`. `ensurePaymentSourcesAction` creates the four on first use.
+- Actions: reads on `authedAction` + `can(read, expense | settlement)` (the accountant reads everything); groups / sources / expenses / attach / detach / confirm / cancel on `ownerAction`. `ensurePaymentSourcesAction` creates the four on first use. `getExpenseAction` returns `ExpenseDetailView` (`toExpenseDetailView`: the timestamps as ISO strings) — the panel's type, no cast.
 - New elsewhere: `documents.assignBusinessKey`, `settings.basAlias` / `basAliases`, `banking.getBankTransaction` (the bare row + account label / role), `numbering.expenseSeries` (replaces `expenseGroupSeries`), `settlementSeries` / `settlementNumber` / `statementPdfKey`.
 
 ## Pages (part 2)

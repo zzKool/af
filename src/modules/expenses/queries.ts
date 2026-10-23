@@ -290,6 +290,32 @@ export type ExpenseDetail = {
   history: HistoryEntry[];
 };
 
+type IsoDates<T, K extends keyof T> = Omit<T, K> & { [P in K]: string };
+
+/** `ExpenseDetail` as the panel's action returns it: the timestamps as ISO strings (lessons audit 29). */
+export type ExpenseDetailView = Omit<ExpenseDetail, "expense" | "group" | "links"> & {
+  expense: IsoDates<ExpenseDetail["expense"], "createdAt" | "updatedAt">;
+  group: IsoDates<ExpenseDetail["group"], "createdAt" | "updatedAt">;
+  links: IsoDates<ExpenseDetail["links"][number], "createdAt">[];
+};
+
+export function toExpenseDetailView(d: ExpenseDetail): ExpenseDetailView {
+  return {
+    ...d,
+    expense: {
+      ...d.expense,
+      createdAt: d.expense.createdAt.toISOString(),
+      updatedAt: d.expense.updatedAt.toISOString(),
+    },
+    group: {
+      ...d.group,
+      createdAt: d.group.createdAt.toISOString(),
+      updatedAt: d.group.updatedAt.toISOString(),
+    },
+    links: d.links.map((l) => ({ ...l, createdAt: l.createdAt.toISOString() })),
+  };
+}
+
 export async function getExpenseDetail(
   tx: TransactionClient,
   id: string,

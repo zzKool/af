@@ -25,6 +25,7 @@ import {
   listSettlements,
   openPrivateExpenses,
   settleableTransactions,
+  toExpenseDetailView,
 } from "@/modules/expenses/queries";
 import * as settlements from "@/modules/expenses/settlements";
 
@@ -75,7 +76,8 @@ export const getExpenseAction = authedAction
   .metadata({ name: "getExpense" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "expense")) return forbidden;
-    return getExpenseDetail(ctx.tx, parsedInput.id);
+    const r = await getExpenseDetail(ctx.tx, parsedInput.id);
+    return r.error ? { error: r.error } : { data: toExpenseDetailView(r.data) };
   });
 
 export const listExpenseGroupsAction = authedAction
