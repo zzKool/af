@@ -20,3 +20,7 @@
 - [x] T008 `graph.ts` (`neighbourhood`, caps, `nodeKey`), `Graph*` types, `graphAction`, `hrefs.ts` (`graphHref`, `entityHref`); `graph.test.ts` (SC-004).
 - [x] T009 `graph-layout.ts` (pure radial layout) + `graph-layout.pure.test.ts`; `LinkGraph` (picture + ring list), `GraphLink`; the page `/links/[type]/[id]`; the button next to every *Links* heading; `?open=<id>` on the three lists; strings `linking.graph.*` en + fr.
 - [x] T010 e2e (the invoice's graph, *Open* lands on the banking panel), screenshots, docs (`linking`, inventory §3.13), PR.
+
+## Part 4 — read API and the D40 kit (lane 8, 2026-10-23)
+
+- [x] T011 `allocatedSums(tx, type, ids)` in `queries.ts` (exported with `ALLOCATING_KINDS` through `index.ts`): Σ allocations onto each target, whatever the source, allocating kinds only, one grouped query; `linking.test.ts` on bank-row and journal-entry allocations, checked against `getAllocationStatus` (lessons audit 22). The callers move in their own modules (supplier invoices' `allocated.ts` next round, T010 there).
