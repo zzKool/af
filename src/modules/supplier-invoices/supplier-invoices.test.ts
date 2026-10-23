@@ -262,6 +262,24 @@ describe("US1 — record a supplier invoice", () => {
     expect(otherSupplier.error).toBeUndefined();
   });
 
+  it("one invoice-number normaliser (audit 32): the refusal and the finder both read '91 60' and '91  60' as one number", async () => {
+    const first = await create(julyInvoice({ invoiceNumber: "91 60" }));
+    expect(first.error).toBeUndefined();
+    const twice = await create(julyInvoice({ invoiceNumber: "91  60" }));
+    expect(twice.error?.message).toBe(
+      `Invoice 91  60 of this supplier is already recorded as ${first.data!.key}`,
+    );
+    const renumbered = await create(julyInvoice({ invoiceNumber: "9160" }));
+    expect(renumbered.error).toBeUndefined();
+    await run(owner.caller, async (tx) => {
+      const exact = await findSupplierInvoiceDuplicates(tx, {
+        partnerId: skattepunkten,
+        invoiceNumber: "91  60",
+      });
+      expect(exact.map((m) => [m.kind, m.entityId])).toEqual([["exact", first.data!.id]]);
+    });
+  });
+
   it("from a document (D27, D28): the key carries the vendor's slug, one origin per document", async () => {
     const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
       businessKey: "inv_20260314_001",
