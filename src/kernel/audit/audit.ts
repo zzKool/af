@@ -1,7 +1,26 @@
+import { Prisma } from "@/generated/prisma/client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 
 // MUST NOT import from next/* or src/components/*
+
+/**
+ * The write mapper of `old_data` / `new_data` (F50-g): a record as the JSON Prisma stores — through a JSON round trip,
+ * which is what the column holds anyway (dates as ISO strings, decimals as strings, undefined fields dropped).
+ * Omitted stays omitted (SQL NULL); an explicit `null` is the JSON null — what the former casts wrote.
+ */
+function auditDataToJson(
+  data: Record<string, unknown> | null | undefined,
+): Prisma.InputJsonObject | Prisma.NullableJsonNullValueInput | undefined {
+  if (data === undefined) return undefined;
+  if (data === null) return Prisma.JsonNull;
+  const json: unknown = JSON.parse(JSON.stringify(data));
+  return isJsonObject(json) ? json : {};
+}
+
+function isJsonObject(value: unknown): value is Prisma.JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /**
  * Creates an audit log entry within the current transaction.
@@ -26,10 +45,8 @@ export async function createAuditEntry(
       action: params.action,
       entityType: params.entityType,
       entityId: params.entityId,
-      // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for Record<string, unknown>
-      oldData: params.oldData as any,
-      // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for Record<string, unknown>
-      newData: params.newData as any,
+      oldData: auditDataToJson(params.oldData),
+      newData: auditDataToJson(params.newData),
     },
   });
 }

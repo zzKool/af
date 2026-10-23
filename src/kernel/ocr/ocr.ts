@@ -32,6 +32,8 @@ export type OcrResult =
 export interface OcrExtractedData {
   vendorName?: string;
   vendorTaxId?: string;
+  /** Azure DI's `VendorAddress` (invoices): the parts it recognised, and the address as printed */
+  vendorAddress?: OcrAddress;
   invoiceDate?: string;
   dueDate?: string;
   invoiceTotal?: number;
@@ -48,6 +50,16 @@ export interface OcrExtractedData {
   pageCount: number;
   rawText?: string;
   processingTimeMs: number;
+}
+
+/** A postal address as OCR read it. `country` only when Azure gave an ISO alpha-2 code. */
+export interface OcrAddress {
+  street?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  /** the address as printed on the document (the field's content), lines joined by ", " */
+  text?: string;
 }
 
 export interface OcrLineItem {
@@ -88,6 +100,24 @@ function extractNumberValue(field?: DocumentFieldOutput): number | undefined {
   if (field?.type === "number") return field.valueNumber;
   if (field?.type === "integer") return field.valueInteger;
   return undefined;
+}
+
+/** An `address` field → its parts and its printed text; undefined when the field is missing or empty. */
+export function extractAddressValue(field?: DocumentFieldOutput): OcrAddress | undefined {
+  if (field?.type !== "address") return undefined;
+  const v = field.valueAddress;
+  const clean = (s?: string) => (s?.trim() ? s.trim() : undefined);
+  const road = [v?.road, v?.houseNumber].map(clean).filter(Boolean).join(" ");
+  const country = clean(v?.countryRegion)?.toUpperCase();
+  const address: OcrAddress = {
+    street: clean(v?.streetAddress) ?? clean(road),
+    postalCode: clean(v?.postalCode),
+    city: clean(v?.city),
+    country: country && /^[A-Z]{2}$/.test(country) ? country : undefined,
+    text: clean(field.content?.replace(/\s*\n\s*/g, ", ")),
+  };
+  const kept = Object.fromEntries(Object.entries(address).filter(([, x]) => x !== undefined));
+  return Object.keys(kept).length ? (kept as OcrAddress) : undefined;
 }
 
 function extractArrayValue(field?: DocumentFieldOutput): DocumentFieldOutput[] | undefined {
@@ -226,6 +256,7 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
         // Invoice fields
         vendorName: isReceipt ? undefined : extractStringValue(fields?.VendorName),
         vendorTaxId: isReceipt ? undefined : extractStringValue(fields?.VendorTaxId),
+        vendorAddress: isReceipt ? undefined : extractAddressValue(fields?.VendorAddress),
         invoiceDate: isReceipt ? undefined : extractDateValue(fields?.InvoiceDate),
         dueDate: isReceipt ? undefined : extractDateValue(fields?.DueDate),
         invoiceTotal: isReceipt
@@ -270,6 +301,13 @@ const MOCK_FIXTURES: Record<string, { data: OcrExtractedData; quality: "high" | 
       data: {
         vendorName: "Test Vendor AB",
         vendorTaxId: "SE556677889901",
+        vendorAddress: {
+          street: "Storgatan 1",
+          postalCode: "111 22",
+          city: "Stockholm",
+          country: "SE",
+          text: "Storgatan 1, 111 22 Stockholm, Sweden",
+        },
         invoiceTotal: 1250.0,
         subtotal: 1000.0,
         totalTax: 250.0,

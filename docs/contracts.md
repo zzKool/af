@@ -44,11 +44,13 @@ Calendar dates travel as ISO `YYYY-MM-DD` strings in the DTO (`ContractRateDto`)
 
 ## UI
 
-The Rates section sits inside the contract's expanded row on the partner page (child of a child — no route): newest first, inline add (valid from = today, valid to, rate, note, the tip "Leave *valid to* empty for an ongoing rate."), edit-in-place on blur (dates, note; the amount by click — on a used rate only *valid to* and note are accepted, the refusal is an English toast until its dictionary key lands, lesson 18), delete with confirm, state chip. The contract row and form show *Current rate* read-only. After every change the section reloads its list from the server and hands it up (`onRatesChange`) so the derived current rate follows.
+The Rates section sits inside the contract's expanded row on the partner page (child of a child — no route): newest first, inline add (valid from = today, valid to, rate, note, the tip "Leave *valid to* empty for an ongoing rate."), edit-in-place on blur (dates, note; the amount by click — on a used rate only *valid to* and note are accepted, the refusal is an English toast until its dictionary key lands, lesson 18), delete (the row's ⋮ menu) with confirm, the state as a `<StateLabel>`. The contract row and form show *Current rate* read-only. After every change the section reloads its list from the server and hands it up (`onRatesChange`) so the derived current rate follows.
 
 Strings are keys in the kernel dictionary (`contracts.rates.*`, `contracts.currentRate*`, en + fr) — the first module on it; see [[ui-conventions]] §i18n. Errors arrive in English with `details`; the component renders the overlap / in-use messages in the user's language from those details.
 
-Screenshots: `specs/contracts/screenshots/`.
+**The D40 kit (F71, 2026-10-23).** States go through **one** map, `state-family.ts`: rate `current` → done, `future` → progress, `expired` → neutral; contract `active` → done, `inactive` → neutral (from `isActive`) — rendered with `<StateLabel>`, no coloured pill. Money on screen is `formatMoney` (`1 200.00 CHF`, U+202F thousands) with the plain decimal on `data-amount` for the e2e; the currency is a `<Tag>` column. Row actions sit in the ⋮ menu (`RowActionsMenu` from `kernel/ui/data-table`): Deactivate / Reactivate on a contract, Delete on a rate. The expanded contract shows its form, then *External References* and *Rates* as `DetailsSection`s. The list stays a kit `Table` — a handful of rows on an entity tab, expanded in place; no `<CodeChip>` (no business key) and no quick filter (no Month / Client column).
+
+Screenshots: `specs/contracts/screenshots/` (since F71 `contracts-tab-light.png` / `-dark.png`, from `e2e/screenshots.spec.ts` › *partner-contracts*).
 
 ## For the invoices slice
 
@@ -62,6 +64,6 @@ Split proposal when `rate.validTo` falls inside the invoiced period: one line pe
 
 ## Tests
 
-`rate-for.pure.test.ts` (fixture cases from `specs/contracts/fixtures/rate-history-cases.json` + fast-check property: non-overlapping history → unique containing interval or null; `lockedFieldsChanged`) · `contract-rates.test.ts` (DB, RLS on: the spec's acceptance scenarios, audit rows, exclusion constraint and CHECKs hit by direct SQL, FK RESTRICT, cross-tenant; F63: a used rate refuses amount / start, closes, the next rate is picked after its `valid_to`, and the fixture cases through `rateFor` / `currentRatesFor`) · `contracts.test.ts` (v2 CRUD, `billingRate` removed) · `e2e/contracts.spec.ts` (partner → contract → two rates → auto-close → overlap refused → delete).
+`rate-for.pure.test.ts` (fixture cases from `specs/contracts/fixtures/rate-history-cases.json` + fast-check property: non-overlapping history → unique containing interval or null; `lockedFieldsChanged`) · `contract-rates.test.ts` (DB, RLS on: the spec's acceptance scenarios, audit rows, exclusion constraint and CHECKs hit by direct SQL, FK RESTRICT, cross-tenant; F63: a used rate refuses amount / start, closes, the next rate is picked after its `valid_to`, and the fixture cases through `rateFor` / `currentRatesFor`) · `contracts.test.ts` (v2 CRUD, `billingRate` removed) · `state-family.pure.test.ts` (F71: every rate state mapped; the rate `pickRate` takes today is the only *done* one; a contract's state from its flag) · `e2e/contracts.spec.ts` (partner → contract → two rates → auto-close → overlap refused → delete through the ⋮ menu → deactivate through the contract's ⋮ menu).
 
 Related: [[contract-pattern]] (v2 child-entity pattern; its billing-rate pipeline section is superseded by this page), [[partners]], [[numbering]], [[feature-inventory]] D24.

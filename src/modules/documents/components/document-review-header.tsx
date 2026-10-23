@@ -1,41 +1,28 @@
 "use client";
 
+// The review page's title row (D40, F71): the key in mono with its derived state (the inbox's word, through the
+// module's one family map) · tags for the kind and the OCR quality · what it became as a link · meta: file, size,
+// uploaded, reviewed. No back link of its own: the shell's breadcrumb (Documents ›) is the way back. The page's one action here is *Re-run OCR* (owner, extracted only); *Make it…* and
+// *Mark as Reviewed* sit with the form.
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { FormattedDate } from "@/kernel/i18n/formatted-date";
 import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
+import { PageHeader } from "@/kernel/ui/shell/page";
+import { Tag } from "@/kernel/ui/tags";
 import type { DocumentReviewData } from "@/modules/documents/documents.actions";
+import { documentState } from "../state-family";
+import { DocumentStateLabel } from "./document-state-label";
 import { type Became, becameHref } from "./make-it-section";
 import { RerunOcrButton } from "./rerun-ocr-button";
 
-const QUALITY_CONFIG: Record<string, { label: MessageKey; className: string }> = {
-  high: {
-    label: "documents.review.quality.high",
-    className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  },
-  low: {
-    label: "documents.review.quality.low",
-    className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  },
-  none: {
-    label: "documents.review.quality.none",
-    className: "bg-muted text-muted-foreground",
-  },
+const QUALITY_LABEL: Record<string, MessageKey> = {
+  high: "documents.review.quality.high",
+  low: "documents.review.quality.low",
+  none: "documents.review.quality.none",
 };
 
-const STATUS_KEYS = ["uploaded", "processing", "extracted", "ocr_failed", "generated"] as const;
-type DocumentStatusKey = (typeof STATUS_KEYS)[number];
-const isKnownStatus = (s: string): s is DocumentStatusKey =>
-  (STATUS_KEYS as readonly string[]).includes(s);
-
-const STATUS_COLORS: Record<string, string> = {
-  uploaded: "bg-muted text-muted-foreground",
-  processing: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  extracted: "bg-muted text-muted-foreground",
-  ocr_failed: "bg-destructive/10 text-destructive",
-  linked: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-};
+const UPLOAD_KINDS = ["expense", "invoice", "contract", "nda", "certificate"];
 
 export function DocumentReviewHeader({
   data,
@@ -45,28 +32,41 @@ export function DocumentReviewHeader({
   became?: Became | null;
 }) {
   const t = useT();
-  const qualityInfo = data.quality ? QUALITY_CONFIG[data.quality] : null;
+  const quality = data.quality ? QUALITY_LABEL[data.quality] : undefined;
   const fileSizeKb = Math.round(data.fileSize / 1024);
+  const state = documentState(
+    {
+      status: data.status,
+      archivedAt: data.archivedAt,
+      reviewedAt: data.reviewedAt,
+      updatedAt: new Date(data.updatedAt),
+      became: !!became,
+    },
+    new Date(),
+  );
 
   return (
-    <div className="space-y-2">
-      <Link href="/documents" className="text-sm text-muted-foreground hover:text-foreground">
-        &larr; {t("documents.review.back")}
-      </Link>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold font-mono">{data.businessKey}</h1>
-        <Badge
-          variant="outline"
-          className={STATUS_COLORS[data.status] ?? "bg-muted text-muted-foreground"}
-        >
-          {isKnownStatus(data.status) ? t(`documents.status.${data.status}`) : data.status}
-        </Badge>
-        {became && (
-          <Link href={becameHref(became)} data-testid="became-chip">
-            <Badge
-              variant="outline"
-              className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+    <PageHeader
+      title={
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="truncate font-mono" data-testid="document-review-key">
+            {data.businessKey}
+          </span>
+          <DocumentStateLabel state={state} testId="document-review-state" />
+        </span>
+      }
+      tags={
+        <>
+          {UPLOAD_KINDS.includes(data.prefixType) && (
+            <Tag>{t(`documents.prefix.${data.prefixType}` as MessageKey)}</Tag>
+          )}
+          {/* OCR quality is metadata about the extraction, not a state — owner only */}
+          {!data.readOnly && quality && <Tag>{t(quality)}</Tag>}
+          {became && (
+            <Link
+              href={becameHref(became)}
+              className="text-[13px] text-primary hover:underline"
+              data-testid="became-chip"
             >
               {t(
                 became.type === "expense"
@@ -74,45 +74,32 @@ export function DocumentReviewHeader({
                   : "documents.makeIt.becameSupplierInvoice",
                 { key: became.label ?? "" },
               )}
-            </Badge>
-          </Link>
-        )}
-        {/* FR-021: a completed OCR is re-run only from here, explicitly (owner) */}
-        {!data.readOnly && data.status === "extracted" && (
-          <RerunOcrButton documentId={data.id} documentKey={data.businessKey} />
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-        <span>{data.fileName}</span>
-        <span>{fileSizeKb} KB</span>
-        <span>
-          {t("documents.review.uploaded")} <FormattedDate date={data.createdAt} />
-        </span>
-      </div>
-
-      {/* Quality indicator — owner only */}
-      {!data.readOnly && qualityInfo && (
-        <div aria-live="polite">
-          <Badge variant="outline" className={qualityInfo.className}>
-            {data.quality === "high" && "● "}
-            {data.quality === "low" && "▲ "}
-            {data.quality === "none" && "○ "}
-            {t(qualityInfo.label)}
-          </Badge>
-        </div>
-      )}
-
-      {/* Review status */}
-      <div className="text-sm text-muted-foreground">
-        {data.reviewedAt ? (
+            </Link>
+          )}
+        </>
+      }
+      meta={
+        <span className="flex flex-wrap items-center gap-x-3">
+          <span>{data.fileName}</span>
+          <span className="tabular-nums">{fileSizeKb} KB</span>
           <span>
-            {t("documents.review.reviewed")} <FormattedDate date={data.reviewedAt} />
+            {t("documents.review.uploaded")} <FormattedDate date={data.createdAt} />
           </span>
-        ) : (
-          <span>{t("documents.review.awaiting")}</span>
-        )}
-      </div>
-    </div>
+          {data.reviewedAt ? (
+            <span>
+              {t("documents.review.reviewed")} <FormattedDate date={data.reviewedAt} />
+            </span>
+          ) : (
+            <span>{t("documents.review.awaiting")}</span>
+          )}
+        </span>
+      }
+      // FR-021: a completed OCR is re-run only from here, explicitly (owner)
+      actions={
+        !data.readOnly && data.status === "extracted" ? (
+          <RerunOcrButton documentId={data.id} documentKey={data.businessKey} />
+        ) : undefined
+      }
+    />
   );
 }

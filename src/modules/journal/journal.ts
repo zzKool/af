@@ -15,6 +15,7 @@ import { basCode, isoDate, uuid } from "@/kernel/validation/scalars";
 import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
+import { withImplicitRates } from "./implicit-rate";
 import type {
   BankEntryInput,
   CategorisedBy,
@@ -110,7 +111,8 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     rate: row.rate.toString(),
     rateSource: row.rateSource as RateSource,
     rateDate: iso(row.rateDate),
-    bankImplicitRate: row.bankImplicitRate ? row.bankImplicitRate.toString() : null,
+    // derived from the transfer link on read (T005, `withImplicitRates`); the stored column is not read
+    bankImplicitRate: null,
     basCode: row.basCode,
     partnerId: row.partnerId,
     note: row.note,
@@ -122,6 +124,12 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     createdBy: row.createdBy,
     source: row.source,
   };
+}
+
+/** One entry as read: the DTO with its derived facts (the implicit rate, T005). */
+async function readDto(tx: TransactionClient, row: JournalEntry): Promise<JournalEntryDto> {
+  const [dto] = await withImplicitRates(tx, [toJournalEntryDto(row)]);
+  return dto as JournalEntryDto;
 }
 
 function parseError(e: z.ZodError): AppError {
@@ -339,7 +347,7 @@ export async function categorise(
       ruleId: null,
     };
   } else {
-    if (row.categorisedBy === "manual") return { data: toJournalEntryDto(row) };
+    if (row.categorisedBy === "manual") return { data: await readDto(tx, row) };
     const basCode = row.basCode ?? facts.basCode ?? null;
     const partnerId = row.partnerId ?? facts.partnerId ?? null;
     const noDocumentNeeded = row.noDocumentNeeded || (facts.noDocumentNeeded ?? false);
@@ -348,7 +356,7 @@ export async function categorise(
       partnerId === row.partnerId &&
       noDocumentNeeded === row.noDocumentNeeded
     ) {
-      return { data: toJournalEntryDto(row) };
+      return { data: await readDto(tx, row) };
     }
     data = {
       basCode,
@@ -366,10 +374,14 @@ export async function categorise(
     oldData: toAuditData(row),
     newData: toAuditData(updated),
   });
-  return { data: toJournalEntryDto(updated) };
+  return { data: await readDto(tx, updated) };
 }
 
-/** Record the bank's implied rate of an accepted transfer pair — once. */
+/**
+ * Record the bank's implied rate of an accepted transfer pair — once. Not read any more (T005): the rate is
+ * derived from the `transfer` link (`withImplicitRates`), so banking's accept sees it set and skips this call.
+ * Removed with the column (an irreversible drop — the owner's call, `specs/journal/tasks.md`).
+ */
 export async function setBankImplicitRate(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -468,7 +480,7 @@ export async function getJournalEntry(
 ): Promise<ServiceResult<JournalEntryDto>> {
   const row = await tx.journalEntry.findUnique({ where: { id } });
   if (!row) return { error: notFound("Journal entry", id) };
-  return { data: toJournalEntryDto(row) };
+  return { data: await readDto(tx, row) };
 }
 
 /** The entries of a set of sources, keyed by source id (the banking workbench joins on it). */
@@ -481,5 +493,6 @@ export async function entriesForSources(
   const rows = await tx.journalEntry.findMany({
     where: { sourceType, sourceId: { in: [...sourceIds] } },
   });
-  return new Map(rows.map((r) => [r.sourceId as string, toJournalEntryDto(r)]));
+  const dtos = await withImplicitRates(tx, rows.map(toJournalEntryDto));
+  return new Map(dtos.map((e) => [e.sourceId as string, e]));
 }

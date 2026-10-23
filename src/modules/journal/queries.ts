@@ -14,6 +14,7 @@ import type {
 } from "@/kernel/list-query/types";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { withImplicitRates } from "./implicit-rate";
 import { toJournalEntryDto } from "./journal";
 import type { JournalListRow } from "./types";
 
@@ -48,7 +49,8 @@ export const JOURNAL_DEFAULT_SORT: SortSpec[] = [
   { col: "createdAt", dir: "desc" },
 ];
 
-const DERIVED: ReadonlySet<string> = new Set(["partnerName", "basLabel"]);
+// bankImplicitRate is derived from the transfer link (T005) — filtered in memory, never on the stored column
+const DERIVED: ReadonlySet<string> = new Set(["partnerName", "basLabel", "bankImplicitRate"]);
 const STORED_COLUMNS: ColumnMap = Object.fromEntries(
   Object.entries(JOURNAL_COLUMNS).filter(([k]) => !DERIVED.has(k)),
 );
@@ -69,12 +71,20 @@ async function loadRows(
   });
   const partnerIds = [...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : [])))];
   const codes = rows.flatMap((r) => (r.basCode ? [r.basCode] : []));
-  const [names, labels] = await Promise.all([
+  const bankSources = rows.flatMap((r) =>
+    r.sourceType === "bank_transaction" && r.sourceId ? [r.sourceId] : [],
+  );
+  // banking is loaded on first use: it imports the journal at load time (the cycle of implicit-rate.ts)
+  const banking = await import("@/modules/banking");
+  const [names, labels, aliases] = await Promise.all([
     partners.partnerNames(tx, partnerIds),
     settings.basLabels(tx, codes),
+    banking.accountAliasesFor(tx, bankSources),
   ]);
-  const list: JournalListRow[] = rows.map((r) => ({
-    ...toJournalEntryDto(r),
+  const entries = await withImplicitRates(tx, rows.map(toJournalEntryDto));
+  const list: JournalListRow[] = entries.map((r) => ({
+    ...r,
+    accountAlias: r.sourceId ? (aliases.get(r.sourceId) ?? null) : null,
     partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,
     basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
   }));
@@ -87,9 +97,14 @@ async function loadRows(
 
 function searchHit(row: JournalListRow, term: string): boolean {
   const t = term.toLowerCase();
-  return [row.description, row.counterpartyKey, row.partnerName, row.note, row.basLabel].some((v) =>
-    (v ?? "").toLowerCase().includes(t),
-  );
+  return [
+    row.description,
+    row.counterpartyKey,
+    row.partnerName,
+    row.note,
+    row.basLabel,
+    row.accountAlias,
+  ].some((v) => (v ?? "").toLowerCase().includes(t));
 }
 
 export async function listJournalEntries(

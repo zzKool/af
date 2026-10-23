@@ -115,10 +115,10 @@ export function DocumentReviewClient({
   const resolvedData = { ...data.resolvedData, ...corrections };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="flex flex-col gap-4 px-5 pt-3.5 pb-5">
       <DocumentReviewHeader data={data} became={became} />
 
-      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Left pane — Preview (sticky) */}
         <div className="md:sticky md:top-6 md:self-start">
           <div
