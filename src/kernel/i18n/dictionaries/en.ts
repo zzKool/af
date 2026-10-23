@@ -301,6 +301,8 @@ export const en = {
     "This rate is used on {n} invoice line(s) and cannot be deleted — close it instead",
   "contracts.rates.error.usedLocked":
     "This rate is used on {n} invoice line(s) — only its end date and note can change; close it and add a new rate",
+  "contracts.rates.error.closesBeforePriced":
+    "This rate priced invoice lines up to {day} — it cannot end on {validTo}, before that day",
 
   // --- invoices: printed strings (harvest fixtures invoice-strings.*.json) ---
   "invoice.title.invoice": "Invoice",

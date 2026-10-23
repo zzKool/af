@@ -304,6 +304,8 @@ export const sv: Dictionary = {
     "Arvodet används på {n} fakturarad(er) och kan inte tas bort — avsluta det i stället",
   "contracts.rates.error.usedLocked":
     "Arvodet används på {n} fakturarad(er) — bara slutdatum och anteckning kan ändras; avsluta det och lägg till ett nytt arvode",
+  "contracts.rates.error.closesBeforePriced":
+    "Arvodet har prissatt fakturarader fram till {day} — det kan inte sluta {validTo}, före den dagen",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Faktura",
