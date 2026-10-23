@@ -1,35 +1,38 @@
-// Delete (only while nothing refers to it), cancel (a typed flag with a reason, only while open) and uncancel (D28).
+// Delete (while nothing but its document refers to it, D36), cancel (a typed flag with a reason, only while open)
+// and uncancel (D28).
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { ServiceResult } from "@/kernel/errors/app-error";
+import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
+import * as linking from "@/modules/linking";
 import { toSupplierInvoiceDto } from "./dto";
 import { invalid, notFound, violation } from "./errors";
 import type { SupplierInvoiceDto } from "./types";
 import { isOpen } from "./validation";
 
-/** Delete only while nothing refers to it (no link, no document); otherwise cancel (D28). */
+/**
+ * Delete only while nothing refers to it; otherwise cancel (D28). Its `created_from` link alone does not block
+ * (D36): it goes through linking and the document returns to the inbox as *ready*, its key kept. A payment or any
+ * other link still refuses.
+ */
 export async function deleteSupplierInvoice(
   tx: TransactionClient,
-  _caller: CallerIdentity,
+  caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ deleted: true }>> {
   const row = await tx.supplierInvoice.findUnique({ where: { id } });
   if (!row) return { error: notFound("Supplier invoice", id) };
-  const linked = await tx.link.count({
-    where: {
-      OR: [
-        { fromType: "supplier_invoice", fromId: id },
-        { toType: "supplier_invoice", toId: id },
-      ],
-    },
-  });
-  if (linked > 0 || row.paidAmount) {
+  const links = await linking.linksTouching(tx, "supplier_invoice", [id]);
+  if (row.paidAmount || links.some((l) => l.kind !== "created_from")) {
     return {
-      error: violation(`${row.key} is linked (a payment or its document) — cancel it instead`),
+      error: violation(`${row.key} is linked (a payment or another link) — cancel it instead`),
     };
+  }
+  for (const l of links) {
+    const removed = await linking.removeLink(tx, caller, audit, l.id);
+    if (removed.error) throw new RollbackError(removed.error);
   }
   await tx.supplierInvoice.delete({ where: { id } });
   await audit.log({
