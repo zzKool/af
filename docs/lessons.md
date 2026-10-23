@@ -258,3 +258,9 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 
 - [ ] **Pin what a cast wrote before removing it.** The two `as any` hid that `oldData: null` stores the JSON `null` while an omitted field stores SQL NULL — two nulls in one trail. The characterization test went in first and failed on the guess (*both SQL NULL*), so the mapper keeps `Prisma.JsonNull` for `null`; settling on one null is a behaviour change → F84.
 - [ ] **`toAuditData` drops every Decimal.** Its filter keeps plain objects only (`prototype === Object.prototype`) to skip Prisma relations; a `Prisma.Decimal` fails that test, so audited money rows carry no amount. Found by probing the helper while writing the JSON test → F84.
+
+## T020 + T026 build (D36 deletes, the vendor address — 2026-10-23)
+
+- [ ] **A delete guarded by a DB trigger needs the link off first, in the same transaction**: `block_delete_when_linked` fires on the row, so D36 removes the `created_from` through `linking.removeLink` (audited) and deletes after — no trigger change, and a later failure rolls the link back with it.
+- [ ] **Where a fact enters a dialog decides which module a "small" task touches.** T026's address had to reach the SI dialog, but the dialog's vendor facts are built only in `documents/components/make-it-section.tsx` (`initialFromFacts`); the brief kept documents out. Both ends shipped (OCR + match + *New vendor*), the one-line wire is T028. Rule: when a task names a field, trace who builds the props before naming the folders.
+- [ ] **JSONB does not keep an object's key order**: `partners.address` came back `city, street, country, postalCode`, so the flattened address the match compared was out of postal order and a "contains" never met an OCR address. `flattenAddress` now orders explicitly; any other `Object.values(jsonb)` join has the same trap.
