@@ -10,13 +10,17 @@ Spec: `spec.md` (+ `harvest.md`, the v1 / Excel input it was written from). No `
 - [x] T002 *(2026-10-23: the panel shows the expense's category read-only — the group page passes its `basCode` — and the recompute sends it; `trip-panel.test.tsx`.)* Hide the category select once the per-diem expense exists: the panel shows it beside *Recompute*, but `replacePerDiemExpense` keeps the expense's category (its key carries the BAS alias, `Ex213-Tr-nn`), so a change there is silently dropped. Show the expense's category read-only instead; component test. LIGHT per US3, FR-006 (contradicts, LOW)
 - [x] T003 *(2026-10-23: warnings are `{ type, message, …facts }` (`PerDiemWarning`; an older snapshot's lines read as typed again, unknown ones as `other`); `PerDiemError.details.rule` (`PerDiemErrorRule`); `components/per-diem-text.ts` picks the key for the panel and the sheet; 8 keys `traktamente.trip.reason.*` / `warning.*` / `error.*` (en text = the calculator's English, so the English PDF is unchanged); the print route passes the preference's locale untyped.)* Translate what the result card shows from the server: the reason (*no overnight stay*), the warnings (*trip spans two rate years (2025, 2026)*, *the meal deduction exceeds the day amounts*) and the computation error (*No travel allowance rate for CH in 2026*, which already carries `{countryCode, year}`) print the calculator's English in fr / sv. Per [[ui-conventions]] (*services return English + details, the component picks the key*): a code and its params beside each warning in the snapshot (old snapshots still parse — `parsePerDiemResult`), keys `traktamente.trip.warning.*` / `traktamente.trip.error.*`. Same PR: the print route types the sheet's locale `"en" | "fr" | null` (sv exists) and passes `prefs.locale ?? null`. Touches **i18n** — serialised. LIGHT per FR-006, US4/AC3 (partial, LOW)
 
+## Phase 2: The D40 kit (F71)
+
+- [x] T004 *(2026-10-23)* Traktamente adopts the D40 kit (F71, LIGHT). Settings → Traktamente on `ListPage`: the year tabs as underline `Tabs` (`RateYearTabs`) and **one** split primary in the title row (`RateActions`: *Add country* ▾ *Paste Skatteverket CSV* · *Copy from {year}*); the rows' Edit / Delete behind `RowActionsMenu`; the code and the source as `<Tag>`s; amounts `formatMoney` bare (the headers name SEK). The trip panel: on-screen money through `formatMoney` (the country select's `{amount}/day` a key), the per-diem key a `<CodeChip>`, the missing-rate hint / computation error / warnings with the attention `StateIcon` instead of the amber palette, panel title 15 / 600 and body 13. No derived state of its own (the per-diem expense's *to refund* is expenses'). The printed sheet unchanged (`formatCurrency`). Touches **i18n** (3 keys) — serialised.
+
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
 - `deleteRate` bounds the year in UTC while trips are counted in Stockholm (a return at 00:30 on 1 January lets the new year's row go) → **F67** (lessons audit 28)
 - the error helpers written twice (`trip.ts`, `rates.ts`) → **F67** (audit 32)
 - `upsertTrip` reads `expense_groups` itself instead of `expenses.getGroup` → **F66** (audit 25)
 - `SEK` in the description, the note, the panel and the sheet → **F70** (D39)
-- the panel's on-screen money through `formatCurrency` → **F71** (D40 kit; the printed sheet keeps it)
+- ~~the panel's on-screen money through `formatCurrency` → **F71**~~ — T004 (the printed sheet keeps it)
 
 Read, no task (the spec says it two ways; the code follows the later, more precise line):
 

@@ -3,9 +3,10 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
+import { ListPage } from "@/kernel/ui/shell/page";
 import { getUserPreferences } from "@/modules/settings";
 import { listRates, rateYears } from "@/modules/traktamente";
-import { RateTable } from "@/modules/traktamente/ui";
+import { RateActions, RateTable, RateYearTabs } from "@/modules/traktamente/ui";
 
 // Settings → Traktamente: the normalbelopp table per year (specs/traktamente US4).
 export default async function TraktamenteSettingsPage({
@@ -27,16 +28,13 @@ export default async function TraktamenteSettingsPage({
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="mb-1 text-2xl font-semibold">{t("traktamente.title")}</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        {t("traktamente.meta", { count: data.rows.length, year: data.year })}
-      </p>
-      <RateTable
-        years={data.years}
-        year={data.year}
-        rows={data.rows.map(({ createdAt: _c, updatedAt: _u, ...r }) => r)}
-      />
-    </div>
+    <ListPage
+      title={t("traktamente.title")}
+      meta={t("traktamente.meta", { count: data.rows.length, year: data.year })}
+      actions={<RateActions years={data.years} year={data.year} />}
+      tabs={<RateYearTabs years={data.years} year={data.year} />}
+    >
+      <RateTable rows={data.rows.map(({ createdAt: _c, updatedAt: _u, ...r }) => r)} />
+    </ListPage>
   );
 }

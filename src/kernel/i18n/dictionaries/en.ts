@@ -1095,6 +1095,9 @@ export const en = {
   "traktamente.copyFrom": "Copy from {year}",
   "traktamente.copied": "{copied} countries copied, {skipped} already there",
   "traktamente.paste": "Paste Skatteverket CSV",
+  "traktamente.moreAdd": "More ways to add rates",
+  "traktamente.paste.rows": "{count} rows",
+  "traktamente.trip.perDay": "{amount}/day",
   "traktamente.paste.description":
     "År;Land eller område;Landskod;Normalbelopp — references like “Se Danmark” are skipped.",
   "traktamente.paste.preview": "Preview",

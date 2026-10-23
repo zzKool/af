@@ -91,10 +91,10 @@ test.describe("Expenses", () => {
       await expect(page.getByTestId("trip-days")).toContainText(
         "19.5 days (19 full + 1 half), 19 nights",
       );
-      await expect(page.getByTestId("trip-total")).toContainText("18 506,40");
+      await expect(page.getByTestId("trip-total")).toContainText("18 506.40 SEK"); // formatMoney (F71)
       await page.getByTestId("write-per-diem").click();
       await expectToast(page, "Per-diem expense");
-      await expect(page.getByTestId("per-diem-expense")).toContainText("18 506,40");
+      await expect(page.getByTestId("per-diem-expense")).toContainText("18 506.40 SEK");
       await expect(
         page.getByRole("row").filter({ hasText: "Traktamente CH 19.5 days" }),
       ).toBeVisible();
@@ -167,9 +167,11 @@ test.describe("Expenses", () => {
       // 6. the rate table: the seeded 2025 rows, a paste preview
       await page.goto("/settings/traktamente?year=2025");
       await expect(page.getByTestId("rate-row").filter({ hasText: "Schweiz" })).toContainText(
-        "1 402,00",
+        "1 402.00",
       );
-      await page.getByTestId("open-paste").click();
+      // the paste is a variant of the title row's split primary (F71)
+      await page.getByRole("button", { name: "More ways to add rates" }).click();
+      await page.getByRole("menuitem", { name: "Paste Skatteverket CSV" }).click();
       await page.getByTestId("paste-text").fill("2025;Albanien;AL;345\n2025;Färöarna;;Se Danmark");
       await page.getByTestId("paste-preview-button").click();
       await expect(page.getByTestId("paste-preview")).toContainText("1 rows · 1 skipped");
