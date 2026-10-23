@@ -10,33 +10,23 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { Tag } from "@/kernel/ui/tags";
 import {
   applySuggestionAction,
   searchLinkablesAction,
   suggestionsForEntityAction,
   suggestionsForTransactionAction,
 } from "@/modules/linking/linking.actions";
-import type {
-  Confidence,
-  EntityFacts,
-  LinkableType,
-  LinkEndpoint,
-  Suggestion,
-} from "@/modules/linking/types";
+import type { EntityFacts, LinkableType, LinkEndpoint, Suggestion } from "@/modules/linking/types";
 import { attachHref } from "../hrefs";
 import { needsOwnFlow } from "../kinds";
+import { ConfidenceLabel } from "./confidence-label";
+import { EntityLabel } from "./entity-label";
 import { moneyText } from "./money";
-
-export const CONFIDENCE_STYLE: Record<Confidence, string> = {
-  HIGH: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  LOW: "bg-muted text-muted-foreground",
-};
 
 /** The scorer's reasons are English data; the known ones have a key, the parametrised ones print as they are. */
 const REASON_KEY: Record<string, string> = {
@@ -268,16 +258,10 @@ export function SuggestionsSection({
               data-testid="suggestion"
             >
               <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className={CONFIDENCE_STYLE[s.confidence]}
-                  data-testid="suggestion-confidence"
-                >
-                  {t(`linking.confidence.${s.confidence}`)}
-                </Badge>
-                <span className="min-w-0 flex-1 truncate" title={s.candidate.label}>
+                <ConfidenceLabel confidence={s.confidence} testId="suggestion-confidence" />
+                <span className="flex min-w-0 flex-1 items-center">
                   <span className="mr-1 text-xs text-muted-foreground">{i + 1}.</span>
-                  {s.candidate.label}
+                  <EntityLabel type={s.candidate.type} label={s.candidate.label} />
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {s.score}
@@ -373,12 +357,8 @@ export function SuggestionsSection({
                       className="flex items-center gap-2 px-3 py-1.5"
                       data-testid="link-hit"
                     >
-                      <Badge variant="outline" className="shrink-0">
-                        {t(`linking.type.${h.type}`)}
-                      </Badge>
-                      <span className="min-w-0 flex-1 truncate" title={h.label}>
-                        {h.label}
-                      </span>
+                      <Tag className="shrink-0">{t(`linking.type.${h.type}`)}</Tag>
+                      <EntityLabel type={h.type} label={h.label} className="flex-1" />
                       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {Number(h.remaining) > 0 ? (moneyText(h.remaining, h.currency) ?? "") : ""}
                       </span>

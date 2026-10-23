@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { EntityPage } from "@/kernel/ui/shell/page";
+import { Tag } from "@/kernel/ui/tags";
 import {
   entityHref,
   GRAPH_DEFAULT_DEPTH,
@@ -13,7 +15,7 @@ import {
   listLinkableTypes,
   neighbourhood,
 } from "@/modules/linking";
-import { LinkGraph } from "@/modules/linking/ui";
+import { EntityLabel, LinkGraph } from "@/modules/linking/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -48,7 +50,18 @@ export default async function LinkGraphPage({
 
   return (
     <EntityPage
-      title={`${t("linking.graph.title")} · ${root.label}`}
+      title={
+        <span className="flex min-w-0 items-center gap-2">
+          {t("linking.graph.title")}
+          <EntityLabel type={root.type} label={root.label} className="text-base font-normal" />
+        </span>
+      }
+      tags={<Tag>{t(`linking.type.${root.type}`)}</Tag>}
+      actions={
+        <Button nativeButton={false} render={<Link href={entityHref(root)} />}>
+          {t("linking.graph.openEntity")}
+        </Button>
+      }
       back={<Link href={entityHref(root)}>{t("linking.graph.back", { label: root.label })}</Link>}
       meta={t("linking.graph.meta", {
         nodes: graph.nodes.length,

@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,9 +18,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { TransactionDetailView } from "@/modules/banking/ui";
+import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import { TransactionDetailView, TransactionStateLabel } from "@/modules/banking/ui";
 import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
 import type { InboxRow } from "@/modules/linking/inbox";
 import {
@@ -32,8 +33,10 @@ import {
 import type { BulkApplyResult, EntityFacts, Suggestion } from "@/modules/linking/types";
 import { attachHref } from "../hrefs";
 import { needsOwnFlow } from "../kinds";
+import { ConfidenceLabel } from "./confidence-label";
+import { EntityLabel } from "./entity-label";
 import { moneyText } from "./money";
-import { CONFIDENCE_STYLE, SuggestionsSection, useReasonLabel } from "./suggestions-section";
+import { SuggestionsSection, useReasonLabel } from "./suggestions-section";
 
 type Tab = "rows" | "documents";
 
@@ -46,6 +49,11 @@ const KEYS: [string, string][] = [
   ["u", "linking.inbox.help.undo"],
   ["?", "linking.inbox.help.help"],
 ];
+
+/** The row's amount with its sign: the DTO carries |amount| and the direction. */
+function signedAmount(r: InboxRow): string {
+  return r.row.direction === "incoming" ? r.row.amount : `-${r.row.amount}`;
+}
 
 function isTyping(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -86,7 +94,7 @@ export function InboxWorkbench({
   const [report, setReport] = useState<BulkApplyResult | null>(null);
   const undo = useRef<string[]>([]);
   const listRef = useRef<HTMLUListElement>(null);
-  const { executeAsync: apply, isPending: applying } = useAction(applySuggestionAction);
+  const { executeAsync: apply } = useAction(applySuggestionAction);
   const { executeAsync: bulk, isPending: bulking } = useAction(bulkApplyHighAction);
   const { executeAsync: remove } = useAction(removeLinkAction);
 
@@ -229,24 +237,17 @@ export function InboxWorkbench({
     <div className="flex flex-col gap-3" data-testid="inbox">
       {/* tabs + bulk bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={tab === "rows" ? "default" : "outline"}
-            onClick={() => setTab("rows")}
-            data-testid="inbox-tab-rows"
-          >
-            {t("linking.inbox.tab.rows", { count: rows.length })}
-          </Button>
-          <Button
-            size="sm"
-            variant={tab === "documents" ? "default" : "outline"}
-            onClick={() => setTab("documents")}
-            data-testid="inbox-tab-documents"
-          >
-            {t("linking.inbox.tab.documents", { count: documents.length })}
-          </Button>
-        </div>
+        {/* D40 underline tabs; the counts stay in the words (as the documents inbox and the partner page) */}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+          <TabsList variant="line">
+            <TabsTrigger value="rows" data-testid="inbox-tab-rows">
+              {t("linking.inbox.tab.rows", { count: rows.length })}
+            </TabsTrigger>
+            <TabsTrigger value="documents" data-testid="inbox-tab-documents">
+              {t("linking.inbox.tab.documents", { count: documents.length })}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         {tab === "rows" && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
@@ -288,7 +289,7 @@ export function InboxWorkbench({
                       data-row-id={r.row.id}
                       data-testid="inbox-row"
                       data-state={active ? "selected" : undefined}
-                      className={`flex cursor-pointer items-start gap-2 px-3 py-2 ${active ? "bg-muted" : "hover:bg-muted/50"}`}
+                      className={`flex cursor-pointer items-start gap-2 px-3 py-2 ${active ? "bg-selection" : "hover:bg-hover"}`}
                       onClick={() => setSelectedId(r.row.id)}
                       onKeyDown={(e) => e.key === "Enter" && setSelectedId(r.row.id)}
                     >
@@ -304,15 +305,11 @@ export function InboxWorkbench({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="tabular-nums">{r.row.date}</span>
-                          <span
-                            className={`tabular-nums ${r.row.direction === "incoming" ? "text-green-700 dark:text-green-400" : ""}`}
-                          >
-                            {r.row.direction === "incoming" ? "+" : "−"}
-                            {moneyText(r.row.amount, r.row.currency) ?? r.row.amount}
+                          <span className="ml-auto tabular-nums" data-amount={signedAmount(r)}>
+                            {moneyText(signedAmount(r), r.row.currency, { signed: true }) ??
+                              signedAmount(r)}
                           </span>
-                          {r.state === "partial" && (
-                            <Badge variant="outline">{t("banking.state.partial")}</Badge>
-                          )}
+                          {r.state === "partial" && <TransactionStateLabel state="partial" />}
                         </div>
                         <div className="truncate text-muted-foreground" title={r.row.texts[5]}>
                           {r.row.texts[5]} · {r.accountLabel}
@@ -320,16 +317,14 @@ export function InboxWorkbench({
                         <div className="mt-0.5 flex items-center gap-2">
                           {r.top ? (
                             <>
-                              <Badge
-                                variant="outline"
-                                className={CONFIDENCE_STYLE[r.top.confidence]}
-                                data-testid="inbox-top-confidence"
-                              >
-                                {t(`linking.confidence.${r.top.confidence}`)}
-                              </Badge>
-                              <span className="truncate" title={r.top.candidate.label}>
-                                {r.top.candidate.label}
-                              </span>
+                              <ConfidenceLabel
+                                confidence={r.top.confidence}
+                                testId="inbox-top-confidence"
+                              />
+                              <EntityLabel
+                                type={r.top.candidate.type}
+                                label={r.top.candidate.label}
+                              />
                               {r.top.confidence === "HIGH" && (
                                 <kbd className="ml-auto rounded border px-1 text-[10px] text-muted-foreground">
                                   Enter
@@ -356,13 +351,11 @@ export function InboxWorkbench({
                 <li
                   key={d.id}
                   data-testid="inbox-document"
-                  className={`cursor-pointer px-3 py-2 ${d.id === selectedDoc ? "bg-muted" : "hover:bg-muted/50"}`}
+                  className={`cursor-pointer px-3 py-2 ${d.id === selectedDoc ? "bg-selection" : "hover:bg-hover"}`}
                   onClick={() => setSelectedDoc(d.id)}
                   onKeyDown={(e) => e.key === "Enter" && setSelectedDoc(d.id)}
                 >
-                  <div className="truncate" title={d.label}>
-                    {d.label}
-                  </div>
+                  <EntityLabel type="document" label={d.label} className="max-w-full" />
                   <div className="text-xs text-muted-foreground tabular-nums">{d.date}</div>
                 </li>
               ))}
@@ -407,24 +400,39 @@ export function InboxWorkbench({
             )
           ) : doc ? (
             <div className="flex flex-col gap-4" data-testid="inbox-document-detail">
-              <div>
-                <h2 className="text-base font-semibold">{doc.label}</h2>
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  {doc.date}
-                  {Number(doc.amount) > 0 && moneyText(doc.amount, doc.currency)
-                    ? ` · ${moneyText(doc.amount, doc.currency)}`
-                    : ""}
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex min-w-0 items-center text-[15px] font-semibold">
+                  <EntityLabel type="document" label={doc.label} />
+                </h2>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="mt-2"
                   nativeButton={false}
                   render={<Link href={`/documents/${doc.id}`} />}
                 >
                   {t("linking.inbox.openDocument")}
                 </Button>
               </div>
+              <DetailsSection title={t("details.about")}>
+                <DetailsGrid
+                  rows={[
+                    [
+                      t("documents.col.documentDate"),
+                      <span key="t" className="tabular-nums">
+                        {doc.date}
+                      </span>,
+                    ],
+                    [
+                      t("documents.col.amount"),
+                      Number(doc.amount) > 0 ? (
+                        <span key="a" className="tabular-nums" data-amount={doc.amount}>
+                          {moneyText(doc.amount, doc.currency) ?? doc.amount}
+                        </span>
+                      ) : null,
+                    ],
+                  ]}
+                />
+              </DetailsSection>
               <SuggestionsSection
                 key={doc.id}
                 target={{ endpoint: { type: "document", id: doc.id } }}
@@ -485,10 +493,7 @@ export function InboxWorkbench({
                 </li>
               ))}
               {report.failed.map((f) => (
-                <li
-                  key={f.bankTransactionId}
-                  className="px-3 py-1.5 text-red-700 dark:text-red-300"
-                >
+                <li key={f.bankTransactionId} className="px-3 py-1.5 text-destructive">
                   {labels.get(f.bankTransactionId) ?? f.bankTransactionId}: {f.message}
                 </li>
               ))}
