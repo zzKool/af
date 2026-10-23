@@ -9,6 +9,7 @@ import type {
   ListQuery,
   ListResult,
 } from "@/kernel/list-query/types";
+import * as banking from "@/modules/banking";
 import { collectPeriod, countsOf } from "./collect";
 import {
   MONTH_COLUMN_KEYS,
@@ -50,11 +51,8 @@ export async function builtPeriods(
 
 /** The first month that has a bank row (ISO `YYYY-MM`), or null before the first import. */
 export async function firstMonth(tx: TransactionClient): Promise<string | null> {
-  const first = await tx.bankTransaction.findFirst({
-    orderBy: { bookingDate: "asc" },
-    select: { bookingDate: true },
-  });
-  return first ? monthOf(first.bookingDate.toISOString()) : null;
+  const first = await banking.firstBookingDate(tx);
+  return first ? monthOf(first) : null;
 }
 
 /**
