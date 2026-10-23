@@ -1,7 +1,7 @@
 "use client";
 
 // The end of the supplier-invoice panel: uncancel a cancelled invoice; cancel (with a reason) or delete one that
-// has no payments — delete only while nothing is linked. The confirm dialogs live in the panel.
+// has no payments — delete only while nothing but its document is linked (D36: the document returns to the inbox).
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -98,7 +98,7 @@ export function SupplierInvoicePanelActions({
                 {t("supplierInvoices.panel.cancel")}
               </Button>
             </div>
-            {detail.links.length === 0 && (
+            {detail.links.every((l) => l.kind === "created_from") && (
               <Button
                 size="sm"
                 variant="destructive"

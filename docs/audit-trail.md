@@ -54,6 +54,8 @@ export async function updateTenantProfile(
 
 The `toAuditData()` helper strips Prisma internals (relations, `_count`, metadata) before storing as JSONB. Only plain data fields are stored.
 
+What lands in `old_data` / `new_data` (`auditDataToJson`, the write mapper, F50-g): the record's JSON form — dates as ISO strings, decimals as strings, undefined fields dropped. An omitted `oldData` / `newData` is SQL NULL; an explicit `null` is the JSON `null` (both kept as the former casts wrote them; `audit.test.ts` pins them). Known gap: `toAuditData` also drops `Prisma.Decimal` fields, so money rows are audited without their amounts — **F84**.
+
 ### Seed Operations
 
 When `CallerIdentity.source === "seed"`, the audit middleware provides a no-op logger that silently skips audit entry creation. Seed operations are not real user actions and should not appear in the audit trail.
@@ -67,7 +69,7 @@ When `CallerIdentity.source === "seed"`, the audit middleware provides a no-op l
 | `id` | UUID | Primary key |
 | `tenant_id` | UUID | Tenant that owns this audit entry |
 | `user_id` | UUID | User who performed the action |
-| `action` | TEXT | `create`, `update`, or `delete` |
+| `action` | TEXT | `create`, `update`, `delete`, `deactivate` or `reactivate` |
 | `entity_type` | TEXT | e.g., `tenant`, `tenant_config` |
 | `entity_id` | TEXT | ID of the affected entity (not necessarily UUID) |
 | `old_data` | JSONB | Previous state (null for creates) |

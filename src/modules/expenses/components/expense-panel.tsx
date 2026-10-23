@@ -152,7 +152,7 @@ export function ExpensePanel({
             <ExpenseSettlementsSection detail={detail} />
             <ExpenseLinksSection detail={detail} />
 
-            {canWrite && isOpen && detail.links.length === 0 && (
+            {canWrite && isOpen && detail.links.every((l) => l.kind === "created_from") && (
               <div className="flex justify-end">
                 <Button
                   size="sm"

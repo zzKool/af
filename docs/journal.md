@@ -36,7 +36,7 @@ Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_
 - `ui.ts`: actions + types.
 - Actions: reads on `authedAction` + `can(read, journal_entry)`; `createManualEntryAction`, `categoriseEntryAction`, `deleteManualEntryAction` on `ownerAction`.
 - `links.ts` (T003): `linkEntry(tx, caller, audit, {id, to})` — a manual entry *Link to…* a document or a client invoice (`ENTRY_LINK_TARGETS`; supplier invoices and expenses write their own payments, D37). The allocation is proposed as the inbox does: min(what the entry has left, what the target has open) in the target's currency; a target with no amount is linked without one; another currency, a used-up entry or a bank entry refused. `linkEntryAction` on `ownerAction`.
-- Linkable: manual entries carry `|amount|` and can be the source of a `justifies` link; bank entries are reached through their transaction.
+- Linkable: manual entries carry `|amount|` and can be the source of a `justifies` link; bank entries are reached through their transaction — `exists` answers false for them, so `createLink` refuses a bank entry as an endpoint (T001: the same movement allocated twice otherwise).
 
 ## Page (part 2)
 
