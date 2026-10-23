@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+import type { DuplicateMatch } from "@/modules/expenses";
+
+// what the duplicate check answers in the test at hand
+const dup = vi.hoisted(() => ({ matches: [] as DuplicateMatch[] }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("next-safe-action/hooks", () => ({
@@ -18,9 +22,12 @@ vi.mock("@/modules/expenses/ui", async () => ({
   ...(await vi.importActual<typeof import("@/modules/expenses/components/group-picker")>(
     "@/modules/expenses/components/group-picker",
   )),
-  DuplicatePanel: () => null,
-  hasHighMatch: () => false,
-  useDuplicateCheck: () => [],
+  DuplicatePanel: ({ matches }: { matches: DuplicateMatch[] }) =>
+    matches.length ? (
+      <div data-testid="duplicate-panel">{matches.map((m) => m.kind).join(",")}</div>
+    ) : null,
+  hasHighMatch: (ms: DuplicateMatch[]) => ms.some((m) => m.confidence === "high"),
+  useDuplicateCheck: () => dup.matches,
 }));
 vi.mock("./supplier-match-card", () => ({ SupplierMatchCard: () => null }));
 
@@ -63,5 +70,58 @@ describe("NewSupplierInvoiceDialog — what the owner picked survives a re-rende
       />,
     );
     expect(screen.getByTestId("new-group-description")).toHaveValue("Admin 2026");
+  });
+});
+
+const match = (kind: DuplicateMatch["kind"], id: string): DuplicateMatch => ({
+  kind,
+  confidence: kind === "fuzzy" ? "medium" : "high",
+  entityType: "supplier_invoice",
+  entityId: id,
+  entityKey: `SI7-ADM-${id}`,
+  partnerName: "Skattepunkten",
+  reason: {
+    key: `documents.duplicate.reason.${kind}`,
+    params: { n: "9160", partner: "Skattepunkten" },
+  },
+});
+
+describe("NewSupplierInvoiceDialog — the duplicate check (D35)", () => {
+  afterEach(() => {
+    cleanup();
+    dup.matches = [];
+  });
+  const groups = [{ id: "g1", number: 7, description: "Receipts", kind: "batch" as const }];
+
+  it("an exact number match is a stop: a link to the invoice, no note, no Create anyway, Create disabled", () => {
+    dup.matches = [match("exact", "si1"), match("fuzzy", "si2")];
+    render(<NewSupplierInvoiceDialog {...base} groups={groups} />);
+    expect(screen.getByTestId("exact-number-stop")).toHaveTextContent("Number 9160 is SI7-ADM-si1");
+    expect(screen.getByTestId("exact-number-open")).toHaveAttribute(
+      "href",
+      "/supplier-invoices?open=si1",
+    );
+    expect(screen.queryByTestId("duplicate-panel")).toBeNull();
+    expect(screen.queryByTestId("duplicate-ack-note")).toBeNull();
+    expect(screen.queryByText("Create anyway")).toBeNull();
+    expect(screen.getByTestId("create-supplier-invoice")).toBeDisabled();
+  });
+
+  it("a hash match keeps Create anyway with a note; no stop", () => {
+    dup.matches = [match("hash", "si3")];
+    render(<NewSupplierInvoiceDialog {...base} groups={groups} />);
+    expect(screen.queryByTestId("exact-number-stop")).toBeNull();
+    expect(screen.getByTestId("duplicate-panel")).toHaveTextContent("hash");
+    expect(screen.getByTestId("create-supplier-invoice")).toHaveTextContent("Create anyway");
+  });
+
+  it("a fuzzy match only warns: Create, no stop", () => {
+    dup.matches = [match("fuzzy", "si4")];
+    render(<NewSupplierInvoiceDialog {...base} groups={groups} />);
+    expect(screen.queryByTestId("exact-number-stop")).toBeNull();
+    expect(screen.getByTestId("duplicate-panel")).toHaveTextContent("fuzzy");
+    expect(screen.getByTestId("create-supplier-invoice")).toHaveTextContent(
+      "Create supplier invoice",
+    );
   });
 });

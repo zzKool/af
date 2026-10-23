@@ -1145,6 +1145,10 @@ export const en = {
   "supplierInvoices.form.note": "Note",
   "supplierInvoices.form.create": "Create supplier invoice",
   "supplierInvoices.form.created": "Supplier invoice {key} created",
+  "supplierInvoices.form.numberTaken": "This supplier's invoice number is already recorded",
+  "supplierInvoices.form.numberTakenBy": "Number {n} is {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "A supplier's invoice number is unique — correct the number, or open the existing invoice.",
   "supplierInvoices.panel.money": "Money",
   "supplierInvoices.panel.base": "{base} SEK at {rate} ({source})",
   "supplierInvoices.panel.paidBy": "paid {amount} by the bank",
