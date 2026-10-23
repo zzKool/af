@@ -38,7 +38,7 @@ Calendar dates travel as ISO `YYYY-MM-DD` strings in the DTO (`ContractRateDto`)
 
 ## Surface
 
-- `index.ts`: `rateFor`, `listContractRates`, `listContractRatesFor`, `currentRatesFor`, `createContractRate`, `updateContractRate`, `deleteContractRate`, `setRateUsage`, schemas, DTOs (`ContractRateDto`, `ContractRateWithState`, `CurrentRate`, `RateUnit`, `RateState`); `getContract(s)` now take `{ today }`.
+- `index.ts`: `rateFor`, `listContractRates`, `listContractRatesFor`, `currentRatesFor`, `createContractRate`, `updateContractRate`, `deleteContractRate`, `setRateUsage`, schemas, DTOs (`ContractRateDto`, `ContractRateWithState`, `CurrentRate`, `RateUnit`, `RateState`); `getContract(s)` now take `{ today }`; `activeContractCount(tx, { partnerId } | { assignedEmployeeId })` for partners' type-removal guard ([[lessons]] audit 25).
 - `ui.ts`: `ContractRates` (the section), `ContractList` (+ `ContractRow` type with `currentRate` and `rates`), the rate actions.
 - Actions: `getContractRatesAction`, `createContractRateAction`, `updateContractRateAction`, `deleteContractRateAction`.
 
