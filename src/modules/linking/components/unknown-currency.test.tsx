@@ -101,10 +101,13 @@ describe("a receipt whose currency was not read (F61-b)", () => {
     });
   });
 
-  it("moneyText prints nothing for a currency it cannot format", () => {
+  it("moneyText prints nothing without an amount or a currency, and the D40 format otherwise", () => {
     expect(moneyText("45.90", null)).toBeNull();
-    expect(moneyText("45.90", "GBP")).toBeNull();
     expect(moneyText(null, "CHF")).toBeNull();
-    expect(moneyText("1200.00", "CHF")).toBe("1'200.00 CHF");
+    expect(moneyText("45,90", "CHF")).toBeNull(); // not a decimal string: nothing, never a throw in a render
+    expect(moneyText("1200.00", "CHF")).toBe("1\u202f200.00\u00a0CHF");
+    expect(moneyText("45.90", "GBP")).toBe("45.90\u00a0GBP"); // an OCR code outside the app's list prints as read
+    expect(moneyText("-2312.43", "SEK")).toBe("\u22122\u202f312.43\u00a0SEK");
+    expect(moneyText("500", "SEK", { signed: true })).toBe("+500.00\u00a0SEK");
   });
 });

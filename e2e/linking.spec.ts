@@ -131,7 +131,9 @@ test.describe("Linking", () => {
       await expect(page.getByTestId("link-graph")).toBeVisible();
       const node = page.getByTestId("graph-node").filter({ hasText: "Bank row" });
       await expect(node).toHaveCount(1);
-      await expect(node).toContainText(`${remaining} SEK`);
+      // the on-screen money format (D40) groups thousands — the decimal string stays on `data-amount`
+      await expect(node.locator("[data-amount]")).toHaveAttribute("data-amount", remaining);
+      await expect(node).toContainText("SEK");
       await expect(page.getByTestId("graph-truncated")).toHaveCount(0);
       await snap(page, "graph");
       await node.getByTestId("graph-open").click();
