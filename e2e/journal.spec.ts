@@ -56,7 +56,9 @@ test.describe("Journal — owner writes, accountant reads", () => {
       await herRow.getByText(stamp).click();
       const herPanel = hers.getByTestId("journal-panel");
       await expect(herPanel).toBeVisible();
-      await expect(herPanel.getByTestId("journal-proof")).toContainText("Not linked to anything yet.");
+      await expect(herPanel.getByTestId("journal-proof")).toContainText(
+        "Not linked to anything yet.",
+      );
       await expect(herPanel.getByTestId("categorise-form")).toHaveCount(0);
       await expect(herPanel.getByTestId("journal-link-to")).toHaveCount(0);
       await expect(herPanel.getByRole("button", { name: "Delete entry" })).toHaveCount(0);
