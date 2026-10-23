@@ -120,6 +120,9 @@ model Expense {
   paymentSourceId   String        @map("payment_source_id") @db.Uuid
   /// no receipt exists (the owner says so) — the row shows *missing* until a document is linked
   documentMissing   Boolean       @default(false) @map("document_missing")
+  /// the merchant as a partner (F87, D49) — optional, a vendor of the tenant, validated UUID through partners (no FK);
+  /// a fact, not a money fact: changeable in every state; never on a per-diem (CHECK)
+  partnerId         String?       @map("partner_id") @db.Uuid
   note              String?
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
@@ -137,6 +140,7 @@ model Expense {
   @@index([tenantId, groupId])
   @@index([tenantId, paymentSourceId])
   @@index([tenantId, basCode])
+  @@index([tenantId, partnerId])
   @@map("expenses")
 }
 

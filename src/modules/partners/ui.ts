@@ -7,6 +7,7 @@ export * from "./components/ocr-address";
 export * from "./components/partner-detail-tabs";
 export * from "./components/partner-form";
 export * from "./components/partner-labels";
+export * from "./components/partner-match-card";
 export * from "./components/partner-table";
 export * from "./partners.actions";
 export type * from "./types";

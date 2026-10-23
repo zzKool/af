@@ -1,4 +1,4 @@
-// The supplier match card (documents T026, FR-003, US1/AC4): the OCR vendor address goes to the match as text and
+// The partner match card (documents T026, FR-003, US1/AC4): the OCR vendor address goes to the match as text and
 // pre-fills *Create new partner*.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -21,7 +21,7 @@ vi.mock("@/modules/partners/partners.actions", () => ({
   createPartnerAction: "create",
 }));
 
-import { SupplierMatchCard } from "./supplier-match-card";
+import { PartnerMatchCard } from "./partner-match-card";
 
 const vendor = {
   name: "Test Vendor AB",
@@ -35,7 +35,7 @@ const vendor = {
   },
 };
 
-describe("SupplierMatchCard — the vendor address", () => {
+describe("PartnerMatchCard — the vendor address", () => {
   afterEach(() => {
     cleanup();
     calls.match.mockClear();
@@ -45,12 +45,7 @@ describe("SupplierMatchCard — the vendor address", () => {
   it("matches on the printed address and creates the new vendor with its parts", async () => {
     const onCreated = vi.fn();
     render(
-      <SupplierMatchCard
-        vendor={vendor}
-        selectedId=""
-        onUseMatch={vi.fn()}
-        onCreated={onCreated}
-      />,
+      <PartnerMatchCard vendor={vendor} selectedId="" onUseMatch={vi.fn()} onCreated={onCreated} />,
     );
     await waitFor(() => expect(calls.match).toHaveBeenCalled());
     expect(calls.match.mock.calls[0][0]).toMatchObject({
@@ -58,7 +53,7 @@ describe("SupplierMatchCard — the vendor address", () => {
       address: "Storgatan 1, 111 22 Stockholm, Sweden",
       type: "vendor",
     });
-    fireEvent.click(await screen.findByTestId("supplier-match-new"));
+    fireEvent.click(await screen.findByTestId("partner-match-new"));
     expect(screen.getByTestId("new-vendor-address")).toHaveTextContent("Storgatan 1, 111 22");
     fireEvent.click(screen.getByTestId("new-vendor-create"));
     await waitFor(() => expect(calls.create).toHaveBeenCalled());
@@ -75,14 +70,14 @@ describe("SupplierMatchCard — the vendor address", () => {
 
   it("without an address: an empty address, nothing shown", async () => {
     render(
-      <SupplierMatchCard
+      <PartnerMatchCard
         vendor={{ name: "Test Vendor AB" }}
         selectedId=""
         onUseMatch={vi.fn()}
         onCreated={vi.fn()}
       />,
     );
-    fireEvent.click(await screen.findByTestId("supplier-match-new"));
+    fireEvent.click(await screen.findByTestId("partner-match-new"));
     expect(screen.queryByTestId("new-vendor-address")).toBeNull();
     fireEvent.click(screen.getByTestId("new-vendor-create"));
     await waitFor(() => expect(calls.create).toHaveBeenCalled());

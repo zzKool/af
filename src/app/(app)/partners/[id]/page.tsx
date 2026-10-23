@@ -6,6 +6,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { EntityPage } from "@/kernel/ui/shell/page";
 import * as contractService from "@/modules/contracts";
 import { documentsByIds } from "@/modules/documents";
+import { expensesForPartner } from "@/modules/expenses";
 import { JOURNAL_DEFAULT_SORT, listJournalEntries } from "@/modules/journal";
 import { linksTouching } from "@/modules/linking";
 import * as partnerService from "@/modules/partners";
@@ -28,6 +29,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     contactsResult,
     documents,
     journal,
+    expenses,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const [partner, basPrefs, contracts, vat, employees, contacts] = await Promise.all([
       partnerService.getPartner(tx, id),
@@ -49,7 +51,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     const documentIds = links.flatMap((l) =>
       [l.from, l.to].filter((e) => e.type === "document").map((e) => e.id),
     );
-    const [documents, journal] = await Promise.all([
+    const [documents, journal, expenses] = await Promise.all([
       documentsByIds(tx, [...new Set(documentIds)]),
       listJournalEntries(tx, {
         page: 1,
@@ -57,6 +59,8 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
         sort: JOURNAL_DEFAULT_SORT,
         filters: { partnerId: { kind: "in", values: [id] } },
       }),
+      // spend with this partner (F87): its expenses, newest first, and Σ base
+      expensesForPartner(tx, id),
     ]);
     return {
       partnerResult: partner,
@@ -68,6 +72,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       contactsResult: contacts,
       documents,
       journal,
+      expenses,
     };
   });
 
@@ -152,6 +157,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
             basLabel: r.basLabel,
           })),
         }}
+        expenses={expenses}
       />
     </EntityPage>
   );

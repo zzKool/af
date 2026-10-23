@@ -53,7 +53,7 @@ export {
 } from "./jobs/render-statement";
 export { expenseLinkable, settlementLinkable } from "./linkable";
 export type { ExpensePageOptions } from "./page-data";
-export { expenseCategoryOptions, expensePageOptions } from "./page-data";
+export { expenseCategoryOptions, expensePageOptions, vendorOptions } from "./page-data";
 export type { PaymentSourceInput } from "./payment-sources";
 export {
   createPaymentSource,

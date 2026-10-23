@@ -70,6 +70,10 @@ export function initialFromFacts(
       vatAmount: money(facts.totalTax),
       documentId,
       documentKey,
+      vendor: {
+        name: facts.merchantName ?? facts.vendorName ?? null,
+        address: facts.vendorAddress ?? null,
+      },
     },
     supplier: {
       vendor: {
