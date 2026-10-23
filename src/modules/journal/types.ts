@@ -1,16 +1,21 @@
 // Public DTOs of the journal module. Plain types only — never Prisma types (constitution §2).
 // Decimals travel as strings ("−20000.00"), dates as ISO strings ("2026-07-08").
+import type { BaseRateResult } from "@/modules/rates";
 
 export type JournalSource = "bank_transaction" | "manual";
 export const JOURNAL_SOURCES: readonly JournalSource[] = ["bank_transaction", "manual"];
 
-export type RateSource = "same_currency" | "ecb_daily" | "ecb_nearest" | "manual";
-export const RATE_SOURCES: readonly RateSource[] = [
-  "same_currency",
-  "ecb_daily",
-  "ecb_nearest",
-  "manual",
-];
+/** A money fact's rate source: the words of rates' `rateToBase` (`same_currency` · `ecb_daily` · `ecb_nearest`)
+ * or a rate typed by hand (`manual`). One vocabulary with rates (lessons audit 30): a new source there is one here. */
+export type RateSource = BaseRateResult["source"] | "manual";
+// a Record so the compiler refuses a list that misses a member of RateSource
+const RATE_SOURCE_SET: Record<RateSource, true> = {
+  same_currency: true,
+  ecb_daily: true,
+  ecb_nearest: true,
+  manual: true,
+};
+export const RATE_SOURCES = Object.keys(RATE_SOURCE_SET) as readonly RateSource[];
 
 /** `partner_default` is never written (audit 32, decided: removed — a partner-only rule writes `rule`, journal T002's
  * proposal writes `manual`). It stays in this read type only until banking's `history.ts` stops listing it and the
