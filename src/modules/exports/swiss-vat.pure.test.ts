@@ -49,6 +49,8 @@ const PERIOD = "CH 2024/Q4";
 const TODAY = "2025-01-15";
 
 /** v3 membership: every issued document (SENT, PAID, PARTIALLY_PAID — and FINALIZED = issued, D23) dated in the quarter. */
+// Input preparation, not a rule under test: the v1 statuses that v3's query (`invoices.invoicesForDeclaration`,
+// status ≠ draft) would hand over. Which documents the return reads is tested in exports.test.ts.
 const ISSUED = new Set(["SENT", "PAID", "PARTIALLY_PAID", "FINALIZED"]);
 
 /**
@@ -182,14 +184,10 @@ describe("the Swiss VAT return on the harvest's cases", () => {
           expect(warnings.map((w) => w.type).filter((t) => t !== "converted")).toEqual(want);
           continue;
         }
-        if (key === "detailsInvoices") {
-          expect(invoices).toHaveLength(value as number);
-          continue;
-        }
-        if (key === "detailsInputSources") {
-          expect(sources(c)).toHaveLength(value as number);
-          continue;
-        }
+        // the drill-down counts are the query's selection, not the computation's: tested on the database
+        // (exports.test.ts *the drill-down is the query's selection*) — counting the arrays this test built
+        // itself proved nothing (lessons audit 31)
+        if (key === "detailsInvoices" || key === "detailsInputSources") continue;
         const ref = key.replace("ref", "");
         const line = refs[ref];
         expect(line, `ref ${ref}`).toBeDefined();

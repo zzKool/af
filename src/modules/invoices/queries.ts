@@ -18,6 +18,7 @@ import type {
 } from "@/kernel/list-query/types";
 import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
+import { creditedSum } from "./credited";
 import { deriveState, receivableAmount } from "./derive";
 import { toInvoiceDto } from "./invoices";
 import { invoiceListSums } from "./list-sums";
@@ -90,11 +91,7 @@ async function derivedSums(tx: TransactionClient, ids: readonly string[]): Promi
       },
       _sum: { allocatedAmount: true },
     }),
-    tx.invoice.groupBy({
-      by: ["relatedInvoiceId"],
-      where: { type: "credit_note", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
-      _sum: { totalAmount: true },
-    }),
+    creditedSum(tx, ids),
     tx.invoice.findMany({
       where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
       select: { relatedInvoiceId: true, number: true },
@@ -102,9 +99,7 @@ async function derivedSums(tx: TransactionClient, ids: readonly string[]): Promi
   ]);
   for (const l of links)
     sums.allocated.set(l.toId, (l._sum.allocatedAmount ?? new D(0)).toFixed(2));
-  for (const c of credits)
-    if (c.relatedInvoiceId)
-      sums.credited.set(c.relatedInvoiceId, (c._sum.totalAmount ?? new D(0)).toFixed(2));
+  sums.credited = credits;
   for (const c of conversions)
     if (c.relatedInvoiceId && c.number) sums.converted.set(c.relatedInvoiceId, c.number);
   return sums;
