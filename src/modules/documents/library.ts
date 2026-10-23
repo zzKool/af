@@ -3,6 +3,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can, documentSubject } from "@/kernel/auth/can";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { extractBlobPath } from "@/kernel/ocr/ocr";
@@ -70,14 +71,14 @@ export async function getDocuments(
     // The "Date" column in the UI shows extractedDate when available, creating a semantic mismatch.
     // Fixing this properly requires an indexed extractedDate column (see story action item).
     const createdAt: Prisma.DateTimeFilter = {};
+    // A day is the calendar day of `kernel/clock/calendar` (UTC midnight to UTC midnight), whatever the process's
+    // time zone — `setHours` on the UTC instant cut the last hours of `dateTo` under a local TZ (lessons audit 28).
     if (filters.dateFrom) {
-      createdAt.gte = new Date(filters.dateFrom);
+      createdAt.gte = new Date(`${filters.dateFrom}T00:00:00.000Z`);
     }
     if (filters.dateTo) {
-      // Include the full day
-      const endDate = new Date(filters.dateTo);
-      endDate.setHours(23, 59, 59, 999);
-      createdAt.lte = endDate;
+      // the whole day: up to the next day's start
+      createdAt.lt = new Date(`${addDays(filters.dateTo, 1)}T00:00:00.000Z`);
     }
     where.createdAt = createdAt;
   }
