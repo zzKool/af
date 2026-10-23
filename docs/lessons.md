@@ -143,7 +143,7 @@ One PR each, in its owner's lane, all DIRECT:
 | 8 | expenses | `EXPENSE_GROUP_SERIES` into `numbering/keys.ts` | 32 |
 | 9 | banking | transfer proposals: the ECB rate per candidate's currency | 32 |
 | 10 | contracts | `contract-rates.tsx` `todayIso()` → the Stockholm day | 28 (new) |
-| 11 | kernel/guards | F85's allow-list: lower the entries that shrank (today `banking/transfer-pairs.ts` 8 → 7 `BASE_CURRENCY`; 45 + 63 in 41 files) | F85 |
+| 11 | kernel/guards | ~~F85's allow-list: lower the entries that shrank (today `banking/transfer-pairs.ts` 8 → 7 `BASE_CURRENCY`; 45 + 63 in 41 files)~~ — done 2026-10-24, the only entry that shrank | F85 |
 
 Not in 22–32 but seen on the way: `exports/declarations.ts:170` writes the snapshot through `as unknown as` (a write mapper like invoices' T036); `documents/ocr-payload.ts:43` casts `extractedData` inside the parser.
 
