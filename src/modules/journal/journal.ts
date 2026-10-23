@@ -111,7 +111,7 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     rate: row.rate.toString(),
     rateSource: row.rateSource as RateSource,
     rateDate: iso(row.rateDate),
-    // derived from the transfer link on read (T005, `withImplicitRates`); the stored column is not read
+    // derived from the transfer link on read (T005, `withImplicitRates`); never stored (F86 dropped the column)
     bankImplicitRate: null,
     basCode: row.basCode,
     partnerId: row.partnerId,
@@ -375,39 +375,6 @@ export async function categorise(
     newData: toAuditData(updated),
   });
   return { data: await readDto(tx, updated) };
-}
-
-/**
- * Record the bank's implied rate of an accepted transfer pair — once. Not read any more (T005): the rate is
- * derived from the `transfer` link (`withImplicitRates`), so banking's accept sees it set and skips this call.
- * Removed with the column (an irreversible drop — the owner's call, `specs/journal/tasks.md`).
- */
-export async function setBankImplicitRate(
-  tx: TransactionClient,
-  caller: CallerIdentity,
-  audit: AuditLogger,
-  id: string,
-  rate: string,
-): Promise<ServiceResult<JournalEntryDto>> {
-  const parsed = positiveRate.safeParse(rate);
-  if (!parsed.success) return { error: parseError(parsed.error) };
-  const row = await tx.journalEntry.findUnique({ where: { id } });
-  if (!row) return { error: notFound("Journal entry", id) };
-  if (row.bankImplicitRate)
-    return { error: violation("The bank implicit rate is already recorded") };
-  const updated = await tx.journalEntry.update({
-    where: { id },
-    data: { bankImplicitRate: new D(parsed.data) },
-  });
-  await audit.log({
-    action: "update",
-    entityType: "journal_entry",
-    entityId: id,
-    oldData: toAuditData(row),
-    newData: toAuditData(updated),
-  });
-  void caller;
-  return { data: toJournalEntryDto(updated) };
 }
 
 /** The banking import deletes its transactions' entries through this (nothing else reaches bank entries). */
