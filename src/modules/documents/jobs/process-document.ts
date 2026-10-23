@@ -9,6 +9,7 @@ import {
   type OcrSource,
 } from "@/kernel/ocr/ocr";
 import { createStorageService } from "@/kernel/storage/storage";
+import { ocrPayloadToJson } from "@/modules/documents/ocr-payload";
 
 export interface ProcessDocumentData {
   tenantId: string;
@@ -98,8 +99,7 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
       };
       await tx.document.update({
         where: { id: documentId },
-        // biome-ignore lint/suspicious/noExplicitAny: Prisma's InputJsonValue is too narrow for our JSONB shape
-        data: { status: "extracted", ocrData: ocrPayload as any },
+        data: { status: "extracted", ocrData: ocrPayloadToJson(ocrPayload) },
       });
       await audit.log({
         action: "update",

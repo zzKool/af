@@ -15,6 +15,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** What the OCR job writes into `documents.ocr_data`. */
+export type OcrPayloadWrite = {
+  extractedData: OcrExtractedData;
+  rawResponse: Record<string, unknown>;
+  quality: string;
+};
+
+function isJsonObject(value: unknown): value is Prisma.JsonObject {
+  return isRecord(value);
+}
+
+/**
+ * The OCR job's write mapper (F50-f): the payload as the JSON Prisma stores — through a JSON round trip, which is
+ * what the column would hold anyway (undefined fields dropped, dates as ISO strings). Read back by `parseOcrPayload`.
+ */
+export function ocrPayloadToJson(payload: OcrPayloadWrite): Prisma.InputJsonObject {
+  const json: unknown = JSON.parse(JSON.stringify(payload));
+  return isJsonObject(json) ? json : {};
+}
+
 /** `ocr_data` → the payload, or null when the OCR has not run (the column is null or not an object). */
 export function parseOcrPayload(ocrData: Prisma.JsonValue | null): OcrPayload | null {
   if (!isRecord(ocrData)) return null;
