@@ -184,11 +184,10 @@ export async function upsertTrip(
   if (!parsed.success)
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
   const v = parsed.data;
-  const group = await tx.expenseGroup.findUnique({
-    where: { id: v.groupId },
-    include: { trip: true },
-  });
-  if (!group) return { error: notFound("Expense group", v.groupId) };
+  const found = await expenses.getGroup(tx, v.groupId);
+  if (found.error) return { error: found.error };
+  const group = found.data;
+  const existing = await tx.trip.findUnique({ where: { groupId: group.id } });
   if (group.kind !== "trip") {
     const r = await expenses.updateGroup(tx, caller, audit, group.id, { kind: "trip" });
     if (r.error) return { error: r.error };
@@ -210,9 +209,9 @@ export async function upsertTrip(
   });
   // a failed computation clears the snapshot: the panel and the PDF never show a breakdown of other inputs (F62)
   const snapshot = computed.data ? JSON.parse(JSON.stringify(computed.data)) : undefined;
-  const row = group.trip
+  const row = existing
     ? await tx.trip.update({
-        where: { id: group.trip.id },
+        where: { id: existing.id },
         data: { ...data, computed: snapshot ?? Prisma.DbNull },
       })
     : await tx.trip.create({
@@ -226,10 +225,10 @@ export async function upsertTrip(
         },
       });
   await audit.log({
-    action: group.trip ? "update" : "create",
+    action: existing ? "update" : "create",
     entityType: "trip",
     entityId: row.id,
-    oldData: group.trip ? toAuditData(group.trip) : null,
+    oldData: existing ? toAuditData(existing) : null,
     newData: toAuditData(row),
   });
   return { data: { trip: toTripDto(row), computeError: computed.error ?? null } };
