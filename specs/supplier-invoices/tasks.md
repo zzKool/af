@@ -33,5 +33,5 @@ One PR per line; the module's tests unchanged and green.
 - [x] T020 (audit 27) `kernel/money` `openAmount` / `isSettled`, `kernel/clock` `daysBetween` / `addDays` instead of `status.ts`'s own. Kept: the new dialog's own `addDays` (a client helper that returns `""` on a half-typed date where the kernel's throws).
 - [x] T021 (audit 28) `todayIso()` (UTC) → `clock.today()` (Stockholm's day) for the list, the detail and the KPIs; the new dialog's default invoice date too.
 - [x] T022 (audit 29) The panel's `as unknown as Detail` → the action returns the serialised DTO type: `detail-wire.ts` (`SupplierInvoiceDetailWire`, `toSupplierInvoiceDetailWire` — timestamps as ISO strings) + a pure test.
-- [ ] T023 (audit 30) Currencies parsed, not cast.
+- [x] T023 (audit 30) Currencies parsed, not cast: the supplier's default currency in `create.ts` through `parseCurrency` (`currency.ts`, + a pure test). Kept: the two form casts (the new dialog, the panel's *Money*) — the action's `z.enum(CURRENCIES)` is their parse, and an OCR code outside the list must reach it and be refused, not turn into SEK; the table's `rowCurrency` cast (a stored row, CHECK upper-case only) — a DTO-level `Currency` is a wider change.
 - [ ] T024 (audit 32) One invoice-number normaliser for the SQL check and the duplicate finder ("91 60" = "91  60").
