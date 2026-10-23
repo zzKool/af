@@ -12,6 +12,8 @@ src/modules/partners/
   types.ts            PartnerDto, PartnerSummaryDto, PartnerType, ExternalIdentifier, PartnerAddress
   state-family.ts     the one state → D40 family map: active → done, inactive → neutral (from is_active, never typed)
   partners.ts         service: Zod schemas, toPartnerDto, create/update/deactivate/reactivate, getPartner(s), searchPartners
+                      (reads other modules through their index: settings' getBasCategory / isBasActivated for the default
+                      category, contracts' activeContractCount — a lazy import(), contracts imports partners — for the type-removal guard)
   contacts.ts         contact persons (F08): schemas, toPartnerContactDto, list / create / update / delete, audited
   queries.ts          READ API — PARTNER_COLUMNS (ColumnMap), listPartners(tx, q), distinctPartnerValues, partnerDateHierarchy,
                       getPartner(s), listPartnerContacts (re-exported: pages read through queries.ts)
