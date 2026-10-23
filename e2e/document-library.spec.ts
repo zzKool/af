@@ -12,7 +12,7 @@ test.describe("Document Library", () => {
     await expect(page.getByRole("textbox", { name: "Search" })).toBeVisible();
 
     // upload a PDF — Azurite must be running (CI and local)
-    const stamp = String(Date.now()).slice(-6);
+    const stamp = crypto.randomUUID().slice(0, 8); // not the clock: parallel journeys, same millisecond
     await page.locator('input[type="file"]').setInputFiles({
       name: `e2e-library-${stamp}.pdf`,
       mimeType: "application/pdf",
