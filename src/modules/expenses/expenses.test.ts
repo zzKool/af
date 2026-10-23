@@ -835,9 +835,17 @@ describe("US5 — the list, the groups, the ledger", () => {
         basCode: "583",
       }),
     );
+    // an amount edit is named too — the trail keeps money as decimal strings (F84)
+    await run(owner.caller, (tx) =>
+      updateExpense(tx, owner.caller, realAudit(tx, owner.caller), e.data!.id, {
+        amount: "6500.00",
+      }),
+    );
     await run(owner.caller, async (tx) => {
       const history = (await getExpenseDetail(tx, e.data!.id)).data!.history;
-      expect(history.map((h) => [h.action, h.fields])).toEqual([
+      expect(history[0]?.action).toBe("update");
+      expect(history[0]?.fields).toContain("amount");
+      expect(history.slice(1).map((h) => [h.action, h.fields])).toEqual([
         ["update", ["basCode", "note"]],
         ["create", []],
       ]);

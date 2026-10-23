@@ -4,8 +4,7 @@
 //   create  → the moment it was written, no field list
 //   update  → the fields whose stored value changed; `updatedAt` and the bookkeeping columns are not news
 //
-// What the trail does not hold, the panel cannot show: `toAuditData` keeps no Decimal today (lessons F50-g → F84),
-// so an amount edit reads as an update without its field until F84 lands.
+// Money fields are in the trail as decimal strings since F84, so an amount edit names *Amount* like any other.
 
 export type AuditRow = {
   id: string;

@@ -270,7 +270,7 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 
 - [ ] **The footer's one-currency Σ met its second module** (the lesson under *invoices* above): expenses mixes SEK / CHF / EUR too. Expenses dropped the Σ of *Amount* (the base columns carry the totals) rather than copy invoices' `list-sums.ts`. The kernel's per-column currency on `DataTableColumn` is now due — a kernel PR, not a module's; supplier invoices will be the third.
 - [ ] **Fixed column widths overflow the canvas**: the D40 DataTable keeps each column's `width`, so the expenses list's 11 default columns (≈ 98 rem) ran past a 1440 px window — *Status* and *Open* were off-screen in every screenshot since F39, unnoticed. Expenses narrowed its widths and hid the SEK base by default (≈ 75 rem). Check: Σ of the default widths ≤ ~75 rem at 1440 px beside the sidebar; a module with more needs the column chooser, not a page scroll.
-- [ ] **History from the audit trail is only as good as `toAuditData`**: the expense panel names the fields an update changed, but money edits show as *updated* with no field — the Decimals are not in `old_data` / `new_data` (F84). When F84 lands, the panel shows them without a change here.
+- [x] **History from the audit trail is only as good as `toAuditData`**: built while the trail still dropped Decimals; F84 merged mid-PR and the panel names *Amount* with no change (the DB test asserts it). The other modules' History sections can read their trail the same way (`history.ts` is ~40 lines; lift it to `kernel/audit` when a second module needs it).
 
 ## Documents Phase 3 build (T021–T025, T027, F50-f — 2026-10-23, #106 #108 #113 #114 #115 #116)
 
