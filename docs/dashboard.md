@@ -51,6 +51,8 @@ Display formatting uses the browser's `Accept-Language` header, resolved via `sr
 
 Note: `clock.ts` uses `sv-SE` internally for YYYY-MM-DD business keys — that's a server-side format choice, not a display locale.
 
+Dates on the page: timestamps (last login, the briefing's *since*) through `formatDateTime` in the UI language; days (a balance's *as of*) as `yyyy-mm-dd` (D40).
+
 ## Dashboard Data Flow
 
 ```
@@ -92,7 +94,7 @@ The suspects (the briefing's audit read, the rates gap check) are cheap; the 2.5
 
 ## Convergence (F79, 2026-10-23)
 
-`specs/dashboard/tasks.md` Phase 1: T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`), T002 the quarter's name and the *main* role re-stated here, T003 SC-001's world misses four item kinds, ~~T004 the briefing's English entity names and two missing actions (i18n)~~ (2026-10-23), T005 the page's dates, T006 the *due within 14 days* link unfiltered. Owned elsewhere: F66 (the partner / contract counts), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
+`specs/dashboard/tasks.md` Phase 1: T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`), T002 the quarter's name and the *main* role re-stated here, T003 SC-001's world misses four item kinds, ~~T004 the briefing's English entity names and two missing actions (i18n)~~ (2026-10-23), ~~T005 the page's dates~~ (2026-10-23), T006 the *due within 14 days* link unfiltered. Owned elsewhere: F66 (the partner / contract counts), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
 
 ## Related
 
