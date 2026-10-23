@@ -9,6 +9,7 @@ import { resetRateLimit } from "@/kernel/actions/rate-limit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import { cleanupTestData, createTestDocument, createTestPartner } from "@/kernel/db/test-fixtures";
+import type { ListQuery } from "@/kernel/list-query/types";
 import type { StorageService } from "@/kernel/storage/storage";
 import * as banking from "@/modules/banking";
 import * as contracts from "@/modules/contracts";
@@ -33,7 +34,14 @@ import { buildPackage } from "./jobs/build-package";
 import { notesMd } from "./notes";
 import { getBuild, requestBuild } from "./package";
 import { monthOf, parsePeriod } from "./period";
-import { listBuilds, livePreview, periodOverview } from "./queries";
+import {
+  distinctMonthValues,
+  listBuilds,
+  listMonths,
+  livePreview,
+  monthDateHierarchy,
+  periodOverview,
+} from "./queries";
 import { summaryRows } from "./summary";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
@@ -429,6 +437,11 @@ describe("SC-001 — the fixture month", () => {
         id: expect.stringMatching(/^[0-9a-f-]{36}$/),
         key: "Plusgirokonto SEK 2026-06-27 -198.52 SEK",
         detail: "OPENAI *CHATGPT",
+        // the screen's parts (F71) — notes.md and the Flags sheet print key + detail only
+        amount: "-198.52",
+        currency: "SEK",
+        account: "Plusgirokonto SEK",
+        date: "2026-06-27",
       },
       {
         kind: "missing_document",
@@ -706,5 +719,45 @@ describe("SC-003 — roles; the page's reads", () => {
     expect(preview.flags).toHaveLength(2);
     expect(preview.notes).toBe(done.notes);
     expect(preview.files).toHaveLength(4);
+  });
+
+  it("the months' table (F71): the derived state, the Month quick filter, the state filter and its values", async () => {
+    await juneFixture();
+    const overview = await run(owner.caller, (tx) => periodOverview(tx, TODAY));
+    const q = (filters: ListQuery["filters"] = {}): ListQuery => ({
+      page: 1,
+      pageSize: 25,
+      sort: [],
+      filters,
+    });
+    // newest first, years kept out of the months' table; June has two flags, July nothing at all
+    const all = listMonths(overview, q());
+    expect(all.rows.map((r) => [r.period, r.month, r.state, r.flags])).toEqual([
+      ["2026-07", "2026-07-01", "empty", 0],
+      ["2026-06", "2026-06-01", "flagged", 2],
+    ]);
+    expect(all.total).toBe(2);
+    // Month: June 2026 — the kit's date filter on the period's first day
+    expect(
+      listMonths(overview, q({ month: { kind: "dates", months: ["2026-06"] } })).rows.map(
+        (r) => r.period,
+      ),
+    ).toEqual(["2026-06"]);
+    expect(
+      listMonths(overview, q({ state: { kind: "in", values: ["empty"] } })).rows.map(
+        (r) => r.period,
+      ),
+    ).toEqual(["2026-07"]);
+    expect(
+      distinctMonthValues(overview, "state", q())
+        .map((v) => v.value)
+        .sort(),
+    ).toEqual(["empty", "flagged"]);
+    expect(monthDateHierarchy(overview, "month", q()).years.map((y) => y.year)).toEqual([2026]);
+    // a build turns June's state while it runs; built and unflagged it would be done
+    const { build } = await buildAndRun("2026-06");
+    const after = await run(owner.caller, (tx) => periodOverview(tx, TODAY));
+    const june = listMonths(after, q()).rows.find((r) => r.period === "2026-06");
+    expect(june).toMatchObject({ state: "flagged", packageKey: build.businessKey });
   });
 });

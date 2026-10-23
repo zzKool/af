@@ -7,11 +7,20 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { enqueue } from "@/kernel/jobs/queue";
+import { listQuerySchema } from "@/kernel/list-query/schema";
 import { uuid } from "@/kernel/validation/scalars";
 import { buildPackageJob } from "./jobs/build-package";
+import { MONTH_COLUMN_KEYS, type MonthColumn } from "./month-columns";
 import { buildRequestSchema, requestBuild } from "./package";
 import { isPackagePeriod } from "./period";
-import { getBuild, listBuilds, livePreview } from "./queries";
+import {
+  distinctMonthValues,
+  getBuild,
+  listBuilds,
+  livePreview,
+  monthDateHierarchy,
+  periodOverview,
+} from "./queries";
 
 const clock = createClock();
 const forbidden = {
@@ -58,4 +67,29 @@ export const packagePreviewAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "accountant_package")) return forbidden;
     return { data: await livePreview(ctx.tx, parsedInput.period, clock.today()) };
+  });
+
+// The months table's header filters (F71): the same in-memory rows the page lists.
+const monthColumnSchema = z.enum(MONTH_COLUMN_KEYS as [MonthColumn, ...MonthColumn[]]);
+
+export const distinctPackageMonthsAction = authedAction
+  .schema(z.object({ column: monthColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "distinctPackageMonths" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "accountant_package")) return forbidden;
+    const overview = await periodOverview(ctx.tx, clock.today());
+    return {
+      data: distinctMonthValues(overview, parsedInput.column, parsedInput.query),
+    };
+  });
+
+export const packageMonthDatesAction = authedAction
+  .schema(z.object({ column: monthColumnSchema, query: listQuerySchema }))
+  .metadata({ name: "packageMonthDates" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "accountant_package")) return forbidden;
+    const overview = await periodOverview(ctx.tx, clock.today());
+    return {
+      data: monthDateHierarchy(overview, parsedInput.column, parsedInput.query),
+    };
   });

@@ -6,7 +6,7 @@
 //              (abroad 15 / 35 / 35 % of the full day amount; Sweden the year's fixed krona amounts, triples at
 //              the "all three" figure), plus the night amount for nights without paid lodging, × long-stay factor.
 import { Prisma } from "@/generated/prisma/browser";
-import type { DayCount, DayKind, PerDiemResult, RateRow, TripDay } from "./types";
+import type { DayCount, DayKind, PerDiemResult, PerDiemWarning, RateRow, TripDay } from "./types";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -119,8 +119,8 @@ function mealDeduction(
   trip: PerDiemTrip,
   rate: RateRow,
   dayAmount: Dec,
-): { deduction: Dec; warnings: string[] } {
-  const warnings: string[] = [];
+): { deduction: Dec; warnings: PerDiemWarning[] } {
+  const warnings: PerDiemWarning[] = [];
   const b = new D(trip.breakfasts);
   const l = new D(trip.lunches);
   const d = new D(trip.dinners);
@@ -128,9 +128,7 @@ function mealDeduction(
     if (!rate.mealBreakfast || !rate.mealLunch || !rate.mealDinner || !rate.mealAll) {
       throw new PerDiemError(
         `The Swedish meal amounts of ${rate.year} are missing in the rate table`,
-        {
-          year: rate.year,
-        },
+        { rule: "missing_meal_amounts", year: rate.year },
       );
     }
     const triples = D.min(b, l, d);
@@ -161,14 +159,18 @@ export function computePerDiem(
   const count = countDays(trip.departureAt, trip.returnAt, options.zone ?? TENANT_ZONE);
   const factor = trip.longStayFactor ? new D(trip.longStayFactor) : new D(1);
   if (factor.lte(0) || factor.gt(1))
-    throw new PerDiemError("The long-stay factor is between 0 and 1");
+    throw new PerDiemError("The long-stay factor is between 0 and 1", { rule: "long_stay" });
   for (const [what, n] of [
     ["breakfasts", trip.breakfasts],
     ["lunches", trip.lunches],
     ["dinners", trip.dinners],
     ["nightsWithoutPaidLodging", trip.nightsWithoutPaidLodging],
   ] as const) {
-    if (!Number.isInteger(n) || n < 0) throw new PerDiemError(`${what} must be a whole number ≥ 0`);
+    if (!Number.isInteger(n) || n < 0)
+      throw new PerDiemError(`${what} must be a whole number ≥ 0`, {
+        rule: "not_a_count",
+        field: what,
+      });
   }
   const computedAt = (options.now ?? new Date()).toISOString();
   const empty: PerDiemResult = {
@@ -193,33 +195,45 @@ export function computePerDiem(
   if (count.reason) return empty;
 
   const calendarDays = count.perDay.length;
-  for (const [what, n] of [
-    ["Breakfasts", trip.breakfasts],
-    ["Lunches", trip.lunches],
-    ["Dinners", trip.dinners],
+  for (const [what, meal, n] of [
+    ["Breakfasts", "breakfasts", trip.breakfasts],
+    ["Lunches", "lunches", trip.lunches],
+    ["Dinners", "dinners", trip.dinners],
   ] as const) {
     if (n > calendarDays) {
       throw new PerDiemError(`${what} (${n}) exceed the ${calendarDays} days of the trip`, {
+        rule: "too_many_meals",
+        meal,
         count: n,
+        days: calendarDays,
       });
     }
   }
   if (trip.nightsWithoutPaidLodging > count.nights) {
     throw new PerDiemError(
       `Nights without paid lodging (${trip.nightsWithoutPaidLodging}) exceed the ${count.nights} nights of the trip`,
+      { rule: "too_many_nights", count: trip.nightsWithoutPaidLodging, nights: count.nights },
     );
   }
   const years = [...new Set(count.perDay.map((d) => d.year))].sort();
   for (const y of years) {
     if (!rates.get(y)) {
       throw new PerDiemError(`No travel allowance rate for ${trip.countryCode} in ${y}`, {
+        rule: "missing_rate",
         countryCode: trip.countryCode,
         year: y,
       });
     }
   }
-  const warnings: string[] = [];
-  if (years.length > 1) warnings.push(`trip spans two rate years (${years.join(", ")})`);
+  const warnings: PerDiemWarning[] = [];
+  if (years.length > 1) {
+    const list = years.join(", ");
+    warnings.push({
+      type: "two_rate_years",
+      message: `trip spans two rate years (${list})`,
+      years: list,
+    });
+  }
 
   const perDay: TripDay[] = count.perDay.map((d) => {
     const rate = rates.get(d.year) as RateRow;
@@ -239,7 +253,10 @@ export function computePerDiem(
 
   let total = dayTotal.minus(meals.deduction).plus(nightTotal);
   if (total.lt(0)) {
-    warnings.push("the meal deduction exceeds the day amounts — nothing is tax-free");
+    warnings.push({
+      type: "meals_exceed_days",
+      message: "the meal deduction exceeds the day amounts — nothing is tax-free",
+    });
     total = new D(0);
   }
   return {
@@ -282,6 +299,6 @@ export function perDiemNote(result: PerDiemResult): string {
   }
   if (result.longStayFactor) lines.push(`Long stay factor ${result.longStayFactor}`);
   lines.push(`Total ${result.total} SEK`);
-  for (const w of result.warnings) lines.push(`Note: ${w}`);
+  for (const w of result.warnings) lines.push(`Note: ${w.message}`);
   return lines.join("\n");
 }

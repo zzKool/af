@@ -193,15 +193,38 @@ describe("computePerDiem — the amount (US2, meal-reductions.json)", () => {
     expect(() => computePerDiem(trip({}), forYears(CH, 2025))).toThrow(
       "No travel allowance rate for CH in 2026",
     );
-    try {
-      computePerDiem(trip({}), forYears(CH, 2025));
-    } catch (e) {
-      expect(e).toBeInstanceOf(PerDiemError);
-      expect((e as PerDiemError).details).toEqual({ countryCode: "CH", year: 2026 });
-    }
     expect(() => computePerDiem(trip({ longStayFactor: "1.5" }), forYears(CH, 2026))).toThrow(
       /between 0 and 1/,
     );
+  });
+
+  it("every refusal carries its rule and the facts a screen renders in its own language (T003)", () => {
+    const details = (run: () => unknown) => {
+      try {
+        run();
+      } catch (e) {
+        expect(e).toBeInstanceOf(PerDiemError);
+        return (e as PerDiemError).details;
+      }
+      throw new Error("expected a refusal");
+    };
+    expect(details(() => computePerDiem(trip({}), forYears(CH, 2025)))).toEqual({
+      rule: "missing_rate",
+      countryCode: "CH",
+      year: 2026,
+    });
+    expect(details(() => computePerDiem(trip({ lunches: 4 }), forYears(CH, 2026)))).toEqual({
+      rule: "too_many_meals",
+      meal: "lunches",
+      count: 4,
+      days: 3,
+    });
+    expect(
+      details(() => computePerDiem(trip({ nightsWithoutPaidLodging: 3 }), forYears(CH, 2026))),
+    ).toEqual({ rule: "too_many_nights", count: 3, nights: 2 });
+    expect(
+      details(() => computePerDiem(trip({ longStayFactor: "1.5" }), forYears(CH, 2026))),
+    ).toEqual({ rule: "long_stay" });
   });
 
   it("two rate years: each day at its own year's amount, flagged; meals at the departure year", () => {
@@ -214,7 +237,13 @@ describe("computePerDiem — the amount (US2, meal-reductions.json)", () => {
     expect(r.dayTotal).toBe("5800.00");
     expect(r.mealRateYear).toBe(2025);
     expect(r.meals.deduction).toBe("490.00");
-    expect(r.warnings).toEqual(["trip spans two rate years (2025, 2026)"]);
+    expect(r.warnings).toEqual([
+      {
+        type: "two_rate_years",
+        message: "trip spans two rate years (2025, 2026)",
+        years: "2025, 2026",
+      },
+    ]);
   });
 
   it("long stay: the factor applies to the day amounts and the abroad meal base", () => {

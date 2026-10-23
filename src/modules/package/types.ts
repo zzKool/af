@@ -62,6 +62,13 @@ export type PackageFlag = {
   /** the human key: business key, invoice number, or the row's label */
   key: string;
   detail: string;
+  /** For the screen only (F71) — `key` and `detail` are what notes.md and the Flags sheet print. The figure the
+   * flag is about as a decimal string (a bank line's amount, a delta's or an invoice's open amount), its currency,
+   * and for a bank line its account and booking date. */
+  amount?: string;
+  currency?: string;
+  account?: string;
+  date?: string;
 };
 
 export type BankSheetRow = {

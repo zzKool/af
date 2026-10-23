@@ -31,9 +31,13 @@ Stored as a generated document `Package_2026-06.zip` (`_v2`, `_v3` … on rebuil
 | `zip.ts` | pure: `monthEntries`, `yearEntries`, `zipBytes` (fflate, sorted paths, one fixed mtime) |
 | `package.ts` | the build rows: `requestBuild` (owner, version `max + 1`, refused while one runs), `markBuilding` / `markBuilt` / `markFailed` |
 | `jobs/build-package.ts` | `package.build` (pg-boss, exclusive per build): collect in one transaction → `documents.documentReaders` → download outside any transaction → zip → `storeGeneratedDocument` + `markBuilt` in one short transaction; any error → `markFailed` with the message, nothing stored |
-| `queries.ts` | `listBuilds`, `periodOverview` (the months from the first bank row to today, live counts and flags for the latest 12, the last build's for older ones; one row per year), `livePreview` (the notes and flags of a period as they would be built now), `builtPeriods(periods)` (which have a built package, any version — the banking *Months* banner, F69) |
-| `package.actions.ts` | `buildPackageAction` (owner; enqueues on commit), `listPackageBuildsAction`, `getPackageBuildAction`, `packagePreviewAction` (owner + accountant) |
-| `components/package-workbench.tsx` | the page: months and years with counts / flags / builds, *Build*, *Download*, the preview pane (flags, documents, `notes.md`, versions); polls the builds every 2 s while one runs |
+| `state-family.ts` | pure, client-safe: `periodState` — the checklist state derived from a period's counts, flags and builds (`building` · `failed` · `flagged` · `built` · `ready` · `empty`) — and the one map of those states and of the build statuses → the D40 families |
+| `month-columns.ts` | the months table's columns (a leaf file: the actions read it at load) |
+| `queries.ts` | `listBuilds`, `periodOverview` (the months from the first bank row to today, live counts and flags for the latest 12, the last build's for older ones; one row per year), `livePreview` (the notes and flags of a period as they would be built now), `builtPeriods(periods)` (which have a built package, any version — the banking *Months* banner, F69), `periodRow` / `listMonths` / `distinctMonthValues` / `monthDateHierarchy` (the months as a DataTable, in memory over the overview) |
+| `package.actions.ts` | `buildPackageAction` (owner; enqueues on commit), `listPackageBuildsAction`, `getPackageBuildAction`, `packagePreviewAction`, `distinctPackageMonthsAction` / `packageMonthDatesAction` (the header filters) (owner + accountant) |
+| `components/package-workbench.tsx` | the page: the months' DataTable, the years, the polling of the builds every 2 s while one runs |
+| `components/package-panel.tsx` | the docked panel of a period: *Build* / *Rebuild* (the one primary) and *Download v{n}*, then Flags · Documents that go in · `notes.md` · Built versions |
+| `components/flag-list.tsx` | the flags on screen, grouped like `notes.md` |
 
 Table `package_builds` (`prisma/schema/package.prisma`): period, version, status `queued → building → built | failed`, document id, counts, flags, notes, error.
 
@@ -58,6 +62,23 @@ Building never blocks. `notes.md`, the *Flags* sheet, the page and the build row
 
 Not flags, but in the notes: the transfer pairs with their implied rates, the open owner liability per payment source (the ledger snapshot at build time), the Swiss VAT declaration periods the invoices fall under (totals per period and currency).
 
+## On screen (D40, F71)
+
+```
+Accountant package                                       ┌ Before sending — October 2026 ──────┐
+[Filter rows…] [Month ▾]                                 │ ! Flags to check                     │
+Month          State             Lines … Flags Package ⋮ │ [Download v1] [Rebuild]              │
+October 2026   ! Flags to check      5 …    3  Package_… │ ▾ Flags (3)   Plusgirokonto SEK …    │
+December 2025  ◐ Ready to build      1 …    0  —         │ ▾ Documents that go in               │
+Years: the same columns, ⋮ Build / Download              │ ▸ notes.md   ▾ Built versions        │
+```
+
+- **The months are a DataTable** (`tableKey` `package-months`): every column is computed, so the filters, the sort and the page run in memory over `periodOverview`'s months (`listMonths`) — the URL is the query (D20). *Month* is the period's first day, a date column with `quickFilter` (years → months). The years stay a kit `Table` under it with the same ⋮ (`RowActionsMenu`).
+- **The state is derived** (`state-family.ts`, one map): the latest build running → *Building* (in progress), failed → *Build failed* (attention), any flag → *Flags to check* (attention), a built version → *Built* (done), anything in the period → *Ready to build* (in progress), else *Nothing to send* (neutral). The versions in the panel use the build status's family. Older months (past the 12 collected live) read their last build's flags, as before.
+- **Row buttons → ⋮**: *Build* / *Rebuild* (owner, disabled while one runs) and *Download v{n}*. A row opens the docked panel; the newest month with bank lines is open on arrival. The panel's title row has the one primary (*Build* / *Rebuild*, owner) beside *Download v{n}*.
+- **Flags on screen**: a business key as `<CodeChip>`, a bank line as its account and day, the figure through `formatMoney` (a bank line's signed amount, a delta's or an invoice's open amount — `package.flag.open`). The collector adds `amount`, `currency`, `account`, `date` to a flag for the screen only; `notes.md` and the *Flags* sheet print `key` + `detail` as before, and `generators.pure.test.ts` pins the bytes of the zip, `summary.xlsx`, `notes.md` and the year zip against a golden taken before F71 (`package-golden.json`, in UTC — fflate dates the entries in local time).
+- No Tailwind palette colour, no `formatCurrency`, no `toLocaleString` left in the module.
+
 ## Determinism (R6)
 
 Rows in booking order then file order; entities by key; documents by folder and file name; links by creation. The workbook's created / modified dates and every zip entry's mtime are the period's end; `collectedAt` (the notes' stamp) is the build's "today". The tests build the fixture month twice and compare the bytes.
@@ -70,7 +91,8 @@ Rows in booking order then file order; entities by key; documents by folder and 
 
 - `generators.pure.test.ts` — periods, the CSVs (conventions, quoting, file names), the summary's sheets and rows, `notes.md`, the zip layout, the year layout, byte-identical builds.
 - `package.test.ts` — the fixture month of the harvest (§6 a–d) on the real modules: the collected rows / entities / documents / flags, D31's double appearance, the job (stored zip, counts, notes), a second build (`_v2`, identical bytes), a failed download (nothing stored), the savings placement, the year, the roles, the overview and the preview.
-- `e2e/package.spec.ts` — two rows imported this month → `/package` shows the flags → *Build* → the version and *Download*; the accountant's read-only page. Screenshots in `specs/accountant-package/screenshots/`.
+- `state-family.pure.test.ts` — each state reached by its rule, one family each; `components/flag-list.test.tsx` — the screen's money, keys and order.
+- `e2e/package.spec.ts` — two rows imported this month → `/package` shows *Flags to check* and the flags → the panel's *Build* → the version, *Download v1*, the key in the row; the accountant's read-only page. Screenshots in `specs/accountant-package/screenshots/` (`package-light.png` / `package-dark.png` from `e2e/screenshots.spec.ts`).
 
 ## Not built here
 

@@ -254,6 +254,31 @@ describe("US3 — the per-diem expense", () => {
     expect(await run(owner.caller, (tx) => resolvePerDiemStatement(tx, owner.caller, g.id))).toBe(
       null,
     );
+    // a snapshot from before T003 holds its warnings as English lines: they read as typed warnings again
+    const legacy = {
+      ...ok.data!.trip.computed,
+      warnings: [
+        "trip spans two rate years (2025, 2026)",
+        "the meal deduction exceeds the day amounts — nothing is tax-free",
+        "an unknown line",
+      ],
+    };
+    await adminPool.query(`UPDATE trips SET computed = $2::jsonb WHERE group_id = $1`, [
+      g.id,
+      JSON.stringify(legacy),
+    ]);
+    expect((await run(owner.caller, (tx) => getTrip(tx, g.id)))?.computed?.warnings).toEqual([
+      {
+        type: "two_rate_years",
+        message: "trip spans two rate years (2025, 2026)",
+        years: "2025, 2026",
+      },
+      {
+        type: "meals_exceed_days",
+        message: "the meal deduction exceeds the day amounts — nothing is tax-free",
+      },
+      { type: "other", message: "an unknown line" },
+    ]);
   });
 
   it("a missing rate year is named; a day trip writes nothing; the preview is live", async () => {
@@ -271,7 +296,7 @@ describe("US3 — the per-diem expense", () => {
     const refused = await run(owner.caller, (tx) =>
       createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
     );
-    expect(refused.error?.details).toEqual({ countryCode: "CH", year: 2025 });
+    expect(refused.error?.details).toEqual({ rule: "missing_rate", countryCode: "CH", year: 2025 });
 
     await run(owner.caller, (tx) =>
       upsertTrip(tx, owner.caller, noopAudit, {
@@ -301,6 +326,51 @@ describe("US3 — the per-diem expense", () => {
       });
       expect(backwards.error?.message).toMatch(/after the departure/);
     });
+  });
+
+  it("a recompute of unchanged inputs is a no-op: one expense, the same snapshot, one document (US3/AC2, T001)", async () => {
+    const g = await tripGroup();
+    await run(owner.caller, (tx) => upsertTrip(tx, owner.caller, noopAudit, ownerTrip(g.id)));
+    const write = () =>
+      run(owner.caller, (tx) =>
+        createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
+          groupId: g.id,
+          basCode: "580",
+        }),
+      );
+    const first = (await write()).data!;
+    const render = vi.fn(async (path: string) => Buffer.from(`%PDF ${path}`));
+    const data = { tenantId: owner.caller.tenantId, userId: owner.caller.userId, groupId: g.id };
+    await renderPerDiem(data, render);
+    const before = await adminPool.query(
+      `SELECT computed, per_diem_document_id FROM trips WHERE group_id = $1`,
+      [g.id],
+    );
+    const expenseBefore = await adminPool.query(`SELECT updated_at FROM expenses WHERE id = $1`, [
+      first.expense.id,
+    ]);
+
+    const again = await write();
+    expect(again.error).toBeUndefined();
+    expect(again.data?.expense).toMatchObject({ id: first.expense.id, amount: "18506.40" });
+    await renderPerDiem(data, render); // the action enqueues the job again — it finds the breakdown done
+    expect(render).toHaveBeenCalledTimes(1);
+
+    const after = await adminPool.query(
+      `SELECT computed, per_diem_document_id FROM trips WHERE group_id = $1`,
+      [g.id],
+    );
+    expect(after.rows[0].computed).toEqual(before.rows[0].computed); // computedAt included
+    expect(after.rows[0].per_diem_document_id).toBe(before.rows[0].per_diem_document_id);
+    const expenseAfter = await adminPool.query(`SELECT updated_at FROM expenses WHERE id = $1`, [
+      first.expense.id,
+    ]);
+    expect(expenseAfter.rows[0].updated_at).toEqual(expenseBefore.rows[0].updated_at);
+    const docs = await adminPool.query(
+      `SELECT count(*)::int AS n FROM documents WHERE tenant_id = $1 AND prefix_type = 'expense'`,
+      [owner.caller.tenantId],
+    );
+    expect(docs.rows[0].n).toBe(1);
   });
 
   it("the breakdown PDF (D29): stored as the expense's receipt, linked created_from, replaced on recompute, idempotent", async () => {

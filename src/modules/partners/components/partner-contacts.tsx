@@ -1,7 +1,8 @@
 "use client";
 
 // The Contacts tab of the partner page (F08, specs/partners/spec.md): inline add, a row is read (mailto / tel
-// links) or edited as one thing (Save / Cancel), delete with confirm. No route of its own.
+// links) or edited as one thing (Save / Cancel); Edit and Delete sit in the row's ⋮ menu (D40), delete with
+// confirm. No route of its own.
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useId, useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import type { AppError } from "@/kernel/errors/app-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createPartnerContactAction,
@@ -85,7 +87,7 @@ export function PartnerContacts({
   const errorText = useCallback(
     (result: ActionResult): string | null => {
       if (!result) return null;
-      if (result.serverError) return result.serverError.message ?? "Error";
+      if (result.serverError) return result.serverError.message ?? t("errors.generic");
       const err = result.data?.error;
       if (!err) return null;
       if (err.details?.field === "name") return t("partners.contacts.error.name");
@@ -169,7 +171,7 @@ export function PartnerContacts({
   return (
     <section className="space-y-2" data-testid="partner-contacts">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{t("partners.contacts.title")}</h3>
+        <h3 className="text-[13px] font-semibold">{t("partners.contacts.title")}</h3>
         {!adding && (
           <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
             {t("partners.contacts.add")}
@@ -187,7 +189,7 @@ export function PartnerContacts({
         />
       )}
 
-      <div className="rounded-md border">
+      <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -195,7 +197,7 @@ export function PartnerContacts({
               <TableHead>{t("partners.contacts.role")}</TableHead>
               <TableHead>{t("partners.contacts.email")}</TableHead>
               <TableHead>{t("partners.contacts.phone")}</TableHead>
-              <TableHead className="w-40" />
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -245,22 +247,17 @@ export function PartnerContacts({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7"
-                        onClick={() => setEditingId(row.id)}
-                      >
-                        {t("common.edit")}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7"
-                        onClick={() => handleDelete(row)}
-                      >
-                        {t("common.delete")}
-                      </Button>
+                      <RowActionsMenu
+                        label={t("table.rowActions")}
+                        actions={[
+                          { label: t("common.edit"), onClick: () => setEditingId(row.id) },
+                          {
+                            label: t("common.delete"),
+                            destructive: true,
+                            onClick: () => handleDelete(row),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ),

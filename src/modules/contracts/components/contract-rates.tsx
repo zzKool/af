@@ -31,6 +31,7 @@ import {
   getContractRatesAction,
   updateContractRateAction,
 } from "@/modules/contracts/contracts.actions";
+import { rateErrorText } from "@/modules/contracts/rate-error";
 import { rateStateFamily } from "@/modules/contracts/state-family";
 import type { RateState, RateUnit } from "@/modules/contracts/types";
 
@@ -82,23 +83,13 @@ export function ContractRates({
     confirmLabel: t("common.delete"),
   });
 
-  /** The server's message is English; when it carries details we render the user's language. */
+  /** The server's message is English; when it carries details we render the user's language (`rate-error.ts`). */
   const errorText = useCallback(
     (result: ActionResult): string | null => {
       if (!result) return null;
-      if (result.serverError) return result.serverError.message ?? "Error";
+      if (result.serverError) return result.serverError.message ?? t("errors.generic");
       const err = result.data?.error;
-      if (!err) return null;
-      if (err.details && "from" in err.details && "to" in err.details) {
-        return t("contracts.rates.error.overlap", {
-          from: String(err.details.from),
-          to: err.details.to === "open" ? t("contracts.rates.open") : String(err.details.to),
-        });
-      }
-      if (err.details && "n" in err.details) {
-        return t("contracts.rates.error.inUse", { n: Number(err.details.n) });
-      }
-      return err.message;
+      return err ? rateErrorText(err, t) : null;
     },
     [t],
   );
