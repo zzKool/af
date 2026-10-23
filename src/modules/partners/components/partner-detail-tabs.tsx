@@ -11,14 +11,13 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
-import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { RowActionsMenu } from "@/kernel/ui/data-table";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { PageHeader } from "@/kernel/ui/shell/page";
-import { CodeChip, CountBadge, Tag } from "@/kernel/ui/tags";
+import { CountBadge, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { ContractList, type ContractRow } from "@/modules/contracts/ui";
 import { GraphLink } from "@/modules/linking/ui";
@@ -26,6 +25,10 @@ import {
   type PartnerContactRow,
   PartnerContacts,
 } from "@/modules/partners/components/partner-contacts";
+import {
+  type PartnerDocument,
+  PartnerDocuments,
+} from "@/modules/partners/components/partner-documents";
 import { type PartnerData, PartnerForm } from "@/modules/partners/components/partner-form";
 import {
   deactivatePartnerAction,
@@ -36,14 +39,6 @@ import { PartnerStateLabel, PartnerTypeTags } from "./partner-labels";
 type BasOption = { code: string; label: string };
 type VatOption = { id: string; label: string };
 type EmployeeOption = { id: string; name: string };
-/** a document linked to the partner (belongs_to) — plain facts from the documents module */
-export type PartnerDocument = {
-  id: string;
-  businessKey: string;
-  fileName: string;
-  documentType: string;
-  status: string;
-};
 /** a journal entry that names the partner — the newest first, capped by the page */
 export type PartnerJournalRow = {
   id: string;
@@ -66,11 +61,6 @@ interface PartnerDetailTabsProps {
   documents: PartnerDocument[];
   journal: { total: number; rows: PartnerJournalRow[] };
 }
-
-const DOCUMENT_CATEGORY: Readonly<Record<string, MessageKey>> = {
-  financial: "documents.category.financial",
-  relationship: "documents.category.relationship",
-};
 
 export function PartnerDetailTabs({
   partner,
@@ -279,27 +269,7 @@ export function PartnerDetailTabs({
         {documents.length === 0 ? (
           <Empty>{t("partners.documents.empty")}</Empty>
         ) : (
-          <ul className="rounded-lg border text-[13px]" data-testid="partner-documents">
-            {documents.map((d) => {
-              const category = DOCUMENT_CATEGORY[d.documentType];
-              return (
-                <li
-                  key={d.id}
-                  className="flex min-h-8 items-center justify-between gap-3 border-b border-subtle px-3 py-1 last:border-b-0"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <Link href={`/documents/${d.id}`} className="shrink-0 hover:underline">
-                      <CodeChip>{d.businessKey}</CodeChip>
-                    </Link>
-                    <span className="truncate font-mono text-xs text-muted-foreground">
-                      {d.fileName}
-                    </span>
-                  </span>
-                  {category && <Tag className="shrink-0">{t(category)}</Tag>}
-                </li>
-              );
-            })}
-          </ul>
+          <PartnerDocuments documents={documents} />
         )}
       </TabsContent>
 
