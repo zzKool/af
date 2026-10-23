@@ -261,17 +261,15 @@ export async function dashboardOverview(
         href: "/expenses?f.hasDocument=in:false",
       });
     }
-    const gaps = await rates.detectGaps(
-      tx,
-      "EUR/SEK",
-      daysBefore(today, RATE_GAP_WINDOW_DAYS),
-      today,
-    );
-    if (gaps.length > 0) {
+    // every fetched pair, the trailing gap included — the same legs `rateToBase` refuses on (F81);
+    // the count is ECB days without a rate in any pair, each day once
+    const gaps = await rates.rateGaps(tx, today, { windowDays: RATE_GAP_WINDOW_DAYS });
+    const missingDays = new Set(gaps.flatMap((g) => g.missingDays));
+    if (missingDays.size > 0) {
       items.push({
         id: "rates",
         kind: "rate_gaps",
-        count: gaps.length,
+        count: missingDays.size,
         priority: "low",
         href: "/settings/rates",
       });

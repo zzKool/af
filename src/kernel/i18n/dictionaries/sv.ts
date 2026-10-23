@@ -1009,6 +1009,10 @@ export const sv: Dictionary = {
   "supplierInvoices.form.note": "Anteckning",
   "supplierInvoices.form.create": "Skapa leverantörsfaktura",
   "supplierInvoices.form.created": "Leverantörsfaktura {key} skapad",
+  "supplierInvoices.form.numberTaken": "Leverantörens fakturanummer finns redan registrerat",
+  "supplierInvoices.form.numberTakenBy": "Nr {n} är {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "En leverantörs fakturanummer är unikt — rätta numret eller öppna den befintliga fakturan.",
   "supplierInvoices.panel.money": "Belopp",
   "supplierInvoices.panel.base": "{base} SEK till kurs {rate} ({source})",
   "supplierInvoices.panel.paidBy": "{amount} betalt av banken",
@@ -1250,6 +1254,9 @@ export const sv: Dictionary = {
   "documents.review.content": "Dokumentets innehåll",
   "documents.review.rawText": "Tolkad text (skrivskyddad)",
   "documents.review.noText": "Ingen text tolkad",
+  "documents.review.rerunOcr": "Kör OCR igen",
+  "documents.review.rerunOcrConfirm":
+    "OCR körs igen på dokumentet. Dina korrigeringar behålls; de extraherade uppgifterna ersätts av den nya läsningen.",
   "documents.category.financial": "Ekonomiskt",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Utlägg",
