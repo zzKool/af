@@ -1,12 +1,13 @@
 "use client";
 
-// Expense groups: the list with totals, "new group", delete (empty groups only).
+// Expense groups: the list with totals (D40: kind as a <Tag>, money through formatMoney, ⋮ row menu — delete
+// for empty groups only) and the group dialog (new / edit). The title row's *New group* is `GroupsActions`.
+import { Plane } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -35,8 +36,9 @@ import {
 } from "@/components/ui/table";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
+import { Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createExpenseGroupAction,
@@ -158,7 +160,6 @@ export function GroupDialog({
 export function GroupsTable({ rows, canWrite }: { rows: GroupRow[]; canWrite: boolean }) {
   const t = useT();
   const router = useRouter();
-  const [newOpen, setNewOpen] = useState(false);
   const { executeAsync: remove } = useAction(deleteExpenseGroupAction);
   const deleteDialog = useConfirmDialog({
     title: t("expenses.groups.delete"),
@@ -166,93 +167,85 @@ export function GroupsTable({ rows, canWrite }: { rows: GroupRow[]; canWrite: bo
     confirmLabel: t("common.delete"),
   });
 
+  function confirmDelete(g: GroupRow) {
+    deleteDialog.confirm(
+      async () => {
+        const r = await remove({ id: g.id });
+        const error = extractError(r);
+        if (error) throw new Error(error);
+        toast.success(t("expenses.groups.deleted"));
+        router.refresh();
+      },
+      { description: t("expenses.groups.deleteConfirm", { number: g.number }) },
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      {canWrite && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => setNewOpen(true)} data-testid="open-new-group">
-            {t("expenses.groups.new")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            nativeButton={false}
-            render={<Link href="/expenses" />}
-          >
-            {t("expenses.title")}
-          </Button>
-        </div>
-      )}
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("expenses.groups.empty")}</p>
+        <p className="text-[13px] text-muted-foreground">{t("expenses.groups.empty")}</p>
       ) : (
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-16">{t("expenses.groups.col.number")}</TableHead>
+                <TableHead className="w-16 text-right">{t("expenses.groups.col.number")}</TableHead>
                 <TableHead>{t("expenses.groups.col.description")}</TableHead>
-                <TableHead className="w-20">{t("expenses.groups.col.kind")}</TableHead>
+                <TableHead className="w-24">{t("expenses.groups.col.kind")}</TableHead>
                 <TableHead className="w-20 text-right">{t("expenses.groups.col.count")}</TableHead>
-                <TableHead className="w-40">{t("expenses.groups.col.perCurrency")}</TableHead>
-                <TableHead className="w-28 text-right">{t("expenses.groups.col.total")}</TableHead>
-                <TableHead className="w-28 text-right">{t("expenses.groups.col.open")}</TableHead>
-                {canWrite && <TableHead className="w-20" />}
+                <TableHead className="w-56">{t("expenses.groups.col.perCurrency")}</TableHead>
+                <TableHead className="w-32 text-right">{t("expenses.groups.col.total")}</TableHead>
+                <TableHead className="w-32 text-right">{t("expenses.groups.col.open")}</TableHead>
+                {canWrite && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((g) => (
                 <TableRow key={g.id} data-testid="group-row">
-                  <TableCell className="tabular-nums">{g.number}</TableCell>
+                  <TableCell className="text-right tabular-nums">{g.number}</TableCell>
                   <TableCell>
-                    <Link href={`/expenses/groups/${g.id}`} className="hover:underline">
+                    <Link
+                      href={`/expenses/groups/${g.id}`}
+                      className="text-primary hover:text-primary-hover hover:underline"
+                    >
                       {g.description}
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{t(`expenses.groups.kind.${g.kind}`)}</Badge>
-                    {g.hasTrip && <span className="ml-1 text-xs text-muted-foreground">✈</span>}
+                    <span className="inline-flex items-center gap-1.5">
+                      <Tag>{t(`expenses.groups.kind.${g.kind}`)}</Tag>
+                      {g.hasTrip && (
+                        <Plane className="size-3.5 text-muted-foreground" aria-hidden />
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{g.expenseCount}</TableCell>
                   <TableCell className="text-xs tabular-nums">
-                    {g.perCurrency
-                      .map(
-                        (c) => `${formatCurrency(c.amount, c.currency as Currency)} ${c.currency}`,
-                      )
-                      .join(" · ") || "—"}
+                    {g.perCurrency.map((c) => formatMoney(c.amount, c.currency)).join(" · ") || "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(g.totalBase, "SEK")}
+                    {formatMoney(g.totalBase, "SEK", { bare: true })}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(g.openBase, "SEK")}
+                    {formatMoney(g.openBase, "SEK", { bare: true })}
                   </TableCell>
                   {canWrite && (
-                    <TableCell>
-                      {g.expenseCount === 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            deleteDialog.confirm(
-                              async () => {
-                                const r = await remove({ id: g.id });
-                                const error = extractError(r);
-                                if (error) throw new Error(error);
-                                toast.success(t("expenses.groups.deleted"));
-                                router.refresh();
-                              },
-                              {
-                                description: t("expenses.groups.deleteConfirm", {
-                                  number: g.number,
-                                }),
-                              },
-                            )
-                          }
-                        >
-                          {t("common.delete")}
-                        </Button>
-                      )}
+                    <TableCell className="text-right">
+                      <RowActionsMenu
+                        label={t("table.rowActions")}
+                        actions={[
+                          {
+                            label: t("common.open"),
+                            onClick: () => router.push(`/expenses/groups/${g.id}`),
+                          },
+                          {
+                            label: t("common.delete"),
+                            destructive: true,
+                            disabled: g.expenseCount > 0,
+                            onClick: () => confirmDelete(g),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   )}
                 </TableRow>
@@ -262,28 +255,6 @@ export function GroupsTable({ rows, canWrite }: { rows: GroupRow[]; canWrite: bo
         </div>
       )}
       <ConfirmDialog {...deleteDialog.dialogProps} />
-      {canWrite && <GroupDialog open={newOpen} onOpenChange={setNewOpen} />}
     </div>
-  );
-}
-
-/** The group page's header actions: edit the description / kind. */
-export function GroupHeaderActions({
-  group,
-  canWrite,
-}: {
-  group: { id: string; description: string; kind: ExpenseGroupKind; hasTrip: boolean };
-  canWrite: boolean;
-}) {
-  const t = useT();
-  const [open, setOpen] = useState(false);
-  if (!canWrite) return null;
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} data-testid="edit-group">
-        {t("expenses.group.edit")}
-      </Button>
-      {open && <GroupDialog open onOpenChange={setOpen} group={group} />}
-    </>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
-// Settlements: number, refund, settled, difference, status, the statement (download once the job stored it), cancel.
+// Settlements (D40): the number a code chip linking to its statement page, money through formatMoney, the state a
+// <StateLabel>, the statement (download once the job stored it); Open · Download · Cancel in the ⋮ row menu.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -17,14 +17,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Prisma } from "@/generated/prisma/browser";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
+import { CodeChip } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { getDocumentDownloadUrlAction } from "@/modules/documents/ui";
 import { cancelSettlementAction, listSettlementsAction } from "@/modules/expenses/expenses.actions";
 import type { SettlementListRow } from "@/modules/expenses/queries";
+import { SettlementStateLabel } from "./expense-state";
 
 export type SettlementRow = Omit<SettlementListRow, "createdAt" | "updatedAt" | "cancelledAt"> & {
   createdAt: string;
@@ -32,8 +35,12 @@ export type SettlementRow = Omit<SettlementListRow, "createdAt" | "updatedAt" | 
   cancelledAt: string | null;
 };
 
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
+/** exchange difference + rounding, to the öre — Decimal, never Number (display boundary only) */
+export function settlementDifferenceBase(
+  s: Pick<SettlementRow, "exchangeDifferenceBase" | "roundingBase">,
+): string {
+  return new Prisma.Decimal(s.exchangeDifferenceBase).plus(s.roundingBase).toFixed(2);
+}
 
 export function SettlementsTable({ rows, canWrite }: { rows: SettlementRow[]; canWrite: boolean }) {
   const t = useT();
@@ -85,20 +92,23 @@ export function SettlementsTable({ rows, canWrite }: { rows: SettlementRow[]; ca
     if (url) window.open(url, "_blank", "noopener");
   }
 
+  function confirmCancel(s: SettlementRow) {
+    cancelDialog.confirm(
+      async () => {
+        const r = await cancel({ id: s.id });
+        const error = extractError(r);
+        if (error) throw new Error(error);
+        toast.success(t("expenses.settlements.cancelled", { number: s.number }));
+        router.refresh();
+      },
+      { description: t("expenses.settlements.cancelConfirm", { number: s.number }) },
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/expenses" />}>
-          {t("expenses.title")}
-        </Button>
-        {canWrite && (
-          <Button size="sm" nativeButton={false} render={<Link href="/expenses/settle" />}>
-            {t("expenses.nav.settle")}
-          </Button>
-        )}
-      </div>
       {live.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("expenses.settlements.empty")}</p>
+        <p className="text-[13px] text-muted-foreground">{t("expenses.settlements.empty")}</p>
       ) : (
         <div className="rounded-md border">
           <Table>
@@ -124,48 +134,43 @@ export function SettlementsTable({ rows, canWrite }: { rows: SettlementRow[]; ca
                 </TableHead>
                 <TableHead className="w-24">{t("expenses.settlements.col.status")}</TableHead>
                 <TableHead className="w-44">{t("expenses.settlements.col.statement")}</TableHead>
-                {canWrite && <TableHead className="w-20" />}
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {live.map((s) => {
-                const diff = Number(s.exchangeDifferenceBase) + Number(s.roundingBase);
+                const diff = settlementDifferenceBase(s);
                 return (
                   <TableRow key={s.id} data-testid="settlement-row">
-                    <TableCell className="font-mono text-xs">{s.number}</TableCell>
+                    <TableCell>
+                      <Link href={`/expenses/settlements/${s.id}`} data-testid="settlement-link">
+                        <CodeChip>{s.number}</CodeChip>
+                      </Link>
+                    </TableCell>
                     <TableCell className="tabular-nums">{s.bookingDate ?? "—"}</TableCell>
                     <TableCell>{s.paymentSourceLabel}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {money(s.refundAmount, s.refundCurrency)}
+                      {formatMoney(s.refundAmount, s.refundCurrency)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatCurrency(s.refundBase, "SEK")}
+                      {formatMoney(s.refundBase, "SEK", { bare: true })}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatCurrency(s.allocatedBase, "SEK")}
+                      {formatMoney(s.allocatedBase, "SEK", { bare: true })}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {diff === 0 ? "—" : diff.toFixed(2)}
+                      {Number(diff) === 0 ? "—" : formatMoney(diff, "SEK", { bare: true })}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{s.lineCount}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          s.status === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-muted text-muted-foreground"
-                        }
-                        data-testid="settlement-status"
-                      >
-                        {t(`expenses.settlements.status.${s.status}`)}
-                      </Badge>
+                      <SettlementStateLabel status={s.status} testId="settlement-status" />
                     </TableCell>
                     <TableCell>
                       {s.statementDocumentId ? (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="link"
+                          className="h-auto px-0 font-mono text-xs"
                           onClick={() => void download(s.statementDocumentId as string)}
                           data-testid="download-statement"
                         >
@@ -184,44 +189,35 @@ export function SettlementsTable({ rows, canWrite }: { rows: SettlementRow[]; ca
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
-                      <Link
-                        href={`/expenses/settlements/${s.id}`}
-                        className="ml-2 text-xs hover:underline"
-                      >
-                        →
-                      </Link>
                     </TableCell>
-                    {canWrite && (
-                      <TableCell>
-                        {s.status === "active" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            data-testid="cancel-settlement"
-                            onClick={() =>
-                              cancelDialog.confirm(
-                                async () => {
-                                  const r = await cancel({ id: s.id });
-                                  const error = extractError(r);
-                                  if (error) throw new Error(error);
-                                  toast.success(
-                                    t("expenses.settlements.cancelled", { number: s.number }),
-                                  );
-                                  router.refresh();
-                                },
+                    <TableCell className="text-right">
+                      <RowActionsMenu
+                        label={t("table.rowActions")}
+                        actions={[
+                          {
+                            label: t("common.open"),
+                            onClick: () => router.push(`/expenses/settlements/${s.id}`),
+                          },
+                          ...(s.statementDocumentId
+                            ? [
                                 {
-                                  description: t("expenses.settlements.cancelConfirm", {
-                                    number: s.number,
-                                  }),
+                                  label: t("documents.download"),
+                                  onClick: () => void download(s.statementDocumentId as string),
                                 },
-                              )
-                            }
-                          >
-                            {t("expenses.settlements.cancel")}
-                          </Button>
-                        )}
-                      </TableCell>
-                    )}
+                              ]
+                            : []),
+                          ...(canWrite && s.status === "active"
+                            ? [
+                                {
+                                  label: t("expenses.settlements.cancel"),
+                                  destructive: true,
+                                  onClick: () => confirmCancel(s),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}

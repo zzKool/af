@@ -13,3 +13,12 @@
 - [x] T008 `updateSupplierInvoice` rebases only when the rate, the currency or (on an ECB rate) the date changed — a manual rate is kept, the base follows the total; a defaulted due date follows the date / supplier terms, a typed one stays (lessons audit 5, D37).
 - [x] T009 `allocated.ts`: one allocated sum (every `justifies` allocation onto the invoice) for the list, the detail, the KPIs and `recordPayment`'s open; the panel lists every allocation, a journal-entry payer by its label (lessons audit 6).
 - [ ] T010 (with audit 22) `allocatedSums` → linking's batch read API.
+
+## F71 — the D40 kit (2026-10-23, light lane)
+
+- [x] T011 `state-family.ts` — the one status → family map (overdue attention · unpaid, partially paid progress · paid done · cancelled neutral) + `SupplierInvoiceStateLabel` (`components/state-label.tsx`, replaces the pastel `status-badge.tsx`; *Overdue · 7 d* kept) in the list, the panel and the group section; pure test against `deriveSupplierInvoiceStatus`.
+- [x] T012 On-screen money through `formatMoney` (list, KPIs, panel, group section; the base bare under its *Total (SEK)* header); the footer Σ only under a true currency (`list-sums.ts`, invoices' rule: one currency → Σ total + open in it, several → only Σ base, bare) — the DB test that summed CHF + EUR as one *open* now asserts the rule.
+- [x] T013 Keys as `<CodeChip>`; link kinds as `<Tag>`; the document cell on `--state-*` tokens; no Tailwind palette colour left in the module.
+- [x] T014 One primary per title row: *New supplier invoice* moves from the table's toolbar to the page's title row (`NewSupplierInvoiceButton`); ⋮ `rowActions` — Open, Open the group, Reinstate (cancelled), Delete (nothing paid; the service still refuses a linked one).
+- [x] T015 Quick filters Month (invoice date) and Supplier (`partnerName` now an enum column).
+- [x] T016 The panel in `DetailsSection`s: title (key chip, state, total 22 / 600) · About (group, dates / net / VAT once written, base, paid, open; the facts when read-only) · Proof (document, payments + *Link payment*, links) · Money (the draft's form) · Facts · Lines · **History** (collapsed: the invoice's audit entries named by `history.ts` — created, edited, cancelled, reinstated, payment linked, bank row attached / detached; DB + pure tests).

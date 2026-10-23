@@ -6,7 +6,7 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { listSettlements } from "@/modules/expenses";
-import { SettlementsTable } from "@/modules/expenses/ui";
+import { SettlementsActions, SettlementsTable } from "@/modules/expenses/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 export default async function SettlementsPage() {
@@ -16,10 +16,12 @@ export default async function SettlementsPage() {
     return { rows, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
+  const canWrite = can(auth, "create", "settlement");
   return (
     <ListPage
       title={t("expenses.settlements.title")}
       meta={t("expenses.settlements.meta", { count: data.rows.length })}
+      actions={canWrite && <SettlementsActions />}
     >
       <SettlementsTable
         rows={data.rows.map((s) => ({
@@ -28,7 +30,7 @@ export default async function SettlementsPage() {
           updatedAt: s.updatedAt.toISOString(),
           cancelledAt: s.cancelledAt ? s.cancelledAt.toISOString() : null,
         }))}
-        canWrite={can(auth, "create", "settlement")}
+        canWrite={canWrite}
       />
     </ListPage>
   );

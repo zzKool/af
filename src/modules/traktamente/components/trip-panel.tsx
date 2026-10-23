@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
+import { StateIcon } from "@/kernel/ui/state-label";
+import { CodeChip } from "@/kernel/ui/tags";
 import type { CountryOption } from "@/modules/traktamente/queries";
 import {
   countryOptionsAction,
@@ -34,7 +36,7 @@ export type TripView = Omit<TripDto, "departureAt" | "returnAt" | "createdAt" | 
   returnAt: string;
 };
 
-const sek = (v: string) => `${formatCurrency(v, "SEK")} SEK`;
+const sek = (v: string) => formatMoney(v, "SEK");
 
 type ServerError = { message: string; details?: Record<string, string | number> };
 
@@ -153,9 +155,9 @@ export function TripPanel({
   const country = countries.find((c) => c.countryCode === countryCode);
 
   return (
-    <section className="rounded-md border p-4" data-testid="trip-panel">
+    <section className="rounded-md border p-4 text-[13px]" data-testid="trip-panel">
       <div className="mb-3">
-        <h2 className="text-sm font-medium">{t("traktamente.trip.title")}</h2>
+        <h2 className="text-[15px] font-semibold">{t("traktamente.trip.title")}</h2>
         <p className="text-xs text-muted-foreground">{t("traktamente.trip.description")}</p>
       </div>
       <form
@@ -209,14 +211,15 @@ export function TripPanel({
                 : [{ countryCode, name: countryCode, dayAmount: "0", year }, ...countries]
               ).map((c) => (
                 <SelectItem key={c.countryCode} value={c.countryCode}>
-                  {c.name} ({c.countryCode}) — {formatCurrency(c.dayAmount, "SEK")} SEK/day,{" "}
-                  {c.year}
+                  {c.name} ({c.countryCode}) —{" "}
+                  {t("traktamente.trip.perDay", { amount: sek(c.dayAmount) })}, {c.year}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {countries.length === 0 && (
-            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            <p className="mt-1 flex items-center gap-1.5 text-xs">
+              <StateIcon family="attention" />
               {t("traktamente.noYears")}{" "}
               <Link href="/settings/traktamente" className="underline">
                 {t("traktamente.trip.rateLink")}
@@ -315,7 +318,8 @@ export function TripPanel({
       </form>
 
       {computeError && (
-        <p className="mt-3 text-sm text-amber-700 dark:text-amber-400" data-testid="trip-error">
+        <p className="mt-3 flex items-center gap-1.5 text-[13px]" data-testid="trip-error">
+          <StateIcon family="attention" />
           {computeErrorText(t, computeError)}{" "}
           <Link href="/settings/traktamente" className="underline">
             {t("traktamente.trip.rateLink")}
@@ -323,7 +327,7 @@ export function TripPanel({
         </p>
       )}
       {result && (
-        <div className="mt-3 rounded-md border bg-muted/40 p-3 text-sm" data-testid="trip-result">
+        <div className="mt-3 rounded-md border bg-muted/40 p-3" data-testid="trip-result">
           {result.reason ? (
             <p>{t("traktamente.trip.nothing", { reason: reasonText(t, result.reason) })}</p>
           ) : (
@@ -339,13 +343,13 @@ export function TripPanel({
               </dt>
               <dt className="text-muted-foreground">{t("traktamente.trip.dayTotal")}</dt>
               <dd className="text-right tabular-nums">{sek(result.dayTotal)}</dd>
-              {result.meals.deduction !== "0.00" && (
+              {Number(result.meals.deduction) > 0 && (
                 <>
                   <dt className="text-muted-foreground">
                     {t("traktamente.trip.meals")} ({result.meals.breakfasts}/{result.meals.lunches}/
                     {result.meals.dinners})
                   </dt>
-                  <dd className="text-right tabular-nums">−{sek(result.meals.deduction)}</dd>
+                  <dd className="text-right tabular-nums">{sek(`-${result.meals.deduction}`)}</dd>
                 </>
               )}
               {result.nightAllowance.nights > 0 && (
@@ -359,7 +363,11 @@ export function TripPanel({
                 {sek(result.total)}
               </dd>
               {result.warnings.map((w) => (
-                <dd key={w.message} className="col-span-2 text-xs text-muted-foreground">
+                <dd
+                  key={w.message}
+                  className="col-span-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <StateIcon family="attention" />
                   {warningText(t, w)}
                 </dd>
               ))}
@@ -371,7 +379,7 @@ export function TripPanel({
                 // the replace keeps the expense's category — a select here would be ignored (T002)
                 <div className="min-w-48">
                   <div className="mb-1 text-xs font-medium">{t("traktamente.trip.category")}</div>
-                  <p className="text-sm" data-testid="per-diem-category">
+                  <p data-testid="per-diem-category">
                     {categories.find((c) => c.code === perDiemExpense.basCode)?.label ??
                       perDiemExpense.basCode}
                   </p>
@@ -409,8 +417,8 @@ export function TripPanel({
           )}
           {perDiemExpense && (
             <p className="mt-2 text-xs text-muted-foreground" data-testid="per-diem-expense">
-              {t("traktamente.trip.expenseLink")}:{" "}
-              <span className="font-mono">{perDiemExpense.key}</span> · {sek(perDiemExpense.amount)}
+              {t("traktamente.trip.expenseLink")}: <CodeChip>{perDiemExpense.key}</CodeChip> ·{" "}
+              {sek(perDiemExpense.amount)}
             </p>
           )}
         </div>

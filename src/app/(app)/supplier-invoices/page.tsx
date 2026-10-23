@@ -14,7 +14,7 @@ import {
   SUPPLIER_INVOICE_DEFAULT_SORT,
   supplierInvoicePageOptions,
 } from "@/modules/supplier-invoices";
-import { SupplierInvoiceTable } from "@/modules/supplier-invoices/ui";
+import { NewSupplierInvoiceButton, SupplierInvoiceTable } from "@/modules/supplier-invoices/ui";
 
 // The supplier invoices list (specs/supplier-invoices US3) — the URL is the query, the status derived server-side.
 export default async function SupplierInvoicesPage({
@@ -38,11 +38,14 @@ export default async function SupplierInvoicesPage({
     return { result, strip, options, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
+  const canWrite = can(auth, "create", "supplier_invoice");
+  const { documents, ...options } = data.options;
 
   return (
     <ListPage
       title={t("supplierInvoices.title")}
       meta={t("supplierInvoices.meta.count", { count: data.result.total })}
+      actions={canWrite && <NewSupplierInvoiceButton {...options} documents={documents} />}
     >
       <SupplierInvoiceTable
         result={{
@@ -50,8 +53,8 @@ export default async function SupplierInvoicesPage({
           rows: data.result.rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
         }}
         kpis={data.strip}
-        {...data.options}
-        canWrite={can(auth, "create", "supplier_invoice")}
+        {...options}
+        canWrite={canWrite}
         initialSelectedId={typeof params.open === "string" ? params.open : null}
       />
     </ListPage>

@@ -70,3 +70,23 @@ export type JournalListRow = JournalEntryDto & {
   /** a bank entry's account (*Nordea CHF*) through banking's read API (T006); null for a manual entry */
   accountAlias: string | null;
 };
+
+/** The owner's facts a History line names when they changed (the money facts never change). */
+export type JournalFact = "basCode" | "partnerId" | "note" | "noDocumentNeeded";
+export const JOURNAL_FACTS: readonly JournalFact[] = [
+  "basCode",
+  "partnerId",
+  "note",
+  "noDocumentNeeded",
+];
+
+/** One line of an entry's History (F71): read from the audit trail, newest first. */
+export type JournalHistoryItem = {
+  /** ISO timestamp of the write */
+  at: string;
+  action: "create" | "update" | "delete";
+  /** who set the facts on an update: by hand or a rule (`categorised_by` after the write); null on create */
+  by: CategorisedBy | null;
+  /** the owner's facts this write changed, in JOURNAL_FACTS order; empty on create */
+  changed: JournalFact[];
+};

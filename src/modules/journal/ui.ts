@@ -4,5 +4,6 @@
 export * from "./components/categorise-form";
 export * from "./components/journal-table";
 export * from "./components/manual-entry-dialog";
+export * from "./components/new-entry-button";
 export * from "./journal.actions";
 export type * from "./types";

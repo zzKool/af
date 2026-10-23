@@ -28,9 +28,10 @@ import {
 import { Prisma } from "@/generated/prisma/browser";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
 import { WorkPage } from "@/kernel/ui/shell/page";
+import { StateIcon } from "@/kernel/ui/state-label";
+import { CodeChip } from "@/kernel/ui/tags";
 import {
   confirmSettlementAction,
   proposeSettlementAction,
@@ -45,8 +46,9 @@ const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
 const NONE = "__none__";
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
+const money = (amount: string, currency: string) => formatMoney(amount, currency);
+/** an SEK figure inside a sentence whose template already says "SEK" */
+const sek = (amount: string) => formatMoney(amount, "SEK", { bare: true });
 /** A typed allocation as a Decimal (0 while the field is not a number yet), to the cent. */
 const dec = (v: string): Dec => {
   try {
@@ -214,12 +216,12 @@ export function SettleWork({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs">{e.key}</span>
-                    <span className="text-xs text-muted-foreground">{e.date}</span>
+                    <CodeChip>{e.key}</CodeChip>
+                    <span className="text-xs text-muted-foreground tabular-nums">{e.date}</span>
                   </div>
                   <div className="truncate text-xs" title={e.description}>
                     {e.description} · {money(e.amount, e.currency)} · {t("expenses.col.open")}{" "}
-                    {formatCurrency(e.openBase, "SEK")}
+                    {sek(e.openBase)}
                   </div>
                 </div>
                 <Input
@@ -236,7 +238,7 @@ export function SettleWork({
         </ul>
       )}
       <p className="text-right text-sm tabular-nums" data-testid="settle-selected">
-        {t("expenses.settle.selected", { amount: formatCurrency(fix(allocated), "SEK") })}
+        {t("expenses.settle.selected", { amount: sek(fix(allocated)) })}
       </p>
     </div>
   );
@@ -247,10 +249,10 @@ export function SettleWork({
       ? null
       : over
         ? t("expenses.settle.short", {
-            amount: formatCurrency(difference.exchangeDifferenceBase, "SEK"),
+            amount: sek(difference.exchangeDifferenceBase),
           })
         : unallocated.gt(0)
-          ? t("expenses.settle.covers", { amount: formatCurrency(fix(unallocated), "SEK") })
+          ? t("expenses.settle.covers", { amount: sek(fix(unallocated)) })
           : t("expenses.settle.exact");
 
   const right = (
@@ -285,27 +287,28 @@ export function SettleWork({
             <span className="tabular-nums">
               {money(tx.amount, tx.currency)}
               {tx.amountBase && tx.currency !== "SEK"
-                ? ` = ${formatCurrency(tx.amountBase, "SEK")} SEK`
+                ? ` = ${formatMoney(tx.amountBase, "SEK")}`
                 : ""}
             </span>
           </div>
           <div className="flex items-center justify-between text-muted-foreground">
             <span>
               {t("expenses.settle.available", {
-                amount: refundBase === null ? "—" : formatCurrency(fix(refundBase), "SEK"),
+                amount: refundBase === null ? "—" : sek(fix(refundBase)),
               })}
             </span>
             <span data-testid="settle-hint">{hint}</span>
           </div>
           {rounding && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {t("expenses.settle.rounding", { amount: difference.roundingBase })}
+              {t("expenses.settle.rounding", { amount: sek(difference.roundingBase) })}
             </p>
           )}
           {over && (
-            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            <p className="mt-1 flex items-center gap-1.5 text-xs">
+              <StateIcon family="attention" />
               {t("expenses.settle.exchangeDifference", {
-                amount: difference.exchangeDifferenceBase,
+                amount: sek(difference.exchangeDifferenceBase),
               })}
             </p>
           )}
@@ -343,10 +346,12 @@ export function SettleWork({
             </DialogTitle>
             <DialogDescription data-testid="confirm-state">
               {over
-                ? t("expenses.settle.confirmOver", { amount: difference.exchangeDifferenceBase })
+                ? t("expenses.settle.confirmOver", {
+                    amount: sek(difference.exchangeDifferenceBase),
+                  })
                 : residual.gt(0)
                   ? t("expenses.settle.confirmPartial", {
-                      amount: formatCurrency(fix(residual), "SEK"),
+                      amount: sek(fix(residual)),
                     })
                   : t("expenses.settle.confirmExact")}
             </DialogDescription>
@@ -354,15 +359,13 @@ export function SettleWork({
           <ul className="divide-y rounded-md border text-sm">
             {selected.map((e) => (
               <li key={e.expenseId} className="flex items-center justify-between px-3 py-1.5">
-                <span className="font-mono text-xs">{e.key}</span>
-                <span className="tabular-nums">
-                  {formatCurrency(fix(allocationOf(e)), "SEK")} SEK
-                </span>
+                <CodeChip>{e.key}</CodeChip>
+                <span className="tabular-nums">{formatMoney(fix(allocationOf(e)), "SEK")}</span>
               </li>
             ))}
             <li className="flex items-center justify-between px-3 py-1.5 font-medium">
               <span>{t("expenses.statement.total")}</span>
-              <span className="tabular-nums">{formatCurrency(fix(allocated), "SEK")} SEK</span>
+              <span className="tabular-nums">{formatMoney(fix(allocated), "SEK")}</span>
             </li>
           </ul>
           {over && (
@@ -404,7 +407,7 @@ export function SettleWork({
     <WorkPage
       title={t("expenses.settle.title")}
       meta={t("expenses.settle.meta", {
-        open: formatCurrency(ledgerOpen, "SEK"),
+        open: sek(ledgerOpen),
         count: ledgerCount,
       })}
       left={left}

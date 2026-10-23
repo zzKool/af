@@ -1,7 +1,8 @@
 "use client";
 
 // Settings → Traktamente (specs/traktamente US4): year tabs, the rows, add / edit a country, copy last year,
-// paste Skatteverket's CSV with a preview.
+// paste Skatteverket's CSV with a preview. D40 (F71): the year tabs and the one split primary sit in the page's
+// title row (`RateYearTabs`, `RateActions`); the rows' Edit / Delete in a ⋮ menu; amounts through `formatMoney`.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
@@ -25,9 +26,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
+import { SplitButton } from "@/kernel/ui/split-button";
+import { Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   copyRatesFromYearAction,
@@ -232,7 +237,8 @@ function PasteDialog({
         />
         {preview && (
           <p className="text-sm" data-testid="paste-preview">
-            {preview.rows} rows · {t("traktamente.paste.skipped", { count: preview.skipped })}
+            {t("traktamente.paste.rows", { count: preview.rows })} ·{" "}
+            {t("traktamente.paste.skipped", { count: preview.skipped })}
           </p>
         )}
         <DialogFooter>
@@ -257,28 +263,39 @@ function PasteDialog({
   );
 }
 
-export function RateTable({
-  years,
-  year,
-  rows,
-}: {
-  years: number[];
-  year: number;
-  rows: RateRowView[];
-}) {
+/** The years the owner can open: those with rows, the one shown, and this year. */
+function tabYears(years: number[], year: number): number[] {
+  return [...new Set([...years, year, new Date().getFullYear()])].sort((a, b) => b - a);
+}
+
+/** The year tabs under the page title (underline tabs; a year is a page of its own, `?year=`). */
+export function RateYearTabs({ years, year }: { years: number[]; year: number }) {
   const t = useT();
   const router = useRouter();
-  const [dialog, setDialog] = useState<{ draft: Draft; editing: boolean } | null>(null);
+  return (
+    <Tabs
+      value={String(year)}
+      onValueChange={(v) => router.push(`/settings/traktamente?year=${String(v)}`)}
+    >
+      <TabsList aria-label={t("traktamente.year")}>
+        {tabYears(years, year).map((y) => (
+          <TabsTrigger key={y} value={String(y)} data-testid={`rate-year-${y}`}>
+            {y}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+}
+
+/** The title row's one primary: *Add country* ▾ paste Skatteverket's CSV · copy from the year before. */
+export function RateActions({ years, year }: { years: number[]; year: number }) {
+  const t = useT();
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const { executeAsync: copy, isPending: copying } = useAction(copyRatesFromYearAction);
-  const { executeAsync: remove } = useAction(deleteRateAction);
-  const deleteDialog = useConfirmDialog({
-    title: t("traktamente.delete"),
-    variant: "destructive",
-    confirmLabel: t("common.delete"),
-  });
   const previous = years.filter((y) => y < year).sort((a, b) => b - a)[0];
-  const allYears = [...new Set([...years, year, new Date().getFullYear()])].sort((a, b) => b - a);
 
   async function copyFrom(from: number) {
     const r = await copy({ fromYear: from, toYear: year });
@@ -290,53 +307,73 @@ export function RateTable({
   }
 
   return (
+    <>
+      <SplitButton
+        onClick={() => setAdding(true)}
+        menuLabel={t("traktamente.moreAdd")}
+        items={[
+          { label: t("traktamente.paste"), onClick: () => setPasteOpen(true) },
+          ...(previous !== undefined
+            ? [
+                {
+                  label: t("traktamente.copyFrom", { year: previous }),
+                  onClick: () => void copyFrom(previous),
+                  disabled: copying,
+                },
+              ]
+            : []),
+        ]}
+      >
+        <span data-testid="add-rate">{t("traktamente.add")}</span>
+      </SplitButton>
+      {adding && (
+        <RateDialog
+          open
+          onOpenChange={(o) => !o && setAdding(false)}
+          initial={empty(year)}
+          editing={false}
+        />
+      )}
+      <PasteDialog open={pasteOpen} onOpenChange={setPasteOpen} year={year} />
+    </>
+  );
+}
+
+/** Sweden's fixed meal amounts, or the abroad shares. */
+function mealsText(r: RateRowView): string {
+  if (!r.mealAll) return "15 / 35 / 35 %";
+  const a = (v: string | null) => (v ? formatMoney(v, "SEK", { bare: true }) : "—");
+  return `${a(r.mealBreakfast)} / ${a(r.mealLunch)} / ${a(r.mealDinner)} · ${a(r.mealAll)}`;
+}
+
+export function RateTable({ rows }: { rows: RateRowView[] }) {
+  const t = useT();
+  const router = useRouter();
+  const [editing, setEditing] = useState<Draft | null>(null);
+  const { executeAsync: remove } = useAction(deleteRateAction);
+  const deleteDialog = useConfirmDialog({
+    title: t("traktamente.delete"),
+    variant: "destructive",
+    confirmLabel: t("common.delete"),
+  });
+
+  const draftOf = (r: RateRowView): Draft => ({
+    year: r.year,
+    countryCode: r.countryCode,
+    countryNameSv: r.countryNameSv,
+    countryNameEn: r.countryNameEn ?? "",
+    dayAmount: r.dayAmount,
+    nightAmount: r.nightAmount ?? "",
+    mealBreakfast: r.mealBreakfast ?? "",
+    mealLunch: r.mealLunch ?? "",
+    mealDinner: r.mealDinner ?? "",
+    mealAll: r.mealAll ?? "",
+  });
+
+  return (
     <div className="flex flex-col gap-3" data-testid="rate-table">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1" role="tablist" aria-label={t("traktamente.year")}>
-          {allYears.map((y) => (
-            <Button
-              key={y}
-              size="sm"
-              variant={y === year ? "default" : "outline"}
-              onClick={() => router.push(`/settings/traktamente?year=${y}`)}
-              role="tab"
-              aria-selected={y === year}
-            >
-              {y}
-            </Button>
-          ))}
-        </div>
-        <div className="ml-auto flex gap-2">
-          {previous !== undefined && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void copyFrom(previous)}
-              disabled={copying}
-              data-testid="copy-year"
-            >
-              {t("traktamente.copyFrom", { year: previous })}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPasteOpen(true)}
-            data-testid="open-paste"
-          >
-            {t("traktamente.paste")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setDialog({ draft: empty(year), editing: false })}
-            data-testid="add-rate"
-          >
-            {t("traktamente.add")}
-          </Button>
-        </div>
-      </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("traktamente.noYears")}</p>
+        <p className="text-[13px] text-muted-foreground">{t("traktamente.noYears")}</p>
       ) : (
         <div className="rounded-md border">
           <Table>
@@ -344,11 +381,11 @@ export function RateTable({
               <TableRow>
                 <TableHead>{t("traktamente.col.country")}</TableHead>
                 <TableHead className="w-16">{t("traktamente.col.code")}</TableHead>
-                <TableHead className="w-40 text-right">{t("traktamente.col.day")}</TableHead>
-                <TableHead className="w-28 text-right">{t("traktamente.col.night")}</TableHead>
-                <TableHead className="w-44">{t("traktamente.col.meals")}</TableHead>
+                <TableHead className="w-44 text-right">{t("traktamente.col.day")}</TableHead>
+                <TableHead className="w-32 text-right">{t("traktamente.col.night")}</TableHead>
+                <TableHead className="w-52">{t("traktamente.col.meals")}</TableHead>
                 <TableHead className="w-36">{t("traktamente.col.source")}</TableHead>
-                <TableHead className="w-28" />
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -362,61 +399,43 @@ export function RateTable({
                       </span>
                     ) : null}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{r.countryCode}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatCurrency(r.dayAmount, "SEK")}
+                  <TableCell>
+                    <Tag>{r.countryCode}</Tag>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums" data-amount={r.dayAmount}>
+                    {formatMoney(r.dayAmount, "SEK", { bare: true })}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {r.nightAmount ? formatCurrency(r.nightAmount, "SEK") : "½"}
+                    {r.nightAmount ? formatMoney(r.nightAmount, "SEK", { bare: true }) : "½"}
                   </TableCell>
                   <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    {r.mealAll
-                      ? `${r.mealBreakfast} / ${r.mealLunch} / ${r.mealDinner} · ${r.mealAll}`
-                      : "15 / 35 / 35 %"}
+                    {mealsText(r)}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{r.rateSource}</TableCell>
+                  <TableCell>
+                    <Tag>{r.rateSource}</Tag>
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setDialog({
-                          editing: true,
-                          draft: {
-                            year: r.year,
-                            countryCode: r.countryCode,
-                            countryNameSv: r.countryNameSv,
-                            countryNameEn: r.countryNameEn ?? "",
-                            dayAmount: r.dayAmount,
-                            nightAmount: r.nightAmount ?? "",
-                            mealBreakfast: r.mealBreakfast ?? "",
-                            mealLunch: r.mealLunch ?? "",
-                            mealDinner: r.mealDinner ?? "",
-                            mealAll: r.mealAll ?? "",
-                          },
-                        })
-                      }
-                    >
-                      {t("common.edit")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        deleteDialog.confirm(
-                          async () => {
-                            const res = await remove({ id: r.id });
-                            const error = extractError(res);
-                            if (error) throw new Error(error);
-                            toast.success(t("traktamente.deleted"));
-                            router.refresh();
-                          },
-                          { description: `${r.countryNameSv} ${r.year}` },
-                        )
-                      }
-                    >
-                      {t("common.delete")}
-                    </Button>
+                    <RowActionsMenu
+                      label={t("table.rowActions")}
+                      actions={[
+                        { label: t("common.edit"), onClick: () => setEditing(draftOf(r)) },
+                        {
+                          label: t("common.delete"),
+                          destructive: true,
+                          onClick: () =>
+                            deleteDialog.confirm(
+                              async () => {
+                                const res = await remove({ id: r.id });
+                                const error = extractError(res);
+                                if (error) throw new Error(error);
+                                toast.success(t("traktamente.deleted"));
+                                router.refresh();
+                              },
+                              { description: `${r.countryNameSv} ${r.year}` },
+                            ),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -424,15 +443,9 @@ export function RateTable({
           </Table>
         </div>
       )}
-      {dialog && (
-        <RateDialog
-          open
-          onOpenChange={(o) => !o && setDialog(null)}
-          initial={dialog.draft}
-          editing={dialog.editing}
-        />
+      {editing && (
+        <RateDialog open onOpenChange={(o) => !o && setEditing(null)} initial={editing} editing />
       )}
-      <PasteDialog open={pasteOpen} onOpenChange={setPasteOpen} year={year} />
       <ConfirmDialog {...deleteDialog.dialogProps} />
     </div>
   );

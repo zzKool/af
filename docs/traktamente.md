@@ -38,13 +38,14 @@ The owner's trip: 2026-03-02 09:00 → 03-21 17:00 to CH at 1 402 with 18 lunche
 ## Pages (part 2)
 
 - The **trip panel** on `/expenses/groups/[id]` (`TripPanel`, shown for trip groups): departure / return (`datetime-local`, local Stockholm time, stored as instants), the country select showing `Switzerland (CH) — 1 402,00 SEK/day, 2026` for the departure year (a pointer to the rate table when the year has no rows), agency, the three meal counts, *Nights without paid lodging, long stay* collapsed; *Save trip* stores the snapshot and shows the result card (days, day amounts, meals, nights, the total; the warnings) or the computation error (*No travel allowance rate for CH in 2026 → Rates*); the category select (the `Tr` category by default; read-only once the expense exists — T002) and *Create per-diem expense* / *Recompute per-diem expense*, with the expense's key and amount under it.
-- **Settings → Traktamente** (`/settings/traktamente?year=`): `RateTable` — year tabs, the rows (country, code, normalbelopp, night (½ when blank), the SE meal amounts or *15 / 35 / 35 %*, source), *Edit* / *Delete* (guarded), *Add country* (`RateDialog`), *Copy from {previous year}*, *Paste Skatteverket CSV* (`PasteDialog`: textarea → *Preview* (rows / skipped) → *Apply*).
-- `/print/per-diem/[groupId]` — the print route of the breakdown.
-- Strings `traktamente.*` en + fr + sv. Screenshots: `specs/expenses/screenshots/group-trip.png`, `group-per-diem.png`, `rates.png`, `rates-paste.png`; the PDF `specs/traktamente/screenshots/per-diem.pdf` (+ its first page).
+- **Settings → Traktamente** (`/settings/traktamente?year=`, a `ListPage`): the year as underline tabs (`RateYearTabs`) and one split primary in the title row (`RateActions`: *Add country* (`RateDialog`) ▾ *Paste Skatteverket CSV* (`PasteDialog`: textarea → *Preview* (rows / skipped) → *Apply*) · *Copy from {previous year}*); `RateTable` — the rows (country, code `<Tag>`, normalbelopp and night bare in `formatMoney` (the headers name SEK; night ½ when blank), the SE meal amounts or *15 / 35 / 35 %*, source `<Tag>`), *Edit* / *Delete* (guarded) in the row's ⋮ menu.
+- `/print/per-diem/[groupId]` — the print route of the breakdown (amounts in `formatCurrency`, the printed format).
+- **D40 kit (F71, 2026-10-23 — `tasks.md` T004)**: on-screen money through `formatMoney` (`18 506.40 SEK`), the per-diem key a `<CodeChip>`, hints / errors / warnings with the attention `StateIcon` (no amber palette), panel 15 / 13. Traktamente has no derived state of its own.
+- Strings `traktamente.*` en + fr + sv. Screenshots: `specs/traktamente/screenshots/f71-*` (the rate table light / dark, the trip panel), `specs/expenses/screenshots/group-trip.png`, `group-per-diem.png`, `rates.png`, `rates-paste.png`; the PDF `specs/traktamente/screenshots/per-diem.pdf` (+ its first page).
 
 ## Surface
 
-- `index.ts`: calculator (+ constants), rates, trip, the statement resolver, the job, queries, actions, DTOs. `ui.ts`: `TripPanel`, `RateTable`, `PerDiemSheet`, actions, types.
+- `index.ts`: calculator (+ constants), rates, trip, the statement resolver, the job, queries, actions, DTOs. `ui.ts`: `TripPanel`, `RateTable`, `RateYearTabs`, `RateActions`, `PerDiemSheet`, actions, types.
 - Actions: reads on `authedAction` + `can(read, expense)`; `upsertRateAction`, `deleteRateAction`, `copyRatesFromYearAction`, `pasteSkatteverketCsvAction`, `upsertTripAction`, `createPerDiemExpenseAction` on `ownerAction`.
 - Nothing imports traktamente except the pages (part 2); traktamente imports expenses' `index.ts` only.
 
