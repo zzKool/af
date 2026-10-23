@@ -2,11 +2,11 @@
 
 // The Rates section of one contract (specs/contracts US1, US3): dated history, inline add, edit-in-place,
 // delete with confirm. Lives inside the contract's expanded row on the partner page — no route of its own.
-// States (Current / Expired / Future) come from the server, derived against today; never stored.
+// States (Current / Expired / Future) come from the server, derived against today; never stored — shown as a
+// D40 <StateLabel> through the module's one map (state-family.ts). Amounts through formatMoney (F71).
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -20,8 +20,10 @@ import {
 } from "@/components/ui/table";
 import type { AppError } from "@/kernel/errors/app-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
+import { DetailsSection } from "@/kernel/ui/details-section";
+import { StateLabel } from "@/kernel/ui/state-label";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createContractRateAction,
@@ -29,6 +31,7 @@ import {
   getContractRatesAction,
   updateContractRateAction,
 } from "@/modules/contracts/contracts.actions";
+import { rateStateFamily } from "@/modules/contracts/state-family";
 import type { RateState, RateUnit } from "@/modules/contracts/types";
 
 /** What the page hands over: calendar dates and the decimal as strings, state from the server. */
@@ -43,12 +46,6 @@ export type ContractRateRow = {
 };
 
 type ActionResult = { serverError?: { message?: string }; data?: { error?: AppError } } | undefined;
-
-const STATE_STYLE: Record<RateState, string> = {
-  current: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  expired: "bg-muted text-muted-foreground",
-  future: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-};
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -188,7 +185,7 @@ export function ContractRates({
         },
         {
           description: t("contracts.rates.deleteConfirm.description", {
-            rate: `${formatCurrency(row.rate, (currency ?? "CHF") as Currency)} ${currency ?? ""}`.trim(),
+            rate: formatMoney(row.rate, currency),
             from: row.validFrom,
           }),
         },
@@ -197,130 +194,126 @@ export function ContractRates({
     [confirm, currency, errorText, execDelete, reload, t],
   );
 
-  const money = useMemo(
-    () => (amount: string) =>
-      `${formatCurrency(amount, (currency ?? "CHF") as Currency)} ${currency ?? ""}`.trim(),
-    [currency],
-  );
+  const money = useMemo(() => (amount: string) => formatMoney(amount, currency), [currency]);
 
   return (
-    <section className="space-y-2" data-testid="contract-rates">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">{t("contracts.rates.title")}</h4>
+    <div data-testid="contract-rates">
+      <DetailsSection title={t("contracts.rates.title")} className="space-y-2">
         {!adding && (
-          <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-            {t("contracts.rates.add")}
-          </Button>
+          <div className="mb-2 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+              {t("contracts.rates.add")}
+            </Button>
+          </div>
         )}
-      </div>
 
-      {adding && (
-        <form
-          className="flex flex-wrap items-end gap-3 rounded-lg border p-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleAdd();
-          }}
-        >
-          <div>
-            <label htmlFor={`${ids}-from`} className="mb-1 block text-xs font-medium">
-              {t("contracts.rates.validFrom")}
-            </label>
-            <Input
-              id={`${ids}-from`}
-              type="date"
-              value={newFrom}
-              onChange={(e) => setNewFrom(e.target.value)}
-              className="h-8"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor={`${ids}-to`} className="mb-1 block text-xs font-medium">
-              {t("contracts.rates.validTo")}
-            </label>
-            <Input
-              id={`${ids}-to`}
-              type="date"
-              value={newTo}
-              onChange={(e) => setNewTo(e.target.value)}
-              className="h-8"
-            />
-          </div>
-          <div className="w-32">
-            <label htmlFor={`${ids}-rate`} className="mb-1 block text-xs font-medium">
-              {t("contracts.rates.rate")}{" "}
-              {currency ? `(${currency}/${t("contracts.rates.unit.day")})` : ""}
-            </label>
-            <Input
-              id={`${ids}-rate`}
-              inputMode="decimal"
-              value={newRate}
-              onChange={(e) => setNewRate(e.target.value.replace(",", "."))}
-              placeholder="1200.00"
-              className="h-8"
-              autoFocus
-            />
-          </div>
-          <div className="min-w-40 flex-1">
-            <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
-              {t("contracts.rates.note")}
-            </label>
-            <Input
-              id={`${ids}-note`}
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              className="h-8"
-              maxLength={500}
-            />
-          </div>
-          <Button type="submit" size="sm" disabled={isCreating || !newFrom || !newRate}>
-            {t("common.add")}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>
-            {t("common.cancel")}
-          </Button>
-          <p className="basis-full text-xs text-muted-foreground">{t("contracts.rates.tip")}</p>
-        </form>
-      )}
+        {adding && (
+          <form
+            className="mb-2 flex flex-wrap items-end gap-3 rounded-lg border p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleAdd();
+            }}
+          >
+            <div>
+              <label htmlFor={`${ids}-from`} className="mb-1 block text-xs font-medium">
+                {t("contracts.rates.validFrom")}
+              </label>
+              <Input
+                id={`${ids}-from`}
+                type="date"
+                value={newFrom}
+                onChange={(e) => setNewFrom(e.target.value)}
+                className="h-8"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor={`${ids}-to`} className="mb-1 block text-xs font-medium">
+                {t("contracts.rates.validTo")}
+              </label>
+              <Input
+                id={`${ids}-to`}
+                type="date"
+                value={newTo}
+                onChange={(e) => setNewTo(e.target.value)}
+                className="h-8"
+              />
+            </div>
+            <div className="w-32">
+              <label htmlFor={`${ids}-rate`} className="mb-1 block text-xs font-medium">
+                {t("contracts.rates.rate")}{" "}
+                {currency ? `(${currency}/${t("contracts.rates.unit.day")})` : ""}
+              </label>
+              <Input
+                id={`${ids}-rate`}
+                inputMode="decimal"
+                value={newRate}
+                onChange={(e) => setNewRate(e.target.value.replace(",", "."))}
+                placeholder="1200.00"
+                className="h-8"
+                autoFocus
+              />
+            </div>
+            <div className="min-w-40 flex-1">
+              <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
+                {t("contracts.rates.note")}
+              </label>
+              <Input
+                id={`${ids}-note`}
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                className="h-8"
+                maxLength={500}
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={isCreating || !newFrom || !newRate}>
+              {t("common.add")}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>
+              {t("common.cancel")}
+            </Button>
+            <p className="basis-full text-xs text-muted-foreground">{t("contracts.rates.tip")}</p>
+          </form>
+        )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-40">{t("contracts.rates.validFrom")}</TableHead>
-              <TableHead className="w-40">{t("contracts.rates.validTo")}</TableHead>
-              <TableHead className="w-40 text-right">{t("contracts.rates.rate")}</TableHead>
-              <TableHead>{t("contracts.rates.note")}</TableHead>
-              <TableHead className="w-24" />
-              <TableHead className="w-20" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rates.length === 0 ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="h-12 text-center text-muted-foreground">
-                  {t("contracts.rates.empty")}
-                </TableCell>
+                <TableHead className="w-40">{t("contracts.rates.validFrom")}</TableHead>
+                <TableHead className="w-40">{t("contracts.rates.validTo")}</TableHead>
+                <TableHead className="w-40 text-right">{t("contracts.rates.rate")}</TableHead>
+                <TableHead>{t("contracts.rates.note")}</TableHead>
+                <TableHead className="w-28">{t("partners.col.status")}</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
-            ) : (
-              rates.map((row) => (
-                <RateRow
-                  // remount when the server changed the row (auto-close, edit refused) so the inputs show the truth
-                  key={`${row.id}:${row.validFrom}:${row.validTo ?? ""}:${row.rate}:${row.note ?? ""}`}
-                  row={row}
-                  money={money}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
+            </TableHeader>
+            <TableBody>
+              {rates.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-12 text-center text-muted-foreground">
+                    {t("contracts.rates.empty")}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rates.map((row) => (
+                  <RateRow
+                    // remount when the server changed the row (auto-close, edit refused) so the inputs show the truth
+                    key={`${row.id}:${row.validFrom}:${row.validTo ?? ""}:${row.rate}:${row.note ?? ""}`}
+                    row={row}
+                    money={money}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DetailsSection>
       <ConfirmDialog {...dialogProps} />
-    </section>
+    </div>
   );
 }
 
@@ -382,9 +375,10 @@ function RateRow({
         ) : (
           <button
             type="button"
-            className="w-full rounded px-2 py-1 text-right hover:bg-muted"
+            className="w-full rounded px-2 py-1 text-right hover:bg-hover"
             onClick={() => setEditingRate(true)}
             title={t("common.edit")}
+            data-amount={row.rate}
           >
             {money(row.rate)}
           </button>
@@ -401,14 +395,16 @@ function RateRow({
         />
       </TableCell>
       <TableCell>
-        <Badge variant="outline" className={STATE_STYLE[row.state]}>
-          {t(`contracts.rates.state.${row.state}`)}
-        </Badge>
+        <StateLabel
+          family={rateStateFamily(row.state)}
+          state={t(`contracts.rates.state.${row.state}`)}
+        />
       </TableCell>
       <TableCell className="text-right">
-        <Button variant="ghost" size="sm" className="h-7" onClick={() => onDelete(row)}>
-          {t("common.delete")}
-        </Button>
+        <RowActionsMenu
+          label={t("table.rowActions")}
+          actions={[{ label: t("common.delete"), destructive: true, onClick: () => onDelete(row) }]}
+        />
       </TableCell>
     </TableRow>
   );
