@@ -21,4 +21,4 @@
 
 ## Cleanup lane 7 (2026-10-23, lessons audit 23 / 25 / 26 / 29 / 30 — DIRECT, behaviour-neutral)
 
-- [x] T018 The package reads through the owners: `firstMonth` → `banking.firstBookingDate`; the *missing document* flag → the supplier invoices' / expenses' own `hasDocument` (lessons audit 23 follow-up, 25, 26). Same flags on the fixture (`package.test.ts` unchanged) — *`feat/package-owner-reads`*
+- [x] T018 The package reads through the owners: `firstMonth` → `banking.firstBookingDate`; a bank row's state, allocation and transfer → `banking.transactionStates` (no second derivation in `collect.ts`); the *missing document* flag → the supplier invoices' / expenses' own `hasDocument` (lessons audit 23 follow-up, 25, 26). Same flags on the fixture (`package.test.ts` unchanged) — *`feat/package-owner-reads`*
