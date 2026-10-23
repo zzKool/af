@@ -30,6 +30,7 @@ import {
 } from "@/modules/documents/documents.actions";
 import type { DocumentListRow } from "@/modules/documents/queries";
 import { FileUploadZone } from "./file-upload-zone";
+import { becameHref } from "./make-it-section";
 
 /** What the page hands over: Dates serialised, nothing else. */
 export type DocumentRow = Omit<DocumentListRow, "createdAt" | "reviewedAt"> & {
@@ -223,12 +224,30 @@ export function DocumentsTable({
         key: "linked",
         header: t("documents.col.linked"),
         type: "boolean",
-        width: "6rem",
-        cell: (row) => (
-          <Badge variant={row.linked ? "default" : "secondary"}>
-            {row.linked ? t("documents.linked") : t("documents.notLinked")}
-          </Badge>
-        ),
+        width: "13rem",
+        truncate: false,
+        // FR-005: what the document became, linking to it; a document only a bank row justifies stays *Linked*
+        cell: (row) =>
+          row.became ? (
+            <Link
+              href={becameHref(row.became)}
+              title={row.became.label ?? undefined}
+              data-testid="document-became-link"
+            >
+              <Badge variant="default" className="hover:underline">
+                {t(
+                  row.became.type === "expense"
+                    ? "documents.became.expense"
+                    : "documents.became.supplierInvoice",
+                  { key: row.became.key ?? "" },
+                )}
+              </Badge>
+            </Link>
+          ) : (
+            <Badge variant={row.linked ? "default" : "secondary"}>
+              {row.linked ? t("documents.linked") : t("documents.notLinked")}
+            </Badge>
+          ),
       },
       {
         key: "mimeType",

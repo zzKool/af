@@ -1207,6 +1207,8 @@ export const sv: Dictionary = {
   "documents.needsReview": "behöver granskas",
   "documents.linked": "Kopplat",
   "documents.notLinked": "Inte kopplat",
+  "documents.became.expense": "Utgift {key}",
+  "documents.became.supplierInvoice": "Leverantörsfaktura {key}",
   "documents.download": "Ladda ner",
   "documents.delete": "Ta bort",
   "documents.deleteConfirm":

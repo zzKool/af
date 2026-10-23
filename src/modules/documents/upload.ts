@@ -13,6 +13,7 @@ import { logger } from "@/kernel/logging/logger";
 import { validateFile } from "@/kernel/storage/file-validation";
 import type { StorageService } from "@/kernel/storage/storage";
 import { generateBusinessKey } from "@/modules/documents/business-key";
+import { createdFromTargets } from "@/modules/linking";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -84,16 +85,14 @@ export async function uploadDocument(
     },
   });
   if (existing && !options.force) {
-    const became = await tx.link.findFirst({
-      where: { kind: "created_from", toType: "document", toId: existing.id },
-      select: { fromType: true },
-    });
+    const became = (await createdFromTargets(tx, [existing.id])).get(existing.id);
     return {
       data: {
         kind: "duplicate",
         existing: {
           ...existing,
-          becameType: (became?.fromType as DuplicateUploadRef["becameType"]) ?? null,
+          becameType:
+            became?.type === "expense" || became?.type === "supplier_invoice" ? became.type : null,
         },
       },
     };
