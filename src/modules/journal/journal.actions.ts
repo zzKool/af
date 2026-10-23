@@ -5,6 +5,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { uuid } from "@/kernel/validation/scalars";
+import { entryHistory } from "@/modules/journal/history";
 import * as journal from "@/modules/journal/journal";
 import { linkEntry, linkEntrySchema } from "@/modules/journal/links";
 import {
@@ -57,6 +58,15 @@ export const journalDateHierarchyAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "journal_entry")) return forbidden;
     return { data: await journalDateHierarchy(ctx.tx, parsedInput.column, parsedInput.query) };
+  });
+
+/** The panel's History (F71): the entry's audit trail, read back — the accountant reads it too. */
+export const journalEntryHistoryAction = authedAction
+  .schema(z.object({ id: uuid }))
+  .metadata({ name: "journalEntryHistory" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "journal_entry")) return forbidden;
+    return { data: await entryHistory(ctx.tx, parsedInput.id) };
   });
 
 // --- writes (owner only) ---

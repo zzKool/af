@@ -120,7 +120,8 @@ test.describe("Supplier invoices", () => {
       await page.getByTestId("link-payment-run").click();
       await expectToast(page, "Payment linked");
       await expect(page.getByTestId("panel-status")).toHaveText("Paid");
-      await expect(panel.getByTestId("payments")).toContainText("1 297,20");
+      // the D40 on-screen money: U+202F thousands, "." decimals (formatMoney; \s matches U+202F and U+00A0 whether or not Playwright normalises)
+      await expect(panel.getByTestId("payments")).toContainText(/1\s297\.20\sSEK/);
       // paid and linked: the money facts are written, no cancel, no delete
       await expect(panel.getByTestId("save-money")).toHaveCount(0);
       await expect(panel.getByTestId("cancel-invoice")).toHaveCount(0);

@@ -12,6 +12,7 @@ export {
   entriesOf,
   packageJobs,
 } from "./jobs/build-package";
+export * from "./month-columns";
 export { FLAG_TITLES, notesMd } from "./notes";
 export type { BuildRequest } from "./package";
 export {
@@ -34,6 +35,7 @@ export {
   periodLabel,
 } from "./period";
 export * from "./queries";
+export * from "./state-family";
 export { SHEETS, summaryRows, summaryXlsx } from "./summary";
 export type * from "./types";
 export { FLAG_KINDS, PACKAGE_BUILD_STATUSES } from "./types";

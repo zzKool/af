@@ -3,8 +3,9 @@
 
 export * from "./components/group-section";
 export * from "./components/labels";
+export * from "./components/new-supplier-invoice-button";
 export * from "./components/new-supplier-invoice-dialog";
-export * from "./components/status-badge";
+export * from "./components/state-label";
 export * from "./components/supplier-invoice-panel";
 export * from "./components/supplier-invoice-table";
 export * from "./components/supplier-match-card";

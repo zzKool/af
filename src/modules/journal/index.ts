@@ -2,6 +2,7 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and actions.
 
+export { entryHistory } from "./history";
 export type { CategoriseOptions, ManualEntryInput } from "./journal";
 export {
   bankEntrySchema,
@@ -23,6 +24,7 @@ export {
   distinctJournalValuesAction,
   getJournalEntryAction,
   journalDateHierarchyAction,
+  journalEntryHistoryAction,
   linkEntryAction,
   listJournalEntriesAction,
 } from "./journal.actions";
@@ -32,4 +34,4 @@ export { deriveLinksState } from "./links-state";
 export { categoryOptions, partnerOptions } from "./options";
 export * from "./queries";
 export type * from "./types";
-export { JOURNAL_SOURCES, LINKS_STATES, RATE_SOURCES } from "./types";
+export { JOURNAL_FACTS, JOURNAL_SOURCES, LINKS_STATES, RATE_SOURCES } from "./types";

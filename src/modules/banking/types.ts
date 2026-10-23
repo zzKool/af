@@ -1,6 +1,9 @@
 // Public DTOs of the banking module. Plain types only — never Prisma types (constitution §2).
 // Decimals travel as strings ("-20000.00"), dates as ISO strings ("2026-07-08").
 
+import type { CategorisedBy } from "@/modules/journal";
+import type { LinkableType, LinkKind } from "@/modules/linking";
+
 export type BankAccountRole = "main" | "savings";
 export const BANK_ACCOUNT_ROLES: readonly BankAccountRole[] = ["main", "savings"];
 
@@ -188,6 +191,19 @@ export type TransferProposal = {
   confidence: "high" | "medium";
 };
 
+/** An outgoing row on a main account — the pickers' starting list (`outgoingMainRows`, read by expenses and supplier invoices). */
+export type OutgoingMainRow = {
+  id: string;
+  bookingDate: string;
+  amount: string;
+  currency: string;
+  description: string;
+  bankAccountId: string;
+  accountLabel: string;
+  /** the journal entry's base, null before the row has one */
+  amountBase: string | null;
+};
+
 export type AccountBalance = {
   bankAccountId: string;
   label: string;
@@ -223,3 +239,17 @@ export type BankMonthsOverview = {
   /** the newest closed month with bank rows and no built package — *N transactions without proof — package YYYY-MM not built* */
   banner: { month: string; withoutProof: number } | null;
 };
+
+/**
+ * One line of a bank row's History (the side panel, F71) — read from the audit trail, never stored. `by` is the
+ * journal entry's `categorisedBy` after the change; `source` the caller's (web, system…).
+ */
+export type TransactionHistoryEvent = { at: string; source: string } & (
+  | { kind: "imported" }
+  | { kind: "categorised"; basCode: string; by: CategorisedBy | null }
+  | {
+      kind: "uncategorised" | "partner" | "no_document" | "document_needed";
+      by: CategorisedBy | null;
+    }
+  | { kind: "linked"; linkKind: LinkKind; otherType: LinkableType }
+);

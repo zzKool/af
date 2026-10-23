@@ -931,6 +931,36 @@ describe("US2 — paid by a link", () => {
     expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
   });
 
+  it("the panel's History (F71): the invoice's audit entries, newest first, named by what happened", async () => {
+    const r = await create(julyInvoice({ invoiceNumber: "9170" }));
+    const id = r.data!.id;
+    await run(owner.caller, (tx) =>
+      updateSupplierInvoice(tx, owner.caller, realAudit(tx, owner.caller), id, { note: "July" }),
+    );
+    await run(owner.caller, (tx) =>
+      cancelSupplierInvoice(tx, owner.caller, realAudit(tx, owner.caller), id, "Sent twice"),
+    );
+    await run(owner.caller, (tx) =>
+      uncancelSupplierInvoice(tx, owner.caller, realAudit(tx, owner.caller), id),
+    );
+    const row = await chfRow("2026-03-31", "-1297.20");
+    await run(owner.caller, (tx) =>
+      recordPayment(tx, owner.caller, realAudit(tx, owner.caller), {
+        invoiceId: id,
+        bankTransactionId: row,
+      }),
+    );
+    const d = await detail(id);
+    expect(d.history.map((h) => h.event)).toEqual([
+      "paymentLinked",
+      "reinstated",
+      "cancelled",
+      "edited",
+      "created",
+    ]);
+    expect(d.history[0].at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
   it("overdue with the days; cancel (typed flag) and uncancel; delete only while unlinked and documentless", async () => {
     const r = await create(julyInvoice({ dueDate: "2026-03-20" }));
     expect(await detail(r.data!.id, "2026-03-27")).toMatchObject({
@@ -1021,7 +1051,10 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
       partnerName: "OpenAI",
       currency: "EUR",
     });
-    expect(list.sums?.open).toBe("2594.40");
+    // CHF + EUR in the set: no Σ open / total under one currency label — only the base (F71, list-sums.ts)
+    expect(list.sums?.open).toBeUndefined();
+    expect(list.sums?.amountTotal).toBeUndefined();
+    expect(list.sums?.amountBase).toBeDefined();
     const filtered = await run(owner.caller, (tx) =>
       listSupplierInvoices(
         tx,
@@ -1030,6 +1063,9 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
       ),
     );
     expect(filtered.rows.map((r) => r.id)).toEqual([late.data!.id]);
+    // one currency (EUR): Σ total and Σ open in it
+    expect(filtered.sums).toMatchObject({ amountTotal: "1297.20", open: "1297.20" });
+    expect(filtered.sums?.amountBase).toBeUndefined();
     const searched = await run(owner.caller, (tx) =>
       listSupplierInvoices(tx, { ...Q, search: "openai" }, { today: "2026-04-01" }),
     );

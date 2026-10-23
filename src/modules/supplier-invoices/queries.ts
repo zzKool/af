@@ -2,6 +2,7 @@
 // columns, then the group, the supplier's name, the BAS label, Σ justifies allocations and the document are
 // joined over that set and the derived status / filters / search / sort / page run in memory.
 import { Prisma } from "@/generated/prisma/browser";
+import { getAuditLog } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
@@ -24,6 +25,8 @@ import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { sumAllocated } from "./allocated";
+import { historyEvent, type SupplierInvoiceHistoryEntry } from "./history";
+import { supplierInvoiceListSums } from "./list-sums";
 import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
 import { toSupplierInvoiceDto } from "./supplier-invoices";
 import type {
@@ -45,7 +48,7 @@ export const SUPPLIER_INVOICE_COLUMNS = {
   groupNumber: { type: "number" },
   groupDescription: { type: "text", searchable: true },
   partnerId: { type: "enum" },
-  partnerName: { type: "text", searchable: true },
+  partnerName: { type: "enum", searchable: true },
   invoiceNumber: { type: "text", searchable: true },
   invoiceDate: { type: "date" },
   dueDate: { type: "date" },
@@ -249,7 +252,8 @@ export async function listSupplierInvoices(
   options: { groupId?: string; today?: string } = {},
 ): Promise<ListResult<SupplierInvoiceListRow>> {
   const all = await loadRows(tx, q, options);
-  return finishList(all, q, SUPPLIER_INVOICE_COLUMNS, SUPPLIER_INVOICE_DEFAULT_SORT);
+  const list = finishList(all, q, SUPPLIER_INVOICE_COLUMNS, SUPPLIER_INVOICE_DEFAULT_SORT);
+  return { ...list, sums: supplierInvoiceListSums(all, list.sums) };
 }
 
 export async function distinctSupplierInvoiceValues(
@@ -323,6 +327,8 @@ export type SupplierInvoiceDetail = {
   links: (LinkDto & { otherLabel: string | null })[];
   /** money facts may change (no payment, no link) */
   editable: boolean;
+  /** the invoice's audit entries, newest first (the panel's History) */
+  history: SupplierInvoiceHistoryEntry[];
 };
 
 export async function getSupplierInvoiceDetail(
@@ -340,12 +346,13 @@ export async function getSupplierInvoiceDetail(
       error: { code: "NOT_FOUND", message: `Supplier invoice not found: ${id}`, retryable: false },
     };
   }
-  const [f, labels, names, links, regs] = await Promise.all([
+  const [f, labels, names, links, regs, history] = await Promise.all([
     facts(tx, [id]),
     settings.basLabels(tx, [row.basCode]),
     partners.partnerNames(tx, [row.partnerId]),
     linking.getLinksFor(tx, { type: "supplier_invoice", id }),
     row.vatRegistrationId ? settings.getVatRegistrations(tx, caller) : Promise.resolve(null),
+    supplierInvoiceHistory(tx, id),
   ]);
   const dto = toSupplierInvoiceDto(row);
   const derived = statusOf(dto, f, id, today);
@@ -400,8 +407,29 @@ export async function getSupplierInvoiceDetail(
       payments,
       links: withLabels,
       editable: !row.cancelled && !row.paidAmount && payments.length === 0,
+      history,
     },
   };
+}
+
+const HISTORY_LIMIT = 50;
+
+/** The invoice's history, newest first — each audit entry named by `historyEvent`. */
+export async function supplierInvoiceHistory(
+  tx: TransactionClient,
+  id: string,
+): Promise<SupplierInvoiceHistoryEntry[]> {
+  const entries = await getAuditLog(tx, {
+    entityType: "supplier_invoice",
+    entityId: id,
+    limit: HISTORY_LIMIT,
+  });
+  return entries.map((e) => ({
+    id: e.id,
+    event: historyEvent(e),
+    at: e.createdAt.toISOString(),
+    source: e.source,
+  }));
 }
 
 // --- KPIs (US3) ---

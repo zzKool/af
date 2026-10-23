@@ -3,6 +3,7 @@
 import { translator } from "@/kernel/i18n/translate";
 import { formatCurrency } from "@/kernel/money/format-currency";
 import type { PerDiemStatement } from "@/modules/traktamente/statement";
+import { warningText } from "./per-diem-text";
 
 const sek = (v: string) => `${formatCurrency(v, "SEK")} SEK`;
 
@@ -11,7 +12,8 @@ export function PerDiemSheet({
   locale,
 }: {
   data: PerDiemStatement;
-  locale: "en" | "fr" | null;
+  /** the reader's UI locale (`en` · `fr` · `sv`, or a regional tag); null → English */
+  locale: string | null;
 }) {
   const t = translator(locale);
   const r = data.result;
@@ -117,8 +119,8 @@ export function PerDiemSheet({
           {sek(r.total)}
         </dd>
         {r.warnings.map((w) => (
-          <dd key={w} className="col-span-2 text-[8.5pt] text-neutral-600">
-            {w}
+          <dd key={w.message} className="col-span-2 text-[8.5pt] text-neutral-600">
+            {warningText(t, w)}
           </dd>
         ))}
       </dl>

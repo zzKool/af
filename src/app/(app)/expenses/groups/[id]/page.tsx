@@ -113,7 +113,12 @@ export default async function ExpenseGroupPage({
             categories={data.options.categories}
             perDiemExpense={
               data.perDiem
-                ? { id: data.perDiem.id, key: data.perDiem.key, amount: data.perDiem.amount }
+                ? {
+                    id: data.perDiem.id,
+                    key: data.perDiem.key,
+                    amount: data.perDiem.amount,
+                    basCode: data.perDiem.basCode,
+                  }
                 : null
             }
             canWrite={canWrite}

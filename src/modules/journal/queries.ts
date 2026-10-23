@@ -40,6 +40,8 @@ export const JOURNAL_COLUMNS = {
   categorisedBy: { type: "enum" },
   note: { type: "text", searchable: true },
   linksState: { type: "enum" },
+  /** the bank account's label (T006) — the Account quick filter (F71); blank for a manual entry */
+  accountAlias: { type: "enum" },
   createdAt: { type: "date" },
   updatedAt: { type: "date" },
 } as const satisfies ColumnMap;
@@ -51,12 +53,14 @@ export const JOURNAL_DEFAULT_SORT: SortSpec[] = [
   { col: "createdAt", dir: "desc" },
 ];
 
-// derived on read — filtered in memory: the bank implicit rate from the transfer link (T005), the links state (T004)
+// derived on read — filtered in memory: the bank implicit rate from the transfer link (T005), the links state (T004),
+// the account's label from banking (T006)
 const DERIVED: ReadonlySet<string> = new Set([
   "partnerName",
   "basLabel",
   "bankImplicitRate",
   "linksState",
+  "accountAlias",
 ]);
 const STORED_COLUMNS: ColumnMap = Object.fromEntries(
   Object.entries(JOURNAL_COLUMNS).filter(([k]) => !DERIVED.has(k)),

@@ -2,7 +2,7 @@
 
 // The workbench's docked details panel (D40): the title (date · amount · state), the transfer proposal as a
 // banner, then the sections About (the row as the bank said it) · Proof (links, suggestions) · Journal entry
-// (the categorise form, "create rule from this"). Self-loading from the transaction id (the same view opens
+// (the categorise form, "create rule from this") · History (collapsed; the audit trail). Self-loading from the transaction id (the same view opens
 // from the list, from an import's "show the new rows" and in the inbox's right pane).
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -27,6 +27,7 @@ import type { TransactionDetail } from "@/modules/banking/queries";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "@/modules/journal/ui";
 import { GraphLink, LinksList, SuggestionsSection } from "@/modules/linking/ui";
 import { RuleDialog } from "./rule-dialog";
+import { TransactionHistory } from "./transaction-history";
 import { TransactionStateLabel } from "./transaction-state";
 
 type Detail = Omit<TransactionDetail, "transaction" | "entry" | "links" | "import"> & {
@@ -321,6 +322,8 @@ export function TransactionDetailView({
                 <p className="text-sm text-muted-foreground">—</p>
               )}
             </DetailsSection>
+
+            <TransactionHistory transactionId={tx.id} refreshKey={version} />
           </div>
 
           {canWrite && detail.entry && (
