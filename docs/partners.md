@@ -10,21 +10,25 @@ A client, vendor or employee (`types[]`, at least one) with org/VAT numbers, def
 prisma/schema/partners.prisma      models Partner + PartnerContact; partial unique indexes (org number, short code)
 src/modules/partners/
   types.ts            PartnerDto, PartnerSummaryDto, PartnerType, ExternalIdentifier, PartnerAddress
+  state-family.ts     the one state → D40 family map: active → done, inactive → neutral (from is_active, never typed)
   partners.ts         service: Zod schemas, toPartnerDto, create/update/deactivate/reactivate, getPartner(s), searchPartners
   contacts.ts         contact persons (F08): schemas, toPartnerContactDto, list / create / update / delete, audited
-  queries.ts          READ API — PARTNER_COLUMNS (ColumnMap), listPartners(tx, q), distinctPartnerValues, partnerDateHierarchy
+  queries.ts          READ API — PARTNER_COLUMNS (ColumnMap), listPartners(tx, q), distinctPartnerValues, partnerDateHierarchy,
+                      getPartner(s), listPartnerContacts (re-exported: pages read through queries.ts)
   partners.actions.ts ownerAction wrappers: CRUD + distinctPartnersAction + partnerDateHierarchyAction (ListQuery validated by listQuerySchema)
   linkable.ts         partnerLinkable (exists/summary) registered in modules/linking/linkables.ts
   components/
-    partner-table.tsx   the list on kernel DataTable: columns, filterSource (the two actions), create form, row actions
-    partner-form.tsx    autosave-on-blur edit form (short code, numbers, defaults, identifiers, address)
-    partner-detail-tabs.tsx  entity page: header + tabs (overview, contracts, contacts, transactions, documents)
-    partner-contacts.tsx     the Contacts tab: inline add, row view ↔ row edit, delete with confirm
+    partner-table.tsx   the list on kernel DataTable: columns, filterSource (the two actions), Types quick filter, ⋮ rowActions
+    new-partner-button.tsx   the list's one primary: Add partner → a dialog (name, short code, types)
+    partner-labels.tsx  PartnerStateLabel (StateLabel through state-family) · PartnerTypeTags (grey <Tag>s)
+    partner-form.tsx    autosave-on-blur edit form in DetailsSections (basic, defaults, address, identifiers)
+    partner-detail-tabs.tsx  entity page: PageHeader (state, type tags, ⋮, Graph) + underline tabs with count badges
+    partner-contacts.tsx     the Contacts tab: inline add, row view ↔ row edit, Edit / Delete in the row's ⋮
   partners.test.ts    service rules (types, FK validation, soft delete, RLS)
   contacts.test.ts    contact rules (validation, sort, scoping to the partner and the tenant, audit)
   queries.test.ts     the ListQuery contract on the real DB: paging, sorting, every filter kind, search, distinct with Excel semantics, date hierarchy
   index.ts / ui.ts    surfaces
-src/app/(app)/partners/page.tsx        list page: parseListQuery(searchParams) → listPartners → <ListPage><PartnerTable/></ListPage>
+src/app/(app)/partners/page.tsx        list page: parseListQuery(searchParams) → listPartners → <ListPage actions={<NewPartnerButton/>}><PartnerTable/></ListPage>
 src/app/(app)/partners/[id]/page.tsx   entity page: <EntityPage> around the tabs
 ```
 
@@ -35,15 +39,32 @@ src/app/(app)/partners/[id]/page.tsx   entity page: <EntityPage> around the tabs
 4. **Columns declare, the kernel renders.** `type` picks the filter UI and alignment; `cell` overrides rendering; `width`, `defaultHidden`, `alwaysVisible`, `truncate` shape the layout. Column visibility is remembered per table key (browser storage for now; per-user table preferences come with the documents migration).
 5. **Mutations** go through the module's actions and `router.refresh()`.
 
+## On the D40 kit (F71 — 2026-10-23)
+
+```
+/partners                                  /partners/<id>
+┌ Partners · 8 partners      [Add partner] ┌ Partners ›
+│ [Filter rows…] [Types ▾]                 │ (icon) Name  ✓ Active  client      ⋮  Graph
+│ Name  Short  Types   …  Status    ⋮      │ Overview  Contracts ①  Contacts ⓪  Transactions ⓪  Documents ⓪
+│ Acme  AC     client     ✓ Active  ⋮      │ ▾ About · ▾ Basic information · ▾ Defaults · ▾ Address · ▾ Identifiers
+```
+
+- **State**: `state-family.ts` is the one map (active → done ✓, inactive → neutral –), shown by `PartnerStateLabel` in the list's Status cell, the title row and About. Never a coloured badge.
+- **Types** are metadata: grey `<Tag>`s (`PartnerTypeTags`), no per-type colour. The list has a **Types** quick filter.
+- **One primary per title row**: the list's *Add partner* opens a dialog (it used to be an inline form above the table); the partner page has none — *Deactivate* / *Reactivate* sit in the title row's ⋮ (*More actions*, through a `ConfirmDialog`), *Graph* is the secondary. In the list they are the row's ⋮ (`rowActions`).
+- **The partner page** is a `PageHeader` (no back link, the breadcrumb names *Partners*; the title once) with underline tabs whose counts are `<CountBadge>`s (`partners.tab.*` without a count: *Contracts 1*). Overview = an *About* section (state, types, active contracts, created `yyyy-mm-dd`) and the form's four groups as collapsible `DetailsSection`s. A saved name or types change updates the title row without a reload.
+- **Transactions tab**: amounts through `formatMoney` with the plain decimal on `data-amount`, the base beside a foreign amount (`BASE_CURRENCY` until F70), the BAS label a `<Tag>`. **Documents tab**: the key a `<CodeChip>`, the category a `<Tag>`. The stored OCR step (`status`) is no longer shown — the derived document state is the documents module's (`documentState`); showing it here needs `documentsByIds` to carry it (`specs/partners/tasks.md` T011).
+- **Contacts**: *Edit* / *Delete* in the row's ⋮ (`RowActionsMenu`); a server error without a message reads `errors.generic`, not *Error*.
+
 ## The entity page's relationships (2026-10-21)
 
-`/partners/[id]` composes three read models of other modules on top of the partner itself — the page does it, never the partners module (cycles): `linking.linksTouching(tx, "partner", [id])` → the documents linked to the partner (`documents.documentsByIds`) for the *Documents* tab; `journal.listJournalEntries` filtered on `partnerId` (newest 25, with the total) for the *Transactions* tab, which links to the journal filtered on the partner; the tab labels and the overview carry the counts. The header's *Graph* button opens `/links/partner/<id>` (the linking graph). The strings are `partners.*` in the dictionary (en / fr / sv) since the same day.
+`/partners/[id]` composes three read models of other modules on top of the partner itself — the page does it, never the partners module (cycles): `linking.linksTouching(tx, "partner", [id])` → the documents linked to the partner (`documents.documentsByIds`) for the *Documents* tab; `journal.listJournalEntries` filtered on `partnerId` (newest 25, with the total) for the *Transactions* tab, which links to the journal filtered on the partner; the tabs carry the counts as badges (F71). The header's *Graph* button opens `/links/partner/<id>` (the linking graph). The strings are `partners.*` in the dictionary (en / fr / sv) since the same day.
 
 ## Contact persons (F08 — 2026-10-22, `specs/partners/spec.md`)
 
 A partner has zero or more contact persons: **name** (required, ≤ 200), **role** (≤ 100), **e-mail** (a valid address, ≤ 254), **phone** (free text, ≤ 50). Trimmed; an empty string is stored as `null`. They live in `partner_contacts` (RLS, `partner_id → partners ON DELETE CASCADE` — intra-module, a contact never outlives its partner); not linkable, no history beyond the audit trail (`partner_contact`). The partner's own e-mail and phone stay the company's switchboard; nothing moves between them.
 
-The entity page loads them in its tenant transaction (`listPartnerContacts`, sorted by name case-insensitively) and shows the **Contacts (n)** tab plus the count in the overview. Writes are `ownerAction`s (`create / update / delete PartnerContactAction`); the page itself is owner-only today (`requireCaller manage partner`), so a read-only role does not reach the tab. The client validates the name and the e-mail first (messages in the user's language); the service validates again and returns `details.field` so the client can translate a server refusal too.
+The entity page loads them in its tenant transaction (`listPartnerContacts`, sorted by name case-insensitively) and shows the **Contacts** tab with its count badge. Writes are `ownerAction`s (`create / update / delete PartnerContactAction`; a member is refused on all four, `contacts.test.ts`); the page itself is owner-only today (`requireCaller manage partner`), so a read-only role does not reach the tab. The client validates the name and the e-mail first (messages in the user's language); the service validates again and returns `details.field` so the client can translate a server refusal too.
 
 Not built, by decision: a contact on the invoice (*Attn* / *Your reference*), a primary flag, notes, a cross-partner contacts page, contacts in search.
 

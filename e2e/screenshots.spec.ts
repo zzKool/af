@@ -85,6 +85,27 @@ test.describe("Page screenshots", () => {
         await shoot(page, `partner-contracts-${scheme}`);
       });
 
+      // F71, partners on the D40 kit: the list's one primary opens a dialog; the partner page's Contacts tab
+      // (the partners journey leaves "E2E Contacts …" behind)
+      test(`screenshot partners-new (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/partners");
+        await page.getByRole("button", { name: "Add partner" }).click();
+        await page.getByTestId("new-partner-dialog").waitFor();
+        await shoot(page, `partners-new-${scheme}`);
+      });
+
+      test(`screenshot partner-contacts (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/partners?q=E2E%20Contacts");
+        const first = page.locator('main a[href^="/partners/"]').first();
+        test.skip((await first.count()) === 0, "no E2E partner with contacts");
+        await page.goto((await first.getAttribute("href")) ?? "/partners");
+        await page.getByRole("tab", { name: /Contacts/ }).click();
+        await page.getByTestId("partner-contacts").waitFor();
+        await shoot(page, `partner-contacts-${scheme}`);
+      });
+
       for (const [name, { list, link }] of Object.entries(ENTITIES)) {
         test(`screenshot ${name} (${scheme})`, async ({ page }) => {
           mkdirSync("e2e-screenshots", { recursive: true });
