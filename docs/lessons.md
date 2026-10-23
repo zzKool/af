@@ -268,8 +268,8 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 
 ## F50-g build (the audit write mapper, 2026-10-23)
 
-- [ ] **Pin what a cast wrote before removing it.** The two `as any` hid that `oldData: null` stores the JSON `null` while an omitted field stores SQL NULL — two nulls in one trail. The characterization test went in first and failed on the guess (*both SQL NULL*), so the mapper keeps `Prisma.JsonNull` for `null`; settling on one null is a behaviour change → F84.
-- [ ] **`toAuditData` drops every Decimal.** Its filter keeps plain objects only (`prototype === Object.prototype`) to skip Prisma relations; a `Prisma.Decimal` fails that test, so audited money rows carry no amount. Found by probing the helper while writing the JSON test → F84.
+- [x] **Pin what a cast wrote before removing it.** The two `as any` hid that `oldData: null` stores the JSON `null` while an omitted field stores SQL NULL — two nulls in one trail. The characterization test went in first and failed on the guess (*both SQL NULL*), so the mapper keeps `Prisma.JsonNull` for `null`; settling on one null is a behaviour change → F84. *Done in F84 (2026-10-23): one null, SQL NULL.*
+- [x] **`toAuditData` drops every Decimal.** Its filter keeps plain objects only (`prototype === Object.prototype`) to skip Prisma relations; a `Prisma.Decimal` fails that test, so audited money rows carry no amount. Found by probing the helper while writing the JSON test → F84. *Done in F84 (2026-10-23): a Decimal field is kept as its decimal string; the trail of every money row carries its amounts from now on (older rows stay without them — the trail is immutable).*
 
 ## T020 + T026 build (D36 deletes, the vendor address — 2026-10-23)
 
