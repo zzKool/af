@@ -246,6 +246,11 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **A derived state in the cell, a stored step in the header filter.** The library's Status cell now shows the derived state (the inbox's word), its header filter still filters the stored OCR step — *extracted* holds *Ready* and *Filed* rows. The cell is right (one word on every page); making the filter say the same is a derived `state` column (in-memory, like `linked`: `DERIVED` + an enum in `DOCUMENT_COLUMNS`) — a documents PR of its own, no i18n needed (the words exist).
 - [ ] **An own back link disappears under a named parent.** `PageHeader`'s `back` renders only where the breadcrumb is empty (D40), so moving a page onto `PageHeader` silently drops its *Back to …* link and any test that clicks it. Use the breadcrumb (`navigation "Breadcrumb"`) in e2e; a unit test rendering `PageHeader` needs `usePathname` in its `next/navigation` mock.
 
+## F71 build (exports adopts the D40 kit, 2026-10-23)
+
+- [ ] **A golden file with CRLF does not survive `.gitattributes` `* text=auto eol=lf`**: the VAT CSV ends its lines with `\r\n`, a `.txt` golden would come back LF on checkout and fail on CI only. The golden is a JSON string instead (`swiss-vat-csv-golden.json`), which keeps the bytes whatever git does to line ends. Same rule for any future "byte-identical" export test (the package's CSVs).
+- [ ] **A full `npm run test` empties the seed the e2e needs** (auth setup fails with `toBeTruthy`) — `scripts/dev-env.sh reset` before any e2e after a full unit run, as `scripts/dev-env.md` says; easy to forget when switching branches mid-session.
+
 ## Documents Phase 3 build (T021–T025, T027, F50-f — 2026-10-23, #106 #108 #113 #114 #115 #116)
 
 - [ ] **Shared-file contention appears mid-session**: no PR held the dictionaries at the start; #107 (T019) opened one an hour later, and #108 went up beside it. Converting #108 to a draft is refused from a cloud session, so the merge was held until #107 landed, then `origin/main` merged in. Rule: check open PRs' files **right before each push that opens a PR**, not once per session; when caught late, hold the merge, never the push.

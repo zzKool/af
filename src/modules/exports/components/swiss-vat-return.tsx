@@ -3,11 +3,14 @@
 // The Swiss VAT return page (specs/exports/spec.md US1–US3): registration and quarter, the FTA form row by row
 // (copy a value, type the manual refs), the warnings, the drill-down (invoices and input sources), the CSV, and
 // the declaration record — Declare (freezes the figures), Mark paid (with the vat_payment expense), undo both.
+// D40 kit (F71): the quarter's state as <StateLabel> through state-family.ts, amounts through formatMoney (the
+// plain decimal on data-amount), keys as <CodeChip>, country / credit note as <Tag>. The CSV is not a screen:
+// swissVatCsv writes the stored decimals, unchanged (swiss-vat.pure.test.ts compares it with the pre-F71 file).
+import { Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -30,7 +33,9 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useLocale } from "@/kernel/i18n/locale-provider";
 import { uiLanguage } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
+import { StateIcon, StateLabel } from "@/kernel/ui/state-label";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   declareSwissVatAction,
@@ -40,6 +45,7 @@ import {
   undeclareSwissVatAction,
   unmarkSwissVatPaidAction,
 } from "@/modules/exports/exports.actions";
+import { declarationState, declarationStateFamily } from "@/modules/exports/state-family";
 import { csvFileName, isManualRef, swissVatCsv } from "@/modules/exports/swiss-vat";
 import type {
   ManualRef,
@@ -72,7 +78,9 @@ const SECTIONS: { id: SwissVatLine["section"]; titleKey: string }[] = [
   { id: "III", titleKey: "exports.vat.section.III" },
 ];
 
-const chf = (amount: string) => formatCurrency(amount, "CHF");
+const chf = (amount: string) => formatMoney(amount, "CHF");
+/** a column whose header names the currency ("VAT (CHF)") or a secondary figure next to a full amount */
+const bare = (amount: string) => formatMoney(amount, "CHF", { bare: true });
 
 export function SwissVatReturnPage({
   registrations,
@@ -144,8 +152,9 @@ export function SwissVatReturnPage({
   }, [registrationId, period, loadedFor, reload]);
 
   const declaration = data?.declaration ?? null;
-  const declared = !!declaration?.declaredAt;
-  const paid = !!declaration?.paidAt;
+  const state = declarationState(declaration);
+  const declared = state !== "draft";
+  const paid = state === "paid";
   const editable = canWrite && !declared;
 
   async function blurManual(ref: ManualRef, value: string) {
@@ -276,23 +285,18 @@ export function SwissVatReturnPage({
           </Select>
         </div>
         {data && (
-          <Badge
-            variant="outline"
-            className={
-              paid
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                : declared
-                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                  : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-            }
-            data-testid="vat-status"
-          >
-            {paid
-              ? t("exports.vat.status.paid", { date: declaration?.paidAt ?? "" })
-              : declared
-                ? t("exports.vat.status.declared", { date: declaration?.declaredAt ?? "" })
-                : t("exports.vat.status.draft")}
-          </Badge>
+          <span className="flex h-8 items-center" data-testid="vat-status" data-state={state}>
+            <StateLabel
+              family={declarationStateFamily(state)}
+              state={
+                paid
+                  ? t("exports.vat.status.paid", { date: declaration?.paidAt ?? "" })
+                  : declared
+                    ? t("exports.vat.status.declared", { date: declaration?.declaredAt ?? "" })
+                    : t("exports.vat.status.draft")
+              }
+            />
+          </span>
         )}
         <div className="ml-auto flex flex-wrap items-end gap-2">
           <Button
@@ -348,8 +352,7 @@ export function SwissVatReturnPage({
                 <SelectContent>
                   {payments.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.key} · {p.date} · {formatCurrency(p.amount, p.currency as "CHF")}{" "}
-                      {p.currency}
+                      {p.key} · {p.date} · {formatMoney(p.amount, p.currency)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -385,12 +388,14 @@ export function SwissVatReturnPage({
 
       {data && data.warnings.length > 0 && (
         <ul
-          className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950"
+          className="flex flex-col gap-1.5 rounded-lg bg-tag px-3 py-2 text-[13px]"
           data-testid="vat-warnings"
         >
           {data.warnings.map((w) => (
-            <li key={`${w.type}-${w.message}`}>
-              <span className="font-mono text-xs">{w.type}</span> — {w.message}
+            <li key={`${w.type}-${w.message}`} className="flex items-start gap-2">
+              <StateIcon family="attention" className="mt-0.5" />
+              <CodeChip className="bg-surface">{w.type}</CodeChip>
+              <span className="min-w-0">{w.message}</span>
             </li>
           ))}
         </ul>
@@ -433,7 +438,7 @@ export function SwissVatReturnPage({
                             </div>
                           </TableCell>
                           <TableCell className="w-28 text-right text-xs text-muted-foreground tabular-nums">
-                            {l.base !== undefined ? chf(l.base) : ""}
+                            {l.base !== undefined ? bare(l.base) : ""}
                           </TableCell>
                           <TableCell className="w-36 text-right tabular-nums">
                             {editable && isManualRef(l.ref) ? (
@@ -446,6 +451,7 @@ export function SwissVatReturnPage({
                               <span
                                 className={l.source === "calc" ? "font-medium" : ""}
                                 data-testid={`vat-amount-${l.ref}`}
+                                data-amount={l.amount}
                               >
                                 {chf(l.amount)}
                               </span>
@@ -455,11 +461,12 @@ export function SwissVatReturnPage({
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 px-2 text-xs"
+                              className="size-7 p-0 text-muted-foreground"
                               onClick={() => void copy(l.amount)}
                               title={t("exports.vat.copy")}
+                              aria-label={`${t("exports.vat.copy")} ${l.ref}`}
                             >
-                              ⧉
+                              <Copy className="size-3.5" aria-hidden />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -498,16 +505,20 @@ export function SwissVatReturnPage({
                     )}
                     {data.invoices.map((i) => (
                       <TableRow key={i.id} data-testid="vat-invoice">
-                        <TableCell className="font-mono text-xs">
-                          {i.number}
-                          {i.type === "credit_note" && (
-                            <Badge variant="outline" className="ml-1">
-                              CN
-                            </Badge>
-                          )}
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1">
+                            <CodeChip>{i.number}</CodeChip>
+                            {i.type === "credit_note" && <Tag>CN</Tag>}
+                          </span>
                         </TableCell>
                         <TableCell className="truncate">{i.client}</TableCell>
-                        <TableCell>{i.clientCountry ?? "—"}</TableCell>
+                        <TableCell>
+                          {i.clientCountry ? (
+                            <Tag>{i.clientCountry}</Tag>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="tabular-nums">{i.issueDate}</TableCell>
                         <TableCell
                           className="text-right tabular-nums"
@@ -516,7 +527,7 @@ export function SwissVatReturnPage({
                           {chf(i.net)}
                           {i.conversion ? "*" : ""}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{chf(i.vat)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{bare(i.vat)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -531,7 +542,7 @@ export function SwissVatReturnPage({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-28">{t("exports.vat.col.key")}</TableHead>
+                      <TableHead className="w-44">{t("exports.vat.col.key")}</TableHead>
                       <TableHead>{t("exports.vat.col.label")}</TableHead>
                       <TableHead className="w-28">{t("exports.vat.col.date")}</TableHead>
                       <TableHead className="w-28 text-right">{t("exports.vat.col.net")}</TableHead>
@@ -548,13 +559,15 @@ export function SwissVatReturnPage({
                     )}
                     {data.inputSources.map((s) => (
                       <TableRow key={`${s.kind}:${s.id}`} data-testid="vat-source">
-                        <TableCell className="font-mono text-xs">{s.key}</TableCell>
+                        <TableCell>
+                          <CodeChip>{s.key}</CodeChip>
+                        </TableCell>
                         <TableCell className="truncate">{s.label}</TableCell>
                         <TableCell className="tabular-nums">{s.date}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {formatCurrency(s.net, s.currency as "CHF")} {s.currency}
+                          {formatMoney(s.net, s.currency)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{chf(s.vat)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{bare(s.vat)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

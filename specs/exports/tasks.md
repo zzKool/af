@@ -16,3 +16,7 @@
 - [x] T011 One period rule: `period.ts` over `invoices.declarationPeriodFor` / `isDeclarationPeriod`
 - [x] T012 Tests: a discounted invoice on the real modules, a forged payload, a declared period re-read, paid derived, per-registration declared on; docs
 - [ ] Follow-up (other modules): the invoice page and `dashboard/overview.ts` pass the invoice's registration to `declaredOn`
+
+## F71 — exports adopts the D40 kit (`feat/exports-d40-kit`)
+
+- [x] T013 `state-family.ts` (`declarationState` from the record's dates: draft → neutral, declared → progress, paid → done) → `<StateLabel>` for the quarter; `formatMoney` on every on-screen amount (bare under *VAT (CHF)* and for the muted base), `data-amount` on the form's figures; invoice numbers and input-source keys `<CodeChip>`, country and *CN* `<Tag>`; warnings without the amber palette; *Copy* an icon button with an `aria-label` (kept in the row — the form's gesture, not a row action). n/a: `rowActions`, `quickFilter`, `DetailsSection` (no DataTable, no panel). The CSV unchanged — golden `specs/exports/fixtures/swiss-vat-csv-golden.json` captured before the change, compared in `swiss-vat.pure.test.ts`; `state-family.pure.test.ts`; `e2e/exports.spec.ts` reads `data-amount`
