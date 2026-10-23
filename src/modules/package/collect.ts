@@ -18,7 +18,6 @@ import * as invoices from "@/modules/invoices";
 import * as journal from "@/modules/journal";
 import type { LinkDto, LinkEndpoint } from "@/modules/linking";
 import * as linking from "@/modules/linking";
-import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 import * as traktamente from "@/modules/traktamente";
@@ -268,6 +267,10 @@ export async function collectPeriod(
         id: r.id,
         key: rowLabel(r),
         detail: r.description,
+        amount: r.amount,
+        currency: r.currency,
+        account: r.accountLabel,
+        date: r.bookingDate,
       });
     } else if (r.accountRole === "main" && status === "partial") {
       const tolerance = settlementTolerance(abs);
@@ -279,6 +282,10 @@ export async function collectPeriod(
           id: r.id,
           key: rowLabel(r),
           detail: `allocated ${money(allocated.toFixed(2), r.currency)}, ${money(delta.toFixed(2), r.currency)} open`,
+          amount: delta.toFixed(2),
+          currency: r.currency,
+          account: r.accountLabel,
+          date: r.bookingDate,
         });
       }
     }
@@ -344,6 +351,8 @@ export async function collectPeriod(
         id: inv.id,
         key: inv.number,
         detail: `${inv.state.replace("_", " ")}, ${money(inv.remaining, inv.currency)} open`,
+        amount: inv.remaining,
+        currency: inv.currency,
       });
     }
     return [

@@ -429,6 +429,11 @@ describe("the bytes the accountant gets (F71 golden)", () => {
         id: "t2",
         key: "Plusgirokonto CHF 2026-06-25 1200.00 CHF",
         detail: "allocated 1000.00 CHF, 200.00 CHF open",
+        // the screen-only fields (F71) — the generators never print them
+        amount: "200.00",
+        currency: "CHF",
+        account: "Plusgirokonto CHF",
+        date: "2026-06-25",
       },
       {
         kind: "unpaid_invoice",
@@ -436,6 +441,8 @@ describe("the bytes the accountant gets (F71 golden)", () => {
         id: "i2",
         key: "VA26-INV-002",
         detail: "partially paid, 24000.00 CHF open",
+        amount: "24000.00",
+        currency: "CHF",
       },
     ],
   };

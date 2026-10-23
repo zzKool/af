@@ -1,14 +1,13 @@
 "use client";
 
-// `/package` (specs/accountant-package/spec.md FR-006): the months with their live counts and flags — the month-end
-// checklist — and the years; *Build* (owner) queues the job and the row follows it; *Download* the built versions;
-// the right pane previews what the package would say today (flags, documents, notes.md) before any build.
+// `/package` (specs/accountant-package/spec.md FR-006): the months as a DataTable — the month-end checklist, each
+// with its derived state, live counts and flags (Month quick filter, ⋮ Build / Download) — then the years; a row
+// opens the docked panel with what the package would say today and its versions. While a build runs the builds
+// are re-read every two seconds and the outcome announced.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -21,133 +20,134 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useLocale } from "@/kernel/i18n/locale-provider";
 import { uiLanguage } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
+import type { DateHierarchy, DistinctValue, ListResult } from "@/kernel/list-query/types";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableFilterSource,
+  type RowAction,
+  RowActionsMenu,
+  useListQuery,
+} from "@/kernel/ui/data-table";
+import { StateLabel } from "@/kernel/ui/state-label";
+import { CodeChip } from "@/kernel/ui/tags";
 import { getDocumentDownloadUrlAction } from "@/modules/documents/ui";
+import { MONTH_COLUMN_KEYS, MONTH_DEFAULT_SORT } from "@/modules/package/month-columns";
 import {
   buildPackageAction,
+  distinctPackageMonthsAction,
   listPackageBuildsAction,
-  packagePreviewAction,
+  packageMonthDatesAction,
 } from "@/modules/package/package.actions";
 import { periodLabel } from "@/modules/package/period";
-import type { LivePreview } from "@/modules/package/queries";
-import type {
-  FlagKind,
-  PackageBuildDto,
-  PackageFlag,
-  PeriodOverview,
-} from "@/modules/package/types";
+import type { PeriodRow } from "@/modules/package/queries";
+import {
+  isRunning,
+  PERIOD_STATE_FAMILY,
+  PERIOD_STATES,
+  periodState,
+} from "@/modules/package/state-family";
+import type { PackageBuildDto } from "@/modules/package/types";
+import { PackagePanel } from "./package-panel";
 
-/** The DTO over the wire: dates as strings. */
+/** The DTO over the wire: dates as ISO strings. */
 export type BuildRow = Omit<PackageBuildDto, "builtAt" | "createdAt" | "updatedAt"> & {
   builtAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
-export type OverviewRow = Omit<PeriodOverview, "builds"> & { builds: BuildRow[] };
+export type OverviewRow = Omit<PeriodRow, "builds"> & { builds: BuildRow[] };
 
-const FLAG_ORDER: FlagKind[] = [
-  "missing_document",
-  "unlinked_row",
-  "delta",
-  "unpaid_invoice",
-  "document_not_ready",
-];
-
-const STATUS_STYLE: Record<BuildRow["status"], string> = {
-  queued: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  building: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  built: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
-
+const iso = (d: Date | string) => new Date(d).toISOString();
 const toRow = (b: PackageBuildDto): BuildRow => ({
   ...b,
-  builtAt: b.builtAt ? String(b.builtAt) : null,
-  createdAt: String(b.createdAt),
-  updatedAt: String(b.updatedAt),
+  builtAt: b.builtAt ? iso(b.builtAt) : null,
+  createdAt: iso(b.createdAt),
+  updatedAt: iso(b.updatedAt),
 });
 
-const isRunning = (b: BuildRow) => b.status === "queued" || b.status === "building";
+type Answer<T> = { data?: { data?: T } | { error: { message: string } } } | undefined;
+const unwrap = <T,>(r: Answer<T>, fallback: T): T => {
+  const d = r?.data;
+  if (d && "error" in d) throw new Error(d.error.message);
+  return d?.data ?? fallback;
+};
 
 export function PackageWorkbench({
-  overview,
+  months,
+  years,
   canBuild,
   initialPeriod,
 }: {
-  overview: OverviewRow[];
+  /** the months' page of the table (filtered, sorted, paged on the server) */
+  months: ListResult<OverviewRow>;
+  years: OverviewRow[];
   canBuild: boolean;
-  /** the period selected on arrival (the first month with rows) */
+  /** the period whose panel is open on arrival (the newest month with rows) */
   initialPeriod: string | null;
 }) {
   const t = useT();
   const router = useRouter();
   const { effectiveLocale: locale } = useLocale();
   const lang = uiLanguage(locale ?? null);
-  const [rows, setRows] = useState(overview);
-  const [seen, setSeen] = useState(overview);
-  if (seen !== overview) {
-    setSeen(overview);
-    setRows(overview);
+  const state = useListQuery({ columns: MONTH_COLUMN_KEYS, defaultSort: MONTH_DEFAULT_SORT });
+  // the builds as last polled, by period — over the server's rows until the next refresh brings them
+  const [polled, setPolled] = useState<Map<string, BuildRow[]> | null>(null);
+  const [seen, setSeen] = useState({ months, years });
+  if (seen.months !== months || seen.years !== years) {
+    setSeen({ months, years });
+    setPolled(null);
   }
   const [selected, setSelected] = useState<string | null>(initialPeriod);
-  const [preview, setPreview] = useState<LivePreview | null>(null);
-  const [previewFor, setPreviewFor] = useState<string | null>(null);
   const { executeAsync: build, isPending: building } = useAction(buildPackageAction);
   const { executeAsync: listBuilds } = useAction(listPackageBuildsAction);
-  const { executeAsync: loadPreview } = useAction(packagePreviewAction);
   const { executeAsync: downloadUrl } = useAction(getDocumentDownloadUrlAction);
 
-  // the preview of the selected period, collected on request
-  useEffect(() => {
-    if (!selected || selected === previewFor) return;
-    let cancelled = false;
-    setPreview(null);
-    void (async () => {
-      const r = await loadPreview({ period: selected });
-      if (cancelled) return;
-      const error = extractError(r);
-      if (error) {
-        toast.error(error);
-        return;
-      }
-      const d = r?.data && "data" in r.data ? r.data.data : undefined;
-      if (d) {
-        setPreview(d);
-        setPreviewFor(selected);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, previewFor, loadPreview]);
+  const live = useCallback(
+    (row: OverviewRow): OverviewRow => {
+      const builds = polled?.get(row.period) ?? row.builds;
+      if (builds === row.builds) return row;
+      const withBuilds = { ...row, builds };
+      return {
+        ...withBuilds,
+        state: periodState(withBuilds),
+        packageKey: builds.find((b) => b.status === "built")?.businessKey ?? null,
+      };
+    },
+    [polled],
+  );
+  const monthRows = useMemo(() => months.rows.map(live), [months.rows, live]);
+  const yearRows = useMemo(() => years.map(live), [years, live]);
+  const all = useMemo(() => [...monthRows, ...yearRows], [monthRows, yearRows]);
+  const selectedRow = all.find((r) => r.period === selected) ?? null;
 
   // while a build runs, re-read the builds every two seconds; announce the outcome
-  const running = rows.some((r) => r.builds.some(isRunning));
+  const running = all.some((r) => r.builds.some(isRunning));
   const [polls, setPolls] = useState(0);
   const refreshBuilds = useCallback(async () => {
     const r = await listBuilds();
     const d = r?.data && "data" in r.data ? r.data.data : undefined;
     if (!d) return;
     const fresh = d.map(toRow);
-    setRows((current) => {
-      const next = current.map((row) => ({
-        ...row,
-        builds: fresh.filter((b) => b.period === row.period),
-      }));
-      for (const row of current) {
-        for (const was of row.builds) {
-          const now = fresh.find((b) => b.id === was.id);
-          if (!now || !isRunning(was) || isRunning(now)) continue;
-          if (now.status === "built") {
-            toast.success(t("package.done", { key: now.businessKey, flags: now.flags }));
-          } else if (now.status === "failed") {
-            toast.error(t("package.failedWith", { error: now.error ?? "" }));
-          }
-          router.refresh();
+    let finished = false;
+    for (const row of all) {
+      for (const was of row.builds) {
+        const now = fresh.find((b) => b.id === was.id);
+        if (!now || !isRunning(was) || isRunning(now)) continue;
+        finished = true;
+        if (now.status === "built") {
+          toast.success(t("package.done", { key: now.businessKey, flags: now.flags }));
+        } else if (now.status === "failed") {
+          toast.error(t("package.failedWith", { error: now.error ?? "" }));
         }
       }
-      return next;
-    });
-  }, [listBuilds, router, t]);
+    }
+    const byPeriod = new Map<string, BuildRow[]>();
+    for (const row of all) byPeriod.set(row.period, []);
+    for (const b of fresh) byPeriod.get(b.period)?.push(b);
+    setPolled(byPeriod);
+    if (finished) router.refresh();
+  }, [all, listBuilds, router, t]);
   useEffect(() => {
     if (!running || polls > 300) return;
     const h = setTimeout(async () => {
@@ -165,11 +165,11 @@ export function PackageWorkbench({
     if (!d) return;
     toast.success(t("package.requested", { period: periodLabel(period, lang) }));
     setPolls(0);
-    setRows((current) =>
-      current.map((row) =>
-        row.period === period ? { ...row, builds: [toRow(d), ...row.builds] } : row,
-      ),
-    );
+    setPolled((current) => {
+      const next = new Map(current ?? all.map((row) => [row.period, row.builds]));
+      next.set(period, [toRow(d), ...(next.get(period) ?? [])]);
+      return next;
+    });
   }
 
   async function download(documentId: string) {
@@ -180,264 +180,193 @@ export function PackageWorkbench({
     if (url) window.open(url, "_blank", "noopener");
   }
 
-  const months = rows.filter((r) => r.kind === "month");
-  const years = rows.filter((r) => r.kind === "year");
-  const selectedRow = rows.find((r) => r.period === selected) ?? null;
+  function rowActions(row: OverviewRow): RowAction[] {
+    const latest = row.builds[0] ?? null;
+    const lastBuilt = row.builds.find((b) => b.status === "built" && b.documentId) ?? null;
+    const actions: RowAction[] = [];
+    if (canBuild)
+      actions.push({
+        label: lastBuilt ? t("package.rebuild") : t("package.build"),
+        disabled: building || (latest !== null && isRunning(latest)),
+        onClick: () => void requestBuild(row.period),
+      });
+    if (lastBuilt?.documentId)
+      actions.push({
+        label: t("package.downloadVersion", { version: lastBuilt.version }),
+        onClick: () => void download(lastBuilt.documentId as string),
+      });
+    return actions;
+  }
 
-  function periodTable(list: OverviewRow[], title: string) {
-    return (
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">{title}</h2>
-        <div className="overflow-x-auto rounded-md border">
+  const filterSource = useMemo<DataTableFilterSource>(
+    () => ({
+      distinct: async (column, query) =>
+        unwrap<DistinctValue[]>(
+          await distinctPackageMonthsAction({ column: column as never, query }),
+          [],
+        ),
+      dateHierarchy: async (column, query) =>
+        unwrap<DateHierarchy>(await packageMonthDatesAction({ column: column as never, query }), {
+          years: [],
+          empty: 0,
+        }),
+    }),
+    [],
+  );
+
+  const cells = useMemo(
+    () => ({
+      period: (row: OverviewRow) => (
+        <span className="font-medium" data-testid="package-period" data-period={row.period}>
+          {periodLabel(row.period, lang)}
+        </span>
+      ),
+      state: (row: OverviewRow) => (
+        <StateLabel
+          family={PERIOD_STATE_FAMILY[row.state]}
+          state={t(`package.state.${row.state}`)}
+        />
+      ),
+      flags: (row: OverviewRow) => (
+        <span className="tabular-nums" data-testid="package-flags">
+          {row.flags}
+        </span>
+      ),
+      packageKey: (row: OverviewRow) =>
+        row.packageKey ? (
+          <CodeChip>{row.packageKey}</CodeChip>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    }),
+    [t, lang],
+  );
+
+  const columns = useMemo<DataTableColumn<OverviewRow>[]>(
+    () => [
+      {
+        key: "month",
+        header: t("package.col.month"),
+        type: "date",
+        width: "10rem",
+        alwaysVisible: true,
+        quickFilter: true,
+        cell: cells.period,
+      },
+      {
+        key: "state",
+        header: t("package.col.state"),
+        type: "enum",
+        width: "10rem",
+        cell: cells.state,
+      },
+      { key: "bankRows", header: t("package.col.bankRows"), type: "number", width: "7.5rem" },
+      { key: "invoices", header: t("package.col.invoices"), type: "number", width: "6.5rem" },
+      {
+        key: "supplierInvoices",
+        header: t("package.col.supplierInvoices"),
+        type: "number",
+        width: "8rem",
+      },
+      { key: "expenses", header: t("package.col.expenses"), type: "number", width: "6.5rem" },
+      { key: "documents", header: t("package.col.documents"), type: "number", width: "7rem" },
+      {
+        key: "flags",
+        header: t("package.col.flags"),
+        type: "number",
+        width: "5.5rem",
+        cell: cells.flags,
+      },
+      {
+        key: "packageKey",
+        header: t("package.col.package"),
+        type: "text",
+        width: "13rem",
+        cell: cells.packageKey,
+      },
+    ],
+    [t, cells],
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <DataTable
+        tableKey="package-months"
+        columns={columns}
+        result={{ ...months, rows: monthRows }}
+        state={state}
+        filterSource={filterSource}
+        valueLabel={(column, value) =>
+          value === null
+            ? t("common.blanks")
+            : column === "state" && (PERIOD_STATES as readonly string[]).includes(value)
+              ? t(`package.state.${value as OverviewRow["state"]}`)
+              : value
+        }
+        onRowClick={(row) => setSelected(row.period)}
+        rowActions={rowActions}
+        emptyState={t("package.empty")}
+      />
+
+      {yearRows.length > 0 && (
+        <section className="flex flex-col gap-2" aria-label={t("package.years")}>
+          <h2 className="text-[13px] font-semibold">{t("package.years")}</h2>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-32">{t("package.col.period")}</TableHead>
-                <TableHead className="w-16 text-right" title={t("package.col.bankRows")}>
-                  {t("package.col.bankRowsShort")}
+                <TableHead>{t("package.col.period")}</TableHead>
+                <TableHead>{t("package.col.state")}</TableHead>
+                <TableHead className="text-right">{t("package.col.bankRows")}</TableHead>
+                <TableHead className="text-right">{t("package.col.invoices")}</TableHead>
+                <TableHead className="text-right">{t("package.col.supplierInvoices")}</TableHead>
+                <TableHead className="text-right">{t("package.col.expenses")}</TableHead>
+                <TableHead className="text-right">{t("package.col.documents")}</TableHead>
+                <TableHead className="text-right">{t("package.col.flags")}</TableHead>
+                <TableHead>{t("package.col.package")}</TableHead>
+                <TableHead className="w-9">
+                  <span className="sr-only">{t("table.rowActions")}</span>
                 </TableHead>
-                <TableHead className="w-16 text-right" title={t("package.col.invoices")}>
-                  {t("package.col.invoicesShort")}
-                </TableHead>
-                <TableHead className="w-16 text-right" title={t("package.col.supplierInvoices")}>
-                  {t("package.col.supplierInvoicesShort")}
-                </TableHead>
-                <TableHead className="w-16 text-right" title={t("package.col.expenses")}>
-                  {t("package.col.expensesShort")}
-                </TableHead>
-                <TableHead className="w-16 text-right" title={t("package.col.documents")}>
-                  {t("package.col.documentsShort")}
-                </TableHead>
-                <TableHead className="w-16 text-right">{t("package.col.flags")}</TableHead>
-                <TableHead className="w-32">{t("package.col.package")}</TableHead>
-                {canBuild && (
-                  <TableHead className="w-24">
-                    <span className="sr-only">{t("package.build")}</span>
-                  </TableHead>
-                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((row) => {
-                const latest = row.builds[0] ?? null;
-                const lastBuilt = row.builds.find((b) => b.status === "built") ?? null;
-                return (
-                  <TableRow
-                    key={row.period}
-                    data-testid="package-period"
-                    data-period={row.period}
-                    data-state={row.period === selected ? "selected" : undefined}
-                    className={`cursor-pointer ${row.period === selected ? "bg-muted/60" : ""}`}
-                    onClick={() => setSelected(row.period)}
-                  >
-                    <TableCell className="font-medium">{periodLabel(row.period, lang)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{row.counts.bankRows}</TableCell>
-                    <TableCell className="text-right tabular-nums">{row.counts.invoices}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {row.counts.supplierInvoices}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{row.counts.expenses}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {row.counts.documents}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      <Badge
-                        variant="outline"
-                        className={
-                          row.flags === 0
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                        }
-                        data-testid="package-flags"
-                      >
-                        {row.flags}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {latest && isRunning(latest) ? (
-                        <span
-                          className="text-xs text-muted-foreground"
-                          data-testid="package-running"
-                        >
-                          {t(latest.status === "queued" ? "package.queued" : "package.building")}
-                        </span>
-                      ) : lastBuilt?.documentId ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          title={lastBuilt.businessKey}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void download(lastBuilt.documentId as string);
-                          }}
-                          data-testid="package-download"
-                        >
-                          v{lastBuilt.version} ↓
-                        </Button>
-                      ) : latest?.status === "failed" ? (
-                        <span className="text-xs text-red-700" data-testid="package-failed">
-                          {t("package.failed")}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {t("package.noBuild")}
-                        </span>
-                      )}
-                    </TableCell>
-                    {canBuild && (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          disabled={building || (latest !== null && isRunning(latest))}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void requestBuild(row.period);
-                          }}
-                          data-testid="package-build"
-                        >
-                          {lastBuilt ? t("package.rebuild") : t("package.build")}
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
+              {yearRows.map((row) => (
+                <TableRow
+                  key={row.period}
+                  className="cursor-pointer border-b border-subtle"
+                  onClick={() => setSelected(row.period)}
+                >
+                  <TableCell>{cells.period(row)}</TableCell>
+                  <TableCell>{cells.state(row)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.bankRows}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.invoices}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.supplierInvoices}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.expenses}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.documents}</TableCell>
+                  <TableCell className="text-right">{cells.flags(row)}</TableCell>
+                  <TableCell>{cells.packageKey(row)}</TableCell>
+                  <TableCell>
+                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: the trigger inside is a real button */}
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: it only stops the row's click */}
+                    <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                      <RowActionsMenu label={t("table.rowActions")} actions={rowActions(row)} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="flex flex-col gap-6">
-        {periodTable(months, t("package.months"))}
-        {years.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {periodTable(years, t("package.years"))}
-            <p className="text-xs text-muted-foreground">{t("package.year.hint")}</p>
-          </div>
-        )}
-      </div>
-
-      <section
-        className="flex flex-col gap-4"
-        aria-label={t("package.preview.notes")}
-        data-testid="package-preview"
-      >
-        {selectedRow ? (
-          <>
-            <h2 className="text-sm font-medium">
-              {t("package.preview.title", { period: periodLabel(selectedRow.period, lang) })}
-            </h2>
-            {preview === null || previewFor !== selected ? (
-              <p className="text-sm text-muted-foreground">{t("package.preview.loading")}</p>
-            ) : (
-              <>
-                <FlagList flags={preview.flags} />
-                <section>
-                  <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-                    {t("package.preview.files", { count: preview.files.length })}
-                  </h3>
-                  <ul className="max-h-48 overflow-auto rounded-md border px-3 py-2 font-mono text-xs">
-                    {preview.files.map((f) => (
-                      <li key={f}>{f}</li>
-                    ))}
-                    {preview.files.length === 0 && <li className="text-muted-foreground">—</li>}
-                  </ul>
-                </section>
-                <details>
-                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-                    {t("package.preview.notes")}
-                  </summary>
-                  <pre
-                    className="mt-1 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border px-3 py-2 text-xs"
-                    data-testid="package-notes"
-                  >
-                    {preview.notes}
-                  </pre>
-                </details>
-              </>
-            )}
-            <section>
-              <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-                {t("package.preview.builds")}
-              </h3>
-              {selectedRow.builds.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("package.noBuild")}</p>
-              ) : (
-                <ul className="divide-y rounded-md border text-sm">
-                  {selectedRow.builds.map((b) => (
-                    <li
-                      key={b.id}
-                      className="flex items-center justify-between gap-2 px-3 py-1.5"
-                      data-testid="package-version"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <Badge variant="outline" className={STATUS_STYLE[b.status]}>
-                          {t(`package.status.${b.status}`)}
-                        </Badge>
-                        <span className="truncate font-mono text-xs" title={b.error ?? undefined}>
-                          {b.businessKey}
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground tabular-nums">
-                        {b.builtAt ? new Date(b.builtAt).toLocaleString(locale ?? undefined) : ""}
-                        {b.status === "built" && <span>{b.flags} ⚑</span>}
-                        {b.documentId && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void download(b.documentId as string)}
-                            data-testid="package-version-download"
-                          >
-                            {t("package.download")}
-                          </Button>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">—</p>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function FlagList({ flags }: { flags: PackageFlag[] }) {
-  const t = useT();
-  return (
-    <section data-testid="package-flag-list">
-      <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-        {t("package.preview.flags", { count: flags.length })}
-      </h3>
-      {flags.length === 0 ? (
-        <p className="text-sm">{t("package.preview.noFlags")}</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {FLAG_ORDER.filter((k) => flags.some((f) => f.kind === k)).map((kind) => (
-            <div key={kind}>
-              <div className="text-xs font-medium">{t(`package.flag.${kind}`)}</div>
-              <ul className="text-sm">
-                {flags
-                  .filter((f) => f.kind === kind)
-                  .map((f) => (
-                    <li key={`${f.entity}:${f.id}:${f.kind}`} className="truncate" title={f.detail}>
-                      <span className="font-mono text-xs">{f.key}</span>
-                      <span className="text-muted-foreground"> — {f.detail}</span>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+          <p className="text-xs text-muted-foreground">{t("package.year.hint")}</p>
+        </section>
       )}
-    </section>
+
+      <PackagePanel
+        row={selectedRow}
+        canBuild={canBuild}
+        building={building}
+        onBuild={(period) => void requestBuild(period)}
+        onDownload={(id) => void download(id)}
+        onClose={() => setSelected(null)}
+      />
+    </div>
   );
 }
