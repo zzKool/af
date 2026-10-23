@@ -50,6 +50,7 @@ import type {
   RegistrationOption,
   SupplierOption,
 } from "@/modules/supplier-invoices/types";
+import { ExactNumberStop, exactMatches } from "./exact-number-stop";
 import { SupplierMatchCard, type VendorFacts } from "./supplier-match-card";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
@@ -242,7 +243,11 @@ export function NewSupplierInvoiceDialog({
     });
     return r?.data?.data ?? [];
   });
-  const blocked = hasHighMatch(duplicates);
+  // an exact number match is refused (D35): the stop, nothing to acknowledge; hash / fuzzy keep *Create anyway*
+  const taken = exactMatches(duplicates);
+  const refused = taken.length > 0;
+  const warnings = duplicates.filter((m) => m.kind !== "exact");
+  const blocked = !refused && hasHighMatch(warnings);
   const documentOptions =
     initial?.documentId && !documents.some((d) => d.id === initial.documentId)
       ? [
@@ -289,7 +294,7 @@ export function NewSupplierInvoiceDialog({
       note: note.trim() || null,
       duplicateAck: blocked
         ? {
-            entityIds: duplicates.filter((m) => m.confidence === "high").map((m) => m.entityId),
+            entityIds: warnings.filter((m) => m.confidence === "high").map((m) => m.entityId),
             note: ackNote.trim(),
           }
         : undefined,
@@ -557,7 +562,11 @@ export function NewSupplierInvoiceDialog({
             </label>
             <Input id={`${ids}-note`} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          <DuplicatePanel matches={duplicates} ackNote={ackNote} onAckNote={setAckNote} />
+          {refused ? (
+            <ExactNumberStop matches={taken} />
+          ) : (
+            <DuplicatePanel matches={warnings} ackNote={ackNote} onAckNote={setAckNote} />
+          )}
           <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
@@ -565,7 +574,12 @@ export function NewSupplierInvoiceDialog({
             <Button
               type="submit"
               disabled={
-                isPending || creatingGroup || !basCode || !partnerId || (blocked && !ackNote.trim())
+                isPending ||
+                creatingGroup ||
+                !basCode ||
+                !partnerId ||
+                refused ||
+                (blocked && !ackNote.trim())
               }
               data-testid="create-supplier-invoice"
             >

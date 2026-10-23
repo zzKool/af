@@ -487,7 +487,7 @@ describe("US1 — record a supplier invoice", () => {
 });
 
 describe("the duplicate check (specs/documents US3): exact, hash, fuzzy", () => {
-  it("same partner + normalised number → high; the same bytes → high; ± 1 % ± 7 days same currency → medium; cancelled ignored", async () => {
+  it("same partner + normalised number → high, refused even acknowledged; the same bytes → high; ± 1 % ± 7 days same currency → medium; cancelled only for the number", async () => {
     const hash = "b".repeat(64);
     const original = await createTestDocument(
       adminPool,
@@ -556,7 +556,7 @@ describe("the duplicate check (specs/documents US3): exact, hash, fuzzy", () => 
         currency: "CHF",
         date: "2026-03-14",
       });
-      // other currency, 8 days, 1.5 % off, another partner: nothing; the cancelled one never counts
+      // other currency, 8 days, 1.5 % off, another partner: nothing
       for (const q of [
         { currency: "SEK", date: "2026-03-14", amount: "1297.20" },
         { currency: "CHF", date: "2026-03-22", amount: "1297.20" },
@@ -573,13 +573,33 @@ describe("the duplicate check (specs/documents US3): exact, hash, fuzzy", () => 
       expect(
         await findSupplierInvoiceDuplicates(tx, { partnerId: saas, invoiceNumber: "9160" }),
       ).toEqual([]);
+      // a cancelled invoice keeps its number (D35): exact, the stop; never a hash or fuzzy hit
+      const taken = await findSupplierInvoiceDuplicates(tx, {
+        partnerId: skattepunkten,
+        invoiceNumber: "9150",
+      });
+      expect(taken.map((m) => [m.kind, m.entityId])).toEqual([["exact", cancelled.data!.id]]);
       expect(
         await findSupplierInvoiceDuplicates(tx, {
           partnerId: skattepunkten,
-          invoiceNumber: "9150",
-        }),
+          invoiceNumber: "9151",
+          amount: "1297.20",
+          currency: "CHF",
+          date: "2026-03-12",
+        }).then((ms) => ms.filter((m) => m.entityId === cancelled.data!.id)),
       ).toEqual([]);
     });
+
+    // an exact match is refused, acknowledgement or not (D35) — live or cancelled
+    for (const invoiceNumber of [" 9160", "9150"]) {
+      const refused = await create(
+        julyInvoice({
+          invoiceNumber,
+          duplicateAck: { entityIds: [july.data!.id], note: "really not a duplicate" },
+        }),
+      );
+      expect(refused.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    }
 
     // "Create anyway": the unique (partner, number) index still refuses the very same number — the
     // acknowledgement is for the fuzzy / hash cases; here the copy's bytes with a new number

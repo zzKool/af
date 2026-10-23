@@ -4,12 +4,12 @@ import { MIGRATION_URL } from "@/kernel/db/test-setup";
 import {
   buildEcbUrl,
   countWeekdaysBetween,
-  detectGaps,
   fetchDailyRates,
   fetchRatesArgToOptions,
   getRate,
   NEAREST_RATE_MAX_DAYS,
   parseEcbXml,
+  rateGaps,
   rateStatus,
   rateToBase,
 } from "@/modules/rates/ecb-rates";
@@ -231,7 +231,7 @@ describe("getRate", () => {
 
     const result = await getRate(db, "2026-03-15", "EUR/SEK");
 
-    expect(result?.rateSource).toBe("cached");
+    expect(result?.rateSource).toBe("ecb_nearest");
     expect(result?.actualDate).toBe("2026-03-13");
     expect(result?.rate.toString()).toBe("11.111111");
     expect(result?.date).toBe("2026-03-15");
@@ -276,7 +276,7 @@ describe("getRate", () => {
 
     const result = await getRate(db, "2023-04-01", "EUR/SEK"); // Sat, the cut-off day
 
-    expect(result?.rateSource).toBe("cached");
+    expect(result?.rateSource).toBe("ecb_nearest");
     expect(result?.actualDate).toBe("2023-04-03");
   });
 
@@ -318,43 +318,80 @@ describe("countWeekdaysBetween", () => {
   });
 });
 
-describe("detectGaps", () => {
-  it("detects 3+ weekday gaps", async () => {
-    // Insert rates with a gap: Mon 2026-03-09, then skip Tue-Thu, then Fri 2026-03-13
-    await insertRate("2026-03-09", "EUR/SEK", "11.1");
-    await insertRate("2026-03-13", "EUR/SEK", "11.2");
+describe("rateGaps — the warning matches the refusal, per pair (F81)", () => {
+  const db = {
+    $queryRawUnsafe: (q: string, ...args: unknown[]) =>
+      adminPool.query(q, args).then((r) => r.rows),
+  };
 
-    const gaps = await detectGaps(
+  it("an inner gap: 3+ weekdays between two stored days, each missing day named", async () => {
+    await insertRate("2026-03-09", "EUR/SEK", "11.1"); // Mon
+    await insertRate("2026-03-13", "EUR/SEK", "11.2"); // Fri — Tue, Wed, Thu missing
+
+    const gaps = await rateGaps(db, "2026-03-13", { currencyPairs: ["EUR/SEK"] });
+
+    expect(gaps).toEqual([
       {
-        $queryRawUnsafe: (q: string, ...args: unknown[]) =>
-          adminPool.query(q, args).then((r) => r.rows),
+        pair: "EUR/SEK",
+        from: "2026-03-09",
+        to: "2026-03-13",
+        missingDays: ["2026-03-10", "2026-03-11", "2026-03-12"],
       },
-      "EUR/SEK",
-      "2026-03-01",
-      "2026-03-31",
-    );
-
-    expect(gaps).toHaveLength(1);
-    expect(gaps[0].from).toBe("2026-03-09");
-    expect(gaps[0].to).toBe("2026-03-13");
-    expect(gaps[0].missingWeekdays).toBe(3);
+    ]);
   });
 
-  it("does not flag Friday→Monday as a gap", async () => {
-    await insertRate("2026-03-13", "EUR/SEK", "11.1"); // Friday
-    await insertRate("2026-03-16", "EUR/SEK", "11.2"); // Monday
+  it("a weekend and a TARGET closure are not gaps (Fri → Mon; Easter: Thu → Tue)", async () => {
+    await insertRate("2026-03-13", "EUR/SEK", "11.1"); // Fri
+    await insertRate("2026-03-16", "EUR/SEK", "11.2"); // Mon
+    await insertRate("2026-04-02", "EUR/SEK", "11.3"); // Maundy Thursday
+    await insertRate("2026-04-07", "EUR/SEK", "11.4"); // Tuesday after Easter — Good Friday + Easter Monday
 
-    const gaps = await detectGaps(
-      {
-        $queryRawUnsafe: (q: string, ...args: unknown[]) =>
-          adminPool.query(q, args).then((r) => r.rows),
-      },
-      "EUR/SEK",
-      "2026-03-01",
-      "2026-03-31",
+    expect(
+      await rateGaps(db, "2026-04-07", { currencyPairs: ["EUR/SEK"], windowDays: 40 }),
+    ).toEqual([
+      // the 13 weekdays between 03-16 and 04-02 are a real gap; the two around Easter are not
+      expect.objectContaining({ from: "2026-03-16", to: "2026-04-02" }),
+    ]);
+  });
+
+  it("the trailing gap shows from the day the newest rate is 4 days old — the day before getRate refuses", async () => {
+    await insertRate("2026-03-13", "EUR/CHF", "0.95"); // Fri, then no sync
+    for (const day of ["2026-03-13", "2026-03-16", "2026-03-17", "2026-03-18"])
+      await insertRate(day, "EUR/SEK", "11.3"); // SEK current: CHF's gap shows on its own
+    const chf = (today: string) => rateGaps(db, today, { currencyPairs: ["EUR/SEK", "EUR/CHF"] });
+
+    // Mon: 3 days — the normal weekend, nothing
+    expect(await chf("2026-03-16")).toEqual([]);
+    // Tue: 4 days — still borrowed today, refused tomorrow → the gap shows
+    expect(await chf("2026-03-17")).toEqual([
+      { pair: "EUR/CHF", from: "2026-03-13", to: null, missingDays: ["2026-03-16"] },
+    ]);
+    expect((await getRate(db, "2026-03-17", "EUR/CHF"))?.actualDate).toBe("2026-03-13");
+    // Wed: 5 days — refused, and the gap says so
+    expect(await chf("2026-03-18")).toEqual([
+      { pair: "EUR/CHF", from: "2026-03-13", to: null, missingDays: ["2026-03-16", "2026-03-17"] },
+    ]);
+    expect(await getRate(db, "2026-03-18", "EUR/CHF")).toBeNull();
+  });
+
+  it("a pair never stored is one trailing gap over the window; a gap begun before the window is clipped to it", async () => {
+    expect(await rateGaps(db, "2026-03-18", { currencyPairs: ["EUR/USD"], windowDays: 7 })).toEqual(
+      [
+        {
+          pair: "EUR/USD",
+          from: null,
+          to: null,
+          missingDays: ["2026-03-11", "2026-03-12", "2026-03-13", "2026-03-16", "2026-03-17"],
+        },
+      ],
     );
 
-    expect(gaps).toHaveLength(0);
+    await insertRate("2026-01-30", "EUR/SEK", "11.1"); // before the window
+    await insertRate("2026-03-13", "EUR/SEK", "11.2");
+    const [gap] = await rateGaps(db, "2026-03-13", { currencyPairs: ["EUR/SEK"] }); // window from 02-11
+    expect(gap).toMatchObject({ from: "2026-01-30", to: "2026-03-13" });
+    expect(gap.missingDays[0]).toBe("2026-02-11");
+    expect(gap.missingDays).toHaveLength(22); // the weekdays 02-11 … 03-12
   });
 });
 
@@ -430,6 +467,40 @@ describe("fetchDailyRates", () => {
 
     expect(result.inserted).toBe(0);
     expect(result.skipped).toBe(1);
+
+    vi.restoreAllMocks();
+  });
+
+  it("a backfill over a stored day: the new days inserted, the stored one skipped and unchanged (V8)", async () => {
+    await insertRate("2026-03-13", "EUR/SEK", "11.111111");
+    const obs = (day: string, rate: string) =>
+      `<generic:Obs><generic:ObsDimension value="${day}"/><generic:ObsValue value="${rate}"/></generic:Obs>`;
+    const threeDays = MOCK_XML.replace(
+      /<generic:Obs>[\s\S]*<\/generic:Obs>/,
+      obs("2026-03-12", "11.12") + obs("2026-03-13", "99.99") + obs("2026-03-16", "11.16"),
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(threeDays, { status: 200 }));
+    const prisma = {
+      $executeRawUnsafe: async (q: string, ...args: unknown[]) => {
+        await adminPool.query(q, args);
+        return 1;
+      },
+    };
+
+    const result = await fetchDailyRates(prisma, {
+      startDate: "2026-03-12",
+      currencyPairs: ["EUR/SEK"],
+    });
+
+    expect(result).toMatchObject({ inserted: 2, skipped: 1 });
+    const { rows } = await adminPool.query(
+      `SELECT date::text, rate::text FROM ecb_rates WHERE currency_pair = 'EUR/SEK' ORDER BY date`,
+    );
+    expect(rows).toEqual([
+      { date: "2026-03-12", rate: "11.120000" },
+      { date: "2026-03-13", rate: "11.111111" },
+      { date: "2026-03-16", rate: "11.160000" },
+    ]);
 
     vi.restoreAllMocks();
   });
@@ -513,6 +584,16 @@ describe("rateToBase — the conversion written once at issue (D3/D4)", () => {
     expect(weekend?.source).toBe("ecb_nearest");
     expect(weekend?.rateDate).toBe("2026-01-30");
     expect(await rateToBase(db, "2026-01-31", "USD", "SEK")).toBeNull();
+  });
+
+  it("both legs borrowed, on different days: the earlier day is named (T004)", async () => {
+    await insertRate("2026-01-30", "EUR/SEK", "11.1000"); // Fri
+    await insertRate("2026-01-29", "EUR/CHF", "0.9260"); // Thu — CHF a day behind
+    const r = await rateToBase(db, "2026-01-31", "CHF", "SEK"); // Sat
+    expect(r?.source).toBe("ecb_nearest");
+    expect(r?.rateDate).toBe("2026-01-29");
+    const reverse = await rateToBase(db, "2026-01-31", "SEK", "CHF");
+    expect(reverse?.rateDate).toBe("2026-01-29");
   });
 
   it("null when a leg's nearest day is past the cap — never a weeks-old rate written once", async () => {

@@ -7,6 +7,7 @@ import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import type { DocumentReviewData } from "@/modules/documents/documents.actions";
 import { type Became, becameHref } from "./make-it-section";
+import { RerunOcrButton } from "./rerun-ocr-button";
 
 const QUALITY_CONFIG: Record<string, { label: MessageKey; className: string }> = {
   high: {
@@ -75,6 +76,10 @@ export function DocumentReviewHeader({
               )}
             </Badge>
           </Link>
+        )}
+        {/* FR-021: a completed OCR is re-run only from here, explicitly (owner) */}
+        {!data.readOnly && data.status === "extracted" && (
+          <RerunOcrButton documentId={data.id} documentKey={data.businessKey} />
         )}
       </div>
 

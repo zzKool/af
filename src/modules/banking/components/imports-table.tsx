@@ -1,46 +1,61 @@
 "use client";
 
-// The import history: one row per file, with its counts and period; delete (refused while linked).
+// The import history (FR-002): one row per file — its account, period and counts — as a DataTable (D20, D40).
+// The file name is the row link (the workbench filtered on that import); ⋮ → Delete (refused while linked).
+// The title row's Import CSV is `header-actions.tsx`.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { deleteImportAction } from "@/modules/banking/banking.actions";
+import type { ListResult } from "@/kernel/list-query/types";
+import { DataTable, type DataTableColumn, useListQuery } from "@/kernel/ui/data-table";
+import {
+  deleteImportAction,
+  distinctImportsAction,
+  importDateHierarchyAction,
+} from "@/modules/banking/banking.actions";
 import type { BankImportDto } from "@/modules/banking/types";
-import { type AccountOption, ImportDialog } from "./import-dialog";
+import { filterSourceOf } from "./filter-source";
 
 export type ImportRow = Omit<BankImportDto, "importedAt"> & {
   importedAt: string;
   accountLabel: string;
 };
 
+const COLUMN_KEYS = [
+  "fileName",
+  "accountLabel",
+  "periodFrom",
+  "recordCount",
+  "importedCount",
+  "duplicateCount",
+  "errorCount",
+  "importedAt",
+] as const;
+const DEFAULT_SORT = [{ col: "importedAt", dir: "desc" as const }];
+/** the workbench filtered on this import's rows */
+const rowsOf = (row: { id: string }) => `/banking?f.bankImportId=in:${row.id}`;
+
 export function ImportsTable({
-  imports,
-  accounts,
+  result,
   canWrite,
 }: {
-  imports: ImportRow[];
-  accounts: AccountOption[];
+  result: ListResult<ImportRow>;
   canWrite: boolean;
 }) {
   const t = useT();
   const router = useRouter();
-  const [importOpen, setImportOpen] = useState(false);
+  const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [toDelete, setToDelete] = useState<ImportRow | null>(null);
   const { executeAsync: remove, isPending } = useAction(deleteImportAction);
+  const filterSource = useMemo(
+    () => filterSourceOf(distinctImportsAction, importDateHierarchyAction),
+    [],
+  );
 
   async function confirmDelete() {
     if (!toDelete) return;
@@ -55,79 +70,113 @@ export function ImportsTable({
     router.refresh();
   }
 
+  const columns = useMemo<DataTableColumn<ImportRow>[]>(
+    () => [
+      {
+        key: "fileName",
+        header: t("banking.imports.col.file"),
+        type: "text",
+        width: "16rem",
+        alwaysVisible: true,
+        cell: (row) => (
+          <Link
+            href={rowsOf(row)}
+            className="block truncate font-mono text-xs text-primary hover:text-primary-hover hover:underline"
+            title={row.fileName}
+          >
+            {row.fileName}
+          </Link>
+        ),
+      },
+      {
+        key: "accountLabel",
+        header: t("banking.imports.col.account"),
+        type: "enum",
+        width: "10rem",
+        quickFilter: true,
+      },
+      {
+        key: "periodFrom",
+        header: t("banking.imports.col.period"),
+        type: "date",
+        width: "13rem",
+        cell: (row) =>
+          row.periodFrom && row.periodTo ? (
+            <span className="tabular-nums">
+              {row.periodFrom} → {row.periodTo}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        key: "recordCount",
+        header: t("banking.imports.col.rows"),
+        type: "number",
+        width: "6rem",
+      },
+      {
+        key: "importedCount",
+        header: t("banking.imports.col.imported"),
+        type: "number",
+        width: "6.5rem",
+      },
+      {
+        key: "duplicateCount",
+        header: t("banking.imports.col.duplicates"),
+        type: "number",
+        width: "7rem",
+      },
+      {
+        key: "errorCount",
+        header: t("banking.imports.col.errors"),
+        type: "number",
+        width: "6rem",
+        cell: (row) =>
+          row.errorCount > 0 ? (
+            <span className="tabular-nums text-destructive" title={row.errors.join("\n")}>
+              {row.errorCount}
+            </span>
+          ) : (
+            <span className="tabular-nums">0</span>
+          ),
+      },
+      {
+        key: "importedAt",
+        header: t("banking.imports.col.date"),
+        type: "date",
+        width: "11.5rem",
+        cell: (row) => (
+          <span className="tabular-nums">{row.importedAt.slice(0, 16).replace("T", " ")}</span>
+        ),
+      },
+    ],
+    [t],
+  );
+
   return (
-    <div className="flex flex-col gap-3">
-      {canWrite && (
-        <div>
-          <Button size="sm" onClick={() => setImportOpen(true)} data-testid="open-import">
-            {t("banking.import.button")}
-          </Button>
-        </div>
-      )}
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("banking.imports.col.file")}</TableHead>
-              <TableHead>{t("banking.imports.col.account")}</TableHead>
-              <TableHead>{t("banking.imports.col.period")}</TableHead>
-              <TableHead className="text-right">{t("banking.imports.col.rows")}</TableHead>
-              <TableHead className="text-right">{t("banking.imports.col.imported")}</TableHead>
-              <TableHead className="text-right">{t("banking.imports.col.duplicates")}</TableHead>
-              <TableHead className="text-right">{t("banking.imports.col.errors")}</TableHead>
-              <TableHead>{t("banking.imports.col.date")}</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {imports.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
-                  {t("banking.imports.empty")}
-                </TableCell>
-              </TableRow>
-            )}
-            {imports.map((i) => (
-              <TableRow key={i.id} data-testid="import-row">
-                <TableCell className="max-w-[20rem] truncate" title={i.fileName}>
-                  <Link href={`/banking?f.bankImportId=in:${i.id}`} className="hover:underline">
-                    {i.fileName}
-                  </Link>
-                </TableCell>
-                <TableCell>{i.accountLabel}</TableCell>
-                <TableCell className="tabular-nums">
-                  {i.periodFrom && i.periodTo ? `${i.periodFrom} → ${i.periodTo}` : "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">{i.recordCount}</TableCell>
-                <TableCell className="text-right tabular-nums">{i.importedCount}</TableCell>
-                <TableCell className="text-right tabular-nums">{i.duplicateCount}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {i.errorCount > 0 ? (
-                    <span className="text-red-700" title={i.errors.join("\n")}>
-                      {i.errorCount}
-                    </span>
-                  ) : (
-                    0
-                  )}
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {i.importedAt.slice(0, 16).replace("T", " ")}
-                </TableCell>
-                <TableCell className="text-right">
-                  {canWrite && (
-                    <Button size="sm" variant="ghost" onClick={() => setToDelete(i)}>
-                      {t("banking.imports.delete")}
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      {canWrite && (
-        <ImportDialog open={importOpen} onOpenChange={setImportOpen} accounts={accounts} />
-      )}
+    <>
+      <DataTable
+        tableKey="bank-imports"
+        columns={columns}
+        result={result}
+        state={state}
+        filterSource={filterSource}
+        valueLabel={(_column, value) => (value === null ? t("common.blanks") : value)}
+        rowHref={rowsOf}
+        rowActions={
+          canWrite
+            ? (row) => [
+                {
+                  label: t("banking.imports.delete"),
+                  destructive: true,
+                  onClick: () => setToDelete(row),
+                },
+              ]
+            : undefined
+        }
+        emptyState={t("banking.imports.empty")}
+      />
       <ConfirmDialog
         open={!!toDelete}
         onOpenChange={(o) => !o && setToDelete(null)}
@@ -137,6 +186,6 @@ export function ImportsTable({
         onConfirm={() => void confirmDelete()}
         isLoading={isPending}
       />
-    </div>
+    </>
   );
 }

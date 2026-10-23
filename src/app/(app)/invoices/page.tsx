@@ -8,7 +8,7 @@ import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { INVOICE_COLUMN_KEYS, INVOICE_DEFAULT_SORT, listInvoices } from "@/modules/invoices";
-import { InvoiceTable } from "@/modules/invoices/ui";
+import { InvoiceTable, NewDocumentButton } from "@/modules/invoices/ui";
 import { getPartners } from "@/modules/partners";
 import { getUserPreferences } from "@/modules/settings";
 
@@ -39,7 +39,11 @@ export default async function InvoicesPage({
   const t = translator(await requestLocale(prefs.data?.locale));
 
   return (
-    <ListPage title={t("invoices.title")} meta={t("invoices.meta.count", { count: result.total })}>
+    <ListPage
+      title={t("invoices.title")}
+      meta={t("invoices.meta.count", { count: result.total })}
+      actions={can(auth, "create", "invoice") && <NewDocumentButton />}
+    >
       <InvoiceTable
         result={{
           ...result,

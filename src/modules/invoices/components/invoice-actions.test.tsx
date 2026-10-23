@@ -28,7 +28,6 @@ const props = {
   type: "invoice" as const,
   status: "issued" as const,
   state: "issued" as const,
-  number: "AL26-001",
   numberHint: null,
   pdfDocumentId: null,
   canWrite: true,
