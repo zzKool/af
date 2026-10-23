@@ -21,10 +21,10 @@ import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as settings from "@/modules/settings";
-import { toExpenseDto } from "./expenses";
+import { isExpenseOpen, toExpenseDto } from "./expenses";
 import { groupLabel, toGroupDto } from "./groups";
-import { toSettlementDto } from "./settlements";
-import { deriveExpenseStatus, OPEN_BASE_TOLERANCE_SEK, openBase } from "./status";
+import { allocatedByExpense, toSettlementDto } from "./settlements";
+import { deriveExpenseStatus, owedBase } from "./status";
 import type {
   ExpenseDto,
   ExpenseGroupDto,
@@ -100,7 +100,7 @@ const STORED_COLUMNS: ColumnMap = Object.fromEntries(
 const ROW_CAP = 20_000;
 
 type Facts = {
-  /** Σ active settlement lines per expense, SEK */
+  /** Σ active settlement lines per expense, SEK (`allocatedByExpense`) */
   allocated: Map<string, Dec>;
   /** Σ justifies allocations onto the expense (company-paid), in the paid currency */
   justified: Map<string, Dec>;
@@ -111,11 +111,8 @@ type Facts = {
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
   const f: Facts = { allocated: new Map(), justified: new Map(), hasDocument: new Set() };
   if (ids.length === 0) return f;
-  const [lines, links] = await Promise.all([
-    tx.settlementLine.findMany({
-      where: { expenseId: { in: [...ids] }, settlement: { status: "active" } },
-      select: { expenseId: true, allocatedBase: true },
-    }),
+  const [allocated, links] = await Promise.all([
+    allocatedByExpense(tx, ids),
     tx.link.findMany({
       where: {
         OR: [
@@ -126,9 +123,7 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
       select: { kind: true, fromType: true, fromId: true, toId: true, allocatedAmount: true },
     }),
   ]);
-  for (const l of lines) {
-    f.allocated.set(l.expenseId, (f.allocated.get(l.expenseId) ?? new D(0)).plus(l.allocatedBase));
-  }
+  f.allocated = allocated;
   for (const l of links) {
     if (l.kind === "created_from") f.hasDocument.add(l.fromId);
     else if (l.kind === "justifies" && l.fromType === "bank_transaction" && l.allocatedAmount) {
@@ -155,7 +150,7 @@ export function statusOf(
   return {
     status,
     allocatedBase: allocated.toFixed(2),
-    openBase: sourceKind === "private" ? openBase(e.amountBase, allocated).toFixed(2) : "0.00",
+    openBase: sourceKind === "private" ? owedBase(e.amountBase, allocated).toFixed(2) : "0.00",
   };
 }
 
@@ -276,6 +271,8 @@ export type ExpenseDetail = {
   status: ExpenseStatus;
   allocatedBase: string;
   openBase: string;
+  /** the money facts may still change (`isExpenseOpen`, D37) — the panel reads this, never its own copy */
+  isOpen: boolean;
   document: { id: string; businessKey: string; fileName: string } | null;
   links: (LinkDto & { otherLabel: string | null })[];
   settlements: {
@@ -301,10 +298,11 @@ export async function getExpenseDetail(
   });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Expense not found: ${id}`, retryable: false } };
-  const [f, labels, links] = await Promise.all([
+  const [f, labels, links, isOpen] = await Promise.all([
     facts(tx, [id]),
     settings.basLabels(tx, [row.basCode]),
     linking.getLinksFor(tx, { type: "expense", id }),
+    isExpenseOpen(tx, id),
   ]);
   const dto = toExpenseDto(row);
   const derived = statusOf(dto, row.paymentSource.kind as PaymentSourceKind, f, id);
@@ -344,6 +342,7 @@ export async function getExpenseDetail(
       },
       basLabel: labels.get(row.basCode) ?? row.basCode,
       ...derived,
+      isOpen,
       document,
       links: withLabels,
       settlements: row.settlementLines.map((l) => ({
@@ -385,8 +384,7 @@ export async function listGroups(tx: TransactionClient): Promise<GroupListRow[]>
       perCurrency.set(e.currency, (perCurrency.get(e.currency) ?? new D(0)).plus(e.amount));
       total = total.plus(e.amountBase);
       if (e.paymentSource.kind === "private") {
-        const o = openBase(e.amountBase, f.allocated.get(e.id) ?? new D(0));
-        if (o.gt(OPEN_BASE_TOLERANCE_SEK)) open = open.plus(o);
+        open = open.plus(owedBase(e.amountBase, f.allocated.get(e.id) ?? new D(0)));
       }
     }
     return {
@@ -522,8 +520,8 @@ export async function ledgerSnapshot(tx: TransactionClient): Promise<LedgerSnaps
     for (const e of s.expenses) {
       const a = f.allocated.get(e.id) ?? new D(0);
       allocated = allocated.plus(a);
-      const o = openBase(e.amountBase, a);
-      if (o.gt(OPEN_BASE_TOLERANCE_SEK)) {
+      const o = owedBase(e.amountBase, a);
+      if (!o.isZero()) {
         open = open.plus(o);
         count += 1;
       }

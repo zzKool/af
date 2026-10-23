@@ -71,7 +71,7 @@ export {
   proposeSchema,
 } from "./settlements";
 export type { StatementData, StatementLine } from "./statement";
-export { deriveExpenseStatus, OPEN_BASE_TOLERANCE_SEK, openBase } from "./status";
+export { deriveExpenseStatus, OPEN_BASE_TOLERANCE_SEK, openBase, owedBase } from "./status";
 export type * from "./types";
 export {
   EXPENSE_GROUP_KINDS,

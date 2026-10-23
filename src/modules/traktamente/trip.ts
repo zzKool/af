@@ -3,8 +3,7 @@
 // expenses module (SEK, the owner's private SE source). Recompute replaces the expense while it is open.
 // MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
-import { Prisma } from "@/generated/prisma/browser";
-import type { Trip } from "@/generated/prisma/client";
+import { Prisma, type Trip } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -41,6 +40,45 @@ const notFound = (what: string, id: string): AppError => ({
 });
 
 const count = z.number().int().min(0).max(999);
+
+/** The stored breakdown (`trips.computed`, JSONB) as the calculator writes it — parsed on read, never cast (F62). */
+export const perDiemResultSchema: z.ZodType<PerDiemResult> = z.object({
+  fullDays: z.number(),
+  halfDays: z.number(),
+  nights: z.number(),
+  days: z.number(),
+  reason: z.string().nullable(),
+  countryCode: z.string(),
+  rateYears: z.array(z.number().int()),
+  mealRateYear: z.number().int(),
+  perDay: z.array(
+    z.object({
+      date: z.string(),
+      kind: z.enum(["full", "half"]),
+      year: z.number().int(),
+      amount: z.string(),
+    }),
+  ),
+  dayTotal: z.string(),
+  meals: z.object({
+    breakfasts: z.number(),
+    lunches: z.number(),
+    dinners: z.number(),
+    deduction: z.string(),
+  }),
+  nightAllowance: z.object({ nights: z.number(), nightAmount: z.string(), total: z.string() }),
+  longStayFactor: z.string().nullable(),
+  total: z.string(),
+  warnings: z.array(z.string()),
+  computedAt: z.string(),
+});
+
+/** The stored snapshot, or null when there is none or it does not read as a breakdown. */
+export function parsePerDiemResult(value: unknown): PerDiemResult | null {
+  if (value === null || value === undefined) return null;
+  const parsed = perDiemResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 
 export const tripInputSchema = z
   .object({
@@ -120,7 +158,7 @@ export function toTripDto(row: Trip): TripDto {
     dinners: row.dinners,
     nightsWithoutPaidLodging: row.nightsWithoutPaidLodging,
     longStayFactor: row.longStayFactor ? row.longStayFactor.toString() : null,
-    computed: (row.computed as PerDiemResult | null) ?? null,
+    computed: parsePerDiemResult(row.computed),
     perDiemExpenseId: row.perDiemExpenseId,
     perDiemDocumentId: row.perDiemDocumentId,
     createdAt: row.createdAt,
@@ -169,7 +207,8 @@ export async function computeForTrip(
 
 /**
  * Create or update the group's trip; the group becomes a trip group. The snapshot is stored when the rates allow
- * a computation; otherwise the trip is saved and the computation error returned alongside (`computeError`).
+ * a computation; otherwise the trip is saved, the snapshot cleared and the computation error returned alongside
+ * (`computeError`).
  */
 export async function upsertTrip(
   tx: TransactionClient,
@@ -205,11 +244,12 @@ export async function upsertTrip(
     ...data,
     longStayFactor: data.longStayFactor ? new Prisma.Decimal(data.longStayFactor) : null,
   });
+  // a failed computation clears the snapshot: the panel and the PDF never show a breakdown of other inputs (F62)
   const snapshot = computed.data ? JSON.parse(JSON.stringify(computed.data)) : undefined;
   const row = group.trip
     ? await tx.trip.update({
         where: { id: group.trip.id },
-        data: { ...data, computed: snapshot ?? undefined },
+        data: { ...data, computed: snapshot ?? Prisma.DbNull },
       })
     : await tx.trip.create({
         data: {

@@ -30,6 +30,7 @@ import {
   createExpense,
   deleteExpense,
   detachBankTransaction,
+  isExpenseOpen,
   updateExpense,
 } from "./expenses";
 import { createGroup, deleteGroup } from "./groups";
@@ -538,6 +539,58 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     await expect(
       adminPool.query(`DELETE FROM expenses WHERE id = $1`, [e.data!.id]),
     ).rejects.toThrow(/settlement_lines/);
+  });
+
+  it("the lock trigger matches isOpen (D37, F62): a paid (linked) expense's money is locked in the DB; detach reopens it", async () => {
+    const g = await group213();
+    const e = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, {
+        groupId: g.id,
+        date: "2026-03-10",
+        description: "ChatGPT subscription",
+        basCode: "580",
+        amount: "45.00",
+        currency: "CHF",
+        paymentSourceId: owner.sources.afSek.id,
+      }),
+    );
+    const id = e.data!.id;
+    const [rowId] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-12", amount: "-523.17", details: "Kortköp 260310 OPENAI *CHATGPT SUBS" },
+      ]),
+    );
+    const attached = await run(owner.caller, (tx) =>
+      attachBankTransaction(tx, owner.caller, noopAudit, {
+        expenseId: id,
+        bankTransactionId: rowId,
+      }),
+    );
+    expect(attached.error).toBeUndefined();
+    expect(await run(owner.caller, (tx) => isExpenseOpen(tx, id))).toBe(false);
+    // the database itself refuses, whatever the route (superuser, no service)
+    await expect(
+      adminPool.query(`UPDATE expenses SET amount = 46 WHERE id = $1`, [id]),
+    ).rejects.toThrow(/expense_locked/);
+    await expect(
+      adminPool.query(`UPDATE expenses SET amount_base = 1 WHERE id = $1`, [id]),
+    ).rejects.toThrow(/expense_locked/);
+    await expect(
+      adminPool.query(`UPDATE expenses SET paid_amount = 1 WHERE id = $1`, [id]),
+    ).rejects.toThrow(/expense_locked/);
+    await adminPool.query(`UPDATE expenses SET note = 'fine' WHERE id = $1`, [id]);
+    // the service says why, and refuses the delete for the same reason
+    await run(owner.caller, async (tx) => {
+      const del = await deleteExpense(tx, owner.caller, noopAudit, id);
+      expect(del.error?.message).toMatch(/settled or paid/);
+    });
+    // detach takes the link off first, then rewrites the money: open again, in the DB too
+    const detached = await run(owner.caller, (tx) =>
+      detachBankTransaction(tx, owner.caller, noopAudit, id),
+    );
+    expect(detached.error).toBeUndefined();
+    expect(await run(owner.caller, (tx) => isExpenseOpen(tx, id))).toBe(true);
+    await adminPool.query(`UPDATE expenses SET amount = 46 WHERE id = $1`, [id]);
   });
 });
 

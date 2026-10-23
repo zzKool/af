@@ -29,7 +29,14 @@ import {
   rateYears,
   upsertRate,
 } from "./rates";
-import { createOrReplacePerDiemExpense, previewPerDiem, toInstant, upsertTrip } from "./trip";
+import { resolvePerDiemStatement } from "./statement";
+import {
+  createOrReplacePerDiemExpense,
+  getTrip,
+  previewPerDiem,
+  toInstant,
+  upsertTrip,
+} from "./trip";
 
 let mockHeaders: Headers = new Headers();
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
@@ -214,6 +221,39 @@ describe("US3 — the per-diem expense", () => {
       createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
     );
     expect(refused.error?.message).toMatch(/is settled — a correction is a new per-diem expense/);
+  });
+
+  it("a failed recomputation leaves no old snapshot (F62); a stored snapshot is parsed on read, never cast", async () => {
+    const g = await tripGroup();
+    const ok = await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, ownerTrip(g.id)),
+    );
+    expect(ok.data?.trip.computed).not.toBeNull();
+    // the same trip moved into a year without rates: the old breakdown must not survive
+    const failed = await run(owner.caller, (tx) =>
+      upsertTrip(tx, owner.caller, noopAudit, {
+        ...ownerTrip(g.id),
+        departureAt: "2025-12-30T08:00",
+        returnAt: "2026-01-02T21:00",
+        lunches: 0,
+      }),
+    );
+    expect(failed.data?.computeError?.message).toBe("No travel allowance rate for CH in 2025");
+    expect(failed.data?.trip.computed).toBeNull();
+    const stored = await adminPool.query(`SELECT computed FROM trips WHERE group_id = $1`, [g.id]);
+    expect(stored.rows[0].computed).toBeNull();
+    expect(await run(owner.caller, (tx) => resolvePerDiemStatement(tx, owner.caller, g.id))).toBe(
+      null,
+    );
+    // a snapshot that does not read as a breakdown is no breakdown
+    await adminPool.query(
+      `UPDATE trips SET computed = '{"total": 12}'::jsonb WHERE group_id = $1`,
+      [g.id],
+    );
+    expect((await run(owner.caller, (tx) => getTrip(tx, g.id)))?.computed).toBeNull();
+    expect(await run(owner.caller, (tx) => resolvePerDiemStatement(tx, owner.caller, g.id))).toBe(
+      null,
+    );
   });
 
   it("a missing rate year is named; a day trip writes nothing; the preview is live", async () => {

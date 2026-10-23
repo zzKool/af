@@ -12,7 +12,7 @@ normalbelopp   year · country_code (ISO-2) · country_name_sv · country_name_e
                UNIQUE (tenant, year, country)
 trips          group_id (FK CASCADE, one per group) · departure_at · return_at (timestamptz, return > departure) · country_code · agency?
                breakfasts · lunches · dinners · nights_without_paid_lodging (≥ 0) · long_stay_factor? (0–1]
-               computed (the last PerDiemResult) · per_diem_expense_id? (validated UUID into expenses) · per_diem_document_id? (the breakdown PDF, set by the job, cleared on recompute)
+               computed (the last PerDiemResult; NULL when the last computation failed — F62) · per_diem_expense_id? (validated UUID into expenses) · per_diem_document_id? (the breakdown PDF, set by the job, cleared on recompute)
 ```
 
 Constants in code (`calculator.ts`): the tenant zone `Europe/Stockholm`, half day 0.5, departure half from 12:00, return half until 19:00, abroad meals 15 / 35 / 35 %, long stay 0.7 / 0.5. No settings.
@@ -28,7 +28,7 @@ The owner's trip: 2026-03-02 09:00 → 03-21 17:00 to CH at 1 402 with 18 lunche
 ## Services
 
 - `rates.ts`: `upsertRate` (create or update the (year, country) row, audited), `deleteRate` (refused while a trip to that country touches the year), `copyRatesFromYear({fromYear, toYear})` (only the countries the target year lacks, `rate_source = copied from 2025`), `parseSkatteverketCsv(text, defaultYear?)` (pure: `År;Land eller område;Landskod;Normalbelopp`, tab or `;`, decimal comma, header optional, the year column optional; `Se Danmark` rows and rows without a country code are reported as skipped), `pasteSkatteverketCsv({text, year?, dryRun?})` (preview or upsert; an existing row keeps its meal / night amounts). Reads: `listRates(year?)`, `rateYears`, `ratesForYears(country, years)`, `countryOptions(year, locale)`.
-- `trip.ts`: `upsertTrip` (the group becomes a trip group; local times are stored as Stockholm instants — `toInstant`; the snapshot is stored when the rates allow it, else the trip is saved and `computeError` returned alongside), `previewPerDiem(groupId)` (live, nothing written), `createOrReplacePerDiemExpense({groupId, basCode})` → `expenses.createPerDiemExpense` (key `Ex213-Tr-nn`, date = the return day, amount = the total, the note = the breakdown) or `replacePerDiemExpense` while the existing one is open; refused once settled, for a day trip, for a 0 total. `getTrip(groupId)`.
+- `trip.ts`: `upsertTrip` (the group becomes a trip group; local times are stored as Stockholm instants — `toInstant`; the snapshot is stored when the rates allow it, else the trip is saved, the snapshot **cleared** and `computeError` returned alongside — the panel and the breakdown PDF never show a result of other inputs, F62). The snapshot is read through `parsePerDiemResult` (Zod, `perDiemResultSchema`): one that does not read as a breakdown is none, never a cast — `toTripDto` and `resolvePerDiemStatement` alike., `previewPerDiem(groupId)` (live, nothing written), `createOrReplacePerDiemExpense({groupId, basCode})` → `expenses.createPerDiemExpense` (key `Ex213-Tr-nn`, date = the return day, amount = the total, the note = the breakdown) or `replacePerDiemExpense` while the existing one is open; refused once settled, for a day trip, for a 0 total. `getTrip(groupId)`.
 
 ## The breakdown PDF — `statement.ts`, `jobs/render-per-diem.ts` (D29)
 
@@ -49,7 +49,7 @@ The owner's trip: 2026-03-02 09:00 → 03-21 17:00 to CH at 1 402 with 18 lunche
 
 ## Tests
 
-`calculator.pure.test.ts` (every `day-count-cases.json` case on the v3 column, the boundaries, the zone, the worked examples, Sweden's triples and nights, refusals, two rate years, long stay, a 200-run property) · `trip.test.ts` (DB: the trip + snapshot + group kind, the per-diem expense and its recompute / replace / refusal once settled, the breakdown PDF job with a stubbed renderer (stored, linked, replaced on recompute, idempotent), missing years, day trips, `toInstant`, the CSV parser on the fixture, paste dry / real, copy a year, the delete guard) · the e2e in `e2e/expenses.spec.ts`.
+`calculator.pure.test.ts` (every `day-count-cases.json` case on the v3 column, the boundaries, the zone, the worked examples, Sweden's triples and nights, refusals, two rate years, long stay, a 200-run property) · `trip.test.ts` (DB: the trip + snapshot + group kind, the per-diem expense and its recompute / replace / refusal once settled, the breakdown PDF job with a stubbed renderer (stored, linked, replaced on recompute, idempotent), missing years, day trips, a failed recomputation clears the snapshot and a malformed one reads as none (F62), `toInstant`, the CSV parser on the fixture, paste dry / real, copy a year, the delete guard) · the e2e in `e2e/expenses.spec.ts`.
 
 Seed: the 2025 subset v1 carried (10 countries, `rate_source = v1-seed` — the owner verifies and pastes the current year).
 

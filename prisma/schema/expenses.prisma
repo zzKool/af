@@ -165,6 +165,7 @@ model Settlement {
   /// the reimbursement statement PDF (validated UUID), set once by the job
   statementDocumentId       String?          @map("statement_document_id") @db.Uuid
   /// the statement no longer describes the ledger (the settlement was cancelled); the document stays (retention)
+  /// unused since F62: superseded is derived (`cancelled && statementDocumentId`, `isStatementSuperseded`); drop pending the owner
   statementSuperseded       Boolean          @default(false) @map("statement_superseded")
   createdAt                 DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                 DateTime         @updatedAt @map("updated_at") @db.Timestamptz

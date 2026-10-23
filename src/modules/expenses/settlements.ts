@@ -26,7 +26,7 @@ import {
   residualOpen,
   settlementDifference,
 } from "./fifo";
-import { OPEN_BASE_TOLERANCE_SEK, openBase } from "./status";
+import { owedBase } from "./status";
 import type {
   SettlementDto,
   SettlementLineDto,
@@ -63,6 +63,14 @@ export type ConfirmInput = z.input<typeof confirmSchema>;
 
 // --- DTO ---
 
+/** A statement is superseded when its settlement is cancelled — derived, whenever the statement was stored (F62). */
+export function isStatementSuperseded(row: {
+  status: string;
+  statementDocumentId: string | null;
+}): boolean {
+  return row.status === "cancelled" && row.statementDocumentId !== null;
+}
+
 export function toSettlementDto(row: Settlement & { lines: SettlementLine[] }): SettlementDto {
   return {
     id: row.id,
@@ -81,7 +89,7 @@ export function toSettlementDto(row: Settlement & { lines: SettlementLine[] }): 
     status: row.status as SettlementStatus,
     cancelledAt: row.cancelledAt,
     statementDocumentId: row.statementDocumentId,
-    statementSuperseded: row.statementSuperseded,
+    statementSuperseded: isStatementSuperseded(row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     createdBy: row.createdBy,
@@ -147,7 +155,27 @@ async function resolveRefund(tx: TransactionClient, id: string): Promise<Service
   };
 }
 
-/** Open private expenses of one source (or all private sources), with what is still open on each. */
+/**
+ * Σ of the ACTIVE settlement lines per expense, SEK — the one sum the list, the groups, the ledger, the open
+ * expenses and the statement read (F62). A cancelled settlement's lines count for nothing.
+ */
+export async function allocatedByExpense(
+  tx: TransactionClient,
+  expenseIds: readonly string[],
+): Promise<Map<string, Dec>> {
+  const out = new Map<string, Dec>();
+  if (expenseIds.length === 0) return out;
+  const lines = await tx.settlementLine.findMany({
+    where: { expenseId: { in: [...expenseIds] }, settlement: { status: "active" } },
+    select: { expenseId: true, allocatedBase: true },
+  });
+  for (const l of lines) {
+    out.set(l.expenseId, (out.get(l.expenseId) ?? new D(0)).plus(l.allocatedBase));
+  }
+  return out;
+}
+
+/** Private expenses of one source (or all private sources) the company still owes something on (`owedBase` > 0). */
 export async function openPrivateExpenses(
   tx: TransactionClient,
   paymentSourceId?: string,
@@ -156,23 +184,23 @@ export async function openPrivateExpenses(
     where: {
       paymentSource: { kind: "private", ...(paymentSourceId ? { id: paymentSourceId } : {}) },
     },
-    include: { settlementLines: { include: { settlement: { select: { status: true } } } } },
     orderBy: [{ date: "asc" }, { key: "asc" }],
   });
+  const allocated = await allocatedByExpense(
+    tx,
+    rows.map((r) => r.id),
+  );
   const out = [];
   for (const r of rows) {
-    const allocated = r.settlementLines
-      .filter((l) => l.settlement.status === "active")
-      .reduce<Dec>((acc, l) => acc.plus(l.allocatedBase), new D(0));
-    const open = openBase(r.amountBase, allocated);
-    if (open.lte(OPEN_BASE_TOLERANCE_SEK)) continue;
+    const owed = owedBase(r.amountBase, allocated.get(r.id) ?? new D(0));
+    if (owed.isZero()) continue;
     out.push({
       expenseId: r.id,
       key: r.key,
       date: r.date.toISOString().slice(0, 10),
       description: r.description,
       amountBase: r.amountBase.toFixed(2),
-      openBase: open.toFixed(2),
+      openBase: owed.toFixed(2),
       paymentSourceId: r.paymentSourceId,
       currency: r.currency,
       amount: r.amount.toFixed(2),
@@ -372,7 +400,7 @@ export async function confirmSettlement(
   return { data: toSettlementDto(row) };
 }
 
-/** Cancel (US4-6): status, the link goes, the balances reopen; number and statement stay (flagged superseded). */
+/** Cancel (US4-6): status, the link goes, the balances reopen; number and statement stay (read as superseded). */
 export async function cancelSettlement(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -392,11 +420,7 @@ export async function cancelSettlement(
   }
   const updated = await tx.settlement.update({
     where: { id },
-    data: {
-      status: "cancelled",
-      cancelledAt: new Date(),
-      statementSuperseded: row.statementDocumentId !== null,
-    },
+    data: { status: "cancelled", cancelledAt: new Date() },
     include: { lines: true },
   });
   await audit.log({
@@ -404,7 +428,7 @@ export async function cancelSettlement(
     entityType: "settlement",
     entityId: id,
     oldData: { status: "active" },
-    newData: { status: "cancelled", statementSuperseded: updated.statementSuperseded },
+    newData: { status: "cancelled", statementSuperseded: isStatementSuperseded(updated) },
   });
   return { data: toSettlementDto(updated) };
 }

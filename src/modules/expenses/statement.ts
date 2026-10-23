@@ -6,7 +6,9 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
 import * as settings from "@/modules/settings";
+import { fifoOrder } from "./fifo";
 import { groupLabel } from "./groups";
+import { allocatedByExpense, isStatementSuperseded } from "./settlements";
 import { openBase } from "./status";
 
 const D = Prisma.Decimal;
@@ -63,26 +65,12 @@ export async function resolveStatement(
     banking.getBankTransaction(tx, s.bankTransactionId),
   ]);
   // what each expense still has open AFTER this settlement, over every active settlement (this one included)
-  const expenseIds = s.lines.map((l) => l.expenseId);
-  const allLines = await tx.settlementLine.findMany({
-    where: { expenseId: { in: expenseIds }, settlement: { status: "active" } },
-    select: { expenseId: true, allocatedBase: true },
-  });
-  const allocatedByExpense = new Map<string, Dec>();
-  for (const l of allLines) {
-    allocatedByExpense.set(
-      l.expenseId,
-      (allocatedByExpense.get(l.expenseId) ?? new D(0)).plus(l.allocatedBase),
-    );
-  }
-  const lines: StatementLine[] = s.lines
-    .slice()
-    .sort(
-      (a, b) =>
-        a.expense.date.getTime() - b.expense.date.getTime() ||
-        a.expense.key.localeCompare(b.expense.key),
-    )
-    .map((l) => ({
+  const allocated = await allocatedByExpense(
+    tx,
+    s.lines.map((l) => l.expenseId),
+  );
+  const lines: StatementLine[] = fifoOrder(
+    s.lines.map((l) => ({
       key: l.expense.key,
       date: l.expense.date.toISOString().slice(0, 10),
       description: l.expense.description,
@@ -92,17 +80,17 @@ export async function resolveStatement(
       currency: l.expense.currency,
       amountBase: l.expense.amountBase.toFixed(2),
       allocatedBase: l.allocatedBase.toFixed(2),
-      remainingOpen: openBase(
-        l.expense.amountBase,
-        allocatedByExpense.get(l.expenseId) ?? new D(0),
-      ).toFixed(2),
+      remainingOpen: openBase(l.expense.amountBase, allocated.get(l.expenseId) ?? new D(0)).toFixed(
+        2,
+      ),
       note: l.note,
-    }));
+    })),
+  );
   const residual = lines.reduce<Dec>((acc, l) => acc.plus(new D(l.remainingOpen)), new D(0));
   return {
     number: s.number,
     status: s.status,
-    statementSuperseded: s.statementSuperseded,
+    statementSuperseded: isStatementSuperseded(s),
     company: {
       name: profile.data?.name ?? "",
       orgNumber: profile.data?.orgNumber ?? null,

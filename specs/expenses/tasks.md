@@ -40,6 +40,15 @@
 - [x] T017 Settings → *Traktamente rates* tab (`RateTable`: year tabs, inline edit, copy last year, paste Skatteverket CSV with preview).
 - [x] T018 Nav (*Expenses* for owner + accountant), strings `expenses.*` / `traktamente.*` en + fr, `e2e/expenses.spec.ts` (group → three expenses from the fixture (SEK, CI has no ECB) → settle → statement → trip → per-diem), `e2e/screenshots.spec.ts` additions, `specs/expenses/screenshots/`, docs pages sections, PR.
 
+## F62 — one owed / one open rule (`feat/expenses-owed-open`, lane DIRECT, lessons audit 13–17)
+
+- [x] T019 `owedBase()` in `status.ts` + `allocatedByExpense` in `settlements.ts`; the list, the groups, the ledger, `openPrivateExpenses`, the status and the statement read them (test: a 0.30 residual, list sum = ledger = 0.00).
+- [x] T020 One `isOpen` (settlement line or `justifies` onto it, D37) for update / delete / per-diem replace and the panel (`ExpenseDetail.isOpen`); migration `20261023120000_expenses_lock_when_paid` — the trigger tests the same facts (test: a paid expense refused by the DB, reopened by detach).
+- [x] T021 Settle screen on `settlementDifference` + `owedBase` in Decimal; the statement in `fifoOrder`.
+- [x] T022 `statement_superseded` derived (`isStatementSuperseded`); the column unread / unwritten (test: a statement stored after the cancel reads superseded).
+- [x] T023 Traktamente: a failed computation clears `trips.computed`; `parsePerDiemResult` (Zod) on read (test).
+- [ ] T024 Drop `settlements.statement_superseded` — waits for the owner's OK (irreversible).
+
 ## Dependencies
 
 T001 → T002/T003 → T004 → T005 → T006 → T007 → T008 → T009 → T010 → T011 → T012 → (merge) → T013–T018.

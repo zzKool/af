@@ -234,20 +234,18 @@ async function checkVatRegistration(
   return null;
 }
 
-/** Settlement lines or links: once either exists the money facts are written (FR-003, US1-5/6). */
+/**
+ * THE "open" rule (D37, F62): an expense is a draft — its money facts may change — until its first payment, i.e.
+ * a settlement line (any, a cancelled settlement's too: "from then on") or a `justifies` link onto it (the paying
+ * bank row; linking lets only *attach* write it, F58). The lock trigger `expenses_lock_when_settled` tests the same
+ * two facts, so the database refuses what this refuses. *Detach* removes the link before it rewrites the money.
+ */
 async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
-  const lines = await tx.settlementLine.count({ where: { expenseId: id } });
-  if (lines > 0) return false;
-  const links = await tx.link.count({
-    where: {
-      kind: { in: ["justifies", "settles"] },
-      OR: [
-        { fromType: "expense", fromId: id },
-        { toType: "expense", toId: id },
-      ],
-    },
-  });
-  return links === 0;
+  const [lines, payments] = await Promise.all([
+    tx.settlementLine.count({ where: { expenseId: id } }),
+    tx.link.count({ where: { kind: "justifies", toType: "expense", toId: id } }),
+  ]);
+  return lines === 0 && payments === 0;
 }
 
 // --- writes ---
@@ -434,8 +432,9 @@ export async function deleteExpense(
 ): Promise<ServiceResult<{ deleted: true }>> {
   const row = await tx.expense.findUnique({ where: { id } });
   if (!row) return { error: notFound("Expense", id) };
-  const lines = await tx.settlementLine.count({ where: { expenseId: id } });
-  if (lines > 0) return { error: violation(`${row.key} is settled and cannot be deleted`) };
+  if (!(await isOpen(tx, id))) {
+    return { error: violation(`${row.key} is settled or paid and cannot be deleted`) };
+  }
   const linked = await tx.link.count({
     where: {
       OR: [
@@ -677,5 +676,5 @@ export async function getExpense(tx: TransactionClient, id: string): Promise<Exp
   return row ? toExpenseDto(row) : null;
 }
 
-/** Whether the expense can still change its money facts (no settlement line, no justifies / settles link). */
+/** Whether the expense can still change its money facts (no settlement line, no payment link) — D37. */
 export { isOpen as isExpenseOpen };
