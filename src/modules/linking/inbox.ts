@@ -7,7 +7,7 @@ import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import { isKindAllowed } from "./kinds";
 import { getLinkable } from "./linkable";
-import { rank, scoreMatch } from "./scoring";
+import { proposedAllocation, rank, scoreMatch } from "./scoring";
 import {
   CANDIDATES_PER_TYPE,
   DATE_WINDOW_DAYS,
@@ -112,9 +112,7 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
         scored.push({
           ...m,
           candidate: c,
-          allocation: m.crossCurrency
-            ? null
-            : D.min(new D(f.remaining), new D(c.remaining)).toFixed(2),
+          allocation: proposedAllocation(m, f, c),
         });
       }
     }

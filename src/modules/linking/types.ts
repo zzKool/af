@@ -84,7 +84,11 @@ export type EntityFacts = {
   label: string;
   /** what a link allocates against (absolute), in `currency` */
   amount: string;
-  currency: string;
+  /**
+   * null = not known (a receipt OCR read no currency on, F61-b): the scorer compares no amount and charges no
+   * currency penalty — reference, name and date only — and a link to it carries no allocation.
+   */
+  currency: string | null;
   /** the SEK base both sides already carry (D3) — the cross-currency comparison; null when unknown */
   amountBase: string | null;
   /** ISO date that anchors the ± window: issue date, invoice date, expense date, booking date */

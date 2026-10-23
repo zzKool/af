@@ -26,7 +26,7 @@ write  correctionsPatchSchema (strict) ── action + updateDocumentCorrections
 read   parseCorrections (per field)    ── library, inbox, review, linkable ── a stored value that does not fit is dropped → the OCR value shows
 ```
 
-So `{invoiceTotal: null}` (an emptied number field used to send it) is refused on save, and an old row holding it still lists. Amounts reach the lists through `amountText` (finite number → 2 decimals, else null). The matcher gets a currency only when it is a code the app knows (`knownCurrency`); OCR's `prebuilt-receipt` reads none, so **set the currency on review** — a receipt corrected to CHF is compared as CHF. An uncorrected receipt is still compared as SEK until linking accepts an unknown currency (F61-b).
+So `{invoiceTotal: null}` (an emptied number field used to send it) is refused on save, and an old row holding it still lists. Amounts reach the lists through `amountText` (finite number → 2 decimals, else null). The matcher gets a currency only when it is a code the app knows (`knownCurrency`); OCR's `prebuilt-receipt` reads none, so **set the currency on review** — a receipt corrected to CHF is compared as CHF. An uncorrected receipt is *unknown* to the matcher (F61-b): matched on reference, name and date only, linked without an allocation.
 
 ### Why not mutate extractedData?
 
