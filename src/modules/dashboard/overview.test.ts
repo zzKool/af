@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { cleanupTestData, createTestDocument, createTestPartner } from "@/kernel/db/test-fixtures";
+import { parseListQuery } from "@/kernel/list-query/codec";
 import * as contracts from "@/modules/contracts";
 import * as expenses from "@/modules/expenses";
 import {
@@ -270,8 +271,17 @@ describe("the owner's dashboard", () => {
       count: 1,
       priority: "medium",
       amount: { value: "500.00", currency: "SEK" },
-      href: "/supplier-invoices",
+      href: "/supplier-invoices?f.status=in:unpaid|partially_paid&f.dueDate=dates:from=2026-07-15|to=2026-07-29",
     });
+    // the item opens the list on what it counts: the one invoice due 07-25, not 9160 (overdue)
+    const dueList = await run(owner.caller, (tx) =>
+      supplierInvoices.listSupplierInvoices(
+        tx,
+        parseListQuery(new URL(byKind.supplier_invoices_due?.href ?? "", "http://x").searchParams),
+        { today: TODAY },
+      ),
+    );
+    expect(dueList.rows.map((r) => r.invoiceNumber)).toEqual(["9161"]);
     expect(byKind.expenses_awaiting_row).toMatchObject({
       count: 1,
       priority: "low",

@@ -215,7 +215,8 @@ export async function dashboardOverview(
         count: supplierKpis.dueSoonCount,
         amount: { value: supplierKpis.dueSoonBase, currency: "SEK" },
         priority: "medium",
-        href: "/supplier-invoices",
+        // what the KPI counts: open, not overdue, due by today + DUE_SOON_DAYS
+        href: `/supplier-invoices?f.status=in:unpaid|partially_paid&f.dueDate=dates:from=${today}|to=${addDays(today, supplierInvoices.DUE_SOON_DAYS)}`,
       });
     }
     if (overdueCount > 0) {
