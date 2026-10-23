@@ -394,7 +394,8 @@ export async function collectPeriod(
     const origin = originOf.get(s.id);
     const doc = origin ? docById.get(origin) : undefined;
     const rowFlags: string[] = [];
-    if (!doc) {
+    // the owner's rule (supplier invoices' `hasDocument`), not a second one here (lessons audit 26)
+    if (!s.hasDocument) {
       rowFlags.push("missing document");
       flags.push({
         kind: "missing_document",
@@ -443,7 +444,8 @@ export async function collectPeriod(
     const origin = originOf.get(e.id) ?? perDiemDocs.get(e.id);
     const doc = origin ? docById.get(origin) : undefined;
     const rowFlags: string[] = [];
-    if (!doc) {
+    // the owner's rule (expenses' `hasDocument`; a per-diem breakdown is a `created_from` document too)
+    if (!e.hasDocument) {
       rowFlags.push("missing document");
       flags.push({
         kind: "missing_document",
