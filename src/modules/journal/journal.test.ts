@@ -429,6 +429,129 @@ describe("US3 — manual entries", () => {
   });
 });
 
+/** A bank account + import + one transaction, written as banking would (the journal never reads these tables). */
+async function bankRow(
+  caller: CallerIdentity,
+  row: { currency: string; date: string; amount: string; alias?: string },
+): Promise<string> {
+  const fmt = await adminPool.query(`SELECT id FROM bank_formats LIMIT 1`);
+  const acc = await adminPool.query(
+    `INSERT INTO bank_accounts (tenant_id, account_alias, account_number, currency, bank_format_id, created_by, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, now()) RETURNING id`,
+    [
+      caller.tenantId,
+      row.alias ?? `Nordea ${row.currency}`,
+      uuid().slice(0, 12),
+      row.currency,
+      fmt.rows[0].id,
+      caller.userId,
+    ],
+  );
+  const imp = await adminPool.query(
+    `INSERT INTO bank_imports (tenant_id, bank_account_id, file_name, created_by, updated_at)
+     VALUES ($1, $2, 'x.csv', $3, now()) RETURNING id`,
+    [caller.tenantId, acc.rows[0].id, caller.userId],
+  );
+  const tx = await adminPool.query(
+    `INSERT INTO bank_transactions (tenant_id, bank_account_id, bank_import_id, booking_date, amount, currency, description,
+       counterparty_key, dedup_hash, row_index, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, 'CHANGE CHFSEK', 'CHANGE CHFSEK', $7, 0, $8) RETURNING id`,
+    [
+      caller.tenantId,
+      acc.rows[0].id,
+      imp.rows[0].id,
+      row.date,
+      row.amount,
+      row.currency,
+      uuid().replaceAll("-", "").padEnd(64, "0"),
+      caller.userId,
+    ],
+  );
+  return tx.rows[0].id;
+}
+
+describe("edge case — bank_implicit_rate is informational (T005)", () => {
+  it("derived from the transfer link: set while paired, gone once unpaired, the new pair's rate after a re-pair", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const chf = await bankRow(caller, { currency: "CHF", date: "2026-07-08", amount: "-20000.00" });
+    const sek = await bankRow(caller, { currency: "SEK", date: "2026-07-08", amount: "237740.00" });
+    const sek2 = await bankRow(caller, {
+      currency: "SEK",
+      date: "2026-07-08",
+      amount: "238000.00",
+    });
+    const entry = (
+      await run(caller, (tx) =>
+        journal.createBankEntries(tx, caller, noopAudit, [
+          {
+            sourceId: chf,
+            entryDate: "2026-07-08",
+            description: "CHANGE CHFSEK",
+            counterpartyKey: "CHANGE CHFSEK",
+            amount: "-20000.00",
+            currency: "CHF",
+          },
+          {
+            sourceId: sek,
+            entryDate: "2026-07-08",
+            description: "CHANGE CHFSEK",
+            counterpartyKey: "CHANGE CHFSEK",
+            amount: "237740.00",
+            currency: "SEK",
+          },
+          {
+            sourceId: sek2,
+            entryDate: "2026-07-08",
+            description: "CHANGE CHFSEK",
+            counterpartyKey: "CHANGE CHFSEK",
+            amount: "238000.00",
+            currency: "SEK",
+          },
+        ]),
+      )
+    ).data![0];
+    const implicit = () =>
+      run(caller, async (tx) => ({
+        bySource: await journal.entriesForSources(tx, "bank_transaction", [chf, sek]),
+        one: (await journal.getJournalEntry(tx, entry.id)).data?.bankImplicitRate,
+        listed: (
+          await listJournalEntries(tx, { page: 1, pageSize: 50, sort: [], filters: {} })
+        ).rows.find((r) => r.id === entry.id)?.bankImplicitRate,
+      }));
+    const pair = (to: string) =>
+      run(caller, (tx) =>
+        linking.createLink(tx, caller, noopAudit, {
+          from: { type: "bank_transaction", id: chf },
+          to: { type: "bank_transaction", id: to },
+          kind: "transfer",
+        }),
+      );
+
+    expect((await implicit()).one).toBeNull();
+    const first = await pair(sek);
+    expect(first.error).toBeUndefined();
+    const paired = await implicit();
+    expect(paired.one).toBe("11.887");
+    expect(paired.listed).toBe("11.887");
+    expect(paired.bySource.get(chf)?.bankImplicitRate).toBe("11.887");
+    expect(paired.bySource.get(sek)?.bankImplicitRate).toBeNull(); // the base leg has none
+    expect(paired.bySource.get(chf)?.rate).toBe("11.899657"); // never replaces the ECB rate of the base
+
+    await run(caller, (tx) => linking.removeLink(tx, caller, noopAudit, first.data?.id as string));
+    const unpaired = await implicit();
+    expect(unpaired.one).toBeNull();
+    expect(unpaired.listed).toBeNull();
+
+    expect((await pair(sek2)).error).toBeUndefined();
+    expect((await implicit()).one).toBe("11.9"); // 238 000 ÷ 20 000
+    // categorising keeps it (the panel shows what the save returns)
+    const saved = await run(caller, (tx) =>
+      journal.categorise(tx, caller, noopAudit, entry.id, { note: "exchange" }),
+    );
+    expect(saved.data?.bankImplicitRate).toBe("11.9");
+  });
+});
+
 describe("FR-004 — only manual entries are link endpoints (T001)", () => {
   it("a justifies from a bank entry is refused, from a manual entry accepted", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
