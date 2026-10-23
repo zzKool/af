@@ -1156,6 +1156,10 @@ export const fr: Dictionary = {
   "supplierInvoices.form.note": "Note",
   "supplierInvoices.form.create": "Créer la facture fournisseur",
   "supplierInvoices.form.created": "Facture fournisseur {key} créée",
+  "supplierInvoices.form.numberTaken": "Ce numéro de facture du fournisseur est déjà enregistré",
+  "supplierInvoices.form.numberTakenBy": "Le n° {n} est {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "Le numéro de facture d'un fournisseur est unique — corrigez le numéro ou ouvrez la facture existante.",
   "supplierInvoices.panel.money": "Montants",
   "supplierInvoices.panel.base": "{base} SEK à {rate} ({source})",
   "supplierInvoices.panel.paidBy": "payé {amount} par la banque",

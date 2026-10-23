@@ -1009,6 +1009,10 @@ export const sv: Dictionary = {
   "supplierInvoices.form.note": "Anteckning",
   "supplierInvoices.form.create": "Skapa leverantörsfaktura",
   "supplierInvoices.form.created": "Leverantörsfaktura {key} skapad",
+  "supplierInvoices.form.numberTaken": "Leverantörens fakturanummer finns redan registrerat",
+  "supplierInvoices.form.numberTakenBy": "Nr {n} är {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "En leverantörs fakturanummer är unikt — rätta numret eller öppna den befintliga fakturan.",
   "supplierInvoices.panel.money": "Belopp",
   "supplierInvoices.panel.base": "{base} SEK till kurs {rate} ({source})",
   "supplierInvoices.panel.paidBy": "{amount} betalt av banken",
