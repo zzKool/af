@@ -40,6 +40,7 @@ test.describe("Journal — owner writes, accountant reads", () => {
     await row.getByText(stamp).click();
     const panel = page.getByTestId("journal-panel");
     await expect(panel.getByTestId("categorise-form")).toBeVisible();
+    await expect(panel.getByTestId("journal-proof")).toContainText("Not linked to anything yet.");
     await expect(panel.getByTestId("journal-link-to")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Delete entry" })).toBeVisible();
     await snap(page, "journal-manual-entry-panel");
@@ -55,7 +56,7 @@ test.describe("Journal — owner writes, accountant reads", () => {
       await herRow.getByText(stamp).click();
       const herPanel = hers.getByTestId("journal-panel");
       await expect(herPanel).toBeVisible();
-      await expect(herPanel.getByTestId("journal-proof")).toBeVisible();
+      await expect(herPanel.getByTestId("journal-proof")).toContainText("Not linked to anything yet.");
       await expect(herPanel.getByTestId("categorise-form")).toHaveCount(0);
       await expect(herPanel.getByTestId("journal-link-to")).toHaveCount(0);
       await expect(herPanel.getByRole("button", { name: "Delete entry" })).toHaveCount(0);
