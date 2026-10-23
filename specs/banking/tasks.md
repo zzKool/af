@@ -61,3 +61,11 @@ T001–T003 → T004–T010 (T007 before T009) → T011–T012 → T013 → T014
 
 ## Lessons audit 23 — `feat/banking-history` (lane DIRECT: read API, no caller moved)
 - [x] T032 `queries.ts` read API: `outgoingMainRows(tx, limit)` (+ `OutgoingMainRow`), `bookingDates(tx, ids)`, `firstBookingDate(tx)`, exported through `index.ts`; tests in `reads.test.ts`. The callers in expenses / supplier-invoices / package move in their own lanes (lessons 23)
+
+## Lane 2 — cleanup round (lane DIRECT, behaviour-neutral; lessons audit 22, 23, 27, 29, 30, 32)
+- [x] T033 `transactionStates(tx, ids)` (+ `TransactionStateFacts`) in the read API — state, Σ allocated, transfer leg; for `package/collect.ts` (lessons 23; the caller moves in package's lane). Tests in `reads.test.ts`, `import.test.ts`
+- [ ] T034 banking's `tx.link` reads → linking (`allocatedFrom`, `linksTouching` with `kinds`, `hasLinks` / `linksTouching`): `queries.ts` `linkFacts`, `transfer-pairs.ts` `pairedIds`, `import.ts` `deleteImport`; the allocation sum takes linking's kind filter — totals proven unchanged on the seed (lessons 22)
+- [x] T035 kernel helpers: `deriveTransactionState` through `isSettled` (tolerance edge + a property test equal to the rule written out, `state.pure.test.ts`); `transfer-pairs.ts` `daysBetween` / `addDays` from `kernel/clock/calendar` (the local copy without rounding gone); `rawRowsForPeriod`'s end day through `addDays` (lessons 27)
+- [ ] T036 `columnMapping` parsed on read (`formatConfig`) (lessons 29)
+- [ ] T037 the local `ServiceResult` and Decimal look-alike in `linkable.ts`; `getBankFormats` → a DTO (lessons 30)
+- [ ] T038 `statementKey` → `numbering/keys.ts`; the bank text join once; `hitCount` without no-op hits (lessons 32)

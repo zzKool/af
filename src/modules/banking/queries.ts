@@ -35,6 +35,7 @@ import type {
   RuleListRow,
   TransactionListRow,
   TransactionState,
+  TransactionStateFacts,
   TransferProposal,
 } from "./types";
 
@@ -349,6 +350,39 @@ export async function bookingDates(
     select: { id: true, bookingDate: true },
   });
   return new Map(rows.map((r) => [r.id, r.bookingDate.toISOString().slice(0, 10)]));
+}
+
+/**
+ * The derived state of each of `ids` with its allocation and transfer facts — the rule `deriveTransactionState`
+ * applies, read in three queries (rows, journal entries, links). An unknown id is absent.
+ */
+export async function transactionStates(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Map<string, TransactionStateFacts>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const [rows, entries, facts] = await Promise.all([
+    tx.bankTransaction.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, amount: true },
+    }),
+    journal.entriesForSources(tx, "bank_transaction", unique),
+    linkFacts(tx, unique),
+  ]);
+  return new Map(
+    rows.map((r) => {
+      const allocated = facts.allocated.get(r.id) ?? "0.00";
+      const inTransfer = facts.transfer.has(r.id);
+      const state = deriveTransactionState({
+        amount: r.amount.toFixed(2),
+        allocated,
+        inTransfer,
+        noDocumentNeeded: entries.get(r.id)?.noDocumentNeeded ?? false,
+      });
+      return [r.id, { state, allocated, inTransfer }];
+    }),
+  );
 }
 
 /** The first booking date (`YYYY-MM-DD`) of any bank row, or null before the first import. */

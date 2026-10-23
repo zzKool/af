@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/browser";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { invalid, notFound, violation } from "./errors";
@@ -135,8 +136,6 @@ export async function checkDuplicateNumber(
 export async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
   const row = await tx.supplierInvoice.findUnique({ where: { id }, select: { paidAmount: true } });
   if (!row || row.paidAmount) return false;
-  const links = await tx.link.count({
-    where: { kind: "justifies", toType: "supplier_invoice", toId: id },
-  });
-  return links === 0;
+  const links = await linking.linksTouching(tx, "supplier_invoice", [id], { kinds: ["justifies"] });
+  return !links.some((l) => l.to.type === "supplier_invoice" && l.to.id === id);
 }

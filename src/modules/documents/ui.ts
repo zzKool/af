@@ -9,6 +9,7 @@ export * from "./components/document-review-client";
 export * from "./components/document-review-footer";
 export * from "./components/document-review-form";
 export * from "./components/document-review-header";
+export * from "./components/document-state-label";
 export * from "./components/documents-table";
 export * from "./components/file-upload-zone";
 export * from "./components/financial-fields-section";

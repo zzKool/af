@@ -17,9 +17,10 @@ const clock = createClock();
 
 /**
  * How many ECB observations to ask for so that one run closes the gap since the last stored rate —
- * after weeks scaled to zero, the single catch-up run (`missed: "once"`) refills everything.
+ * after weeks scaled to zero, the single catch-up run (`missed: "once"`) refills everything. ISO days (the
+ * Stockholm day from the clock), never Date instants: the server's time zone cannot shift a weekend (audit 28).
  */
-export function observationsToFetch(latest: Date | null, today: Date): number {
+export function observationsToFetch(latest: string | null, today: string): number {
   if (!latest) return FIRST_RUN_OBSERVATIONS;
   const missingWeekdays = countWeekdaysBetween(latest, today) + 2;
   return Math.min(MAX_OBSERVATIONS, Math.max(MIN_OBSERVATIONS, missingWeekdays));
@@ -35,9 +36,7 @@ export function catchUpObservations(
   today: string,
 ): number {
   if (newestPerPair.length === 0) return FIRST_RUN_OBSERVATIONS;
-  return Math.max(
-    ...newestPerPair.map((d) => observationsToFetch(d ? new Date(d) : null, new Date(today))),
-  );
+  return Math.max(...newestPerPair.map((d) => observationsToFetch(d, today)));
 }
 
 /** The catch-up window now: the newest stored day of each fetched pair, against the Stockholm day. */
