@@ -3,9 +3,40 @@
 
 import type { CategorisedBy } from "@/modules/journal";
 import type { LinkableType, LinkKind } from "@/modules/linking";
+import type { BankFormatConfig } from "./csv-parser";
 
 export type BankAccountRole = "main" | "savings";
 export const BANK_ACCOUNT_ROLES: readonly BankAccountRole[] = ["main", "savings"];
+
+/** A bank CSV format — app-level reference data (no tenant): its conventions and the parsed column mapping. */
+export type BankFormatDto = {
+  id: string;
+  name: string;
+  bankName: string;
+  delimiter: string;
+  decimalSeparator: string;
+  dateFormat: string;
+  encoding: string;
+  /** `parseColumnMapping` of the stored JSON; null when it does not parse (lessons audit 29) */
+  columnMapping: BankFormatConfig["columnMapping"] | null;
+};
+
+/** A bank account of the tenant with its format and its import count. */
+export type BankAccountDto = {
+  id: string;
+  accountAlias: string | null;
+  accountNumber: string;
+  currency: string;
+  bankFormatId: string;
+  role: BankAccountRole;
+  iban: string | null;
+  bic: string | null;
+  /** CSV imports into this account — number and currency are locked when > 0 (F65) */
+  imports: number;
+  bankFormat: BankFormatDto;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export type BankTransactionDto = {
   id: string;

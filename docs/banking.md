@@ -81,7 +81,7 @@ package.builtPeriods(months) ─► banner = the newest closed month with bank r
 
 ## Accounts — `bank-accounts.ts`
 
-CRUD on Settings → Bank accounts ([[bank-accounts]]). Once a CSV is imported into an account its **number and currency are locked** (F65): `updateBankAccount` refuses a change of either with *This account has N import(s); its number and currency can no longer change* (`BUSINESS_RULE_VIOLATION`, `details.imports`) — they say which rows belong to it. Alias, IBAN / BIC, format and role still change. `getBankAccounts` returns `imports` (the count) and the settings tab disables the two fields when it is > 0. Delete is refused while imports exist.
+CRUD on Settings → Bank accounts ([[bank-accounts]]). Once a CSV is imported into an account its **number and currency are locked** (F65): `updateBankAccount` refuses a change of either with *This account has N import(s); its number and currency can no longer change* (`BUSINESS_RULE_VIOLATION`, `details.imports`) — they say which rows belong to it. Alias, IBAN / BIC, format and role still change. `getBankAccounts` returns `BankAccountDto[]` with `imports` (the count) and the settings tab disables the two fields when it is > 0; `getBankFormats` returns `BankFormatDto[]` — the format's conventions and its column mapping parsed (`parseColumnMapping`, null when it does not fit); neither leaks the Prisma row (lessons audit 30). Delete is refused while imports exist.
 
 ## History — `history.ts` (F71)
 
