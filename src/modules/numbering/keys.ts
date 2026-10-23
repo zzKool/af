@@ -11,6 +11,7 @@
 //   supplier doc SI213-Acc-01_2026-07-24_Skattepunkten_Office_Services_AB   {ref}_{date}_{vendor slug}
 //   settlement   ST26-001                 series ST{yy} (the refund's booking date), 3-digit sequence
 //   statement    Reimb_ST26-001_2026-03-31.pdf   the reimbursement statement PDF of a settlement
+//   bank stmt    Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv   the stored CSV of a bank import: {account label slug}_{from}_{to}
 //   package      Package_2026-06.zip, Package_2026-06_v2.zip, Package_2026.zip   the accountant package of a period
 //   upload       exp_20261020_001         provisional key of a raw upload: {kind}{yyyymmdd}_{seq in doc-{yyyymm}}
 
@@ -180,14 +181,34 @@ export function expenseDocumentKey(ref: string, documentDate: string): string {
   return `${ref}_${documentDate}_`;
 }
 
-/** File-name-safe slug of a vendor name: `Skattepunkten's Office Services AB` → `Skattepunkten_Office_Services_AB`. */
-export function fileSlug(name: string): string {
+/** Accents dropped, every run of other characters one `sep`, none at either end. */
+function slug(name: string, sep: "_" | "-"): string {
   return name
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 40);
+    .replace(/[^A-Za-z0-9]+/g, sep)
+    .split(sep)
+    .filter((part) => part !== "")
+    .join(sep);
+}
+
+/** File-name-safe slug of a vendor name: `Skattepunkten's Office Services AB` → `Skattepunkten_Office_Services_AB`. */
+export function fileSlug(name: string): string {
+  return slug(name, "_").slice(0, 40);
+}
+
+/**
+ * `Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv` — the stored statement of a bank import (D13): the account
+ * label as a hyphen slug, the period the file covers (`x` for an unknown end).
+ */
+export function bankStatementKey(
+  accountLabel: string,
+  from: string | null,
+  to: string | null,
+): string {
+  if (from !== null) assertIsoDate(from);
+  if (to !== null) assertIsoDate(to);
+  return `Bank_${slug(accountLabel, "-")}_${from ?? "x"}_${to ?? "x"}.csv`;
 }
 
 /**

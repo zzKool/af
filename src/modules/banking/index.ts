@@ -34,7 +34,6 @@ export {
   importCsv,
   importCsvSchema,
   planImport,
-  statementKey,
 } from "./import";
 export { bankTransactionLinkable } from "./linkable";
 export type { MonthsInput } from "./months";
