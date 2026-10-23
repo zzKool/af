@@ -28,7 +28,7 @@ Then `289 = 220 + 221 + 225 + 230 + 235 + 280`, `299 = 200 − 289`, `379 = Σ b
 
 - `declare(declaredAt)` — the server computes the return now (`swissVatReturn`) and stores **its** lines as the snapshot; the page sends no figures, and a request that carries some is stripped (F56, lesson 2). The quarter is frozen: re-reading it returns the snapshot even after the live figures moved.
 - `markPaid(paymentExpenseId | paidAt)` — with the `vat_payment` expense (validated), **paid on is derived from the expense's date** and no date is stored; a typed date is stored only when no expense paid it. `unmarkPaid` then `undeclare` undo (undeclare also drops a payment expense that no longer exists).
-- Read side: the JSON columns are parsed (`parseSnapshot` with the ref enum, `parseManual`), never cast; `paidAt` on the DTO is the derived one.
+- Read side: the JSON columns are parsed (`parseSnapshot` with the ref enum, `parseManual`), never cast — and the snapshot is written through `snapshotToJson`, its mirror (T015); `paidAt` on the DTO is the derived one.
 
 Owner only (`create accountant_package`); audited.
 
@@ -48,6 +48,7 @@ Owner only (`create accountant_package`); audited.
 ## Tests
 
 - `swiss-vat.pure.test.ts` — the harvest's scenarios (`specs/invoices/fixtures/swiss-vat-cases.json`, with the v3 deviations listed — a v1 foreign line is a 0 % line in v3), the old-rate rows, the unknown rate, the foreign credit note, a client abroad at 8.1 %, a mixed invoice, the manual refs, the warnings, the CSV; since F71 the CSV byte for byte against the pre-F71 golden (`specs/exports/fixtures/swiss-vat-csv-golden.json`, CRLF kept inside a JSON string — the repo normalises text files to LF).
+- `declaration-read.pure.test.ts` — the snapshot written by `snapshotToJson` reads back the same through `parseSnapshot` (T015).
 - `state-family.pure.test.ts` — every declaration state mapped; the state from the dates (no record = draft).
 - `exports.test.ts` — a quarter on the real modules (figures, drill-down), a EUR invoice converted, the periods, the declaration record and its undo paths, roles; F56: a 10 %-discounted invoice gives the printed per-rate figures, a forged `lines` payload is ignored and a declared quarter re-reads its snapshot after a new invoice moved the live figures, paid on follows the expense's date, declared on per registration, the period rule.
 - `e2e/exports.spec.ts` — a CH registration → the form → a manual ref → Declare → Undo; the accountant's read-only page. Screenshots in `specs/exports/screenshots/` (since F71 also `vat-return-light.png` / `-dark.png`, from `e2e/screenshots.spec.ts` › *declarations*).

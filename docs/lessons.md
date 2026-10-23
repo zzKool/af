@@ -145,7 +145,7 @@ One PR each, in its owner's lane, all DIRECT:
 | 10 | contracts | `contract-rates.tsx` `todayIso()` → the Stockholm day | 28 (new) |
 | 11 | kernel/guards | F85's allow-list: lower the entries that shrank (today `banking/transfer-pairs.ts` 8 → 7 `BASE_CURRENCY`; 45 + 63 in 41 files) | F85 |
 
-Not in 22–32 but seen on the way: `exports/declarations.ts:170` writes the snapshot through `as unknown as` (a write mapper like invoices' T036); `documents/ocr-payload.ts:43` casts `extractedData` inside the parser.
+Not in 22–32 but seen on the way: ~~`exports/declarations.ts:170` writes the snapshot through `as unknown as` (a write mapper like invoices' T036)~~ — exports T015 (2026-10-24, `snapshotToJson`); `documents/ocr-payload.ts:43` casts `extractedData` inside the parser.
 
 ### Components over 400 lines *(c3)*
 
