@@ -47,7 +47,7 @@
 - [x] T021 Settle screen on `settlementDifference` + `owedBase` in Decimal; the statement in `fifoOrder`.
 - [x] T022 `statement_superseded` derived (`isStatementSuperseded`); the column unread / unwritten (test: a statement stored after the cancel reads superseded).
 - [x] T023 Traktamente: a failed computation clears `trips.computed`; `parsePerDiemResult` (Zod) on read (test).
-- [ ] T024 Drop `settlements.statement_superseded` — waits for the owner's OK (irreversible).
+- [x] T024 Drop `settlements.statement_superseded` — the owner's OK 2026-10-23 (D48); F86's migration `20261023200000_drop_unread_columns`, with journal T010.
 
 ## F71 — the D40 kit (`feat/expenses-d40-kit`, lane LIGHT)
 

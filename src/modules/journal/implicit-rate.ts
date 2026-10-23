@@ -1,6 +1,6 @@
 // The bank's implied rate of a transfer pair (T005, D44): derived from the `transfer` link on every read, never
 // stored — an unpairing takes it away and a re-pair with another leg brings that pair's rate. Informational only:
-// it never replaces `rate` (D3, the bas-accounting skill). The `bank_implicit_rate` column is no longer read.
+// it never replaces `rate` (D3, the bas-accounting skill). The stored column was dropped (F86, D48).
 import { Prisma } from "@/generated/prisma/browser";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";

@@ -17,7 +17,7 @@ expenses           group_id (FK) · key (`Ex213-Tr-01`, unique) · seq · alias 
 settlements        number (`ST26-001`, series `ST{yy}`) · bank_transaction_id (validated; one active per row) · payment_source_id (FK)
                    refund_amount / refund_currency (the row's) · refund_base (|its journal base|) · allocated_base
                    exchange_difference_base · rounding_base · exchange_difference_bas_code? · note? · status ∈ active | cancelled
-                   cancelled_at? · statement_document_id? (set once by the job) · statement_superseded (unused since F62 — *superseded* is derived; drop pending the owner)
+                   cancelled_at? · statement_document_id? (set once by the job) — *superseded* is derived, `cancelled && statement_document_id` (the column went with F86, D48)
 settlement_lines   settlement_id (FK CASCADE) · expense_id (FK RESTRICT) · allocated_base (> 0) · note? (the rounding note)
 ```
 
