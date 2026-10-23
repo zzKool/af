@@ -146,6 +146,18 @@ export const TRANSACTION_STATES: readonly TransactionState[] = [
   "no_document",
 ];
 
+/**
+ * A row's derived state with the facts it derives from — what another module reads instead of re-deriving the
+ * allocation and the transfer from the links itself (the package's bank sheet, lessons audit 23).
+ */
+export type TransactionStateFacts = {
+  state: TransactionState;
+  /** Σ allocated FROM the row, 2 dp ("0.00" when none) */
+  allocated: string;
+  /** the row is a leg of an accepted transfer pair */
+  inTransfer: boolean;
+};
+
 /** The workbench row: the transaction, the journal facts, the derived state. */
 export type TransactionListRow = {
   id: string;

@@ -15,7 +15,7 @@
 - [x] T010 Paid on derived from the `vat_payment` expense's date when attached; `declaredOn(period, registrationId?)`
 - [x] T011 One period rule: `period.ts` over `invoices.declarationPeriodFor` / `isDeclarationPeriod`
 - [x] T012 Tests: a discounted invoice on the real modules, a forged payload, a declared period re-read, paid derived, per-registration declared on; docs
-- [ ] Follow-up (other modules): the invoice page and `dashboard/overview.ts` pass the invoice's registration to `declaredOn`
+- [x] Follow-up (other modules): the invoice page and `dashboard/overview.ts` pass the invoice's registration to `declaredOn` — *done: the invoice page F76, the dashboard F55 (one item per CH registration), both 2026-10-23*
 
 ## F71 — exports adopts the D40 kit (`feat/exports-d40-kit`)
 
