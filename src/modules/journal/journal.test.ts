@@ -16,6 +16,14 @@ import {
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as linking from "@/modules/linking";
 import * as journal from "./journal";
+import {
+  categoriseEntryAction,
+  createManualEntryAction,
+  deleteManualEntryAction,
+  getJournalEntryAction,
+  linkEntryAction,
+  listJournalEntriesAction,
+} from "./journal.actions";
 import { linkEntry } from "./links";
 import { deriveLinksState } from "./links-state";
 import { distinctJournalValues, listJournalEntries } from "./queries";
@@ -817,6 +825,59 @@ describe("US4 — the Source column shows the bank account (T006)", () => {
     ).toEqual({ fee: ["bank_transaction", "Nordea CHF"], forfait: ["manual", null] });
     const found = await run(caller, (tx) => listJournalEntries(tx, { ...Q, search: "nordea chf" }));
     expect(found.rows.map((r) => r.description)).toEqual(["fee"]);
+  });
+});
+
+describe("US2 / AC4, US4 / AC2 — the accountant reads, never writes (T008)", () => {
+  it("every write action refuses her (FORBIDDEN, nothing written); her reads answer", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const accountant = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    expect(accountant.callerIdentity.role).toBe("accountant");
+    const doc = await documentWith(owner.callerIdentity);
+    const entry = (
+      await run(owner.callerIdentity, (tx) =>
+        journal.createManualEntry(tx, owner.callerIdentity, noopAudit, {
+          entryDate: "2026-03-02",
+          description: "Prepaid licence",
+          amount: "-10.00",
+          currency: "SEK",
+        }),
+      )
+    ).data!;
+
+    mockHeaders = accountant.headers;
+    const writes = [
+      await createManualEntryAction({
+        entryDate: "2026-03-02",
+        description: "hers",
+        amount: "-1.00",
+        currency: "SEK",
+      }),
+      await categoriseEntryAction({ id: entry.id, note: "hers" }),
+      await deleteManualEntryAction({ id: entry.id }),
+      await linkEntryAction({ id: entry.id, to: { type: "document", id: doc } }),
+    ];
+    for (const r of writes) expect(r?.serverError?.code).toBe("FORBIDDEN");
+    const read = await getJournalEntryAction({ id: entry.id });
+    expect(read?.data && "data" in read.data ? read.data.data?.note : "missing").toBeNull();
+    const list = await listJournalEntriesAction({
+      query: { page: 1, pageSize: 50, sort: [], filters: {} },
+    });
+    expect(list?.data && "data" in list.data ? list.data.data?.total : -1).toBe(1);
+
+    // nothing she tried landed
+    const after = await run(owner.callerIdentity, async (tx) => ({
+      entries: await tx.journalEntry.count(),
+      links: await tx.link.count(),
+    }));
+    expect(after).toEqual({ entries: 1, links: 0 });
+
+    mockHeaders = owner.headers; // the same call as the owner goes through
+    const ownerSave = await categoriseEntryAction({ id: entry.id, note: "mine" });
+    expect(ownerSave?.serverError).toBeUndefined();
   });
 });
 
