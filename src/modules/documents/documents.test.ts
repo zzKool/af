@@ -264,6 +264,12 @@ describe("documents service", () => {
       if (again.data?.kind !== "duplicate") throw new Error("expected duplicate");
       expect(again.data.existing.id).toBe(first.id);
       expect(again.data.existing.businessKey).toBe(first.businessKey);
+      // FR-009: who uploaded it, read outside the tenant transaction; nothing became from it yet
+      expect(again.data.existing.became).toBeNull();
+      expect(await documentService.uploaderName(prisma, again.data.existing.createdBy)).toBe(
+        "Test owner",
+      );
+      expect(await documentService.uploaderName(prisma, crypto.randomUUID())).toBeNull();
       const count = await adminPool.query(
         "SELECT count(*)::int AS n FROM documents WHERE tenant_id = $1",
         [tenantId],
@@ -286,6 +292,36 @@ describe("documents service", () => {
         documentService.sameContentDocumentIds(tx, first.id),
       );
       expect(twins).toEqual([second.id]);
+    });
+
+    it("FR-009: the duplicate names what the existing document became (type and entity)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+      const bytes = pdf("became-then-again");
+      const up = () =>
+        withTenantTransaction(prisma, tenantId, (tx) =>
+          documentService.uploadDocument(
+            tx,
+            owner.callerIdentity,
+            createRealAuditLogger(tx, owner.callerIdentity),
+            mockStorage,
+            testClock,
+            bytes,
+            "receipt.pdf",
+            "expense",
+          ),
+        );
+      const first = stored(await up());
+      const expenseId = crypto.randomUUID();
+      await adminPool.query(
+        `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+         VALUES ($1, 'expense', $2, 'document', $3, 'created_from', $4)`,
+        [tenantId, expenseId, first.id, owner.callerIdentity.userId],
+      );
+      const again = await up();
+      if (again.data?.kind !== "duplicate") throw new Error("expected duplicate");
+      // the key comes through the entity's linkable (linking.test covers it); this stand-in has no row
+      expect(again.data.existing.became).toEqual({ type: "expense", id: expenseId, key: null });
     });
 
     it("a hard-deleted document never counts as a duplicate", async () => {
