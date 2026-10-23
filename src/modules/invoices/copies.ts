@@ -9,9 +9,16 @@ import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import * as contracts from "@/modules/contracts";
-import { dueDateFor, lineRowsFrom, linesToInput, totalsData } from "./defaults";
+import {
+  dueDateFor,
+  lineRowsFrom,
+  linesToInput,
+  QUOTE_VALIDITY_DAYS,
+  totalsData,
+} from "./defaults";
 import { iso, load, toDate, toInvoiceDto, withLines } from "./dto";
 import { invalid, notFound, parseError, violation } from "./errors";
+import { parsePrintedReferences, printedReferencesToJson } from "./json-columns";
 import { type CreditNoteInput, creditNoteSchema, type lineInputSchema } from "./schemas";
 import type { InvoiceDto, InvoiceType } from "./types";
 
@@ -68,7 +75,10 @@ export async function copyToDraft(
     type,
     relatedInvoiceId: null,
     issueDate: today,
-    dueDate: type === "quote" ? addDays(today, 30) : dueDateFor(today, contract?.paymentTerms),
+    dueDate:
+      type === "quote"
+        ? addDays(today, QUOTE_VALIDITY_DAYS)
+        : dueDateFor(today, contract?.paymentTerms),
     event: "copy",
   });
 }
@@ -108,7 +118,7 @@ async function copyInternal(
       periodEnd: source.periodEnd,
       currency: source.currency,
       language: source.language,
-      printedReferences: source.printedReferences as Prisma.InputJsonValue,
+      printedReferences: printedReferencesToJson(parsePrintedReferences(source.printedReferences)),
       notes: source.notes,
       internalNote: opts.internalNote ?? source.internalNote,
       paymentTermsText: source.paymentTermsText,

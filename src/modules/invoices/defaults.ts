@@ -10,6 +10,7 @@ import type { AppError } from "@/kernel/errors/app-error";
 import * as settings from "@/modules/settings";
 import { iso, toDate } from "./dto";
 import { invalid } from "./errors";
+import { vatByRateToJson } from "./json-columns";
 import type { lineInputSchema } from "./schemas";
 import { invoiceTotals, type LineInput, TotalsError } from "./totals";
 import type { Registration } from "./vat-treatment";
@@ -18,14 +19,19 @@ const D = Prisma.Decimal;
 
 // --- defaults chain (partner → contract → registration) ---
 
-/** `NET_30` → issue + 30 days; `PREPAID` / `ON_RECEIPT` → the issue date; unknown → 30 days. */
+/** Payment terms when the contract names none (or a code it does not know): net 30 days. */
+export const DEFAULT_PAYMENT_TERMS_DAYS = 30;
+/** How long a quote stays valid from its issue date. */
+export const QUOTE_VALIDITY_DAYS = 30;
+
+/** `NET_30` → issue + 30 days; `PREPAID` / `ON_RECEIPT` → the issue date; unknown → `DEFAULT_PAYMENT_TERMS_DAYS`. */
 export function dueDateFor(issueDate: string, paymentTerms: string | null | undefined): string {
   const m = /^NET_(\d+)$/.exec(paymentTerms ?? "");
   const days = m
     ? Number(m[1])
     : paymentTerms === "PREPAID" || paymentTerms === "ON_RECEIPT"
       ? 0
-      : 30;
+      : DEFAULT_PAYMENT_TERMS_DAYS;
   return addDays(issueDate, days);
 }
 
@@ -96,7 +102,7 @@ export function totalsData(
     netAmount: new D(t.net),
     vatAmount: new D(t.vat),
     totalAmount: new D(t.total),
-    vatByRate: t.vatByRate as unknown as Prisma.InputJsonValue,
+    vatByRate: vatByRateToJson(t.vatByRate),
   };
 }
 

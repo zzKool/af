@@ -92,12 +92,9 @@ describe("bank formats (app-level)", () => {
     expect(nordea?.encoding).toBe("ISO-8859-1");
     expect(nordea?.columnMapping).toBeDefined();
 
-    // Verify column mapping structure
-    const mapping = nordea?.columnMapping as {
-      columns: { index: number; field: string; label: string }[];
-      hasHeader: boolean;
-      trailingDelimiter: boolean;
-    };
+    // the format is a DTO, its mapping parsed on read (lessons audit 29, 30) — no cast
+    const mapping = nordea?.columnMapping;
+    if (!mapping) throw new Error("the seeded Nordea column mapping does not parse");
     expect(mapping.columns).toHaveLength(10);
     expect(mapping.hasHeader).toBe(true);
     expect(mapping.trailingDelimiter).toBe(true);
@@ -163,6 +160,24 @@ describe("bank accounts service", () => {
     expect(accounts.data?.[0].accountNumber).toBe("211 53 13-5");
     expect(accounts.data?.[0].currency).toBe("SEK");
     expect(accounts.data?.[0].bankFormat.bankName).toBe("Nordea");
+    // a DTO, not the Prisma row: no tenant or audit columns travel (lessons audit 30)
+    expect(Object.keys(accounts.data?.[0] ?? {}).sort()).toEqual(
+      [
+        "accountAlias",
+        "accountNumber",
+        "bankFormat",
+        "bankFormatId",
+        "bic",
+        "createdAt",
+        "currency",
+        "iban",
+        "id",
+        "imports",
+        "role",
+        "updatedAt",
+      ].sort(),
+    );
+    expect(accounts.data?.[0].bankFormat.columnMapping?.columns).toHaveLength(10);
   });
 
   it("create multiple: same account number with different currencies", async () => {

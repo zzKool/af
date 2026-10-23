@@ -31,6 +31,7 @@ No currency on the rate: the contract's currency is the one (one contract per cu
 | states `current / expired / future` are derived | `rateState(rate, today)` in `listContractRates` | no column |
 | a rate used by an invoice line cannot be deleted | `deleteContractRate` asks the `rateUsage` hook (`setRateUsage` — wired by the invoices module in `instrumentation.ts`) → "used on n invoice line(s) — close it instead" | the invoices slice adds the trigger with `invoice_lines` |
 | a rate used by an invoice line **only closes**: `valid_to` and note change, `valid_from` and the amount do not (F63) | `updateContractRate` → `lockedFieldsChanged(before, patch)` (decimal equality: `1000` = `1000.00`), then the `rateUsage` hook → `BUSINESS_RULE_VIOLATION` "used on n invoice line(s) — only its end date and note can change…" with `details {usedOn, fields}`; the Rates section shows it as `contracts.rates.error.usedLocked` in the user's language (T023, `rate-error.ts` — one mapping of a refusal's `details` to its key: `{from, to}` overlap, `{usedOn}` edit, `{n}` delete). The auto-close of a newer open rate is a close, so it stays allowed. A wrong amount on a used rate is fixed by closing it and adding a new rate | — |
+| a used rate **never closes before the last day it priced** (T024): `valid_to` ≥ the latest `period_start` an invoice line was priced on (line → document → issue date, drafts included) — by hand or by the auto-close | the hook is `setRateUsage(fn)` → `RatePricing { lines, lastPeriodStart }` (invoices' `ratePricingFromInvoiceLines`, wired in `src/instrumentation.ts`); `closesBeforePriced(validTo, pricing)` in `updateContractRate` (only when `validTo` changes) and before `createContractRate`'s auto-close → `BUSINESS_RULE_VIOLATION` `details {pricedUntil, validTo}`, nothing written; `contracts.rates.error.closesBeforePriced` (en / fr / sv) | `contract-rates.test.ts` T024, `rate-error.pure.test.ts` |
 | every write audited | `contract_rate` create / update / delete with before/after | — |
 | owner only | `ownerAction` (`can()`) | — |
 
@@ -38,7 +39,7 @@ Calendar dates travel as ISO `YYYY-MM-DD` strings in the DTO (`ContractRateDto`)
 
 ## Surface
 
-- `index.ts`: `rateFor`, `listContractRates`, `listContractRatesFor`, `currentRatesFor`, `createContractRate`, `updateContractRate`, `deleteContractRate`, `setRateUsage`, schemas, DTOs (`ContractRateDto`, `ContractRateWithState`, `CurrentRate`, `RateUnit`, `RateState`); `getContract(s)` now take `{ today }`.
+- `index.ts`: `rateFor`, `listContractRates`, `listContractRatesFor`, `currentRatesFor`, `createContractRate`, `updateContractRate`, `deleteContractRate`, `setRateUsage`, schemas, DTOs (`ContractRateDto`, `ContractRateWithState`, `CurrentRate`, `RateUnit`, `RateState`); `getContract(s)` now take `{ today }`; `activeContractCount(tx, { partnerId } | { assignedEmployeeId })` for partners' type-removal guard ([[lessons]] audit 25).
 - `ui.ts`: `ContractRates` (the section), `ContractList` (+ `ContractRow` type with `currentRate` and `rates`), the rate actions.
 - Actions: `getContractRatesAction`, `createContractRateAction`, `updateContractRateAction`, `deleteContractRateAction`.
 

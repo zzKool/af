@@ -78,7 +78,7 @@ export function ExpensePanel({
       return;
     }
     const d = r?.data && "data" in r.data ? r.data.data : undefined;
-    if (d) setDetail(d as unknown as ExpensePanelDetail);
+    if (d) setDetail(d);
   }, [expenseId, load]);
 
   useEffect(() => {

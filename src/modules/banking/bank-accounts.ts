@@ -2,13 +2,40 @@ import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { AppError } from "@/kernel/errors/app-error";
+import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
-import { BANK_ACCOUNT_ROLES, type BankAccountRole } from "./types";
+import { parseColumnMapping } from "./csv-parser";
+import {
+  BANK_ACCOUNT_ROLES,
+  type BankAccountDto,
+  type BankAccountRole,
+  type BankFormatDto,
+} from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
-type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppError };
+/** The format row as its DTO — the column mapping parsed, never cast (lessons audit 29, 30). */
+function toBankFormatDto(f: {
+  id: string;
+  name: string;
+  bankName: string;
+  delimiter: string;
+  decimalSeparator: string;
+  dateFormat: string;
+  encoding: string;
+  columnMapping: unknown;
+}): BankFormatDto {
+  return {
+    id: f.id,
+    name: f.name,
+    bankName: f.bankName,
+    delimiter: f.delimiter,
+    decimalSeparator: f.decimalSeparator,
+    dateFormat: f.dateFormat,
+    encoding: f.encoding,
+    columnMapping: parseColumnMapping(f.columnMapping),
+  };
+}
 
 /**
  * Get all bank CSV formats (app-level reference data, no RLS).
@@ -17,58 +44,39 @@ type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppE
  * Architectural exception: bank_formats has no tenant_id and no RLS.
  * It's a read-only reference table (immutability enforced via PostgreSQL RULEs).
  */
-export async function getBankFormats(tx: TransactionClient) {
+export async function getBankFormats(tx: TransactionClient): Promise<BankFormatDto[]> {
   const formats = await tx.bankFormat.findMany({
     orderBy: { name: "asc" },
   });
-  return formats;
+  return formats.map(toBankFormatDto);
 }
 
 /**
- * Get all bank accounts for the tenant (RLS-scoped by middleware).
- * Includes bank format relation for display.
+ * Get all bank accounts for the tenant (RLS-scoped by middleware), each with its format.
  * Read-only — no audit param needed.
  */
 export async function getBankAccounts(
   tx: TransactionClient,
   _caller: CallerIdentity,
-): Promise<
-  ServiceResult<
-    {
-      id: string;
-      accountAlias: string | null;
-      accountNumber: string;
-      currency: string;
-      bankFormatId: string;
-      role: BankAccountRole;
-      iban: string | null;
-      bic: string | null;
-      /** CSV imports into this account — number and currency are locked when > 0 (F65) */
-      imports: number;
-      bankFormat: {
-        id: string;
-        name: string;
-        bankName: string;
-        delimiter: string;
-        decimalSeparator: string;
-        dateFormat: string;
-        encoding: string;
-        columnMapping: unknown;
-      };
-      createdAt: Date;
-      updatedAt: Date;
-    }[]
-  >
-> {
+): Promise<ServiceResult<BankAccountDto[]>> {
   const accounts = await tx.bankAccount.findMany({
     include: { bankFormat: true, _count: { select: { imports: true } } },
     orderBy: [{ accountNumber: "asc" }, { currency: "asc" }],
   });
   return {
-    data: accounts.map(({ _count, ...a }) => ({
-      ...a,
+    data: accounts.map((a) => ({
+      id: a.id,
+      accountAlias: a.accountAlias,
+      accountNumber: a.accountNumber,
+      currency: a.currency,
+      bankFormatId: a.bankFormatId,
       role: a.role as BankAccountRole,
-      imports: _count.imports,
+      iban: a.iban,
+      bic: a.bic,
+      imports: a._count.imports,
+      bankFormat: toBankFormatDto(a.bankFormat),
+      createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
     })),
   };
 }

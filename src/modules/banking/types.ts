@@ -3,9 +3,40 @@
 
 import type { CategorisedBy } from "@/modules/journal";
 import type { LinkableType, LinkKind } from "@/modules/linking";
+import type { BankFormatConfig } from "./csv-parser";
 
 export type BankAccountRole = "main" | "savings";
 export const BANK_ACCOUNT_ROLES: readonly BankAccountRole[] = ["main", "savings"];
+
+/** A bank CSV format — app-level reference data (no tenant): its conventions and the parsed column mapping. */
+export type BankFormatDto = {
+  id: string;
+  name: string;
+  bankName: string;
+  delimiter: string;
+  decimalSeparator: string;
+  dateFormat: string;
+  encoding: string;
+  /** `parseColumnMapping` of the stored JSON; null when it does not parse (lessons audit 29) */
+  columnMapping: BankFormatConfig["columnMapping"] | null;
+};
+
+/** A bank account of the tenant with its format and its import count. */
+export type BankAccountDto = {
+  id: string;
+  accountAlias: string | null;
+  accountNumber: string;
+  currency: string;
+  bankFormatId: string;
+  role: BankAccountRole;
+  iban: string | null;
+  bic: string | null;
+  /** CSV imports into this account — number and currency are locked when > 0 (F65) */
+  imports: number;
+  bankFormat: BankFormatDto;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export type BankTransactionDto = {
   id: string;
@@ -145,6 +176,18 @@ export const TRANSACTION_STATES: readonly TransactionState[] = [
   "linked",
   "no_document",
 ];
+
+/**
+ * A row's derived state with the facts it derives from — what another module reads instead of re-deriving the
+ * allocation and the transfer from the links itself (the package's bank sheet, lessons audit 23).
+ */
+export type TransactionStateFacts = {
+  state: TransactionState;
+  /** Σ allocated FROM the row, 2 dp ("0.00" when none) */
+  allocated: string;
+  /** the row is a leg of an accepted transfer pair */
+  inTransfer: boolean;
+};
 
 /** The workbench row: the transaction, the journal facts, the derived state. */
 export type TransactionListRow = {

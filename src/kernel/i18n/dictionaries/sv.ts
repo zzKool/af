@@ -304,6 +304,8 @@ export const sv: Dictionary = {
     "Arvodet används på {n} fakturarad(er) och kan inte tas bort — avsluta det i stället",
   "contracts.rates.error.usedLocked":
     "Arvodet används på {n} fakturarad(er) — bara slutdatum och anteckning kan ändras; avsluta det och lägg till ett nytt arvode",
+  "contracts.rates.error.closesBeforePriced":
+    "Arvodet har prissatt fakturarader fram till {day} — det kan inte sluta {validTo}, före den dagen",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Faktura",
@@ -1280,6 +1282,33 @@ export const sv: Dictionary = {
   "dashboard.briefing.action.create": "skapade",
   "dashboard.briefing.action.update": "uppdaterade",
   "dashboard.briefing.action.delete": "tog bort",
+  "dashboard.briefing.action.deactivate": "inaktiverade",
+  "dashboard.briefing.action.reactivate": "återaktiverade",
+  "dashboard.briefing.entity.bank_account": "bankkonto",
+  "dashboard.briefing.entity.bank_import": "bankimport",
+  "dashboard.briefing.entity.bank_transaction": "banktransaktion(er)",
+  "dashboard.briefing.entity.categorisation_rule": "kategoriseringsregel(ler)",
+  "dashboard.briefing.entity.contract": "avtal",
+  "dashboard.briefing.entity.contract_rate": "avtalspris(er)",
+  "dashboard.briefing.entity.document": "dokument",
+  "dashboard.briefing.entity.expense": "utlägg",
+  "dashboard.briefing.entity.expense_group": "utläggsgrupp(er)",
+  "dashboard.briefing.entity.invoice": "faktura(or)",
+  "dashboard.briefing.entity.journal_entry": "verifikation(er)",
+  "dashboard.briefing.entity.link": "koppling(ar)",
+  "dashboard.briefing.entity.normalbelopp": "normalbelopp",
+  "dashboard.briefing.entity.package_build": "paket",
+  "dashboard.briefing.entity.partner": "partner",
+  "dashboard.briefing.entity.partner_contact": "kontakt(er)",
+  "dashboard.briefing.entity.payment_source": "betalningskälla(or)",
+  "dashboard.briefing.entity.settlement": "avräkning(ar)",
+  "dashboard.briefing.entity.supplier_invoice": "leverantörsfaktura(or)",
+  "dashboard.briefing.entity.swiss_vat_declaration": "schweizisk momsdeklaration(er)",
+  "dashboard.briefing.entity.tenant": "företagsinställningar",
+  "dashboard.briefing.entity.tenant_bas_preference": "BAS-konto(n)",
+  "dashboard.briefing.entity.trip": "resa(or)",
+  "dashboard.briefing.entity.user_preference": "inställning(ar)",
+  "dashboard.briefing.entity.vat_registration": "momsregistrering(ar)",
 
   // --- documents library ---
   "documents.title": "Dokument",

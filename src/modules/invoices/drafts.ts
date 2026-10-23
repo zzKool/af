@@ -9,9 +9,17 @@ import type { ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, type CURRENCIES } from "@/kernel/nav/constants";
 import * as contracts from "@/modules/contracts";
 import * as partners from "@/modules/partners";
-import { dueDateFor, lineRowsFrom, linesToInput, registrationById, totalsData } from "./defaults";
+import {
+  dueDateFor,
+  lineRowsFrom,
+  linesToInput,
+  QUOTE_VALIDITY_DAYS,
+  registrationById,
+  totalsData,
+} from "./defaults";
 import { load, toDate, toInvoiceDto, withLines } from "./dto";
 import { invalid, notFound, parseError, violation } from "./errors";
+import { printedReferencesToJson } from "./json-columns";
 import {
   type CreateDraftInput,
   createDraftSchema,
@@ -73,7 +81,7 @@ export async function createDraft(
     data.dueDate !== undefined
       ? data.dueDate
       : data.type === "quote"
-        ? addDays(issueDate, 30)
+        ? addDays(issueDate, QUOTE_VALIDITY_DAYS)
         : dueDateFor(issueDate, contract?.paymentTerms);
   if (dueDate && dueDate < issueDate)
     return { error: invalid("Due date must be on or after the issue date") };
@@ -117,7 +125,7 @@ export async function createDraft(
       periodEnd: data.periodEnd ? toDate(data.periodEnd) : null,
       currency,
       language: data.language ?? partner.data.defaultLanguage ?? "en",
-      printedReferences: printedReferences as unknown as Prisma.InputJsonValue,
+      printedReferences: printedReferencesToJson(printedReferences),
       notes: data.notes ?? null,
       internalNote: data.internalNote ?? null,
       paymentTermsText: data.paymentTermsText ?? null,
@@ -200,7 +208,7 @@ export async function updateDraft(
   if (data.currency !== undefined) update.currency = data.currency;
   if (data.language !== undefined) update.language = data.language;
   if (data.printedReferences !== undefined)
-    update.printedReferences = data.printedReferences as unknown as Prisma.InputJsonValue;
+    update.printedReferences = printedReferencesToJson(data.printedReferences);
   if (data.notes !== undefined) update.notes = data.notes;
   if (data.internalNote !== undefined) update.internalNote = data.internalNote;
   if (data.paymentTermsText !== undefined) update.paymentTermsText = data.paymentTermsText;

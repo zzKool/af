@@ -15,7 +15,7 @@ export { InvoiceStateLabel } from "./components/invoice-state-label";
 export { type InvoiceRow, InvoiceTable } from "./components/invoice-table";
 export { NewDocumentButton } from "./components/new-document-button";
 export { type ClientOption, NewInvoiceForm } from "./components/new-invoice-form";
-export { daysBetween, toSheetDocument } from "./components/sheet-document";
+export { toSheetDocument } from "./components/sheet-document";
 export * from "./invoices.actions";
 export type * from "./types";
 export { INVOICE_STATES, INVOICE_STATUSES, INVOICE_TYPES } from "./types";
