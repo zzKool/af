@@ -27,7 +27,7 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { createManualEntryAction } from "@/modules/journal/journal.actions";
-import type { CategoryOption, PartnerOption } from "./categorise-form";
+import { type CategoryOption, type PartnerOption, proposedCategory } from "./categorise-form";
 
 const NONE = "__none__";
 
@@ -183,7 +183,20 @@ export function ManualEntryDialog({
             <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
               {t("journal.form.partner")}
             </label>
-            <Select value={partnerId} onValueChange={(v) => setPartnerId(v ?? NONE)}>
+            <Select
+              value={partnerId}
+              onValueChange={(v) => {
+                const next = v ?? NONE;
+                setPartnerId(next);
+                // the partner's default category fills an empty category; the owner can change it before saving
+                const proposed = proposedCategory(
+                  basCode === NONE ? null : basCode,
+                  next === NONE ? null : next,
+                  partners,
+                );
+                if (proposed) setBasCode(proposed);
+              }}
+            >
               <SelectTrigger id={`${ids}-partner`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
