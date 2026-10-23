@@ -9,10 +9,13 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
+import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import * as banking from "@/modules/banking";
+import { bankTransactionLinkable } from "@/modules/banking";
 import * as contracts from "@/modules/contracts";
 import * as linking from "@/modules/linking";
-import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/linking";
+import { _resetLinkables, registerLinkable } from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { creditedSum } from "./credited";
@@ -33,25 +36,21 @@ const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
 let adminPool: Pool;
 
-/** A fake bank transaction so links can justify invoices before the banking module exists. */
-const fakeTransactions = new Set<string>();
-const fakeTransactionLinkable: Linkable = {
-  type: "bank_transaction",
-  async exists(_tx, id) {
-    return fakeTransactions.has(id);
-  },
-  async summary(_tx, id) {
-    return fakeTransactions.has(id)
-      ? { type: "bank_transaction", id, label: "tx", amount: null, currency: null }
-      : null;
-  },
-};
+/** The blob store the CSV import files its export into — not under test here. */
+const storage = {
+  ensureContainer: vi.fn(async () => {}),
+  uploadBlob: vi.fn(async (path: string) => `https://blob.test/documents/${path}`),
+  deleteBlob: vi.fn(),
+} as unknown as StorageService;
+let nordeaFormatId: string;
 
 const TODAY = "2026-02-10";
 const NOW = new Date("2026-02-10T10:00:00Z");
 
 beforeAll(async () => {
   adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+  const r = await adminPool.query(`SELECT id FROM bank_formats WHERE name = 'Nordea CSV (Sweden)'`);
+  nordeaFormatId = r.rows[0].id;
 });
 beforeEach(async () => {
   await cleanupTestData(adminPool);
@@ -60,8 +59,7 @@ beforeEach(async () => {
   mockHeaders = new Headers();
   _resetLinkables();
   registerLinkable(invoiceLinkable);
-  registerLinkable(fakeTransactionLinkable);
-  fakeTransactions.clear();
+  registerLinkable(bankTransactionLinkable);
   // ECB reference rates around the owner's January invoice: 1 CHF = 11.1 / 0.926 = 11.987041 SEK
   await adminPool.query(
     `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES
@@ -668,9 +666,36 @@ describe("lane 5 — the module's exports (lessons audit 27, contracts T024)", (
 });
 
 describe("US5 — derived states and the list", () => {
+  /** A real incoming CHF row through the Nordea import (banking's linkable checks it exists and carries `amount`). */
+  async function bankRow(caller: CallerIdentity, amount: string): Promise<string> {
+    return withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      let accountId = (await banking.getBankAccounts(tx, caller)).data?.find(
+        (a) => a.currency === "CHF",
+      )?.id;
+      if (!accountId) {
+        const created = await banking.createBankAccount(tx, caller, noopAudit, {
+          accountAlias: "Plusgirokonto CHF",
+          accountNumber: "123 45 67-8",
+          currency: "CHF",
+          bankFormatId: nordeaFormatId,
+        });
+        accountId = created.data?.id as string;
+      }
+      const header =
+        "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
+      const line = `2026/02/10;${amount.replace(".", ",")};;;Client VA SA;;Payment ${crypto.randomUUID().slice(0, 8)};;;CHF;`;
+      const r = await banking.importCsv(tx, caller, noopAudit, storage, {
+        bankAccountId: accountId,
+        fileName: `PLUSGIROKONTO FTG 123 45 67-8 - ${crypto.randomUUID().slice(0, 8)}.csv`,
+        bytes: Buffer.from(`${header}\n${line}\n`, "latin1"),
+      });
+      if (r.error) throw new Error(`import failed: ${r.error.message}`);
+      return r.data.transactionIds[0];
+    });
+  }
+
   async function pay(caller: CallerIdentity, invoiceId: string, amount: string) {
-    const txId = crypto.randomUUID();
-    fakeTransactions.add(txId);
+    const txId = await bankRow(caller, amount);
     return withTenantTransaction(prisma, caller.tenantId, (tx) =>
       linking.createLink(tx, caller, noopAudit, {
         from: { type: "bank_transaction", id: txId },
