@@ -70,6 +70,11 @@ export async function basAliases(
   return new Map(rows.map((r) => [r.code, own.get(r.code) ?? r.suggestedAlias?.trim() ?? null]));
 }
 
+/** Whether the tenant has activated this BAS category (a preference row exists = activated; RLS-scoped). */
+export async function isBasActivated(tx: TransactionClient, code: string): Promise<boolean> {
+  return (await tx.tenantBasPreference.count({ where: { basCode: code } })) > 0;
+}
+
 export async function basAlias(tx: TransactionClient, code: string): Promise<string | null> {
   return (await basAliases(tx, [code])).get(code) ?? null;
 }

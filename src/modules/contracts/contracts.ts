@@ -135,6 +135,17 @@ export async function getContracts(
   return { data: contracts.map((c) => toContractDto(c, toCurrentRate(current.get(c.id)))) };
 }
 
+/**
+ * How many active contracts a partner holds as the client (`partnerId`) or is assigned to as the employee
+ * (`assignedEmployeeId`) — for partners' type-removal guard (audit 25). Exactly one of the two.
+ */
+export async function activeContractCount(
+  tx: TransactionClient,
+  by: { partnerId: string } | { assignedEmployeeId: string },
+): Promise<number> {
+  return tx.contract.count({ where: { ...by, isActive: true } });
+}
+
 export async function getContract(
   tx: TransactionClient,
   id: string,
