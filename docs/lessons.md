@@ -249,6 +249,11 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **e2e flake on `main` after #114** (`document-review` › *Make it…* — `make-it` never visible; green before and after, 3/3 locally): the journeys stamped their PDF with a 6-digit millisecond clock, so two journeys starting in the same millisecond upload the same bytes; the second gets the duplicate card and opens the first's document, already an expense. Fixed in `document-review.spec.ts` / `document-library.spec.ts` (`crypto.randomUUID()`); `document-inbox`, `dashboard`, `package` still use the clock (module-level or single journeys — lower risk; change them when next touched).
 - [ ] **`document-library` › the Status filter step is data-dependent**: it clears the filter and ticks the *first* label; when the table holds a single status, that re-selects everything, no `f.status` reaches the URL and the step fails (seen locally after `reset`, never on CI where other journeys leave mixed statuses). Pick a named status (`uploaded` / `extracted`) instead of the first label.
 
+## F50-g build (the audit write mapper, 2026-10-23)
+
+- [ ] **Pin what a cast wrote before removing it.** The two `as any` hid that `oldData: null` stores the JSON `null` while an omitted field stores SQL NULL — two nulls in one trail. The characterization test went in first and failed on the guess (*both SQL NULL*), so the mapper keeps `Prisma.JsonNull` for `null`; settling on one null is a behaviour change → F84.
+- [ ] **`toAuditData` drops every Decimal.** Its filter keeps plain objects only (`prototype === Object.prototype`) to skip Prisma relations; a `Prisma.Decimal` fails that test, so audited money rows carry no amount. Found by probing the helper while writing the JSON test → F84.
+
 ## T020 + T026 build (D36 deletes, the vendor address — 2026-10-23)
 
 - [ ] **A delete guarded by a DB trigger needs the link off first, in the same transaction**: `block_delete_when_linked` fires on the row, so D36 removes the `created_from` through `linking.removeLink` (audited) and deletes after — no trigger change, and a later failure rolls the link back with it.

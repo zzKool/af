@@ -328,6 +328,13 @@ export function JournalTable({
                 <SheetDescription>
                   {selected.description} · {formatCurrency(selected.amountBase, "SEK")} SEK ·{" "}
                   {t(`journal.rateSource.${selected.rateSource}`)} {selected.rate}
+                  {/* the transfer pair's own rate, beside the ECB one — informational, never the base (T007) */}
+                  {selected.bankImplicitRate && (
+                    <span data-testid="journal-implicit-rate">
+                      {" "}
+                      · {t("journal.col.implicitRate")} {selected.bankImplicitRate}
+                    </span>
+                  )}
                 </SheetDescription>
               </SheetHeader>
               <CategoriseForm
