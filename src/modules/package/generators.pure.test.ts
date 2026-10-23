@@ -1,8 +1,11 @@
 // The pure generators over a fixture PeriodData (specs/accountant-package/spec.md FR-003 – FR-005, SC-002):
 // the statement CSVs in the account's conventions, the summary's sheets and rows, notes.md's sections, the zip's
 // layout — and determinism: the same data twice gives the same bytes.
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { unzipSync } from "fflate";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import { CSV_HEADER, slug, statementCsv, statementFiles } from "./csv";
 import { notesMd } from "./notes";
@@ -405,5 +408,56 @@ describe("the zip", () => {
     expect(files.filter((f) => f.startsWith("2026/bank-statements/"))).toEqual([
       "2026/bank-statements/savings.csv",
     ]);
+  });
+});
+
+// F71 (2026-10-23): the page adopted the D40 kit; what goes to the accountant did not move. The sha-256 of the
+// zip, the summary, the notes and the year zip were taken on `main` before the restyle (aec3173) — over the
+// fixture plus a delta and an unpaid-invoice flag, the two kinds whose `detail` carries money.
+describe("the bytes the accountant gets (F71 golden)", () => {
+  const golden = JSON.parse(readFileSync(join(__dirname, "package-golden.json"), "utf8")) as Record<
+    string,
+    string
+  >;
+  const withMoneyFlags: PeriodData = {
+    ...data,
+    flags: [
+      ...data.flags,
+      {
+        kind: "delta",
+        entity: "bank_transaction",
+        id: "t2",
+        key: "Plusgirokonto CHF 2026-06-25 1200.00 CHF",
+        detail: "allocated 1000.00 CHF, 200.00 CHF open",
+      },
+      {
+        kind: "unpaid_invoice",
+        entity: "invoice",
+        id: "i2",
+        key: "VA26-INV-002",
+        detail: "partially paid, 24000.00 CHF open",
+      },
+    ],
+  };
+  const sha = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
+  // fflate writes each entry's mtime as a DOS date in the process's local time: the golden is UTC, as CI and the
+  // image run — a laptop in Europe/Stockholm would zip the same data to other bytes (lessons, F71 package)
+  const tz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "UTC";
+  });
+  afterAll(() => {
+    process.env.TZ = tz;
+  });
+
+  it("zip, summary.xlsx, notes.md and the year zip are byte-identical to before the restyle", () => {
+    const year: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026") };
+    const may: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026-05"), documents: [] };
+    expect({
+      zip: sha(zipBytes(monthEntries(withMoneyFlags, bytes), withMoneyFlags.period.to)),
+      summary: sha(summaryXlsx(withMoneyFlags)),
+      notes: sha(notesMd(withMoneyFlags)),
+      year: sha(zipBytes(yearEntries(year, [may, withMoneyFlags], bytes), "2026-12-31")),
+    }).toEqual(golden);
   });
 });
