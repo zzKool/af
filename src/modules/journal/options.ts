@@ -6,7 +6,7 @@ import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 
 export type CategoryOption = { code: string; label: string };
-export type PartnerOption = { id: string; name: string };
+export type PartnerOption = { id: string; name: string; defaultBasCode: string | null };
 
 export async function categoryOptions(
   tx: TransactionClient,
@@ -27,6 +27,6 @@ export async function categoryOptions(
 export async function partnerOptions(tx: TransactionClient): Promise<PartnerOption[]> {
   const all = await partners.getPartners(tx, {});
   return (all.data ?? [])
-    .map((p) => ({ id: p.id, name: p.name }))
+    .map((p) => ({ id: p.id, name: p.name, defaultBasCode: p.defaultBasCategoryCode ?? null }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
