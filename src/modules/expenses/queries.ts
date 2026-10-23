@@ -27,6 +27,7 @@ import { expenseHistory, type HistoryEntry } from "./history";
 import { activeSettlementTransactionIds, allocatedByExpense, toSettlementDto } from "./settlements";
 import { deriveExpenseStatus, owedBase } from "./status";
 import type {
+  DocumentOption,
   ExpenseDto,
   ExpenseGroupDto,
   ExpenseListRow,
@@ -534,34 +535,21 @@ export async function ledgerSnapshot(tx: TransactionClient): Promise<LedgerSnaps
 
 // --- the receipts that can become an expense ---
 
-export type CandidateDocument = {
-  id: string;
-  businessKey: string;
-  fileName: string;
-  status: string;
-};
-
-/** Uploaded expense documents that did not become anything yet (the new-expense dialog's picker). */
+/**
+ * The receipts the new-expense dialog may pick: uploaded expense documents still waiting in the inbox — the
+ * documents module's one rule (nothing created from them, not filed, not archived, paged after filtering).
+ */
 export async function candidateDocuments(
   tx: TransactionClient,
   caller: CallerIdentity,
-): Promise<CandidateDocument[]> {
-  const list = await documents.getDocuments(
-    tx,
-    caller,
-    { prefixType: ["expense"] },
-    { field: "createdAt", direction: "desc" },
-    { page: 1, pageSize: 200 },
-  );
-  const items = (list.data?.items ?? []).filter((d) => d.status !== "generated");
-  if (items.length === 0) return [];
-  const taken = await linking.createdFromTargets(
-    tx,
-    items.map((d) => d.id),
-  );
-  return items
-    .filter((d) => !taken.has(d.id))
-    .map((d) => ({ id: d.id, businessKey: d.businessKey, fileName: d.fileName, status: d.status }));
+): Promise<DocumentOption[]> {
+  const docs = await documents.candidateDocuments(tx, caller, ["expense"]);
+  return docs.map((d) => ({
+    id: d.id,
+    businessKey: d.businessKey,
+    fileName: d.fileName,
+    status: d.status,
+  }));
 }
 
 export type ExpenseVatSource = {
