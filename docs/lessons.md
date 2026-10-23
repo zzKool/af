@@ -299,3 +299,9 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **A test of another module carried the bug the convergence found**: `supplier-invoices.test.ts` › *one allocated sum* paid a supplier invoice from a **bank** journal entry — the double allocation T001 closes. A test that builds a fixture through a path the UI never offers is worth a second look when a rule tightens.
 - [ ] **A derived value can retire a set-once column without a migration** (T005): the DTO derives `bankImplicitRate` from the `transfer` link, and banking's accept — which reads the entry after writing the link — stops writing the column by itself. The drop is then a separate, irreversible step for the owner (O8), not a blocker for the fix.
 - [ ] **Base UI's Select is not drivable in jsdom**: `categorise-form.test.tsx` stubs `@/components/ui/select` with a native `<select>` (SelectTrigger's `id` names it, SelectItem's are its options) so a form's rule can be tested. Reuse it when another form's select carries a rule.
+
+## F71 build (partners adopts the D40 kit, 2026-10-23)
+
+- [ ] **A count badge changes a tab's accessible name**: *Contacts (1)* became *Contacts 1* (label, a space, the `<CountBadge>`) — every e2e that found a tab by its old label had to change, and without the space the name reads *Contacts1*. Match tabs with `{ name: "Contacts 1", exact: true }` or a regex; a module whose tabs move to badges greps `e2e/` for `"(`.
+- [ ] **Moving an inline create form into a dialog kept nine journeys green for free** because the dialog kept the form's labels and ids (`#new-partner-name`, *Create*, the type checkboxes) — five other modules' journeys create a partner through it. Rule for the next move of a shared entry point: change the container, not the names.
+
