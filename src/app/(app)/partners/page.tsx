@@ -6,7 +6,7 @@ import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { listPartners, PARTNER_COLUMN_KEYS, PARTNER_DEFAULT_SORT } from "@/modules/partners";
-import { PartnerTable } from "@/modules/partners/ui";
+import { NewPartnerButton, PartnerTable } from "@/modules/partners/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 // The reference list page (D19, D20): the URL is the query, the server loads one page, the client
@@ -32,7 +32,11 @@ export default async function PartnersPage({
   const t = translator(await requestLocale(prefs.data?.locale));
 
   return (
-    <ListPage title={t("partners.title")} meta={t("partners.meta.count", { count: result.total })}>
+    <ListPage
+      title={t("partners.title")}
+      meta={t("partners.meta.count", { count: result.total })}
+      actions={<NewPartnerButton />}
+    >
       <PartnerTable
         result={{
           ...result,
