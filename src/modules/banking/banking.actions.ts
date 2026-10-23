@@ -8,6 +8,7 @@ import { listQuerySchema } from "@/kernel/list-query/schema";
 import { createStorageService } from "@/kernel/storage/storage";
 import { uuid } from "@/kernel/validation/scalars";
 import { detectAccountFromFilename, pickAccount } from "@/modules/banking/account-detect";
+import { toTransactionDetailWire } from "@/modules/banking/detail-wire";
 import { transactionHistory } from "@/modules/banking/history";
 import { deleteImport, importCsv } from "@/modules/banking/import";
 import {
@@ -77,7 +78,9 @@ export const getTransactionAction = authedAction
   .metadata({ name: "getBankTransaction" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
-    return getTransaction(ctx.tx, parsedInput.id);
+    const r = await getTransaction(ctx.tx, parsedInput.id);
+    // the wire type: timestamps as ISO strings, so the panel reads what it gets without a cast (audit 29)
+    return r.error ? { error: r.error } : { data: toTransactionDetailWire(r.data) };
   });
 
 /** The side panel's History section: the row's audit trail, its journal entry's, its links' (F71). */
