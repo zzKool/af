@@ -1,12 +1,13 @@
 // What a draft starts from and how its lines become rows: the defaults chain, the line rows with their
 // totals, and an existing document's lines back as input (update, copy, convert).
-import type { z } from "zod/v4";
+import { z } from "zod/v4";
 import { Prisma } from "@/generated/prisma/browser";
 import type { InvoiceLine } from "@/generated/prisma/client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import { CURRENCIES, type Currency } from "@/kernel/nav/constants";
 import * as settings from "@/modules/settings";
 import { iso, toDate } from "./dto";
 import { invalid } from "./errors";
@@ -18,6 +19,14 @@ import type { Registration } from "./vat-treatment";
 const D = Prisma.Decimal;
 
 // --- defaults chain (partner → contract → registration) ---
+
+const currencySchema = z.enum(CURRENCIES);
+
+/** A stored currency code (a contract's, a partner's default) as one the app knows, or null — parsed, never cast (audit 30). */
+export function toCurrency(value: string | null | undefined): Currency | null {
+  const parsed = currencySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 
 /** Payment terms when the contract names none (or a code it does not know): net 30 days. */
 export const DEFAULT_PAYMENT_TERMS_DAYS = 30;

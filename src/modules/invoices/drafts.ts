@@ -6,7 +6,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import { BASE_CURRENCY, type CURRENCIES } from "@/kernel/nav/constants";
+import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import * as contracts from "@/modules/contracts";
 import * as partners from "@/modules/partners";
 import {
@@ -15,6 +15,7 @@ import {
   linesToInput,
   QUOTE_VALIDITY_DAYS,
   registrationById,
+  toCurrency,
   totalsData,
 } from "./defaults";
 import { load, toDate, toInvoiceDto, withLines } from "./dto";
@@ -66,8 +67,8 @@ export async function createDraft(
   const issueDate = data.issueDate ?? today;
   const currency =
     data.currency ??
-    (contract?.currency as (typeof CURRENCIES)[number] | null | undefined) ??
-    (partner.data.defaultCurrency as (typeof CURRENCIES)[number] | null) ??
+    toCurrency(contract?.currency) ??
+    toCurrency(partner.data.defaultCurrency) ??
     BASE_CURRENCY;
   const vatRegistrationId =
     data.vatRegistrationId === undefined
