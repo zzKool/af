@@ -100,11 +100,14 @@ export async function dashboardOverview(
       href: "/banking",
     });
   }
+  // receivables are issued invoices only — a quote is no claim, a credit note already reduced its original (F57)
   const receivables = new Map<string, InstanceType<typeof D>>();
+  const openCount = new Map<string, number>();
   let overdueCount = 0;
   for (const inv of openInvoices.rows) {
     if (inv.type !== "invoice") continue;
     receivables.set(inv.currency, (receivables.get(inv.currency) ?? new D(0)).plus(inv.remaining));
+    openCount.set(inv.currency, (openCount.get(inv.currency) ?? 0) + 1);
     if (inv.state === "overdue") overdueCount += 1;
   }
   if (receivables.size === 0) receivables.set("SEK", new D(0));
@@ -115,7 +118,7 @@ export async function dashboardOverview(
       label: "receivables",
       value: amount.toFixed(2),
       currency,
-      hint: String(openInvoices.rows.filter((r) => r.currency === currency).length),
+      hint: String(openCount.get(currency) ?? 0),
       href: "/invoices",
     });
   }
@@ -292,29 +295,32 @@ export async function dashboardOverview(
       period: lastMonth,
     });
   }
+  // the quarter is declared per CH registration (F56): each one has its own declaration, and its own item
   const registrations = await exportsModule.chRegistrations(tx, caller);
-  if (registrations.length > 0) {
-    const quarter = previousQuarter(today);
-    const declared = await exportsModule.declaredOn(tx, quarter);
-    if (!declared) {
-      items.push({
-        id: "vat",
-        kind: "vat_not_declared",
-        count: 1,
-        priority: "medium",
-        href: `/exports?period=${encodeURIComponent(quarter)}`,
-        period: quarter,
-      });
-    } else if (!declared.paidAt) {
-      items.push({
-        id: "vat-paid",
-        kind: "vat_not_paid",
-        count: 1,
-        priority: "low",
-        href: `/exports?period=${encodeURIComponent(quarter)}`,
-        period: quarter,
-      });
-    }
+  const quarter = previousQuarter(today);
+  for (const reg of registrations) {
+    const declared = await exportsModule.declaredOn(tx, quarter, reg.id);
+    if (declared?.paidAt) continue;
+    const href = `/exports?period=${encodeURIComponent(quarter)}&registration=${reg.id}`;
+    items.push(
+      declared
+        ? {
+            id: `vat-paid:${reg.id}`,
+            kind: "vat_not_paid",
+            count: 1,
+            priority: "low",
+            href,
+            period: quarter,
+          }
+        : {
+            id: `vat:${reg.id}`,
+            kind: "vat_not_declared",
+            count: 1,
+            priority: "medium",
+            href,
+            period: quarter,
+          },
+    );
   }
 
   const order = { high: 0, medium: 1, low: 2 };

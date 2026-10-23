@@ -67,11 +67,29 @@ The dashboard service is an **intentional exception** to the single-client patte
 
 `dashboardOverview(tx, caller, today, since)` is computed on request from the modules' read models — nothing stored:
 
-- **To do** (`items`, the owner's; the accountant gets the month-end and the quarter only): bank lines to justify (`banking.listTransactions` on the main accounts, states open / partial → `/banking/inbox`), documents to review (`documents.inboxTotals` — the inbox's pending + ready, → `/documents/inbox`, [[document-inbox]]), documents linked to nothing (`linking.unlinkedDocuments`), supplier invoices overdue / due within 14 days (`supplierInvoices.kpis`), client invoices overdue, the owner's liability and the company-paid expenses awaiting their row (`expenses.ledgerSnapshot`), expenses without a receipt, ECB days without a rate in the last 30 days (`rates.detectGaps`, ≥ 3 weekdays → `/settings/rates`), last month's package not built / built with flags (`package.listBuilds` + `livePreview`), last quarter's Swiss VAT not declared / not paid (`exports.declaredOn`). Each item carries its count, the amount when there is one, and the page that resolves it (list pages take `?f.<col>=in:<value>` filters). Sorted high → medium → low.
-- **Business pulse** (`pulse`): the main accounts' balances as of their last booking date, receivables open per currency (Σ `remaining` of issued / sent / partially paid / overdue invoices), payables open (SEK, the supplier KPIs), owed to the owner (SEK), invoiced this year (SEK base, credit notes deducted).
+- **To do** (`items`, the owner's; the accountant gets the month-end and the quarter only): bank lines to justify (`banking.listTransactions` on the main accounts, states open / partial → `/banking/inbox`), documents to review (`documents.inboxTotals` — the inbox's pending + ready, → `/documents/inbox`, [[document-inbox]]), documents linked to nothing (`linking.unlinkedDocuments`), supplier invoices overdue / due within 14 days (`supplierInvoices.kpis`), client invoices overdue, the owner's liability and the company-paid expenses awaiting their row (`expenses.ledgerSnapshot`), expenses without a receipt, ECB days without a rate in the last 30 days (`rates.detectGaps`, ≥ 3 weekdays → `/settings/rates`), last month's package not built / built with flags (`package.listBuilds` + `livePreview`), last quarter's Swiss VAT not declared / not paid — **one item per CH registration** (`exports.declaredOn(tx, quarter, registrationId)`, F56), opening `/exports?period=…&registration=…`. Each item carries its count, the amount when there is one, and the page that resolves it (list pages take `?f.<col>=in:<value>` filters). Sorted high → medium → low.
+- **Business pulse** (`pulse`): the main accounts' balances as of their last booking date, receivables open per currency (Σ `remaining` of issued / sent / partially paid / overdue **invoices** — quotes and credit notes are no claim, F57; the hint counts the same invoices), payables open (SEK, the supplier KPIs), owed to the owner (SEK), invoiced this year (SEK base, credit notes deducted).
 - **Briefing** (`briefing`): the audit trail since the last login grouped by entity type and action (`kernel/audit.activitySince`) — "2 bank transaction created, 1 invoice updated". Every write is audited, so the trail is the briefing; nothing else records events.
 
-Strings `dashboard.*` (en + fr); the widgets in `components/dashboard-widgets.tsx`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with every kind of item, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
+Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widgets.tsx`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with every kind of item, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
+
+## Speed (F55, measured 2026-10-23)
+
+`next build` + `next start`, the seeded tenant filled with ~3.5 years of the owner's volume (2023-04 → 2026-10: 1 596 bank rows, 49 invoices, 336 expenses, 210 supplier invoices, 1 764 documents, 64 000 audit rows), 12 requests, median. The page's one transaction runs the reads **one after the other** (an interactive transaction is one connection), so the page time is their sum.
+
+```
+/dashboard (server, prod)      ≈ 0.35 s   ← dev server on the same data ≈ 0.8 s warm, 22 s the first compile
+ ├─ banking.listTransactions   ≈ 117 ms   rows to justify: lists + derives every main-account row for a count
+ ├─ package.livePreview        ≈  75 ms   last month's flags: collects the whole package
+ ├─ documents.inboxTotals      ≈  29 ms
+ ├─ expenses.listExpenses      ≈  25 ms   receipts missing: a list for a count
+ ├─ linking.unlinkedDocuments  ≈  13 ms
+ ├─ audit.activitySince        ≈  11 ms   (≈ 43 ms with a last login in 2023)
+ ├─ rates.detectGaps           ≈   4 ms
+ └─ eight more                 <  10 ms each
+```
+
+The suspects (the briefing's audit read, the rates gap check) are cheap; the 2.5–3 s seen in dev is the dev server. Nothing in this module is slow; the two biggest reads are other modules' list read models used as counters — F82 (banking) and F83 (package) if the page ever feels slow after B1.
 
 ## Toast Infrastructure
 
