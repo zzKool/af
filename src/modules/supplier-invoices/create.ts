@@ -7,7 +7,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
-import { BASE_CURRENCY, type CURRENCIES } from "@/kernel/nav/constants";
+import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import * as documents from "@/modules/documents";
 import { getGroup, noteWithAck } from "@/modules/expenses";
 import * as linking from "@/modules/linking";
@@ -17,6 +17,7 @@ import {
   supplierInvoiceDocumentKey,
   supplierInvoiceRef,
 } from "@/modules/numbering";
+import { parseCurrency } from "./currency";
 import { toSupplierInvoiceDto } from "./dto";
 import { invalid, violation } from "./errors";
 import { baseFor } from "./rate-base";
@@ -64,10 +65,7 @@ export async function createSupplierInvoice(
   if (vatError) return { error: vatError };
   const duplicate = await checkDuplicateNumber(tx, v.partnerId, v.invoiceNumber);
   if (duplicate) return { error: duplicate };
-  const currency =
-    v.currency ??
-    (supplier.data.defaultCurrency as (typeof CURRENCIES)[number] | null) ??
-    BASE_CURRENCY;
+  const currency = v.currency ?? parseCurrency(supplier.data.defaultCurrency) ?? BASE_CURRENCY;
   const terms = supplier.data.paymentTermsDays ?? DEFAULT_PAYMENT_TERMS_DAYS;
   const dueDate = v.dueDate ?? addDays(v.invoiceDate, terms);
   const base = await baseFor(tx, v.invoiceDate, new D(v.amountTotal), currency, v.rate);
