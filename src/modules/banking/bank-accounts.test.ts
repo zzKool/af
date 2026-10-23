@@ -14,6 +14,7 @@ import {
   assertRlsIsolation,
 } from "@/kernel/test-utils/config-crud-helpers";
 import * as bankService from "@/modules/banking/bank-accounts";
+import { parseColumnMapping } from "@/modules/banking/csv-parser";
 
 /** No-op audit logger for tests that don't care about audit */
 const noopAudit: AuditLogger = { log: async () => {} };
@@ -92,12 +93,9 @@ describe("bank formats (app-level)", () => {
     expect(nordea?.encoding).toBe("ISO-8859-1");
     expect(nordea?.columnMapping).toBeDefined();
 
-    // Verify column mapping structure
-    const mapping = nordea?.columnMapping as {
-      columns: { index: number; field: string; label: string }[];
-      hasHeader: boolean;
-      trailingDelimiter: boolean;
-    };
+    // the stored mapping parses on read (lessons audit 29) — no cast
+    const mapping = parseColumnMapping(nordea?.columnMapping);
+    if (!mapping) throw new Error("the seeded Nordea column mapping does not parse");
     expect(mapping.columns).toHaveLength(10);
     expect(mapping.hasHeader).toBe(true);
     expect(mapping.trailingDelimiter).toBe(true);

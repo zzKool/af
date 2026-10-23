@@ -432,3 +432,74 @@ export async function inboxTotals(
 ): Promise<InboxCounts> {
   return (await listInbox(tx, caller, { now })).counts;
 }
+
+/** A document a creation dialog may pick: one still waiting for its decision (lessons audit 26). */
+export type CandidateDocument = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  status: string;
+  /** the inbox state it waits in — never `archived` */
+  state: Exclude<InboxState, "archived">;
+};
+
+export const CANDIDATE_DOCUMENTS_LIMIT = 200;
+
+/**
+ * The uploaded documents of `types` (`prefixType`) that still wait in the inbox — nothing was created from them,
+ * not filed, not archived, not generated (`inboxState`, D34) — newest first. The rule runs on every candidate
+ * before `limit` is applied, so a page of taken documents never hides a free one. The accountant sees financial
+ * documents only (`can`), like the inbox. The expense and supplier-invoice dialogs' document picker.
+ */
+export async function candidateDocuments(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  types: readonly string[],
+  options: { limit?: number; now?: Date } = {},
+): Promise<CandidateDocument[]> {
+  if (types.length === 0) return [];
+  const now = options.now ?? new Date();
+  const limit = options.limit ?? CANDIDATE_DOCUMENTS_LIMIT;
+  const base = can(caller, "read", "relationship_document") ? {} : { documentType: "financial" };
+  const docs = await tx.document.findMany({
+    where: { ...base, prefixType: { in: [...types] }, status: { not: "generated" } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: ROW_CAP,
+    select: {
+      id: true,
+      businessKey: true,
+      fileName: true,
+      status: true,
+      archivedAt: true,
+      reviewedAt: true,
+      updatedAt: true,
+    },
+  });
+  const became = await createdFromTargets(
+    tx,
+    docs.map((d) => d.id),
+  );
+  const out: CandidateDocument[] = [];
+  for (const d of docs) {
+    if (out.length >= limit) break;
+    const state = inboxState(
+      {
+        status: d.status,
+        archivedAt: d.archivedAt,
+        reviewedAt: d.reviewedAt,
+        updatedAt: d.updatedAt,
+        became: became.has(d.id),
+      },
+      now,
+    );
+    if (state === null || state === "archived") continue;
+    out.push({
+      id: d.id,
+      businessKey: d.businessKey,
+      fileName: d.fileName,
+      status: d.status,
+      state,
+    });
+  }
+  return out;
+}

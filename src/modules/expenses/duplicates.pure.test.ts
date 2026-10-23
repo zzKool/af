@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysApart, dedupeMatches, foldName, isNear } from "./duplicates";
+import { dedupeMatches, foldName, isNear } from "./duplicates";
 import type { DuplicateMatch } from "./types";
 
 const m = (kind: DuplicateMatch["kind"], confidence: DuplicateMatch["confidence"], id: string) =>
@@ -30,7 +30,6 @@ describe("expense duplicates — the pure rules (harvest §4.2)", () => {
     expect(isNear({ amount: 0, date: "2026-03-10" }, { amount: 0, date: "2026-03-10" })).toBe(
       false,
     );
-    expect(daysApart("2026-03-10", "2026-03-03")).toBe(7);
   });
 
   it("folds the merchant name", () => {

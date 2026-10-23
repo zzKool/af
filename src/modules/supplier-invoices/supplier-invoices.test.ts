@@ -961,6 +961,21 @@ describe("US2 — paid by a link", () => {
     expect(d.history[0].at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
+  it("today is Stockholm's day (audit 28): at 00:30 in Stockholm a due date of yesterday is overdue, though UTC is still on it", async () => {
+    const r = await create(julyInvoice({ dueDate: "2026-03-20" }));
+    expect(r.error).toBeUndefined();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-03-20T23:30:00Z")); // 2026-03-21 00:30 in Stockholm (CET)
+      const d = await run(owner.caller, (tx) =>
+        getSupplierInvoiceDetail(tx, owner.caller, r.data!.id),
+      );
+      expect(d.data).toMatchObject({ status: "overdue", daysOverdue: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("overdue with the days; cancel (typed flag) and uncancel; delete only while unlinked and documentless", async () => {
     const r = await create(julyInvoice({ dueDate: "2026-03-20" }));
     expect(await detail(r.data!.id, "2026-03-27")).toMatchObject({

@@ -4,7 +4,7 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { formatDateTime } from "@/kernel/i18n/format-date";
 import { requestLocale } from "@/kernel/i18n/request-locale";
-import { translator } from "@/kernel/i18n/translate";
+import { translator, uiLanguage } from "@/kernel/i18n/translate";
 import { dashboardOverview, getDashboardData } from "@/modules/dashboard";
 import { ActionItemsWidget, BriefingWidget, BusinessPulseWidget } from "@/modules/dashboard/ui";
 import { getUserPreferences } from "@/modules/settings";
@@ -36,7 +36,9 @@ export default async function DashboardPage() {
         {header.companyName && <p className="text-muted-foreground">{header.companyName}</p>}
         <p className="text-sm text-muted-foreground">
           {header.lastLoginAt
-            ? t("dashboard.lastLogin", { date: formatDateTime(header.lastLoginAt, locale ?? "en") })
+            ? t("dashboard.lastLogin", {
+                date: formatDateTime(header.lastLoginAt, uiLanguage(locale)),
+              })
             : t("dashboard.firstLogin")}
         </p>
       </div>

@@ -34,6 +34,7 @@ import type {
   RuleListRow,
   TransactionListRow,
   TransactionState,
+  TransactionStateFacts,
   TransferProposal,
 } from "./types";
 
@@ -101,38 +102,19 @@ const ROW_CAP = 20_000;
 
 type LinkFacts = { allocated: Map<string, string>; transfer: Set<string> };
 
-/** Σ allocations FROM each transaction and which ones sit in a transfer link — two grouped queries. */
+/**
+ * Σ allocations FROM each transaction (allocating kinds — `justifies`, `settles`) and which ones sit in a transfer
+ * link — two queries through linking's read API (lessons audit 22).
+ */
 async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise<LinkFacts> {
-  const facts: LinkFacts = { allocated: new Map(), transfer: new Set() };
-  if (ids.length === 0) return facts;
-  const [sums, transfers] = await Promise.all([
-    tx.link.groupBy({
-      by: ["fromId"],
-      where: {
-        fromType: "bank_transaction",
-        fromId: { in: [...ids] },
-        allocatedAmount: { not: null },
-      },
-      _sum: { allocatedAmount: true },
-    }),
-    tx.link.findMany({
-      where: {
-        kind: "transfer",
-        OR: [
-          { fromType: "bank_transaction", fromId: { in: [...ids] } },
-          { toType: "bank_transaction", toId: { in: [...ids] } },
-        ],
-      },
-      select: { fromId: true, toId: true },
-    }),
+  if (ids.length === 0) return { allocated: new Map(), transfer: new Set() };
+  const [allocated, transfers] = await Promise.all([
+    linking.allocatedFrom(tx, "bank_transaction", ids),
+    linking.linksTouching(tx, "bank_transaction", ids, { kinds: ["transfer"] }),
   ]);
-  for (const s of sums)
-    facts.allocated.set(s.fromId, (s._sum.allocatedAmount ?? new D(0)).toFixed(2));
-  for (const t of transfers) {
-    facts.transfer.add(t.fromId);
-    facts.transfer.add(t.toId);
-  }
-  return facts;
+  const transfer = new Set<string>();
+  for (const t of transfers) for (const end of [t.from, t.to]) transfer.add(end.id);
+  return { allocated, transfer };
 }
 
 /**
@@ -348,6 +330,39 @@ export async function bookingDates(
     select: { id: true, bookingDate: true },
   });
   return new Map(rows.map((r) => [r.id, r.bookingDate.toISOString().slice(0, 10)]));
+}
+
+/**
+ * The derived state of each of `ids` with its allocation and transfer facts — the rule `deriveTransactionState`
+ * applies, read in three queries (rows, journal entries, links). An unknown id is absent.
+ */
+export async function transactionStates(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Map<string, TransactionStateFacts>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const [rows, entries, facts] = await Promise.all([
+    tx.bankTransaction.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, amount: true },
+    }),
+    journal.entriesForSources(tx, "bank_transaction", unique),
+    linkFacts(tx, unique),
+  ]);
+  return new Map(
+    rows.map((r) => {
+      const allocated = facts.allocated.get(r.id) ?? "0.00";
+      const inTransfer = facts.transfer.has(r.id);
+      const state = deriveTransactionState({
+        amount: r.amount.toFixed(2),
+        allocated,
+        inTransfer,
+        noDocumentNeeded: entries.get(r.id)?.noDocumentNeeded ?? false,
+      });
+      return [r.id, { state, allocated, inTransfer }];
+    }),
+  );
 }
 
 /** The first booking date (`YYYY-MM-DD`) of any bank row, or null before the first import. */

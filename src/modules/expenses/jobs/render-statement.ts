@@ -6,6 +6,7 @@ import type { JobDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import { renderPathToPdf } from "@/kernel/pdf/pdf";
 import { createStorageService } from "@/kernel/storage/storage";
+import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as linking from "@/modules/linking";
 import { statementPdfKey } from "@/modules/numbering";
@@ -45,14 +46,11 @@ export async function renderStatement(
     if (!s) return null;
     if (s.statementDocumentId) return { done: true as const, number: s.number };
     if (s.status !== "active") return null;
-    const t = await tx.bankTransaction.findUnique({
-      where: { id: s.bankTransactionId },
-      select: { bookingDate: true },
-    });
+    const t = await banking.getBankTransaction(tx, s.bankTransactionId);
     return {
       done: false as const,
       number: s.number,
-      bookingDate: t?.bookingDate.toISOString().slice(0, 10) ?? null,
+      bookingDate: t?.bookingDate ?? null,
       bankTransactionId: s.bankTransactionId,
     };
   });
