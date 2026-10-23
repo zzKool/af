@@ -197,3 +197,29 @@ export type AccountBalance = {
   balanceDate: string | null;
   lastImportAt: Date | null;
 };
+
+/** The Months panel (F69): one account × month square — every row proven, a row still to justify, or no import covers it. */
+export type BankMonthCellState = "proven" | "open" | "not_imported";
+
+export type BankMonthCell = {
+  bankAccountId: string;
+  /** `2026-07` */
+  month: string;
+  state: BankMonthCellState;
+  rows: number;
+  toJustify: number;
+};
+
+/** One bar: rows justified (linked / no document needed) and to justify (open / partially linked); derived, never stored. */
+export type BankMonth = { month: string; justified: number; toJustify: number; built: boolean };
+
+export type BankMonthsOverview = {
+  from: string;
+  to: string;
+  /** oldest first */
+  months: BankMonth[];
+  accounts: { id: string; label: string; role: BankAccountRole; currency: string }[];
+  cells: BankMonthCell[];
+  /** the newest closed month with bank rows and no built package — *N transactions without proof — package YYYY-MM not built* */
+  banner: { month: string; withoutProof: number } | null;
+};

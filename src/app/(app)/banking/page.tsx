@@ -1,14 +1,18 @@
+import Link from "next/link";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
+import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
+import { InfoBanner } from "@/kernel/ui/info-banner";
 import { ListPage } from "@/kernel/ui/shell/page";
 import {
   accountBalances,
   accountLabel,
+  bankMonths,
   getBankAccounts,
   listImports,
   listTransactions,
@@ -31,17 +35,21 @@ export default async function BankingPage({
     columns: TRANSACTION_COLUMN_KEYS,
     defaultSort: TRANSACTION_DEFAULT_SORT,
   });
+  const today = createClock().today();
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, balances, accounts, categories, partners, imports, prefs] = await Promise.all([
-      listTransactions(tx, query),
-      accountBalances(tx),
-      getBankAccounts(tx, auth),
-      categoryOptions(tx, auth),
-      partnerOptions(tx),
-      listImports(tx),
-      getUserPreferences(tx, auth),
-    ]);
+    const [result, balances, accounts, categories, partners, imports, prefs, months] =
+      await Promise.all([
+        listTransactions(tx, query),
+        accountBalances(tx),
+        getBankAccounts(tx, auth),
+        categoryOptions(tx, auth),
+        partnerOptions(tx),
+        listImports(tx),
+        getUserPreferences(tx, auth),
+        bankMonths(tx, { today }),
+      ]);
     return {
+      months,
       result,
       balances,
       accounts: accounts.data ?? [],
@@ -52,11 +60,23 @@ export default async function BankingPage({
     };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
+  const pending = data.months.banner;
+  const hasRows = data.months.months.some((m) => m.justified + m.toJustify > 0);
 
   return (
     <ListPage
       title={t("banking.title")}
       meta={t("banking.meta.transactions", { count: data.result.total })}
+      banner={
+        pending && (
+          <InfoBanner>
+            <span data-testid="months-banner">
+              {t("banking.banner.unproven", { count: pending.withoutProof, month: pending.month })}{" "}
+              <Link href="/package">{t("banking.banner.openPackage")}</Link>
+            </span>
+          </InfoBanner>
+        )
+      }
     >
       <TransactionTable
         result={{
@@ -77,6 +97,7 @@ export default async function BankingPage({
         importLabels={Object.fromEntries(data.imports.map((i) => [i.id, i.fileName]))}
         canWrite={can(auth, "create", "bank_transaction")}
         initialSelectedId={typeof params.open === "string" ? params.open : null}
+        months={hasRows ? data.months : undefined}
       />
     </ListPage>
   );

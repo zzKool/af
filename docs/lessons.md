@@ -220,3 +220,9 @@ Process:
 - **The UI pass is a direction decision first** (roadmap C1): react to options, then the kit changes once and the modules inherit it. Do not restyle page by page.
 
 Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-inventory]]
+
+## F69 build (the banking Months panel, 2026-10-23)
+
+- [ ] **`useListQuery` drops every URL param it does not own** (it serialises the `ListQuery` alone). A page-level param beside the table (a panel's window, `?open=`) is lost on the first filter click. F69 avoided it — the panel shows every month from the first import, no window param. If a page ever needs its own param next to a DataTable, the hook should carry the foreign params over (kernel change, one test).
+- [ ] **The read model reads links through `linking.linksTouching` and sums them in banking** (`linkFactsOf`), while the workbench's `linkFacts` still reads `tx.link` directly (audit 22). Two copies of "Σ allocations + transfer legs" now; F66's linking PR (`allocatedSums`, a `kinds` filter) replaces both with one call.
+- [ ] **`scripts/dev-env.sh chromium` missed the newer image layout** (`chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell`) and fell back to a blocked download — the e2e could not run. The glob takes both layouts now.
