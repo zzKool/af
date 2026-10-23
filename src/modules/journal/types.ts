@@ -12,6 +12,9 @@ export const RATE_SOURCES: readonly RateSource[] = [
   "manual",
 ];
 
+/** `partner_default` is never written (audit 32, decided: removed — a partner-only rule writes `rule`, journal T002's
+ * proposal writes `manual`). It stays in this read type only until banking's `history.ts` stops listing it and the
+ * enum value is dropped with F67's schema PR. */
 export type CategorisedBy = "manual" | "rule" | "partner_default";
 
 export type JournalEntryDto = {
@@ -63,6 +66,9 @@ export type LinksState = "justified" | "partly" | "none" | "no_document";
 export const LINKS_STATES: readonly LinksState[] = ["none", "partly", "justified", "no_document"];
 
 /** The ledger row: the entry plus the joined labels and the derived links state. */
+/** `uncategorisedEntries`: an entry nothing has categorised yet, and its source (the bank row for a bank entry). */
+export type UncategorisedEntry = { id: string; sourceId: string | null };
+
 export type JournalListRow = JournalEntryDto & {
   partnerName: string | null;
   basLabel: string | null;
