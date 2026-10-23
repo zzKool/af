@@ -315,7 +315,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
                       duplicateOf.became.type === "expense"
                         ? "documents.upload.duplicate.becameExpense"
                         : "documents.upload.duplicate.becameSupplierInvoice",
-                      { key: duplicateOf.became.label ?? "" },
+                      { key: duplicateOf.became.key ?? "" },
                     )}
                   </span>
                 </>

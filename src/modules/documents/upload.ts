@@ -31,7 +31,7 @@ export type DuplicateUploadRef = {
   /** the uploader's name — the user table sits outside the tenant transaction, so the action fills it in */
   uploadedByName: string | null;
   /** what the existing document became (`created_from`), with the entity's key, when it did (FR-009) */
-  became: { type: "expense" | "supplier_invoice"; id: string; label: string | null } | null;
+  became: { type: "expense" | "supplier_invoice"; id: string; key: string | null } | null;
 };
 
 export type UploadResult =
@@ -106,7 +106,7 @@ export async function uploadDocument(
           uploadedByName: null,
           became:
             became?.type === "expense" || became?.type === "supplier_invoice"
-              ? { type: became.type, id: became.id, label: became.label }
+              ? { type: became.type, id: became.id, key: became.key }
               : null,
         },
       },

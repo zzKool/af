@@ -50,7 +50,7 @@ function successResult(overrides?: Partial<{ id: string; businessKey: string; fi
 }
 
 function duplicateResult(
-  became: { type: "expense"; id: string; label: string } | null = null,
+  became: { type: "expense"; id: string; key: string } | null = null,
   uploadedByName: string | null = "Zikrija Saric",
 ) {
   return {
@@ -173,7 +173,7 @@ describe("FileUploadZone", () => {
 
   it("shows the duplicate card instead of storing; Upload anyway re-posts with force", async () => {
     mockExecuteAsync.mockResolvedValueOnce(
-      duplicateResult({ type: "expense", id: "exp-1", label: "Ex213-Tr-04" }),
+      duplicateResult({ type: "expense", id: "exp-1", key: "Ex213-Tr-04" }),
     );
     mockExecuteAsync.mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_002" }));
 

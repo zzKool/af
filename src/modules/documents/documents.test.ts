@@ -320,8 +320,8 @@ describe("documents service", () => {
       );
       const again = await up();
       if (again.data?.kind !== "duplicate") throw new Error("expected duplicate");
-      // the label is the entity's key through its linkable (linking.test covers it); this stand-in has no row
-      expect(again.data.existing.became).toEqual({ type: "expense", id: expenseId, label: null });
+      // the key comes through the entity's linkable (linking.test covers it); this stand-in has no row
+      expect(again.data.existing.became).toEqual({ type: "expense", id: expenseId, key: null });
     });
 
     it("a hard-deleted document never counts as a duplicate", async () => {
