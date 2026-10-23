@@ -1,7 +1,9 @@
 "use client";
 
-// New expense (US1): the group (or a new one inline), kind, date, description, category, amount, currency,
-// who paid, the receipt from the inbox (or "no receipt"), a note. The key and the base come from the service.
+// New expense (US1): the group (or a new one inline), kind, date, description, the partner (F87 — optional, its
+// default category proposed, never overwriting; from a document the match card offers the OCR merchant's vendor),
+// category, amount, currency, who paid, the receipt from the inbox (or "no receipt"), a note. The key and the base
+// come from the service.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useRef, useState } from "react";
@@ -28,6 +30,11 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import {
+  type CategoryState,
+  chooseCategory,
+  proposeCategory,
+} from "@/modules/expenses/category-proposal";
+import {
   checkExpenseDuplicatesAction,
   createExpenseAction,
 } from "@/modules/expenses/expenses.actions";
@@ -38,8 +45,10 @@ import type {
   SourceOption,
 } from "@/modules/expenses/types";
 import { EXPENSE_KINDS, type ExpenseKind } from "@/modules/expenses/types";
+import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
 import { GroupPicker, initialGroupId, useCreateGroupIfNew } from "./group-picker";
+import { PartnerPicker, useVendors } from "./partner-picker";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
 export type ExpenseInitial = {
@@ -50,6 +59,8 @@ export type ExpenseInitial = {
   vatAmount?: string | null;
   documentId?: string | null;
   documentKey?: string | null;
+  /** the OCR merchant (name, address) — the match card offers its vendor; nothing is picked without a click */
+  vendor?: VendorFacts | null;
 };
 
 const NONE = "__none__";
@@ -85,7 +96,14 @@ export function NewExpenseDialog({
   const [kind, setKind] = useState<ExpenseKind>("receipt");
   const [date, setDate] = useState(today);
   const [description, setDescription] = useState("");
-  const [basCode, setBasCode] = useState(categories[0]?.code ?? "");
+  // the first category is a pre-selection, not the owner's choice: a partner's default may replace it (FR-003)
+  const [category, setCategory] = useState<CategoryState>({
+    code: categories[0]?.code ?? "",
+    source: null,
+  });
+  const basCode = category.code;
+  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const { vendors, add: addVendor } = useVendors(open);
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<string>("SEK");
   const [sourceId, setSourceId] = useState(sources.find((s) => s.isActive)?.id ?? "");
@@ -110,6 +128,8 @@ export function NewExpenseDialog({
     if (opened.current) return;
     opened.current = true;
     setGroupId(initialGroupId(groups, defaultGroupId));
+    setPartnerId(null);
+    setCategory((c) => (c.source === "partner" ? { ...c, source: null } : c));
     // the document's facts fill the form when the dialog opens from the review page or the inbox
     if (!initial) return;
     if (initial.date) setDate(initial.date);
@@ -158,6 +178,16 @@ export function NewExpenseDialog({
         ]
       : documents;
 
+  const categoryCodes = categories.map((c) => c.code);
+  function pickPartner(id: string | null, defaultCode?: string | null) {
+    setPartnerId(id);
+    const def =
+      defaultCode !== undefined
+        ? defaultCode
+        : (vendors.find((v) => v.id === id)?.defaultBasCategoryCode ?? null);
+    setCategory((c) => proposeCategory(c, id ? def : null, categoryCodes));
+  }
+
   // the payer's currency pre-fills the expense's
   const sourceCurrency = sources.find((x) => x.id === sourceId)?.currency ?? null;
   useEffect(() => {
@@ -178,6 +208,7 @@ export function NewExpenseDialog({
       paymentSourceId: sourceId,
       documentId: documentId === NONE ? undefined : documentId,
       documentMissing,
+      partnerId,
       vatAmount: vatAmount.trim() || null,
       note: note.trim() || null,
       duplicateAck: blocked
@@ -202,6 +233,7 @@ export function NewExpenseDialog({
     setDocumentId(NONE);
     setDocumentMissing(false);
     setNewGroup("");
+    setPartnerId(null);
     onOpenChange(false);
     if (created) onCreated?.(created);
     router.refresh();
@@ -271,11 +303,33 @@ export function NewExpenseDialog({
               data-testid="expense-description"
             />
           </div>
+          {initial?.vendor && (
+            <PartnerMatchCard
+              vendor={initial.vendor}
+              selectedId={partnerId ?? ""}
+              onUseMatch={(id) => pickPartner(id)}
+              onCreated={(p) => {
+                addVendor({ id: p.id, name: p.name, defaultBasCategoryCode: null });
+                pickPartner(p.id, null);
+              }}
+            />
+          )}
+          <div className="sm:col-span-2">
+            <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
+              {t("expenses.partner")}
+            </label>
+            <PartnerPicker
+              id={`${ids}-partner`}
+              value={partnerId}
+              onChange={(id) => pickPartner(id)}
+              vendors={vendors}
+            />
+          </div>
           <div className="sm:col-span-2">
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.category")}
             </label>
-            <Select value={basCode} onValueChange={(v) => v && setBasCode(v)}>
+            <Select value={basCode} onValueChange={(v) => v && setCategory(chooseCategory(v))}>
               <SelectTrigger id={`${ids}-cat`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -287,6 +341,11 @@ export function NewExpenseDialog({
                 ))}
               </SelectContent>
             </Select>
+            {category.source === "partner" && (
+              <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-partner">
+                {t("expenses.categoryFromPartner")}
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor={`${ids}-src`} className="mb-1 block text-xs font-medium">

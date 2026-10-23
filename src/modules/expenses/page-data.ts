@@ -2,6 +2,7 @@
 // Server-only (imports the services); pages import it through index.ts.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
+import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { listPaymentSources } from "./payment-sources";
 import { candidateDocuments, listGroups, settleableTransactions } from "./queries";
@@ -11,6 +12,7 @@ import type {
   GroupOption,
   SourceOption,
   TransactionOption,
+  VendorOption,
 } from "./types";
 
 export type ExpensePageOptions = {
@@ -44,6 +46,16 @@ export async function expenseCategoryOptions(
         label: `${p.basCode} · ${p.basCategory.name}${alias ? ` (${alias})` : ""}`,
       };
     });
+}
+
+/** The partner picker's choices (F87, FR-008): active vendors, by name, with their default category. */
+export async function vendorOptions(tx: TransactionClient): Promise<VendorOption[]> {
+  const r = await partners.getPartners(tx, { types: ["vendor"] });
+  return (r.data ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    defaultBasCategoryCode: p.defaultBasCategoryCode,
+  }));
 }
 
 export async function expensePageOptions(

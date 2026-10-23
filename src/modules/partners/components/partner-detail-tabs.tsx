@@ -29,12 +29,19 @@ import {
   type PartnerDocument,
   PartnerDocuments,
 } from "@/modules/partners/components/partner-documents";
+import {
+  type PartnerExpenses,
+  PartnerExpensesTab,
+} from "@/modules/partners/components/partner-expenses";
 import { type PartnerData, PartnerForm } from "@/modules/partners/components/partner-form";
 import {
   deactivatePartnerAction,
   reactivatePartnerAction,
 } from "@/modules/partners/partners.actions";
 import { PartnerStateLabel, PartnerTypeTags } from "./partner-labels";
+
+/** the books' base currency — read once here, for the journal and the expenses tabs (F85) */
+const BASE = BASE_CURRENCY;
 
 type BasOption = { code: string; label: string };
 type VatOption = { id: string; label: string };
@@ -60,6 +67,8 @@ interface PartnerDetailTabsProps {
   defaultCurrency: string | null;
   documents: PartnerDocument[];
   journal: { total: number; rows: PartnerJournalRow[] };
+  /** spend with this partner (F87) — the expenses module's read, composed by the page */
+  expenses: PartnerExpenses;
 }
 
 export function PartnerDetailTabs({
@@ -72,6 +81,7 @@ export function PartnerDetailTabs({
   defaultCurrency,
   documents,
   journal,
+  expenses,
 }: PartnerDetailTabsProps) {
   const t = useT();
   const router = useRouter();
@@ -160,6 +170,11 @@ export function PartnerDetailTabs({
               value="transactions"
               label={t("partners.tab.transactions")}
               count={journal.total}
+            />
+            <TabTrigger
+              value="expenses"
+              label={t("partners.tab.expenses")}
+              count={expenses.count}
             />
             <TabTrigger
               value="documents"
@@ -252,9 +267,9 @@ export function PartnerDetailTabs({
                   </span>
                   <span className="flex shrink-0 items-baseline gap-2 text-right tabular-nums">
                     <span data-amount={r.amount}>{formatMoney(r.amount, r.currency)}</span>
-                    {r.currency !== BASE_CURRENCY && (
+                    {r.currency !== BASE && (
                       <span className="text-xs text-muted-foreground" data-amount={r.amountBase}>
-                        {formatMoney(r.amountBase, BASE_CURRENCY)}
+                        {formatMoney(r.amountBase, BASE)}
                       </span>
                     )}
                   </span>
@@ -263,6 +278,10 @@ export function PartnerDetailTabs({
             </ul>
           </div>
         )}
+      </TabsContent>
+
+      <TabsContent value="expenses">
+        <PartnerExpensesTab partnerId={partner.id} expenses={expenses} baseCurrency={BASE} />
       </TabsContent>
 
       <TabsContent value="documents">

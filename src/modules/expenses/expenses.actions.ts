@@ -10,6 +10,7 @@ import { findExpenseDuplicates } from "@/modules/expenses/duplicates";
 import * as expenseService from "@/modules/expenses/expenses";
 import * as groups from "@/modules/expenses/groups";
 import { renderStatementJob } from "@/modules/expenses/jobs/render-statement";
+import { vendorOptions } from "@/modules/expenses/page-data";
 import * as paymentSources from "@/modules/expenses/payment-sources";
 import {
   distinctExpenseValues,
@@ -153,6 +154,12 @@ export const proposeSettlementAction = authedAction
   });
 
 /** The entity duplicate check before "Make it an expense" (specs/documents US3): owner only, read-only. */
+/** The partner picker's vendors (F87) — loaded by the picker, since the dialog opens from four pages. */
+export const expenseVendorsAction = ownerAction
+  .schema(z.object({}))
+  .metadata({ name: "expenseVendors" })
+  .action(async ({ ctx }) => ({ data: await vendorOptions(ctx.tx) }));
+
 export const checkExpenseDuplicatesAction = ownerAction
   .schema(
     z.object({
