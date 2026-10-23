@@ -8,22 +8,12 @@ import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import type { ServiceResult } from "@/kernel/errors/app-error";
 import { money, positiveMoney } from "@/kernel/validation/scalars";
+import { invalid, violation } from "./errors";
 import type { NormalbeloppDto, RateRow } from "./types";
 
 const D = Prisma.Decimal;
-
-const violation = (message: string): AppError => ({
-  code: "BUSINESS_RULE_VIOLATION",
-  message,
-  retryable: false,
-});
-const invalid = (message: string): AppError => ({
-  code: "VALIDATION_ERROR",
-  message,
-  retryable: false,
-});
 
 const year = z.number().int().min(2000).max(2100);
 const countryCode = z
