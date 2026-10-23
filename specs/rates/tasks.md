@@ -1,0 +1,20 @@
+# Tasks: Rates — the ECB reference rates
+
+Spec: `spec.md`, written 2026-10-23 from the code as built (F78). No `plan.md` (no schema change) and no phases before this one: the module was built in v2, then F28, F29, F60 ([[features]]). Each task names its lane (D45) and the shared files it touches.
+
+## Phase 1: Convergence
+
+`/speckit-converge`, 2026-10-23 (F78): `spec.md` against `main` (`bdeba87`) — `src/modules/rates/**`, `scripts/fetch-rates.ts`, the `ecb_rates` migration, `/settings/rates`, `e2e/settings-rates.spec.ts`, the callers of `rateToBase` / `detectGaps` (journal, invoices, supplier invoices, expenses, banking transfer pairs, exports, dashboard). Checked: 10 FRs, 3 SCs, 15 acceptance scenarios + 4 edge cases, D3 / D4 / F60, the constitution's module contract. 6 gaps; one is cross-module and became row **F81**.
+
+- [ ] T001 Size the catch-up from the pair furthest behind: `latestStoredDate()` (the job) and `fetchRatesNowAction` take the newest day of **any** pair, so a pair that missed a run while another was stored (a partial ECB answer, a pair added later) is never refilled by the job or *Fetch now* — only by the script. Use the oldest of the per-pair newest days; pure test on `observationsToFetch` inputs + a DB test with EUR/SEK current and EUR/CHF a week behind. DIRECT per FR-003, SC-003 (partial, MEDIUM)
+- [ ] T002 The warning must match the refusal → **F81** (`rates` + `dashboard`): the *rate gap* item reads `detectGaps` on EUR/SEK only and only between two stored days, while `getRate` refuses per leg (EUR/CHF, EUR/USD too) and the commonest gap is the trailing one — no run since the last stored day. A rates read `rateGaps(db, today)` (per pair: inner gaps over the cap + the trailing gap, settled two weekdays back like `rateStatus`), the dashboard and Settings → Exchange rates read it. Per FR-009, SC-001 (partial, MEDIUM)
+- [ ] T003 Take *today* from the clock in the backfill: `fetchRatesArgToOptions`' default `today` is the UTC day, so between 00:00 and 02:00 Stockholm today's date is refused as future (refuses, never writes a wrong rate). `createClock().today()` in the script; same PR: a DB test of `fetchDailyRates({ startDate })` with one day already stored inside a three-day answer — inserted 2, skipped 1, the stored value unchanged (today's test only checks the URL sent to a mocked fetch). DIRECT per FR-008, US3, SC-002 (contradicts, LOW; lessons V8)
+- [ ] T004 Name the day honestly when both legs borrow: `rateToBase` returns the `to` leg's `actualDate` when both legs fell back to different days (one pair stored, the other a day behind). Return the earlier of the two and test the case. DIRECT per FR-005 (partial, LOW)
+- [ ] T005 Keep the module's DTOs in `types.ts`: `index.ts` exports `RateLookupResult`, `BaseRateResult`, `EcbRateFetchResult` (with `Prisma.Decimal`) and a third `RateSource` (`ecb_daily | cached`) from `ecb-rates.ts`. Move them, rename the internal `cached` to `ecb_nearest` so one vocabulary crosses the module, and settle the Decimal: either a decimal string (constitution §2 *Module contract*) or a constitution line that a service-to-service helper may pass `Decimal` (§2 *Data*, "Decimal through services" — journal's `baseAmount` does the same). The `rate_source` enum itself is **F67** (audit 30). DIRECT per FR-010 (contradicts, LOW)
+- [ ] T006 Fix the drift in words: `fetchDailyRates`' comment says *ON CONFLICT DO NOTHING* (the code catches the duplicate key — RULEs forbid `ON CONFLICT`); [[ecb-rates]] *Gap Detection* says "exceeding 3 weekdays" (the code flags ≥ 3) and "Holiday refinement deferred to Story 6.1" (stale — the cap handles TARGET closures for lookups; the gap scan still counts them). DIRECT per FR-002, FR-009 (contradicts, LOW)
+
+Already tracked elsewhere — no task here:
+
+- `getDay` / `setDate` on local time in `countWeekdaysBetween`, `weekdaysInclusive`, `rateStatus` → **F67** (audit 28)
+- the fetched pairs a constant apart from `CURRENCIES`; `rate_source` VarChar in three modules → **F67** (audit 30)
+- the base currency as a constant at the callers → **F70** (D39)
