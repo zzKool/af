@@ -15,6 +15,12 @@ import {
 } from "@/kernel/db/test-fixtures";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as contacts from "./contacts";
+import {
+  createPartnerContactAction,
+  deletePartnerContactAction,
+  listPartnerContactsAction,
+  updatePartnerContactAction,
+} from "./partners.actions";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 function realAudit(tx: TransactionClient, caller: CallerIdentity): AuditLogger {
@@ -253,5 +259,24 @@ describe("US2 — correct or remove a contact", () => {
     });
     const mine = await inTenant(caller, (tx) => contacts.listPartnerContacts(tx, partnerId));
     expect(mine.data?.map((c) => c.role)).toEqual(["Head of BI"]);
+  });
+
+  // review V4: the four actions are the owner's — a member of the same tenant is refused on each, and nothing
+  // changes (fails if any of them moves off `ownerAction`).
+  it("a member of the same tenant is refused on list, add, edit and delete (FORBIDDEN)", async () => {
+    const { partnerId, id } = await withContact();
+    const ownerCtx = await createAuthenticatedContext(auth, "owner");
+    const member = await createAuthenticatedContext(auth, "member", {
+      headers: ownerCtx.headers,
+      orgId: ownerCtx.callerIdentity.tenantId,
+    });
+    mockHeaders = member.headers;
+    const results = [
+      await listPartnerContactsAction({ partnerId }),
+      await createPartnerContactAction({ partnerId, name: "Member" }),
+      await updatePartnerContactAction({ id, role: "x" }),
+      await deletePartnerContactAction({ id }),
+    ];
+    for (const r of results) expect(r?.serverError).toMatchObject({ code: "FORBIDDEN" });
   });
 });

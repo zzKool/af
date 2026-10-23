@@ -42,6 +42,16 @@ new Prisma.Decimal(0.1 + 0.2)  // captures 0.30000000000000004
 
 Single number literals like `new Prisma.Decimal(7.7)` happen to work because decimal.js converts via `String(n)`, but compound expressions like `0.1 + 0.2` are corrupted before Decimal sees them. **Always use strings to be safe.**
 
+## Settlement and open amounts
+
+`src/kernel/money/settlement.ts` — the one rule behind every derived *paid* / *settled* (D25):
+
+- `settlementTolerance(amount)` — max(0.05, 0.5 % of |amount|), rounded half up to the cent.
+- `openAmount(total, allocated, credited = 0)` — what is still open, floored at 0 (an overpayment opens nothing).
+- `isSettled(amount, allocations)` — the allocations cover the amount within the tolerance; ⇔ `openAmount(amount, Σ) ≤ tolerance`.
+
+All three take a `Decimal` or a decimal string and return Decimals / booleans. Property tests in `settlement.test.ts`. Modules adopt them one lane at a time — the list is lessons audit 27.
+
 ## Currency Formatting
 
 See [[constants]] for `CURRENCIES`, `Currency` type, and precision rules.

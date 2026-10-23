@@ -20,6 +20,7 @@ import type {
 import { toPartnerDto } from "./partners";
 import type { PartnerDto } from "./types";
 
+export { listPartnerContacts } from "./contacts";
 export { getPartner, getPartners, searchPartners } from "./partners";
 
 /** id → name for a set of partners (list pages of other modules label their partner column with it). */
