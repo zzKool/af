@@ -60,6 +60,7 @@
 - [x] T028 Reads through the owners' read API (lessons audit 22, 23 follow-up, 25): `settleableTransactions` → `banking.outgoingMainRows` minus `activeSettlementTransactionIds`; the detail's booking dates → `banking.bookingDates`; the statement job → `banking.getBankTransaction`; every `tx.link` read → `linking.linksTouching` / `createdFromTargets`; the panel's links → `linking.linksWithLabels`; its receipt → `documents.getDocument`. No `tx.link` / `tx.bankTransaction` / `tx.document` left in the module.
 - [x] T029 Kernel helpers (lessons audit 27): the company-paid status on `isSettled(paid, [justified])`; the duplicate check's days on `daysBetween` / `addDays` (`daysApart` removed).
 - [x] T030 The panel's action returns its serialised DTO (lessons audit 29): `getExpenseAction` → `toExpenseDetailView` (`ExpenseDetailView`, timestamps as ISO strings); `expense-panel.tsx` drops `as unknown as`.
+- [x] T031 The statement job test exercises the cancelled rule (lessons audit 31): a real settlement cancelled before its job runs → no render, no statement (fails with the guard removed); the unknown id kept as its own case.
 
 ## Dependencies
 
