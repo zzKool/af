@@ -91,6 +91,13 @@ test.describe("Banking", () => {
     await expect(page.getByText("Transfer pair linked")).toBeVisible();
     await expect(panel.getByTestId("panel-state")).toHaveText("No document needed");
     await expect(panel).toContainText("transfer");
+    // F71 History (collapsed by default): the trail, newest first — the accepted pair, then the import
+    await panel.getByRole("button", { name: "History" }).click();
+    const history = panel.getByTestId("transaction-history");
+    await expect(history.getByRole("listitem").first()).toContainText(
+      "Linked: Bank row (transfer)",
+    );
+    await expect(history.getByRole("listitem").last()).toContainText("Imported");
     await page.keyboard.press("Escape");
 
     // 4. the rules page lists the learned rule; the journal shows the entries; the imports page the three files
