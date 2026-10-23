@@ -44,7 +44,7 @@
 - [x] T025 `totals.ts` `baseTotals`: subtotal base after the header discount, total base = the sum of the parts; `issue()` uses it
 - [x] T026 Dashboard receivables / overdue loop: `type = invoice` only (one line in `modules/dashboard/overview.ts`)
 - [x] T027 Tests: derive cases, base totals example + property (300 runs, a discount on every document), DB: discounted issue, credit note a year on; docs (F57 row, [[invoices]], lessons 3 · 8)
-- [ ] Left outside F57's scope: the receivables hint counts quotes (`dashboard/overview.ts:118`)
+- [x] Left outside F57's scope: the receivables hint counts quotes (`dashboard/overview.ts:118`) — *done in F55 (2026-10-23): the hint counts `type = invoice` only, `overview.test.ts` › *the receivables hint counts the open invoices only**
 
 ## F76 — `feat/invoices-contract-race` (lessons Process (2), V12, F56's leftover)
 
