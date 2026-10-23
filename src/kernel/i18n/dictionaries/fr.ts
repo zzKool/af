@@ -1406,6 +1406,7 @@ export const fr: Dictionary = {
   "documents.review.rerunOcr": "Relancer l'OCR",
   "documents.review.rerunOcrConfirm":
     "L'OCR est relancé sur ce document. Vos corrections sont conservées ; les données extraites sont remplacées par la nouvelle lecture.",
+  "documents.review.restored": "{key} est de retour dans la boîte de réception",
   "documents.category.financial": "Financier",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Dépense",

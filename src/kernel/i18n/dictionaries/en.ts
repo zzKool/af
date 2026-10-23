@@ -1392,6 +1392,7 @@ export const en = {
   "documents.review.rerunOcr": "Re-run OCR",
   "documents.review.rerunOcrConfirm":
     "The OCR runs again on this document. Your corrections stay; the extracted facts are replaced by the new reading.",
+  "documents.review.restored": "{key} is back in the inbox",
   "documents.category.financial": "Financial",
   "documents.category.relationship": "Relationship",
   "documents.prefix.expense": "Expense",
