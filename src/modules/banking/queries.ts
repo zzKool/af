@@ -45,7 +45,7 @@ const D = Prisma.Decimal;
 export const TRANSACTION_COLUMNS = {
   bookingDate: { type: "date" },
   bankAccountId: { type: "enum" },
-  accountLabel: { type: "text" },
+  accountLabel: { type: "enum" },
   description: { type: "text", searchable: true },
   counterpartyKey: { type: "text", searchable: true },
   amount: { type: "money", sum: true },
@@ -388,6 +388,132 @@ export async function listRulesWithLabels(tx: TransactionClient): Promise<RuleLi
     partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,
     basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
   }));
+}
+
+// --- the imports and rules pages as DataTables: a handful of rows, so filtered / sorted / paged in memory ---
+
+type MemoryRow = object;
+
+/** The ListQuery side of a small list: every column evaluated on the loaded rows (same semantics as SQL). */
+function memoryTable<Row extends MemoryRow>(
+  columns: ColumnMap,
+  defaultSort: SortSpec[],
+  search: (row: Row, term: string) => boolean,
+) {
+  const derived: ReadonlySet<string> = new Set(Object.keys(columns));
+  const filtered = (rows: Row[], q: ListQuery, exceptColumn?: string) =>
+    filterInMemory(rows, q, columns, { derived, search, exceptColumn });
+  return {
+    list: (rows: Row[], q: ListQuery): ListResult<Row> =>
+      finishList(filtered(rows, q), q, columns, defaultSort),
+    distinct: (rows: Row[], column: string, q: ListQuery): DistinctValue[] =>
+      countDistinct(
+        filtered(rows, q, column).map((r) => (r as Record<string, unknown>)[column]),
+        columns[column],
+      ),
+    dates: (rows: Row[], column: string, q: ListQuery): DateHierarchy =>
+      columns[column]?.type === "date"
+        ? buildDateHierarchy(
+            filtered(rows, q, column).map(
+              (r) => (r as Record<string, unknown>)[column] as Date | string | null,
+            ),
+          )
+        : { years: [], empty: 0 },
+  };
+}
+
+export const IMPORT_COLUMNS = {
+  fileName: { type: "text", searchable: true },
+  accountLabel: { type: "enum" },
+  periodFrom: { type: "date" },
+  recordCount: { type: "number" },
+  importedCount: { type: "number" },
+  duplicateCount: { type: "number" },
+  errorCount: { type: "number" },
+  importedAt: { type: "date" },
+} as const satisfies ColumnMap;
+export type ImportColumn = keyof typeof IMPORT_COLUMNS;
+export const IMPORT_COLUMN_KEYS = Object.keys(IMPORT_COLUMNS) as ImportColumn[];
+export const IMPORT_DEFAULT_SORT: SortSpec[] = [{ col: "importedAt", dir: "desc" }];
+export type ImportListRow = BankImportDto & { accountLabel: string };
+
+const importsTable = memoryTable<ImportListRow>(IMPORT_COLUMNS, IMPORT_DEFAULT_SORT, (r, term) =>
+  r.fileName.toLowerCase().includes(term.toLowerCase()),
+);
+
+export async function listImportsPage(
+  tx: TransactionClient,
+  q: ListQuery,
+): Promise<ListResult<ImportListRow>> {
+  return importsTable.list(await listImports(tx), q);
+}
+
+export async function distinctImportValues(
+  tx: TransactionClient,
+  column: ImportColumn,
+  q: ListQuery,
+): Promise<DistinctValue[]> {
+  return importsTable.distinct(await listImports(tx), column, q);
+}
+
+export async function importDateHierarchy(
+  tx: TransactionClient,
+  column: ImportColumn,
+  q: ListQuery,
+): Promise<DateHierarchy> {
+  return importsTable.dates(await listImports(tx), column, q);
+}
+
+export const RULE_COLUMNS = {
+  name: { type: "text", searchable: true },
+  matchType: { type: "enum" },
+  matchPattern: { type: "text", searchable: true },
+  matchField: { type: "enum" },
+  basLabel: { type: "enum" },
+  partnerName: { type: "enum" },
+  noDocumentNeeded: { type: "boolean" },
+  priority: { type: "number" },
+  isActive: { type: "boolean" },
+  ruleSource: { type: "enum" },
+  hitCount: { type: "number" },
+  lastHitAt: { type: "date" },
+} as const satisfies ColumnMap;
+export type RuleColumn = keyof typeof RULE_COLUMNS;
+export const RULE_COLUMN_KEYS = Object.keys(RULE_COLUMNS) as RuleColumn[];
+/** the order the rules run in (`listRules`: priority first) */
+export const RULE_DEFAULT_SORT: SortSpec[] = [
+  { col: "priority", dir: "desc" },
+  { col: "name", dir: "asc" },
+];
+
+const rulesTable = memoryTable<RuleListRow>(RULE_COLUMNS, RULE_DEFAULT_SORT, (r, term) => {
+  const t = term.toLowerCase();
+  return [r.name, r.matchPattern, r.basLabel, r.partnerName].some((v) =>
+    (v ?? "").toLowerCase().includes(t),
+  );
+});
+
+export async function listRulesPage(
+  tx: TransactionClient,
+  q: ListQuery,
+): Promise<ListResult<RuleListRow>> {
+  return rulesTable.list(await listRulesWithLabels(tx), q);
+}
+
+export async function distinctRuleValues(
+  tx: TransactionClient,
+  column: RuleColumn,
+  q: ListQuery,
+): Promise<DistinctValue[]> {
+  return rulesTable.distinct(await listRulesWithLabels(tx), column, q);
+}
+
+export async function ruleDateHierarchy(
+  tx: TransactionClient,
+  column: RuleColumn,
+  q: ListQuery,
+): Promise<DateHierarchy> {
+  return rulesTable.dates(await listRulesWithLabels(tx), column, q);
 }
 
 /** Each account with the balance of its latest booking date that has one (no stored running balance). */

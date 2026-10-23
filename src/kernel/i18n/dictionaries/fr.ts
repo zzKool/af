@@ -1156,6 +1156,10 @@ export const fr: Dictionary = {
   "supplierInvoices.form.note": "Note",
   "supplierInvoices.form.create": "Créer la facture fournisseur",
   "supplierInvoices.form.created": "Facture fournisseur {key} créée",
+  "supplierInvoices.form.numberTaken": "Ce numéro de facture du fournisseur est déjà enregistré",
+  "supplierInvoices.form.numberTakenBy": "Le n° {n} est {key}",
+  "supplierInvoices.form.numberTakenHint":
+    "Le numéro de facture d'un fournisseur est unique — corrigez le numéro ou ouvrez la facture existante.",
   "supplierInvoices.panel.money": "Montants",
   "supplierInvoices.panel.base": "{base} SEK à {rate} ({source})",
   "supplierInvoices.panel.paidBy": "payé {amount} par la banque",
@@ -1354,6 +1358,8 @@ export const fr: Dictionary = {
   "documents.needsReview": "à vérifier",
   "documents.linked": "Lié",
   "documents.notLinked": "Non lié",
+  "documents.became.expense": "Dépense {key}",
+  "documents.became.supplierInvoice": "Facture fournisseur {key}",
   "documents.download": "Télécharger",
   "documents.delete": "Supprimer",
   "documents.deleteConfirm":
@@ -1402,6 +1408,7 @@ export const fr: Dictionary = {
   "documents.review.rerunOcr": "Relancer l'OCR",
   "documents.review.rerunOcrConfirm":
     "L'OCR est relancé sur ce document. Vos corrections sont conservées ; les données extraites sont remplacées par la nouvelle lecture.",
+  "documents.review.restored": "{key} est de retour dans la boîte de réception",
   "documents.category.financial": "Financier",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Dépense",

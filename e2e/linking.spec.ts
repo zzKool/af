@@ -68,7 +68,8 @@ test.describe("Linking", () => {
       await page.getByRole("alertdialog").getByRole("button", { name: "Issue" }).click();
       await expectToast(page, `${number} issued`);
       await expect(page.getByTestId("invoice-state")).toHaveText("Issued");
-      const remaining = (await page.getByTestId("invoice-remaining").innerText()).trim();
+      const remaining =
+        (await page.getByTestId("invoice-remaining").getAttribute("data-amount")) ?? "";
       expect(remaining).toMatch(/^\d+\.\d\d$/);
       // nothing pays it yet — its own page says so
       await expect(page.getByTestId("invoice-links")).toContainText("Not linked to anything yet");
@@ -117,7 +118,7 @@ test.describe("Linking", () => {
       // 4. the invoice derives paid; its page lists the row; unlink reopens it
       await page.goto(invoiceUrl);
       await expect(page.getByTestId("invoice-state")).toHaveText("Paid");
-      await expect(page.getByTestId("invoice-remaining")).toHaveText("0.00");
+      await expect(page.getByTestId("invoice-remaining")).toHaveAttribute("data-amount", "0.00");
       const links = page.getByTestId("invoice-links");
       await expect(links.getByTestId("link-row")).toHaveCount(1);
       await snap(page, "invoice-paid");
@@ -143,7 +144,7 @@ test.describe("Linking", () => {
       await links.getByTestId("unlink").click();
       await expectToast(page, "Link removed");
       await expect(page.getByTestId("invoice-state")).toHaveText("Issued");
-      await expect(page.getByTestId("invoice-remaining")).toHaveText(remaining);
+      await expect(page.getByTestId("invoice-remaining")).toHaveAttribute("data-amount", remaining);
       // and the row is back among the suggestions on the invoice's side
       await expect(links.getByTestId("suggestion").first()).toContainText(client.toUpperCase());
       await snap(page, "invoice-suggestions");
@@ -197,7 +198,8 @@ test.describe("Linking", () => {
       await page.getByRole("button", { name: "Issue" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Issue" }).click();
       await expectToast(page, `${num} issued`);
-      const remaining = (await page.getByTestId("invoice-remaining").innerText()).trim();
+      const remaining =
+        (await page.getByTestId("invoice-remaining").getAttribute("data-amount")) ?? "";
 
       const today = new Date().toISOString().slice(0, 10);
       await page.goto("/banking");

@@ -169,7 +169,7 @@ Before an expense or a supplier invoice is created from a document (US1), the ap
 
 - **SC-001**: A receipt goes from upload to an expense with its key without leaving the review page, in under a minute, with no retyping of date, amount, currency or VAT when the OCR read them.
 - **SC-002**: Uploading a file the app already holds stores nothing, 100 % of the time, and the owner reaches the existing document in one click.
-- **SC-003**: A second supplier invoice with the same partner and number cannot be created without a written reason; the reason is in the audit trail.
+- **SC-003**: A second supplier invoice with the same partner and number cannot be created (D35 — a cancelled one keeps its number too); a hash or fuzzy match is created only with a written reason, which is in the audit trail.
 - **SC-004**: The month's pile of twenty documents is worked through on the inbox from the keyboard alone — no mouse needed for navigate, OCR, make-it, archive, undo.
 - **SC-005**: The inbox counts match the library's status chips and the dashboard's *documents to review* on the same data.
 - **SC-006**: The accountant can read everything on the inbox and change nothing; every writing path refuses him.

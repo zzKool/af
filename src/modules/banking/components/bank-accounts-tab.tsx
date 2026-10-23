@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
+import { Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createBankAccountAction,
@@ -302,9 +303,7 @@ function AccountCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{title}</span>
-          <span className="rounded bg-muted px-2 py-0.5 text-xs font-mono font-medium">
-            {account.currency}
-          </span>
+          <Tag>{account.currency}</Tag>
         </div>
         <Button
           variant="ghost"

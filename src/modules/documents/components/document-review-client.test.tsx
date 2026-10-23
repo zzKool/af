@@ -4,11 +4,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 // --- Hoisted mocks ---
-const { mockUpdateAction, mockMarkReviewedAction, mockToast } = vi.hoisted(() => ({
-  mockUpdateAction: vi.fn(),
-  mockMarkReviewedAction: vi.fn(),
-  mockToast: { error: vi.fn(), success: vi.fn() },
-}));
+const { mockUpdateAction, mockMarkReviewedAction, mockUnarchive, mockRefresh, mockToast } =
+  vi.hoisted(() => ({
+    mockUpdateAction: vi.fn(),
+    mockMarkReviewedAction: vi.fn(),
+    mockUnarchive: vi.fn(),
+    mockRefresh: vi.fn(),
+    mockToast: { error: vi.fn(), success: vi.fn() },
+  }));
 
 // Mock server actions
 vi.mock("@/modules/documents/documents.actions", () => ({
@@ -17,9 +20,16 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   refreshSignedUrlAction: vi.fn(),
   classifyDocumentAction: vi.fn(),
   runOcrAction: vi.fn(),
+  unarchiveDocumentsAction: mockUnarchive,
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh, push: vi.fn() }) }));
+vi.mock("next-safe-action/hooks", () => ({
+  useAction: (action: unknown) => ({ executeAsync: action, isPending: false }),
+}));
+// the modules' dialogs are not under test here
+vi.mock("@/modules/expenses/ui", () => ({ NewExpenseDialog: () => null }));
+vi.mock("@/modules/supplier-invoices/ui", () => ({ NewSupplierInvoiceDialog: () => null }));
 
 // Mock sonner
 vi.mock("sonner", () => ({
@@ -128,6 +138,8 @@ describe("DocumentReviewClient", () => {
     cleanup();
     mockUpdateAction.mockReset();
     mockMarkReviewedAction.mockReset();
+    mockUnarchive.mockReset();
+    mockRefresh.mockReset();
     mockToast.error.mockReset();
     mockToast.success.mockReset();
     storeState = {};
@@ -252,6 +264,69 @@ describe("DocumentReviewClient", () => {
   ])("does not offer Re-run OCR on a %s document (the inbox's Run OCR covers pending / failed)", (status) => {
     render(<DocumentReviewClient data={makeReviewData({ status })} />);
     expect(screen.queryByTestId("rerun-ocr")).not.toBeInTheDocument();
+  });
+
+  // --- Archived (FR-001, T022) ---
+  const makeItOptions = {
+    expense: { groups: [], categories: [], sources: [] },
+    supplier: { groups: [], categories: [], suppliers: [], registrations: [] },
+  };
+
+  it("offers Make it… on a document that is not archived", () => {
+    render(<DocumentReviewClient data={makeReviewData()} makeItOptions={makeItOptions} />);
+    expect(screen.getByTestId("make-it")).toBeInTheDocument();
+    expect(screen.queryByTestId("document-archived")).not.toBeInTheDocument();
+  });
+
+  it("an archived document gets no Make it…, but Archived + Restore", () => {
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({ archivedAt: new Date("2026-03-20T09:00:00Z") })}
+        makeItOptions={makeItOptions}
+      />,
+    );
+    expect(screen.queryByTestId("make-it")).not.toBeInTheDocument();
+    const section = screen.getByTestId("document-archived");
+    expect(section).toHaveTextContent("Archived");
+    expect(screen.getByRole("button", { name: "Restore" })).toBeInTheDocument();
+  });
+
+  it("Restore unarchives this document and refreshes the page (Make it… comes back with the new data)", async () => {
+    mockUnarchive.mockResolvedValue({ data: { data: [{ id: "doc-123", outcome: "restored" }] } });
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({ archivedAt: new Date("2026-03-20T09:00:00Z") })}
+        makeItOptions={makeItOptions}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(mockUnarchive).toHaveBeenCalledWith({ ids: ["doc-123"] }));
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it("a refused restore says so and does not refresh", async () => {
+    mockUnarchive.mockResolvedValue({
+      data: { data: [{ id: "doc-123", outcome: "refused", reason: "not_archived" }] },
+    });
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({ archivedAt: new Date("2026-03-20T09:00:00Z") })}
+        makeItOptions={makeItOptions}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalled());
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it("the accountant sees Archived without Restore", () => {
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({ archivedAt: new Date("2026-03-20T09:00:00Z"), readOnly: true })}
+      />,
+    );
+    expect(screen.getByTestId("document-archived")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
   });
 
   it("shows back link to documents list", () => {
