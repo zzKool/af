@@ -18,6 +18,7 @@ import {
 } from "@/modules/expenses/__fixtures__/harness";
 import * as invoices from "@/modules/invoices";
 import * as partners from "@/modules/partners";
+import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 import { dashboardOverview, daysBefore, previousMonth, previousQuarter } from "./overview";
@@ -52,7 +53,7 @@ beforeEach(async () => {
     const date = d.toISOString().slice(0, 10);
     if (["2026-07-07", "2026-07-08", "2026-07-09"].includes(date)) continue; // three weekdays without a rate = a gap
     await adminPool.query(
-      `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/SEK', 10.75), ($1, 'EUR/CHF', 1)`,
+      `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/SEK', 10.75), ($1, 'EUR/CHF', 1), ($1, 'EUR/USD', 1.1)`,
       [date],
     );
   }
@@ -211,7 +212,8 @@ describe("the owner's dashboard", () => {
       amount: { value: "1290.00", currency: "SEK" },
     });
     expect(byKind.receipts_missing).toMatchObject({ count: 1, priority: "low" });
-    expect(byKind.rate_gaps).toMatchObject({ count: 1, href: "/settings/rates" });
+    // ECB days without a rate: 07-07 … 07-09, missing in SEK and CHF alike, counted once each
+    expect(byKind.rate_gaps).toMatchObject({ count: 3, href: "/settings/rates" });
     expect(byKind.package_not_built).toMatchObject({
       period: "2026-06",
       priority: "medium",
@@ -358,6 +360,42 @@ describe("the owner's dashboard", () => {
       count: 2,
       href: "/documents/inbox",
     });
+  });
+
+  it("a CHF trailing gap shows while SEK is current — the day before getRate refuses, and the day it does (F81)", async () => {
+    await adminPool.query("TRUNCATE ecb_rates");
+    for (
+      let d = new Date("2026-06-01T00:00:00Z");
+      d <= new Date("2026-07-15T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + 1)
+    ) {
+      const date = d.toISOString().slice(0, 10);
+      await adminPool.query(
+        `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/SEK', 10.75), ($1, 'EUR/USD', 1.1)`,
+        [date],
+      );
+      // CHF: no sync after Fri 07-10
+      if (date <= "2026-07-10")
+        await adminPool.query(
+          `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/CHF', 1)`,
+          [date],
+        );
+    }
+    const db = {
+      $queryRawUnsafe: (q: string, ...a: unknown[]) => adminPool.query(q, a).then((r) => r.rows),
+    };
+    const rateItem = async (today: string) =>
+      (
+        await run(owner.caller, (tx) => dashboardOverview(tx, owner.caller, today, null))
+      ).items.find((i) => i.kind === "rate_gaps");
+
+    // Tue 07-14: Friday's CHF rate is 4 days old — still borrowed today, refused tomorrow; Monday is missing
+    expect(await rateItem("2026-07-14")).toMatchObject({ count: 1, href: "/settings/rates" });
+    expect((await rates.getRate(db, "2026-07-14", "EUR/CHF"))?.actualDate).toBe("2026-07-10");
+    // Wed 07-15: refused — the item stands, with Monday and Tuesday
+    expect(await rateItem(TODAY)).toMatchObject({ count: 2 });
+    expect(await rates.getRate(db, TODAY, "EUR/CHF")).toBeNull();
+    expect(await rates.rateToBase(db, TODAY, "CHF", "SEK")).toBeNull();
   });
 
   it("an empty tenant: nothing but last month's package (and the ECB gap, which is global), the pulse at zero", async () => {
