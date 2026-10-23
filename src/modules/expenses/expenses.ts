@@ -424,9 +424,14 @@ export async function updateExpense(
   return { data: toExpenseDto(updated) };
 }
 
+/**
+ * Delete an open expense. Its `created_from` link alone does not block (D36): it goes through linking, and the
+ * receipt returns to the inbox as *ready* — corrections and the key it got kept (keys are never reused). Any other
+ * link, a settlement line or a payment still refuses.
+ */
 export async function deleteExpense(
   tx: TransactionClient,
-  _caller: CallerIdentity,
+  caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<{ deleted: true }>> {
@@ -435,18 +440,15 @@ export async function deleteExpense(
   if (!(await isOpen(tx, id))) {
     return { error: violation(`${row.key} is settled or paid and cannot be deleted`) };
   }
-  const linked = await tx.link.count({
-    where: {
-      OR: [
-        { fromType: "expense", fromId: id },
-        { toType: "expense", toId: id },
-      ],
-    },
-  });
-  if (linked > 0)
+  const links = await linking.linksTouching(tx, "expense", [id]);
+  if (links.some((l) => l.kind !== "created_from"))
     return {
       error: violation(`${row.key} is linked and cannot be deleted — remove its links first`),
     };
+  for (const l of links) {
+    const removed = await linking.removeLink(tx, caller, audit, l.id);
+    if (removed.error) throw new RollbackError(removed.error);
+  }
   await tx.expense.delete({ where: { id } });
   await audit.log({
     action: "delete",

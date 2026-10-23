@@ -7,6 +7,7 @@ import { resetRateLimit } from "@/kernel/actions/rate-limit";
 import { cleanupTestData, createTestDocument, createTestPartner } from "@/kernel/db/test-fixtures";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
 import {
   importRows,
@@ -280,8 +281,6 @@ describe("US1 — record a supplier invoice", () => {
         documentId: doc.id,
       });
       expect(second.error?.message).toMatch(/already became supplier_invoice/);
-      const del = await deleteSupplierInvoice(tx, owner.caller, noopAudit, r.data!.id);
-      expect(del.error?.message).toMatch(/linked/);
       expect(await candidateDocuments(tx, owner.caller)).toEqual([]);
     });
     const d = await detail(r.data!.id);
@@ -290,6 +289,63 @@ describe("US1 — record a supplier invoice", () => {
     );
     expect(d.links.map((l) => l.kind)).toEqual(["created_from"]);
     expect(d.editable).toBe(true);
+  });
+
+  it("deletes one whose only link is its created_from (D36): the document goes back to the inbox as ready, its key kept; a payment still refuses", async () => {
+    const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "inv_20260314_002",
+      fileName: "inv_20260314_002.pdf",
+      prefixType: "invoice",
+      status: "extracted",
+    });
+    const r = await create(julyInvoice({ documentId: doc.id }));
+    expect(r.error).toBeUndefined();
+    const inboxState = (tx: Parameters<typeof documents.listInbox>[0]) =>
+      documents
+        .listInbox(tx, owner.caller)
+        .then((l) => l.rows.find((row) => row.id === doc.id)?.state ?? null);
+    // with a payment: refused, the created_from link stays
+    const row = await chfRow("2026-03-31", "-1297.20");
+    await run(owner.caller, async (tx) => {
+      const paid = await recordPayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        bankTransactionId: row,
+      });
+      expect(paid.error).toBeUndefined();
+      const del = await deleteSupplierInvoice(tx, owner.caller, noopAudit, r.data!.id);
+      expect(del.error?.message).toMatch(/cancel it instead/);
+      const left = await linking.linksTouching(tx, "document", [doc.id]);
+      expect(left.map((l) => l.kind)).toEqual(["created_from"]);
+      const payment = await linking.linksTouching(tx, "supplier_invoice", [r.data!.id]);
+      const unpaid = await removePayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        linkId: payment.find((l) => l.kind === "justifies")!.id,
+      });
+      expect(unpaid.error).toBeUndefined();
+    });
+    // created_from alone: deleted through linking, the document is ready in the inbox again
+    const linkId = await run(owner.caller, async (tx) => {
+      expect(await inboxState(tx)).toBeNull();
+      const [origin] = await linking.linksTouching(tx, "supplier_invoice", [r.data!.id]);
+      return origin.id;
+    });
+    await run(owner.caller, async (tx) => {
+      const del = await deleteSupplierInvoice(
+        tx,
+        owner.caller,
+        realAudit(tx, owner.caller),
+        r.data!.id,
+      );
+      expect(del.data).toEqual({ deleted: true });
+      expect(await linking.linksTouching(tx, "document", [doc.id])).toEqual([]);
+      expect(await inboxState(tx)).toBe("ready");
+      const d = await tx.document.findUnique({ where: { id: doc.id } });
+      expect(d?.businessKey).toBe("SI213-Acc-01_2026-03-14_Skattepunkten_Office_Services_AB");
+    });
+    await assertAuditLogged(adminPool, owner.caller.tenantId, "delete", "link", linkId);
+    expect(
+      (await run(owner.caller, (tx) => candidateDocuments(tx, owner.caller))).map((c) => c.id),
+    ).toContain(doc.id);
   });
 
   it("lines: Σ net and Σ VAT must match; each line has its category; replaced on update", async () => {
