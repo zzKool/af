@@ -76,6 +76,24 @@ export type PerDiemResult = Omit<DayCount, "perDay"> & {
   nightAllowance: { nights: number; nightAmount: string; total: string };
   longStayFactor: string | null;
   total: string;
-  warnings: string[];
+  warnings: PerDiemWarning[];
   computedAt: string;
 };
+
+/**
+ * A warning on the breakdown: the English `message` (the expense's note, logs) and the facts a screen renders
+ * in its own language (T003). `other` is a line of an older snapshot that no longer reads as a known warning.
+ */
+export type PerDiemWarning =
+  | { type: "two_rate_years"; message: string; years: string }
+  | { type: "meals_exceed_days"; message: string }
+  | { type: "other"; message: string };
+
+/** `AppError.details.rule` of a computation error (`PerDiemError`) — the client picks the key from it (T003). */
+export type PerDiemErrorRule =
+  | "missing_rate"
+  | "missing_meal_amounts"
+  | "too_many_meals"
+  | "too_many_nights"
+  | "long_stay"
+  | "not_a_count";

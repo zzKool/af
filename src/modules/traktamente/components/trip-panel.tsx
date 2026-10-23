@@ -26,6 +26,7 @@ import {
   upsertTripAction,
 } from "@/modules/traktamente/traktamente.actions";
 import type { PerDiemResult, TripDto } from "@/modules/traktamente/types";
+import { computeErrorText, reasonText, warningText } from "./per-diem-text";
 
 export type TripView = Omit<TripDto, "departureAt" | "returnAt" | "createdAt" | "updatedAt"> & {
   /** local `YYYY-MM-DDTHH:mm` in the tenant zone */
@@ -34,6 +35,16 @@ export type TripView = Omit<TripDto, "departureAt" | "returnAt" | "createdAt" | 
 };
 
 const sek = (v: string) => `${formatCurrency(v, "SEK")} SEK`;
+
+type ServerError = { message: string; details?: Record<string, string | number> };
+
+/** The action's returned `AppError` (with its facts), else the transport error's message. */
+function actionError(r: unknown): ServerError | null {
+  const returned = (r as { data?: { error?: ServerError } } | undefined)?.data?.error;
+  if (returned) return returned;
+  const message = extractError(r);
+  return message ? { message } : null;
+}
 
 export function TripPanel({
   groupId,
@@ -48,7 +59,8 @@ export function TripPanel({
   trip: TripView | null;
   countries: CountryOption[];
   categories: { code: string; label: string }[];
-  perDiemExpense: { id: string; key: string; amount: string } | null;
+  /** the trip's per-diem expense; its category is fixed once written (the key carries the BAS alias) */
+  perDiemExpense: { id: string; key: string; amount: string; basCode: string } | null;
   canWrite: boolean;
   locale: "en" | "fr" | null;
 }) {
@@ -69,7 +81,7 @@ export function TripPanel({
   const [more, setMore] = useState(false);
   const [countries, setCountries] = useState(initialCountries);
   const [result, setResult] = useState<PerDiemResult | null>(trip?.computed ?? null);
-  const [computeError, setComputeError] = useState<string | null>(null);
+  const [computeError, setComputeError] = useState<ServerError | null>(null);
   // the travel category by default: the one aliased `Tr`, else the 58x group, else the first
   const [basCode, setBasCode] = useState(
     categories.find((c) => /\(Tr\)$/.test(c.label))?.code ??
@@ -117,15 +129,15 @@ export function TripPanel({
     const d = r?.data && "data" in r.data ? r.data.data : undefined;
     toast.success(t("traktamente.trip.saved"));
     setResult(d?.trip.computed ?? null);
-    setComputeError(d?.computeError?.message ?? null);
+    setComputeError(d?.computeError ?? null);
     router.refresh();
   }
 
   async function writeExpense() {
-    const r = await write({ groupId, basCode });
-    const error = extractError(r);
+    const r = await write({ groupId, basCode: perDiemExpense?.basCode ?? basCode });
+    const error = actionError(r);
     if (error) {
-      toast.error(error);
+      toast.error(computeErrorText(t, error));
       return;
     }
     const d = r?.data && "data" in r.data ? r.data.data : undefined;
@@ -304,7 +316,7 @@ export function TripPanel({
 
       {computeError && (
         <p className="mt-3 text-sm text-amber-700 dark:text-amber-400" data-testid="trip-error">
-          {computeError}{" "}
+          {computeErrorText(t, computeError)}{" "}
           <Link href="/settings/traktamente" className="underline">
             {t("traktamente.trip.rateLink")}
           </Link>
@@ -313,7 +325,7 @@ export function TripPanel({
       {result && (
         <div className="mt-3 rounded-md border bg-muted/40 p-3 text-sm" data-testid="trip-result">
           {result.reason ? (
-            <p>{t("traktamente.trip.nothing", { reason: result.reason })}</p>
+            <p>{t("traktamente.trip.nothing", { reason: reasonText(t, result.reason) })}</p>
           ) : (
             <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
               <dt className="col-span-2 font-medium" data-testid="trip-days">
@@ -347,31 +359,42 @@ export function TripPanel({
                 {sek(result.total)}
               </dd>
               {result.warnings.map((w) => (
-                <dd key={w} className="col-span-2 text-xs text-muted-foreground">
-                  {w}
+                <dd key={w.message} className="col-span-2 text-xs text-muted-foreground">
+                  {warningText(t, w)}
                 </dd>
               ))}
             </dl>
           )}
           {canWrite && !result.reason && Number(result.total) > 0 && (
             <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
-              <div className="min-w-48">
-                <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
-                  {t("traktamente.trip.category")}
-                </label>
-                <Select value={basCode} onValueChange={(v) => v && setBasCode(v)}>
-                  <SelectTrigger id={`${ids}-cat`} className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {perDiemExpense ? (
+                // the replace keeps the expense's category — a select here would be ignored (T002)
+                <div className="min-w-48">
+                  <div className="mb-1 text-xs font-medium">{t("traktamente.trip.category")}</div>
+                  <p className="text-sm" data-testid="per-diem-category">
+                    {categories.find((c) => c.code === perDiemExpense.basCode)?.label ??
+                      perDiemExpense.basCode}
+                  </p>
+                </div>
+              ) : (
+                <div className="min-w-48">
+                  <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
+                    {t("traktamente.trip.category")}
+                  </label>
+                  <Select value={basCode} onValueChange={(v) => v && setBasCode(v)}>
+                    <SelectTrigger id={`${ids}-cat`} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button
                 size="sm"
                 onClick={() => void writeExpense()}

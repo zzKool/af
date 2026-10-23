@@ -20,7 +20,7 @@ export default async function PrintPerDiemPage({ params, searchParams }: Params)
       resolvePerDiemStatement(tx, caller, groupId),
       getUserPreferences(tx, caller),
     ]);
-    return { statement, locale: (prefs.data?.locale ?? null) as "en" | "fr" | null };
+    return { statement, locale: prefs.data?.locale ?? null };
   });
   if (!data.statement) notFound();
   return (
