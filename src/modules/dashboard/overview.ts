@@ -7,6 +7,7 @@ import { Prisma } from "@/generated/prisma/browser";
 import { activitySince } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ListQuery } from "@/kernel/list-query/types";
 import * as banking from "@/modules/banking";
@@ -35,22 +36,15 @@ export function previousMonth(today: string): string {
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }
 
-/** The quarter before the one `today` is in: `2026-06-15` → `CH 2026/Q1`. */
+/**
+ * The quarter before the one `today` is in: `2026-06-15` → `CH 2026/Q1`. The name is the exports' (the stored
+ * `declaration_period`): the period of the last day of the previous quarter.
+ */
 export function previousQuarter(today: string): string {
-  const year = Number(today.slice(0, 4));
-  const quarter = Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1;
-  return quarter === 1 ? `CH ${year - 1}/Q4` : `CH ${year}/Q${quarter - 1}`;
+  const month = Number(today.slice(5, 7));
+  const quarterStart = `${today.slice(0, 4)}-${String(month - ((month - 1) % 3)).padStart(2, "0")}-01`;
+  return exportsModule.periodOfDate(addDays(quarterStart, -1));
 }
-
-/** ISO date `days` before `today`. */
-export function daysBefore(today: string, days: number): string {
-  const d = new Date(`${today}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-const MAIN_ACCOUNT_ROLES: readonly string[] = ["main"];
-const isMain = (b: { role: string }): boolean => MAIN_ACCOUNT_ROLES.includes(b.role);
 
 /** The ECB working days without a cached rate over the window are a gap worth knowing (the bases depend on them). */
 export const RATE_GAP_WINDOW_DAYS = 30;
@@ -66,7 +60,8 @@ export async function dashboardOverview(
   const pulse: PulseMetric[] = [];
 
   // --- the figures everyone reads: balances, receivables, payables, the owner's liability, the year ---
-  const [balances, openInvoices, supplierKpis, ledger, yearInvoices] = await Promise.all([
+  const [mainIds, balances, openInvoices, supplierKpis, ledger, yearInvoices] = await Promise.all([
+    banking.listMainAccountIds(tx),
     banking.accountBalances(tx),
     invoices.listInvoices(
       tx,
@@ -87,8 +82,8 @@ export async function dashboardOverview(
       today,
     ),
   ]);
-  // the main accounts only (the savings account is yearly, D31)
-  const mainAccounts = balances.filter((b) => isMain(b));
+  // the main accounts only (the savings account is yearly, D31) — banking says which are main
+  const mainAccounts = balances.filter((b) => mainIds.includes(b.bankAccountId));
   for (const b of mainAccounts) {
     pulse.push({
       id: `balance:${b.bankAccountId}`,
@@ -159,7 +154,6 @@ export async function dashboardOverview(
 
   // --- the owner's to-do ---
   if (owner) {
-    const mainIds = await banking.listMainAccountIds(tx);
     const [rowsToJustify, stats, unlinkedDocs, missingReceipts, awaitingRows] = await Promise.all([
       mainIds.length
         ? banking.listTransactions(

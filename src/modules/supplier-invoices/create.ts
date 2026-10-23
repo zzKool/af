@@ -8,7 +8,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, type CURRENCIES } from "@/kernel/nav/constants";
 import * as documents from "@/modules/documents";
-import { noteWithAck } from "@/modules/expenses";
+import { getGroup, noteWithAck } from "@/modules/expenses";
 import * as linking from "@/modules/linking";
 import {
   expenseSeries,
@@ -17,7 +17,7 @@ import {
   supplierInvoiceRef,
 } from "@/modules/numbering";
 import { toSupplierInvoiceDto } from "./dto";
-import { invalid, notFound, violation } from "./errors";
+import { invalid, violation } from "./errors";
 import { baseFor } from "./rate-base";
 import { type SupplierInvoiceInput, supplierInvoiceInputSchema } from "./schemas";
 import { addDays, DEFAULT_PAYMENT_TERMS_DAYS } from "./status";
@@ -46,8 +46,9 @@ export async function createSupplierInvoice(
   const v = parsed.data;
 
   // 1. everything that can fail, before any write
-  const group = await tx.expenseGroup.findUnique({ where: { id: v.groupId } });
-  if (!group) return { error: notFound("Expense group", v.groupId) };
+  const found = await getGroup(tx, v.groupId);
+  if (found.error) return { error: found.error };
+  const group = found.data;
   const supplier = await resolveSupplier(tx, v.partnerId);
   if (supplier.error) return { error: supplier.error };
   const alias = await resolveAlias(tx, v.basCode);
@@ -75,14 +76,11 @@ export async function createSupplierInvoice(
     if (doc.error) return { error: doc.error };
     if (doc.data.status === "generated")
       return { error: violation("A generated document cannot become a supplier invoice") };
-    const taken = await tx.link.findFirst({
-      where: { kind: "created_from", toType: "document", toId: v.documentId },
-      select: { fromType: true, fromId: true },
-    });
+    const taken = (await linking.createdFromTargets(tx, [v.documentId])).get(v.documentId);
     if (taken)
       return {
         error: violation(
-          `Document ${doc.data.businessKey} already became ${taken.fromType} ${taken.fromId}`,
+          `Document ${doc.data.businessKey} already became ${taken.type} ${taken.id}`,
         ),
       };
   }
