@@ -8,7 +8,9 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { extractBlobPath } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
+import { createdFromTargets } from "@/modules/linking";
 import { parseCorrections, parseOcrPayload, resolveDocumentData } from "./ocr-payload";
+import { type DocumentState, documentState } from "./state-family";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -259,14 +261,21 @@ export type DocumentFile = {
   fileSize: number;
   status: string;
   documentType: string;
+  /** the derived state (`documentState`): the inbox's while it waits, else *filed* / *generated* — nothing stored */
+  documentState: DocumentState;
 };
 
-/** The named documents in one go (missing ids are left out), in id order — plain facts, no blob path. */
+/**
+ * The named documents in one go (missing ids are left out), in id order — plain facts, no blob path, and each
+ * one's derived state on the inbox's facts (D34: a `created_from` target is out of the inbox).
+ */
 export async function documentsByIds(
   tx: TransactionClient,
   ids: readonly string[],
+  options: { now?: Date } = {},
 ): Promise<DocumentFile[]> {
   if (ids.length === 0) return [];
+  const now = options.now ?? new Date();
   const rows = await tx.document.findMany({
     where: { id: { in: [...ids] } },
     select: {
@@ -277,10 +286,23 @@ export async function documentsByIds(
       fileSize: true,
       status: true,
       documentType: true,
+      archivedAt: true,
+      reviewedAt: true,
+      updatedAt: true,
     },
     orderBy: { id: "asc" },
   });
-  return rows;
+  const became = await createdFromTargets(
+    tx,
+    rows.map((r) => r.id),
+  );
+  return rows.map(({ archivedAt, reviewedAt, updatedAt, ...r }) => ({
+    ...r,
+    documentState: documentState(
+      { status: r.status, archivedAt, reviewedAt, updatedAt, became: became.has(r.id) },
+      now,
+    ),
+  }));
 }
 
 /**

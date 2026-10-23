@@ -75,14 +75,11 @@ export async function createSupplierInvoice(
     if (doc.error) return { error: doc.error };
     if (doc.data.status === "generated")
       return { error: violation("A generated document cannot become a supplier invoice") };
-    const taken = await tx.link.findFirst({
-      where: { kind: "created_from", toType: "document", toId: v.documentId },
-      select: { fromType: true, fromId: true },
-    });
+    const taken = (await linking.createdFromTargets(tx, [v.documentId])).get(v.documentId);
     if (taken)
       return {
         error: violation(
-          `Document ${doc.data.businessKey} already became ${taken.fromType} ${taken.fromId}`,
+          `Document ${doc.data.businessKey} already became ${taken.type} ${taken.id}`,
         ),
       };
   }
