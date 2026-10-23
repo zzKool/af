@@ -24,7 +24,7 @@ import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
-import { sumAllocated } from "./allocated";
+import { allocatedSums } from "./allocated";
 import { historyEvent, type SupplierInvoiceHistoryEntry } from "./history";
 import { supplierInvoiceListSums } from "./list-sums";
 import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
@@ -113,28 +113,19 @@ type Facts = {
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
   const f: Facts = { allocated: new Map(), payers: new Map(), hasDocument: new Set() };
   if (ids.length === 0) return f;
-  const links = await tx.link.findMany({
-    where: {
-      OR: [
-        { toType: "supplier_invoice", toId: { in: [...ids] } },
-        { fromType: "supplier_invoice", fromId: { in: [...ids] }, kind: "created_from" },
-      ],
-    },
-    select: {
-      kind: true,
-      fromType: true,
-      fromId: true,
-      toType: true,
-      toId: true,
-      allocatedAmount: true,
-    },
-  });
-  f.allocated = sumAllocated(links);
+  const [allocated, links] = await Promise.all([
+    allocatedSums(tx, ids),
+    linking.linksTouching(tx, "supplier_invoice", ids, { kinds: ["justifies", "created_from"] }),
+  ]);
+  f.allocated = allocated;
   for (const l of links) {
-    if (l.kind === "created_from") f.hasDocument.add(l.fromId);
-    else if (l.kind === "justifies" && l.fromType === "bank_transaction") {
-      f.payers.set(l.toId, [...(f.payers.get(l.toId) ?? []), l.fromId]);
-    } else if (l.kind === "justifies" && l.fromType === "document") f.hasDocument.add(l.toId);
+    if (l.kind === "created_from" && l.from.type === "supplier_invoice")
+      f.hasDocument.add(l.from.id);
+    else if (l.kind === "justifies" && l.to.type === "supplier_invoice") {
+      if (l.from.type === "bank_transaction")
+        f.payers.set(l.to.id, [...(f.payers.get(l.to.id) ?? []), l.from.id]);
+      else if (l.from.type === "document") f.hasDocument.add(l.to.id);
+    }
   }
   return f;
 }
@@ -558,26 +549,19 @@ export async function payableTransactions(
     take: limit * 2,
   });
   const ids = rows.map((r) => r.id);
-  const [entries, links, settling] = await Promise.all([
+  const [entries, used, settling] = await Promise.all([
     journal.entriesForSources(tx, "bank_transaction", ids),
-    tx.link.findMany({
-      where: { fromType: "bank_transaction", fromId: { in: ids }, allocatedAmount: { not: null } },
-      select: { fromId: true, allocatedAmount: true },
-    }),
+    linking.allocatedFrom(tx, "bank_transaction", ids),
     tx.settlement.findMany({
       where: { bankTransactionId: { in: ids }, status: "active" },
       select: { bankTransactionId: true },
     }),
   ]);
-  const used = new Map<string, Dec>();
-  for (const l of links) {
-    used.set(l.fromId, (used.get(l.fromId) ?? new D(0)).plus(l.allocatedAmount as Dec));
-  }
   const taken = new Set(settling.map((s) => s.bankTransactionId));
   const out = rows
     .filter((r) => !taken.has(r.id))
     .map((r) => {
-      const remaining = r.amount.abs().minus(used.get(r.id) ?? new D(0));
+      const remaining = r.amount.abs().minus(used.get(r.id) ?? "0");
       return {
         id: r.id,
         bookingDate: r.bookingDate.toISOString().slice(0, 10),
@@ -630,13 +614,9 @@ export async function candidateDocuments(
   );
   const items = (list.data?.items ?? []).filter((d) => d.status !== "generated");
   if (items.length === 0) return [];
-  const taken = new Set(
-    (
-      await tx.link.findMany({
-        where: { kind: "created_from", toType: "document", toId: { in: items.map((d) => d.id) } },
-        select: { toId: true },
-      })
-    ).map((l) => l.toId),
+  const taken = await linking.createdFromTargets(
+    tx,
+    items.map((d) => d.id),
   );
   return items
     .filter((d) => !taken.has(d.id))
