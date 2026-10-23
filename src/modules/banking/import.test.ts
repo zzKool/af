@@ -583,6 +583,42 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
       expect(chfEntry?.bankImplicitRate).toBe("11.887"); // the pair's own fact is untouched
     });
   });
+  it("lessons 32: a SEK row meeting a CHF and a EUR candidate compares each with its own ECB rate", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, chf } = await accounts(caller);
+    const eur = await run(caller, (tx) =>
+      createBankAccount(tx, caller, noopAudit, {
+        accountAlias: "Konto EUR",
+        accountNumber: "9999 88 77",
+        currency: "EUR",
+        bankFormatId: nordeaFormatId,
+      }),
+    );
+    const csv = (amount: string, currency: string) =>
+      Buffer.from(
+        [
+          "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;",
+          `2026/07/08;${amount};;;EXCHANGE;;;;100,00;${currency};`,
+        ].join("\n"),
+        "latin1",
+      );
+    // ECB 2026-07-08: 1 CHF = 11.899657 SEK, 1 EUR = 11.10 SEK; 22 200 SEK out, 1 865.60 CHF and 2 000 EUR in
+    await run(caller, (tx) => importFile(tx, caller, sek, "sek.csv", csv("-22200,00", "SEK")));
+    await run(caller, (tx) => importFile(tx, caller, chf, "chf.csv", csv("1865,60", "CHF")));
+    await run(caller, (tx) =>
+      importFile(tx, caller, eur.data?.id as string, "eur.csv", csv("2000,00", "EUR")),
+    );
+    const out = await run(caller, (tx) =>
+      tx.bankTransaction.findFirstOrThrow({ where: { currency: "SEK" } }),
+    );
+    const proposals = await run(caller, (tx) => proposeTransfers(tx, out.id));
+    const byCurrency = new Map((proposals.data ?? []).map((p) => [p.to.currency, p]));
+    expect([...byCurrency.keys()].sort()).toEqual(["CHF", "EUR"]);
+    expect(byCurrency.get("CHF")?.ecb).toBe("11.899657");
+    expect(byCurrency.get("CHF")?.implied).toBe("11.899657");
+    expect(byCurrency.get("EUR")?.ecb).toBe("11.100000");
+    expect(byCurrency.get("EUR")?.implied).toBe("11.100000");
+  });
 });
 
 describe("F65 — an account's number and currency are locked once a CSV is imported into it", () => {

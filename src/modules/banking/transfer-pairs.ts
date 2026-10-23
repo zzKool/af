@@ -59,12 +59,13 @@ function hintsFor(a: TransferLeg, b: TransferLeg): string[] {
 /**
  * Candidates for leg `a` among `others` (transactions of the other own accounts, not already paired):
  * opposite sign, ≤ 2 days apart; same currency → equal amounts (rate 1); else the implied SEK ÷ foreign
- * rate within 5 % of the ECB rate (`ecbRate` = SEK per unit of the foreign currency on a's date).
+ * rate within 5 % of the ECB rate of that pair's foreign currency (`ecbRates`: currency → SEK per unit on a's
+ * date — each candidate is compared with its own currency's rate, lessons 32).
  */
 export function transferCandidates(
   a: TransferLeg,
   others: readonly TransferLeg[],
-  ecbRate: Dec | null,
+  ecbRates: ReadonlyMap<string, Dec>,
 ): TransferProposal[] {
   const amountA = new D(a.amount);
   if (amountA.isZero()) return [];
@@ -84,11 +85,13 @@ export function transferCandidates(
       implied = new D(1);
     } else {
       // one leg must be in the base currency for the implied rate to be SEK per foreign unit
-      const sekLeg =
-        a.currency === BASE_CURRENCY ? absA : b.currency === BASE_CURRENCY ? absB : null;
-      const foreignLeg =
-        a.currency === BASE_CURRENCY ? absB : b.currency === BASE_CURRENCY ? absA : null;
-      if (!sekLeg || !foreignLeg || !ecbRate) continue;
+      const aIsBase = a.currency === BASE_CURRENCY;
+      if (!aIsBase && b.currency !== BASE_CURRENCY) continue;
+      const sekLeg = aIsBase ? absA : absB;
+      const foreignLeg = aIsBase ? absB : absA;
+      // the ECB rate of this pair's own foreign currency, not of another candidate's
+      const ecbRate = ecbRates.get(aIsBase ? b.currency : a.currency);
+      if (!ecbRate) continue;
       implied = sekLeg.div(foreignLeg).toDecimalPlaces(6, D.ROUND_HALF_UP);
       ecb = ecbRate;
       deviation = implied.div(ecbRate).minus(1).abs();
@@ -202,12 +205,13 @@ export async function proposeTransfers(
       currency: t.currency,
       text: bankText(t),
     }));
-  // the ECB rate of a's date for the foreign currency of the pair (SEK per unit)
-  let ecb: Dec | null = null;
-  const foreign = [a, ...others].map((l) => l.currency).find((c) => c !== BASE_CURRENCY);
-  if (foreign) {
-    const r = await rates.rateToBase(tx, a.bookingDate, foreign, BASE_CURRENCY);
-    ecb = r ? r.rate : null;
+  // the ECB rate of a's date for each foreign currency among the legs (SEK per unit) — a SEK row can meet a CHF
+  // and a EUR candidate at once, each compared with its own rate (lessons 32)
+  const ecb = new Map<string, Dec>();
+  const foreign = new Set([a, ...others].map((l) => l.currency).filter((c) => c !== BASE_CURRENCY));
+  for (const currency of foreign) {
+    const r = await rates.rateToBase(tx, a.bookingDate, currency, BASE_CURRENCY);
+    if (r) ecb.set(currency, r.rate);
   }
   return { data: transferCandidates(a, others, ecb) };
 }
