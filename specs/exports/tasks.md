@@ -20,3 +20,8 @@
 ## F71 — exports adopts the D40 kit (`feat/exports-d40-kit`)
 
 - [x] T013 `state-family.ts` (`declarationState` from the record's dates: draft → neutral, declared → progress, paid → done) → `<StateLabel>` for the quarter; `formatMoney` on every on-screen amount (bare under *VAT (CHF)* and for the muted base), `data-amount` on the form's figures; invoice numbers and input-source keys `<CodeChip>`, country and *CN* `<Tag>`; warnings without the amber palette; *Copy* an icon button with an `aria-label` (kept in the row — the form's gesture, not a row action). n/a: `rowActions`, `quickFilter`, `DetailsSection` (no DataTable, no panel). The CSV unchanged — golden `specs/exports/fixtures/swiss-vat-csv-golden.json` captured before the change, compared in `swiss-vat.pure.test.ts`; `state-family.pure.test.ts`; `e2e/exports.spec.ts` reads `data-amount`
+
+## Lessons audit (round 2 cleanup)
+
+- [x] T014 *(2026-10-23, audit 31)* `swiss-vat.pure.test.ts` stops counting its own arrays: the fixture's `detailsInvoices` / `detailsInputSources` were checked against the arrays the test had just filtered itself (V8, V9). The selection is the query's (`invoices.invoicesForDeclaration`, status ≠ draft; input VAT by date) — now `exports.test.ts` *the drill-down is the query's selection*: a draft in the quarter never appears, an empty quarter lists no invoice, no input source, every total 0.00. The pure test's status filter is labelled as input preparation. DIRECT
+- Audit 29 (`manual` / `snapshot` parsed on read) — already done by F56, T009 (`declaration-read.ts`). Nothing left.

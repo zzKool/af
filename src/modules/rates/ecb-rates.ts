@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import { Prisma } from "@/generated/prisma/client";
 import { addDays, daysUntil } from "@/kernel/clock/calendar";
 import { logger } from "@/kernel/logging/logger";
+import { CURRENCIES } from "@/kernel/nav/constants";
 import type {
   EcbRateFetchResult,
   RateGap,
@@ -16,7 +17,13 @@ const ECB_API_BASE = "https://data-api.ecb.europa.eu/service/data";
 /** Fetch timeout — prevents indefinite hang if ECB API is unresponsive */
 const FETCH_TIMEOUT_MS = 30_000;
 
-export const DEFAULT_CURRENCY_PAIRS = ["EUR/SEK", "EUR/CHF", "EUR/USD"];
+/**
+ * The ECB pairs fetched: one `EUR/X` per currency the app knows, EUR itself aside (the ECB's reference rates are
+ * all against EUR). Derived, so a currency added to `CURRENCIES` is fetched without a second list (audit 30).
+ */
+export const DEFAULT_CURRENCY_PAIRS: readonly string[] = CURRENCIES.filter((c) => c !== "EUR").map(
+  (c) => `EUR/${c}`,
+);
 
 // XML parser configured for ECB SDMX format
 const xmlParser = new XMLParser({
@@ -78,7 +85,7 @@ function parseEcbXml(xml: string): Array<{ date: string; currency: string; rate:
  * which is what we store. The API key uses the non-EUR currency.
  */
 function buildEcbUrl(
-  currencyPairs: string[],
+  currencyPairs: readonly string[],
   options?: { startDate?: string; endDate?: string; lastN?: number },
 ): string {
   // Extract non-EUR currencies from pairs like "EUR/SEK" → "SEK"
