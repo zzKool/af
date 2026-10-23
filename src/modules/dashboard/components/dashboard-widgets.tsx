@@ -2,25 +2,18 @@
 
 // The dashboard's three widgets (feature inventory §3.14): the action items — one line each, the figure, the page
 // that resolves it — the business pulse, and the briefing since the last visit. Strings from the dictionary; money
-// formatted at the display boundary.
+// on screen through `formatMoney` (D40); the priority as a state icon from `priority-family.ts`, the count as a
+// grey `<CountBadge>` — no palette colours.
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/kernel/i18n/format-date";
 import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { StateIcon } from "@/kernel/ui/state-label";
+import { CountBadge } from "@/kernel/ui/tags";
 import type { ActionItem, BriefingLine, PulseMetric } from "@/modules/dashboard/types";
 import { briefingText } from "../briefing-label";
-
-const PRIORITY_STYLE: Record<ActionItem["priority"], string> = {
-  high: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  medium: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  low: "bg-muted text-muted-foreground",
-};
-
-const money = (value: string, currency: string) =>
-  `${formatCurrency(value, currency as Currency)} ${currency}`;
+import { PRIORITY_FAMILY } from "../priority-family";
 
 export function ActionItemsWidget({ items }: { items: ActionItem[] }) {
   const t = useT();
@@ -33,16 +26,16 @@ export function ActionItemsWidget({ items }: { items: ActionItem[] }) {
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("dashboard.actions.none")}</p>
         ) : (
-          <ul className="divide-y">
+          <ul className="divide-y divide-subtle">
             {items.map((item) => (
               <li key={item.id} data-testid="action-item" data-kind={item.kind}>
                 <Link
                   href={item.href}
-                  className="flex items-center gap-3 py-2 hover:bg-muted/50 -mx-2 px-2 rounded-md"
+                  data-priority={item.priority}
+                  className="-mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-hover"
                 >
-                  <Badge variant="outline" className={PRIORITY_STYLE[item.priority]}>
-                    {item.count}
-                  </Badge>
+                  <StateIcon family={PRIORITY_FAMILY[item.priority]} />
+                  <CountBadge count={item.count} className="min-w-7" />
                   <span className="min-w-0 flex-1 text-sm">
                     {t(`dashboard.action.${item.kind}`, {
                       count: item.count,
@@ -50,7 +43,7 @@ export function ActionItemsWidget({ items }: { items: ActionItem[] }) {
                     })}
                     {item.amount && (
                       <span className="ml-1 text-muted-foreground tabular-nums">
-                        · {money(item.amount.value, item.amount.currency)}
+                        · {formatMoney(item.amount.value, item.amount.currency)}
                       </span>
                     )}
                   </span>
@@ -80,7 +73,9 @@ export function BusinessPulseWidget({ metrics }: { metrics: PulseMetric[] }) {
                 {m.kind === "balance" ? m.label : t(`dashboard.pulse.${m.kind}`)}
               </dt>
               <dd className="text-lg font-semibold tabular-nums">
-                <Link href={m.href}>{money(m.value, m.currency)}</Link>
+                <Link href={m.href} className="hover:text-primary-hover">
+                  {formatMoney(m.value, m.currency)}
+                </Link>
               </dd>
               {m.hint && (
                 <dd className="text-xs text-muted-foreground">
