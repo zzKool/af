@@ -45,8 +45,10 @@ export async function linksTouching(
 
 /** What a document became: the entity on the other end of its `created_from` link. */
 export type CreatedFromTarget = LinkEndpoint & {
-  /** the entity's label (its key) through its linkable's summary; null unless asked for, or when it is gone */
+  /** the entity's label through its linkable's summary; null unless asked for, or when it is gone */
   label: string | null;
+  /** the entity's key — the label's head: the `created_from` sources (expense, supplier invoice) label as `{key} · …` */
+  key: string | null;
 };
 
 /**
@@ -70,7 +72,7 @@ export async function createdFromTargets(
     const label = options.labels
       ? ((await getLinkable(type)?.summary(tx, r.fromId))?.label ?? null)
       : null;
-    out.set(r.toId, { type, id: r.fromId, label });
+    out.set(r.toId, { type, id: r.fromId, label, key: label?.split(" · ")[0] ?? null });
   }
   return out;
 }

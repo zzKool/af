@@ -122,6 +122,14 @@ test.describe("Document review page — owner", () => {
     await expect(page.getByTestId("make-it")).toHaveCount(0);
     const href = await page.getByTestId("became-chip").getAttribute("href");
     expect(href).toMatch(/^\/expenses\?open=[0-9a-f-]{36}$/);
+
+    // FR-005: the library says it too — Expense {key}, linking to the same expense
+    const docKey = (await page.locator("h1.font-mono").textContent())?.trim() ?? "";
+    await page.goto(`/documents?q=${encodeURIComponent(docKey)}`);
+    const libraryBecame = page.getByTestId("document-became-link");
+    await expect(libraryBecame).toContainText(/Expense Ex\d+-\w+-\d+/);
+    await expect(libraryBecame).toHaveAttribute("href", href ?? "");
+
     await page.goto(href ?? "/expenses");
     await expect(page.getByTestId("expense-panel")).toBeVisible();
     await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-\w+-\d+/);

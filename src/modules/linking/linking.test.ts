@@ -285,9 +285,10 @@ describe("linking service", () => {
       await createdFromTargets(tx, []),
     ]);
     expect([...plain.entries()]).toEqual([
-      [became.id, { type: "expense", id: expenseId, label: null }],
+      [became.id, { type: "expense", id: expenseId, label: null, key: null }],
     ]);
     expect(labelled.get(became.id)?.label).toBe(`expense ${expenseId.slice(0, 8)}`);
+    expect(labelled.get(became.id)?.key).toBe(`expense ${expenseId.slice(0, 8)}`);
     expect(none.size).toBe(0);
   });
 

@@ -45,7 +45,13 @@ beforeAll(async () => {
     exists: async (_tx, id) => id === becameExpenseId,
     summary: async (_tx, id) =>
       id === becameExpenseId
-        ? { type: "expense", id, label: "Ex213-Tr-04", amount: null, currency: null }
+        ? {
+            type: "expense",
+            id,
+            label: "Ex213-Tr-04 · 2026-03-10 · 120.50 CHF · SBB",
+            amount: null,
+            currency: null,
+          }
         : null,
   });
 });
@@ -169,7 +175,8 @@ describe("listDocuments", () => {
     expect(r.rows.find((d) => d.id === ids.receipt)?.became).toEqual({
       type: "expense",
       id: becameExpenseId,
-      label: "Ex213-Tr-04",
+      key: "Ex213-Tr-04",
+      label: "Ex213-Tr-04 · 2026-03-10 · 120.50 CHF · SBB",
     });
     expect(r.rows.find((d) => d.id === ids.invoice)).toMatchObject({ linked: true, became: null });
     expect(r.rows.find((d) => d.id === ids.contract)).toMatchObject({
