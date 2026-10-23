@@ -2,6 +2,7 @@
 // duplicate card; documents the app produces itself (`generated`); the final key a document gets when it becomes
 // something (D27).
 import { createHash, randomUUID } from "node:crypto";
+import type { PrismaClient } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -27,8 +28,10 @@ export type DuplicateUploadRef = {
   status: string;
   createdAt: Date;
   createdBy: string;
-  /** what the existing document became (`created_from`), when it did */
-  becameType: "expense" | "supplier_invoice" | null;
+  /** the uploader's name — the user table sits outside the tenant transaction, so the action fills it in */
+  uploadedByName: string | null;
+  /** what the existing document became (`created_from`), with the entity's key, when it did (FR-009) */
+  became: { type: "expense" | "supplier_invoice"; id: string; key: string | null } | null;
 };
 
 export type UploadResult =
@@ -41,6 +44,15 @@ export type UploadResult =
       documentType: string;
     }
   | { kind: "duplicate"; existing: DuplicateUploadRef };
+
+/**
+ * The uploader's name for the duplicate card (FR-009). `users` belongs to auth, not to a tenant, so it is read
+ * with the plain client after the tenant transaction — never inside it. Null when the user is gone.
+ */
+export async function uploaderName(db: PrismaClient, userId: string): Promise<string | null> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
+  return user?.name ?? null;
+}
 
 export function contentHashOf(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -85,14 +97,17 @@ export async function uploadDocument(
     },
   });
   if (existing && !options.force) {
-    const became = (await createdFromTargets(tx, [existing.id])).get(existing.id);
+    const became = (await createdFromTargets(tx, [existing.id], { labels: true })).get(existing.id);
     return {
       data: {
         kind: "duplicate",
         existing: {
           ...existing,
-          becameType:
-            became?.type === "expense" || became?.type === "supplier_invoice" ? became.type : null,
+          uploadedByName: null,
+          became:
+            became?.type === "expense" || became?.type === "supplier_invoice"
+              ? { type: became.type, id: became.id, key: became.key }
+              : null,
         },
       },
     };
