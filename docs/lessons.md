@@ -134,7 +134,7 @@ One PR each, in its owner's lane, all DIRECT:
 | # | Module | What | From |
 |---|---|---|---|
 | 1 | traktamente | ~~`render-per-diem.ts:64` `tx.link` → `linking.linksTouching`~~ — traktamente T006 (2026-10-24) | 22 |
-| 2 | traktamente | `trip.ts:187` `tx.expenseGroup` → `expenses.getGroup` | 25 |
+| 2 | traktamente | ~~`trip.ts:187` `tx.expenseGroup` → `expenses.getGroup`~~ — traktamente T007 (2026-10-24) | 25 |
 | 3 | supplier-invoices | `payableTransactions` `tx.settlement` → `expenses.activeSettlementTransactionIds` | 23 |
 | 4 | banking | `uncategorisedTargets` `tx.journalEntry` → `journal.uncategorisedEntries` | 24 |
 | 5 | expenses, supplier-invoices | `candidateDocuments` → `documents.candidateDocuments` (one rule: archived out, paged after filtering) | 26 |
