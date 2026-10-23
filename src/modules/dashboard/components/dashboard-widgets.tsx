@@ -6,8 +6,8 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLocale } from "@/kernel/i18n/locale-provider";
-import { useT } from "@/kernel/i18n/use-t";
+import { formatDateTime } from "@/kernel/i18n/format-date";
+import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import { formatCurrency } from "@/kernel/money/format-currency";
 import type { Currency } from "@/kernel/nav/constants";
 import type { ActionItem, BriefingLine, PulseMetric } from "@/modules/dashboard/types";
@@ -101,14 +101,14 @@ export function BusinessPulseWidget({ metrics }: { metrics: PulseMetric[] }) {
 
 export function BriefingWidget({ since, lines }: { since: string | null; lines: BriefingLine[] }) {
   const t = useT();
-  const { effectiveLocale: locale } = useLocale();
+  const lang = useUiLanguage();
   return (
     <Card data-testid="briefing">
       <CardHeader>
         <CardTitle>
           {since
             ? t("dashboard.briefing.since", {
-                date: new Date(since).toLocaleString(locale ?? undefined),
+                date: formatDateTime(since, lang),
               })
             : t("dashboard.briefing.title")}
         </CardTitle>
