@@ -1404,6 +1404,44 @@ describe("documents service", () => {
       // Relationship doc must NOT appear — server enforces financial-only
       expect(result.data?.items.every((d) => d.documentType === "financial")).toBe(true);
     });
+
+    it("dateFrom / dateTo are whole calendar days whatever the process's time zone (lessons audit 28)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+      const at = async (createdAt: string) => {
+        const d = await createTestDocument(adminPool, tenantId, owner.callerIdentity.userId);
+        await adminPool.query(`UPDATE documents SET created_at = $2 WHERE id = $1`, [
+          d.id,
+          createdAt,
+        ]);
+        return d.id;
+      };
+      const before = await at("2026-03-09T23:59:59.999Z");
+      const first = await at("2026-03-10T00:00:00.000Z");
+      const late = await at("2026-03-10T23:30:00.000Z"); // the last hour setHours cut under Stockholm (CET)
+      const after = await at("2026-03-11T00:00:00.000Z");
+
+      const previousTz = process.env.TZ;
+      process.env.TZ = "Europe/Stockholm";
+      try {
+        const result = await withTenantTransaction(prisma, tenantId, (tx) =>
+          documentService.getDocuments(
+            tx,
+            owner.callerIdentity,
+            { dateFrom: "2026-03-10", dateTo: "2026-03-10" },
+            { field: "createdAt", direction: "asc" },
+            { page: 1, pageSize: 25 },
+          ),
+        );
+        expect(result.data?.items.map((d) => d.id)).toEqual([first, late]);
+        expect([before, after].some((id) => result.data?.items.some((d) => d.id === id))).toBe(
+          false,
+        );
+      } finally {
+        if (previousTz === undefined) delete process.env.TZ;
+        else process.env.TZ = previousTz;
+      }
+    });
   });
 
   describe("getDocumentStats", () => {
