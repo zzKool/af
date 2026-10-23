@@ -741,3 +741,47 @@ describe("rate_schedule read side", () => {
     expect(regs.data?.[0].rateSchedule).toBeNull();
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// getVatRegistration — the read API contracts asks (audit 25)
+// ─────────────────────────────────────────────────────────────
+describe("getVatRegistration", () => {
+  it("returns the tenant's registration as a DTO, null for an unknown id", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const created = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "CH",
+        vatNumber: "CHE-123.456.789 MWST",
+        rateSchedule: { rates: [8.1, 2.6, 3.8] },
+      }),
+    );
+    const id = created.data?.id as string;
+
+    const found = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.getVatRegistration(tx, id),
+    );
+    expect(found).toMatchObject({ id, country: "CH", rateSchedule: { rates: [8.1, 2.6, 3.8] } });
+
+    const unknown = await withTenantTransaction(prisma, tenantId, (tx) =>
+      vatService.getVatRegistration(tx, "00000000-0000-0000-0000-000000000099"),
+    );
+    expect(unknown).toBeNull();
+  });
+
+  it("returns null for another tenant's registration (RLS)", async () => {
+    const a = await createAuthenticatedContext(auth, "owner");
+    const b = await createAuthenticatedContext(auth, "owner");
+    const created = await withTenantTransaction(prisma, a.callerIdentity.tenantId, (tx) =>
+      vatService.createVatRegistration(tx, a.callerIdentity, noopAudit, {
+        country: "SE",
+        vatNumber: "SE556677889001",
+        rateSchedule: { rates: [25, 12, 6] },
+      }),
+    );
+    const seenByB = await withTenantTransaction(prisma, b.callerIdentity.tenantId, (tx) =>
+      vatService.getVatRegistration(tx, created.data?.id as string),
+    );
+    expect(seenByB).toBeNull();
+  });
+});
