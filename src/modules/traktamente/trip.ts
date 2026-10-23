@@ -2,6 +2,7 @@
 // counts; the computed breakdown is stored as a snapshot and written as one `per_diem` expense through the
 // expenses module (SEK, the owner's private SE source). Recompute replaces the expense while it is open.
 // MUST NOT import from next/* or src/components/*.
+import { isDeepStrictEqual } from "node:util";
 import { z } from "zod/v4";
 import { Prisma, type Trip } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
@@ -20,7 +21,7 @@ import {
   TENANT_ZONE,
 } from "./calculator";
 import { ratesForYears } from "./rates";
-import type { PerDiemResult, TripDto } from "./types";
+import type { PerDiemResult, PerDiemWarning, TripDto } from "./types";
 
 const violation = (message: string, details?: Record<string, string | number>): AppError => ({
   code: "BUSINESS_RULE_VIOLATION",
@@ -41,8 +42,24 @@ const notFound = (what: string, id: string): AppError => ({
 
 const count = z.number().int().min(0).max(999);
 
+/** A snapshot written before T003 holds its warnings as English lines: the known ones read as typed again. */
+function legacyWarning(line: string): PerDiemWarning {
+  const years = /^trip spans two rate years \((.+)\)$/.exec(line);
+  if (years?.[1]) return { type: "two_rate_years", message: line, years: years[1] };
+  if (line.startsWith("the meal deduction exceeds the day amounts"))
+    return { type: "meals_exceed_days", message: line };
+  return { type: "other", message: line };
+}
+
+const warningSchema: z.ZodType<PerDiemWarning, unknown> = z.union([
+  z.object({ type: z.literal("two_rate_years"), message: z.string(), years: z.string() }),
+  z.object({ type: z.literal("meals_exceed_days"), message: z.string() }),
+  z.object({ type: z.literal("other"), message: z.string() }),
+  z.string().transform(legacyWarning),
+]);
+
 /** The stored breakdown (`trips.computed`, JSONB) as the calculator writes it — parsed on read, never cast (F62). */
-export const perDiemResultSchema: z.ZodType<PerDiemResult> = z.object({
+export const perDiemResultSchema: z.ZodType<PerDiemResult, unknown> = z.object({
   fullDays: z.number(),
   halfDays: z.number(),
   nights: z.number(),
@@ -69,7 +86,7 @@ export const perDiemResultSchema: z.ZodType<PerDiemResult> = z.object({
   nightAllowance: z.object({ nights: z.number(), nightAmount: z.string(), total: z.string() }),
   longStayFactor: z.string().nullable(),
   total: z.string(),
-  warnings: z.array(z.string()),
+  warnings: z.array(warningSchema),
   computedAt: z.string(),
 });
 
@@ -281,6 +298,27 @@ export async function previewPerDiem(
   return computeForTrip(tx, trip);
 }
 
+/** Two breakdowns of the same inputs: equal in everything but `computedAt` (JSONB reorders keys — compare deep). */
+function sameBreakdown(stored: PerDiemResult | null, fresh: PerDiemResult): boolean {
+  if (!stored) return false;
+  const { computedAt: _a, ...a } = stored;
+  const { computedAt: _b, ...b } = JSON.parse(JSON.stringify(fresh)) as PerDiemResult;
+  return isDeepStrictEqual(a, b);
+}
+
+/** The expense already carries these facts (the amount compared as a Decimal, not as text). */
+function carries(
+  e: expenses.ExpenseDto,
+  f: { date: string; description: string; amount: string; note: string },
+): boolean {
+  return (
+    e.date === f.date &&
+    e.description === f.description &&
+    (e.note ?? "") === f.note &&
+    new Prisma.Decimal(e.amount).eq(f.amount)
+  );
+}
+
 /**
  * Write (or replace) the trip's per-diem expense (US3): kind `per_diem`, SEK, the owner's private SE source,
  * `basCode` the travel category, the breakdown in the note. Refused when the existing one is settled —
@@ -305,13 +343,20 @@ export async function createOrReplacePerDiemExpense(
     amount: result.total,
     note: perDiemNote(result),
   };
-  if (Number(result.total) <= 0)
+  if (new Prisma.Decimal(result.total).lte(0))
     return { error: violation("The per-diem is 0 — nothing to write") };
 
   let expense: ServiceResult<expenses.ExpenseDto>;
   const existing = trip.perDiemExpenseId
     ? await expenses.getExpense(tx, trip.perDiemExpenseId)
     : null;
+  // unchanged inputs: the stored breakdown and the expense already say it — nothing to rewrite, no new PDF (US3/AC2)
+  if (
+    existing &&
+    sameBreakdown(parsePerDiemResult(trip.computed), result) &&
+    carries(existing, facts)
+  )
+    return { data: { trip: toTripDto(trip), expense: existing } };
   if (existing) {
     expense = await expenses.replacePerDiemExpense(tx, caller, audit, existing.id, facts);
   } else {
