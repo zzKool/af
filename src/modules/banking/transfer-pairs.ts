@@ -167,20 +167,10 @@ async function legOf(
   };
 }
 
-/** ids of transactions already in a `transfer` link */
+/** ids of transactions already in a `transfer` link (through linking's read API, lessons audit 22) */
 async function pairedIds(tx: TransactionClient, ids: readonly string[]): Promise<Set<string>> {
-  if (ids.length === 0) return new Set();
-  const links = await tx.link.findMany({
-    where: {
-      kind: "transfer",
-      OR: [
-        { fromType: "bank_transaction", fromId: { in: [...ids] } },
-        { toType: "bank_transaction", toId: { in: [...ids] } },
-      ],
-    },
-    select: { fromId: true, toId: true },
-  });
-  return new Set(links.flatMap((l) => [l.fromId, l.toId]));
+  const links = await linking.linksTouching(tx, "bank_transaction", ids, { kinds: ["transfer"] });
+  return new Set(links.flatMap((l) => [l.from.id, l.to.id]));
 }
 
 /** The transfer proposals for one transaction (empty when it is already paired). */
