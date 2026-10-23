@@ -31,7 +31,20 @@ Cross-module references (`partner_id`, `contract_id`, `vat_registration_id`, `pd
 
 Per line `gross = quantity × unit price`; discount = percent of gross **or** a fixed amount (never more than gross — fixture K is refused); `net = gross − discount`; line VAT informational. Per document `subtotal = Σ net`; header discount = percent only (fixture L: never silently ignored); `net = subtotal − discount`; **VAT once per rate on the summed base** scaled by the header discount (`vat_by_rate`, rows with 0 VAT dropped, ascending); `total = net + Σ vat`. Half-up to 2 decimals when stored. Fixture cases A–J of `specs/invoices/fixtures/invoice-totals-cases.json` + a 200-run property hold (`totals.pure.test.ts`).
 
-## Lifecycle — `invoices.ts`
+## Lifecycle — the services (`invoices.ts` is the barrel)
+
+Where things live (F50-h, 2026-10-23 — a move, no behaviour change). `invoices.ts` re-exports by name exactly what it always exported, so `index.ts`, the actions and the tests import `./invoices` as before; what the parts share stays inside the module.
+
+```
+drafts.ts ──► issue.ts ──► hand-set-facts.ts            copies.ts
+create · update · delete   validate · rate · snapshot     markSent · decideQuote       convertQuote · copyToDraft
+(defaults chain)           · number · lock (+ credit      · setDeclarationPeriod       · createCreditNote
+                           limit, series)                                              (copyInternal)
+        └──────────────────────┴───────── shared ──────────────┴───────────────────────────┘
+schemas.ts  the Zod boundary        dto.ts       row → DTO, `load` (with lines)
+defaults.ts dueDateFor, the VAT registration, line rows + stored totals, lines back as input
+errors.ts   violation · invalid · notFound · parseError
+```
 
 | Step | What happens | Audit |
 |---|---|---|
