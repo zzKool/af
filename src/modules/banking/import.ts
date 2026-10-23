@@ -12,6 +12,7 @@ import type { StorageService } from "@/kernel/storage/storage";
 import { uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
+import * as linking from "@/modules/linking";
 import { accountLabel } from "./bank-accounts";
 import { type BankFormatConfig, headerError, type ParsedRow, parse } from "./csv-parser";
 import { applyToEntries, type EntryTarget, ensureDefaultRules } from "./rules";
@@ -360,14 +361,7 @@ export async function deleteImport(
   });
   const ids = txs.map((t) => t.id);
   if (ids.length) {
-    const linked = await tx.link.count({
-      where: {
-        OR: [
-          { fromType: "bank_transaction", fromId: { in: ids } },
-          { toType: "bank_transaction", toId: { in: ids } },
-        ],
-      },
-    });
+    const linked = (await linking.linksTouching(tx, "bank_transaction", ids)).length;
     if (linked > 0)
       return {
         error: violation(`${linked} transaction(s) of this import are linked — unlink them first`, {
