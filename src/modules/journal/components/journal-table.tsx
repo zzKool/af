@@ -356,7 +356,7 @@ export function JournalTable({
           if (column === "basCode") return categoryLabels[value] ?? value;
           if (column === "partnerId") return partnerLabels[value] ?? value;
           if (column === "categorisedBy")
-            return t(`journal.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
+            return t(`journal.categorisedBy.${value as "manual" | "rule"}`);
           if (column === "rateSource")
             return t(
               `journal.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,

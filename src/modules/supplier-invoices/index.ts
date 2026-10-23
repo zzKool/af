@@ -23,12 +23,7 @@ export {
   removePayment,
 } from "./payments";
 export * from "./queries";
-export {
-  addDays,
-  DEFAULT_PAYMENT_TERMS_DAYS,
-  deriveSupplierInvoiceStatus,
-  openAmount,
-} from "./status";
+export { DEFAULT_PAYMENT_TERMS_DAYS, deriveSupplierInvoiceStatus } from "./status";
 export type {
   LineInput,
   SupplierInvoiceInput,

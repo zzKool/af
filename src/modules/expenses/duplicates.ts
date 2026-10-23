@@ -2,6 +2,7 @@
 // (high), or a similar expense exists — same currency, amount within 1 %, date within 7 days, same merchant name
 // (medium). Pure helpers shared with supplier invoices; the queries read this module's table and, through the
 // documents and linking surfaces, the twins of the source document.
+import { addDays, daysBetween } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as documents from "@/modules/documents";
 import * as linking from "@/modules/linking";
@@ -22,11 +23,6 @@ export type ExpenseDuplicateQuery = {
 export const foldName = (s: string | null | undefined) =>
   (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 
-export function daysApart(a: string, b: string): number {
-  const ms = Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`));
-  return Math.round(ms / 86_400_000);
-}
-
 /** amount within ±1 % and date within ±7 days — the harvest's fuzzy rule, same currency required by the caller. */
 export function isNear(
   query: { amount: number; date: string },
@@ -36,7 +32,7 @@ export function isNear(
   const tolerance = query.amount * DUPLICATE_AMOUNT_TOLERANCE;
   return (
     Math.abs(candidate.amount - query.amount) <= tolerance + 1e-9 &&
-    daysApart(query.date, candidate.date) <= DUPLICATE_DATE_TOLERANCE_DAYS
+    daysBetween(query.date, candidate.date) <= DUPLICATE_DATE_TOLERANCE_DAYS
   );
 }
 
@@ -104,10 +100,8 @@ export async function findExpenseDuplicates(
   const merchant = foldName(query.merchant);
   const amount = Number(query.amount);
   if (merchant && query.currency && query.date && Number.isFinite(amount) && amount > 0) {
-    const from = new Date(`${query.date}T00:00:00Z`);
-    const to = new Date(from);
-    from.setUTCDate(from.getUTCDate() - DUPLICATE_DATE_TOLERANCE_DAYS);
-    to.setUTCDate(to.getUTCDate() + DUPLICATE_DATE_TOLERANCE_DAYS);
+    const from = new Date(`${addDays(query.date, -DUPLICATE_DATE_TOLERANCE_DAYS)}T00:00:00Z`);
+    const to = new Date(`${addDays(query.date, DUPLICATE_DATE_TOLERANCE_DAYS)}T00:00:00Z`);
     const rows = await tx.expense.findMany({
       where: { currency: query.currency, date: { gte: from, lte: to } },
       select: { id: true, key: true, description: true, amount: true, date: true, currency: true },

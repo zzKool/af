@@ -29,6 +29,6 @@
 ## Part 5 — cleanup round (lane 1, DIRECT, behaviour-neutral, 2026-10-23)
 
 - [x] T013 `hasLinks(tx, endpoint, kind)` in `queries.ts` (through `index.ts`): the existence check the modules' guards make with `tx.link.count` today (lessons audit 22); `linking.test.ts`. The callers move in their own modules.
-- [ ] T014 The ISO-day helpers from the kernel (lessons audit 27, linking's adoption line): `suggestions.ts` / `inbox.ts` `shiftDate` → `addDays`, `scoring.ts` `daysBetween` → `@/kernel/clock/calendar`'s (re-exported, `index.ts` keeps the name).
-- [ ] T015 `scoring.pure.test.ts`'s property states the confidence rule itself instead of calling `confidenceOf` (lessons audit 31).
-- [ ] T016 The inbox asks banking for main-account rows only, then pages (lessons audit 32: 300 rows paged first, then filtered — savings rows could crowd main ones out).
+- [x] T014 The ISO-day helpers from the kernel (lessons audit 27, linking's adoption line): `suggestions.ts` / `inbox.ts` `shiftDate` → `addDays`, `scoring.ts` `daysBetween` → `@/kernel/clock/calendar`'s (re-exported, `index.ts` keeps the name).
+- [x] T015 `scoring.pure.test.ts`'s property states the confidence rule itself instead of calling `confidenceOf` (lessons audit 31).
+- [x] T016 The inbox asks banking for main-account rows only, then pages (lessons audit 32: 300 rows paged first, then filtered — savings rows could crowd main ones out).

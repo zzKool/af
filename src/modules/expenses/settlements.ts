@@ -175,6 +175,22 @@ export async function allocatedByExpense(
   return out;
 }
 
+/**
+ * The bank rows an ACTIVE settlement refunds through (lessons audit 23) — the rows the settle and payment pickers
+ * leave out. `among` narrows the read to those rows; a cancelled settlement frees its row.
+ */
+export async function activeSettlementTransactionIds(
+  tx: TransactionClient,
+  among?: readonly string[],
+): Promise<Set<string>> {
+  if (among?.length === 0) return new Set();
+  const rows = await tx.settlement.findMany({
+    where: { status: "active", ...(among ? { bankTransactionId: { in: [...among] } } : {}) },
+    select: { bankTransactionId: true },
+  });
+  return new Set(rows.map((r) => r.bankTransactionId));
+}
+
 /** Private expenses of one source (or all private sources) the company still owes something on (`owedBase` > 0). */
 export async function openPrivateExpenses(
   tx: TransactionClient,
@@ -410,10 +426,9 @@ export async function cancelSettlement(
   const row = await tx.settlement.findUnique({ where: { id }, include: { lines: true } });
   if (!row) return { error: notFound("Settlement", id) };
   if (row.status === "cancelled") return { error: violation(`${row.number} is already cancelled`) };
-  const links = await tx.link.findMany({
-    where: { kind: "settles", toType: "settlement", toId: id },
-    select: { id: true },
-  });
+  const links = (
+    await linking.linksTouching(tx, "settlement", [id], { kinds: ["settles"] })
+  ).filter((l) => l.to.type === "settlement" && l.to.id === id);
   for (const l of links) {
     const removed = await linking.removeLink(tx, caller, audit, l.id);
     if (removed.error) return { error: removed.error };

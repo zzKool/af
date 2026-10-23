@@ -301,6 +301,8 @@ export const en = {
     "This rate is used on {n} invoice line(s) and cannot be deleted — close it instead",
   "contracts.rates.error.usedLocked":
     "This rate is used on {n} invoice line(s) — only its end date and note can change; close it and add a new rate",
+  "contracts.rates.error.closesBeforePriced":
+    "This rate priced invoice lines up to {day} — it cannot end on {validTo}, before that day",
 
   // --- invoices: printed strings (harvest fixtures invoice-strings.*.json) ---
   "invoice.title.invoice": "Invoice",
@@ -1417,6 +1419,33 @@ export const en = {
   "dashboard.briefing.action.create": "created",
   "dashboard.briefing.action.update": "updated",
   "dashboard.briefing.action.delete": "deleted",
+  "dashboard.briefing.action.deactivate": "deactivated",
+  "dashboard.briefing.action.reactivate": "reactivated",
+  "dashboard.briefing.entity.bank_account": "bank account(s)",
+  "dashboard.briefing.entity.bank_import": "bank import(s)",
+  "dashboard.briefing.entity.bank_transaction": "bank transaction(s)",
+  "dashboard.briefing.entity.categorisation_rule": "categorisation rule(s)",
+  "dashboard.briefing.entity.contract": "contract(s)",
+  "dashboard.briefing.entity.contract_rate": "contract rate(s)",
+  "dashboard.briefing.entity.document": "document(s)",
+  "dashboard.briefing.entity.expense": "expense(s)",
+  "dashboard.briefing.entity.expense_group": "expense group(s)",
+  "dashboard.briefing.entity.invoice": "invoice(s)",
+  "dashboard.briefing.entity.journal_entry": "journal entry/entries",
+  "dashboard.briefing.entity.link": "link(s)",
+  "dashboard.briefing.entity.normalbelopp": "per-diem rate(s)",
+  "dashboard.briefing.entity.package_build": "package(s)",
+  "dashboard.briefing.entity.partner": "partner(s)",
+  "dashboard.briefing.entity.partner_contact": "contact(s)",
+  "dashboard.briefing.entity.payment_source": "payment source(s)",
+  "dashboard.briefing.entity.settlement": "settlement(s)",
+  "dashboard.briefing.entity.supplier_invoice": "supplier invoice(s)",
+  "dashboard.briefing.entity.swiss_vat_declaration": "Swiss VAT return(s)",
+  "dashboard.briefing.entity.tenant": "company settings",
+  "dashboard.briefing.entity.tenant_bas_preference": "BAS account(s)",
+  "dashboard.briefing.entity.trip": "trip(s)",
+  "dashboard.briefing.entity.user_preference": "preference(s)",
+  "dashboard.briefing.entity.vat_registration": "VAT registration(s)",
 
   // --- documents library (D20) ---
   "documents.title": "Documents",

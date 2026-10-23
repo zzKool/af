@@ -303,6 +303,8 @@ export const fr: Dictionary = {
     "Ce tarif est utilisé sur {n} ligne(s) de facture et ne peut pas être supprimé — clôturez-le",
   "contracts.rates.error.usedLocked":
     "Ce tarif est utilisé sur {n} ligne(s) de facture — seules sa date de fin et sa note peuvent changer ; clôturez-le et ajoutez un nouveau tarif",
+  "contracts.rates.error.closesBeforePriced":
+    "Ce tarif a servi à des lignes de facture jusqu'au {day} — il ne peut pas se terminer le {validTo}, avant ce jour",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Facture",
@@ -1432,6 +1434,33 @@ export const fr: Dictionary = {
   "dashboard.briefing.action.create": "créé(s)",
   "dashboard.briefing.action.update": "modifié(s)",
   "dashboard.briefing.action.delete": "supprimé(s)",
+  "dashboard.briefing.action.deactivate": "désactivé(s)",
+  "dashboard.briefing.action.reactivate": "réactivé(s)",
+  "dashboard.briefing.entity.bank_account": "compte(s) bancaire(s)",
+  "dashboard.briefing.entity.bank_import": "import(s) bancaire(s)",
+  "dashboard.briefing.entity.bank_transaction": "transaction(s) bancaire(s)",
+  "dashboard.briefing.entity.categorisation_rule": "règle(s) de catégorisation",
+  "dashboard.briefing.entity.contract": "contrat(s)",
+  "dashboard.briefing.entity.contract_rate": "tarif(s) de contrat",
+  "dashboard.briefing.entity.document": "document(s)",
+  "dashboard.briefing.entity.expense": "dépense(s)",
+  "dashboard.briefing.entity.expense_group": "groupe(s) de dépenses",
+  "dashboard.briefing.entity.invoice": "facture(s)",
+  "dashboard.briefing.entity.journal_entry": "écriture(s)",
+  "dashboard.briefing.entity.link": "lien(s)",
+  "dashboard.briefing.entity.normalbelopp": "forfait(s) journalier(s)",
+  "dashboard.briefing.entity.package_build": "dossier(s)",
+  "dashboard.briefing.entity.partner": "partenaire(s)",
+  "dashboard.briefing.entity.partner_contact": "contact(s)",
+  "dashboard.briefing.entity.payment_source": "source(s) de paiement",
+  "dashboard.briefing.entity.settlement": "règlement(s)",
+  "dashboard.briefing.entity.supplier_invoice": "facture(s) fournisseur",
+  "dashboard.briefing.entity.swiss_vat_declaration": "décompte(s) TVA",
+  "dashboard.briefing.entity.tenant": "paramètres de l'entreprise",
+  "dashboard.briefing.entity.tenant_bas_preference": "compte(s) BAS",
+  "dashboard.briefing.entity.trip": "voyage(s)",
+  "dashboard.briefing.entity.user_preference": "préférence(s)",
+  "dashboard.briefing.entity.vat_registration": "immatriculation(s) TVA",
 
   // --- documents library (D20) ---
   "documents.title": "Documents",

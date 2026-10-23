@@ -9,8 +9,9 @@ export {
   getBasCategories,
   getBasCategory,
   getTenantBasPreferences,
+  isBasActivated,
 } from "./bas-preferences";
 export { getTenantProfile, listTenantMembers } from "./settings";
 export { getTablePreference } from "./table-preferences";
 export { getUserPreferences } from "./user-preferences";
-export { getVatRegistrations } from "./vat-registrations";
+export { getVatRegistration, getVatRegistrations } from "./vat-registrations";

@@ -222,11 +222,31 @@ export async function currentRatesFor(
 
 // --- writes ---
 
-/** Hook for the invoices module: how many invoice lines snapshot this rate. 0 until invoices exist. */
-export type RateUsage = (tx: TransactionClient, rateId: string) => Promise<number>;
-let rateUsage: RateUsage = async () => 0;
+/**
+ * How invoice lines use a rate: how many snapshot it (drafts included), and the last day they were priced on it
+ * (`null` when unused) — answered by invoices' `ratePricingFromInvoiceLines`, wired in src/instrumentation.ts.
+ */
+export type RatePricing = { lines: number; lastPeriodStart: string | null };
+export type RateUsage = (tx: TransactionClient, rateId: string) => Promise<RatePricing>;
+const UNUSED: RatePricing = { lines: 0, lastPeriodStart: null };
+let rateUsage: RateUsage = async () => UNUSED;
 export function setRateUsage(fn: RateUsage): void {
   rateUsage = fn;
+}
+
+/**
+ * The day a used rate may not end before (T024): closing it on `validTo` must still cover the last day an
+ * invoice line was priced on it — else that line's price points at a rate that no longer covers its period.
+ */
+export function closesBeforePriced(validTo: string | null, pricing: RatePricing): boolean {
+  return validTo !== null && pricing.lastPeriodStart !== null && validTo < pricing.lastPeriodStart;
+}
+
+function closesBeforePricedError(validTo: string, pricing: RatePricing): AppError {
+  return violation(
+    `This rate priced invoice lines up to ${pricing.lastPeriodStart} — it cannot end on ${validTo}, before that day`,
+    { pricedUntil: pricing.lastPeriodStart as string, validTo },
+  );
 }
 
 function overlapError(other: ContractRateDto): AppError {
@@ -289,6 +309,15 @@ export async function createContractRate(
   const clash = existing.find((r) => r.id !== toClose?.id && overlaps(r, candidate));
   if (clash) return { error: overlapError(clash) };
 
+  // the auto-close is a close too (T024): it may not end a used rate before the last day it priced
+  if (toClose) {
+    const closedOn = addDays(candidate.validFrom, -1);
+    const pricing = await rateUsage(tx, toClose.id);
+    if (closesBeforePriced(closedOn, pricing)) {
+      return { error: closesBeforePricedError(closedOn, pricing) };
+    }
+  }
+
   try {
     if (toClose) {
       const closedOn = addDays(candidate.validFrom, -1);
@@ -335,7 +364,8 @@ export async function createContractRate(
 
 /**
  * Edit dates, amount or note; the corrected interval must still overlap nothing (itself excluded).
- * Once an invoice line uses the rate (`rateUsage` > 0) only `validTo` and `note` change — F63, lesson 18.
+ * Once an invoice line uses the rate only `validTo` and `note` change — F63, lesson 18 — and `validTo` not
+ * before the last day an invoice line was priced on it (T024).
  */
 export async function updateContractRate(
   tx: TransactionClient,
@@ -360,8 +390,10 @@ export async function updateContractRate(
 
   // A rate an invoice line snapshot points at is a fact about a past period: it only closes (F63).
   const locked = lockedFieldsChanged(before, data);
+  const closing = data.validTo !== undefined && data.validTo !== before.validTo;
+  const pricing = locked.length > 0 || closing ? await rateUsage(tx, id) : UNUSED;
   if (locked.length > 0) {
-    const used = await rateUsage(tx, id);
+    const used = pricing.lines;
     if (used > 0) {
       return {
         error: violation(
@@ -376,6 +408,9 @@ export async function updateContractRate(
     validFrom: data.validFrom ?? before.validFrom,
     validTo: data.validTo === undefined ? before.validTo : data.validTo,
   };
+  if (closing && closesBeforePriced(next.validTo, pricing)) {
+    return { error: closesBeforePricedError(next.validTo as string, pricing) };
+  }
   if (next.validTo !== null && next.validTo < next.validFrom) {
     return {
       error: {
@@ -426,7 +461,7 @@ export async function deleteContractRate(
 ): Promise<ServiceResult<{ id: string }>> {
   const row = await tx.contractRate.findUnique({ where: { id } });
   if (!row) return { error: notFound(id) };
-  const used = await rateUsage(tx, id);
+  const used = (await rateUsage(tx, id)).lines;
   if (used > 0) {
     return {
       error: violation(
