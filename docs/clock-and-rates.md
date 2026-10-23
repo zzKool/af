@@ -14,6 +14,18 @@ interface Clock {
 }
 ```
 
+### Calendar days
+
+`src/kernel/clock/calendar.ts` — arithmetic on ISO `YYYY-MM-DD` strings at UTC midnight, so a DST weekend never shifts a day (lessons audit 27):
+
+| Helper | Example |
+|---|---|
+| `addDays(iso, n)` | `addDays("2026-01-01", -1)` → `"2025-12-31"` |
+| `daysUntil(from, to)` | signed: `daysUntil("2026-03-30", "2026-03-28")` → `-2` |
+| `daysBetween(a, b)` | either order: `→ 2` |
+
+Each refuses a string that is not an ISO day. Property tests in `calendar.pure.test.ts` (inverse, composition, the sign follows the string order). The modules' own copies move here one lane at a time — the list is lessons audit 27.
+
 ### Timezone Rules
 
 - `now()` returns a UTC `Date` object (matches `@db.Timestamptz` in Prisma)

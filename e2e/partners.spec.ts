@@ -50,10 +50,31 @@ test.describe("Partners", () => {
     await expect(page.getByRole("textbox", { name: "Short code" })).toHaveValue(shortCode);
 
     // the relationships: nothing names or is linked to a brand-new partner; the graph is one click away
-    await page.getByRole("tab", { name: "Transactions (0)" }).click();
+    // F71: the state is a label, the types grey tags, the counts badges on the underline tabs
+    await expect(page.getByTestId("partner-state").first()).toHaveAttribute(
+      "data-partner-state",
+      "active",
+    );
+    await page.getByRole("tab", { name: "Transactions 0", exact: true }).click();
     await expect(page.getByText("No journal entry names this partner yet.")).toBeVisible();
-    await page.getByRole("tab", { name: "Documents (0)" }).click();
+    await page.getByRole("tab", { name: "Documents 0", exact: true }).click();
     await expect(page.getByText("No document is linked to this partner yet.")).toBeVisible();
+    // the partner's own actions sit in the title row's ⋮; the state follows without a reload
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Deactivate" }).press("Enter");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Deactivate" }).click();
+    await expect(page.getByText(`${name} deactivated`)).toBeVisible();
+    await expect(page.getByTestId("partner-state").first()).toHaveAttribute(
+      "data-partner-state",
+      "inactive",
+    );
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Reactivate" }).press("Enter");
+    await expect(page.getByText(`${name} reactivated`)).toBeVisible();
+    await expect(page.getByTestId("partner-state").first()).toHaveAttribute(
+      "data-partner-state",
+      "active",
+    );
     await page.getByTestId("graph-link").click();
     await expect(page).toHaveURL(/\/links\/partner\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(name);
@@ -70,7 +91,7 @@ test.describe("Partners", () => {
     await page.getByRole("link", { name: partner }).click();
     await expect(page.getByRole("heading", { name: partner })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Contacts (0)" }).click();
+    await page.getByRole("tab", { name: "Contacts 0", exact: true }).click();
     const contacts = page.getByTestId("partner-contacts");
     await expect(contacts.getByText("No contact persons yet.")).toBeVisible();
 
@@ -85,7 +106,7 @@ test.describe("Partners", () => {
     await contacts.getByRole("textbox", { name: "E-mail" }).fill("anne.muster@example.ch");
     await contacts.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("Contact added")).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Contacts (1)" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Contacts 1", exact: true })).toBeVisible();
     const row = contacts.getByTestId("contact-row");
     await expect(row).toContainText("Head of BI");
     await expect(row.getByRole("link", { name: "anne.muster@example.ch" })).toHaveAttribute(
@@ -100,18 +121,21 @@ test.describe("Partners", () => {
     mkdirSync("e2e-screenshots", { recursive: true });
     await page.screenshot({ path: "e2e-screenshots/partner-contacts.png", fullPage: true });
 
-    // edit the role
-    await row.getByRole("button", { name: "Edit" }).click();
+    // edit the role — Edit and Delete sit in the row's ⋮ menu (F71); items picked by keyboard, the toast of the
+    // previous step can sit over the open menu (lessons, contracts F71)
+    await row.getByRole("button", { name: "Row actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit" }).press("Enter");
     await row.getByRole("textbox", { name: "Role" }).fill("CDO");
     await row.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Contact updated")).toBeVisible();
     await expect(contacts.getByTestId("contact-row")).toContainText("CDO");
 
     // delete after the confirmation
-    await contacts.getByTestId("contact-row").getByRole("button", { name: "Delete" }).click();
+    await contacts.getByTestId("contact-row").getByRole("button", { name: "Row actions" }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).press("Enter");
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText("Contact deleted")).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Contacts (0)" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Contacts 0", exact: true })).toBeVisible();
     await expect(contacts.getByText("No contact persons yet.")).toBeVisible();
   });
 });

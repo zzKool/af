@@ -7,13 +7,12 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 /**
  * The write mapper of `old_data` / `new_data` (F50-g): a record as the JSON Prisma stores — through a JSON round trip,
  * which is what the column holds anyway (dates as ISO strings, decimals as strings, undefined fields dropped).
- * Omitted stays omitted (SQL NULL); an explicit `null` is the JSON null — what the former casts wrote.
+ * No data — omitted or an explicit `null` — is one null: SQL NULL (F84; the JSON null is never written).
  */
 function auditDataToJson(
   data: Record<string, unknown> | null | undefined,
-): Prisma.InputJsonObject | Prisma.NullableJsonNullValueInput | undefined {
-  if (data === undefined) return undefined;
-  if (data === null) return Prisma.JsonNull;
+): Prisma.InputJsonObject | undefined {
+  if (data === undefined || data === null) return undefined;
   const json: unknown = JSON.parse(JSON.stringify(data));
   return isJsonObject(json) ? json : {};
 }
@@ -54,6 +53,8 @@ export async function createAuditEntry(
 /**
  * Strips Prisma internals from a record for audit log storage.
  * Returns only plain data fields — no relations, no _count, no Prisma metadata.
+ * Money is kept: a `Prisma.Decimal` field becomes its decimal string (F84 — its prototype is not `Object`, so the
+ * relation filter used to drop it and the trail carried no amount).
  *
  * WARNING: Do not pass records containing sensitive fields (password hashes, API keys).
  * Use explicit field picking if the model has sensitive data.
@@ -62,16 +63,18 @@ export function toAuditData(record: unknown): Record<string, unknown> | null {
   if (!record) return null;
   const { id, ...fields } = record as Record<string, unknown>;
   return Object.fromEntries(
-    Object.entries(fields).filter(([_, v]) => {
-      if (v === null || typeof v !== "object") return true;
-      if (v instanceof Date) return true;
-      // Keep arrays (e.g., types: string[], externalIdentifiers: JSONB[])
-      if (Array.isArray(v)) return true;
-      // Keep plain JSON objects (e.g., address JSONB) — skip Prisma relation objects
-      // Prisma relations have a constructor name other than "Object"
-      if (Object.getPrototypeOf(v) === Object.prototype) return true;
-      return false;
-    }),
+    Object.entries(fields)
+      .map(([k, v]): [string, unknown] => [k, Prisma.Decimal.isDecimal(v) ? v.toString() : v])
+      .filter(([_, v]) => {
+        if (v === null || typeof v !== "object") return true;
+        if (v instanceof Date) return true;
+        // Keep arrays (e.g., types: string[], externalIdentifiers: JSONB[])
+        if (Array.isArray(v)) return true;
+        // Keep plain JSON objects (e.g., address JSONB) — skip Prisma relation objects
+        // Prisma relations have a constructor name other than "Object"
+        if (Object.getPrototypeOf(v) === Object.prototype) return true;
+        return false;
+      }),
   );
 }
 
