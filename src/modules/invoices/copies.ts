@@ -18,6 +18,7 @@ import {
 } from "./defaults";
 import { iso, load, toDate, toInvoiceDto, withLines } from "./dto";
 import { invalid, notFound, parseError, violation } from "./errors";
+import { parsePrintedReferences, printedReferencesToJson } from "./json-columns";
 import { type CreditNoteInput, creditNoteSchema, type lineInputSchema } from "./schemas";
 import type { InvoiceDto, InvoiceType } from "./types";
 
@@ -117,7 +118,7 @@ async function copyInternal(
       periodEnd: source.periodEnd,
       currency: source.currency,
       language: source.language,
-      printedReferences: source.printedReferences as Prisma.InputJsonValue,
+      printedReferences: printedReferencesToJson(parsePrintedReferences(source.printedReferences)),
       notes: source.notes,
       internalNote: opts.internalNote ?? source.internalNote,
       paymentTermsText: source.paymentTermsText,

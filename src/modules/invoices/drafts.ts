@@ -19,6 +19,7 @@ import {
 } from "./defaults";
 import { load, toDate, toInvoiceDto, withLines } from "./dto";
 import { invalid, notFound, parseError, violation } from "./errors";
+import { printedReferencesToJson } from "./json-columns";
 import {
   type CreateDraftInput,
   createDraftSchema,
@@ -124,7 +125,7 @@ export async function createDraft(
       periodEnd: data.periodEnd ? toDate(data.periodEnd) : null,
       currency,
       language: data.language ?? partner.data.defaultLanguage ?? "en",
-      printedReferences: printedReferences as unknown as Prisma.InputJsonValue,
+      printedReferences: printedReferencesToJson(printedReferences),
       notes: data.notes ?? null,
       internalNote: data.internalNote ?? null,
       paymentTermsText: data.paymentTermsText ?? null,
@@ -207,7 +208,7 @@ export async function updateDraft(
   if (data.currency !== undefined) update.currency = data.currency;
   if (data.language !== undefined) update.language = data.language;
   if (data.printedReferences !== undefined)
-    update.printedReferences = data.printedReferences as unknown as Prisma.InputJsonValue;
+    update.printedReferences = printedReferencesToJson(data.printedReferences);
   if (data.notes !== undefined) update.notes = data.notes;
   if (data.internalNote !== undefined) update.internalNote = data.internalNote;
   if (data.paymentTermsText !== undefined) update.paymentTermsText = data.paymentTermsText;

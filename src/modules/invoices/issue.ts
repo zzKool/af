@@ -16,6 +16,7 @@ import { registrationById } from "./defaults";
 import { declarationPeriodFor } from "./derive";
 import { load, toDate, toInvoiceDto, withLines } from "./dto";
 import { invalid, notFound, parseError, violation } from "./errors";
+import { printedPartiesToJson } from "./json-columns";
 import { type IssueInput, issueSchema } from "./schemas";
 import { baseTotals } from "./totals";
 import type { InvoiceDto, InvoiceType, PrintedParties } from "./types";
@@ -150,7 +151,7 @@ export async function issue(
       vatBase: based.vatBase,
       totalBase: based.totalBase,
       declarationPeriod,
-      printedParties: printedParties as unknown as Prisma.InputJsonValue,
+      printedParties: printedPartiesToJson(printedParties),
     },
     include: withLines,
   });

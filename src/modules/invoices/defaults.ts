@@ -10,6 +10,7 @@ import type { AppError } from "@/kernel/errors/app-error";
 import * as settings from "@/modules/settings";
 import { iso, toDate } from "./dto";
 import { invalid } from "./errors";
+import { vatByRateToJson } from "./json-columns";
 import type { lineInputSchema } from "./schemas";
 import { invoiceTotals, type LineInput, TotalsError } from "./totals";
 import type { Registration } from "./vat-treatment";
@@ -101,7 +102,7 @@ export function totalsData(
     netAmount: new D(t.net),
     vatAmount: new D(t.vat),
     totalAmount: new D(t.total),
-    vatByRate: t.vatByRate as unknown as Prisma.InputJsonValue,
+    vatByRate: vatByRateToJson(t.vatByRate),
   };
 }
 
