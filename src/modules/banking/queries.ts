@@ -135,6 +135,26 @@ async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise
 }
 
 /**
+ * The account each of `transactionIds` was booked on, as its label (`accountLabel`: the alias, else number +
+ * currency), in one query — the journal's *Source* column (journal T006) reads it instead of banking's tables.
+ * Ids that are not this tenant's transactions are absent.
+ */
+export async function accountAliasesFor(
+  tx: TransactionClient,
+  transactionIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (transactionIds.length === 0) return new Map();
+  const rows = await tx.bankTransaction.findMany({
+    where: { id: { in: [...transactionIds] } },
+    select: {
+      id: true,
+      bankAccount: { select: { accountAlias: true, accountNumber: true, currency: true } },
+    },
+  });
+  return new Map(rows.map((r) => [r.id, accountLabel(r.bankAccount)]));
+}
+
+/**
  * `no_document` when the flag is set or the row is a transfer leg (the other statement row is its proof — derived
  * from the `transfer` link, never written on the entry: F65); `linked` when Σ ≥ |amount| − tolerance; `partial`
  * when Σ > 0; else `open`.

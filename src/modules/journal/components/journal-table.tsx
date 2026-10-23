@@ -132,7 +132,12 @@ export function JournalTable({
         header: t("journal.col.source"),
         type: "enum",
         width: "5.5rem",
-        cell: (row) => t(`journal.source.${row.sourceType}`),
+        // the bank account's alias (T006) — *Nordea CHF* rather than *Bank*; the filter keeps Bank / Manual
+        cell: (row) => (
+          <span className="block truncate" title={row.accountAlias ?? undefined}>
+            {row.accountAlias ?? t(`journal.source.${row.sourceType}`)}
+          </span>
+        ),
       },
       {
         key: "description",
@@ -323,7 +328,9 @@ export function JournalTable({
                     {formatCurrency(selected.amount, selected.currency as Currency)}{" "}
                     {selected.currency}
                   </span>
-                  <Badge variant="outline">{t(`journal.source.${selected.sourceType}`)}</Badge>
+                  <Badge variant="outline" data-testid="journal-panel-source">
+                    {selected.accountAlias ?? t(`journal.source.${selected.sourceType}`)}
+                  </Badge>
                 </SheetTitle>
                 <SheetDescription>
                   {selected.description} · {formatCurrency(selected.amountBase, "SEK")} SEK ·{" "}
