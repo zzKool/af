@@ -7,7 +7,6 @@ export {
   createPartnerContact,
   createPartnerContactSchema,
   deletePartnerContact,
-  listPartnerContacts,
   updatePartnerContact,
   updatePartnerContactSchema,
 } from "./contacts";

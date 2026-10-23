@@ -52,9 +52,9 @@ export async function updateTenantProfile(
 
 ### Data Hygiene
 
-The `toAuditData()` helper strips Prisma internals (relations, `_count`, metadata) before storing as JSONB. Only plain data fields are stored.
+The `toAuditData()` helper strips Prisma internals (relations, `_count`, metadata) before storing as JSONB. Only plain data fields are stored — money included: a `Prisma.Decimal` field becomes its decimal string (`"1402.5"`, F84).
 
-What lands in `old_data` / `new_data` (`auditDataToJson`, the write mapper, F50-g): the record's JSON form — dates as ISO strings, decimals as strings, undefined fields dropped. An omitted `oldData` / `newData` is SQL NULL; an explicit `null` is the JSON `null` (both kept as the former casts wrote them; `audit.test.ts` pins them). Known gap: `toAuditData` also drops `Prisma.Decimal` fields, so money rows are audited without their amounts — **F84**.
+What lands in `old_data` / `new_data` (`auditDataToJson`, the write mapper, F50-g): the record's JSON form — dates as ISO strings, decimals as strings, undefined fields dropped. No data is one null (F84): an omitted `oldData` / `newData` and an explicit `null` are both SQL NULL — the JSON `null` is never written (rows written before F84 may still hold it; no reader tells the two apart). `audit.test.ts` pins both.
 
 ### Seed Operations
 
