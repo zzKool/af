@@ -334,11 +334,22 @@ export async function listInbox(
     tx,
     docs.map((d) => d.id),
   );
-  const dupOf = duplicateOfMap(docs);
+  // FR-011: twins are counted across every stored document — a generated PDF (an issued invoice) included, so a
+  // forced upload of the client's copy is captioned *Duplicate of* it. Generated rows are never inbox rows: only
+  // the ones sharing a hash with a loaded document are read, and only what the twin rule needs.
+  const hashes = [...new Set(docs.flatMap((d) => (d.contentHash ? [d.contentHash] : [])))];
+  const generated = hashes.length
+    ? await tx.document.findMany({
+        where: { ...base, status: "generated", contentHash: { in: hashes } },
+        select: { id: true, businessKey: true, contentHash: true, createdAt: true },
+      })
+    : [];
+  const stored = [...docs, ...generated];
+  const dupOf = duplicateOfMap(stored);
   const twinOf = new Map<string, number>();
-  for (const d of docs)
+  for (const d of stored)
     if (d.contentHash) twinOf.set(d.contentHash, (twinOf.get(d.contentHash) ?? 0) + 1);
-  const keyOf = new Map(docs.map((d) => [d.id, d.businessKey]));
+  const keyOf = new Map(stored.map((d) => [d.id, d.businessKey]));
 
   const all: InboxListRow[] = [];
   for (const d of docs) {

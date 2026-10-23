@@ -30,6 +30,7 @@ const ADMIN_DATABASE_URL =
 const NOW = new Date("2026-03-14T15:00:00Z");
 const clock = createTestClock(NOW);
 const HASH_A = "a".repeat(64);
+const HASH_B = "b".repeat(64);
 
 let adminPool: Pool;
 let tenantId: string;
@@ -328,6 +329,29 @@ describe("listInbox", () => {
     });
     const twin = r.rows.find((x) => x.id === d.twin.id);
     expect(twin?.duplicateOf).toEqual({ id: d.ready.id, businessKey: "inv_20260304_001" });
+  });
+
+  it("FR-011: a twin of a generated PDF counts — the forced upload of an issued invoice's copy is captioned", async () => {
+    const issued = await make({
+      businessKey: "InvoiceAF_VA26-INV-007.pdf",
+      prefixType: "invoice",
+      status: "generated",
+      contentHash: HASH_B,
+    });
+    await setDoc(issued.id, "created_at = $2", [new Date("2026-03-01T10:00:00Z")]);
+    const copy = await make({
+      businessKey: "inv_20260310_001",
+      prefixType: "invoice",
+      status: "extracted",
+      contentHash: HASH_B,
+    });
+    const r = await run(owner, (tx) => listInbox(tx, owner, { now: NOW }));
+    expect(r.rows.map((x) => x.id)).toEqual([copy.id]); // the generated PDF is never an inbox row
+    expect(r.rows[0]).toMatchObject({
+      hasTwin: true,
+      duplicateOf: { id: issued.id, businessKey: "InvoiceAF_VA26-INV-007.pdf" },
+    });
+    expect(r.counts.duplicates).toBe(1);
   });
 
   it("filters by tab and search while the counts stay those of the whole inbox", async () => {
