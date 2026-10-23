@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Prisma, PrismaClient } from "@/generated/prisma/client";
-import { createAuditEntry } from "@/kernel/audit/audit";
+import { createAuditEntry, toAuditData } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { withTenantConnection, withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createTestTenant, createTestUser } from "@/kernel/db/test-fixtures";
@@ -180,8 +180,8 @@ describe("audit_logs RLS isolation", () => {
   });
 });
 
-// What createAuditEntry writes into old_data / new_data (F50-g): the write mapper must store exactly what the
-// former `as any` casts stored — null and omitted as SQL NULL, a record as its JSON form.
+// What createAuditEntry writes into old_data / new_data (F50-g, F84): a record as its JSON form, money included;
+// no data — omitted or null — as SQL NULL, one null.
 describe("createAuditEntry — the JSON written", () => {
   const caller = (): CallerIdentity => ({
     userId: userA.id,
@@ -201,7 +201,7 @@ describe("createAuditEntry — the JSON written", () => {
     });
   }
 
-  it("an omitted field is SQL NULL; an explicit null is the JSON null (what the casts always wrote)", async () => {
+  it("no data is one null: omitted and an explicit null are both SQL NULL (F84)", async () => {
     const [nulls, omitted] = [randomUUID(), randomUUID()];
     await withTenantTransaction(prisma, tenantA.id, async (tx) => {
       await createAuditEntry(tx, caller(), {
@@ -226,8 +226,8 @@ describe("createAuditEntry — the JSON written", () => {
     expect(await stored(nulls)).toEqual({
       old_data: null,
       new_data: null,
-      old_type: "null",
-      new_type: "null",
+      old_type: null,
+      new_type: null,
     });
   });
 
@@ -266,5 +266,65 @@ describe("createAuditEntry — the JSON written", () => {
       old_type: "object",
       new_type: "object",
     });
+  });
+
+  it("a Prisma row through toAuditData keeps its money as the decimal string (F84)", async () => {
+    const entityId = randomUUID();
+    const row = {
+      id: entityId,
+      name: "Acme",
+      amount: new Prisma.Decimal("1402.50"),
+      vatAmount: new Prisma.Decimal("-0.05"),
+    };
+    await withTenantTransaction(prisma, tenantA.id, (tx) =>
+      createAuditEntry(tx, caller(), {
+        action: "create",
+        entityType: "expense",
+        entityId,
+        newData: toAuditData(row),
+      }),
+    );
+    expect((await stored(entityId)).new_data).toEqual({
+      name: "Acme",
+      amount: "1402.5",
+      vatAmount: "-0.05",
+    });
+  });
+});
+
+// toAuditData (F84): plain fields, dates, arrays, JSON objects and decimals kept; relations and the id dropped.
+describe("toAuditData", () => {
+  it("keeps every Decimal as its decimal string and still drops relation objects", () => {
+    class Relation {
+      constructor(readonly id: string) {}
+    }
+    expect(
+      toAuditData({
+        id: "x",
+        name: "Acme",
+        amount: new Prisma.Decimal("1402.50"),
+        rate: new Prisma.Decimal("0.0912345678"),
+        zero: new Prisma.Decimal(0),
+        issuedAt: new Date("2026-03-21T00:00:00.000Z"),
+        types: ["client"],
+        address: { city: "Neuchâtel" },
+        none: null,
+        partner: new Relation("p"),
+      }),
+    ).toEqual({
+      name: "Acme",
+      amount: "1402.5",
+      rate: "0.0912345678",
+      zero: "0",
+      issuedAt: new Date("2026-03-21T00:00:00.000Z"),
+      types: ["client"],
+      address: { city: "Neuchâtel" },
+      none: null,
+    });
+  });
+
+  it("no record is no data", () => {
+    expect(toAuditData(null)).toBeNull();
+    expect(toAuditData(undefined)).toBeNull();
   });
 });
