@@ -13,6 +13,7 @@ import { uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
+import * as numbering from "@/modules/numbering";
 import { accountLabel } from "./bank-accounts";
 import {
   type BankFormatConfig,
@@ -117,16 +118,6 @@ export function planImport<R extends { dedupHash: string; occurrence: number }>(
   return { fresh, duplicates };
 }
 
-/** `Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv` — the stored statement's business key (D13). */
-export function statementKey(label: string, from: string | null, to: string | null): string {
-  const slug = label
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return `Bank_${slug}_${from ?? "x"}_${to ?? "x"}.csv`;
-}
-
 /** Nothing but the header row is a "not this bank" check — exposed for the dialog's pre-parse. */
 export function describeHeaderError(config: BankFormatConfig, firstLine: string): string | null {
   const header = firstLine.split(config.delimiter);
@@ -210,7 +201,7 @@ export async function importCsv(
   //    the blob goes out first: if a later step throws, the row rolls back and the blob is an orphan at worst
   const stored = await documents.storeGeneratedDocument(tx, caller, audit, storage, {
     bytes: input.bytes,
-    businessKey: statementKey(label, periodFrom, periodTo),
+    businessKey: numbering.bankStatementKey(label, periodFrom, periodTo),
     fileName: parsed.data.fileName,
     mimeType: "text/csv",
     prefixType: "bank_statement",

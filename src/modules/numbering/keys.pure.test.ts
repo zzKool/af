@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  bankStatementKey,
   creditNoteNumber,
   creditNoteSeries,
   expenseDocumentKey,
@@ -79,6 +80,17 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(fileSlug("  ")).toBe("");
     expect(() => supplierInvoiceDocumentKey("Ex213-Acc-01", "2026-07-24", "X")).toThrow(/supplier/);
     expect(() => supplierInvoiceDocumentKey("SI213-Acc-01", "2026-07-24", "***")).toThrow(/Vendor/);
+  });
+
+  it("the bank statement key: the account label as a hyphen slug, the period, x for an unknown end", () => {
+    expect(bankStatementKey("Plusgirokonto SEK", "2026-07-01", "2026-07-31")).toBe(
+      "Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv",
+    );
+    expect(bankStatementKey("123 45 67-8 CHF", "2026-07-08", "2026-07-08")).toBe(
+      "Bank_123-45-67-8-CHF_2026-07-08_2026-07-08.csv",
+    );
+    expect(bankStatementKey(" Sparkonto (Ö) ", null, null)).toBe("Bank_Sparkonto-O_x_x.csv");
+    expect(() => bankStatementKey("SEK", "2026/07/01", null)).toThrow(/ISO date/);
   });
 
   it("settlement number and the statement PDF key", () => {

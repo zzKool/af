@@ -12,6 +12,7 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { accountLabel } from "./bank-accounts";
+import { bankText } from "./rules";
 import type { TransferProposal } from "./types";
 
 const D = Prisma.Decimal;
@@ -161,7 +162,7 @@ async function legOf(
     bookingDate: iso(t.bookingDate),
     amount: t.amount.toFixed(2),
     currency: t.currency,
-    text: [t.name, t.additionalDetails, t.message, t.sender, t.recipient].filter(Boolean).join(" "),
+    text: bankText(t),
     row: { id: t.id },
   };
 }
@@ -205,9 +206,7 @@ export async function proposeTransfers(
       bookingDate: iso(t.bookingDate),
       amount: t.amount.toFixed(2),
       currency: t.currency,
-      text: [t.name, t.additionalDetails, t.message, t.sender, t.recipient]
-        .filter(Boolean)
-        .join(" "),
+      text: bankText(t),
     }));
   // the ECB rate of a's date for the foreign currency of the pair (SEK per unit)
   let ecb: Dec | null = null;
