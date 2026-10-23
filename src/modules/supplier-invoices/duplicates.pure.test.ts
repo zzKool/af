@@ -99,4 +99,37 @@ describe("supplier-invoice duplicates (harvest §4.2, specs/documents US3)", () 
     expect(got[0]).toMatchObject({ kind: "exact", confidence: "high", partnerName: "Nordea" });
     expect(got[0].reason.params).toEqual({ n: "F-2026-0042", partner: "Nordea" });
   });
+
+  it("a cancelled invoice still holds its number (D35): exact sees it, hash and fuzzy do not", () => {
+    const cancelled: SupplierInvoiceCandidate = {
+      id: "si-x",
+      key: "SI26-si-x",
+      partnerId: "p-nordea",
+      invoiceNumber: "F-2026-0099",
+      invoiceDate: "2026-03-10",
+      amountTotal: "500.00",
+      currency: "SEK",
+      cancelled: true,
+    };
+    const exact = evaluateSupplierInvoiceDuplicates(
+      { partnerId: "p-nordea", invoiceNumber: " f-2026-0099" },
+      [cancelled],
+      [],
+      names,
+    );
+    expect(exact.map((m) => [m.kind, m.entityId])).toEqual([["exact", "si-x"]]);
+    const others = evaluateSupplierInvoiceDuplicates(
+      {
+        partnerId: "p-nordea",
+        invoiceNumber: "F-2026-0100",
+        amount: "500",
+        currency: "SEK",
+        date: "2026-03-10",
+      },
+      [cancelled],
+      ["si-x"],
+      names,
+    );
+    expect(others).toEqual([]);
+  });
 });
