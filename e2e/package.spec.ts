@@ -69,36 +69,40 @@ test.describe("Accountant package", () => {
       // 2. the page: this month with its counts and flags, the preview naming the unlinked rows
       await page.goto("/package");
       await expect(page.getByRole("heading", { name: "Accountant package" })).toBeVisible();
-      const month = page.locator(`[data-testid="package-period"][data-period="${period}"]`);
-      await expect(month).toBeVisible();
-      await expect(month).toContainText(label);
+      // the months are a DataTable (F71): the row holds the month's cell, its state word and its flags
+      const cell = page.locator(`[data-testid="package-period"][data-period="${period}"]`);
+      const month = page.getByRole("row").filter({ has: cell });
+      await expect(cell).toHaveText(label);
+      await expect(month).toContainText("Flags to check");
       expect(Number(await month.getByTestId("package-flags").innerText())).toBeGreaterThanOrEqual(
         2,
       );
-      await month.click();
+      await cell.click();
+      // the docked panel: the period's preview, one primary (Build)
       const preview = page.getByTestId("package-preview");
       await expect(preview).toContainText(`Before sending — ${label}`);
       await expect(preview.getByTestId("package-flag-list")).toContainText("Unlinked bank lines", {
         timeout: 30_000,
       });
       await expect(preview.getByTestId("package-flag-list")).toContainText(`PKG ${stamp}`);
-      await preview.getByText("notes.md", { exact: true }).click();
+      await preview.getByRole("button", { name: "notes.md", exact: true }).click();
       await expect(preview.getByTestId("package-notes")).toContainText(
         `# Accountant package ${period}`,
       );
       await snap(page, "package-checklist");
 
       // 3. Build → queued → the job stores the zip → the version and Download
-      await month.getByTestId("package-build").click();
+      await preview.getByTestId("package-build").click();
       await expectToast(page, `Build of ${label} queued`);
-      await expect(month.getByTestId("package-download")).toBeVisible({ timeout: 90_000 });
-      await expect(month.getByTestId("package-download")).toHaveAttribute(
+      await expect(preview.getByTestId("package-download")).toBeVisible({ timeout: 90_000 });
+      await expect(preview.getByTestId("package-download")).toHaveAttribute(
         "title",
         new RegExp(`^Package_${period}`),
       );
       await expectToast(page, `Package_${period}`);
       const versions = preview.getByTestId("package-version");
-      await expect(versions.first()).toContainText("built");
+      await expect(versions.first()).toContainText("Built");
+      await expect(month.getByText(new RegExp(`^Package_${period}`))).toBeVisible();
       await expect(versions.first()).toContainText(`Package_${period}`);
       await expect(versions.first().getByTestId("package-version-download")).toBeVisible();
       await snap(page, "package-built");

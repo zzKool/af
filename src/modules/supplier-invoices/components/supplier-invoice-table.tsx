@@ -1,30 +1,40 @@
 "use client";
 
-// The supplier invoices list (US3): KPI strip (open, overdue, due in 14 days, paid this month — SEK), DataTable
-// on SUPPLIER_INVOICE_COLUMNS with the derived status, money in the row's currency, the side panel for the
-// selected row, "New supplier invoice" in the toolbar.
+// The supplier invoices list (US3, D40 kit): the KPI strip (open, overdue, due in 14 days, paid this month — SEK
+// base), the DataTable on SUPPLIER_INVOICE_COLUMNS — the key as a code chip, the derived status through the
+// module's one family map, money through formatMoney, Month (invoice date) and Supplier quick filters, ⋮ row
+// actions, Σ only under a true currency (list-sums.ts) — and the docked side panel for the selected row. The page's
+// title row holds *New supplier invoice* (`NewSupplierInvoiceButton`).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAction } from "next-safe-action/hooks";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import type { ListResult } from "@/kernel/list-query/types";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import {
   DataTable,
   type DataTableColumn,
   type DataTableFilterSource,
+  type RowAction,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { StateIcon } from "@/kernel/ui/state-label";
+import { CodeChip } from "@/kernel/ui/tags";
+import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import type { SupplierInvoiceColumn } from "@/modules/supplier-invoices/queries";
 import {
+  deleteSupplierInvoiceAction,
   distinctSupplierInvoicesAction,
   supplierInvoiceDateHierarchyAction,
+  uncancelSupplierInvoiceAction,
 } from "@/modules/supplier-invoices/supplier-invoices.actions";
 import type {
   CategoryOption,
-  DocumentOption,
   GroupOption,
   RegistrationOption,
   SupplierInvoiceKpis,
@@ -34,8 +44,7 @@ import type {
   SupplierOption,
 } from "@/modules/supplier-invoices/types";
 import { groupLabel } from "./labels";
-import { NewSupplierInvoiceDialog } from "./new-supplier-invoice-dialog";
-import { SupplierInvoiceStatusBadge } from "./status-badge";
+import { SupplierInvoiceStateLabel } from "./state-label";
 import { SupplierInvoicePanel } from "./supplier-invoice-panel";
 
 /** Dates serialised for the client. */
@@ -79,8 +88,11 @@ const DEFAULT_SORT = [
   { col: "key", dir: "desc" as const },
 ];
 
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
+const money = (amount: string, currency: string) => (
+  <span className="tabular-nums" data-amount>
+    {formatMoney(amount, currency)}
+  </span>
+);
 
 export function SupplierInvoiceTable({
   result,
@@ -89,7 +101,6 @@ export function SupplierInvoiceTable({
   categories,
   suppliers,
   registrations,
-  documents,
   canWrite,
   groupId,
   initialSelectedId,
@@ -100,9 +111,8 @@ export function SupplierInvoiceTable({
   categories: CategoryOption[];
   suppliers: SupplierOption[];
   registrations: RegistrationOption[];
-  documents: DocumentOption[];
   canWrite: boolean;
-  /** the group page: the list is scoped and the dialog pre-selects the group */
+  /** a list scoped to one group (the group column hidden) */
   groupId?: string;
   /** `?open=<id>` — the panel opens on this invoice (the graph's "Open") */
   initialSelectedId?: string | null;
@@ -111,7 +121,13 @@ export function SupplierInvoiceTable({
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
-  const [newOpen, setNewOpen] = useState(false);
+  const { executeAsync: uncancel } = useAction(uncancelSupplierInvoiceAction);
+  const { executeAsync: remove } = useAction(deleteSupplierInvoiceAction);
+  const deleteDialog = useConfirmDialog({
+    title: t("supplierInvoices.panel.delete"),
+    variant: "destructive",
+    confirmLabel: t("common.delete"),
+  });
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -166,13 +182,14 @@ export function SupplierInvoiceTable({
         type: "text",
         width: "8rem",
         alwaysVisible: true,
-        cell: (row) => <span className="font-mono text-xs">{row.key}</span>,
+        cell: (row) => <CodeChip>{row.key}</CodeChip>,
       },
       {
         key: "partnerName",
         header: t("supplierInvoices.col.supplier"),
-        type: "text",
+        type: "enum",
         width: "12rem",
+        quickFilter: true,
         cell: (row) => (
           <span className="block truncate" title={row.partnerName}>
             {row.partnerName}
@@ -200,8 +217,7 @@ export function SupplierInvoiceTable({
         cell: (row) => (
           <Link
             href={`/expenses/groups/${row.groupId}`}
-            className="block truncate hover:underline"
-            onClick={(e) => e.stopPropagation()}
+            className="block truncate text-primary hover:underline"
             title={`${row.groupNumber} — ${row.groupDescription}`}
           >
             {row.groupNumber} — {row.groupDescription}
@@ -225,6 +241,7 @@ export function SupplierInvoiceTable({
         header: t("supplierInvoices.col.invoiceDate"),
         type: "date",
         width: "6.5rem",
+        quickFilter: true,
       },
       {
         key: "dueDate",
@@ -233,7 +250,7 @@ export function SupplierInvoiceTable({
         width: "6.5rem",
         cell: (row) => (
           <span
-            className={row.dueDateDefaulted ? "italic" : undefined}
+            className={`tabular-nums ${row.dueDateDefaulted ? "italic" : ""}`}
             title={row.dueDateDefaulted ? t("supplierInvoices.panel.dueDefaulted") : undefined}
           >
             {row.dueDate}
@@ -284,7 +301,7 @@ export function SupplierInvoiceTable({
         type: "money",
         width: "8rem",
         defaultHidden: true,
-        cell: (row) => <span className="tabular-nums">{money(row.amountNet, row.currency)}</span>,
+        cell: (row) => money(row.amountNet, row.currency),
       },
       {
         key: "vatAmount",
@@ -292,14 +309,14 @@ export function SupplierInvoiceTable({
         type: "money",
         width: "7rem",
         defaultHidden: true,
-        cell: (row) => <span className="tabular-nums">{money(row.vatAmount, row.currency)}</span>,
+        cell: (row) => money(row.vatAmount, row.currency),
       },
       {
         key: "amountTotal",
         header: t("supplierInvoices.col.total"),
         type: "money",
         width: "8rem",
-        cell: (row) => <span className="tabular-nums">{money(row.amountTotal, row.currency)}</span>,
+        cell: (row) => money(row.amountTotal, row.currency),
       },
       {
         key: "currency",
@@ -313,8 +330,11 @@ export function SupplierInvoiceTable({
         header: t("supplierInvoices.col.amountBase"),
         type: "money",
         width: "8rem",
+        // in the base currency, not the row's — the header names it
         cell: (row) => (
-          <span className="tabular-nums">{formatCurrency(row.amountBase, "SEK")}</span>
+          <span className="tabular-nums" data-amount>
+            {formatMoney(row.amountBase, null, { bare: true })}
+          </span>
         ),
       },
       {
@@ -332,7 +352,7 @@ export function SupplierInvoiceTable({
         defaultHidden: true,
         cell: (row) =>
           row.paidAmount ? (
-            <span className="tabular-nums">{money(row.paidAmount, row.paidCurrency ?? "SEK")}</span>
+            money(row.paidAmount, row.paidCurrency ?? row.currency)
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
@@ -364,7 +384,7 @@ export function SupplierInvoiceTable({
         type: "enum",
         width: "9rem",
         cell: (row) => (
-          <SupplierInvoiceStatusBadge status={row.status} daysOverdue={row.daysOverdue} />
+          <SupplierInvoiceStateLabel status={row.status} daysOverdue={row.daysOverdue} />
         ),
       },
       {
@@ -373,11 +393,7 @@ export function SupplierInvoiceTable({
         type: "money",
         width: "7rem",
         defaultHidden: true,
-        cell: (row) => (
-          <span className="tabular-nums">
-            {money(row.allocated, row.paidCurrency ?? row.currency)}
-          </span>
-        ),
+        cell: (row) => money(row.allocated, row.paidCurrency ?? row.currency),
       },
       {
         key: "open",
@@ -388,9 +404,7 @@ export function SupplierInvoiceTable({
           row.cancelled ? (
             <span className="text-muted-foreground">—</span>
           ) : (
-            <span className="tabular-nums">
-              {money(row.open, row.paidCurrency ?? row.currency)}
-            </span>
+            money(row.open, row.paidCurrency ?? row.currency)
           ),
       },
       {
@@ -400,13 +414,9 @@ export function SupplierInvoiceTable({
         width: "5rem",
         cell: (row) =>
           row.hasDocument ? (
-            <span className="text-green-700 dark:text-green-400">
-              {t("expenses.document.present")}
-            </span>
+            <span className="text-state-done">{t("expenses.document.present")}</span>
           ) : row.documentMissing ? (
-            <span className="text-amber-700 dark:text-amber-400">
-              {t("expenses.document.missing")}
-            </span>
+            <span className="text-state-attention">{t("expenses.document.missing")}</span>
           ) : (
             <span className="text-muted-foreground">{t("expenses.document.none")}</span>
           ),
@@ -447,21 +457,65 @@ export function SupplierInvoiceTable({
     amount: string,
     count: number,
     onClick: () => void,
-    tone?: string,
+    attention = false,
   ) => (
     <button
       type="button"
-      className={`rounded-md border px-3 py-1.5 text-left hover:bg-muted ${tone ?? ""}`}
+      className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-left hover:bg-hover"
       onClick={onClick}
       data-testid={testId}
     >
-      <span className="font-medium">{label}</span>
-      <span className="ml-2 tabular-nums">{formatCurrency(amount, "SEK")} SEK</span>
-      <span className="ml-2 text-muted-foreground">
-        {t("supplierInvoices.kpi.count", { count })}
+      {attention && <StateIcon family="attention" />}
+      <span className="font-semibold">{label}</span>
+      <span className="tabular-nums" data-amount>
+        {formatMoney(amount, "SEK")}
       </span>
+      <span className="text-muted-foreground">{t("supplierInvoices.kpi.count", { count })}</span>
     </button>
   );
+
+  const rowActions = (row: SupplierInvoiceRow): RowAction[] => [
+    { label: t("common.open"), onClick: () => setSelectedId(row.id) },
+    {
+      label: t("supplierInvoices.action.openGroup"),
+      onClick: () => router.push(`/expenses/groups/${row.groupId}`),
+    },
+    ...(canWrite && row.cancelled
+      ? [
+          {
+            label: t("supplierInvoices.panel.uncancel"),
+            onClick: async () => {
+              const r = await uncancel({ id: row.id });
+              const error = extractError(r);
+              if (error) return void toast.error(error);
+              toast.success(t("supplierInvoices.panel.uncancelled"));
+              router.refresh();
+            },
+          },
+        ]
+      : []),
+    // the service refuses once anything but its document is linked (D36) — the toast says so
+    ...(canWrite && !row.cancelled && row.allocated === "0.00" && !row.paidAmount
+      ? [
+          {
+            label: t("supplierInvoices.panel.delete"),
+            destructive: true,
+            onClick: () =>
+              deleteDialog.confirm(
+                async () => {
+                  const r = await remove({ id: row.id });
+                  const error = extractError(r);
+                  if (error) throw new Error(error);
+                  toast.success(t("supplierInvoices.panel.deleted"));
+                  if (selectedId === row.id) setSelectedId(null);
+                  router.refresh();
+                },
+                { description: t("supplierInvoices.panel.deleteConfirm", { key: row.key }) },
+              ),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="flex flex-col gap-3">
@@ -479,7 +533,7 @@ export function SupplierInvoiceTable({
             kpis.overdueBase,
             kpis.overdueCount,
             () => state.setFilter("status", { kind: "in", values: ["overdue"] }),
-            kpis.overdueCount > 0 ? "border-red-300" : undefined,
+            kpis.overdueCount > 0,
           )}
           {kpi(
             "kpi-due-soon",
@@ -504,7 +558,7 @@ export function SupplierInvoiceTable({
         state={state}
         filterSource={filterSource}
         valueLabel={(column, value) => {
-          if (value === null) return "(Blanks)";
+          if (value === null) return t("common.blanks");
           if (column === "status")
             return t(`supplierInvoices.status.${value as SupplierInvoiceStatus}`);
           if (column === "groupId") return groupLabels[value] ?? value;
@@ -525,20 +579,15 @@ export function SupplierInvoiceTable({
           return value;
         }}
         rowCurrency={(row) => row.currency as Currency}
-        sumCurrency={"SEK" as Currency}
-        onRowClick={(row) => setSelectedId(row.id)}
-        searchPlaceholder={t("supplierInvoices.search")}
-        toolbar={
-          canWrite ? (
-            <Button
-              size="sm"
-              onClick={() => setNewOpen(true)}
-              data-testid="open-new-supplier-invoice"
-            >
-              {t("supplierInvoices.new")}
-            </Button>
-          ) : undefined
+        // Σ total / open only when the filtered set has one currency, else the base total bare (list-sums.ts)
+        sumCurrency={
+          result.sums?.amountTotal !== undefined
+            ? (result.rows[0]?.currency as Currency | undefined)
+            : undefined
         }
+        onRowClick={(row) => setSelectedId(row.id)}
+        rowActions={rowActions}
+        searchPlaceholder={t("supplierInvoices.search")}
         emptyState={
           Object.keys(state.query.filters).length || state.query.search
             ? t("supplierInvoices.emptyFiltered")
@@ -554,18 +603,7 @@ export function SupplierInvoiceTable({
         canWrite={canWrite}
         onChanged={() => router.refresh()}
       />
-      {canWrite && (
-        <NewSupplierInvoiceDialog
-          open={newOpen}
-          onOpenChange={setNewOpen}
-          groups={groups}
-          categories={categories}
-          suppliers={suppliers}
-          registrations={registrations}
-          documents={documents}
-          defaultGroupId={groupId}
-        />
-      )}
+      <ConfirmDialog {...deleteDialog.dialogProps} />
     </div>
   );
 }

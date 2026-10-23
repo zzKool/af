@@ -14,7 +14,7 @@ import {
   listJournalEntries,
   partnerOptions,
 } from "@/modules/journal";
-import { JournalTable } from "@/modules/journal/ui";
+import { JournalTable, NewEntryButton } from "@/modules/journal/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 // The ledger — the URL is the query (D20); sums of the SEK base on the filtered set.
@@ -38,11 +38,21 @@ export default async function JournalPage({
     return { result, categories, partners, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
+  const canWrite = can(auth, "create", "journal_entry");
 
   return (
     <ListPage
       title={t("journal.title")}
       meta={t("journal.meta.entries", { count: data.result.total })}
+      actions={
+        canWrite && (
+          <NewEntryButton
+            today={createClock().today()}
+            categories={data.categories}
+            partners={data.partners}
+          />
+        )
+      }
     >
       <JournalTable
         result={{
@@ -55,8 +65,7 @@ export default async function JournalPage({
         }}
         categories={data.categories}
         partners={data.partners}
-        today={createClock().today()}
-        canWrite={can(auth, "create", "journal_entry")}
+        canWrite={canWrite}
       />
     </ListPage>
   );

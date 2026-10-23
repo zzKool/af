@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { DetailsGrid } from "@/kernel/ui/details-section";
+import { Tag } from "@/kernel/ui/tags";
+import { basName } from "@/modules/journal/bas-name";
 import { categoriseEntryAction } from "@/modules/journal/journal.actions";
 import type { JournalEntryDto } from "@/modules/journal/types";
 
@@ -99,16 +102,22 @@ export function CategoriseForm({
     const cat = categoryList.find((c) => c.code === entry.basCode);
     const partner = partners.find((p) => p.id === entry.partnerId);
     return (
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">{t("journal.form.category")}</dt>
-        <dd>{cat?.label ?? entry.basCode ?? "—"}</dd>
-        <dt className="text-muted-foreground">{t("journal.form.partner")}</dt>
-        <dd>{partner?.name ?? "—"}</dd>
-        <dt className="text-muted-foreground">{t("journal.form.note")}</dt>
-        <dd>{entry.note ?? "—"}</dd>
-        <dt className="text-muted-foreground">{t("journal.form.noDocument")}</dt>
-        <dd>{entry.noDocumentNeeded ? t("common.yes") : t("common.no")}</dd>
-      </dl>
+      <DetailsGrid
+        rows={[
+          [
+            t("journal.form.category"),
+            entry.basCode ? (
+              <span key="cat" className="inline-flex flex-wrap items-center gap-1.5">
+                <Tag>{entry.basCode}</Tag>
+                {basName(entry.basCode, cat?.label)}
+              </span>
+            ) : null,
+          ],
+          [t("journal.form.partner"), partner?.name ?? null],
+          [t("journal.form.note"), entry.note],
+          [t("journal.form.noDocument"), entry.noDocumentNeeded ? t("common.yes") : t("common.no")],
+        ]}
+      />
     );
   }
 

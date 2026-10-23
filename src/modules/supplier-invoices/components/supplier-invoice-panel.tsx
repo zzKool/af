@@ -1,9 +1,9 @@
 "use client";
 
-// The side panel of one supplier invoice: loads the detail (and the payable rows while it is open) and saves
-// patches; the sections render it — money (editable while unpaid and unlinked) · payments with *Link payment* ·
-// facts, lines, document · links — and the panel ends with cancel / uncancel, delete.
-import Link from "next/link";
+// The side panel of one supplier invoice (D40 details panel): loads the detail (and the payable rows while it is
+// open) and saves patches. Title: the key, the total, the state. Sections: About (group, money read-out, base,
+// paid, open) · Proof (document, payments with *Link payment*, links) · the forms (money while a draft — D37 —,
+// facts while not cancelled) · Lines · History (collapsed); it ends with cancel / reinstate, delete.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/sheet";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { DetailsSection } from "@/kernel/ui/details-section";
+import { CodeChip } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import type { PayableTransaction } from "@/modules/supplier-invoices/queries";
 import {
@@ -30,15 +32,17 @@ import type {
   RegistrationOption,
   SupplierOption,
 } from "@/modules/supplier-invoices/types";
-import { SupplierInvoiceStatusBadge } from "./status-badge";
+import { SupplierInvoiceStateLabel } from "./state-label";
+import { SupplierInvoiceAbout } from "./supplier-invoice-panel-about";
 import { SupplierInvoicePanelActions } from "./supplier-invoice-panel-actions";
 import {
-  SupplierInvoiceDocumentSection,
-  SupplierInvoiceFactsSection,
-  SupplierInvoiceLinesSection,
+  SupplierInvoiceDocumentLine,
+  SupplierInvoiceFactsForm,
+  SupplierInvoiceLines,
 } from "./supplier-invoice-panel-facts";
-import { SupplierInvoiceLinksSection } from "./supplier-invoice-panel-links";
-import { SupplierInvoiceMoneySection } from "./supplier-invoice-panel-money";
+import { SupplierInvoiceHistory } from "./supplier-invoice-panel-history";
+import { SupplierInvoiceLinksList } from "./supplier-invoice-panel-links";
+import { SupplierInvoiceMoneyForm } from "./supplier-invoice-panel-money";
 import { SupplierInvoicePaymentsSection } from "./supplier-invoice-panel-payments";
 import {
   money,
@@ -136,52 +140,69 @@ export function SupplierInvoicePanel({
           <>
             <SheetHeader>
               <SheetTitle className="flex flex-wrap items-center gap-2">
-                <span className="font-mono" data-testid="panel-key">
-                  {si.key}
-                </span>
-                <span className="tabular-nums" data-testid="panel-amount">
-                  {money(si.amountTotal, si.currency)}
-                </span>
-                <SupplierInvoiceStatusBadge
+                <CodeChip>
+                  <span data-testid="panel-key">{si.key}</span>
+                </CodeChip>
+                <SupplierInvoiceStateLabel
                   status={detail.status}
                   daysOverdue={detail.daysOverdue}
                   testId="panel-status"
                 />
               </SheetTitle>
+              <div className="text-[22px] font-semibold tabular-nums" data-testid="panel-amount">
+                {money(si.amountTotal, si.currency)}
+              </div>
               <SheetDescription>
-                {detail.partnerName} · {si.invoiceNumber} ·{" "}
-                <Link href={`/expenses/groups/${si.groupId}`} className="hover:underline">
-                  {detail.groupLabel}
-                </Link>{" "}
-                · {detail.basLabel}
+                {detail.partnerName} · {si.invoiceNumber} · {detail.basLabel}
               </SheetDescription>
             </SheetHeader>
 
-            <SupplierInvoiceMoneySection
-              detail={detail}
-              suppliers={suppliers}
-              canWrite={canWrite}
-              editable={detail.editable && canWrite}
-              save={save}
-              saving={saving}
-            />
-            <SupplierInvoicePaymentsSection
-              detail={detail}
-              payable={payable}
-              canWrite={canWrite}
-              onChanged={changed}
-            />
-            <SupplierInvoiceFactsSection
-              detail={detail}
-              categories={categories}
-              registrations={registrations}
-              canWrite={canWrite}
-              save={save}
-              saving={saving}
-            />
-            <SupplierInvoiceLinesSection detail={detail} />
-            <SupplierInvoiceDocumentSection detail={detail} />
-            <SupplierInvoiceLinksSection detail={detail} />
+            <div className="flex flex-col">
+              <DetailsSection title={t("details.about")}>
+                <SupplierInvoiceAbout detail={detail} canWrite={canWrite} />
+              </DetailsSection>
+              <DetailsSection title={t("details.proof")}>
+                <div className="flex flex-col gap-3">
+                  <SupplierInvoiceDocumentLine detail={detail} />
+                  <SupplierInvoicePaymentsSection
+                    detail={detail}
+                    payable={payable}
+                    canWrite={canWrite}
+                    onChanged={changed}
+                  />
+                  <SupplierInvoiceLinksList detail={detail} />
+                </div>
+              </DetailsSection>
+              {detail.editable && canWrite && (
+                <DetailsSection title={t("supplierInvoices.panel.money")}>
+                  <SupplierInvoiceMoneyForm
+                    detail={detail}
+                    suppliers={suppliers}
+                    save={save}
+                    saving={saving}
+                  />
+                </DetailsSection>
+              )}
+              {canWrite && !si.cancelled && (
+                <DetailsSection title={t("supplierInvoices.panel.facts")}>
+                  <SupplierInvoiceFactsForm
+                    detail={detail}
+                    categories={categories}
+                    registrations={registrations}
+                    save={save}
+                    saving={saving}
+                  />
+                </DetailsSection>
+              )}
+              {si.lines.length > 0 && (
+                <DetailsSection title={t("supplierInvoices.panel.lines")}>
+                  <SupplierInvoiceLines detail={detail} />
+                </DetailsSection>
+              )}
+              <DetailsSection title={t("details.history")} defaultOpen={false}>
+                <SupplierInvoiceHistory detail={detail} />
+              </DetailsSection>
+            </div>
 
             <SupplierInvoicePanelActions
               detail={detail}
