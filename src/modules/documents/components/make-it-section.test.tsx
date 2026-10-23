@@ -41,6 +41,7 @@ const options = {
 const facts = {
   vendorName: "SBB CFF FFS",
   vendorTaxId: "CHE-123.456.789",
+  vendorAddress: { street: "Wylerstrasse 123", postalCode: "3000", city: "Bern", country: "CH" },
   invoiceNumber: "9160",
   invoiceDate: "2026-03-04",
   dueDate: "2026-04-03",
@@ -72,7 +73,12 @@ describe("MakeItSection (specs/documents US1)", () => {
       documentKey: "exp_20260304_001",
     });
     expect(i.supplier).toMatchObject({
-      vendor: { name: "SBB CFF FFS", vatNumber: "CHE-123.456.789" },
+      vendor: {
+        name: "SBB CFF FFS",
+        vatNumber: "CHE-123.456.789",
+        // T028: the OCR vendor address reaches the match card and *New vendor* (T026)
+        address: { street: "Wylerstrasse 123", postalCode: "3000", city: "Bern", country: "CH" },
+      },
       invoiceNumber: "9160",
       invoiceDate: "2026-03-04",
       dueDate: "2026-04-03",
@@ -92,6 +98,8 @@ describe("MakeItSection (specs/documents US1)", () => {
     });
     expect(r.expense).toMatchObject({ date: "2026-03-05", description: "Coop", amount: "12.50" });
     expect(r.supplier.invoiceNumber).toBeNull();
+    // no address read (a receipt never has one) → none passed, not an empty object
+    expect(r.supplier.vendor?.address).toBeNull();
   });
 
   it("offers the three ways and opens the expense dialog pre-filled", () => {
