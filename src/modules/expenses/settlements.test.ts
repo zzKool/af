@@ -170,6 +170,14 @@ describe("F62 — one owed rule, one Σ of active lines", () => {
       expect((await getExpenseDetail(tx, rep!.id)).data?.openBase).toBe("0.00");
       // and nothing is proposed again
       expect(await openPrivateExpenses(tx)).toEqual([]);
+      // F88 (D47): the statement prints owed, like the list and the ledger — 0.00, not the 0.30 remainder
+      const st = await resolveStatement(tx, owner.caller, s.data?.id ?? "");
+      expect(st?.lines.map((l) => [l.key, l.remainingOpen])).toEqual([
+        ["Ex213-Tr-01", "0.00"],
+        ["Ex213-Tr-02", "0.00"],
+        ["Ex213-Rep-01", "0.00"],
+      ]);
+      expect(st?.totals.residualOpen).toBe(ledger.total.openBase);
     });
     expect(await statuses()).toEqual({
       "Ex213-Tr-01": "refunded",

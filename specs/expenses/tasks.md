@@ -47,11 +47,15 @@
 - [x] T021 Settle screen on `settlementDifference` + `owedBase` in Decimal; the statement in `fifoOrder`.
 - [x] T022 `statement_superseded` derived (`isStatementSuperseded`); the column unread / unwritten (test: a statement stored after the cancel reads superseded).
 - [x] T023 Traktamente: a failed computation clears `trips.computed`; `parsePerDiemResult` (Zod) on read (test).
-- [ ] T024 Drop `settlements.statement_superseded` — waits for the owner's OK (irreversible).
+- [x] T024 Drop `settlements.statement_superseded` — the owner's OK 2026-10-23 (D48); F86's migration `20261023200000_drop_unread_columns`, with journal T010.
 
 ## F71 — the D40 kit (`feat/expenses-d40-kit`, lane LIGHT)
 
 - [x] T025 States → `<StateLabel>` through one map (`state-family.ts`, `ExpenseStateLabel` / `SettlementStateLabel`; `StatusBadge` gone); on-screen money → `formatMoney` (list, KPIs, panel, groups, group meta, settle page, settlements; the statement sheet keeps `formatCurrency`); keys → `<CodeChip>`; kind / payer / group kind / link kind → `<Tag>`; no palette colour; one primary per title row (`header-actions.tsx`); groups and settlements ⋮ `RowActionsMenu`; the panel in `DetailsSection`s About · Proof · Money · Facts · History (`history.ts` from the audit trail); quick filters Date + Paid by; no Σ of the mixed-currency amount; the SEK base column hidden by default (the row fits the canvas). Tests `state-family.pure.test.ts`, `history.pure.test.ts`, DB sums + history; `e2e/expenses.spec.ts` on the D40 amount and the settlement link; screenshots light + dark.
+
+## Cleanup round — lane 3 (lane DIRECT, behaviour-neutral except F88)
+
+- [x] T026 F88 (D47): the statement prints *owed* — `resolveStatement` on `owedBase`; test: the 0.30 residual's statement prints 0.00, residual = ledger.
 
 ## Dependencies
 
