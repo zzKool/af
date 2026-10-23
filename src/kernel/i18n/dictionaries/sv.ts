@@ -1133,6 +1133,16 @@ export const sv: Dictionary = {
   "supplierInvoices.panel.deleteConfirm": "Ta bort {key}? Nyckeln återanvänds aldrig.",
   "supplierInvoices.panel.deleted": "Leverantörsfaktura borttagen",
   "supplierInvoices.group.title": "{count} leverantörsfaktura/-or i gruppen",
+  "supplierInvoices.history.empty": "Ingen historik ännu.",
+  "supplierInvoices.history.created": "Skapad",
+  "supplierInvoices.history.edited": "Ändrad",
+  "supplierInvoices.history.cancelled": "Makulerad",
+  "supplierInvoices.history.reinstated": "Återställd",
+  "supplierInvoices.history.paymentLinked": "Betalning kopplad",
+  "supplierInvoices.history.rowAttached": "Bankrad kopplad (annan valuta)",
+  "supplierInvoices.history.rowDetached": "Bankrad bortkopplad",
+  "supplierInvoices.history.deleted": "Raderad",
+  "supplierInvoices.action.openGroup": "Öppna gruppen",
 
   // --- package ---
   "package.title": "Revisorspaket",

@@ -93,12 +93,16 @@ export function SupplierInvoicePaymentsSection({
   }
 
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-medium">{t("supplierInvoices.panel.payments")}</h3>
+    <div className="flex flex-col gap-1.5">
+      <h4 className="text-xs font-semibold text-muted-foreground">
+        {t("supplierInvoices.panel.payments")}
+      </h4>
       {detail.payments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("supplierInvoices.panel.noPayments")}</p>
+        <p className="text-[13px] text-muted-foreground">
+          {t("supplierInvoices.panel.noPayments")}
+        </p>
       ) : (
-        <ul className="divide-y rounded-md border text-sm" data-testid="payments">
+        <ul className="divide-y divide-subtle rounded-md border text-[13px]" data-testid="payments">
           {detail.payments.map((p) => (
             <li key={p.linkId} className="flex items-center justify-between gap-2 px-3 py-1.5">
               <span className="min-w-0 truncate">
@@ -115,11 +119,13 @@ export function SupplierInvoicePaymentsSection({
                 ) : null}
               </span>
               <span className="flex shrink-0 items-center gap-2">
-                <span className="tabular-nums">{money(p.allocated, p.currency)}</span>
+                <span className="tabular-nums" data-amount>
+                  {money(p.allocated, p.currency)}
+                </span>
                 {canWrite && (
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="link"
                     onClick={() => void unlinkPayment(p.linkId)}
                     disabled={detaching}
                     data-testid="remove-payment"
@@ -133,7 +139,7 @@ export function SupplierInvoicePaymentsSection({
         </ul>
       )}
       {canWrite && !si.cancelled && detail.open !== "0.00" && !si.paidAmount && (
-        <div className="mt-3 grid gap-2" data-testid="link-payment">
+        <div className="mt-2 grid gap-2" data-testid="link-payment">
           <div>
             <label htmlFor={`${ids}-pay`} className="mb-1 block text-xs font-medium">
               {t("supplierInvoices.panel.pickRow")}
@@ -192,6 +198,6 @@ export function SupplierInvoicePaymentsSection({
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }

@@ -1,7 +1,6 @@
 // What the sections of the supplier-invoice panel share: the detail as the action returns it (dates as strings),
 // the patch the panel saves, and two display helpers.
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
 import type { SupplierInvoiceDetail } from "@/modules/supplier-invoices/queries";
 import type { updateSupplierInvoiceAction } from "@/modules/supplier-invoices/supplier-invoices.actions";
 
@@ -19,7 +18,7 @@ export type SupplierInvoicePatch = Parameters<typeof updateSupplierInvoiceAction
 /** Saves a patch, toasts, reloads the panel (also on error, to put the fields back). */
 export type SaveSupplierInvoice = (patch: SupplierInvoicePatch) => Promise<void>;
 
-export const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
+/** On-screen money (D40): `1 297.20 CHF` in every UI language. */
+export const money = (amount: string, currency: string) => formatMoney(amount, currency);
 
 export const NONE = "__none__";
