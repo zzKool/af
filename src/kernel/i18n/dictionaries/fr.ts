@@ -184,9 +184,8 @@ export const fr: Dictionary = {
   "partners.tab.contracts": "Contrats ({count})",
   "partners.tab.transactions": "Transactions",
   "partners.tab.documents": "Documents",
-  "partners.tab.transactionsCount": "Transactions ({count})",
-  "partners.tab.documentsCount": "Documents ({count})",
-  "partners.tab.contacts": "Contacts ({count})",
+  "partners.tab.contacts": "Contacts",
+  "partners.tab.contractList": "Contrats",
   "partners.transactions.showing": "Les {shown} plus récentes sur {total}",
   "partners.transactions.openJournal": "Ouvrir dans le journal →",
   "partners.overview.activeContracts": "Contrats actifs",
@@ -302,6 +301,8 @@ export const fr: Dictionary = {
   "contracts.rates.error.overlap": "Ce tarif chevauche un tarif existant ({from} → {to})",
   "contracts.rates.error.inUse":
     "Ce tarif est utilisé sur {n} ligne(s) de facture et ne peut pas être supprimé — clôturez-le",
+  "contracts.rates.error.usedLocked":
+    "Ce tarif est utilisé sur {n} ligne(s) de facture — seules sa date de fin et sa note peuvent changer ; clôturez-le et ajoutez un nouveau tarif",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Facture",
@@ -528,6 +529,14 @@ export const fr: Dictionary = {
   "banking.panel.import": "Import d'origine",
   "banking.panel.base": "{base} SEK à {rate} ({source})",
   "banking.panel.implicitRate": "taux banque {rate}",
+  "banking.history.imported": "Importée",
+  "banking.history.categorised": "Catégorisée {code}",
+  "banking.history.uncategorised": "Catégorie retirée",
+  "banking.history.partner": "Partenaire modifié",
+  "banking.history.no_document": "Marquée sans justificatif",
+  "banking.history.document_needed": "Justificatif de nouveau requis",
+  "banking.history.linked": "Liée : {type} ({kind})",
+  "banking.history.empty": "Rien d'enregistré pour l'instant.",
   "banking.rules.meta": "{count} règles",
   "banking.rules.title": "Règles de catégorisation",
   "banking.rules.new": "Nouvelle règle",
@@ -1144,6 +1153,18 @@ export const fr: Dictionary = {
   "traktamente.trip.expenseWritten": "Dépense d'indemnité {key} : {amount} SEK",
   "traktamente.trip.expenseLink": "Dépense d'indemnité",
   "traktamente.trip.rateLink": "Barèmes",
+  "traktamente.trip.reason.noOvernight": "pas de nuit hors du domicile",
+  "traktamente.trip.warning.twoRateYears": "le voyage s'étend sur deux années de barème ({years})",
+  "traktamente.trip.warning.mealsExceedDays":
+    "la réduction pour repas dépasse les montants journaliers — rien n'est exonéré",
+  "traktamente.trip.error.missingRate":
+    "Aucun barème d'indemnité de voyage pour {countryCode} en {year}",
+  "traktamente.trip.error.missingMealAmounts":
+    "Les montants des repas suédois de {year} manquent dans le barème",
+  "traktamente.trip.error.tooManyMeals": "{what} ({count}) : plus que les {days} jours du voyage",
+  "traktamente.trip.error.tooManyNights":
+    "Nuits sans logement payé ({count}) : plus que les {nights} nuits du voyage",
+  "traktamente.trip.error.longStay": "Le facteur de long séjour est compris entre 0 et 1",
 
   // --- supplier invoices ---
   "supplierInvoices.title": "Factures fournisseurs",

@@ -1,19 +1,24 @@
 "use client";
 
+// The partner's 360° page (D40 entity archetype): the title row — the state, the types as tags, ⋮ with
+// Deactivate / Reactivate, the graph link — and underline tabs with count badges. The breadcrumb names the
+// parent, so there is no back link and the title shows once.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
+import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { BASE_CURRENCY } from "@/kernel/nav/constants";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
+import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import { PageHeader } from "@/kernel/ui/shell/page";
+import { CodeChip, CountBadge, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { ContractList, type ContractRow } from "@/modules/contracts/ui";
 import { GraphLink } from "@/modules/linking/ui";
@@ -26,6 +31,7 @@ import {
   deactivatePartnerAction,
   reactivatePartnerAction,
 } from "@/modules/partners/partners.actions";
+import { PartnerStateLabel, PartnerTypeTags } from "./partner-labels";
 
 type BasOption = { code: string; label: string };
 type VatOption = { id: string; label: string };
@@ -61,6 +67,11 @@ interface PartnerDetailTabsProps {
   journal: { total: number; rows: PartnerJournalRow[] };
 }
 
+const DOCUMENT_CATEGORY: Readonly<Record<string, MessageKey>> = {
+  financial: "documents.category.financial",
+  relationship: "documents.category.relationship",
+};
+
 export function PartnerDetailTabs({
   partner,
   contracts,
@@ -76,6 +87,7 @@ export function PartnerDetailTabs({
   const router = useRouter();
   const [isActive, setIsActive] = useState(partner.isActive);
   const [displayName, setDisplayName] = useState(partner.name);
+  const [types, setTypes] = useState<string[]>(partner.types);
   const [contactCount, setContactCount] = useState(contacts.length);
   const { executeAsync: execDeactivate } = useAction(deactivatePartnerAction);
   const { executeAsync: execReactivate } = useAction(reactivatePartnerAction);
@@ -86,28 +98,24 @@ export function PartnerDetailTabs({
     confirmLabel: t("partners.deactivate"),
   });
 
-  const isClient = partner.types.includes("client");
+  const isClient = types.includes("client");
   const activeContractCount = contracts.filter((c) => c.isActive).length;
 
   const handleDeactivate = useCallback(() => {
     confirm(
       async () => {
-        const result = await execDeactivate({ id: partner.id });
-        const error = extractError(result);
+        const error = extractError(await execDeactivate({ id: partner.id }));
         if (error) throw new Error(error);
         setIsActive(false);
         toast.success(t("partners.deactivated", { name: displayName }));
         router.refresh();
       },
-      {
-        description: t("partners.deactivateConfirm.description", { name: displayName }),
-      },
+      { description: t("partners.deactivateConfirm.description", { name: displayName }) },
     );
   }, [confirm, execDeactivate, partner.id, displayName, router, t]);
 
   const handleReactivate = useCallback(async () => {
-    const result = await execReactivate({ id: partner.id });
-    const error = extractError(result);
+    const error = extractError(await execReactivate({ id: partner.id }));
     if (error) {
       toast.error(error);
       return;
@@ -117,205 +125,202 @@ export function PartnerDetailTabs({
     router.refresh();
   }, [execReactivate, partner.id, displayName, router, t]);
 
-  const handleNameSaved = useCallback((name: string) => {
-    setDisplayName(name);
+  const handleSaved = useCallback((patch: { name?: string; types?: string[] }) => {
+    if (patch.name !== undefined) setDisplayName(patch.name);
+    if (patch.types !== undefined) setTypes(patch.types);
   }, []);
 
   return (
-    <div className="space-y-6">
-      {/* Persistent Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/partners" className="text-muted-foreground hover:text-foreground">
-            &larr; {t("partners.title")}
-          </Link>
-          <h1 className="text-2xl font-semibold">{displayName}</h1>
-          <Badge variant={isActive ? "default" : "secondary"}>
-            {isActive ? t("partners.status.active") : t("partners.status.inactive")}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-2">
-          <GraphLink self={{ type: "partner", id: partner.id }} />
-          {isActive ? (
-            <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-              {t("partners.deactivate")}
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={handleReactivate}>
-              {t("partners.reactivate")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabbed Content */}
-      <Tabs defaultValue="overview">
-        <TabsList variant="line">
-          <TabsTrigger value="overview">{t("partners.tab.overview")}</TabsTrigger>
-          <TabsTrigger value="contracts">
-            {t("partners.tab.contracts", { count: contracts.length })}
-          </TabsTrigger>
-          <TabsTrigger value="contacts">
-            {t("partners.tab.contacts", { count: contactCount })}
-          </TabsTrigger>
-          <TabsTrigger value="transactions">
-            {t("partners.tab.transactionsCount", { count: journal.total })}
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            {t("partners.tab.documentsCount", { count: documents.length })}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="pt-4">
-          {/* Relationship Summary */}
-          <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="text-muted-foreground">{t("partners.col.types")}</dt>
-              <dd className="font-medium">
-                {partner.types
-                  .map((type) => t(`partners.type.${type as "client" | "vendor" | "employee"}`))
-                  .join(", ")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t("partners.overview.activeContracts")}</dt>
-              <dd className="font-medium">{activeContractCount}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t("partners.overview.totalContracts")}</dt>
-              <dd className="font-medium">{contracts.length}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t("partners.overview.contacts")}</dt>
-              <dd className="font-medium">{contactCount}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t("partners.tab.transactions")}</dt>
-              <dd className="font-medium">{journal.total}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t("partners.tab.documents")}</dt>
-              <dd className="font-medium">{documents.length}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">{t("partners.col.created")}</dt>
-              <dd className="font-medium">
-                {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-                  new Date(partner.createdAt),
-                )}
-              </dd>
-            </div>
-          </dl>
-          <PartnerForm
-            hideHeader
-            partner={partner}
-            basOptions={basOptions}
-            onNameSaved={handleNameSaved}
-          />
-        </TabsContent>
-
-        <TabsContent value="contracts" className="pt-4">
-          {isClient ? (
-            <ContractList
-              partnerId={partner.id}
-              contracts={contracts}
-              vatRegistrations={vatRegistrations}
-              employeePartners={employeePartners}
-              defaultCurrency={defaultCurrency}
+    <Tabs defaultValue="overview" className="gap-4">
+      <PageHeader
+        title={displayName}
+        tags={
+          <>
+            <PartnerStateLabel isActive={isActive} />
+            <PartnerTypeTags types={types} />
+          </>
+        }
+        actions={
+          <>
+            <RowActionsMenu
+              label={t("shell.more")}
+              actions={[
+                isActive
+                  ? {
+                      label: t("partners.deactivate"),
+                      destructive: true,
+                      onClick: handleDeactivate,
+                    }
+                  : { label: t("partners.reactivate"), onClick: () => void handleReactivate() },
+              ]}
             />
-          ) : (
-            <Card>
-              <CardContent className="py-8">
-                <p className="text-muted-foreground">{t("partners.contracts.notClient")}</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+            <GraphLink self={{ type: "partner", id: partner.id }} />
+          </>
+        }
+        tabs={
+          <TabsList>
+            <TabsTrigger value="overview">{t("partners.tab.overview")}</TabsTrigger>
+            <TabTrigger
+              value="contracts"
+              label={t("partners.tab.contractList")}
+              count={contracts.length}
+            />
+            <TabTrigger value="contacts" label={t("partners.tab.contacts")} count={contactCount} />
+            <TabTrigger
+              value="transactions"
+              label={t("partners.tab.transactions")}
+              count={journal.total}
+            />
+            <TabTrigger
+              value="documents"
+              label={t("partners.tab.documents")}
+              count={documents.length}
+            />
+          </TabsList>
+        }
+      />
 
-        <TabsContent value="contacts" className="pt-4">
-          <PartnerContacts
-            partnerId={partner.id}
-            contacts={contacts}
-            onCountChange={setContactCount}
+      <TabsContent value="overview">
+        <DetailsSection title={t("details.about")} className="border-t-0 pt-0">
+          <DetailsGrid
+            rows={[
+              [t("partners.col.status"), <PartnerStateLabel key="s" isActive={isActive} />],
+              [t("partners.col.types"), <PartnerTypeTags key="t" types={types} />],
+              [
+                t("partners.overview.activeContracts"),
+                <span key="c" className="tabular-nums">
+                  {activeContractCount}
+                </span>,
+              ],
+              [
+                t("partners.col.created"),
+                <span key="d" className="tabular-nums">
+                  {partner.createdAt.slice(0, 10)}
+                </span>,
+              ],
+            ]}
           />
-        </TabsContent>
+        </DetailsSection>
+        <PartnerForm partner={partner} basOptions={basOptions} onSaved={handleSaved} />
+      </TabsContent>
 
-        <TabsContent value="transactions" className="pt-4">
-          {journal.rows.length === 0 ? (
-            <Card>
-              <CardContent className="py-8">
-                <p className="text-muted-foreground">{t("partners.transactions.empty")}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="flex flex-col gap-2" data-testid="partner-transactions">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {t("partners.transactions.showing", {
-                    shown: journal.rows.length,
-                    total: journal.total,
-                  })}
-                </span>
-                <Link
-                  href={`/journal?f.partnerId=in:${partner.id}`}
-                  className="text-xs hover:underline"
-                >
-                  {t("partners.transactions.openJournal")}
-                </Link>
-              </div>
-              <ul className="divide-y rounded-md border text-sm">
-                {journal.rows.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
-                    <span className="min-w-0 truncate">
-                      <span className="mr-2 text-muted-foreground tabular-nums">{r.entryDate}</span>
-                      <span title={r.description}>{r.description}</span>
-                      {r.basLabel && (
-                        <span className="ml-2 text-xs text-muted-foreground">{r.basLabel}</span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-right tabular-nums">
-                      {formatCurrency(r.amount, r.currency as Currency)} {r.currency}
-                      {r.currency !== "SEK" && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {formatCurrency(r.amountBase, "SEK")} SEK
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+      <TabsContent value="contracts">
+        {isClient ? (
+          <ContractList
+            partnerId={partner.id}
+            contracts={contracts}
+            vatRegistrations={vatRegistrations}
+            employeePartners={employeePartners}
+            defaultCurrency={defaultCurrency}
+          />
+        ) : (
+          <Empty>{t("partners.contracts.notClient")}</Empty>
+        )}
+      </TabsContent>
+
+      <TabsContent value="contacts">
+        <PartnerContacts
+          partnerId={partner.id}
+          contacts={contacts}
+          onCountChange={setContactCount}
+        />
+      </TabsContent>
+
+      <TabsContent value="transactions">
+        {journal.rows.length === 0 ? (
+          <Empty>{t("partners.transactions.empty")}</Empty>
+        ) : (
+          <div className="flex flex-col gap-2" data-testid="partner-transactions">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {t("partners.transactions.showing", {
+                  shown: journal.rows.length,
+                  total: journal.total,
+                })}
+              </span>
+              <Link
+                href={`/journal?f.partnerId=in:${partner.id}`}
+                className="text-primary hover:underline"
+              >
+                {t("partners.transactions.openJournal")}
+              </Link>
             </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="documents" className="pt-4">
-          {documents.length === 0 ? (
-            <Card>
-              <CardContent className="py-8">
-                <p className="text-muted-foreground">{t("partners.documents.empty")}</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <ul className="divide-y rounded-md border text-sm" data-testid="partner-documents">
-              {documents.map((d) => (
-                <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
-                  <span className="min-w-0 truncate">
-                    <Link href={`/documents/${d.id}`} className="font-medium hover:underline">
-                      {d.businessKey}
-                    </Link>
-                    <span className="ml-2 text-muted-foreground">{d.fileName}</span>
+            <ul className="rounded-lg border text-[13px]">
+              {journal.rows.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex min-h-8 items-center justify-between gap-3 border-b border-subtle px-3 py-1 last:border-b-0"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 text-muted-foreground tabular-nums">
+                      {r.entryDate}
+                    </span>
+                    <span className="truncate" title={r.description}>
+                      {r.description}
+                    </span>
+                    {r.basLabel && <Tag className="shrink-0">{r.basLabel}</Tag>}
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {d.documentType} · {d.status}
+                  <span className="flex shrink-0 items-baseline gap-2 text-right tabular-nums">
+                    <span data-amount={r.amount}>{formatMoney(r.amount, r.currency)}</span>
+                    {r.currency !== BASE_CURRENCY && (
+                      <span className="text-xs text-muted-foreground" data-amount={r.amountBase}>
+                        {formatMoney(r.amountBase, BASE_CURRENCY)}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
             </ul>
-          )}
-        </TabsContent>
-      </Tabs>
+          </div>
+        )}
+      </TabsContent>
+
+      <TabsContent value="documents">
+        {documents.length === 0 ? (
+          <Empty>{t("partners.documents.empty")}</Empty>
+        ) : (
+          <ul className="rounded-lg border text-[13px]" data-testid="partner-documents">
+            {documents.map((d) => {
+              const category = DOCUMENT_CATEGORY[d.documentType];
+              return (
+                <li
+                  key={d.id}
+                  className="flex min-h-8 items-center justify-between gap-3 border-b border-subtle px-3 py-1 last:border-b-0"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Link href={`/documents/${d.id}`} className="shrink-0 hover:underline">
+                      <CodeChip>{d.businessKey}</CodeChip>
+                    </Link>
+                    <span className="truncate font-mono text-xs text-muted-foreground">
+                      {d.fileName}
+                    </span>
+                  </span>
+                  {category && <Tag className="shrink-0">{t(category)}</Tag>}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </TabsContent>
 
       <ConfirmDialog {...dialogProps} />
-    </div>
+    </Tabs>
+  );
+}
+
+/** An underline tab with its count as a badge (D40) — the accessible name is "Contacts 2" (a space before the badge). */
+function TabTrigger({ value, label, count }: { value: string; label: string; count: number }) {
+  return (
+    <TabsTrigger value={value}>
+      {label} <CountBadge count={count} />
+    </TabsTrigger>
+  );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-lg border px-3 py-6 text-center text-[13px] text-muted-foreground">
+      {children}
+    </p>
   );
 }

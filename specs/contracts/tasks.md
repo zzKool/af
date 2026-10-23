@@ -42,7 +42,7 @@ T001 ∥ T002–T004 → T005–T006 → T007–T009 → T010 → T011–T012 �
 - [x] T020 `rateFor` / `currentRatesFor` load candidates (`valid_from ≤ day`) and call `pickRate` — the rule lives once
 - [x] T021 Tests: pure `lockedFieldsChanged`; DB — used rate's amount / start / mixed edit refused and unchanged, same value re-posted accepted, closing works + audited, a date after `validTo` picks the next rate (manual close and auto-close, `currentRate`), fixture cases through `rateFor` / `currentRatesFor`
 - [x] T022 Docs: `docs/contracts.md`, F63 row, lesson 18
-- [ ] T023 *(next contracts PR, i18n slot)* `contracts.rates.error.usedLocked` in en / fr / sv + the component maps `details.usedOn`
+- [x] T023 `contracts.rates.error.usedLocked` in en / fr / sv; `rate-error.ts` maps a refusal's `details` to its key (`usedOn` before `n`, so an edit never reads as the delete text) — the Rates section calls it; `errors.generic` instead of *Error*. Test: `rate-error.pure.test.ts`. Branch `feat/contracts-used-locked-key`
 - [ ] T024 *(invoices + contracts)* refuse closing a used rate before the last `period_start` priced on it — needs a richer usage hook from invoices
 
 ## Phase 9: F71 — contracts adopts the D40 kit · branch `feat/contracts-d40-kit`

@@ -186,9 +186,8 @@ export const sv: Dictionary = {
   "partners.tab.contracts": "Avtal ({count})",
   "partners.tab.transactions": "Transaktioner",
   "partners.tab.documents": "Dokument",
-  "partners.tab.transactionsCount": "Transaktioner ({count})",
-  "partners.tab.documentsCount": "Dokument ({count})",
-  "partners.tab.contacts": "Kontakter ({count})",
+  "partners.tab.contacts": "Kontakter",
+  "partners.tab.contractList": "Avtal",
   "partners.transactions.showing": "De {shown} senaste av {total}",
   "partners.transactions.openJournal": "Öppna i journalen →",
   "partners.overview.activeContracts": "Aktiva avtal",
@@ -303,6 +302,8 @@ export const sv: Dictionary = {
   "contracts.rates.error.overlap": "Arvodet överlappar ett befintligt arvode ({from} → {to})",
   "contracts.rates.error.inUse":
     "Arvodet används på {n} fakturarad(er) och kan inte tas bort — avsluta det i stället",
+  "contracts.rates.error.usedLocked":
+    "Arvodet används på {n} fakturarad(er) — bara slutdatum och anteckning kan ändras; avsluta det och lägg till ett nytt arvode",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Faktura",
@@ -526,6 +527,14 @@ export const sv: Dictionary = {
   "banking.panel.import": "Från import",
   "banking.panel.base": "{base} SEK till kurs {rate} ({source})",
   "banking.panel.implicitRate": "bankkurs {rate}",
+  "banking.history.imported": "Importerad",
+  "banking.history.categorised": "Kategoriserad {code}",
+  "banking.history.uncategorised": "Kategori borttagen",
+  "banking.history.partner": "Partner ändrad",
+  "banking.history.no_document": "Markerad utan underlag",
+  "banking.history.document_needed": "Underlag krävs igen",
+  "banking.history.linked": "Kopplad: {type} ({kind})",
+  "banking.history.empty": "Inget registrerat ännu.",
   "banking.rules.meta": "{count} regler",
   "banking.rules.title": "Kategoriseringsregler",
   "banking.rules.new": "Ny regel",
@@ -997,6 +1006,17 @@ export const sv: Dictionary = {
   "traktamente.trip.expenseWritten": "Traktamentsutlägg {key}: {amount} SEK",
   "traktamente.trip.expenseLink": "Traktamentsutlägg",
   "traktamente.trip.rateLink": "Belopp",
+  "traktamente.trip.reason.noOvernight": "ingen övernattning",
+  "traktamente.trip.warning.twoRateYears": "resan sträcker sig över två beloppsår ({years})",
+  "traktamente.trip.warning.mealsExceedDays":
+    "måltidsavdraget överstiger dagbeloppen — inget är skattefritt",
+  "traktamente.trip.error.missingRate": "Inget normalbelopp för {countryCode} år {year}",
+  "traktamente.trip.error.missingMealAmounts":
+    "Sveriges måltidsbelopp för {year} saknas i beloppstabellen",
+  "traktamente.trip.error.tooManyMeals": "{what} ({count}) överstiger resans {days} dagar",
+  "traktamente.trip.error.tooManyNights":
+    "Nätter utan betalt logi ({count}) överstiger resans {nights} nätter",
+  "traktamente.trip.error.longStay": "Faktorn för långvarig förrättning ligger mellan 0 och 1",
 
   // --- supplier invoices ---
   "supplierInvoices.title": "Leverantörsfakturor",

@@ -30,6 +30,7 @@ import type {
   BankAccountRole,
   BankImportDto,
   BankTransactionDto,
+  OutgoingMainRow,
   RuleListRow,
   TransactionListRow,
   TransactionState,
@@ -300,6 +301,62 @@ export async function transactionDateHierarchy(
   return buildDateHierarchy(
     rows.map((r) => r[column as keyof TransactionListRow] as Date | string | null),
   );
+}
+
+// --- the read API other modules call instead of reading `bank_transactions` (lessons audit 23) ---
+
+/**
+ * Outgoing rows on main accounts, newest first, with their journal base — what the settle / attach pickers
+ * (expenses) and the *Link payment* picker (supplier invoices) start from. Each caller filters its own (rows that
+ * already settle, rows with nothing left to allocate), so it asks for more than it shows.
+ */
+export async function outgoingMainRows(
+  tx: TransactionClient,
+  limit: number,
+): Promise<OutgoingMainRow[]> {
+  const rows = await tx.bankTransaction.findMany({
+    where: { amount: { lt: 0 }, bankAccount: { role: "main" } },
+    include: { bankAccount: true },
+    orderBy: [{ bookingDate: "desc" }, { id: "asc" }],
+    take: limit,
+  });
+  const entries = await journal.entriesForSources(
+    tx,
+    "bank_transaction",
+    rows.map((r) => r.id),
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    bookingDate: r.bookingDate.toISOString().slice(0, 10),
+    amount: r.amount.toFixed(2),
+    currency: r.currency,
+    description: r.description,
+    bankAccountId: r.bankAccountId,
+    accountLabel: accountLabel(r.bankAccount),
+    amountBase: entries.get(r.id)?.amountBase ?? null,
+  }));
+}
+
+/** Booking dates (`YYYY-MM-DD`) of bank rows by id; an unknown id is absent. */
+export async function bookingDates(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const rows = await tx.bankTransaction.findMany({
+    where: { id: { in: [...new Set(ids)] } },
+    select: { id: true, bookingDate: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.bookingDate.toISOString().slice(0, 10)]));
+}
+
+/** The first booking date (`YYYY-MM-DD`) of any bank row, or null before the first import. */
+export async function firstBookingDate(tx: TransactionClient): Promise<string | null> {
+  const first = await tx.bankTransaction.findFirst({
+    orderBy: { bookingDate: "asc" },
+    select: { bookingDate: true },
+  });
+  return first ? first.bookingDate.toISOString().slice(0, 10) : null;
 }
 
 // --- single reads ---
