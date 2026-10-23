@@ -43,3 +43,28 @@ describe("rateErrorText", () => {
     expect(rateErrorText(violation(), en)).toBe("the service's English");
   });
 });
+
+// T024: a used rate closed before the last day it priced reads in the user's language, with both days.
+describe("rateErrorText — closing before the last priced day", () => {
+  const violation = (details: Record<string, string | number>) => ({
+    code: "BUSINESS_RULE_VIOLATION" as const,
+    message: "the service's English",
+    retryable: false,
+    details,
+  });
+
+  it("→ closesBeforePriced in en / fr / sv, never the service's English", () => {
+    for (const lang of ["en", "fr", "sv"]) {
+      const t = translator(lang);
+      const text = rateErrorText(
+        violation({ pricedUntil: "2026-03-01", validTo: "2026-02-28" }),
+        t,
+      );
+      expect(text).toBe(
+        t("contracts.rates.error.closesBeforePriced", { day: "2026-03-01", validTo: "2026-02-28" }),
+      );
+      expect(text).toContain("2026-03-01");
+      expect(text).toContain("2026-02-28");
+    }
+  });
+});

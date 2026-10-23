@@ -6,7 +6,7 @@
 // `owedBase` is THE "still owed" rule (F62): the list, the groups, the ledger, the open expenses a settlement
 // proposes and the status all read it — one tolerance, no copy.
 import { Prisma } from "@/generated/prisma/browser";
-import { settlementTolerance } from "@/kernel/money/settlement";
+import { isSettled } from "@/kernel/money/settlement";
 import type { ExpenseStatus } from "./types";
 
 const D = Prisma.Decimal;
@@ -39,9 +39,9 @@ export function deriveExpenseStatus(input: {
 }): ExpenseStatus {
   if (!input.paidByPrivate) {
     if (!input.paidAmount) return "awaiting_link";
-    const paid = new D(input.paidAmount).abs();
-    const justified = new D(input.justifiedAmount);
-    return justified.gte(paid.minus(settlementTolerance(paid))) ? "paid" : "awaiting_link";
+    return isSettled(new D(input.paidAmount).abs(), [input.justifiedAmount])
+      ? "paid"
+      : "awaiting_link";
   }
   if (owedBase(input.amountBase, input.allocatedBase).isZero()) return "refunded";
   if (new D(input.allocatedBase).gt(0)) return "partially_refunded";

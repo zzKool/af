@@ -60,8 +60,8 @@
 ## Lane 5 — cleanup round (lessons audit 22 · 27 · 29–31, contracts T024) · DIRECT, behaviour-neutral, one PR each
 
 - [x] T033 `feat/invoices-exports` — exports other modules asked for: `signedTotal` / `creditSign` (`signed.ts`), `DEFAULT_PAYMENT_TERMS_DAYS` + `QUOTE_VALIDITY_DAYS` (`defaults.ts`; the three literal 30s), `creditedSum(ids)` (`credited.ts`; `queries.ts` and `issue.ts`'s credit limit use it), `ratePricingFromInvoiceLines` → `{ lines, lastPeriodStart }` (`rate-usage.ts`, for contracts T024 — contracts wires it). Tests: `signed.pure.test.ts` (property: an invoice and its full credit note net to 0), DB: `creditedSum` (drafts left out), `ratePricing` (line period → document period → issue date)
-- [ ] T034 `queries.ts` allocations → `linking.allocatedSums` (no `tx.link` in the module; `settles` never targets an invoice, so the kinds filter changes nothing)
-- [ ] T035 audit 27 adoption: `derive.ts` `remainingAmount` → the kernel's `openAmount`; `components/sheet-document.ts` `daysBetween` → `daysUntil`
+- [x] T034 `feat/invoices-linking-reads` — `queries.ts` allocations → `linking.allocatedSums(tx, "invoice", ids)`: no `tx.link` left in the module. Behaviour-neutral: linking sums `justifies` + `settles`, and `settles` only ever targets a settlement (`kinds.ts`). The US5 DB tests (paid / partially paid / tolerance, list sums) carry it unchanged
+- [x] T035 `feat/invoices-kernel-helpers` — audit 27 adoption: `derive.ts` `remainingAmount` is the kernel's `openAmount(total, allocated, credited).toFixed(2)`; `components/sheet-document.ts`'s own signed `daysBetween` → `kernel/clock` `daysUntil` (the payment-terms days on the sheet), its `ui.ts` re-export dropped (no caller). Tests unchanged: `derive.pure.test.ts`, `print.pure.test.tsx`, the `print-identity` snapshots
 - [ ] T036 audit 29: `printedReferences` / `printedParties` / `vatByRate` parsed on read (a read mapper per column) and written through a write mapper
 - [ ] T037 audit 30: currencies parsed, not cast
 - [ ] T038 audit 31: `invoices.test.ts` uses banking's real `bank_transaction` linkable instead of the fake

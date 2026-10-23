@@ -95,10 +95,9 @@ export function SupplierInvoicePanel({
     }
     const d = r?.data && "data" in r.data ? r.data.data : undefined;
     if (d) {
-      const detail = d as unknown as SupplierInvoicePanelDetail;
-      setDetail(detail);
-      if (!detail.invoice.cancelled && detail.open !== "0.00") {
-        const p = await loadPayable({ currency: detail.linkCurrency });
+      setDetail(d);
+      if (!d.invoice.cancelled && d.open !== "0.00") {
+        const p = await loadPayable({ currency: d.linkCurrency });
         const rows = p?.data && "data" in p.data ? p.data.data : [];
         setPayable(rows ?? []);
       } else {

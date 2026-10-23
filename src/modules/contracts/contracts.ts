@@ -6,6 +6,8 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
 import { isoDate, uuid } from "@/kernel/validation/scalars";
+import { getPartner } from "@/modules/partners";
+import { getVatRegistration } from "@/modules/settings";
 import { currentRatesFor } from "./contract-rates";
 import type { ContractDto, CurrentRate, ExternalReference } from "./types";
 
@@ -166,7 +168,7 @@ export async function createContract(
   data: CreateContractInput,
 ): Promise<ServiceResult<{ id: string }>> {
   // Validate partner exists, is active, and has client type
-  const partner = await tx.partner.findUnique({ where: { id: data.partnerId } });
+  const partner = (await getPartner(tx, data.partnerId)).data;
   if (!partner) {
     return { error: { code: "NOT_FOUND", message: "Partner not found", retryable: false } };
   }
@@ -191,7 +193,7 @@ export async function createContract(
 
   // Validate assigned employee if provided
   if (data.assignedEmployeeId) {
-    const employee = await tx.partner.findUnique({ where: { id: data.assignedEmployeeId } });
+    const employee = (await getPartner(tx, data.assignedEmployeeId)).data;
     if (!employee) {
       return {
         error: { code: "NOT_FOUND", message: "Assigned employee not found", retryable: false },
@@ -210,7 +212,7 @@ export async function createContract(
 
   // Validate VAT registration if provided (RLS-scoped, so tenant-safe)
   if (data.vatRegistrationId) {
-    const vatReg = await tx.vatRegistration.findUnique({ where: { id: data.vatRegistrationId } });
+    const vatReg = await getVatRegistration(tx, data.vatRegistrationId);
     if (!vatReg) {
       return {
         error: { code: "NOT_FOUND", message: "VAT registration not found", retryable: false },
@@ -284,7 +286,7 @@ export async function updateContract(
 
   // Validate assigned employee if changed
   if (data.assignedEmployeeId !== undefined && data.assignedEmployeeId !== null) {
-    const employee = await tx.partner.findUnique({ where: { id: data.assignedEmployeeId } });
+    const employee = (await getPartner(tx, data.assignedEmployeeId)).data;
     if (!employee) {
       return {
         error: { code: "NOT_FOUND", message: "Assigned employee not found", retryable: false },
@@ -303,7 +305,7 @@ export async function updateContract(
 
   // Validate VAT registration if changed
   if (data.vatRegistrationId !== undefined && data.vatRegistrationId !== null) {
-    const vatReg = await tx.vatRegistration.findUnique({ where: { id: data.vatRegistrationId } });
+    const vatReg = await getVatRegistration(tx, data.vatRegistrationId);
     if (!vatReg) {
       return {
         error: { code: "NOT_FOUND", message: "VAT registration not found", retryable: false },

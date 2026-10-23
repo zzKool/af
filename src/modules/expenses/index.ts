@@ -7,7 +7,6 @@ export {
   DUPLICATE_AMOUNT_TOLERANCE,
   DUPLICATE_DATE_TOLERANCE_DAYS,
   DUPLICATE_MAX,
-  daysApart,
   dedupeMatches,
   type ExpenseDuplicateQuery,
   findExpenseDuplicates,
@@ -65,6 +64,7 @@ export {
 export * from "./queries";
 export type { ConfirmInput, ProposeInput } from "./settlements";
 export {
+  activeSettlementTransactionIds,
   cancelSettlement,
   confirmSchema,
   confirmSettlement,

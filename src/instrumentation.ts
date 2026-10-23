@@ -28,8 +28,9 @@ export async function register() {
         import("@/modules/settings"),
         import("@/modules/exports"),
       ]);
-      // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted)
-      contracts.setRateUsage(invoices.rateUsageFromInvoiceLines);
+      // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted;
+      // T024: nor closed before the last day it priced)
+      contracts.setRateUsage(invoices.ratePricingFromInvoiceLines);
       // lesson 19: a VAT registration an invoice or a declaration carries cannot be deleted
       settings.setVatRegistrationUsage("invoices", invoices.vatRegistrationUsageFromInvoices);
       settings.setVatRegistrationUsage(
