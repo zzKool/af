@@ -241,6 +241,11 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **Small lists were plain `Table`s, so "row buttons → `rowActions`" meant moving them onto the DataTable** (imports, rules). With `kernel/list-query/memory` that is ~40 lines a list (`memoryTable` in `banking/queries.ts`: every column evaluated in memory). If a second module needs the same, lift `memoryTable` into `kernel/list-query/memory.ts` (one test) rather than copying it.
 - [ ] **The banking journey had no budget of its own** and failed on its last assertion at the default 30 s on a cold server (every step had passed). It has `test.setTimeout(240_000)` now — the lessons' rule for long journeys, applied where it was missing.
 
+## F71 build (contracts adopts the D40 kit, 2026-10-23)
+
+- [ ] **"Row buttons → `rowActions`" assumed every list is a DataTable**: the contracts tab is a kit `Table` with rows expanded in place, and a contract's rates are an inline-edit grid — neither fits the DataTable (URL state, server pages). The DataTable's private ⋮ menu is now `RowActionsMenu`, exported from `kernel/ui/data-table` (same `RowAction` shape), so such tables use the same menu instead of a hand-made one. A cell holding it stops click propagation — React events bubble through the menu's portal and would toggle the row.
+- [ ] **An error toast can cover a row's ⋮ menu**: sonner's bottom-right toast sits where the last column's menu opens and pauses under the pointer, so a pointer click on the menu item hit the toast (1 run in 6). The journey picks the item by keyboard (`press("Enter")`). If a second journey meets it, consider `position="top-center"` for error toasts in the kit, not a wait per test.
+
 ## F71 build (documents adopt the D40 kit, 2026-10-23)
 
 - [ ] **A derived state in the cell, a stored step in the header filter.** The library's Status cell now shows the derived state (the inbox's word), its header filter still filters the stored OCR step — *extracted* holds *Ready* and *Filed* rows. The cell is right (one word on every page); making the filter say the same is a derived `state` column (in-memory, like `linked`: `DERIVED` + an enum in `DOCUMENT_COLUMNS`) — a documents PR of its own, no i18n needed (the words exist).

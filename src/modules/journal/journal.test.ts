@@ -595,6 +595,43 @@ describe("FR-004 — only manual entries are link endpoints (T001)", () => {
   });
 });
 
+describe("US4 — the Source column shows the bank account (T006)", () => {
+  it("a bank entry carries its account's alias through banking's read API; a manual entry none; searchable", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const chf = await bankRow(caller, {
+      currency: "CHF",
+      date: "2026-07-08",
+      amount: "-1.00",
+      alias: "Nordea CHF",
+    });
+    await run(caller, async (tx) => {
+      await journal.createBankEntries(tx, caller, noopAudit, [
+        {
+          sourceId: chf,
+          entryDate: "2026-07-08",
+          description: "fee",
+          counterpartyKey: "FEE",
+          amount: "-1.00",
+          currency: "CHF",
+        },
+      ]);
+      await journal.createManualEntry(tx, caller, noopAudit, {
+        entryDate: "2026-07-08",
+        description: "forfait",
+        amount: "-1.00",
+        currency: "SEK",
+      });
+    });
+    const Q = { page: 1, pageSize: 50, sort: [], filters: {} };
+    const list = await run(caller, (tx) => listJournalEntries(tx, Q));
+    expect(
+      Object.fromEntries(list.rows.map((r) => [r.description, [r.sourceType, r.accountAlias]])),
+    ).toEqual({ fee: ["bank_transaction", "Nordea CHF"], forfait: ["manual", null] });
+    const found = await run(caller, (tx) => listJournalEntries(tx, { ...Q, search: "nordea chf" }));
+    expect(found.rows.map((r) => r.description)).toEqual(["fee"]);
+  });
+});
+
 describe("US4 — the ledger", () => {
   it("sums the base of the filtered set; distinct values follow Excel semantics; RLS", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");

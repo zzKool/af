@@ -28,7 +28,7 @@ Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_
 
 ## Reads — `queries.ts`
 
-`entriesForSources(tx, type, ids)` → `Map<sourceId, entry>` (the banking workbench joins on it) · `getJournalEntry` · `JOURNAL_COLUMNS` + `listJournalEntries` / `distinctJournalValues` / `journalDateHierarchy` — two-step list (stored filters in SQL, `partnerName` / `basLabel` joined, derived filters / search / sort / page in memory through `kernel/list-query/memory`), sums of `amount_base` on the filtered set.
+`entriesForSources(tx, type, ids)` → `Map<sourceId, entry>` (the banking workbench joins on it) · `getJournalEntry` · `JOURNAL_COLUMNS` + `listJournalEntries` / `distinctJournalValues` / `journalDateHierarchy` — two-step list (stored filters in SQL, `partnerName` / `basLabel` joined, derived filters / search / sort / page in memory through `kernel/list-query/memory`), sums of `amount_base` on the filtered set. Each row carries `accountAlias` (T006 — a bank entry's account label through banking's read API `accountAliasesFor(tx, transactionIds)`, loaded on first use like linking; searchable).
 
 ## Surface
 
@@ -39,7 +39,7 @@ Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_
 
 ## Page (part 2)
 
-`/journal` — `ListPage` + `JournalTable` (DataTable on `JOURNAL_COLUMNS`: source, description, category, partner, amount in its currency, SEK base with the footer sum, flag, note; rate / rate source / bank rate / categorised-by hidden by default). A row opens the side panel — its description shows the ECB rate and, for a paired foreign leg, the bank rate beside it (T007) — with the `CategoriseForm` (category from the tenant's active BAS set — favourites first, `657 · Bankkostnader (alias)` — partner, note, *no document needed*; saved on change) and, for manual entries, *Delete entry*. *New entry* (`ManualEntryDialog`): date, description, signed amount, currency, optional typed rate, category, partner, note. `options.ts` (`categoryOptions`, `partnerOptions`) feeds these lists server-side. Nav: *Journal* for owner and accountant (reads). Strings `journal.*` en + fr.
+`/journal` — `ListPage` + `JournalTable` (DataTable on `JOURNAL_COLUMNS`: source, description, category, partner, amount in its currency, SEK base with the footer sum, flag, note; rate / rate source / bank rate / categorised-by hidden by default). The *Source* column and the panel's badge show the account's alias (*Nordea CHF*, T006; the filter stays Bank / Manual). A row opens the side panel — its description shows the ECB rate and, for a paired foreign leg, the bank rate beside it (T007) — with the `CategoriseForm` (category from the tenant's active BAS set — favourites first, `657 · Bankkostnader (alias)` — partner, note, *no document needed*; saved on change) and, for manual entries, *Delete entry*. *New entry* (`ManualEntryDialog`): date, description, signed amount, currency, optional typed rate, category, partner, note. `options.ts` (`categoryOptions`, `partnerOptions`) feeds these lists server-side. Nav: *Journal* for owner and accountant (reads). Strings `journal.*` en + fr.
 
 ## Tests
 
