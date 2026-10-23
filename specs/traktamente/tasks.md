@@ -14,9 +14,13 @@ Spec: `spec.md` (+ `harvest.md`, the v1 / Excel input it was written from). No `
 
 - [x] T004 *(2026-10-23)* Traktamente adopts the D40 kit (F71, LIGHT). Settings → Traktamente on `ListPage`: the year tabs as underline `Tabs` (`RateYearTabs`) and **one** split primary in the title row (`RateActions`: *Add country* ▾ *Paste Skatteverket CSV* · *Copy from {year}*); the rows' Edit / Delete behind `RowActionsMenu`; the code and the source as `<Tag>`s; amounts `formatMoney` bare (the headers name SEK). The trip panel: on-screen money through `formatMoney` (the country select's `{amount}/day` a key), the per-diem key a `<CodeChip>`, the missing-rate hint / computation error / warnings with the attention `StateIcon` instead of the amber palette, panel title 15 / 600 and body 13. No derived state of its own (the per-diem expense's *to refund* is expenses'). The printed sheet unchanged (`formatCurrency`). Touches **i18n** (3 keys) — serialised.
 
+## Phase 3: Lessons audit (round 2 cleanup)
+
+- [x] T005 *(2026-10-23, lessons audit 28 + 27)* Bound a rate year in Stockholm: `deleteRate` counted the trips touching a year between UTC midnights, while trips are counted in Stockholm — a return at 00:30 on 1 January let the new year's row go, a departure at 00:30 on 1 January blocked the old year's. `rateYearBounds(year)` (calculator, beside `toLocal`; `toInstant` moved there from `trip.ts` so `rates.ts` can read it without a cycle). Same PR: the calculator's own `nextDate` → the kernel's `addDays`. Tests: `trip.test.ts` *the delete guard counts a rate year in Stockholm* (fails on `main`), `calculator.pure.test.ts` (the bounds; the day walk across the DST change and the year end). DIRECT
+
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
-- `deleteRate` bounds the year in UTC while trips are counted in Stockholm (a return at 00:30 on 1 January lets the new year's row go) → **F67** (lessons audit 28)
+- ~~`deleteRate` bounds the year in UTC while trips are counted in Stockholm (a return at 00:30 on 1 January lets the new year's row go) → **F67** (lessons audit 28)~~ — T005
 - ~~the error helpers written twice (`trip.ts`, `rates.ts`) → **F67** (audit 32)~~ — done 2026-10-23: `errors.ts`
 - `upsertTrip` reads `expense_groups` itself instead of `expenses.getGroup` → **F66** (audit 25)
 - `SEK` in the description, the note, the panel and the sheet → **F70** (D39)

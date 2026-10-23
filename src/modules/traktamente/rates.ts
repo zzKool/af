@@ -10,6 +10,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { money, positiveMoney } from "@/kernel/validation/scalars";
+import { rateYearBounds } from "./calculator";
 import { invalid, violation } from "./errors";
 import type { NormalbeloppDto, RateRow } from "./types";
 
@@ -137,8 +138,7 @@ export async function deleteRate(
   const row = await tx.normalbelopp.findUnique({ where: { id } });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Rate not found: ${id}`, retryable: false } };
-  const from = new Date(Date.UTC(row.year, 0, 1));
-  const to = new Date(Date.UTC(row.year + 1, 0, 1));
+  const { from, to } = rateYearBounds(row.year);
   const used = await tx.trip.count({
     where: { countryCode: row.countryCode, departureAt: { lt: to }, returnAt: { gte: from } },
   });
