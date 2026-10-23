@@ -13,7 +13,13 @@ import { uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
 import { accountLabel } from "./bank-accounts";
-import { type BankFormatConfig, headerError, type ParsedRow, parse } from "./csv-parser";
+import {
+  type BankFormatConfig,
+  headerError,
+  type ParsedRow,
+  parse,
+  parseColumnMapping,
+} from "./csv-parser";
 import { applyToEntries, type EntryTarget, ensureDefaultRules } from "./rules";
 import type { BankImportDto, BankTransactionDto, ImportSummary } from "./types";
 
@@ -148,6 +154,12 @@ export async function importCsv(
   if (!account) return { error: notFound("Bank account", parsed.data.bankAccountId) };
   const label = accountLabel(account);
   const config = formatConfig(account.bankFormat);
+  if (!config)
+    return {
+      error: invalid(`The ${account.bankFormat.name} format's column mapping is not readable`, {
+        bankFormat: account.bankFormat.name,
+      }),
+    };
 
   // 1. parse
   const result = parse(input.bytes, config);
@@ -329,19 +341,22 @@ function transactionRow(
   };
 }
 
+/** The format row as the parser's config; null when its column mapping does not parse (`parseColumnMapping`). */
 export function formatConfig(format: {
   delimiter: string;
   decimalSeparator: string;
   dateFormat: string;
   encoding: string;
   columnMapping: unknown;
-}): BankFormatConfig {
+}): BankFormatConfig | null {
+  const columnMapping = parseColumnMapping(format.columnMapping);
+  if (!columnMapping) return null;
   return {
     delimiter: format.delimiter,
     decimalSeparator: format.decimalSeparator,
     dateFormat: format.dateFormat,
     encoding: format.encoding,
-    columnMapping: format.columnMapping as BankFormatConfig["columnMapping"],
+    columnMapping,
   };
 }
 

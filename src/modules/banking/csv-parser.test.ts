@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { BankFormatConfig } from "@/modules/banking/csv-parser";
-import { parse, validateFormat } from "@/modules/banking/csv-parser";
+import { parse, parseColumnMapping, validateFormat } from "@/modules/banking/csv-parser";
 
 const FIXTURES = join(__dirname, "__fixtures__");
 
@@ -381,3 +381,27 @@ describe.skipIf(!existsSync("prisma/data/PLUSGIROKONTO FTG 211 53 13-5 - 2025-02
     });
   },
 );
+
+describe("parseColumnMapping — the JSONB column read (lessons audit 29)", () => {
+  it("the Nordea mapping parses to itself, aliases kept, unknown keys dropped", () => {
+    expect(parseColumnMapping(NORDEA_CONFIG.columnMapping)).toEqual(NORDEA_CONFIG.columnMapping);
+    expect(parseColumnMapping({ ...NORDEA_CONFIG.columnMapping, legacy: 1 })).toEqual(
+      NORDEA_CONFIG.columnMapping,
+    );
+  });
+
+  it("anything else is null: not an object, no columns, a wrong type, a negative index", () => {
+    const m = NORDEA_CONFIG.columnMapping;
+    for (const bad of [
+      null,
+      "[]",
+      42,
+      { ...m, columns: [] },
+      { ...m, hasHeader: "yes" },
+      { ...m, skipRows: -1 },
+      { ...m, columns: [{ ...m.columns[0], index: -1 }] },
+      { ...m, columns: [{ index: 0, label: "Date" }] },
+    ])
+      expect(parseColumnMapping(bad)).toBeNull();
+  });
+});

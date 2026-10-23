@@ -7,7 +7,6 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
-  confidenceOf,
   daysBetween,
   partialTokens,
   proposedAllocation,
@@ -375,13 +374,16 @@ describe("properties (SC-002)", () => {
             );
             if (!m) throw new Error("same currency is always comparable");
             if (m.confidence === "HIGH") expect(m.score).toBeGreaterThanOrEqual(60);
-            expect(m.confidence).toBe(
-              confidenceOf(
-                m.score,
-                m.reference,
-                m.reasons.some((x) => x === "Approximate amount match") ? 3 : 0,
-              ),
-            );
+            // the rule as the spec states it (HIGH = score ≥ 80, or a reference with ≥ 60 unless the amount is
+            // only approximate; MEDIUM ≥ 50; else LOW) — written out, not recomputed with confidenceOf (audit 31)
+            const approximate = m.reasons.includes("Approximate amount match");
+            const expected =
+              m.score >= 80 || (m.reference && m.score >= 60 && !approximate)
+                ? "HIGH"
+                : m.score >= 50
+                  ? "MEDIUM"
+                  : "LOW";
+            expect(m.confidence).toBe(expected);
             return { ...m, candidate: cand, allocation: null };
           });
           const a = rank(items).map((x) => x.candidate.id);
