@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { createClock } from "@/kernel/clock/clock";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
@@ -111,7 +112,7 @@ export function NewSupplierInvoiceDialog({
   const t = useT();
   const ids = useId();
   const router = useRouter();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = createClock().today();
   const [groupId, setGroupId] = useState(initialGroupId(groups, defaultGroupId));
   const [newGroup, setNewGroup] = useState("");
   const [partnerId, setPartnerId] = useState(initial?.vendor ? "" : (suppliers[0]?.id ?? ""));
