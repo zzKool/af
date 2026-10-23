@@ -241,11 +241,12 @@ async function checkVatRegistration(
  * two facts, so the database refuses what this refuses. *Detach* removes the link before it rewrites the money.
  */
 async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
-  const [lines, payments] = await Promise.all([
+  const [lines, links] = await Promise.all([
     tx.settlementLine.count({ where: { expenseId: id } }),
-    tx.link.count({ where: { kind: "justifies", toType: "expense", toId: id } }),
+    linking.linksTouching(tx, "expense", [id], { kinds: ["justifies"] }),
   ]);
-  return lines === 0 && payments === 0;
+  const payments = links.filter((l) => l.to.type === "expense" && l.to.id === id);
+  return lines === 0 && payments.length === 0;
 }
 
 // --- writes ---
@@ -279,14 +280,11 @@ export async function createExpense(
     if (doc.data.status === "generated") {
       return { error: violation("A generated document cannot become an expense") };
     }
-    const taken = await tx.link.findFirst({
-      where: { kind: "created_from", toType: "document", toId: v.documentId },
-      select: { fromType: true, fromId: true },
-    });
+    const taken = (await linking.createdFromTargets(tx, [v.documentId])).get(v.documentId);
     if (taken) {
       return {
         error: violation(
-          `Document ${doc.data.businessKey} already became ${taken.fromType} ${taken.fromId}`,
+          `Document ${doc.data.businessKey} already became ${taken.type} ${taken.id}`,
         ),
       };
     }
@@ -563,10 +561,11 @@ export async function detachBankTransaction(
   const row = await tx.expense.findUnique({ where: { id: expenseId } });
   if (!row) return { error: notFound("Expense", expenseId) };
   if (!row.paidAmount) return { error: violation(`${row.key} has no bank row attached`) };
-  const links = await tx.link.findMany({
-    where: { kind: "justifies", fromType: "bank_transaction", toType: "expense", toId: expenseId },
-    select: { id: true },
-  });
+  const links = (
+    await linking.linksTouching(tx, "expense", [expenseId], { kinds: ["justifies"] })
+  ).filter(
+    (l) => l.from.type === "bank_transaction" && l.to.type === "expense" && l.to.id === expenseId,
+  );
   for (const l of links) {
     const removed = await linking.removeLink(tx, caller, audit, l.id, { owner: "expense" });
     if (removed.error) return { error: removed.error };
