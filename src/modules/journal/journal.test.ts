@@ -28,7 +28,7 @@ import {
 } from "./journal.actions";
 import { linkEntry } from "./links";
 import { deriveLinksState } from "./links-state";
-import { distinctJournalValues, listJournalEntries } from "./queries";
+import { distinctJournalValues, listJournalEntries, uncategorisedEntries } from "./queries";
 
 let mockHeaders: Headers = new Headers();
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
@@ -1051,5 +1051,53 @@ describe("F71 — the panel's History is the entry's audit trail", () => {
     mockHeaders = accountant.headers;
     const r = await journalEntryHistoryAction({ id: e.id });
     expect(r?.data && "data" in r.data ? r.data.data.map((h) => h.action) : r).toEqual(["create"]);
+  });
+});
+
+describe("uncategorisedEntries (lessons audit 24 — banking's rule-apply candidates)", () => {
+  it("only the source's entries with no categorised_by, newest first, capped; RLS keeps other tenants out", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
+    const bank = (date: string, description: string) => ({
+      sourceId: uuid(),
+      entryDate: date,
+      description,
+      counterpartyKey: description.toUpperCase(),
+      amount: "-10.00",
+      currency: "SEK" as const,
+    });
+    const [old, mid, done, recent] = (
+      await run(caller, (tx) =>
+        journal.createBankEntries(tx, caller, noopAudit, [
+          bank("2026-03-02", "old"),
+          bank("2026-07-07", "mid"),
+          bank("2026-07-07", "categorised"),
+          bank("2026-07-08", "recent"),
+        ]),
+      )
+    ).data!;
+    await run(other, (tx) =>
+      journal.createBankEntries(tx, other, noopAudit, [bank("2026-07-08", "theirs")]),
+    );
+    await run(caller, async (tx) => {
+      await journal.categorise(tx, caller, noopAudit, done.id, { basCode: "657" });
+      await journal.createManualEntry(tx, caller, noopAudit, {
+        entryDate: "2026-07-08",
+        description: "manual, uncategorised",
+        amount: "5.00",
+        currency: "SEK",
+      });
+    });
+
+    const all = await run(caller, (tx) => uncategorisedEntries(tx, "bank_transaction", 10));
+    expect(all.map((e) => e.id)).toEqual([recent.id, mid.id, old.id]);
+    expect(all[0]).toEqual({ id: recent.id, sourceId: recent.sourceId });
+
+    const capped = await run(caller, (tx) => uncategorisedEntries(tx, "bank_transaction", 2));
+    expect(capped.map((e) => e.id)).toEqual([recent.id, mid.id]);
+
+    const manual = await run(caller, (tx) => uncategorisedEntries(tx, "manual", 10));
+    expect(manual).toHaveLength(1);
+    expect(manual[0].sourceId).toBeNull();
   });
 });

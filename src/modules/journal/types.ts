@@ -63,6 +63,9 @@ export type LinksState = "justified" | "partly" | "none" | "no_document";
 export const LINKS_STATES: readonly LinksState[] = ["none", "partly", "justified", "no_document"];
 
 /** The ledger row: the entry plus the joined labels and the derived links state. */
+/** `uncategorisedEntries`: an entry nothing has categorised yet, and its source (the bank row for a bank entry). */
+export type UncategorisedEntry = { id: string; sourceId: string | null };
+
 export type JournalListRow = JournalEntryDto & {
   partnerName: string | null;
   basLabel: string | null;

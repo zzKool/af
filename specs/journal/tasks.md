@@ -23,7 +23,7 @@ Spec: `spec.md`. No `plan.md` (D45: a plan only on a schema change) and no phase
 
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
-- banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24)
+- banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24) — *journal's read API built 2026-10-23: `uncategorisedEntries(tx, sourceType, limit)`; banking's caller moves in its lane*
 - `base.pure.test.ts` checks `baseAmount` with its own expression (SC-001's property test proves nothing) → **F67** (audit 31)
 - `partner_default` never written; a SEK manual entry with rate `1.000000` refused by string compare → **F67** (audit 32)
 - `rate_source` VarChar + CHECK and a second `RateSource` type → **F67** (audit 30)
