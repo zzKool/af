@@ -1022,7 +1022,9 @@ describe("activeContractCount", () => {
     const { tenantId, userId } = owner.callerIdentity;
     const client = await createTestPartner(adminPool, tenantId, userId, { types: ["client"] });
     const employee = await createTestPartner(adminPool, tenantId, userId, { types: ["employee"] });
-    await createTestContract(adminPool, tenantId, userId, client.id, { assignedEmployeeId: employee.id });
+    await createTestContract(adminPool, tenantId, userId, client.id, {
+      assignedEmployeeId: employee.id,
+    });
     await createTestContract(adminPool, tenantId, userId, client.id);
     await createTestContract(adminPool, tenantId, userId, client.id, {
       assignedEmployeeId: employee.id,
@@ -1031,7 +1033,9 @@ describe("activeContractCount", () => {
 
     const counts = await withTenantTransaction(prisma, tenantId, async (tx) => ({
       asClient: await contractService.activeContractCount(tx, { partnerId: client.id }),
-      asEmployee: await contractService.activeContractCount(tx, { assignedEmployeeId: employee.id }),
+      asEmployee: await contractService.activeContractCount(tx, {
+        assignedEmployeeId: employee.id,
+      }),
       employeeAsClient: await contractService.activeContractCount(tx, { partnerId: employee.id }),
     }));
     expect(counts).toEqual({ asClient: 2, asEmployee: 1, employeeAsClient: 0 });

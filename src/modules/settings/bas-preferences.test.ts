@@ -541,7 +541,8 @@ describe("isBasActivated", () => {
   it("is false before activation, true after, false again once deactivated", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;
-    const asked = () => withTenantTransaction(prisma, tenantId, (tx) => basService.isBasActivated(tx, "501"));
+    const asked = () =>
+      withTenantTransaction(prisma, tenantId, (tx) => basService.isBasActivated(tx, "501"));
 
     expect(await asked()).toBe(false);
     await withTenantTransaction(prisma, tenantId, (tx) =>
