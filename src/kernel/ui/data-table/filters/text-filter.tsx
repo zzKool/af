@@ -10,14 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { MessageKey } from "@/kernel/i18n/translate";
+import { useT } from "@/kernel/i18n/use-t";
 import type { Filter, TextOp } from "@/kernel/list-query/types";
 
-export const TEXT_OP_LABELS: Record<TextOp, string> = {
-  contains: "Contains",
-  startsWith: "Starts with",
-  equals: "Equals",
-  empty: "Is empty",
-  notEmpty: "Is not empty",
+export const TEXT_OP_KEYS: Record<TextOp, MessageKey> = {
+  contains: "table.filter.op.contains",
+  startsWith: "table.filter.op.startsWith",
+  equals: "table.filter.op.equals",
+  empty: "table.filter.op.empty",
+  notEmpty: "table.filter.op.notEmpty",
 };
 
 export interface TextFilterProps {
@@ -27,6 +29,7 @@ export interface TextFilterProps {
 }
 
 export function TextFilter({ current, onApply, onClose }: TextFilterProps) {
+  const t = useT();
   const initial = current?.kind === "text" ? current : null;
   const [op, setOp] = useState<TextOp>(initial?.op ?? "contains");
   const [value, setValue] = useState(initial?.value ?? "");
@@ -46,14 +49,20 @@ export function TextFilter({ current, onApply, onClose }: TextFilterProps) {
         apply();
       }}
     >
-      <Select value={op} onValueChange={(v) => setOp(v as TextOp)}>
+      <Select
+        value={op}
+        onValueChange={(v) => setOp(v as TextOp)}
+        items={Object.fromEntries(
+          (Object.keys(TEXT_OP_KEYS) as TextOp[]).map((k) => [k, t(TEXT_OP_KEYS[k])]),
+        )}
+      >
         <SelectTrigger className="h-8">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {(Object.keys(TEXT_OP_LABELS) as TextOp[]).map((k) => (
+          {(Object.keys(TEXT_OP_KEYS) as TextOp[]).map((k) => (
             <SelectItem key={k} value={k}>
-              {TEXT_OP_LABELS[k]}
+              {t(TEXT_OP_KEYS[k])}
             </SelectItem>
           ))}
         </SelectContent>
@@ -63,7 +72,7 @@ export function TextFilter({ current, onApply, onClose }: TextFilterProps) {
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Text…"
+          placeholder={t("table.filter.text")}
           className="h-8"
         />
       )}
@@ -78,14 +87,14 @@ export function TextFilter({ current, onApply, onClose }: TextFilterProps) {
           }}
           disabled={!current}
         >
-          Clear
+          {t("table.filter.clear")}
         </Button>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" size="sm">
-            OK
+            {t("table.filter.ok")}
           </Button>
         </div>
       </div>

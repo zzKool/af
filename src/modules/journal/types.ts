@@ -67,4 +67,6 @@ export type JournalListRow = JournalEntryDto & {
   partnerName: string | null;
   basLabel: string | null;
   linksState: LinksState;
+  /** a bank entry's account (*Nordea CHF*) through banking's read API (T006); null for a manual entry */
+  accountAlias: string | null;
 };

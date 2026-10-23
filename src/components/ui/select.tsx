@@ -5,7 +5,12 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-/** Base UI's Select.Value prints the raw value unless Root knows the items — collect them from <SelectItem> children. */
+/**
+ * Base UI's Select.Value prints the raw value (`__none__`, an id) unless Root knows the items. The wrapper collects
+ * them from the <SelectItem> children (or takes `items`), and SelectValue renders the item's label — or the
+ * placeholder, or nothing — never the raw value: a value whose item is not there (the list still loading, an item
+ * rendered by a child component without `items`) shows blank until it is.
+ */
 function collectItems(children: React.ReactNode, out: Record<string, React.ReactNode>): void {
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement(child)) return;
@@ -18,19 +23,54 @@ function collectItems(children: React.ReactNode, out: Record<string, React.React
   });
 }
 
+type Labels = Record<string, React.ReactNode>;
+
+/** `items` as Base UI takes it — a record, or `{ value, label }[]` — as one lookup. */
+function toLabels(items: unknown): Labels {
+  if (Array.isArray(items)) {
+    const out: Labels = {};
+    for (const it of items) {
+      if (it && typeof it === "object" && "value" in it)
+        out[String((it as { value: unknown }).value)] = (it as { label?: React.ReactNode }).label;
+    }
+    return out;
+  }
+  return items && typeof items === "object" ? (items as Labels) : {};
+}
+
+const LabelsContext = React.createContext<Labels | null>(null);
+
 // biome-ignore lint/suspicious/noExplicitAny: Base UI's Root is generic over the value type; the wrapper only adds `items`
 function Select({ children, items, ...props }: SelectPrimitive.Root.Props<any, boolean>) {
   const derived = React.useMemo(() => {
     if (items) return items;
-    const out: Record<string, React.ReactNode> = {};
+    const out: Labels = {};
     collectItems(children, out);
     return out;
   }, [children, items]);
+  const labels = React.useMemo(() => toLabels(derived), [derived]);
   return (
-    <SelectPrimitive.Root items={derived} {...props}>
-      {children}
-    </SelectPrimitive.Root>
+    <LabelsContext.Provider value={labels}>
+      <SelectPrimitive.Root items={derived} {...props}>
+        {children}
+      </SelectPrimitive.Root>
+    </LabelsContext.Provider>
   );
+}
+
+/** What the trigger shows for `value`: the item's label, else the placeholder, else nothing. */
+export function selectedLabel(
+  value: unknown,
+  labels: Labels | null,
+  placeholder?: React.ReactNode,
+): React.ReactNode {
+  if (Array.isArray(value)) {
+    const shown = value.map((v) => labels?.[String(v)]).filter((l) => l != null && l !== "");
+    return shown.length ? shown.flatMap((l, i) => (i ? [", ", l] : [l])) : (placeholder ?? null);
+  }
+  if (value === null || value === undefined || value === "") return placeholder ?? null;
+  const label = labels?.[String(value)];
+  return label ?? placeholder ?? null;
 }
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
@@ -43,13 +83,17 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   );
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({ className, children, placeholder, ...props }: SelectPrimitive.Value.Props) {
+  const labels = React.useContext(LabelsContext);
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {children ?? ((value: unknown) => selectedLabel(value, labels, placeholder))}
+    </SelectPrimitive.Value>
   );
 }
 

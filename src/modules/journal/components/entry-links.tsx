@@ -102,7 +102,7 @@ export function EntryLinks({
   }
 
   return (
-    <DetailsSection title={t("journal.panel.proof")}>
+    <DetailsSection title={t("details.proof")}>
       <div data-testid="journal-proof" className="grid gap-2">
         {!manual ? (
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">

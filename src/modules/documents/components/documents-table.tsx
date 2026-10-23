@@ -1,26 +1,28 @@
 "use client";
 
-// The document library on the kernel DataTable (D20; phase-0 item 8's last leftover): the URL is the query, the
-// server loads one page, header filters fetch their values through the module's actions. Rows open the review
-// page; Download and Delete (owner, confirmed) on each row; the upload zone in the toolbar refreshes the page.
-import { Download, Trash2 } from "lucide-react";
+// The document library on the kernel DataTable (D20) and the D40 kit (F71): the URL is the query, the server
+// loads one page, header filters fetch their values through the module's actions. The derived state as
+// <StateLabel> through the module's one family map (the inbox's word), the key as a code chip, the kind as a tag,
+// money through formatMoney; Open / Download / Delete (owner, confirmed) in the row's ⋮; Document date and Kind
+// as quick filters; the upload zone above the table refreshes the page.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { extractError } from "@/kernel/errors/extract-error";
+import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import type { ListResult } from "@/kernel/list-query/types";
+import { formatMoney } from "@/kernel/money/format-money";
 import {
   DataTable,
   type DataTableColumn,
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   deleteDocumentAction,
@@ -29,6 +31,7 @@ import {
   getDocumentDownloadUrlAction,
 } from "@/modules/documents/documents.actions";
 import type { DocumentListRow } from "@/modules/documents/queries";
+import { DocumentStateLabel } from "./document-state-label";
 import { FileUploadZone } from "./file-upload-zone";
 import { becameHref } from "./make-it-section";
 
@@ -56,18 +59,40 @@ const COLUMN_KEYS = [
 ] as const;
 const DEFAULT_SORT = [{ col: "createdAt", dir: "desc" as const }];
 
-const STATUS_STYLE: Record<string, string> = {
-  uploaded: "bg-muted text-muted-foreground",
-  processing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  extracted: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  ocr_failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  generated: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-};
+/** The filter values' words: the Status filter is on the OCR step (the cell shows the derived state). */
+function valueKey(column: string, value: string): MessageKey | null {
+  switch (column) {
+    case "status":
+      return ["uploaded", "processing", "extracted", "ocr_failed", "generated"].includes(value)
+        ? (`documents.status.${value}` as MessageKey)
+        : null;
+    case "prefixType":
+      return ["expense", "invoice", "contract", "nda", "certificate"].includes(value)
+        ? (`documents.prefix.${value}` as MessageKey)
+        : null;
+    case "documentType":
+      return value === "financial" || value === "relationship"
+        ? (`documents.category.${value}` as MessageKey)
+        : null;
+    case "linked":
+      return value === "true"
+        ? "documents.linked"
+        : value === "false"
+          ? "documents.notLinked"
+          : null;
+    default:
+      return null;
+  }
+}
 
-const VALUE_LABELS: Record<string, Record<string, string>> = {
-  linked: { true: "Linked", false: "Not linked" },
-  documentType: { financial: "Financial", relationship: "Relationship" },
-};
+/** The amount in its currency; an amount the formatter refuses shows as it came rather than breaking the row. */
+function money(amount: string, currency: string | null): string {
+  try {
+    return formatMoney(amount, currency);
+  } catch {
+    return currency ? `${amount} ${currency}` : amount;
+  }
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -157,60 +182,63 @@ export function DocumentsTable({
         key: "businessKey",
         header: t("documents.col.businessKey"),
         type: "text",
-        width: "16rem",
+        width: "12rem",
         alwaysVisible: true,
         cell: (row) => (
           <Link
             href={`/documents/${row.id}`}
-            className="font-mono text-xs font-medium hover:underline"
+            className="hover:underline"
             data-testid="document-key"
           >
-            {row.businessKey}
+            <CodeChip>{row.businessKey}</CodeChip>
           </Link>
         ),
       },
-      { key: "fileName", header: t("documents.col.fileName"), type: "text", width: "12rem" },
-      { key: "prefixType", header: t("documents.col.prefixType"), type: "enum", width: "7rem" },
+      { key: "fileName", header: t("documents.col.fileName"), type: "text", width: "10rem" },
+      {
+        key: "prefixType",
+        header: t("documents.col.prefixType"),
+        type: "enum",
+        width: "6.5rem",
+        quickFilter: true,
+        cell: (row) => {
+          const k = valueKey("prefixType", row.prefixType);
+          return <Tag>{k ? t(k) : row.prefixType}</Tag>;
+        },
+      },
       {
         key: "documentType",
         header: t("documents.col.documentType"),
         type: "enum",
         width: "7rem",
         defaultHidden: true,
+        cell: (row) => {
+          const k = valueKey("documentType", row.documentType);
+          return <Tag>{k ? t(k) : row.documentType}</Tag>;
+        },
       },
       {
         key: "status",
         header: t("documents.col.status"),
         type: "enum",
-        width: "12rem",
+        width: "7.5rem",
         truncate: false,
-        cell: (row) => (
-          <span className="flex items-center gap-1">
-            <Badge variant="outline" className={STATUS_STYLE[row.status] ?? ""}>
-              {row.status.replace("_", " ")}
-            </Badge>
-            {(row.status === "extracted" || row.status === "ocr_failed") && !row.reviewedAt && (
-              <Badge
-                variant="outline"
-                className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-              >
-                {t("documents.needsReview")}
-              </Badge>
-            )}
-          </span>
-        ),
+        cell: (row) => <DocumentStateLabel state={row.state} testId="document-state" />,
       },
-      { key: "vendor", header: t("documents.col.vendor"), type: "text", width: "12rem" },
+      { key: "vendor", header: t("documents.col.vendor"), type: "text", width: "9rem" },
       {
         key: "amount",
         header: t("documents.col.amount"),
         type: "money",
-        width: "7rem",
-        cell: (row) => (
-          <span className="tabular-nums">
-            {row.amount === null ? "—" : `${row.amount}${row.currency ? ` ${row.currency}` : ""}`}
-          </span>
-        ),
+        width: "8rem",
+        cell: (row) =>
+          row.amount === null ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <span className="tabular-nums" data-amount={row.amount}>
+              {money(row.amount, row.currency)}
+            </span>
+          ),
       },
       {
         key: "currency",
@@ -219,12 +247,18 @@ export function DocumentsTable({
         width: "5rem",
         defaultHidden: true,
       },
-      { key: "documentDate", header: t("documents.col.documentDate"), type: "date", width: "7rem" },
+      {
+        key: "documentDate",
+        header: t("documents.col.documentDate"),
+        type: "date",
+        width: "7rem",
+        quickFilter: true,
+      },
       {
         key: "linked",
         header: t("documents.col.linked"),
         type: "boolean",
-        width: "13rem",
+        width: "10rem",
         truncate: false,
         // FR-005: what the document became, linking to it; a document only a bank row justifies stays *Linked*
         cell: (row) =>
@@ -232,21 +266,20 @@ export function DocumentsTable({
             <Link
               href={becameHref(row.became)}
               title={row.became.label ?? undefined}
+              className="text-primary hover:underline"
               data-testid="document-became-link"
             >
-              <Badge variant="default" className="hover:underline">
-                {t(
-                  row.became.type === "expense"
-                    ? "documents.became.expense"
-                    : "documents.became.supplierInvoice",
-                  { key: row.became.key ?? "" },
-                )}
-              </Badge>
+              {t(
+                row.became.type === "expense"
+                  ? "documents.became.expense"
+                  : "documents.became.supplierInvoice",
+                { key: row.became.key ?? "" },
+              )}
             </Link>
           ) : (
-            <Badge variant={row.linked ? "default" : "secondary"}>
+            <span className={row.linked ? undefined : "text-muted-foreground"}>
               {row.linked ? t("documents.linked") : t("documents.notLinked")}
-            </Badge>
+            </span>
           ),
       },
       {
@@ -272,49 +305,8 @@ export function DocumentsTable({
         defaultHidden: true,
       },
       { key: "createdAt", header: t("documents.col.createdAt"), type: "date", width: "7rem" },
-      {
-        key: "actions",
-        header: "",
-        type: "text",
-        filterable: false,
-        sortable: false,
-        width: canDelete ? "5rem" : "3rem",
-        alwaysVisible: true,
-        cell: (row) => (
-          <span className="flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              title={t("documents.download")}
-              onClick={(e) => {
-                e.stopPropagation();
-                void download(row);
-              }}
-              data-testid="document-download"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0"
-                title={t("documents.delete")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  askDelete(row);
-                }}
-                data-testid="document-delete"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </span>
-        ),
-      },
     ],
-    [t, canDelete, download, askDelete],
+    [t],
   );
 
   return (
@@ -328,10 +320,19 @@ export function DocumentsTable({
         result={result}
         state={state}
         filterSource={filterSource}
-        valueLabel={(column, value) =>
-          value === null ? t("documents.blank") : (VALUE_LABELS[column]?.[value] ?? value)
-        }
+        valueLabel={(column, value) => {
+          if (value === null) return t("documents.blank");
+          const k = valueKey(column, value);
+          return k ? t(k) : value;
+        }}
         rowHref={(row) => `/documents/${row.id}`}
+        rowActions={(row) => [
+          { label: t("common.open"), onClick: () => router.push(`/documents/${row.id}`) },
+          { label: t("documents.download"), onClick: () => void download(row) },
+          ...(canDelete
+            ? [{ label: t("documents.delete"), destructive: true, onClick: () => askDelete(row) }]
+            : []),
+        ]}
         searchPlaceholder={t("documents.search")}
         emptyState={t("documents.empty")}
       />

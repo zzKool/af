@@ -112,6 +112,9 @@ export type TableLayoutState = {
   setWidth(key: string, px: number): void;
   reset(): void;
   isDefault: boolean;
+  /** the docked details panel of this table's page collapsed to its rail — remembered like the columns */
+  panelHidden: boolean;
+  setPanelHidden(hidden: boolean): void;
 };
 
 /** The layout of one table: server copy first, else the browser's, else the columns' defaults. */
@@ -153,7 +156,17 @@ export function useTableLayout<
       commit({ ...layout, order: dropColumn(columns, layout.order, key, target) }),
     setWidth: (key, px) =>
       commit({ ...layout, widths: { ...layout.widths, [key]: clampWidth(px) } }),
-    reset: () => commit({ ...EMPTY_LAYOUT, hidden: defaultHidden }),
+    reset: () =>
+      commit({
+        ...EMPTY_LAYOUT,
+        hidden: defaultHidden,
+        ...(layout.panelHidden ? { panelHidden: true as const } : {}),
+      }),
     isDefault: isDefaultLayout(layout, defaultHidden),
+    panelHidden: layout.panelHidden === true,
+    setPanelHidden: (h) => {
+      const { panelHidden: _, ...rest } = layout;
+      commit(h ? { ...rest, panelHidden: true } : rest);
+    },
   };
 }

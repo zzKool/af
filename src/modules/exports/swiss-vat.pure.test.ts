@@ -386,3 +386,43 @@ describe("v3 corrections", () => {
     expect(swissVatCsv(lines, "en")).toContain("200;Total agreed considerations;1000.00");
   });
 });
+
+// F71: the screens moved to the D40 kit (formatMoney, StateLabel, CodeChip) — the CSV the owner hands to the FTA
+// must not move. Every harvest case, in both languages, against the file captured before the change.
+describe("the CSV is byte-identical to the one before F71", () => {
+  const GOLDEN = join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "specs",
+    "exports",
+    "fixtures",
+    "swiss-vat-csv-golden.json",
+  );
+
+  it("every case, fr and en", () => {
+    expect(allCasesCsv()).toBe(JSON.parse(readFileSync(GOLDEN, "utf8")).csv);
+  });
+});
+
+function allCasesCsv(): string {
+  const { from, to } = quarterBounds(PERIOD);
+  const out: string[] = [];
+  for (const c of FIXTURE.cases) {
+    const invoices = (c.invoices ?? [])
+      .filter((i) => ISSUED.has(i.status) && i.date >= from && i.date <= to)
+      .map(toInvoice);
+    const { lines } = computeSwissVatReturn({
+      period: PERIOD,
+      invoices,
+      inputSources: sources(c),
+      manual: { "220": "100.00", "405": "12.50" },
+      today: c.id.startsWith("V11") ? "2024-06-01" : TODAY,
+    });
+    for (const lang of ["fr", "en"] as const) {
+      out.push(`### ${c.id} ${lang}\r\n${swissVatCsv(lines, lang)}`);
+    }
+  }
+  return out.join("");
+}

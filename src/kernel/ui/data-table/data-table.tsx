@@ -15,19 +15,12 @@ import {
   ChevronUp,
   Columns3,
   Filter as FilterIcon,
-  MoreVertical,
   Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -58,6 +51,7 @@ import type {
 import { PAGE_SIZE_OPTIONS } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
+import { useDockedPanel } from "@/kernel/ui/shell/details-dock";
 import { cn } from "@/lib/utils";
 import { describeFilter } from "./filter-bar";
 import { CheckboxFilter } from "./filters/checkbox-filter";
@@ -66,6 +60,7 @@ import { RangeFilter } from "./filters/range-filter";
 import { TextFilter } from "./filters/text-filter";
 import { isPinned, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderColumns, RESIZE_STEP } from "./layout";
 import { type TableLayoutState, useTableLayout } from "./preferences";
+import { RowActionsMenu } from "./row-actions-menu";
 import type { BulkAction, DataTableColumn, DataTableFilterSource, RowAction } from "./types";
 import type { ListQueryState } from "./use-list-query";
 
@@ -98,7 +93,12 @@ export interface DataTableProps<Row extends { id: string }> {
 
 const RIGHT_TYPES: ColumnType[] = ["number", "money"];
 
-function defaultCell<Row>(row: Row, column: DataTableColumn<Row>, currency?: Currency): ReactNode {
+function defaultCell<Row>(
+  row: Row,
+  column: DataTableColumn<Row>,
+  t: ReturnType<typeof useT>,
+  currency?: Currency,
+): ReactNode {
   const raw = (row as Record<string, unknown>)[column.key];
   if (raw === null || raw === undefined || raw === "")
     return <span className="text-muted-foreground">—</span>;
@@ -116,7 +116,7 @@ function defaultCell<Row>(row: Row, column: DataTableColumn<Row>, currency?: Cur
       );
     }
     case "boolean":
-      return raw ? "Yes" : "No";
+      return raw ? t("common.yes") : t("common.no");
     default:
       return Array.isArray(raw) ? raw.join(", ") : String(raw);
   }
@@ -158,6 +158,8 @@ export function DataTable<Row extends { id: string }>({
   const router = useRouter();
   const { query, isPending } = state;
   const tableLayout = useTableLayout(tableKey, allColumns);
+  // the page's docked details panel remembers open / hidden with this table's layout (F74)
+  useDockedPanel(tableLayout.panelHidden, tableLayout.setPanelHidden);
   const { hidden, layout } = tableLayout;
   const columns = useMemo(
     () => orderColumns(allColumns, layout.order).filter((c) => !hidden.has(c.key)),
@@ -297,7 +299,7 @@ export function DataTable<Row extends { id: string }>({
                 <span className="truncate">
                   {column.header}
                   {f &&
-                    `: ${describeFilter(f, valueLabel ? (v) => valueLabel(column.key, v) : undefined)}`}
+                    `: ${describeFilter(f, valueLabel ? (v) => valueLabel(column.key, v) : undefined, t)}`}
                 </span>
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </PopoverTrigger>
@@ -360,7 +362,7 @@ export function DataTable<Row extends { id: string }>({
                     onCheckedChange={() =>
                       setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
                     }
-                    aria-label="Select all rows on this page"
+                    aria-label={t("table.selectPage")}
                   />
                 </TableHead>
               )}
@@ -437,7 +439,7 @@ export function DataTable<Row extends { id: string }>({
                               "rounded p-0.5 text-muted-foreground/60 hover:text-foreground",
                               active && "text-primary",
                             )}
-                            aria-label={`Filter ${column.header}`}
+                            aria-label={t("table.filterColumn", { column: String(column.header) })}
                             data-active={active || undefined}
                           >
                             <FilterIcon className={cn("size-3.5", active && "fill-current")} />
@@ -511,7 +513,7 @@ export function DataTable<Row extends { id: string }>({
                           else next.add(row.id);
                           setSelected(next);
                         }}
-                        aria-label="Select row"
+                        aria-label={t("table.selectRow")}
                       />
                     </TableCell>
                   )}
@@ -536,7 +538,7 @@ export function DataTable<Row extends { id: string }>({
                       >
                         {column.cell
                           ? column.cell(row)
-                          : defaultCell(row, column, rowCurrency?.(row) ?? sumCurrency)}
+                          : defaultCell(row, column, t, rowCurrency?.(row) ?? sumCurrency)}
                       </TableCell>
                     );
                   })}
@@ -614,34 +616,6 @@ export function DataTable<Row extends { id: string }>({
   );
 }
 
-// --- a row's ⋮ menu ---
-
-function RowActionsMenu({ actions, label }: { actions: RowAction[]; label: string }) {
-  if (actions.length === 0) return null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
-        aria-label={label}
-      >
-        <MoreVertical className="size-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto min-w-40">
-        {actions.map((a) => (
-          <DropdownMenuItem
-            key={a.label}
-            disabled={a.disabled}
-            variant={a.destructive ? "destructive" : "default"}
-            onClick={a.onClick}
-          >
-            {a.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 // --- the Columns menu: visibility, order (arrows — the keyboard path next to header drag and drop), reset ---
 
 function ColumnsMenu<Row>({
@@ -689,7 +663,7 @@ function ColumnsMenu<Row>({
                 <button
                   type="button"
                   className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label={`Move ${name} up`}
+                  aria-label={t("table.moveUp", { column: String(name) })}
                   disabled={i === 0}
                   onClick={() => move(c.key, -1)}
                 >
@@ -698,7 +672,7 @@ function ColumnsMenu<Row>({
                 <button
                   type="button"
                   className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label={`Move ${name} down`}
+                  aria-label={t("table.moveDown", { column: String(name) })}
                   disabled={i === toggleable.length - 1}
                   onClick={() => move(c.key, 1)}
                 >
@@ -736,6 +710,7 @@ function ResizeHandle({
   width: number | undefined;
   onResize: (px: number) => void;
 }) {
+  const t = useT();
   const start = useRef<{ x: number; width: number } | null>(null);
   const widthOfHeader = (el: HTMLElement) =>
     (el.closest("th") as HTMLElement | null)?.getBoundingClientRect().width ?? 0;
@@ -744,7 +719,7 @@ function ResizeHandle({
     <span
       role="separator"
       aria-orientation="vertical"
-      aria-label={`Resize ${label}`}
+      aria-label={t("table.resize", { column: String(label) })}
       aria-valuenow={width ?? MIN_COLUMN_WIDTH}
       aria-valuemin={MIN_COLUMN_WIDTH}
       aria-valuemax={MAX_COLUMN_WIDTH}

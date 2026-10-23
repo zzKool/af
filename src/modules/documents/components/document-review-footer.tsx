@@ -60,32 +60,23 @@ export function DocumentReviewFooter({
       ? t("documents.review.saveFailed")
       : t("documents.review.autoSaved");
 
-  // Determine button label and style based on 4 states
+  // The label by the 4 states; D40 colours only: a primary while there is something to mark, a secondary once
+  // reviewed (the word says it — no green, no amber)
   const getButtonConfig = () => {
     if (modifiedSinceReview) {
-      // State 4: amber — modified since last review
-      return {
-        label: t("documents.review.updateReview"),
-        className:
-          "border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
-        variant: "outline" as const,
-      };
+      // State 4: modified since the last review — mark it again
+      return { label: t("documents.review.updateReview"), variant: "default" as const };
     }
     if (reviewedAt) {
-      // State 3: muted green — already reviewed
-      return {
-        label: t("documents.review.reviewed"),
-        className: "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300",
-        variant: "outline" as const,
-      };
+      // State 3: already reviewed
+      return { label: t("documents.review.reviewed"), variant: "outline" as const };
     }
-    // State 1 & 2: green — not yet reviewed (green-700: white text reaches WCAG AA, green-600 did not)
+    // State 1 & 2: not yet reviewed
     return {
       label:
         correctionsCount > 0
           ? t("documents.review.markReviewedCorrections", { count: correctionsCount })
           : t("documents.review.markReviewed"),
-      className: "bg-green-700 hover:bg-green-800 text-white",
       variant: "default" as const,
     };
   };
@@ -93,7 +84,7 @@ export function DocumentReviewFooter({
   const buttonConfig = getButtonConfig();
 
   return (
-    <div className="flex items-center justify-between border-t bg-muted/30 px-4 py-3">
+    <div className="flex items-center justify-between border-t px-4 py-3">
       {/* Auto-save status */}
       <div className="text-sm text-muted-foreground" aria-live="assertive">
         {hasErrors ? <span className="text-destructive">{autoSaveLabel}</span> : autoSaveLabel}
@@ -115,7 +106,6 @@ export function DocumentReviewFooter({
           onClick={handleMarkReviewed}
           disabled={isSubmitting || isSaving}
           variant={buttonConfig.variant}
-          className={buttonConfig.className}
         >
           {isSubmitting ? t("documents.review.marking") : buttonConfig.label}
         </Button>

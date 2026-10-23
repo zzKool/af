@@ -10,7 +10,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 ## Before you build
 - Which archetype is it — **list**, **entity** or **work**? Nothing else exists. A fourth shape is a constitution question, not a component.
 - Read the module's spec folder and its `docs/<module>.md`; reuse the kernel kit (`kernel/ui/*`, `components/ui/*`) — never restyle a shadcn primitive inside a module.
-- The kit (built by F39; the map is *Where it lives* in `docs/ui-conventions.md`): `ListPage` / `EntityPage` / `WorkPage` + `PageHeader` (`tags`, `meta`, `actions`, `tabs`, `banner`) · `DataTable` (`quickFilter`, `rowActions`, `context`) · `<StateLabel>` · `<Tag>` `<CodeChip>` `<CountBadge>` · `<InfoBanner>` · `<SplitButton>` · `DetailsSection` / `DetailsGrid` inside the Sheet (it docks) · `formatMoney` · `Button` sizes `default` / `sm`.
+- The kit (built by F39; the map is *Where it lives* in `docs/ui-conventions.md`): `ListPage` / `EntityPage` / `WorkPage` + `PageHeader` (`tags`, `meta`, `actions`, `tabs`, `banner`) · `DataTable` (`quickFilter`, `rowActions`, `context`) · `RowActionsMenu` (the same ⋮ for a kit `Table` that is not a DataTable) · `<StateLabel>` · `<Tag>` `<CodeChip>` `<CountBadge>` · `<InfoBanner>` · `<SplitButton>` · `DetailsSection` / `DetailsGrid` inside the Sheet (it docks) · `formatMoney` · `Button` sizes `default` / `sm`.
 
 ## Every page
 - [ ] No `max-w-*` on the page; canvas padding 20 px sideways, 14 px top.

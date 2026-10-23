@@ -18,7 +18,7 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import { createBankAccount, updateBankAccount } from "./bank-accounts";
 import { deleteImport, importCsv } from "./import";
-import { getTransaction, listTransactions } from "./queries";
+import { accountAliasesFor, getTransaction, listTransactions } from "./queries";
 import { applyRules, createRule } from "./rules";
 import { acceptTransfer, proposeTransfers } from "./transfer-pairs";
 
@@ -381,6 +381,32 @@ describe("US1 — import a month of Nordea rows", () => {
       const list = await listTransactions(tx, { page: 1, pageSize: 10, sort: [], filters: {} });
       expect(list.total).toBe(0);
     });
+  });
+});
+
+describe("read API — accountAliasesFor (journal T006)", () => {
+  it("each transaction's account label, the alias first, number + currency without one; another tenant's ids absent", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, chf } = await accounts(caller);
+    await run(caller, (tx) => importFile(tx, caller, chf, "nordea-transfer-pair-chf.csv"));
+    await run(caller, (tx) => importFile(tx, caller, sek, "nordea-transfer-pair-sek.csv"));
+    await run(caller, (tx) =>
+      updateBankAccount(tx, caller, noopAudit, sek, { accountAlias: null }),
+    );
+    const [chfTx, sekTx] = await run(caller, (tx) =>
+      Promise.all([
+        tx.bankTransaction.findFirstOrThrow({ where: { currency: "CHF" } }),
+        tx.bankTransaction.findFirstOrThrow({ where: { currency: "SEK" } }),
+      ]),
+    );
+    const labels = await run(caller, (tx) => accountAliasesFor(tx, [chfTx.id, sekTx.id]));
+    expect(Object.fromEntries(labels)).toEqual({
+      [chfTx.id]: "Plusgirokonto CHF",
+      [sekTx.id]: "123 45 67-8 SEK",
+    });
+    const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
+    expect((await run(other, (tx) => accountAliasesFor(tx, [chfTx.id]))).size).toBe(0);
+    expect((await run(caller, (tx) => accountAliasesFor(tx, []))).size).toBe(0);
   });
 });
 

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { createMockOcrService } from "@/kernel/ocr/ocr";
 import cases from "../../../specs/documents/fixtures/duplicate-check-cases.json";
+import { ocrAddressText, partnerAddressFromOcr } from "./components/ocr-address";
 import {
+  addressMatches,
   BEST_MATCH_PERCENT,
   editDistance,
+  flattenAddress,
   type MatchablePartner,
   matchPercent,
   rankPartnerMatches,
@@ -89,5 +93,68 @@ describe("partner match (harvest R39, specs/documents US1)", () => {
     expect(editDistance("nordea bank abp", "nordea bank abq")).toBe(1);
     expect(editDistance("abc", "abcdefg")).toBe(4); // beyond the cap → max + 1
     expect(editDistance("same", "same")).toBe(0);
+  });
+
+  it("an OCR payload with a vendor address scores +20 against the partner at that address (T026)", async () => {
+    const ocr = await createMockOcrService().analyzeDocument(
+      { type: "buffer", buffer: Buffer.from("x"), mimeType: "application/pdf" },
+      "invoice",
+    );
+    if (!ocr.success) throw new Error("mock failed");
+    const { vendorName, vendorAddress } = ocr.data;
+    // stored as the partner form saves it; JSONB hands the keys back in its own order
+    const stored = { city: "Stockholm", street: "Storgatan 1", country: "SE", postalCode: "11122" };
+    const partner: MatchablePartner = {
+      id: "p",
+      name: "Test Vendor AB",
+      vatNumber: null,
+      address: flattenAddress(stored),
+      types: ["vendor"],
+    };
+    expect(partner.address).toBe("Storgatan 1, 11122 Stockholm, SE");
+    const without = scorePartnerMatch({ name: vendorName, type: "vendor" }, partner);
+    const withAddress = scorePartnerMatch(
+      { name: vendorName, address: ocrAddressText(vendorAddress), type: "vendor" },
+      partner,
+    );
+    expect(without).toBe(90);
+    expect(withAddress - without).toBe(20);
+    // another street in the same city scores nothing for the address
+    const elsewhere = {
+      ...partner,
+      address: flattenAddress({ ...stored, street: "Storgatan 12" }),
+    };
+    expect(
+      scorePartnerMatch({ name: vendorName, address: ocrAddressText(vendorAddress) }, elsewhere),
+    ).toBe(80);
+  });
+
+  it("the address rule: contains either way by words, or the partner's street inside the OCR text", () => {
+    expect(addressMatches("548 Market St", "548 Market St, San Francisco")).toBe(true);
+    expect(addressMatches("Storgatan 1\n111 22 Stockholm", "Storgatan 1, Stockholm")).toBe(true);
+    expect(
+      addressMatches("Östra Hamngatan 5, Göteborg", "Ostra Hamngatan 5, 411 10 Göteborg"),
+    ).toBe(true);
+    expect(addressMatches("Storgatan 12, Stockholm", "Storgatan 1, Stockholm")).toBe(false);
+    expect(addressMatches("Stockholm", "SE")).toBe(false);
+    expect(addressMatches(null, "Storgatan 1")).toBe(false);
+  });
+
+  it("Create new partner starts from the OCR address, within the partner schema", () => {
+    expect(
+      partnerAddressFromOcr({
+        street: " Storgatan 1 ",
+        postalCode: "111 22",
+        city: "Stockholm",
+        country: "se",
+        text: "Storgatan 1, 111 22 Stockholm",
+      }),
+    ).toEqual({ street: "Storgatan 1", postalCode: "111 22", city: "Stockholm", country: "SE" });
+    expect(partnerAddressFromOcr({ text: "somewhere", country: "SWE" })).toEqual({});
+    expect(partnerAddressFromOcr(null)).toEqual({});
+    expect(ocrAddressText({ street: "Storgatan 1", postalCode: "111 22", city: "Stockholm" })).toBe(
+      "Storgatan 1, 111 22 Stockholm",
+    );
+    expect(ocrAddressText({})).toBeNull();
   });
 });

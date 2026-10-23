@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useT } from "@/kernel/i18n/use-t";
+import { formatMoney } from "@/kernel/money/format-money";
+import { StateIcon } from "@/kernel/ui/state-label";
 import type { OcrLineItem } from "@/modules/documents/documents.actions";
 
 type LineItemsSectionProps = {
@@ -109,12 +111,13 @@ export function LineItemsSection({
 
       {mismatch && (
         <div
-          className="rounded border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
+          className="flex items-start gap-2 rounded-md bg-tag px-3 py-2 text-sm text-foreground"
           role="alert"
         >
+          <StateIcon family="attention" className="mt-0.5" />
           {t("documents.lines.mismatch", {
-            header: headerTotal.toFixed(2),
-            lines: lineItemsTotal.toFixed(2),
+            header: formatMoney(headerTotal.toFixed(2), null),
+            lines: formatMoney(lineItemsTotal.toFixed(2), null),
           })}
         </div>
       )}

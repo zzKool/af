@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { MessageKey } from "@/kernel/i18n/translate";
+import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import type { DateHierarchy, DatesFilter, Filter } from "@/kernel/list-query/types";
 
 export interface DateFilterProps {
@@ -18,20 +20,19 @@ export interface DateFilterProps {
   onClose: () => void;
 }
 
-const MONTH_NAMES = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+/** `2026-07` → `Jul` · `juil.` · `juli` — the month's short name in the UI language. */
+export function monthName(month: string, lang: string): string {
+  const d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1));
+  return new Intl.DateTimeFormat(lang, { month: "short", timeZone: "UTC" }).format(d);
+}
+
+const PRESETS = [
+  ["thisMonth", "table.filter.preset.thisMonth"],
+  ["lastMonth", "table.filter.preset.lastMonth"],
+  ["thisQuarter", "table.filter.preset.thisQuarter"],
+  ["thisYear", "table.filter.preset.thisYear"],
+  ["lastYear", "table.filter.preset.lastYear"],
+] as const satisfies readonly (readonly [string, MessageKey])[];
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 export function presetRange(
@@ -112,6 +113,8 @@ function tri(days: string[], selected: Set<string>): Tri {
 }
 
 export function DateFilter({ current, load, onApply, onClose }: DateFilterProps) {
+  const t = useT();
+  const lang = useUiLanguage();
   const initial = current?.kind === "dates" ? current : null;
   const [h, setH] = useState<DateHierarchy | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,11 +133,14 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
         setSelected(expand(initial, hier));
         setOpen(new Set(hier.years.slice(0, 1).map((y) => String(y.year))));
       })
-      .catch((e: unknown) => active && setError(e instanceof Error ? e.message : "Failed to load"));
+      .catch(
+        (e: unknown) =>
+          active && setError(e instanceof Error ? e.message : t("table.filter.loadFailed")),
+      );
     return () => {
       active = false;
     };
-  }, [load, initial]);
+  }, [load, initial, t]);
 
   const hasTree = !!(initial?.years || initial?.months || initial?.days);
   const allDays = useMemo(
@@ -192,7 +198,7 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
           type="button"
           onClick={() => toggleOpen(key)}
           className="text-muted-foreground hover:text-foreground"
-          aria-label={open.has(key) ? "Collapse" : "Expand"}
+          aria-label={t(open.has(key) ? "table.filter.collapse" : "table.filter.expand")}
         >
           {open.has(key) ? (
             <ChevronDown className="size-3.5" />
@@ -216,15 +222,7 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
   return (
     <div className="flex w-72 flex-col gap-2">
       <div className="flex flex-wrap gap-1">
-        {(
-          [
-            ["thisMonth", "This month"],
-            ["lastMonth", "Last month"],
-            ["thisQuarter", "This quarter"],
-            ["thisYear", "This year"],
-            ["lastYear", "Last year"],
-          ] as const
-        ).map(([k, label]) => (
+        {PRESETS.map(([k, label]) => (
           <Button
             key={k}
             type="button"
@@ -232,7 +230,7 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
             size="sm"
             onClick={() => preset(presetRange(k))}
           >
-            {label}
+            {t(label)}
           </Button>
         ))}
       </div>
@@ -242,15 +240,15 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           className="h-8"
-          aria-label="From"
+          aria-label={t("table.filter.from")}
         />
-        <span className="text-xs text-muted-foreground">to</span>
+        <span className="text-xs text-muted-foreground">{t("table.filter.to")}</span>
         <Input
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
           className="h-8"
-          aria-label="To"
+          aria-label={t("table.filter.until")}
         />
       </div>
       <div className="max-h-64 overflow-y-auto rounded-md border px-1" role="tree">
@@ -273,7 +271,7 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
                   return (
                     <div key={m.month}>
                       {row(
-                        MONTH_NAMES[Number(m.month.slice(5, 7)) - 1],
+                        monthName(m.month, lang),
                         m.count,
                         tri(mDays, selected),
                         mDays,
@@ -292,7 +290,9 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
             </div>
           );
         })}
-        {h && h.years.length === 0 && <p className="p-2 text-xs text-muted-foreground">No dates</p>}
+        {h && h.years.length === 0 && (
+          <p className="p-2 text-xs text-muted-foreground">{t("table.filter.noDates")}</p>
+        )}
         {h && h.empty > 0 && (
           <div className="flex items-center gap-1.5 border-t py-1 text-sm">
             <span className="inline-block w-3.5" />
@@ -306,7 +306,7 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
                 onClose();
               }}
             >
-              (Blanks)
+              {t("common.blanks")}
             </Button>
             <span className="ml-auto pr-1 text-xs tabular-nums text-muted-foreground">
               {h.empty}
@@ -325,14 +325,14 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
           }}
           disabled={!current}
         >
-          Clear
+          {t("table.filter.clear")}
         </Button>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="button" size="sm" onClick={apply} disabled={!h}>
-            OK
+            {t("table.filter.ok")}
           </Button>
         </div>
       </div>

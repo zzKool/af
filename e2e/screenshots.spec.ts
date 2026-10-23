@@ -69,6 +69,22 @@ test.describe("Page screenshots", () => {
         });
       }
 
+      // the partner page's Contracts tab with one contract open (its form and Rates) — the client the invoices
+      // journey leaves behind has a contract with a current rate (F71: contracts on the D40 kit)
+      test(`screenshot partner-contracts (${scheme})`, async ({ page }) => {
+        mkdirSync("e2e-screenshots", { recursive: true });
+        await page.goto("/partners?q=E2E%20Client");
+        const first = page.locator('main a[href^="/partners/"]').first();
+        test.skip((await first.count()) === 0, "no E2E client with a contract");
+        await page.goto((await first.getAttribute("href")) ?? "/partners");
+        await page.getByRole("tab", { name: /Contracts/ }).click();
+        const contract = page.getByText("Consulting", { exact: true }).first();
+        test.skip((await contract.count()) === 0, "the client has no contract");
+        await contract.click();
+        await page.getByTestId("contract-rates").waitFor();
+        await shoot(page, `partner-contracts-${scheme}`);
+      });
+
       for (const [name, { list, link }] of Object.entries(ENTITIES)) {
         test(`screenshot ${name} (${scheme})`, async ({ page }) => {
           mkdirSync("e2e-screenshots", { recursive: true });

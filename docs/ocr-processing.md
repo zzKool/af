@@ -27,7 +27,7 @@ Prefix types map to Azure DI prebuilt models via a configurable map:
 | Prefix Type | Model | Fields Extracted |
 |-------------|-------|-----------------|
 | expense | prebuilt-receipt | MerchantName, Total, TransactionDate, Items |
-| invoice | prebuilt-invoice | VendorName, InvoiceTotal, InvoiceDate, PaymentDetails, Items |
+| invoice | prebuilt-invoice | VendorName, VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, InvoiceDate, PaymentDetails, Items |
 | contract | prebuilt-layout | Raw text only |
 | nda | prebuilt-layout | Raw text only |
 | certificate | prebuilt-layout | Raw text only |

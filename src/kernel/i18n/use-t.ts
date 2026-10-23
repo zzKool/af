@@ -9,12 +9,17 @@ import { type MessageKey, type MessageParams, translate, uiLanguage } from "./tr
  * The locale comes from LocaleProvider: the user's preference, else the browser's (Accept-Language).
  */
 export function useT() {
-  const { effectiveLocale } = useLocale();
-  const resolved =
-    effectiveLocale ?? (typeof navigator !== "undefined" ? navigator.language : null) ?? null;
-  const lang = uiLanguage(resolved);
+  const lang = useUiLanguage();
   return useCallback(
     (key: MessageKey, params?: MessageParams) => translate(lang, key, params),
     [lang],
   );
+}
+
+/** The UI language the strings render in (`en` · `fr` · `sv`) — for `Intl` formats that must agree with them. */
+export function useUiLanguage(): string {
+  const { effectiveLocale } = useLocale();
+  const resolved =
+    effectiveLocale ?? (typeof navigator !== "undefined" ? navigator.language : null) ?? null;
+  return uiLanguage(resolved);
 }

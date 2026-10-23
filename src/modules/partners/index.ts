@@ -12,7 +12,13 @@ export {
   updatePartnerContactSchema,
 } from "./contacts";
 export { partnerLinkable } from "./linkable";
-export { BEST_MATCH_PERCENT, matchPartners, rankPartnerMatches, scorePartnerMatch } from "./match";
+export {
+  addressMatches,
+  BEST_MATCH_PERCENT,
+  matchPartners,
+  rankPartnerMatches,
+  scorePartnerMatch,
+} from "./match";
 export type { CreatePartnerInput, UpdatePartnerInput } from "./partners";
 export {
   createPartner,
