@@ -15,6 +15,7 @@ import * as settings from "@/modules/settings";
 import {
   getDeclaration,
   listDeclarations,
+  snapshotToJson,
   toDeclarationDto,
   withPaymentDate,
 } from "./declaration-read";
@@ -167,7 +168,7 @@ export async function declare(
     where: { id: row.id },
     data: {
       declaredAt: new Date(`${parsed.data.declaredAt}T00:00:00Z`),
-      snapshot: lines as unknown as Prisma.InputJsonValue,
+      snapshot: snapshotToJson(lines),
     },
   });
   await audit.log({

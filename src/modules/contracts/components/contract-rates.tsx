@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { createClock } from "@/kernel/clock/clock";
 import type { AppError } from "@/kernel/errors/app-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
@@ -48,8 +49,9 @@ export type ContractRateRow = {
 
 type ActionResult = { serverError?: { message?: string }; data?: { error?: AppError } } | undefined;
 
+/** Today in Stockholm — the day the services use, not the browser's UTC day (a day early after midnight). */
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return createClock().today();
 }
 
 export function ContractRates({
