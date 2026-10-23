@@ -20,7 +20,25 @@ import { categoriseEntryAction } from "@/modules/journal/journal.actions";
 import type { JournalEntryDto } from "@/modules/journal/types";
 
 export type CategoryOption = { code: string; label: string };
-export type PartnerOption = { id: string; name: string };
+export type PartnerOption = {
+  id: string;
+  name: string;
+  /** the partner's default BAS category — proposed when an entry without one gets this partner (T002) */
+  defaultBasCode?: string | null;
+};
+
+/**
+ * The category to propose when `partnerId` is picked (T002, US2): the partner's default, only while the entry has
+ * none — never overwriting a category already set. Saved as the owner's choice (`categorised_by = manual`).
+ */
+export function proposedCategory(
+  currentBasCode: string | null,
+  partnerId: string | null,
+  partners: readonly PartnerOption[],
+): string | null {
+  if (currentBasCode || !partnerId) return null;
+  return partners.find((p) => p.id === partnerId)?.defaultBasCode ?? null;
+}
 
 const NONE = "__none__";
 
@@ -134,7 +152,10 @@ export function CategoriseForm({
           onValueChange={(v) => {
             const next = v ?? NONE;
             setPartnerId(next);
-            void save({ partnerId: next === NONE ? null : next });
+            const id = next === NONE ? null : next;
+            const proposed = proposedCategory(basCode === NONE ? null : basCode, id, partners);
+            if (proposed) setBasCode(proposed);
+            void save({ partnerId: id, ...(proposed ? { basCode: proposed } : {}) });
           }}
           disabled={isPending}
         >
