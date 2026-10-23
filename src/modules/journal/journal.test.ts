@@ -364,6 +364,30 @@ describe("US3 — manual entries", () => {
         currency: "SEK",
       });
       expect(sek.data).toMatchObject({ rate: "1", rateSource: "same_currency" });
+      // a typed SEK rate is a number, not a string (audit 32): "1.000000" is 1, "1.000001" is not
+      const sekTyped = await journal.createManualEntry(tx, caller, noopAudit, {
+        entryDate: "2026-03-02",
+        description: "SEK typed",
+        amount: "-10.00",
+        currency: "SEK",
+        rate: "1.000000",
+      });
+      expect(sekTyped.data).toMatchObject({
+        amountBase: "-10.00",
+        rate: "1",
+        rateSource: "same_currency",
+      });
+      expect(
+        (
+          await journal.createManualEntry(tx, caller, noopAudit, {
+            entryDate: "2026-03-02",
+            description: "SEK off by a micro",
+            amount: "10.00",
+            currency: "SEK",
+            rate: "1.000001",
+          })
+        ).error?.code,
+      ).toBe("VALIDATION_ERROR");
       expect(
         (
           await journal.createManualEntry(tx, caller, noopAudit, {

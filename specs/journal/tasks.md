@@ -25,7 +25,7 @@ Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never
 
 - banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24)
 - `base.pure.test.ts` checks `baseAmount` with its own expression (SC-001's property test proves nothing) → **F67** (audit 31)
-- `partner_default` never written; a SEK manual entry with rate `1.000000` refused by string compare → **F67** (audit 32)
+- `partner_default` never written; a SEK manual entry with rate `1.000000` refused by string compare → **F67** (audit 32) — *journal's part built 2026-10-23: the rate compared as a Decimal; `partner_default` **removed** (a partner-only rule writes `rule` with its `rule_id`, T002 writes `manual`): `categorise` no longer accepts it, journal's own reads drop it; the read type keeps it until banking's `history.ts:33` / `transaction-table.tsx:380` stop listing it, then the enum value and its three i18n keys go with F67's schema PR*
 - `rate_source` VarChar + CHECK and a second `RateSource` type → **F67** (audit 30)
 - `positiveRate` declared in three modules → **F50-j**
 - `SEK` / `BASE_CURRENCY` in the service, the footer sum and the panel → **F70** (D39)

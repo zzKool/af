@@ -12,7 +12,7 @@ journal_entries   source_type ∈ bank_transaction | manual · source_id? (the t
                   amount (signed) · currency · amount_base (SEK, 2 dp) · rate (6 dp) · rate_source ∈ same_currency | ecb_daily | ecb_nearest | manual · rate_date?
                   bank_implicit_rate? (not read since T005 — the DTO's `bankImplicitRate` is derived from the `transfer` link)
                   bas_code? (bas_categories.code, 3 digits) · partner_id? · note? · no_document_needed
-                  categorised_by ∈ manual | rule | partner_default | null · rule_id?
+                  categorised_by ∈ manual | rule | null · rule_id?   (the enum still has `partner_default`, never written — audit 32, goes with F67's schema PR)
 ```
 
 Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_source, rate_date, entry_date, source, description, counterparty_key never change; `bank_implicit_rate` only NULL → value. `block_delete_when_linked('journal_entry')`. RLS.
@@ -21,7 +21,7 @@ Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_
 
 - `baseAmount(amount, rate)` (pure): `round(amount × rate, 2)` half-up, never `-0`; property-tested.
 - `resolveRate(tx, date, currency)` / internal `baseFor`: SEK → 1 `same_currency`; else `rates.rateToBase` (ECB of the date, `ecb_nearest` with the actual `rate_date` when the day has none); **refused** when no rate exists — the banking import pre-checks every date before writing.
-- `createBankEntries(tx, caller, audit, rows[])`: batch, all or nothing, audited; `createManualEntry` (ECB of the date, or a typed rate → `manual`; SEK must be 1).
+- `createBankEntries(tx, caller, audit, rows[])`: batch, all or nothing, audited; `createManualEntry` (ECB of the date, or a typed rate → `manual`; a typed SEK rate must equal 1 as a number — `1.000000` is accepted, audit 32).
 - `categorise(tx, caller, audit, id, facts, {by, ruleId})`: by hand → written as given, `categorised_by = manual`, `rule_id` cleared; by a rule → category only when none, partner only when none, flag OR-ed, and an entry categorised by hand is returned unchanged. BAS code through `settings.getBasCategory`, partner through `partners.getPartner`.
 - `withImplicitRates(tx, entries)` (`implicit-rate.ts`, T005): a bank entry whose transaction sits in a `transfer` link with a base-currency transaction gets the pair's |base| ÷ |foreign| (6 dp half-up) as `bankImplicitRate` — derived on every read (`getJournalEntry`, `entriesForSources`, the ledger, `categorise`'s result), so an unpairing takes it away and a re-pair brings the new pair's rate; never replaces `rate`. It loads `@/modules/linking` on first use (a top-level import closes a load cycle through banking). `setBankImplicitRate` (once) still exists but nothing reaches it: banking's accept sees the derived rate and skips it; it goes with the column (T010).
 - `deleteBySource` (the banking import's delete), `deleteManualEntry` (bank entries are never deleted by hand; linked entries refused by the trigger).
