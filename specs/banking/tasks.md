@@ -66,6 +66,6 @@ T001–T003 → T004–T010 (T007 before T009) → T011–T012 → T013 → T014
 - [x] T033 `transactionStates(tx, ids)` (+ `TransactionStateFacts`) in the read API — state, Σ allocated, transfer leg; for `package/collect.ts` (lessons 23; the caller moves in package's lane). Tests in `reads.test.ts`, `import.test.ts`
 - [ ] T034 banking's `tx.link` reads → linking (`allocatedFrom`, `linksTouching` with `kinds`, `hasLinks` / `linksTouching`): `queries.ts` `linkFacts`, `transfer-pairs.ts` `pairedIds`, `import.ts` `deleteImport`; the allocation sum takes linking's kind filter — totals proven unchanged on the seed (lessons 22)
 - [ ] T035 kernel helpers: `isSettled` in `deriveTransactionState`, `daysBetween` / `addDays` in `transfer-pairs.ts` (lessons 27)
-- [ ] T036 `columnMapping` parsed on read (`formatConfig`) (lessons 29)
+- [x] T036 `columnMapping` parsed on read: `parseColumnMapping` (`csv-parser.ts`, a zod schema of the stored structure) behind `formatConfig`, which returns null when it does not fit — `importCsv` refuses with a message instead of failing inside the parser; the settings test reads the seeded mapping without a cast (lessons 29)
 - [ ] T037 the local `ServiceResult` and Decimal look-alike in `linkable.ts`; `getBankFormats` → a DTO (lessons 30)
 - [ ] T038 `statementKey` → `numbering/keys.ts`; the bank text join once; `hitCount` without no-op hits (lessons 32)

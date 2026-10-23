@@ -4,6 +4,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { settlementTolerance } from "@/kernel/money/settlement";
@@ -45,12 +46,6 @@ const notFound = (what: string) => ({
   message: what,
   retryable: false,
 });
-
-function shiftDate(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 /** Σ allocations per entity id on one side of the link table (allocating kinds only). */
 async function allocatedBy(
@@ -160,8 +155,8 @@ export async function suggestionsForTransaction(
     raw.push(
       ...(await linkable.candidates(tx, {
         direction: rowEntity.direction,
-        dateFrom: shiftDate(rowEntity.date, -days),
-        dateTo: shiftDate(rowEntity.date, days),
+        dateFrom: addDays(rowEntity.date, -days),
+        dateTo: addDays(rowEntity.date, days),
         limit: CANDIDATES_PER_TYPE,
       })),
     );
@@ -192,8 +187,8 @@ export async function suggestionsForEntity(
   const days = DATE_WINDOW_DAYS[endpoint.type] ?? DEFAULT_WINDOW_DAYS;
   const rowsRaw = await bank.candidates(tx, {
     direction: entity.direction,
-    dateFrom: shiftDate(entity.date, -days),
-    dateTo: shiftDate(entity.date, days),
+    dateFrom: addDays(entity.date, -days),
+    dateTo: addDays(entity.date, days),
     limit: CANDIDATES_PER_TYPE,
   });
   const rows = await withRemaining(tx, "from", rowsRaw);

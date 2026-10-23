@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@/generated/prisma/client";
 
 // Mock logger
 vi.mock("@/kernel/logging/logger", () => ({
@@ -55,6 +56,7 @@ vi.mock("@/kernel/ocr/ocr", () => ({
 
 // Import after mocks
 const { processDocumentJob } = await import("@/modules/documents/jobs/process-document");
+const { parseOcrPayload } = await import("@/modules/documents/ocr-payload");
 
 const data = { tenantId: "tenant-1", userId: "user-1", documentId: "doc-1" };
 const ctx = { id: "job-1", attempt: 0 };
@@ -62,6 +64,21 @@ const run = () => processDocumentJob.handler(data, ctx);
 const deadLetter = () => {
   if (!processDocumentJob.onDeadLetter) throw new Error("job has no dead-letter handler");
   return processDocumentJob.onDeadLetter(data, ctx);
+};
+
+/**
+ * What the job wrote to `ocr_data`, through a JSON round trip (what the JSONB column holds) and read back by the
+ * services' own parser — the test checks the contract, not the keys of the mock's call (lessons audit 31).
+ */
+const readBack = () => {
+  const call = mockUpdate.mock.calls.find(
+    (c: unknown[]) => (c[0] as { data?: { status?: string } })?.data?.status === "extracted",
+  );
+  if (!call) throw new Error("the job wrote no extracted ocrData");
+  const stored: Prisma.JsonValue = JSON.parse(
+    JSON.stringify((call[0] as { data: { ocrData: unknown } }).data.ocrData),
+  );
+  return parseOcrPayload(stored);
 };
 
 const baseDocument = {
@@ -231,7 +248,7 @@ describe("processDocument job", () => {
     expect(mockAnalyzeDocument).not.toHaveBeenCalled();
   });
 
-  it("ocrData JSONB stored with correct structure", async () => {
+  it("the stored ocrData reads back through parseOcrPayload — the facts and the quality the services see", async () => {
     mockFindUnique
       .mockResolvedValueOnce(baseDocument)
       .mockResolvedValueOnce({ ...baseDocument, status: "processing" });
@@ -240,16 +257,17 @@ describe("processDocument job", () => {
 
     await run();
 
-    const extractedCall = mockUpdate.mock.calls.find(
-      (c: unknown[]) =>
-        (c[0] as Record<string, Record<string, string>>)?.data?.status === "extracted",
-    );
-    expect(extractedCall).toBeDefined();
-    const ocrData = (extractedCall![0] as Record<string, Record<string, unknown>>).data
-      .ocrData as Record<string, unknown>;
-    expect(ocrData).toHaveProperty("extractedData");
-    expect(ocrData).toHaveProperty("rawResponse");
-    expect(ocrData).toHaveProperty("quality");
+    expect(readBack()).toEqual({
+      extractedData: {
+        vendorName: "Test AB",
+        invoiceTotal: 1000,
+        confidence: 0.95,
+        modelUsed: "prebuilt-invoice",
+        pageCount: 1,
+        processingTimeMs: 1200,
+      },
+      quality: "high",
+    });
   });
 
   it("audit logging for extracted transition", async () => {
@@ -312,13 +330,7 @@ describe("processDocument job", () => {
 
     await run();
 
-    const extractedCall = mockUpdate.mock.calls.find(
-      (c: unknown[]) =>
-        (c[0] as Record<string, Record<string, string>>)?.data?.status === "extracted",
-    );
-    const ocrData = (extractedCall![0] as Record<string, Record<string, unknown>>).data
-      .ocrData as Record<string, unknown>;
-    expect(ocrData.quality).toBe("low");
+    expect(readBack()).toMatchObject({ quality: "low", extractedData: { confidence: 0.4 } });
   });
 });
 
