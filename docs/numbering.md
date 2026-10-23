@@ -24,6 +24,7 @@ prisma/schema/numbering.prisma   number_series(tenant_id, series, next_value, up
 | supplier invoice document key | `supplierInvoiceDocumentKey(ref, documentDate, vendorName)` — vendor slug appended (`fileSlug`) | `SI213-Acc-01_2026-07-24_Skattepunkten_s_Office_Services_AB` — used by `createSupplierInvoice({documentId})`, see [[supplier-invoices]] |
 | settlement number | `settlementNumber(bookingDate, seq)` — series `ST{yy}` of the refund's booking date | `ST26-001` |
 | reimbursement statement PDF | `statementPdfKey(number, bookingDate)` | `Reimb_ST26-001_2026-03-31.pdf` |
+| bank statement | `bankStatementKey(accountLabel, from, to)` — the account label as a hyphen slug, `x` for an unknown end (moved from banking, lessons audit 32) | `Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv` — the stored CSV of a bank import, see [[banking]] |
 | raw upload (provisional) | `uploadDocumentKey(kind, date, seq)` — series `doc-{yyyy-mm}` | `exp_20261020_001` |
 
 Series keys (`invoiceSeries`, `quoteSeries`, `creditNoteSeries`, `expenseSeries`, `settlementSeries`, `uploadSeries`) are what `number_series` is keyed by. Sequences are 3 digits (2 for group refs) and simply grow past that. Year = the **issue date's** year, never the clock.

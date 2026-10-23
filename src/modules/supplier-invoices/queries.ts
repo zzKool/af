@@ -4,6 +4,8 @@
 import { Prisma } from "@/generated/prisma/browser";
 import { getAuditLog } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
+import { createClock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -16,6 +18,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import { openAmount } from "@/kernel/money/settlement";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
@@ -26,7 +29,7 @@ import * as settings from "@/modules/settings";
 import { allocatedSums } from "./allocated";
 import { historyEvent, type SupplierInvoiceHistoryEntry } from "./history";
 import { supplierInvoiceListSums } from "./list-sums";
-import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
+import { deriveSupplierInvoiceStatus } from "./status";
 import { toSupplierInvoiceDto } from "./supplier-invoices";
 import type {
   SupplierInvoiceDto,
@@ -151,7 +154,8 @@ export function statusOf(
   };
 }
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
+/** The default `today` of the reads — Stockholm's calendar day (`kernel/clock`), never the UTC one (audit 28). */
+const clock = createClock();
 
 async function loadRows(
   tx: TransactionClient,
@@ -167,7 +171,7 @@ async function loadRows(
     orderBy: [{ invoiceDate: "desc" }, { key: "desc" }],
     take: ROW_CAP,
   });
-  const today = options.today ?? todayIso();
+  const today = options.today ?? clock.today();
   const [f, labels, names] = await Promise.all([
     facts(
       tx,
@@ -325,7 +329,7 @@ export async function getSupplierInvoiceDetail(
   tx: TransactionClient,
   caller: CallerIdentity,
   id: string,
-  today = todayIso(),
+  today = clock.today(),
 ): Promise<ServiceResult<SupplierInvoiceDetail>> {
   const row = await tx.supplierInvoice.findUnique({
     where: { id },
@@ -358,11 +362,8 @@ export async function getSupplierInvoiceDetail(
   const origin = all.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: SupplierInvoiceDetail["document"] = null;
   if (origin) {
-    const d = await tx.document.findUnique({
-      where: { id: origin.to.id },
-      select: { id: true, businessKey: true, fileName: true },
-    });
-    document = d ?? null;
+    const d = (await documents.getDocument(tx, origin.to.id)).data;
+    document = d ? { id: d.id, businessKey: d.businessKey, fileName: d.fileName } : null;
   }
   const payments: SupplierInvoicePayment[] = [];
   for (const l of withLabels) {
@@ -429,7 +430,7 @@ export const DUE_SOON_DAYS = 14;
 /** Open, overdue, due within 14 days, paid this month — SEK, non-cancelled invoices (US3). */
 export async function kpis(
   tx: TransactionClient,
-  today = todayIso(),
+  today = clock.today(),
 ): Promise<SupplierInvoiceKpis> {
   const rows = await tx.supplierInvoice.findMany({
     where: { cancelled: false },

@@ -15,7 +15,7 @@ Spec: `spec.md`. No `plan.md` (D45: a plan only on a schema change) and no phase
 - [x] T007 Show the bank implicit rate beside the ECB rate in the panel's description when set (today only in a hidden column). LIGHT per edge case *bank_implicit_rate* (partial, LOW)
 - [x] T008 Test the accountant on the journal: categorise and manual-entry actions refuse her (`FORBIDDEN`), `/journal` renders with no *New entry*, no form, no *Delete* — an e2e step with `accountant.json`, like `settings-rates.spec.ts`. The rule holds through `ownerAction`; nothing proves it for this module. DIRECT per US2/AC4, US4/AC2 (partial, LOW)
 - [x] T009 Translate the ledger's last English: `Created`, `Updated`, `(code)`, `(id)` and `(Blanks)` in `journal-table.tsx` → `journal.col.*` / `table.*` keys (en / fr / sv). Touches **i18n** — serialised; rides with F71's journal PR (F74, 2026-10-23, did the kit only: `(Blanks)` is `common.blanks`, the popovers are translated — the ledger's own column names are left here). LIGHT per FR-006 (partial, LOW)
-- [ ] T010 Drop `journal_entries.bank_implicit_rate` (unread since T005), its clause in `journal_entries_lock_money`, `setBankImplicitRate` and banking's call to it (`transfer-pairs.ts`) — a forward-only migration that drops data, so **the owner's OK first** ([[roadmap]] O8). Touches **schema** — serialised. DIRECT
+- [x] T010 Drop `journal_entries.bank_implicit_rate` (unread since T005), its clause in `journal_entries_lock_money`, `setBankImplicitRate` and banking's call to it (`transfer-pairs.ts`) — a forward-only migration that drops data, so **the owner's OK first** ([[roadmap]] O8). Touches **schema** — serialised. DIRECT. *Built 2026-10-23 (F86, D48): migration `20261023200000_drop_unread_columns` with expenses T024.*
 
 ## Phase 2: The D40 kit (F71)
 
@@ -23,9 +23,9 @@ Spec: `spec.md`. No `plan.md` (D45: a plan only on a schema change) and no phase
 
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
-- banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24; settings' count deleted 2026-10-23, lane 9 — the base-currency lock is F70's)
+- banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24; settings' count deleted 2026-10-23, lane 9 — the base-currency lock is F70's) — *journal's read API built 2026-10-23: `uncategorisedEntries(tx, sourceType, limit)`; banking's caller moves in its lane*
 - `base.pure.test.ts` checks `baseAmount` with its own expression (SC-001's property test proves nothing) → **F67** (audit 31)
-- `partner_default` never written; a SEK manual entry with rate `1.000000` refused by string compare → **F67** (audit 32)
+- `partner_default` never written; a SEK manual entry with rate `1.000000` refused by string compare → **F67** (audit 32) — *journal's part built 2026-10-23: the rate compared as a Decimal; `partner_default` **removed** (a partner-only rule writes `rule` with its `rule_id`, T002 writes `manual`): `categorise` no longer accepts it, journal's own reads drop it; the read type keeps it until banking's `history.ts:33` / `transaction-table.tsx:380` stop listing it, then the enum value and its three i18n keys go with F67's schema PR*
 - `rate_source` VarChar + CHECK and a second `RateSource` type → **F67** (audit 30)
 - `positiveRate` declared in three modules → **F50-j**
 - `SEK` / `BASE_CURRENCY` in the service, the footer sum and the panel → **F70** (D39)

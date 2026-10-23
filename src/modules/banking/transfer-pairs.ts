@@ -13,6 +13,7 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { accountLabel } from "./bank-accounts";
+import { bankText } from "./rules";
 import type { TransferProposal } from "./types";
 
 const D = Prisma.Decimal;
@@ -156,25 +157,15 @@ async function legOf(
     bookingDate: iso(t.bookingDate),
     amount: t.amount.toFixed(2),
     currency: t.currency,
-    text: [t.name, t.additionalDetails, t.message, t.sender, t.recipient].filter(Boolean).join(" "),
+    text: bankText(t),
     row: { id: t.id },
   };
 }
 
-/** ids of transactions already in a `transfer` link */
+/** ids of transactions already in a `transfer` link (through linking's read API, lessons audit 22) */
 async function pairedIds(tx: TransactionClient, ids: readonly string[]): Promise<Set<string>> {
-  if (ids.length === 0) return new Set();
-  const links = await tx.link.findMany({
-    where: {
-      kind: "transfer",
-      OR: [
-        { fromType: "bank_transaction", fromId: { in: [...ids] } },
-        { toType: "bank_transaction", toId: { in: [...ids] } },
-      ],
-    },
-    select: { fromId: true, toId: true },
-  });
-  return new Set(links.flatMap((l) => [l.fromId, l.toId]));
+  const links = await linking.linksTouching(tx, "bank_transaction", ids, { kinds: ["transfer"] });
+  return new Set(links.flatMap((l) => [l.from.id, l.to.id]));
 }
 
 /** The transfer proposals for one transaction (empty when it is already paired). */
@@ -209,9 +200,7 @@ export async function proposeTransfers(
       bookingDate: iso(t.bookingDate),
       amount: t.amount.toFixed(2),
       currency: t.currency,
-      text: [t.name, t.additionalDetails, t.message, t.sender, t.recipient]
-        .filter(Boolean)
-        .join(" "),
+      text: bankText(t),
     }));
   // the ECB rate of a's date for the foreign currency of the pair (SEK per unit)
   let ecb: Dec | null = null;
@@ -258,15 +247,10 @@ export async function acceptTransfer(
     match.to.id,
   ]);
   // the owner's facts (category, partner, "no document needed", who categorised) stay as they were: "transfer"
-  // is the link itself, derived wherever it is read — unpairing leaves the legs as before, rules still see them
+  // is the link itself, derived wherever it is read — the bank's implied rate too (journal `withImplicitRates`,
+  // F86 dropped the stored copy) — unpairing leaves the legs as before, rules still see them
   for (const id of [match.from.id, match.to.id]) {
-    const e = entries.get(id);
-    if (!e) return { error: notFound("Journal entry of transaction", id) };
-    const legCurrency = id === match.from.id ? match.from.currency : match.to.currency;
-    if (legCurrency !== BASE_CURRENCY && match.ecb && !e.bankImplicitRate) {
-      const r = await journal.setBankImplicitRate(tx, caller, audit, e.id, match.implied);
-      if (r.error) return { error: r.error };
-    }
+    if (!entries.get(id)) return { error: notFound("Journal entry of transaction", id) };
   }
   return { data: { linkId: link.data.id, implied: match.implied } };
 }
