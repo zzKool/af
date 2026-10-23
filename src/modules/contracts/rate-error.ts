@@ -4,6 +4,8 @@
 //   details { from, to }      the dates overlap another rate            contracts.rates.error.overlap
 //   details { usedOn, fields } a used rate's start or amount changed (F63) contracts.rates.error.usedLocked
 //   details { n }             a used rate cannot be deleted               contracts.rates.error.inUse
+//   details { pricedUntil, validTo } a used rate closes before its last priced day (T024)
+//                                                                        contracts.rates.error.closesBeforePriced
 //   anything else             the service's message as it came
 import type { AppError } from "@/kernel/errors/app-error";
 import type { MessageKey, MessageParams } from "@/kernel/i18n/translate";
@@ -20,6 +22,12 @@ export function rateErrorText(err: AppError, t: Translate): string {
   }
   // checked before `n`: the edit refusal carries `usedOn` precisely so it never reads as the delete text
   if (d && "usedOn" in d) return t("contracts.rates.error.usedLocked", { n: Number(d.usedOn) });
+  if (d && "pricedUntil" in d) {
+    return t("contracts.rates.error.closesBeforePriced", {
+      day: String(d.pricedUntil),
+      validTo: String(d.validTo),
+    });
+  }
   if (d && "n" in d) return t("contracts.rates.error.inUse", { n: Number(d.n) });
   return err.message;
 }

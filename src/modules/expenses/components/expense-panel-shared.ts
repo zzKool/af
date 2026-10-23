@@ -1,20 +1,10 @@
-// What the sections of the expense panel share: the detail as the action returns it (dates as strings), the
-// patch the panel saves, and two display helpers.
+// What the sections of the expense panel share: the detail as the action returns it (`ExpenseDetailView`, dates
+// as strings), the patch the panel saves, and two display helpers.
 import { formatMoney } from "@/kernel/money/format-money";
 import type { updateExpenseAction } from "@/modules/expenses/expenses.actions";
-import type { ExpenseDetail } from "@/modules/expenses/queries";
+import type { ExpenseDetailView } from "@/modules/expenses/queries";
 
-export type ExpensePanelDetail = Omit<ExpenseDetail, "expense" | "group" | "links"> & {
-  expense: Omit<ExpenseDetail["expense"], "createdAt" | "updatedAt"> & {
-    createdAt: string;
-    updatedAt: string;
-  };
-  group: Omit<ExpenseDetail["group"], "createdAt" | "updatedAt"> & {
-    createdAt: string;
-    updatedAt: string;
-  };
-  links: (Omit<ExpenseDetail["links"][number], "createdAt"> & { createdAt: string })[];
-};
+export type ExpensePanelDetail = ExpenseDetailView;
 
 export type ExpensePatch = Parameters<typeof updateExpenseAction>[0]["data"];
 

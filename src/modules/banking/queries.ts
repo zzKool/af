@@ -3,6 +3,7 @@
 // in two steps like the invoices list: Prisma filters the stored columns, the journal facts and allocations
 // are joined over that set, and the derived filters / search / sort / page run in memory (cap 20 000 rows).
 import { Prisma } from "@/generated/prisma/browser";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -15,7 +16,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
-import { settlementTolerance } from "@/kernel/money/settlement";
+import { isSettled } from "@/kernel/money/settlement";
 import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
@@ -102,38 +103,19 @@ const ROW_CAP = 20_000;
 
 type LinkFacts = { allocated: Map<string, string>; transfer: Set<string> };
 
-/** Σ allocations FROM each transaction and which ones sit in a transfer link — two grouped queries. */
+/**
+ * Σ allocations FROM each transaction (allocating kinds — `justifies`, `settles`) and which ones sit in a transfer
+ * link — two queries through linking's read API (lessons audit 22).
+ */
 async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise<LinkFacts> {
-  const facts: LinkFacts = { allocated: new Map(), transfer: new Set() };
-  if (ids.length === 0) return facts;
-  const [sums, transfers] = await Promise.all([
-    tx.link.groupBy({
-      by: ["fromId"],
-      where: {
-        fromType: "bank_transaction",
-        fromId: { in: [...ids] },
-        allocatedAmount: { not: null },
-      },
-      _sum: { allocatedAmount: true },
-    }),
-    tx.link.findMany({
-      where: {
-        kind: "transfer",
-        OR: [
-          { fromType: "bank_transaction", fromId: { in: [...ids] } },
-          { toType: "bank_transaction", toId: { in: [...ids] } },
-        ],
-      },
-      select: { fromId: true, toId: true },
-    }),
+  if (ids.length === 0) return { allocated: new Map(), transfer: new Set() };
+  const [allocated, transfers] = await Promise.all([
+    linking.allocatedFrom(tx, "bank_transaction", ids),
+    linking.linksTouching(tx, "bank_transaction", ids, { kinds: ["transfer"] }),
   ]);
-  for (const s of sums)
-    facts.allocated.set(s.fromId, (s._sum.allocatedAmount ?? new D(0)).toFixed(2));
-  for (const t of transfers) {
-    facts.transfer.add(t.fromId);
-    facts.transfer.add(t.toId);
-  }
-  return facts;
+  const transfer = new Set<string>();
+  for (const t of transfers) for (const end of [t.from, t.to]) transfer.add(end.id);
+  return { allocated, transfer };
 }
 
 /**
@@ -171,7 +153,7 @@ export function deriveTransactionState(input: {
   const abs = new D(input.amount).abs();
   const allocated = new D(input.allocated);
   if (allocated.lte(0)) return "open";
-  if (allocated.gte(abs.minus(settlementTolerance(abs)))) return "linked";
+  if (isSettled(abs, [allocated])) return "linked";
   return "partial";
 }
 
@@ -678,8 +660,7 @@ export async function rawRowsForPeriod(
   period: { from: string; to: string; by: "booking" | "import"; role?: BankAccountRole },
 ): Promise<RawPeriodRow[]> {
   const from = new Date(`${period.from}T00:00:00Z`);
-  const toExclusive = new Date(`${period.to}T00:00:00Z`);
-  toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
+  const toExclusive = new Date(`${addDays(period.to, 1)}T00:00:00Z`);
   const rows = await tx.bankTransaction.findMany({
     where: {
       ...(period.by === "booking"

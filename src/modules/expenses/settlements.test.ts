@@ -30,6 +30,7 @@ import {
   settleableTransactions,
 } from "./queries";
 import {
+  activeSettlementTransactionIds,
   cancelSettlement,
   confirmSettlement,
   openPrivateExpenses,
@@ -170,6 +171,14 @@ describe("F62 — one owed rule, one Σ of active lines", () => {
       expect((await getExpenseDetail(tx, rep!.id)).data?.openBase).toBe("0.00");
       // and nothing is proposed again
       expect(await openPrivateExpenses(tx)).toEqual([]);
+      // F88 (D47): the statement prints owed, like the list and the ledger — 0.00, not the 0.30 remainder
+      const st = await resolveStatement(tx, owner.caller, s.data?.id ?? "");
+      expect(st?.lines.map((l) => [l.key, l.remainingOpen])).toEqual([
+        ["Ex213-Tr-01", "0.00"],
+        ["Ex213-Tr-02", "0.00"],
+        ["Ex213-Rep-01", "0.00"],
+      ]);
+      expect(st?.totals.residualOpen).toBe(ledger.total.openBase);
     });
     expect(await statuses()).toEqual({
       "Ex213-Tr-01": "refunded",
@@ -462,6 +471,10 @@ describe("US4 — settle a refund", () => {
         amount: "601.00",
       });
       expect(locked.error?.message).toMatch(/settled or linked/);
+      // the row is taken while the settlement is active (lessons audit 23 — the pickers' read API)
+      expect(await activeSettlementTransactionIds(tx)).toEqual(new Set([rowId]));
+      expect(await activeSettlementTransactionIds(tx, [rowId])).toEqual(new Set([rowId]));
+      expect(await activeSettlementTransactionIds(tx, [])).toEqual(new Set());
     });
     const cancelled = await run(owner.caller, (tx) =>
       cancelSettlement(tx, owner.caller, realAudit(tx, owner.caller), s.id),
@@ -480,6 +493,8 @@ describe("US4 — settle a refund", () => {
     await run(owner.caller, async (tx) => {
       expect((await ledgerSnapshot(tx)).total.openBase).toBe("10765.00");
       expect((await banking.getTransaction(tx, rowId)).data?.state).toBe("open");
+      // a cancelled settlement frees its row
+      expect(await activeSettlementTransactionIds(tx, [rowId])).toEqual(new Set());
       const twice = await cancelSettlement(tx, owner.caller, noopAudit, s.id);
       expect(twice.error?.message).toMatch(/already cancelled/);
       // a new settlement on the same row gets the next number

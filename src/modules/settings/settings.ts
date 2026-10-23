@@ -68,15 +68,6 @@ export async function updateTenantProfile(
   audit: AuditLogger,
   input: UpdateTenantProfileInput,
 ): Promise<ServiceResult<TenantProfile>> {
-  // Currency immutability guard: reject currency changes if journal entries exist.
-  // JournalEntry model doesn't exist yet — TODO: enable this guard when Story 6.3 adds the model.
-  // if (input.currency) {
-  //   const journalCount = await tx.journalEntry.count({ where: { tenantId: caller.tenantId } });
-  //   if (journalCount > 0) {
-  //     return { error: { code: "VALIDATION_ERROR", message: "Cannot change currency after journal entries exist", retryable: false } };
-  //   }
-  // }
-
   // Read-before-write for audit oldData. Under READ COMMITTED (PostgreSQL default),
   // concurrent updates to the same tenant could cause stale oldData in the audit log.
   // Acceptable for a solo-owner app; revisit with SERIALIZABLE if multi-user editing is added.

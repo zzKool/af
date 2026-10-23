@@ -47,11 +47,19 @@
 - [x] T021 Settle screen on `settlementDifference` + `owedBase` in Decimal; the statement in `fifoOrder`.
 - [x] T022 `statement_superseded` derived (`isStatementSuperseded`); the column unread / unwritten (test: a statement stored after the cancel reads superseded).
 - [x] T023 Traktamente: a failed computation clears `trips.computed`; `parsePerDiemResult` (Zod) on read (test).
-- [ ] T024 Drop `settlements.statement_superseded` — waits for the owner's OK (irreversible).
+- [x] T024 Drop `settlements.statement_superseded` — the owner's OK 2026-10-23 (D48); F86's migration `20261023200000_drop_unread_columns`, with journal T010.
 
 ## F71 — the D40 kit (`feat/expenses-d40-kit`, lane LIGHT)
 
 - [x] T025 States → `<StateLabel>` through one map (`state-family.ts`, `ExpenseStateLabel` / `SettlementStateLabel`; `StatusBadge` gone); on-screen money → `formatMoney` (list, KPIs, panel, groups, group meta, settle page, settlements; the statement sheet keeps `formatCurrency`); keys → `<CodeChip>`; kind / payer / group kind / link kind → `<Tag>`; no palette colour; one primary per title row (`header-actions.tsx`); groups and settlements ⋮ `RowActionsMenu`; the panel in `DetailsSection`s About · Proof · Money · Facts · History (`history.ts` from the audit trail); quick filters Date + Paid by; no Σ of the mixed-currency amount; the SEK base column hidden by default (the row fits the canvas). Tests `state-family.pure.test.ts`, `history.pure.test.ts`, DB sums + history; `e2e/expenses.spec.ts` on the D40 amount and the settlement link; screenshots light + dark.
+
+## Cleanup round — lane 3 (lane DIRECT, behaviour-neutral except F88)
+
+- [x] T026 F88 (D47): the statement prints *owed* — `resolveStatement` on `owedBase`; test: the 0.30 residual's statement prints 0.00, residual = ledger.
+- [x] T027 Read API for the other modules (lessons audit 23, 25): `activeSettlementTransactionIds(among?)` (supplier invoices' picker, instead of `tx.settlement`); `getGroup(id)` was already exported through `queries.ts`.
+- [x] T028 Reads through the owners' read API (lessons audit 22, 23 follow-up, 25): `settleableTransactions` → `banking.outgoingMainRows` minus `activeSettlementTransactionIds`; the detail's booking dates → `banking.bookingDates`; the statement job → `banking.getBankTransaction`; every `tx.link` read → `linking.linksTouching` / `createdFromTargets`; the panel's links → `linking.linksWithLabels`; its receipt → `documents.getDocument`. No `tx.link` / `tx.bankTransaction` / `tx.document` left in the module.
+- [x] T029 Kernel helpers (lessons audit 27): the company-paid status on `isSettled(paid, [justified])`; the duplicate check's days on `daysBetween` / `addDays` (`daysApart` removed).
+- [x] T030 The panel's action returns its serialised DTO (lessons audit 29): `getExpenseAction` → `toExpenseDetailView` (`ExpenseDetailView`, timestamps as ISO strings); `expense-panel.tsx` drops `as unknown as`.
 
 ## Dependencies
 

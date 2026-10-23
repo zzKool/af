@@ -1,17 +1,11 @@
 // What the sections of the supplier-invoice panel share: the detail as the action returns it (dates as strings),
 // the patch the panel saves, and two display helpers.
 import { formatMoney } from "@/kernel/money/format-money";
-import type { SupplierInvoiceDetail } from "@/modules/supplier-invoices/queries";
+import type { SupplierInvoiceDetailWire } from "@/modules/supplier-invoices/detail-wire";
 import type { updateSupplierInvoiceAction } from "@/modules/supplier-invoices/supplier-invoices.actions";
 
-export type SupplierInvoicePanelDetail = Omit<SupplierInvoiceDetail, "invoice" | "links"> & {
-  invoice: Omit<SupplierInvoiceDetail["invoice"], "createdAt" | "updatedAt" | "cancelledAt"> & {
-    createdAt: string;
-    updatedAt: string;
-    cancelledAt: string | null;
-  };
-  links: (Omit<SupplierInvoiceDetail["links"][number], "createdAt"> & { createdAt: string })[];
-};
+/** The detail as the action returns it — timestamps as ISO strings (`toSupplierInvoiceDetailWire`). */
+export type SupplierInvoicePanelDetail = SupplierInvoiceDetailWire;
 
 export type SupplierInvoicePatch = Parameters<typeof updateSupplierInvoiceAction>[0]["data"];
 
