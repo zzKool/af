@@ -1,5 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
@@ -70,5 +77,75 @@ describe("DetailsSection", () => {
     expect(screen.getByRole("button", { name: "History" }).getAttribute("aria-expanded")).toBe(
       "false",
     );
+  });
+});
+
+describe("Select — shows the item's label, never a raw value (F74)", () => {
+  const ID = "7f3c2a10-4b1e-4d2a-9c0e-1a2b3c4d5e6f";
+  const trigger = (testId: string) =>
+    screen.getByTestId(testId).querySelector("[data-slot=select-value]")?.textContent ?? "";
+
+  function Partners() {
+    return <SelectItem value={ID}>Valtech Switzerland SA</SelectItem>;
+  }
+
+  it("an id value shows its label; the none sentinel shows its label", () => {
+    render(
+      <>
+        <Select value={ID}>
+          <SelectTrigger data-testid="direct">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No partner</SelectItem>
+            <SelectItem value={ID}>Valtech Switzerland SA</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value="__none__">
+          <SelectTrigger data-testid="none">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No partner</SelectItem>
+          </SelectContent>
+        </Select>
+      </>,
+    );
+    expect(trigger("direct")).toBe("Valtech Switzerland SA");
+    expect(trigger("none")).toBe("No partner");
+  });
+
+  it("items rendered by a child component: the label from `items`; without it, blank — never the id", () => {
+    render(
+      <>
+        <Select value={ID} items={[{ value: ID, label: "Valtech Switzerland SA" }]}>
+          <SelectTrigger data-testid="given">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <Partners />
+          </SelectContent>
+        </Select>
+        <Select value={ID}>
+          <SelectTrigger data-testid="unknown">
+            <SelectValue placeholder="Pick a partner" />
+          </SelectTrigger>
+          <SelectContent>
+            <Partners />
+          </SelectContent>
+        </Select>
+        <Select value="__none__">
+          <SelectTrigger data-testid="loading">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent />
+        </Select>
+      </>,
+    );
+    expect(trigger("given")).toBe("Valtech Switzerland SA");
+    expect(trigger("unknown")).toBe("Pick a partner");
+    expect(trigger("loading")).toBe("");
+    expect(document.body.textContent).not.toContain(ID);
+    expect(document.body.textContent).not.toContain("__none__");
   });
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/kernel/i18n/use-t";
 import type { Filter } from "@/kernel/list-query/types";
 
 export interface RangeFilterProps {
@@ -15,6 +16,7 @@ const DECIMAL = /^-?\d+([.,]\d+)?$/;
 const norm = (s: string) => s.trim().replace(",", ".").replace(/\s/g, "");
 
 export function RangeFilter({ current, onApply, onClose }: RangeFilterProps) {
+  const t = useT();
   const initial = current?.kind === "range" ? current : null;
   const [min, setMin] = useState(initial?.min ?? "");
   const [max, setMax] = useState(initial?.max ?? "");
@@ -46,16 +48,18 @@ export function RangeFilter({ current, onApply, onClose }: RangeFilterProps) {
         <Input
           autoFocus
           inputMode="decimal"
-          placeholder="Min"
+          placeholder={t("table.filter.min")}
+          aria-label={t("table.filter.min")}
           value={min}
           onChange={(e) => setMin(e.target.value)}
           aria-invalid={invalid(min)}
           className="h-8 text-right tabular-nums"
         />
-        <span className="text-xs text-muted-foreground">to</span>
+        <span className="text-xs text-muted-foreground">{t("table.filter.to")}</span>
         <Input
           inputMode="decimal"
-          placeholder="Max"
+          placeholder={t("table.filter.max")}
+          aria-label={t("table.filter.max")}
           value={max}
           onChange={(e) => setMax(e.target.value)}
           aria-invalid={invalid(max)}
@@ -93,7 +97,7 @@ export function RangeFilter({ current, onApply, onClose }: RangeFilterProps) {
           size="sm"
           onClick={() => preset({ kind: "range", empty: true })}
         >
-          Empty
+          {t("table.filter.empty")}
         </Button>
       </div>
       <div className="flex justify-between gap-2">
@@ -104,14 +108,14 @@ export function RangeFilter({ current, onApply, onClose }: RangeFilterProps) {
           onClick={() => preset(null)}
           disabled={!current}
         >
-          Clear
+          {t("table.filter.clear")}
         </Button>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" size="sm" disabled={invalid(min) || invalid(max)}>
-            OK
+            {t("table.filter.ok")}
           </Button>
         </div>
       </div>

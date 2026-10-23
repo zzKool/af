@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/kernel/i18n/use-t";
 import type { DistinctValue, Filter } from "@/kernel/list-query/types";
 import { DISTINCT_CAP } from "@/kernel/list-query/types";
 
@@ -24,6 +25,7 @@ export interface CheckboxFilterProps {
 }
 
 export function CheckboxFilter({ current, load, label, onApply, onClose }: CheckboxFilterProps) {
+  const t = useT();
   const [values, setValues] = useState<DistinctValue[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -39,11 +41,14 @@ export function CheckboxFilter({ current, load, label, onApply, onClose }: Check
     let active = true;
     load()
       .then((v) => active && setValues(v))
-      .catch((e: unknown) => active && setError(e instanceof Error ? e.message : "Failed to load"));
+      .catch(
+        (e: unknown) =>
+          active && setError(e instanceof Error ? e.message : t("table.filter.loadFailed")),
+      );
     return () => {
       active = false;
     };
-  }, [load]);
+  }, [load, t]);
 
   const visible = useMemo(() => {
     if (!values) return [];
@@ -79,27 +84,27 @@ export function CheckboxFilter({ current, load, label, onApply, onClose }: Check
     onClose();
   }
 
-  const display = (v: string | null) => (v === null ? "(Blanks)" : (label?.(v) ?? v));
+  const display = (v: string | null) => (v === null ? t("common.blanks") : (label?.(v) ?? v));
 
   return (
     <div className="flex w-64 flex-col gap-2">
       <Input
         autoFocus
-        placeholder="Search values…"
+        placeholder={t("table.filter.searchValues")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="h-8"
       />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <button type="button" className="hover:text-foreground" onClick={() => selectVisible(true)}>
-          Select all{search ? " shown" : ""}
+          {t(search ? "table.filter.selectAllShown" : "table.filter.selectAll")}
         </button>
         <button
           type="button"
           className="hover:text-foreground"
           onClick={() => selectVisible(false)}
         >
-          Clear
+          {t("table.filter.clear")}
         </button>
       </div>
       <div
@@ -116,7 +121,7 @@ export function CheckboxFilter({ current, load, label, onApply, onClose }: Check
           </div>
         )}
         {values && visible.length === 0 && (
-          <p className="p-2 text-xs text-muted-foreground">No values</p>
+          <p className="p-2 text-xs text-muted-foreground">{t("table.filter.noValues")}</p>
         )}
         {visible.map((v) => (
           <label
@@ -139,16 +144,16 @@ export function CheckboxFilter({ current, load, label, onApply, onClose }: Check
         ))}
         {values && values.length >= DISTINCT_CAP && (
           <p className="p-2 text-xs text-muted-foreground">
-            First {DISTINCT_CAP} values — search to narrow.
+            {t("table.filter.capped", { n: DISTINCT_CAP })}
           </p>
         )}
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button size="sm" onClick={apply} disabled={!values}>
-          OK
+          {t("table.filter.ok")}
         </Button>
       </div>
     </div>

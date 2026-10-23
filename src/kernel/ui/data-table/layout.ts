@@ -9,6 +9,8 @@ export type TableLayout = {
   order: string[];
   /** px per column key */
   widths: Record<string, number>;
+  /** the docked details panel collapsed to its rail on this table's page (F74) — absent = open */
+  panelHidden?: true;
 };
 
 export const MIN_COLUMN_WIDTH = 48;
@@ -30,7 +32,12 @@ export function normalizeLayout(raw: unknown): TableLayout {
       if (typeof v === "number" && Number.isFinite(v)) widths[k] = clampWidth(v);
     }
   }
-  return { hidden: strings(r.hidden), order: [...new Set(strings(r.order))], widths };
+  return {
+    hidden: strings(r.hidden),
+    order: [...new Set(strings(r.order))],
+    widths,
+    ...(r.panelHidden === true ? { panelHidden: true as const } : {}),
+  };
 }
 
 export function clampWidth(px: number): number {
@@ -92,7 +99,7 @@ export function dropColumn<C extends { key: string; header?: unknown }>(
   return moveColumn(columns, order, key, to - from);
 }
 
-/** True when the layout changes nothing a default table would not show. */
+/** True when the columns are as a default table shows them (the panel's open / hidden is not a column matter). */
 export function isDefaultLayout(layout: TableLayout, defaultHidden: readonly string[]): boolean {
   const h = [...layout.hidden].sort().join("|");
   const d = [...defaultHidden].sort().join("|");

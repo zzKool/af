@@ -51,6 +51,7 @@ import type {
 import { PAGE_SIZE_OPTIONS } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
+import { useDockedPanel } from "@/kernel/ui/shell/details-dock";
 import { cn } from "@/lib/utils";
 import { describeFilter } from "./filter-bar";
 import { CheckboxFilter } from "./filters/checkbox-filter";
@@ -92,7 +93,12 @@ export interface DataTableProps<Row extends { id: string }> {
 
 const RIGHT_TYPES: ColumnType[] = ["number", "money"];
 
-function defaultCell<Row>(row: Row, column: DataTableColumn<Row>, currency?: Currency): ReactNode {
+function defaultCell<Row>(
+  row: Row,
+  column: DataTableColumn<Row>,
+  t: ReturnType<typeof useT>,
+  currency?: Currency,
+): ReactNode {
   const raw = (row as Record<string, unknown>)[column.key];
   if (raw === null || raw === undefined || raw === "")
     return <span className="text-muted-foreground">—</span>;
@@ -110,7 +116,7 @@ function defaultCell<Row>(row: Row, column: DataTableColumn<Row>, currency?: Cur
       );
     }
     case "boolean":
-      return raw ? "Yes" : "No";
+      return raw ? t("common.yes") : t("common.no");
     default:
       return Array.isArray(raw) ? raw.join(", ") : String(raw);
   }
@@ -152,6 +158,8 @@ export function DataTable<Row extends { id: string }>({
   const router = useRouter();
   const { query, isPending } = state;
   const tableLayout = useTableLayout(tableKey, allColumns);
+  // the page's docked details panel remembers open / hidden with this table's layout (F74)
+  useDockedPanel(tableLayout.panelHidden, tableLayout.setPanelHidden);
   const { hidden, layout } = tableLayout;
   const columns = useMemo(
     () => orderColumns(allColumns, layout.order).filter((c) => !hidden.has(c.key)),
@@ -291,7 +299,7 @@ export function DataTable<Row extends { id: string }>({
                 <span className="truncate">
                   {column.header}
                   {f &&
-                    `: ${describeFilter(f, valueLabel ? (v) => valueLabel(column.key, v) : undefined)}`}
+                    `: ${describeFilter(f, valueLabel ? (v) => valueLabel(column.key, v) : undefined, t)}`}
                 </span>
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
               </PopoverTrigger>
@@ -354,7 +362,7 @@ export function DataTable<Row extends { id: string }>({
                     onCheckedChange={() =>
                       setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
                     }
-                    aria-label="Select all rows on this page"
+                    aria-label={t("table.selectPage")}
                   />
                 </TableHead>
               )}
@@ -431,7 +439,7 @@ export function DataTable<Row extends { id: string }>({
                               "rounded p-0.5 text-muted-foreground/60 hover:text-foreground",
                               active && "text-primary",
                             )}
-                            aria-label={`Filter ${column.header}`}
+                            aria-label={t("table.filterColumn", { column: String(column.header) })}
                             data-active={active || undefined}
                           >
                             <FilterIcon className={cn("size-3.5", active && "fill-current")} />
@@ -505,7 +513,7 @@ export function DataTable<Row extends { id: string }>({
                           else next.add(row.id);
                           setSelected(next);
                         }}
-                        aria-label="Select row"
+                        aria-label={t("table.selectRow")}
                       />
                     </TableCell>
                   )}
@@ -530,7 +538,7 @@ export function DataTable<Row extends { id: string }>({
                       >
                         {column.cell
                           ? column.cell(row)
-                          : defaultCell(row, column, rowCurrency?.(row) ?? sumCurrency)}
+                          : defaultCell(row, column, t, rowCurrency?.(row) ?? sumCurrency)}
                       </TableCell>
                     );
                   })}
@@ -655,7 +663,7 @@ function ColumnsMenu<Row>({
                 <button
                   type="button"
                   className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label={`Move ${name} up`}
+                  aria-label={t("table.moveUp", { column: String(name) })}
                   disabled={i === 0}
                   onClick={() => move(c.key, -1)}
                 >
@@ -664,7 +672,7 @@ function ColumnsMenu<Row>({
                 <button
                   type="button"
                   className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label={`Move ${name} down`}
+                  aria-label={t("table.moveDown", { column: String(name) })}
                   disabled={i === toggleable.length - 1}
                   onClick={() => move(c.key, 1)}
                 >
@@ -702,6 +710,7 @@ function ResizeHandle({
   width: number | undefined;
   onResize: (px: number) => void;
 }) {
+  const t = useT();
   const start = useRef<{ x: number; width: number } | null>(null);
   const widthOfHeader = (el: HTMLElement) =>
     (el.closest("th") as HTMLElement | null)?.getBoundingClientRect().width ?? 0;
@@ -710,7 +719,7 @@ function ResizeHandle({
     <span
       role="separator"
       aria-orientation="vertical"
-      aria-label={`Resize ${label}`}
+      aria-label={t("table.resize", { column: String(label) })}
       aria-valuenow={width ?? MIN_COLUMN_WIDTH}
       aria-valuemin={MIN_COLUMN_WIDTH}
       aria-valuemax={MAX_COLUMN_WIDTH}
