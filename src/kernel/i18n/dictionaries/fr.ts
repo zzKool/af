@@ -1399,6 +1399,7 @@ export const fr: Dictionary = {
   "documents.review.content": "Contenu du document",
   "documents.review.rawText": "Texte extrait (lecture seule)",
   "documents.review.noText": "Aucun texte extrait",
+  "documents.review.restored": "{key} est de retour dans la boîte de réception",
   "documents.category.financial": "Financier",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Dépense",

@@ -1385,6 +1385,7 @@ export const en = {
   "documents.review.content": "Document Content",
   "documents.review.rawText": "Extracted Text (read-only)",
   "documents.review.noText": "No text extracted",
+  "documents.review.restored": "{key} is back in the inbox",
   "documents.category.financial": "Financial",
   "documents.category.relationship": "Relationship",
   "documents.prefix.expense": "Expense",

@@ -1248,6 +1248,7 @@ export const sv: Dictionary = {
   "documents.review.content": "Dokumentets innehåll",
   "documents.review.rawText": "Tolkad text (skrivskyddad)",
   "documents.review.noText": "Ingen text tolkad",
+  "documents.review.restored": "{key} är tillbaka i inkorgen",
   "documents.category.financial": "Ekonomiskt",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Utlägg",
