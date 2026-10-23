@@ -19,7 +19,7 @@ import {
   TRANSACTION_COLUMN_KEYS,
   TRANSACTION_DEFAULT_SORT,
 } from "@/modules/banking";
-import { TransactionTable } from "@/modules/banking/ui";
+import { TransactionTable, WorkbenchActions } from "@/modules/banking/ui";
 import { categoryOptions, partnerOptions } from "@/modules/journal";
 import { getUserPreferences } from "@/modules/settings";
 
@@ -62,11 +62,18 @@ export default async function BankingPage({
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const pending = data.months.banner;
   const hasRows = data.months.months.some((m) => m.justified + m.toJustify > 0);
+  const canWrite = can(auth, "create", "bank_transaction");
+  const accountOptions = data.accounts.map((a) => ({
+    id: a.id,
+    label: accountLabel(a),
+    currency: a.currency,
+  }));
 
   return (
     <ListPage
       title={t("banking.title")}
       meta={t("banking.meta.transactions", { count: data.result.total })}
+      actions={<WorkbenchActions accounts={accountOptions} canWrite={canWrite} />}
       banner={
         pending && (
           <InfoBanner>
@@ -87,15 +94,11 @@ export default async function BankingPage({
           ...b,
           lastImportAt: b.lastImportAt ? b.lastImportAt.toISOString() : null,
         }))}
-        accounts={data.accounts.map((a) => ({
-          id: a.id,
-          label: accountLabel(a),
-          currency: a.currency,
-        }))}
+        accounts={accountOptions}
         categories={data.categories}
         partners={data.partners}
         importLabels={Object.fromEntries(data.imports.map((i) => [i.id, i.fileName]))}
-        canWrite={can(auth, "create", "bank_transaction")}
+        canWrite={canWrite}
         initialSelectedId={typeof params.open === "string" ? params.open : null}
         months={hasRows ? data.months : undefined}
       />
