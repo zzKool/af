@@ -52,15 +52,33 @@ export async function getVatRegistrations(
   const registrations = await tx.vatRegistration.findMany({
     orderBy: [{ country: "asc" }, { vatNumber: "asc" }],
   });
+  return { data: registrations.map(toVatRegistrationDto) };
+}
+
+/** One registration of the tenant (RLS-scoped), or null — for modules that keep its id on their rows (audit 25). */
+export async function getVatRegistration(
+  tx: TransactionClient,
+  id: string,
+): Promise<VatRegistrationDto | null> {
+  const r = await tx.vatRegistration.findUnique({ where: { id } });
+  return r ? toVatRegistrationDto(r) : null;
+}
+
+function toVatRegistrationDto(r: {
+  id: string;
+  country: string;
+  vatNumber: string;
+  rateSchedule: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): VatRegistrationDto {
   return {
-    data: registrations.map((r) => ({
-      id: r.id,
-      country: r.country,
-      vatNumber: r.vatNumber,
-      rateSchedule: parseRateSchedule(r.rateSchedule),
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-    })),
+    id: r.id,
+    country: r.country,
+    vatNumber: r.vatNumber,
+    rateSchedule: parseRateSchedule(r.rateSchedule),
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   };
 }
 

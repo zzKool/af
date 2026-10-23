@@ -28,6 +28,11 @@ Derived, never stored (`modules/documents/inbox.ts`, `listInbox` in `queries.ts`
 - **Scale**: one read of the tenant's non-generated documents per request (cap 20 000, like the library) plus the generated twins of those hashes, state / twins / counts in memory. Right for one company; revisit when a tenant passes a few thousand documents ([[lessons]]).
 - The accountant sees financial documents only (`can(read, relationship_document)` decides), and nothing he can change.
 
+**The same rule for other modules** (read APIs on `index.ts`, lessons audit 26):
+
+- `candidateDocuments(tx, caller, types, { limit = 200 })` — the documents of those `prefixType`s still waiting in the inbox (any state but `archived`), newest first, each with its `state`. The rule runs before the limit, so taken documents never hide a free one. For the expense and supplier-invoice dialogs' document picker (their own copies move to it in their lanes).
+- `documentsByIds(tx, ids)` carries `documentState` (`documentState()`: the inbox state, else `filed` / `generated`); `DocumentStateLabel` is on `documents/ui` — the partner page's Documents tab (partners T011).
+
 ## The pane
 
 Key (code chip), state (`<DocumentStateLabel>` — the module's one family map, the same word as the library and the review page: *Needs OCR* / *Processing* / *Ready* in progress ◐, *Processing* stuck / *OCR failed* attention !, *Archived* neutral –), kind (tag), file; *Duplicate of* links the oldest twin. One primary in the pane: *Run OCR* while the OCR is due, *Expense* once the facts are there; the rest are secondaries, *Open* a link. Then the D40 `DetailsSection`s: *Financial Details* (the facts, `DetailsGrid`, the amount through `formatMoney`), the suggestions (`SuggestionsSection`, its own *Suggestions* heading — the kit's *Proof* title waits for F74's keys), *Document preview*. The tabs are underline tabs (the counts stay in the words until F74), the list's date is `yyyy-mm-dd`. Actions by state:

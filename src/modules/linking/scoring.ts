@@ -4,6 +4,7 @@
 // unless a reference matched. HIGH = (reference ∧ ≥ 60) ∨ ≥ 80, MEDIUM ≥ 50, else LOW. A side whose currency is
 // not known (null, F61-b) is never compared on the amount and never penalised: reference, name and date only.
 import { Prisma } from "@/generated/prisma/client";
+import { daysBetween } from "@/kernel/clock/calendar";
 import type { Confidence, EntityFacts, LinkableType, MatchResult } from "./types";
 
 const D = Prisma.Decimal;
@@ -86,11 +87,8 @@ export function partialTokens(reference: string): string[] {
     );
 }
 
-/** Whole calendar days between two ISO dates. */
-export function daysBetween(a: string, b: string): number {
-  const ms = Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`));
-  return Math.round(ms / 86_400_000);
-}
+/** Whole calendar days between two ISO dates — the kernel's, re-exported for the scorer's callers (audit 27). */
+export { daysBetween };
 
 function amountTier(row: Dec, entity: Dec): number | null {
   if (entity.lte(0)) return null;

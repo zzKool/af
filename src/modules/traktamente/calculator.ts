@@ -6,6 +6,7 @@
 //              (abroad 15 / 35 / 35 % of the full day amount; Sweden the year's fixed krona amounts, triples at
 //              the "all three" figure), plus the night amount for nights without paid lodging, × long-stay factor.
 import { Prisma } from "@/generated/prisma/browser";
+import { addDays } from "@/kernel/clock/calendar";
 import type { DayCount, DayKind, PerDiemResult, PerDiemWarning, RateRow, TripDay } from "./types";
 
 const D = Prisma.Decimal;
@@ -53,11 +54,53 @@ export function toLocal(value: Date | string, zone: string = TENANT_ZONE): Local
   };
 }
 
-/** The next calendar date — on the date string, so DST changes never shift a day. */
-export function nextDate(date: string): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
+const LOCAL_WALL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+
+/** A local time in the tenant zone → the instant (Stockholm offset of that date). */
+export function toInstant(value: string, zone: string = TENANT_ZONE): Date {
+  if (!LOCAL_WALL.test(value)) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) throw new Error(`Not a timestamp: "${value}"`);
+    return d;
+  }
+  // find the offset of the zone at that wall time: format a guess, compare, adjust once (DST-safe)
+  const guess = new Date(`${value.length === 16 ? `${value}:00` : value}Z`);
+  const offset = (d: Date) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(d);
+    const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
+    const asUtc = Date.UTC(
+      get("year"),
+      get("month") - 1,
+      get("day"),
+      get("hour"),
+      get("minute"),
+      get("second"),
+    );
+    return (asUtc - d.getTime()) / 60_000;
+  };
+  const first = new Date(guess.getTime() - offset(guess) * 60_000);
+  return new Date(guess.getTime() - offset(first) * 60_000);
+}
+
+/**
+ * The instants a rate year covers: from 1 January 00:00 to the next 1 January 00:00, Stockholm time — a trip
+ * is counted in Stockholm (`countDays`), so is the year its rate belongs to (audit 28: UTC bounds let a return
+ * at 00:30 on 1 January miss the new year, and a departure at 00:30 on 1 January count in the old one).
+ */
+export function rateYearBounds(year: number, zone: string = TENANT_ZONE): { from: Date; to: Date } {
+  return {
+    from: toInstant(`${year}-01-01T00:00`, zone),
+    to: toInstant(`${year + 1}-01-01T00:00`, zone),
+  };
 }
 
 export function countDays(
@@ -74,7 +117,7 @@ export function countDays(
     return { fullDays: 0, halfDays: 0, nights: 0, days: 0, perDay: [], reason: NO_OVERNIGHT };
   }
   const perDay: DayCount["perDay"] = [];
-  for (let date = dep.date; date <= ret.date; date = nextDate(date)) {
+  for (let date = dep.date; date <= ret.date; date = addDays(date, 1)) {
     let kind: DayKind = "full";
     if (date === dep.date && dep.minutes >= DEPARTURE_HALF_FROM_MINUTES) kind = "half";
     if (date === ret.date && ret.minutes <= RETURN_HALF_UNTIL_MINUTES) kind = "half";

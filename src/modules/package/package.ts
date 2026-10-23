@@ -10,7 +10,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { packageKey } from "@/modules/numbering";
 import { isPackagePeriod } from "./period";
-import type { PackageBuildDto, PackageBuildStatus, PackageCounts } from "./types";
+import type { PackageBuildDto, PackageCounts } from "./types";
 
 export const EMPTY_COUNTS: PackageCounts = {
   bankRows: 0,
@@ -33,7 +33,8 @@ export function toBuildDto(row: PackageBuild): PackageBuildDto {
     tenantId: row.tenantId,
     period: row.period,
     version: row.version,
-    status: row.status as PackageBuildStatus,
+    // the Postgres enum: a member the DTO list lacks fails to compile here (the other way: state-family.pure.test.ts)
+    status: row.status,
     documentId: row.documentId,
     businessKey: row.businessKey,
     counts: { ...EMPTY_COUNTS, ...counts },
