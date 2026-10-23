@@ -5,6 +5,7 @@
 import { Prisma } from "@/generated/prisma/browser";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays, daysBetween } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
@@ -42,12 +43,6 @@ export type TransferLeg = {
   currency: string;
   text: string;
 };
-
-function daysBetween(a: string, b: string): number {
-  return Math.abs(
-    (new Date(`${a}T00:00:00Z`).getTime() - new Date(`${b}T00:00:00Z`).getTime()) / 86_400_000,
-  );
-}
 
 function hintsFor(a: TransferLeg, b: TransferLeg): string[] {
   const hints: string[] = [];
@@ -181,9 +176,8 @@ export async function proposeTransfers(
   const a = await legOf(tx, transactionId);
   if (!a) return { error: notFound("Bank transaction", transactionId) };
   if ((await pairedIds(tx, [a.id])).has(a.id)) return { data: [] };
-  const from = new Date(`${a.bookingDate}T00:00:00Z`);
-  const lo = new Date(from.getTime() - MAX_DATE_GAP_DAYS * 86_400_000);
-  const hi = new Date(from.getTime() + MAX_DATE_GAP_DAYS * 86_400_000);
+  const lo = new Date(`${addDays(a.bookingDate, -MAX_DATE_GAP_DAYS)}T00:00:00Z`);
+  const hi = new Date(`${addDays(a.bookingDate, MAX_DATE_GAP_DAYS)}T00:00:00Z`);
   const rows = await tx.bankTransaction.findMany({
     where: {
       bankAccountId: { not: a.bankAccountId },
