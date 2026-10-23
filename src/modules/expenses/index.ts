@@ -64,6 +64,7 @@ export {
 export * from "./queries";
 export type { ConfirmInput, ProposeInput } from "./settlements";
 export {
+  activeSettlementTransactionIds,
   cancelSettlement,
   confirmSchema,
   confirmSettlement,

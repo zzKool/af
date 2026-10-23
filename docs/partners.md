@@ -12,6 +12,8 @@ src/modules/partners/
   types.ts            PartnerDto, PartnerSummaryDto, PartnerType, ExternalIdentifier, PartnerAddress
   state-family.ts     the one state → D40 family map: active → done, inactive → neutral (from is_active, never typed)
   partners.ts         service: Zod schemas, toPartnerDto, create/update/deactivate/reactivate, getPartner(s), searchPartners
+                      (reads other modules through their index: settings' getBasCategory / isBasActivated for the default
+                      category, contracts' activeContractCount — a lazy import(), contracts imports partners — for the type-removal guard)
   contacts.ts         contact persons (F08): schemas, toPartnerContactDto, list / create / update / delete, audited
   queries.ts          READ API — PARTNER_COLUMNS (ColumnMap), listPartners(tx, q), distinctPartnerValues, partnerDateHierarchy,
                       getPartner(s), listPartnerContacts (re-exported: pages read through queries.ts)
@@ -53,7 +55,7 @@ src/app/(app)/partners/[id]/page.tsx   entity page: <EntityPage> around the tabs
 - **Types** are metadata: grey `<Tag>`s (`PartnerTypeTags`), no per-type colour. The list has a **Types** quick filter.
 - **One primary per title row**: the list's *Add partner* opens a dialog (it used to be an inline form above the table); the partner page has none — *Deactivate* / *Reactivate* sit in the title row's ⋮ (*More actions*, through a `ConfirmDialog`), *Graph* is the secondary. In the list they are the row's ⋮ (`rowActions`).
 - **The partner page** is a `PageHeader` (no back link, the breadcrumb names *Partners*; the title once) with underline tabs whose counts are `<CountBadge>`s (`partners.tab.*` without a count: *Contracts 1*). Overview = an *About* section (state, types, active contracts, created `yyyy-mm-dd`) and the form's four groups as collapsible `DetailsSection`s. A saved name or types change updates the title row without a reload.
-- **Transactions tab**: amounts through `formatMoney` with the plain decimal on `data-amount`, the base beside a foreign amount (`BASE_CURRENCY` until F70), the BAS label a `<Tag>`. **Documents tab**: the key a `<CodeChip>`, the category a `<Tag>`. The stored OCR step (`status`) is no longer shown — the derived document state is the documents module's (`documentState`); showing it here needs `documentsByIds` to carry it (`specs/partners/tasks.md` T011).
+- **Transactions tab**: amounts through `formatMoney` with the plain decimal on `data-amount`, the base beside a foreign amount (`BASE_CURRENCY` until F70), the BAS label a `<Tag>`. **Documents tab**: the key a `<CodeChip>`, the category a `<Tag>`. The stored OCR step (`status`) is not shown; each row carries the derived state instead — `documentsByIds`' `documentState` through `DocumentStateLabel` from `documents/ui` (T011, `components/partner-documents.tsx`).
 - **Contacts**: *Edit* / *Delete* in the row's ⋮ (`RowActionsMenu`); a server error without a message reads `errors.generic`, not *Error*.
 
 ## The entity page's relationships (2026-10-21)

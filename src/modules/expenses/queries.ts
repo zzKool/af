@@ -18,14 +18,13 @@ import type {
 } from "@/kernel/list-query/types";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
-import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as settings from "@/modules/settings";
 import { isExpenseOpen, toExpenseDto } from "./expenses";
 import { groupLabel, toGroupDto } from "./groups";
 import { expenseHistory, type HistoryEntry } from "./history";
-import { allocatedByExpense, toSettlementDto } from "./settlements";
+import { activeSettlementTransactionIds, allocatedByExpense, toSettlementDto } from "./settlements";
 import { deriveExpenseStatus, owedBase } from "./status";
 import type {
   ExpenseDto,
@@ -117,22 +116,17 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
   if (ids.length === 0) return f;
   const [allocated, links] = await Promise.all([
     allocatedByExpense(tx, ids),
-    tx.link.findMany({
-      where: {
-        OR: [
-          { toType: "expense", toId: { in: [...ids] } },
-          { fromType: "expense", fromId: { in: [...ids] }, kind: "created_from" },
-        ],
-      },
-      select: { kind: true, fromType: true, fromId: true, toId: true, allocatedAmount: true },
-    }),
+    linking.linksTouching(tx, "expense", ids, { kinds: ["created_from", "justifies"] }),
   ]);
   f.allocated = allocated;
   for (const l of links) {
-    if (l.kind === "created_from") f.hasDocument.add(l.fromId);
-    else if (l.kind === "justifies" && l.fromType === "bank_transaction" && l.allocatedAmount) {
-      f.justified.set(l.toId, (f.justified.get(l.toId) ?? new D(0)).plus(l.allocatedAmount));
-    } else if (l.kind === "justifies" && l.fromType === "document") f.hasDocument.add(l.toId);
+    if (l.kind === "created_from") {
+      if (l.from.type === "expense") f.hasDocument.add(l.from.id);
+    } else if (l.to.type !== "expense") {
+      // a justifies link FROM an expense proves something else, not this expense
+    } else if (l.from.type === "bank_transaction" && l.allocatedAmount) {
+      f.justified.set(l.to.id, (f.justified.get(l.to.id) ?? new D(0)).plus(l.allocatedAmount));
+    } else if (l.from.type === "document") f.hasDocument.add(l.to.id);
   }
   return f;
 }
@@ -304,38 +298,25 @@ export async function getExpenseDetail(
   });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Expense not found: ${id}`, retryable: false } };
-  const [f, labels, links, isOpen, audit] = await Promise.all([
+  const [f, labels, withLabels, isOpen, audit] = await Promise.all([
     facts(tx, [id]),
     settings.basLabels(tx, [row.basCode]),
-    linking.getLinksFor(tx, { type: "expense", id }),
+    linking.linksWithLabels(tx, { type: "expense", id }),
     isExpenseOpen(tx, id),
     getAuditLog(tx, { entityType: "expense", entityId: id, limit: 20 }),
   ]);
   const dto = toExpenseDto(row);
   const derived = statusOf(dto, row.paymentSource.kind as PaymentSourceKind, f, id);
-  const withLabels = await Promise.all(
-    (links.data ?? []).map(async (l) => {
-      const other = l.from.type === "expense" && l.from.id === id ? l.to : l.from;
-      const linkable = linking.getLinkable(other.type);
-      const summary = linkable ? await linkable.summary(tx, other.id) : null;
-      return { ...l, otherLabel: summary?.label ?? null };
-    }),
-  );
-  const origin = (links.data ?? []).find((l) => l.kind === "created_from" && l.from.id === id);
+  const origin = withLabels.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: ExpenseDetail["document"] = null;
   if (origin) {
-    const d = await tx.document.findUnique({
-      where: { id: origin.to.id },
-      select: { id: true, businessKey: true, fileName: true },
-    });
-    document = d ?? null;
+    const d = (await documents.getDocument(tx, origin.to.id)).data;
+    document = d ? { id: d.id, businessKey: d.businessKey, fileName: d.fileName } : null;
   }
-  const settlementIds = row.settlementLines.map((l) => l.settlement.bankTransactionId);
-  const bookingDates = new Map<string, string>();
-  for (const tid of new Set(settlementIds)) {
-    const t = await banking.getBankTransaction(tx, tid);
-    if (t) bookingDates.set(tid, t.bookingDate);
-  }
+  const bookingDates = await banking.bookingDates(
+    tx,
+    row.settlementLines.map((l) => l.settlement.bankTransactionId),
+  );
   return {
     data: {
       expense: dto,
@@ -448,48 +429,16 @@ export async function listSettlements(tx: TransactionClient): Promise<Settlement
   return out;
 }
 
-export type SettleableTransaction = {
-  id: string;
-  bookingDate: string;
-  amount: string;
-  currency: string;
-  description: string;
-  bankAccountId: string;
-  accountLabel: string;
-  amountBase: string | null;
-};
+export type SettleableTransaction = banking.OutgoingMainRow;
 
 /** Outgoing rows on main accounts that do not settle anything yet — the settle page's picker (US5) and the attach picker. */
 export async function settleableTransactions(
   tx: TransactionClient,
   limit = 200,
 ): Promise<SettleableTransaction[]> {
-  const settling = await tx.settlement.findMany({
-    where: { status: "active" },
-    select: { bankTransactionId: true },
-  });
-  const taken = new Set(settling.map((s) => s.bankTransactionId));
-  const rows = await tx.bankTransaction.findMany({
-    where: { amount: { lt: 0 }, bankAccount: { role: "main" } },
-    include: { bankAccount: true },
-    orderBy: [{ bookingDate: "desc" }],
-    take: limit + taken.size,
-  });
-  const ids = rows.map((r) => r.id);
-  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
-  return rows
-    .filter((r) => !taken.has(r.id))
-    .slice(0, limit)
-    .map((r) => ({
-      id: r.id,
-      bookingDate: r.bookingDate.toISOString().slice(0, 10),
-      amount: r.amount.toFixed(2),
-      currency: r.currency,
-      description: r.description,
-      bankAccountId: r.bankAccountId,
-      accountLabel: banking.accountLabel(r.bankAccount),
-      amountBase: entries.get(r.id)?.amountBase ?? null,
-    }));
+  const taken = await activeSettlementTransactionIds(tx);
+  const rows = await banking.outgoingMainRows(tx, limit + taken.size);
+  return rows.filter((r) => !taken.has(r.id)).slice(0, limit);
 }
 
 // --- the ledger ---
@@ -580,13 +529,9 @@ export async function candidateDocuments(
   );
   const items = (list.data?.items ?? []).filter((d) => d.status !== "generated");
   if (items.length === 0) return [];
-  const taken = new Set(
-    (
-      await tx.link.findMany({
-        where: { kind: "created_from", toType: "document", toId: { in: items.map((d) => d.id) } },
-        select: { toId: true },
-      })
-    ).map((l) => l.toId),
+  const taken = await linking.createdFromTargets(
+    tx,
+    items.map((d) => d.id),
   );
   return items
     .filter((d) => !taken.has(d.id))

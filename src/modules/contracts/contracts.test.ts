@@ -1012,3 +1012,32 @@ describe("createTestContract fixture", () => {
     expect(fetched.data?.currency).toBe("EUR");
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// activeContractCount — the read API partners asks (audit 25)
+// ─────────────────────────────────────────────────────────────
+describe("activeContractCount", () => {
+  it("counts a partner's active contracts as client and as assigned employee, inactive ones not", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const client = await createTestPartner(adminPool, tenantId, userId, { types: ["client"] });
+    const employee = await createTestPartner(adminPool, tenantId, userId, { types: ["employee"] });
+    await createTestContract(adminPool, tenantId, userId, client.id, {
+      assignedEmployeeId: employee.id,
+    });
+    await createTestContract(adminPool, tenantId, userId, client.id);
+    await createTestContract(adminPool, tenantId, userId, client.id, {
+      assignedEmployeeId: employee.id,
+      isActive: false,
+    });
+
+    const counts = await withTenantTransaction(prisma, tenantId, async (tx) => ({
+      asClient: await contractService.activeContractCount(tx, { partnerId: client.id }),
+      asEmployee: await contractService.activeContractCount(tx, {
+        assignedEmployeeId: employee.id,
+      }),
+      employeeAsClient: await contractService.activeContractCount(tx, { partnerId: employee.id }),
+    }));
+    expect(counts).toEqual({ asClient: 2, asEmployee: 1, employeeAsClient: 0 });
+  });
+});

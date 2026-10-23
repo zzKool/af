@@ -11,7 +11,7 @@ import {
 } from "./types";
 
 const ACTIONS = new Set(["create", "update", "delete"]);
-const BY = new Set<string>(["manual", "rule", "partner_default"]);
+const BY = new Set<string>(["manual", "rule"]); // partner_default is never written (audit 32)
 /** an entry's trail is short (create + a few categorisations); the panel shows at most this many lines */
 const LIMIT = 50;
 

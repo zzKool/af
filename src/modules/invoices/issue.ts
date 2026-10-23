@@ -11,6 +11,7 @@ import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
+import { creditedSum } from "./credited";
 import { registrationById } from "./defaults";
 import { declarationPeriodFor } from "./derive";
 import { load, toDate, toInvoiceDto, withLines } from "./dto";
@@ -173,11 +174,7 @@ async function creditLimit(
   const original = await tx.invoice.findUnique({ where: { id: creditNote.relatedInvoiceId } });
   if (!original) return notFound("Original invoice", creditNote.relatedInvoiceId);
   if (original.status === "draft") return violation("The original invoice is not issued");
-  const issued = await tx.invoice.aggregate({
-    where: { relatedInvoiceId: original.id, type: "credit_note", status: { not: "draft" } },
-    _sum: { totalAmount: true },
-  });
-  const already = issued._sum.totalAmount ?? new D(0);
+  const already = new D((await creditedSum(tx, [original.id])).get(original.id) ?? "0");
   if (already.add(creditNote.totalAmount).gt(original.totalAmount)) {
     return violation(
       `Credit notes would exceed the original: ${already.toFixed(2)} already credited + ${creditNote.totalAmount.toFixed(2)} > ${original.totalAmount.toFixed(2)} ${original.currency}`,

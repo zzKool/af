@@ -25,7 +25,7 @@ export type {
   ParseResult,
   ValidationResult,
 } from "./csv-parser";
-export { dedupHash, headerError, parse, validateFormat } from "./csv-parser";
+export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
 export { transactionHistory } from "./history";
 export {
   deleteImport,
@@ -34,7 +34,6 @@ export {
   importCsv,
   importCsvSchema,
   planImport,
-  statementKey,
 } from "./import";
 export { bankTransactionLinkable } from "./linkable";
 export type { MonthsInput } from "./months";

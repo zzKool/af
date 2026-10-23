@@ -4,6 +4,8 @@
 import { Prisma } from "@/generated/prisma/browser";
 import { getAuditLog } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
+import { createClock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
@@ -16,10 +18,10 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import { openAmount } from "@/kernel/money/settlement";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
-import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
@@ -27,7 +29,7 @@ import * as settings from "@/modules/settings";
 import { allocatedSums } from "./allocated";
 import { historyEvent, type SupplierInvoiceHistoryEntry } from "./history";
 import { supplierInvoiceListSums } from "./list-sums";
-import { addDays, deriveSupplierInvoiceStatus, openAmount } from "./status";
+import { deriveSupplierInvoiceStatus } from "./status";
 import { toSupplierInvoiceDto } from "./supplier-invoices";
 import type {
   SupplierInvoiceDto,
@@ -152,7 +154,8 @@ export function statusOf(
   };
 }
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
+/** The default `today` of the reads — Stockholm's calendar day (`kernel/clock`), never the UTC one (audit 28). */
+const clock = createClock();
 
 async function loadRows(
   tx: TransactionClient,
@@ -168,7 +171,7 @@ async function loadRows(
     orderBy: [{ invoiceDate: "desc" }, { key: "desc" }],
     take: ROW_CAP,
   });
-  const today = options.today ?? todayIso();
+  const today = options.today ?? clock.today();
   const [f, labels, names] = await Promise.all([
     facts(
       tx,
@@ -326,7 +329,7 @@ export async function getSupplierInvoiceDetail(
   tx: TransactionClient,
   caller: CallerIdentity,
   id: string,
-  today = todayIso(),
+  today = clock.today(),
 ): Promise<ServiceResult<SupplierInvoiceDetail>> {
   const row = await tx.supplierInvoice.findUnique({
     where: { id },
@@ -359,11 +362,8 @@ export async function getSupplierInvoiceDetail(
   const origin = all.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: SupplierInvoiceDetail["document"] = null;
   if (origin) {
-    const d = await tx.document.findUnique({
-      where: { id: origin.to.id },
-      select: { id: true, businessKey: true, fileName: true },
-    });
-    document = d ?? null;
+    const d = (await documents.getDocument(tx, origin.to.id)).data;
+    document = d ? { id: d.id, businessKey: d.businessKey, fileName: d.fileName } : null;
   }
   const payments: SupplierInvoicePayment[] = [];
   for (const l of withLabels) {
@@ -430,7 +430,7 @@ export const DUE_SOON_DAYS = 14;
 /** Open, overdue, due within 14 days, paid this month — SEK, non-cancelled invoices (US3). */
 export async function kpis(
   tx: TransactionClient,
-  today = todayIso(),
+  today = clock.today(),
 ): Promise<SupplierInvoiceKpis> {
   const rows = await tx.supplierInvoice.findMany({
     where: { cancelled: false },
@@ -493,12 +493,10 @@ export async function kpis(
   }
   // paid this month: the last payment row of a paid invoice was booked this month
   if (paidIds.length > 0) {
-    const txIds = [...new Set(paidIds.flatMap((id) => f.payers.get(id) ?? []))];
-    const bookings = await tx.bankTransaction.findMany({
-      where: { id: { in: txIds } },
-      select: { id: true, bookingDate: true },
-    });
-    const booked = new Map(bookings.map((b) => [b.id, b.bookingDate.toISOString().slice(0, 10)]));
+    const booked = await banking.bookingDates(
+      tx,
+      paidIds.flatMap((id) => f.payers.get(id) ?? []),
+    );
     const base = new Map(rows.map((r) => [r.id, r.amountBase]));
     for (const id of paidIds) {
       const last = (f.payers.get(id) ?? [])
@@ -542,15 +540,9 @@ export async function payableTransactions(
   currency?: string,
   limit = 200,
 ): Promise<PayableTransaction[]> {
-  const rows = await tx.bankTransaction.findMany({
-    where: { amount: { lt: 0 }, bankAccount: { role: "main" } },
-    include: { bankAccount: true },
-    orderBy: [{ bookingDate: "desc" }],
-    take: limit * 2,
-  });
+  const rows = await banking.outgoingMainRows(tx, limit * 2);
   const ids = rows.map((r) => r.id);
-  const [entries, used, settling] = await Promise.all([
-    journal.entriesForSources(tx, "bank_transaction", ids),
+  const [used, settling] = await Promise.all([
     linking.allocatedFrom(tx, "bank_transaction", ids),
     tx.settlement.findMany({
       where: { bankTransactionId: { in: ids }, status: "active" },
@@ -560,20 +552,13 @@ export async function payableTransactions(
   const taken = new Set(settling.map((s) => s.bankTransactionId));
   const out = rows
     .filter((r) => !taken.has(r.id))
-    .map((r) => {
-      const remaining = r.amount.abs().minus(used.get(r.id) ?? "0");
-      return {
-        id: r.id,
-        bookingDate: r.bookingDate.toISOString().slice(0, 10),
-        amount: r.amount.toFixed(2),
-        currency: r.currency,
-        description: r.description,
-        bankAccountId: r.bankAccountId,
-        accountLabel: banking.accountLabel(r.bankAccount),
-        amountBase: entries.get(r.id)?.amountBase ?? null,
-        remaining: remaining.toFixed(2),
-      };
-    })
+    .map((r) => ({
+      ...r,
+      remaining: new D(r.amount)
+        .abs()
+        .minus(used.get(r.id) ?? "0")
+        .toFixed(2),
+    }))
     .filter((r) => new D(r.remaining).gt(0));
   if (currency) {
     out.sort((a, b) => Number(b.currency === currency) - Number(a.currency === currency));

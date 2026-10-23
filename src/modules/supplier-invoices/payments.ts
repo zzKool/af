@@ -8,7 +8,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
-import { settlementTolerance } from "@/kernel/money/settlement";
+import { openAmount, settlementTolerance } from "@/kernel/money/settlement";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { positiveMoney, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
@@ -16,7 +16,6 @@ import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { allocatedTo } from "./allocated";
-import { openAmount } from "./status";
 import {
   baseAmount,
   invalid,

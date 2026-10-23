@@ -4,6 +4,7 @@
 // only) or the owner's own notes (editable in Nordea); identical rows of one file are told apart by `occurrence`.
 import { createHash } from "node:crypto";
 import Papa from "papaparse";
+import { z } from "zod/v4";
 import { Prisma } from "@/generated/prisma/client";
 import { counterpartyKey } from "./counterparty";
 
@@ -13,6 +14,34 @@ export interface BankFormatColumn {
   label: string;
   /** other header texts the bank prints for the same column (`Date` for `Booking date`, D25) */
   aliases?: string[];
+}
+
+const columnMappingSchema = z.object({
+  columns: z
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        field: z.string().min(1),
+        label: z.string(),
+        aliases: z.array(z.string()).optional(),
+      }),
+    )
+    .min(1),
+  hasHeader: z.boolean(),
+  skipRows: z.number().int().min(0),
+  trailingDelimiter: z.boolean(),
+  primaryDescriptionField: z.string(),
+  referenceField: z.string(),
+});
+
+/**
+ * `bank_formats.column_mapping` (JSONB) read into the mapping the parser uses — the F50-b pattern, a parse on read
+ * instead of a cast (lessons audit 29). Null when the stored JSON does not fit, so a broken format is refused with
+ * a message rather than failing somewhere inside the parser.
+ */
+export function parseColumnMapping(json: unknown): BankFormatConfig["columnMapping"] | null {
+  const parsed = columnMappingSchema.safeParse(json);
+  return parsed.success ? parsed.data : null;
 }
 
 export interface BankFormatConfig {

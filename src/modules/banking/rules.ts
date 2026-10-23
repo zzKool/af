@@ -83,10 +83,20 @@ export function fieldText(text: RuleText, field: RuleMatchField): string {
     case "recipient":
       return text.recipient ?? "";
     case "all":
-      return [text.name, text.additionalDetails, text.message, text.sender, text.recipient]
-        .filter((v): v is string => !!v && v.trim() !== "")
-        .join(" ");
+      return bankText(text);
   }
+}
+
+/**
+ * Every text field Nordea gave — name, details, message, sender, recipient — the non-blank ones joined by a space:
+ * the rule field `all` and the transfer-pair hints read the same text (lessons audit 32).
+ */
+export function bankText(
+  text: Pick<RuleText, "name" | "additionalDetails" | "message" | "sender" | "recipient">,
+): string {
+  return [text.name, text.additionalDetails, text.message, text.sender, text.recipient]
+    .filter((v): v is string => !!v && v.trim() !== "")
+    .join(" ");
 }
 
 /** Case-insensitive; an invalid regex never matches and never throws. */
@@ -381,6 +391,29 @@ export type EntryTarget = {
   text: RuleText;
 };
 
+/** True when the categorisation wrote something on the entry — any of the facts a rule may set, or who set them. */
+export function changedBy(
+  before:
+    | Pick<
+        journal.JournalEntryDto,
+        "basCode" | "partnerId" | "noDocumentNeeded" | "categorisedBy" | "ruleId"
+      >
+    | undefined,
+  after: Pick<
+    journal.JournalEntryDto,
+    "basCode" | "partnerId" | "noDocumentNeeded" | "categorisedBy" | "ruleId"
+  >,
+): boolean {
+  if (!before) return true;
+  return (
+    before.basCode !== after.basCode ||
+    before.partnerId !== after.partnerId ||
+    before.noDocumentNeeded !== after.noDocumentNeeded ||
+    before.categorisedBy !== after.categorisedBy ||
+    before.ruleId !== after.ruleId
+  );
+}
+
 /**
  * Run the ordered rules over entries and write the hits through the journal (which refuses to overwrite
  * hand-set facts). Returns the hits; `dryRun` writes nothing.
@@ -396,6 +429,14 @@ export async function applyToEntries(
   const ordered = orderRules(rules);
   const preview: ApplyRulesResult["preview"] = [];
   const hitsByRule = new Map<string, number>();
+  // the entries as they were: a hit that changes nothing (the journal's never-overwrite rules) is not counted
+  const before = options.dryRun
+    ? new Map<string, journal.JournalEntryDto>()
+    : await journal.entriesForSources(
+        tx,
+        "bank_transaction",
+        targets.map((t) => t.transactionId),
+      );
   for (const t of targets) {
     const hit = firstHit(ordered, t.text);
     if (!hit) continue;
@@ -421,7 +462,8 @@ export async function applyToEntries(
       { by: "rule", ruleId: hit.id },
     );
     if (r.error) return { error: r.error };
-    hitsByRule.set(hit.id, (hitsByRule.get(hit.id) ?? 0) + 1);
+    if (changedBy(before.get(t.transactionId), r.data))
+      hitsByRule.set(hit.id, (hitsByRule.get(hit.id) ?? 0) + 1);
   }
   if (!options.dryRun) {
     const now = new Date();
