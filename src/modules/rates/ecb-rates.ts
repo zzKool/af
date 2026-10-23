@@ -1,6 +1,13 @@
 import { XMLParser } from "fast-xml-parser";
 import { Prisma } from "@/generated/prisma/client";
 import { logger } from "@/kernel/logging/logger";
+import type {
+  EcbRateFetchResult,
+  RateGap,
+  RateLookupResult,
+  RateLookupSource,
+  RatePairStatus,
+} from "./types";
 
 // ECB SDMX API — daily exchange rates
 const ECB_API_BASE = "https://data-api.ecb.europa.eu/service/data";
@@ -8,31 +15,7 @@ const ECB_API_BASE = "https://data-api.ecb.europa.eu/service/data";
 /** Fetch timeout — prevents indefinite hang if ECB API is unresponsive */
 const FETCH_TIMEOUT_MS = 30_000;
 
-const DEFAULT_CURRENCY_PAIRS = ["EUR/SEK", "EUR/CHF", "EUR/USD"];
-
-export interface EcbRateFetchResult {
-  inserted: number;
-  skipped: number;
-  rates: Array<{ date: string; currencyPair: string; rate: Prisma.Decimal }>;
-}
-
-export type RateSource = "ecb_daily" | "cached";
-
-export interface RateLookupResult {
-  date: string;
-  currencyPair: string;
-  rate: Prisma.Decimal;
-  rateSource: RateSource;
-  actualDate: string;
-}
-
-import type { RatePairStatus } from "./types";
-
-export interface DateGap {
-  from: string;
-  to: string;
-  missingWeekdays: number;
-}
+export const DEFAULT_CURRENCY_PAIRS = ["EUR/SEK", "EUR/CHF", "EUR/USD"];
 
 // XML parser configured for ECB SDMX format
 const xmlParser = new XMLParser({
@@ -119,9 +102,9 @@ function buildEcbUrl(
 }
 
 /**
- * Fetch daily rates from the ECB SDMX API.
- * Parses XML and stores rates in the ecb_rates table.
- * Uses ON CONFLICT DO NOTHING for idempotent inserts.
+ * Fetch daily rates from the ECB SDMX API, parse the XML and insert each observation into ecb_rates.
+ * Idempotent: a day already stored hits the primary key and is counted as skipped, the stored value unchanged
+ * (the duplicate-key error is caught — ecb_rates' immutability RULEs forbid ON CONFLICT).
  *
  * This service operates OUTSIDE the tenant boundary —
  * ecb_rates has no tenantId, no RLS. Uses base Prisma client directly.
@@ -164,7 +147,6 @@ export async function fetchDailyRates(
 
   for (const { date, currency, rate } of parsed) {
     const currencyPair = `EUR/${currency}`;
-    const decimalRate = new Prisma.Decimal(rate);
 
     // Cannot use ON CONFLICT DO NOTHING — ecb_rates has PostgreSQL RULEs
     // (immutability enforcement) which are incompatible with ON CONFLICT.
@@ -185,7 +167,7 @@ export async function fetchDailyRates(
       }
     }
 
-    rates.push({ date, currencyPair, rate: decimalRate });
+    rates.push({ date, currencyPair, rate });
   }
 
   logger.info({ inserted, skipped, total: parsed.length }, "ECB rates fetched and stored");
@@ -196,11 +178,12 @@ export async function fetchDailyRates(
 /**
  * The argument of `scripts/fetch-rates.ts`: a day (`2023-04-01`) backfills from that day,
  * a number keeps the last N observations, nothing means the last 400 (≈ 18 months of weekdays).
- * Returns null when the argument is neither, or the day is not a real past day.
+ * Returns null when the argument is neither, or the day is not a real past day. `today` is the Stockholm day
+ * (`clock.today()`), never the UTC one — between 00:00 and 02:00 Stockholm that would refuse today (V8).
  */
 export function fetchRatesArgToOptions(
   arg: string | undefined,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string,
 ): { startDate: string } | { lastN: number } | null {
   if (arg === undefined || arg === "") return { lastN: 400 };
   if (/^\d{4}-\d{2}-\d{2}$/.test(arg)) {
@@ -222,7 +205,7 @@ export const NEAREST_RATE_MAX_DAYS = 4;
 
 /**
  * Look up the cached rate for a date and currency pair.
- * Exact day → `ecb_daily`. Otherwise the nearest stored day within NEAREST_RATE_MAX_DAYS → `cached`:
+ * Exact day → `ecb_daily`. Otherwise the nearest stored day within NEAREST_RATE_MAX_DAYS → `ecb_nearest`:
  * an earlier day always wins over a later one (Sunday → Friday, a mid-week holiday → the day before), the
  * closest earlier first; a later day only when no earlier one is in reach (e.g. the first day of a backfill).
  * The date is unique per pair, so the choice is deterministic. Null beyond the cap — the caller says
@@ -244,7 +227,7 @@ export async function getRate(
     return {
       date,
       currencyPair: exactRows[0].currency_pair,
-      rate: new Prisma.Decimal(exactRows[0].rate),
+      rate: exactRows[0].rate,
       rateSource: "ecb_daily",
       actualDate: exactRows[0].date,
     };
@@ -266,8 +249,8 @@ export async function getRate(
     return {
       date,
       currencyPair: nearestRows[0].currency_pair,
-      rate: new Prisma.Decimal(nearestRows[0].rate),
-      rateSource: "cached",
+      rate: nearestRows[0].rate,
+      rateSource: "ecb_nearest",
       actualDate: nearestRows[0].date,
     };
   }
@@ -275,45 +258,79 @@ export async function getRate(
   return null;
 }
 
+/** Inner gaps start at 3 missing weekdays: the longest TARGET closure is 2 (Good Friday + Easter Monday). */
+const GAP_MIN_WEEKDAYS = 3;
+
+/** ISO day ± n calendar days, in UTC (no local-time drift, audit 28). */
+function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysApart(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/** The ECB weekdays strictly between two ISO days. */
+function weekdaysStrictlyBetween(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let d = addDays(from, 1); d < to; d = addDays(d, 1)) {
+    const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
+    if (dow !== 0 && dow !== 6) days.push(d);
+  }
+  return days;
+}
+
 /**
- * Detect gaps in cached rates (> 3 weekdays missing).
- * ECB publishes on weekdays only — weekends are expected gaps.
+ * The gaps of the last `windowDays` days, per pair (F81) — the warning that matches `getRate`'s refusal:
+ * - **inner**: ≥ 3 ECB weekdays without a rate between two stored days (Fri → Mon and a TARGET closure are not gaps);
+ * - **trailing**: no rate since the pair's newest stored day, once that day is NEAREST_RATE_MAX_DAYS old —
+ *   the last day a fact dated today still borrows it, so the warning shows the day before `getRate` refuses
+ *   (and a pair never stored is one trailing gap over the whole window).
+ * Each pair on its own: a CHF gap shows while SEK is current. `today` is the Stockholm day (`clock.today()`).
  */
-export async function detectGaps(
-  prisma: { $queryRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown[]> },
-  currencyPair: string,
-  fromDate: string,
-  toDate: string,
-): Promise<DateGap[]> {
-  const rows = (await prisma.$queryRawUnsafe(
-    `SELECT date::text FROM ecb_rates
-     WHERE currency_pair = $1 AND date >= $2::date AND date <= $3::date
-     ORDER BY date ASC`,
-    currencyPair,
-    fromDate,
-    toDate,
-  )) as Array<{ date: string }>;
+export async function rateGaps(
+  db: { $queryRawUnsafe: (query: string, ...args: unknown[]) => Promise<unknown[]> },
+  today: string,
+  options?: { currencyPairs?: string[]; windowDays?: number },
+): Promise<RateGap[]> {
+  const pairs = options?.currencyPairs ?? DEFAULT_CURRENCY_PAIRS;
+  const windowStart = addDays(today, -(options?.windowDays ?? 30));
+  // the window's stored days per pair, plus the newest one before it (the gap may have started earlier)
+  const rows = (await db.$queryRawUnsafe(
+    `SELECT r.currency_pair, r.date::text AS date FROM ecb_rates r
+     WHERE r.currency_pair = ANY($1::text[]) AND r.date <= $3::date
+       AND (r.date >= $2::date
+            OR r.date = (SELECT max(p.date) FROM ecb_rates p
+                         WHERE p.currency_pair = r.currency_pair AND p.date < $2::date))
+     ORDER BY r.currency_pair, r.date`,
+    pairs,
+    windowStart,
+    today,
+  )) as Array<{ currency_pair: string; date: string }>;
+  const stored = new Map<string, string[]>();
+  for (const r of rows)
+    stored.set(r.currency_pair, [...(stored.get(r.currency_pair) ?? []), r.date]);
 
-  if (rows.length < 2) return [];
-
-  const gaps: DateGap[] = [];
-
-  for (let i = 1; i < rows.length; i++) {
-    const prevDate = new Date(rows[i - 1].date);
-    const currDate = new Date(rows[i].date);
-
-    // Count weekdays between the two dates (exclusive of both endpoints)
-    const missingWeekdays = countWeekdaysBetween(prevDate, currDate);
-
-    if (missingWeekdays >= 3) {
-      gaps.push({
-        from: rows[i - 1].date,
-        to: rows[i].date,
-        missingWeekdays,
-      });
+  const inWindow = (days: string[]) => days.filter((d) => d >= windowStart);
+  const gaps: RateGap[] = [];
+  for (const pair of pairs) {
+    const days = stored.get(pair) ?? [];
+    for (let i = 1; i < days.length; i++) {
+      const missing = weekdaysStrictlyBetween(days[i - 1], days[i]);
+      const missingDays = inWindow(missing);
+      if (missing.length >= GAP_MIN_WEEKDAYS && missingDays.length > 0)
+        gaps.push({ pair, from: days[i - 1], to: days[i], missingDays });
+    }
+    const newest = days.at(-1) ?? null;
+    if (newest === null || daysApart(newest, today) >= NEAREST_RATE_MAX_DAYS) {
+      const missingDays = inWindow(
+        weekdaysStrictlyBetween(newest ?? addDays(windowStart, -1), today),
+      );
+      if (missingDays.length > 0) gaps.push({ pair, from: newest, to: null, missingDays });
     }
   }
-
   return gaps;
 }
 
@@ -340,12 +357,17 @@ export function countWeekdaysBetween(from: Date, to: Date): number {
 // Export for testing
 export { parseEcbXml, buildEcbUrl };
 
+/**
+ * What `rateToBase` hands the modules that write a money fact. Still a Decimal, unlike the module's other DTOs
+ * (types.ts): six modules compute with it — a decimal string, or a constitution line allowing a Decimal between
+ * services, is specs/rates/tasks.md T007.
+ */
 export type BaseRateResult = {
   /** 1 unit of `from` = rate × `to`, 6 decimals */
   rate: Prisma.Decimal;
-  /** `same_currency` | `ecb_daily` (both legs on the exact date) | `ecb_nearest` (a leg fell back to the nearest cached day) */
-  source: "same_currency" | "ecb_daily" | "ecb_nearest";
-  /** the day the rate actually comes from */
+  /** `same_currency` | `ecb_daily` (both legs on the exact date) | `ecb_nearest` (a leg borrowed a nearby day) */
+  source: "same_currency" | RateLookupSource;
+  /** the day the rate actually comes from — when both legs borrowed, the earlier of their days */
   rateDate: string;
 };
 
@@ -361,21 +383,22 @@ export async function rateToBase(
   to: string,
 ): Promise<BaseRateResult | null> {
   if (from === to) return { rate: new Prisma.Decimal(1), source: "same_currency", rateDate: date };
-  const leg = async (ccy: string) =>
+  const leg = async (ccy: string): Promise<RateLookupResult | null> =>
     ccy === "EUR"
-      ? { rate: new Prisma.Decimal(1), rateSource: "ecb_daily" as RateSource, actualDate: date }
+      ? { date, currencyPair: "EUR/EUR", rate: "1", rateSource: "ecb_daily", actualDate: date }
       : await getRate(db, date, `EUR/${ccy}`);
   const [eurTo, eurFrom] = await Promise.all([leg(to), leg(from)]);
   if (!eurTo || !eurFrom) return null;
-  const nearest = eurTo.rateSource === "cached" || eurFrom.rateSource === "cached";
+  const borrowed = [eurTo, eurFrom]
+    .filter((l) => l.rateSource === "ecb_nearest")
+    .map((l) => l.actualDate);
   return {
-    rate: eurTo.rate.div(eurFrom.rate).toDecimalPlaces(6, Prisma.Decimal.ROUND_HALF_UP),
-    source: nearest ? "ecb_nearest" : "ecb_daily",
-    rateDate: nearest
-      ? eurTo.rateSource === "cached"
-        ? eurTo.actualDate
-        : eurFrom.actualDate
-      : date,
+    rate: new Prisma.Decimal(eurTo.rate)
+      .div(new Prisma.Decimal(eurFrom.rate))
+      .toDecimalPlaces(6, Prisma.Decimal.ROUND_HALF_UP),
+    source: borrowed.length > 0 ? "ecb_nearest" : "ecb_daily",
+    // one leg borrowed → its day; both, on different days → the earlier (T004)
+    rateDate: borrowed.length > 0 ? borrowed.sort()[0] : date,
   };
 }
 

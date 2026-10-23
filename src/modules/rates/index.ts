@@ -2,13 +2,7 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and stores.
 
-export type {
-  BaseRateResult,
-  DateGap,
-  EcbRateFetchResult,
-  RateLookupResult,
-  RateSource,
-} from "./ecb-rates";
+export type { BaseRateResult } from "./ecb-rates";
 export { countWeekdaysBetween, fetchDailyRates, rateStatus } from "./ecb-rates";
 export type { EcbSyncData } from "./jobs/ecb-sync";
 export {
