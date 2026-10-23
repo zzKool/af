@@ -13,6 +13,7 @@ import {
   createTestUser,
 } from "@/kernel/db/test-fixtures";
 import type { ListQuery } from "@/kernel/list-query/types";
+import { registerLinkable } from "@/modules/linking";
 import { getDocuments } from "./library";
 import { distinctDocumentValues, documentDateHierarchy, listDocuments, listInbox } from "./queries";
 
@@ -24,6 +25,7 @@ let tenantId: string;
 let owner: CallerIdentity;
 let accountant: CallerIdentity;
 let ids: Record<string, string>;
+const becameExpenseId = crypto.randomUUID();
 
 const q = (over: Partial<ListQuery> = {}): ListQuery => ({
   page: 1,
@@ -37,6 +39,15 @@ const run = <T>(caller: CallerIdentity, fn: Parameters<typeof withTenantTransact
 
 beforeAll(async () => {
   adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+  // the expense the receipt became stands in for the expenses module: its summary gives the key (FR-005)
+  registerLinkable({
+    type: "expense",
+    exists: async (_tx, id) => id === becameExpenseId,
+    summary: async (_tx, id) =>
+      id === becameExpenseId
+        ? { type: "expense", id, label: "Ex213-Tr-04", amount: null, currency: null }
+        : null,
+  });
 });
 afterAll(async () => {
   await cleanupTestData(adminPool);
@@ -112,8 +123,8 @@ beforeEach(async () => {
   // the receipt became an expense (created_from) → linked
   await adminPool.query(
     `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
-     VALUES ($1, 'expense', gen_random_uuid(), 'document', $2, 'created_from', $3)`,
-    [tenantId, receipt.id, userId],
+     VALUES ($1, 'expense', $4, 'document', $2, 'created_from', $3)`,
+    [tenantId, receipt.id, userId, becameExpenseId],
   );
   ids = {
     receipt: receipt.id,
@@ -145,6 +156,25 @@ describe("listDocuments", () => {
       vendor: null,
       amount: null,
       documentType: "relationship",
+    });
+  });
+
+  it("FR-005: a row says what the document became, with the entity's key; a justified-only document is linked, became nothing", async () => {
+    await adminPool.query(
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+       VALUES ($1, 'bank_transaction', gen_random_uuid(), 'document', $2, 'justifies', $3)`,
+      [tenantId, ids.invoice, owner.userId],
+    );
+    const r = await run(owner, (tx) => listDocuments(tx, owner, q()));
+    expect(r.rows.find((d) => d.id === ids.receipt)?.became).toEqual({
+      type: "expense",
+      id: becameExpenseId,
+      label: "Ex213-Tr-04",
+    });
+    expect(r.rows.find((d) => d.id === ids.invoice)).toMatchObject({ linked: true, became: null });
+    expect(r.rows.find((d) => d.id === ids.contract)).toMatchObject({
+      linked: false,
+      became: null,
     });
   });
 

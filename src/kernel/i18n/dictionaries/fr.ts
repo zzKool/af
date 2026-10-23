@@ -1354,6 +1354,8 @@ export const fr: Dictionary = {
   "documents.needsReview": "à vérifier",
   "documents.linked": "Lié",
   "documents.notLinked": "Non lié",
+  "documents.became.expense": "Dépense {key}",
+  "documents.became.supplierInvoice": "Facture fournisseur {key}",
   "documents.download": "Télécharger",
   "documents.delete": "Supprimer",
   "documents.deleteConfirm":

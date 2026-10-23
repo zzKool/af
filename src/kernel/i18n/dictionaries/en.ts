@@ -1340,6 +1340,8 @@ export const en = {
   "documents.needsReview": "needs review",
   "documents.linked": "Linked",
   "documents.notLinked": "Not linked",
+  "documents.became.expense": "Expense {key}",
+  "documents.became.supplierInvoice": "Supplier invoice {key}",
   "documents.download": "Download",
   "documents.delete": "Delete",
   "documents.deleteConfirm":

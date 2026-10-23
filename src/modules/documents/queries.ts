@@ -15,7 +15,7 @@ import type {
   ListResult,
 } from "@/kernel/list-query/types";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
-import { linksTouching } from "@/modules/linking";
+import { createdFromTargets } from "@/modules/linking";
 import {
   duplicateOfMap,
   type InboxCounts,
@@ -55,6 +55,13 @@ const STORED_COLUMNS: ColumnMap = Object.fromEntries(
 );
 const ROW_CAP = 20_000;
 
+/** What a document became (FR-005): the entity created from it, with its key. */
+export type DocumentBecame = {
+  type: "expense" | "supplier_invoice";
+  id: string;
+  label: string | null;
+};
+
 /** One row of the library. */
 export type DocumentListRow = {
   id: string;
@@ -72,6 +79,8 @@ export type DocumentListRow = {
   documentDate: string | null;
   /** an expense / supplier invoice became from it, or a bank row justifies it */
   linked: boolean;
+  /** what it became (its `created_from` target, with the entity's key) — filled on the page rows only */
+  became: DocumentBecame | null;
   reviewedAt: Date | null;
   createdAt: Date;
 };
@@ -130,6 +139,7 @@ async function loadRows(
       currency: resolved.currency ?? null,
       documentDate: resolved.invoiceDate ?? resolved.transactionDate ?? null,
       linked: !free.has(r.id),
+      became: null,
       reviewedAt: r.reviewedAt,
       createdAt: r.createdAt,
     };
@@ -154,7 +164,22 @@ export async function listDocuments(
   q: ListQuery,
 ): Promise<ListResult<DocumentListRow>> {
   const all = await loadRows(tx, caller, q);
-  return finishList(all, q, DOCUMENT_COLUMNS, DOCUMENT_DEFAULT_SORT);
+  const page = finishList(all, q, DOCUMENT_COLUMNS, DOCUMENT_DEFAULT_SORT);
+  // what each row of the page became, with the entity's key (FR-005) — labels for one page, not the whole set
+  const became = await createdFromTargets(
+    tx,
+    page.rows.filter((r) => r.linked).map((r) => r.id),
+    { labels: true },
+  );
+  return {
+    ...page,
+    rows: page.rows.map((r) => {
+      const b = became.get(r.id);
+      return b && (b.type === "expense" || b.type === "supplier_invoice")
+        ? { ...r, became: { type: b.type, id: b.id, label: b.label } }
+        : r;
+    }),
+  };
 }
 
 export async function distinctDocumentValues(
@@ -303,16 +328,9 @@ export async function listInbox(
       corrections: true,
     },
   });
-  const became = new Set(
-    (
-      await linksTouching(
-        tx,
-        "document",
-        docs.map((d) => d.id),
-      )
-    )
-      .filter((l) => l.kind === "created_from" && l.to.type === "document")
-      .map((l) => l.to.id),
+  const became = await createdFromTargets(
+    tx,
+    docs.map((d) => d.id),
   );
   const dupOf = duplicateOfMap(docs);
   const twinOf = new Map<string, number>();

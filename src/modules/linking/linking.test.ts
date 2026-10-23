@@ -20,6 +20,7 @@ import { documentLinkable } from "@/modules/documents";
 import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/linking";
 import { partnerLinkable } from "@/modules/partners";
 import * as linking from "./linking";
+import { createdFromTargets } from "./queries";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 
@@ -261,6 +262,33 @@ describe("linking service", () => {
         [tenantId, uuid(), doc1.id, userId],
       ),
     ).rejects.toThrow(/links_created_from_origin_key/);
+  });
+
+  it("createdFromTargets: per document the entity created from it, labels only on demand; other kinds and documents ignored", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const became = await createTestDocument(adminPool, tenantId, userId);
+    const justified = await createTestDocument(adminPool, tenantId, userId);
+    const untouched = await createTestDocument(adminPool, tenantId, userId);
+    const expenseId = uuid();
+    fakeExpenses.add(expenseId);
+    await adminPool.query(
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+       VALUES ($1, 'expense', $2, 'document', $3, 'created_from', $5),
+              ($1, 'bank_transaction', gen_random_uuid(), 'document', $4, 'justifies', $5)`,
+      [tenantId, expenseId, became.id, justified.id, userId],
+    );
+
+    const [plain, labelled, none] = await withTenantTransaction(prisma, tenantId, async (tx) => [
+      await createdFromTargets(tx, [became.id, justified.id, untouched.id]),
+      await createdFromTargets(tx, [became.id], { labels: true }),
+      await createdFromTargets(tx, []),
+    ]);
+    expect([...plain.entries()]).toEqual([
+      [became.id, { type: "expense", id: expenseId, label: null }],
+    ]);
+    expect(labelled.get(became.id)?.label).toBe(`expense ${expenseId.slice(0, 8)}`);
+    expect(none.size).toBe(0);
   });
 
   it("allocations never exceed the target amount; remaining is reported", async () => {

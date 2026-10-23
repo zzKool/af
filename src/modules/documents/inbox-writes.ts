@@ -6,6 +6,7 @@ import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { canArchive, OCR_STUCK_AFTER_MS } from "@/modules/documents/inbox";
+import { createdFromTargets } from "@/modules/linking";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -30,14 +31,7 @@ async function inboxFacts(tx: TransactionClient, ids: readonly string[]) {
       documentType: true,
     },
   });
-  const became = new Set(
-    (
-      await tx.link.findMany({
-        where: { kind: "created_from", toType: "document", toId: { in: [...ids] } },
-        select: { toId: true },
-      })
-    ).map((l) => l.toId),
-  );
+  const became = await createdFromTargets(tx, ids);
   return new Map(docs.map((d) => [d.id, { ...d, became: became.has(d.id) }]));
 }
 
