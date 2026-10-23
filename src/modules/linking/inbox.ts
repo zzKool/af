@@ -36,15 +36,19 @@ const TIER: Record<Confidence, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
 /** The rows needing attention with their candidates, best first (HIGH > MEDIUM > LOW > none, then newest). */
 export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Promise<InboxRow[]> {
+  // main accounts first, then the page: filtering after paging let newer savings rows crowd main ones out (audit 32)
+  const accounts = await banking.listMainAccountIds(tx);
+  if (accounts.length === 0) return [];
   const list = await banking.listTransactions(tx, {
     page: 1,
     pageSize: limit,
     sort: [{ col: "bookingDate", dir: "desc" }],
-    filters: { state: { kind: "in", values: ["open", "partial"] } },
+    filters: {
+      bankAccountId: { kind: "in", values: accounts },
+      state: { kind: "in", values: ["open", "partial"] },
+    },
   });
-  const accounts = (await banking.listMainAccountIds(tx)) ?? [];
-  const main = new Set(accounts);
-  const candidatesRows = list.rows.filter((r) => main.has(r.bankAccountId));
+  const candidatesRows = list.rows;
   const bank = getLinkable("bank_transaction");
   if (!bank?.factsMany || candidatesRows.length === 0) return [];
   const facts = await withRemaining(

@@ -51,3 +51,4 @@ T001 ∥ T002–T004 → T005–T006 → T007–T009 → T010 → T011–T012 �
 
 ## Phase 10: F66 — read through the owners (lessons audit 24, 25) · lane 9, DIRECT
 - [x] T026 Read APIs (`feat/settings-read-apis`): `activeContractCount(tx, { partnerId } | { assignedEmployeeId })` in contracts' `queries.ts`; settings' `getVatRegistration(tx, id)` and `isBasActivated(tx, code)`; settings' commented-out currency guard and its stale TODO deleted (the lock is F70's, D46). Tests: each on the real DB, RLS included
+- [x] T027 `createContract` / `updateContract` read the client and the employee through `partners.getPartner`, the VAT registration through `settings.getVatRegistration` — no `tx.partner` / `tx.vatRegistration` left in `modules/contracts` (`feat/contracts-partners-read-through`)

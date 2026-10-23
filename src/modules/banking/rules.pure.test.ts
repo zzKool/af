@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fieldText, firstHit, matchRule, orderRules, regexError } from "./rules";
+import { bankText, fieldText, firstHit, matchRule, orderRules, regexError } from "./rules";
 import type { RuleMatchType, RuleText } from "./types";
 
 const fixture = JSON.parse(
@@ -148,5 +148,23 @@ describe("rule matching — semantics", () => {
     expect(firstHit(orderRules(rules), text("OpenAI"))?.id).toBe("c");
     expect(firstHit(orderRules(rules.slice(0, 2)), text("OpenAI"))?.id).toBe("b");
     expect(firstHit(orderRules(rules), text("Netflix"))).toBeNull();
+  });
+});
+
+describe("bankText — the one join of the bank texts (lessons audit 32)", () => {
+  it("name, details, message, sender, recipient in that order, blank ones skipped; what `all` matches", () => {
+    const text: RuleText = {
+      counterpartyKey: "KEY",
+      name: "CHANGE",
+      additionalDetails: "  ",
+      message: "CHFSEK",
+      sender: null,
+      recipient: "123 45 67-8",
+    };
+    expect(bankText(text)).toBe("CHANGE CHFSEK 123 45 67-8");
+    expect(fieldText(text, "all")).toBe(bankText(text));
+    expect(
+      bankText({ name: null, additionalDetails: "", message: null, sender: " ", recipient: null }),
+    ).toBe("");
   });
 });
