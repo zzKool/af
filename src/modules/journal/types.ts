@@ -58,10 +58,15 @@ export type CategoriseInput = {
   noDocumentNeeded?: boolean;
 };
 
-/** The ledger row: the entry plus the joined labels. */
+/** How far an entry is proven by links (T004) — derived, never typed. */
+export type LinksState = "justified" | "partly" | "none" | "no_document";
+export const LINKS_STATES: readonly LinksState[] = ["none", "partly", "justified", "no_document"];
+
+/** The ledger row: the entry plus the joined labels and the derived links state. */
 export type JournalListRow = JournalEntryDto & {
   partnerName: string | null;
   basLabel: string | null;
+  linksState: LinksState;
   /** a bank entry's account (*Nordea CHF*) through banking's read API (T006); null for a manual entry */
   accountAlias: string | null;
 };

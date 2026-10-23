@@ -41,10 +41,10 @@ export async function withImplicitRates<T extends JournalEntryDto>(
     tx,
     "bank_transaction",
     foreign.map((e) => e.sourceId as string),
+    { kinds: ["transfer"] },
   );
   const peerOf = new Map<string, string>();
   for (const l of links) {
-    if (l.kind !== "transfer") continue;
     peerOf.set(l.from.id, l.to.id);
     peerOf.set(l.to.id, l.from.id);
   }

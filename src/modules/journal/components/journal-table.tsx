@@ -27,14 +27,17 @@ import {
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { StateLabel } from "@/kernel/ui/state-label";
 import {
   deleteManualEntryAction,
   distinctJournalValuesAction,
   journalDateHierarchyAction,
 } from "@/modules/journal/journal.actions";
 import type { JournalColumn } from "@/modules/journal/queries";
-import type { JournalListRow } from "@/modules/journal/types";
+import { LINKS_STATE_FAMILY } from "@/modules/journal/state-family";
+import type { JournalListRow, LinksState } from "@/modules/journal/types";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "./categorise-form";
+import { EntryLinks } from "./entry-links";
 import { ManualEntryDialog } from "./manual-entry-dialog";
 
 export type JournalRow = Omit<JournalListRow, "createdAt" | "updatedAt"> & {
@@ -60,6 +63,7 @@ const COLUMN_KEYS = [
   "noDocumentNeeded",
   "categorisedBy",
   "note",
+  "linksState",
   "createdAt",
   "updatedAt",
 ] as const;
@@ -256,6 +260,25 @@ export function JournalTable({
         cell: (row) => (row.categorisedBy ? t(`journal.categorisedBy.${row.categorisedBy}`) : "—"),
       },
       { key: "note", header: t("journal.col.note"), type: "text", width: "12rem" },
+      {
+        // derived from links on every read, never typed (T004)
+        key: "linksState",
+        header: t("journal.col.linksState"),
+        type: "enum",
+        width: "8.5rem",
+        cell: (row) => (
+          <span
+            data-testid="journal-links-state"
+            data-state={row.linksState}
+            className="inline-flex"
+          >
+            <StateLabel
+              family={LINKS_STATE_FAMILY[row.linksState]}
+              state={t(`journal.linksState.${row.linksState}`)}
+            />
+          </span>
+        ),
+      },
       { key: "createdAt", header: "Created", type: "date", width: "7rem", defaultHidden: true },
       { key: "updatedAt", header: "Updated", type: "date", width: "7rem", defaultHidden: true },
     ],
@@ -296,6 +319,7 @@ export function JournalTable({
             return t(
               `journal.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
             );
+          if (column === "linksState") return t(`journal.linksState.${value as LinksState}`);
           if (column === "noDocumentNeeded")
             return value === "true" ? t("common.yes") : t("common.no");
           return value;
@@ -359,6 +383,7 @@ export function JournalTable({
                   router.refresh();
                 }}
               />
+              <EntryLinks entry={selected} canWrite={canWrite} onChanged={() => router.refresh()} />
               {canWrite && selected.sourceType === "manual" && (
                 <div>
                   <Button size="sm" variant="outline" onClick={() => setConfirmDelete(true)}>

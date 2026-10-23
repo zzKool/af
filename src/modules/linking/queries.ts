@@ -1,8 +1,9 @@
 // Read API of the linking module.
 import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { ALLOCATING_KINDS } from "./kinds";
 import { getLinkable } from "./linkable";
 import { getLinksFor, toLinkDto } from "./linking";
-import type { LinkableType, LinkDto, LinkEndpoint } from "./types";
+import type { LinkableType, LinkDto, LinkEndpoint, LinkKind } from "./types";
 
 export { getAllocationStatus, getLinksFor, isLinked } from "./linking";
 
@@ -24,15 +25,18 @@ export async function linksWithLabels(
 /**
  * Every link touching any of `ids` of one type, in one query — the package's *Links* sheet and the document set of a
  * period (specs/accountant-package/spec.md FR-002). Ordered by creation, the deterministic order of its R6.
+ * `kinds` narrows it (the journal reads only the `transfer` links of its bank entries, T004 / T005).
  */
 export async function linksTouching(
   tx: TransactionClient,
   type: LinkableType,
   ids: readonly string[],
+  options: { kinds?: readonly LinkKind[] } = {},
 ): Promise<LinkDto[]> {
   if (ids.length === 0) return [];
   const rows = await tx.link.findMany({
     where: {
+      ...(options.kinds ? { kind: { in: [...options.kinds] } } : {}),
       OR: [
         { fromType: type, fromId: { in: [...ids] } },
         { toType: type, toId: { in: [...ids] } },
@@ -41,6 +45,32 @@ export async function linksTouching(
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   return rows.map(toLinkDto);
+}
+
+/**
+ * Σ of the allocations FROM each of `ids` (allocating kinds only — `justifies`, `settles`), in one grouped query;
+ * ids with no allocation are absent. What "how much of this movement is proven" reads (journal T004, audit 22).
+ */
+export async function allocatedFrom(
+  tx: TransactionClient,
+  type: LinkableType,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const sums = await tx.link.groupBy({
+    by: ["fromId"],
+    where: {
+      fromType: type,
+      fromId: { in: [...ids] },
+      kind: { in: [...ALLOCATING_KINDS] },
+      allocatedAmount: { not: null },
+    },
+    _sum: { allocatedAmount: true },
+  });
+  for (const s of sums)
+    if (s._sum.allocatedAmount) out.set(s.fromId, s._sum.allocatedAmount.toFixed(2));
+  return out;
 }
 
 /** What a document became: the entity on the other end of its `created_from` link. */
