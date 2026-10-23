@@ -11,6 +11,9 @@ import {
   isNear,
 } from "@/modules/expenses";
 import * as partners from "@/modules/partners";
+import { normaliseInvoiceNumber } from "./invoice-number";
+
+export { normaliseInvoiceNumber };
 
 export type SupplierInvoiceDuplicateQuery = {
   documentId?: string;
@@ -20,10 +23,6 @@ export type SupplierInvoiceDuplicateQuery = {
   currency?: string | null;
   date?: string | null;
 };
-
-/** trim, collapse spaces, case-fold — `9160`, ` 9160 ` and `9160 ` are the same number */
-export const normaliseInvoiceNumber = (n: string | null | undefined) =>
-  (n ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 
 export type SupplierInvoiceCandidate = {
   id: string;
