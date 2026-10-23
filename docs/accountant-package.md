@@ -31,7 +31,7 @@ Stored as a generated document `Package_2026-06.zip` (`_v2`, `_v3` … on rebuil
 | `zip.ts` | pure: `monthEntries`, `yearEntries`, `zipBytes` (fflate, sorted paths, one fixed mtime) |
 | `package.ts` | the build rows: `requestBuild` (owner, version `max + 1`, refused while one runs), `markBuilding` / `markBuilt` / `markFailed` |
 | `jobs/build-package.ts` | `package.build` (pg-boss, exclusive per build): collect in one transaction → `documents.documentReaders` → download outside any transaction → zip → `storeGeneratedDocument` + `markBuilt` in one short transaction; any error → `markFailed` with the message, nothing stored |
-| `queries.ts` | `listBuilds`, `periodOverview` (the months from the first bank row to today, live counts and flags for the latest 12, the last build's for older ones; one row per year), `livePreview` (the notes and flags of a period as they would be built now) |
+| `queries.ts` | `listBuilds`, `periodOverview` (the months from the first bank row to today, live counts and flags for the latest 12, the last build's for older ones; one row per year), `livePreview` (the notes and flags of a period as they would be built now), `builtPeriods(periods)` (which have a built package, any version — the banking *Months* banner, F69) |
 | `package.actions.ts` | `buildPackageAction` (owner; enqueues on commit), `listPackageBuildsAction`, `getPackageBuildAction`, `packagePreviewAction` (owner + accountant) |
 | `components/package-workbench.tsx` | the page: months and years with counts / flags / builds, *Build*, *Download*, the preview pane (flags, documents, `notes.md`, versions); polls the builds every 2 s while one runs |
 

@@ -22,9 +22,15 @@ import {
   transactionDateHierarchyAction,
 } from "@/modules/banking/banking.actions";
 import type { TransactionColumn } from "@/modules/banking/queries";
-import type { AccountBalance, TransactionListRow, TransactionState } from "@/modules/banking/types";
+import type {
+  AccountBalance,
+  BankMonthsOverview,
+  TransactionListRow,
+  TransactionState,
+} from "@/modules/banking/types";
 import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
 import { type AccountOption, ImportDialog } from "./import-dialog";
+import { MonthsPanel } from "./months-panel";
 import { STATE_STYLE, TransactionPanel } from "./transaction-panel";
 
 /** Dates serialised for the client. */
@@ -70,6 +76,7 @@ export function TransactionTable({
   importLabels,
   canWrite,
   initialSelectedId,
+  months,
 }: {
   result: ListResult<TransactionRow>;
   balances: (Omit<AccountBalance, "lastImportAt"> & { lastImportAt: string | null })[];
@@ -81,6 +88,8 @@ export function TransactionTable({
   canWrite: boolean;
   /** `?open=<id>` — the panel opens on this row (the graph's "Open") */
   initialSelectedId?: string | null;
+  /** the Months panel (F69) — omitted, no panel */
+  months?: BankMonthsOverview;
 }) {
   const t = useT();
   const router = useRouter();
@@ -110,6 +119,19 @@ export function TransactionTable({
     }),
     [],
   );
+
+  // the Month filter as the panel sees it: exactly one month, nothing else on the date column
+  const dateFilter = state.query.filters.bookingDate;
+  const selectedMonth =
+    dateFilter?.kind === "dates" &&
+    dateFilter.months?.length === 1 &&
+    !dateFilter.years?.length &&
+    !dateFilter.days?.length &&
+    !dateFilter.from &&
+    !dateFilter.to &&
+    !dateFilter.empty
+      ? dateFilter.months[0]
+      : null;
 
   const accountLabels = useMemo(
     () => Object.fromEntries(accounts.map((a) => [a.id, a.label])),
@@ -318,6 +340,15 @@ export function TransactionTable({
           </button>
         ))}
       </div>
+      {months && (
+        <MonthsPanel
+          overview={months}
+          selectedMonth={selectedMonth}
+          onSelectMonth={(month) =>
+            state.setFilter("bookingDate", month ? { kind: "dates", months: [month] } : null)
+          }
+        />
+      )}
       <DataTable
         tableKey="bank-transactions"
         columns={columns}

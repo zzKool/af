@@ -162,7 +162,10 @@ chromium() {
     if [ "$kind" = chromium ]; then
       real=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux*/chrome 2>/dev/null | sort -V | tail -1 || true)
     else
-      real=$(ls -d /opt/pw-browsers/chromium_headless_shell-*/chrome-linux*/*headless_shell 2>/dev/null | sort -V | tail -1 || true)
+      # older images: chrome-linux/headless_shell; newer: chrome-headless-shell-linux64/chrome-headless-shell
+      real=$(ls -d /opt/pw-browsers/chromium_headless_shell-*/chrome-linux*/*headless_shell \
+        /opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell \
+        2>/dev/null | sort -V | tail -1 || true)
     fi
     if [ -z "$real" ]; then
       npx playwright install "$kind" || echo "  no $kind — the e2e and real PDFs will not run" >&2
