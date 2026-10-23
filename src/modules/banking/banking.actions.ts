@@ -8,6 +8,7 @@ import { listQuerySchema } from "@/kernel/list-query/schema";
 import { createStorageService } from "@/kernel/storage/storage";
 import { uuid } from "@/kernel/validation/scalars";
 import { detectAccountFromFilename, pickAccount } from "@/modules/banking/account-detect";
+import { transactionHistory } from "@/modules/banking/history";
 import { deleteImport, importCsv } from "@/modules/banking/import";
 import {
   accountBalances,
@@ -77,6 +78,15 @@ export const getTransactionAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
     return getTransaction(ctx.tx, parsedInput.id);
+  });
+
+/** The side panel's History section: the row's audit trail, its journal entry's, its links' (F71). */
+export const getTransactionHistoryAction = authedAction
+  .schema(z.object({ id: uuid }))
+  .metadata({ name: "getBankTransactionHistory" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return transactionHistory(ctx.tx, parsedInput.id);
   });
 
 export const listImportsAction = authedAction
