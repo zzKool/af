@@ -175,6 +175,22 @@ export async function allocatedByExpense(
   return out;
 }
 
+/**
+ * The bank rows an ACTIVE settlement refunds through (lessons audit 23) — the rows the settle and payment pickers
+ * leave out. `among` narrows the read to those rows; a cancelled settlement frees its row.
+ */
+export async function activeSettlementTransactionIds(
+  tx: TransactionClient,
+  among?: readonly string[],
+): Promise<Set<string>> {
+  if (among?.length === 0) return new Set();
+  const rows = await tx.settlement.findMany({
+    where: { status: "active", ...(among ? { bankTransactionId: { in: [...among] } } : {}) },
+    select: { bankTransactionId: true },
+  });
+  return new Set(rows.map((r) => r.bankTransactionId));
+}
+
 /** Private expenses of one source (or all private sources) the company still owes something on (`owedBase` > 0). */
 export async function openPrivateExpenses(
   tx: TransactionClient,
