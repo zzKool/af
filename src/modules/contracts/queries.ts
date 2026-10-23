@@ -8,4 +8,4 @@ export {
   listContractRatesFor,
   rateFor,
 } from "./contract-rates";
-export { getContract, getContracts } from "./contracts";
+export { activeContractCount, getContract, getContracts } from "./contracts";

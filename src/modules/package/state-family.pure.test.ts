@@ -1,5 +1,6 @@
 // The checklist's derived states (F71): one map, each state reached by its rule, the build's status on its own.
 import { describe, expect, it } from "vitest";
+import { PackageBuildStatus as PackageBuildStatusEnum } from "@/generated/prisma/enums";
 import { STATE_FAMILIES } from "@/kernel/ui/state-label";
 import {
   BUILD_STATUS_FAMILY,
@@ -56,6 +57,12 @@ describe("the period's checklist state", () => {
     expect(attention.sort()).toEqual(["failed", "flagged"]);
     expect(PERIOD_STATE_FAMILY.built).toBe("done");
     expect(PERIOD_STATE_FAMILY.empty).toBe("neutral");
+  });
+
+  it("the DTO's build statuses are exactly the Postgres enum's (lessons audit 30)", () => {
+    expect([...PACKAGE_BUILD_STATUSES].sort()).toEqual(
+      Object.values(PackageBuildStatusEnum).sort(),
+    );
   });
 
   it("a build runs while queued or building", () => {
