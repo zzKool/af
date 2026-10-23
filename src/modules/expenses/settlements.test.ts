@@ -568,8 +568,27 @@ describe("US4 — settle a refund", () => {
         [s.id],
       ),
     ).rejects.toThrow(/settlement_locked/);
-    // the job on a cancelled settlement without a statement does nothing
+    // the job on a cancelled settlement without a statement does nothing (lessons audit 31: a real cancelled
+    // settlement — the freed row settles again as ST26-002, cancelled before its job runs)
+    const again = (
+      await run(owner.caller, (tx) =>
+        confirmSettlement(tx, owner.caller, noopAudit, {
+          bankTransactionId: rowId,
+          paymentSourceId: owner.sources.privateCh.id,
+          lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
+        }),
+      )
+    ).data;
+    expect(again?.number).toBe("ST26-002");
+    await run(owner.caller, (tx) => cancelSettlement(tx, owner.caller, noopAudit, again?.id ?? ""));
     render.mockClear();
+    await renderStatement({ ...data, settlementId: again?.id ?? "" }, render);
+    expect(render).not.toHaveBeenCalled();
+    await run(owner.caller, async (tx) => {
+      const row = await tx.settlement.findUniqueOrThrow({ where: { id: again?.id ?? "" } });
+      expect(row).toMatchObject({ status: "cancelled", statementDocumentId: null });
+    });
+    // nor on an unknown id
     await renderStatement(
       { ...data, settlementId: "00000000-0000-0000-0000-000000000000" },
       render,
