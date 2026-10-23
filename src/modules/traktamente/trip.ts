@@ -18,7 +18,7 @@ import {
   PerDiemError,
   perDiemDescription,
   perDiemNote,
-  TENANT_ZONE,
+  toInstant,
 } from "./calculator";
 import { invalid, notFound, violation } from "./errors";
 import { ratesForYears } from "./rates";
@@ -107,43 +107,6 @@ export const tripInputSchema = z
     message: "The return must be after the departure",
   });
 export type TripInput = z.input<typeof tripInputSchema>;
-
-const LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
-
-/** A local time in the tenant zone → the instant (Stockholm offset of that date). */
-export function toInstant(value: string, zone: string = TENANT_ZONE): Date {
-  if (!LOCAL.test(value)) {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) throw new Error(`Not a timestamp: "${value}"`);
-    return d;
-  }
-  // find the offset of the zone at that wall time: format a guess, compare, adjust once (DST-safe)
-  const guess = new Date(`${value.length === 16 ? `${value}:00` : value}Z`);
-  const offset = (d: Date) => {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: zone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(d);
-    const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
-    const asUtc = Date.UTC(
-      get("year"),
-      get("month") - 1,
-      get("day"),
-      get("hour"),
-      get("minute"),
-      get("second"),
-    );
-    return (asUtc - d.getTime()) / 60_000;
-  };
-  const first = new Date(guess.getTime() - offset(guess) * 60_000);
-  return new Date(guess.getTime() - offset(first) * 60_000);
-}
 
 export function toTripDto(row: Trip): TripDto {
   return {

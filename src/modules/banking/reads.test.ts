@@ -17,7 +17,13 @@ import * as journal from "@/modules/journal";
 import { createBankAccount } from "./bank-accounts";
 import { transactionHistory } from "./history";
 import { importCsv } from "./import";
-import { bookingDates, firstBookingDate, outgoingMainRows } from "./queries";
+import {
+  bookingDates,
+  firstBookingDate,
+  listTransactions,
+  outgoingMainRows,
+  transactionStates,
+} from "./queries";
 import { acceptTransfer } from "./transfer-pairs";
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
@@ -227,5 +233,68 @@ describe("lessons audit 23 — banking's read API", () => {
     const { callerIdentity: stranger } = await createAuthenticatedContext(auth, "owner");
     expect((await run(stranger, (tx) => bookingDates(tx, [chfTx.id]))).size).toBe(0);
     expect(await run(stranger, (tx) => firstBookingDate(tx))).toBeNull();
+  });
+
+  it("transactionStates: open, no document (flag or transfer leg), the facts with it; unknown absent; RLS", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, chfTx, sekTx } = await pair(caller);
+    await importFile(caller, sek, "nordea-2026-07-sek-sample.csv");
+    // two rows no rule marked (the bank-fee rule flags the fee rows of the sample)
+    const [plain, flagged] = await run(caller, async (tx) => {
+      const rows = await tx.bankTransaction.findMany({
+        where: { currency: "SEK", id: { not: sekTx } },
+        orderBy: [{ bookingDate: "asc" }, { id: "asc" }],
+      });
+      const entries = await journal.entriesForSources(
+        tx,
+        "bank_transaction",
+        rows.map((r) => r.id),
+      );
+      return rows.filter((r) => entries.get(r.id)?.noDocumentNeeded === false).slice(0, 2);
+    });
+    expect((await run(caller, (tx) => transactionStates(tx, []))).size).toBe(0);
+
+    await run(caller, async (tx) => {
+      const entry = (await journal.entriesForSources(tx, "bank_transaction", [flagged.id])).get(
+        flagged.id,
+      );
+      const r = await journal.categorise(tx, caller, auditFor(tx, caller), entry?.id as string, {
+        noDocumentNeeded: true,
+      });
+      expect(r.error).toBeUndefined();
+      const a = await acceptTransfer(tx, caller, auditFor(tx, caller), {
+        fromId: chfTx,
+        toId: sekTx,
+      });
+      expect(a.error).toBeUndefined();
+    });
+
+    const unknown = "33333333-3333-4333-8333-333333333333";
+    const states = await run(caller, (tx) =>
+      transactionStates(tx, [plain.id, flagged.id, chfTx, sekTx, chfTx, unknown]),
+    );
+    expect(states.size).toBe(4);
+    expect(states.get(plain.id)).toEqual({ state: "open", allocated: "0.00", inTransfer: false });
+    expect(states.get(flagged.id)).toEqual({
+      state: "no_document",
+      allocated: "0.00",
+      inTransfer: false,
+    });
+    for (const leg of [chfTx, sekTx])
+      expect(states.get(leg)).toEqual({
+        state: "no_document",
+        allocated: "0.00",
+        inTransfer: true,
+      });
+
+    // the same states the workbench list derives
+    const list = await run(caller, (tx) =>
+      listTransactions(tx, { page: 1, pageSize: 100, sort: [], filters: {} }),
+    );
+    for (const row of list.rows)
+      if (states.has(row.id)) expect(states.get(row.id)?.state).toBe(row.state);
+
+    const { callerIdentity: stranger } = await createAuthenticatedContext(auth, "owner");
+    expect((await run(stranger, (tx) => transactionStates(tx, [plain.id, chfTx]))).size).toBe(0);
   });
 });
