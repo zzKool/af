@@ -301,6 +301,8 @@ export const fr: Dictionary = {
   "contracts.rates.error.overlap": "Ce tarif chevauche un tarif existant ({from} → {to})",
   "contracts.rates.error.inUse":
     "Ce tarif est utilisé sur {n} ligne(s) de facture et ne peut pas être supprimé — clôturez-le",
+  "contracts.rates.error.usedLocked":
+    "Ce tarif est utilisé sur {n} ligne(s) de facture — seules sa date de fin et sa note peuvent changer ; clôturez-le et ajoutez un nouveau tarif",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Facture",

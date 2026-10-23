@@ -299,6 +299,8 @@ export const en = {
   "contracts.rates.error.overlap": "This rate overlaps an existing rate ({from} → {to})",
   "contracts.rates.error.inUse":
     "This rate is used on {n} invoice line(s) and cannot be deleted — close it instead",
+  "contracts.rates.error.usedLocked":
+    "This rate is used on {n} invoice line(s) — only its end date and note can change; close it and add a new rate",
 
   // --- invoices: printed strings (harvest fixtures invoice-strings.*.json) ---
   "invoice.title.invoice": "Invoice",

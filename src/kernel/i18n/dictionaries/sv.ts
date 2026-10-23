@@ -302,6 +302,8 @@ export const sv: Dictionary = {
   "contracts.rates.error.overlap": "Arvodet överlappar ett befintligt arvode ({from} → {to})",
   "contracts.rates.error.inUse":
     "Arvodet används på {n} fakturarad(er) och kan inte tas bort — avsluta det i stället",
+  "contracts.rates.error.usedLocked":
+    "Arvodet används på {n} fakturarad(er) — bara slutdatum och anteckning kan ändras; avsluta det och lägg till ett nytt arvode",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Faktura",
