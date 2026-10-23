@@ -100,8 +100,7 @@ export function ExpensePanel({
   }
 
   const e = detail?.expense;
-  const isOpen =
-    !!detail && detail.settlements.every((s) => s.status !== "active") && !e?.paidAmount;
+  const isOpen = !!detail?.isOpen;
 
   return (
     <Sheet open={!!expenseId} onOpenChange={(o) => !o && onClose()}>

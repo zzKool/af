@@ -1,7 +1,8 @@
 "use client";
 
 // The settle page (US4, US5): open private expenses left (FIFO order, ticks, editable allocations), the refund
-// transaction right (picker with the coverage hint), the summary, the confirm dialog with its three states.
+// transaction right (picker with the coverage hint), the summary, the confirm dialog with its three states. The
+// difference and the tolerance are the server's (`settlementDifference`, `owedBase`), in Decimal — never Number.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Prisma } from "@/generated/prisma/browser";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatCurrency } from "@/kernel/money/format-currency";
@@ -33,17 +35,27 @@ import {
   confirmSettlementAction,
   proposeSettlementAction,
 } from "@/modules/expenses/expenses.actions";
-import type { OpenExpense } from "@/modules/expenses/fifo";
+import { type OpenExpense, settlementDifference } from "@/modules/expenses/fifo";
+import { owedBase } from "@/modules/expenses/status";
 import type { SourceOption, TransactionOption } from "@/modules/expenses/types";
 
 export type OpenRow = OpenExpense & { paymentSourceId: string; currency: string; amount: string };
 
+const D = Prisma.Decimal;
+type Dec = InstanceType<typeof Prisma.Decimal>;
+
 const NONE = "__none__";
-const TOLERANCE = 0.5;
 const money = (amount: string, currency: string) =>
   `${formatCurrency(amount, currency as Currency)} ${currency}`;
-const num = (v: string) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const fix = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
+/** A typed allocation as a Decimal (0 while the field is not a number yet), to the cent. */
+const dec = (v: string): Dec => {
+  try {
+    return new D(v.trim() === "" ? "0" : v.trim()).toDecimalPlaces(2, D.ROUND_HALF_UP);
+  } catch {
+    return new D(0);
+  }
+};
+const fix = (d: Dec) => d.toFixed(2);
 
 export function SettleWork({
   open,
@@ -80,15 +92,19 @@ export function SettleWork({
     [open, sourceId],
   );
   const selected = rows.filter((e) => ticked.has(e.expenseId));
-  const allocated = selected.reduce((acc, e) => acc + num(alloc[e.expenseId] ?? e.openBase), 0);
-  const refundBase = tx?.amountBase ? Math.abs(num(tx.amountBase)) : null;
-  const diff = refundBase === null ? 0 : allocated - refundBase;
-  const over = diff > TOLERANCE;
-  const rounding = diff > 0 && diff <= TOLERANCE;
-  const short = refundBase !== null && diff < -TOLERANCE;
-  const residual = selected.reduce(
-    (acc, e) => acc + Math.max(0, num(e.openBase) - num(alloc[e.expenseId] ?? e.openBase)),
-    0,
+  const allocationOf = (e: OpenRow) => dec(alloc[e.expenseId] ?? e.openBase);
+  const lines = selected.map((e) => ({ allocatedBase: fix(allocationOf(e)) }));
+  const refundBase = tx?.amountBase ? new D(tx.amountBase).abs() : null;
+  // the server's own arithmetic (fifo.ts / status.ts), in Decimal — the same one propose and confirm run (F62)
+  const difference = settlementDifference(lines, refundBase ?? "0");
+  const allocated = new D(difference.allocatedBase);
+  const over = refundBase !== null && new D(difference.exchangeDifferenceBase).gt(0);
+  const rounding = refundBase !== null && new D(difference.roundingBase).gt(0);
+  const unallocated = refundBase === null ? new D(0) : new D(difference.unallocatedOnTransaction);
+  // what stays owed on the ledger after these lines: `owedBase` of each, the ledger's own rule
+  const residual = selected.reduce<Dec>(
+    (acc, e) => acc.plus(owedBase(e.openBase, allocationOf(e))),
+    new D(0),
   );
 
   // a new refund row resets the ticks to a FIFO proposal
@@ -133,7 +149,7 @@ export function SettleWork({
       paymentSourceId: sourceId,
       lines: selected.map((e) => ({
         expenseId: e.expenseId,
-        allocatedBase: fix(num(alloc[e.expenseId] ?? e.openBase)),
+        allocatedBase: fix(allocationOf(e)),
       })),
       confirmExchangeDifference: confirmExchange,
       note: note.trim() || null,
@@ -153,7 +169,11 @@ export function SettleWork({
   }
 
   const canConfirm =
-    !!tx && sourceId !== NONE && selected.length > 0 && allocated > 0 && (!over || confirmExchange);
+    !!tx &&
+    sourceId !== NONE &&
+    selected.length > 0 &&
+    allocated.gt(0) &&
+    (!over || confirmExchange);
 
   const left = (
     <div className="flex flex-col gap-2 p-3" data-testid="settle-open">
@@ -225,11 +245,13 @@ export function SettleWork({
     ? null
     : refundBase === null
       ? null
-      : Math.abs(diff) <= TOLERANCE
-        ? t("expenses.settle.exact")
-        : diff < 0
-          ? t("expenses.settle.covers", { amount: formatCurrency(fix(-diff), "SEK") })
-          : t("expenses.settle.short", { amount: formatCurrency(fix(diff), "SEK") });
+      : over
+        ? t("expenses.settle.short", {
+            amount: formatCurrency(difference.exchangeDifferenceBase, "SEK"),
+          })
+        : unallocated.gt(0)
+          ? t("expenses.settle.covers", { amount: formatCurrency(fix(unallocated), "SEK") })
+          : t("expenses.settle.exact");
 
   const right = (
     <div className="flex flex-col gap-3" data-testid="settle-transaction">
@@ -277,12 +299,14 @@ export function SettleWork({
           </div>
           {rounding && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {t("expenses.settle.rounding", { amount: fix(diff) })}
+              {t("expenses.settle.rounding", { amount: difference.roundingBase })}
             </p>
           )}
           {over && (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-              {t("expenses.settle.exchangeDifference", { amount: fix(diff) })}
+              {t("expenses.settle.exchangeDifference", {
+                amount: difference.exchangeDifferenceBase,
+              })}
             </p>
           )}
           <div className="mt-3 flex justify-end gap-2">
@@ -297,7 +321,7 @@ export function SettleWork({
             </Button>
             <Button
               size="sm"
-              disabled={!tx || selected.length === 0 || allocated <= 0}
+              disabled={!tx || selected.length === 0 || allocated.lte(0)}
               onClick={() => {
                 setConfirmExchange(false);
                 setConfirmOpen(true);
@@ -319,8 +343,8 @@ export function SettleWork({
             </DialogTitle>
             <DialogDescription data-testid="confirm-state">
               {over
-                ? t("expenses.settle.confirmOver", { amount: fix(diff) })
-                : short || residual > TOLERANCE
+                ? t("expenses.settle.confirmOver", { amount: difference.exchangeDifferenceBase })
+                : residual.gt(0)
                   ? t("expenses.settle.confirmPartial", {
                       amount: formatCurrency(fix(residual), "SEK"),
                     })
@@ -332,7 +356,7 @@ export function SettleWork({
               <li key={e.expenseId} className="flex items-center justify-between px-3 py-1.5">
                 <span className="font-mono text-xs">{e.key}</span>
                 <span className="tabular-nums">
-                  {formatCurrency(fix(num(alloc[e.expenseId] ?? e.openBase)), "SEK")} SEK
+                  {formatCurrency(fix(allocationOf(e)), "SEK")} SEK
                 </span>
               </li>
             ))}

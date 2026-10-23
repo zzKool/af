@@ -23,6 +23,8 @@ import { renderStatement } from "./jobs/render-statement";
 import {
   getExpenseDetail,
   ledgerSnapshot,
+  listExpenses,
+  listGroups,
   listSettlements,
   resolveStatement,
   settleableTransactions,
@@ -130,6 +132,78 @@ describe("US3 — what the company owes the owner", () => {
       ["Ex213-Tr-02", "1620.00"],
       ["Ex213-Rep-01", "2695.00"],
     ]);
+  });
+});
+
+describe("F62 — one owed rule, one Σ of active lines", () => {
+  it("a 0.30 residual is rounding, not a debt: the list's open sum = the ledger's = 0.00", async () => {
+    // 10 765.00 open in all; a refund of 10 764.70 leaves 0.30 on the last expense by FIFO
+    const [rowId] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-31", amount: "-10764.70", name: "Zikrija", message: "Utlägg mars" },
+      ]),
+    );
+    const p = (await run(owner.caller, (tx) => proposeSettlement(tx, { bankTransactionId: rowId })))
+      .data!;
+    expect(p.lines.map((l) => [l.key, l.remainingOpen])).toEqual([
+      ["Ex213-Tr-01", "0.00"],
+      ["Ex213-Tr-02", "0.00"],
+      ["Ex213-Rep-01", "0.30"],
+    ]);
+    const s = await run(owner.caller, (tx) =>
+      confirmSettlement(tx, owner.caller, noopAudit, {
+        bankTransactionId: rowId,
+        paymentSourceId: p.paymentSourceId!,
+        lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
+      }),
+    );
+    expect(s.error).toBeUndefined();
+    await run(owner.caller, async (tx) => {
+      const ledger = await ledgerSnapshot(tx);
+      const list = await listExpenses(tx, { page: 1, pageSize: 50, sort: [], filters: {} });
+      expect(ledger.total).toMatchObject({ openBase: "0.00", openCount: 0 });
+      expect(list.sums?.openBase).toBe(ledger.total.openBase);
+      const rep = list.rows.find((r) => r.key === "Ex213-Rep-01");
+      expect(rep).toMatchObject({ status: "refunded", allocatedBase: "2694.70", openBase: "0.00" });
+      const groups = await listGroups(tx);
+      expect(groups[0]?.openBase).toBe("0.00");
+      expect((await getExpenseDetail(tx, rep!.id)).data?.openBase).toBe("0.00");
+      // and nothing is proposed again
+      expect(await openPrivateExpenses(tx)).toEqual([]);
+    });
+    expect(await statuses()).toEqual({
+      "Ex213-Tr-01": "refunded",
+      "Ex213-Tr-02": "refunded",
+      "Ex213-Rep-01": "refunded",
+    });
+  });
+
+  it("statement_superseded is derived: a statement stored after the cancel still reads superseded", async () => {
+    const rowId = await refundRow("A");
+    const p = (await run(owner.caller, (tx) => proposeSettlement(tx, { bankTransactionId: rowId })))
+      .data!;
+    const s = (
+      await run(owner.caller, (tx) =>
+        confirmSettlement(tx, owner.caller, noopAudit, {
+          bankTransactionId: rowId,
+          paymentSourceId: p.paymentSourceId!,
+          lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
+        }),
+      )
+    ).data!;
+    const cancelled = await run(owner.caller, (tx) =>
+      cancelSettlement(tx, owner.caller, noopAudit, s.id),
+    );
+    expect(cancelled.data?.statementSuperseded).toBe(false);
+    // the job's store lands after the cancel (it rendered while the settlement was active)
+    await adminPool.query(
+      `UPDATE settlements SET statement_document_id = gen_random_uuid() WHERE id = $1`,
+      [s.id],
+    );
+    const list = await run(owner.caller, (tx) => listSettlements(tx));
+    expect(list.find((r) => r.id === s.id)?.statementSuperseded).toBe(true);
+    const st = await run(owner.caller, (tx) => resolveStatement(tx, owner.caller, s.id));
+    expect(st?.statementSuperseded).toBe(true);
   });
 });
 

@@ -5,6 +5,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as expenses from "@/modules/expenses";
 import * as settings from "@/modules/settings";
 import { toLocal } from "./calculator";
+import { parsePerDiemResult } from "./trip";
 import type { PerDiemResult } from "./types";
 
 export type PerDiemStatement = {
@@ -29,7 +30,9 @@ export async function resolvePerDiemStatement(
   groupId: string,
 ): Promise<PerDiemStatement | null> {
   const trip = await tx.trip.findUnique({ where: { groupId }, include: { group: true } });
-  if (!trip || !trip.computed) return null;
+  if (!trip) return null;
+  const result = parsePerDiemResult(trip.computed);
+  if (!result) return null;
   const [profile, expense] = await Promise.all([
     settings.getTenantProfile(tx, caller),
     trip.perDiemExpenseId ? expenses.getExpense(tx, trip.perDiemExpenseId) : Promise.resolve(null),
@@ -50,6 +53,6 @@ export async function resolvePerDiemStatement(
       countryCode: trip.countryCode,
       agency: trip.agency,
     },
-    result: trip.computed as PerDiemResult,
+    result,
   };
 }

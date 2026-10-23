@@ -69,7 +69,8 @@ F03 Members is *later*: the owner will not invite the accountant into the app fo
 
 ## Open decisions (the owner's)
 
-None open.
+- **O6** (F62, 2026-10-23) — the reimbursement statement prints each line's *remaining* as the arithmetic remainder (0.30) while the ledger, the list and the status say 0.00 owed (`owedBase`). Keep the statement to the öre, or print owed? Until then: unchanged.
+- **O7** (F62, irreversible) — drop `settlements.statement_superseded` (derived since F62, unread and unwritten) in a forward-only migration — `specs/expenses/tasks.md` T024.
 
 Decided 2026-10-22 (the audit's O3–O5, constitution 1.3): an open expense / supplier invoice's money facts are a draft until its first payment, then locked (D37 → F58, F62); `expense_groups` is a shared reference other modules may FK to (D38); **each tenant has its own base currency**, locked once it has money (D39 → F70). Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
 
