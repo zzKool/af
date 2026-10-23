@@ -31,7 +31,7 @@ One PR per line; the module's tests unchanged and green.
 - [x] T018 (audit 23 follow-up) `payableTransactions` → `banking.outgoingMainRows(limit * 2)`; *paid this month* → `banking.bookingDates`. Left: the active settlements read (`tx.settlement`) until expenses has `activeSettlementTransactionIds`.
 - [x] T019 (audit 25) The detail's document → `documents.getDocument`; the create's group → `expenses.getGroup`.
 - [x] T020 (audit 27) `kernel/money` `openAmount` / `isSettled`, `kernel/clock` `daysBetween` / `addDays` instead of `status.ts`'s own. Kept: the new dialog's own `addDays` (a client helper that returns `""` on a half-typed date where the kernel's throws).
-- [ ] T021 (audit 28) `todayIso()` (UTC) → `clock.today()`.
+- [x] T021 (audit 28) `todayIso()` (UTC) → `clock.today()` (Stockholm's day) for the list, the detail and the KPIs; the new dialog's default invoice date too.
 - [ ] T022 (audit 29) The panel's `as unknown as Detail` → the action returns the serialised DTO type.
 - [ ] T023 (audit 30) Currencies parsed, not cast.
 - [ ] T024 (audit 32) One invoice-number normaliser for the SQL check and the duplicate finder ("91 60" = "91  60").
