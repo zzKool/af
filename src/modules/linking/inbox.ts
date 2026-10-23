@@ -2,6 +2,7 @@
 // nor "no document needed", each with its top candidates — scored in one pass over candidate pools fetched once
 // per type for the whole date span, not row by row.
 import { Prisma } from "@/generated/prisma/client";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
@@ -32,12 +33,6 @@ export type InboxRow = {
 
 export const INBOX_LIMIT = 300;
 const TIER: Record<Confidence, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-
-function shiftDate(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 /** The rows needing attention with their candidates, best first (HIGH > MEDIUM > LOW > none, then newest). */
 export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Promise<InboxRow[]> {
@@ -79,8 +74,8 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
       raw.push(
         ...(await linkable.candidates(tx, {
           direction,
-          dateFrom: shiftDate(min, -days),
-          dateTo: shiftDate(max, days),
+          dateFrom: addDays(min, -days),
+          dateTo: addDays(max, days),
           limit: CANDIDATES_PER_TYPE * 10,
         })),
       );
@@ -97,7 +92,7 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     if (new D(f.remaining).gt(0)) {
       for (const c of pool) {
         const days = DATE_WINDOW_DAYS[c.type] ?? DEFAULT_WINDOW_DAYS;
-        if (c.date < shiftDate(f.date, -days) || c.date > shiftDate(f.date, days)) continue;
+        if (c.date < addDays(f.date, -days) || c.date > addDays(f.date, days)) continue;
         const m = scoreMatch(
           {
             amount: f.amount,

@@ -42,8 +42,6 @@ model JournalEntry {
   /// same_currency | ecb_daily | ecb_nearest | manual
   rateSource       String                @map("rate_source") @db.VarChar(20)
   rateDate         DateTime?             @map("rate_date") @db.Date
-  /// the bank's implied rate of an accepted transfer pair (SEK ÷ CHF) — informational, set once, never replaces `rate`
-  bankImplicitRate Decimal?              @map("bank_implicit_rate") @db.Decimal(18, 6)
   /// 3-digit BAS group (bas_categories.code), validated at write
   basCode          String?               @map("bas_code") @db.VarChar(4)
   partnerId        String?               @map("partner_id") @db.Uuid

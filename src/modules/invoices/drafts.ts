@@ -9,7 +9,14 @@ import type { ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, type CURRENCIES } from "@/kernel/nav/constants";
 import * as contracts from "@/modules/contracts";
 import * as partners from "@/modules/partners";
-import { dueDateFor, lineRowsFrom, linesToInput, registrationById, totalsData } from "./defaults";
+import {
+  dueDateFor,
+  lineRowsFrom,
+  linesToInput,
+  QUOTE_VALIDITY_DAYS,
+  registrationById,
+  totalsData,
+} from "./defaults";
 import { load, toDate, toInvoiceDto, withLines } from "./dto";
 import { invalid, notFound, parseError, violation } from "./errors";
 import {
@@ -73,7 +80,7 @@ export async function createDraft(
     data.dueDate !== undefined
       ? data.dueDate
       : data.type === "quote"
-        ? addDays(issueDate, 30)
+        ? addDays(issueDate, QUOTE_VALIDITY_DAYS)
         : dueDateFor(issueDate, contract?.paymentTerms);
   if (dueDate && dueDate < issueDate)
     return { error: invalid("Due date must be on or after the issue date") };

@@ -68,6 +68,7 @@ The list runs in two steps: Prisma filters the stored columns, then the derived 
 ## Surface
 
 - `index.ts`: services + schemas, `getInvoice`, `listInvoices`, `distinctInvoiceValues`, `invoiceDateHierarchy`, `nextNumberHint`, `relatedDocuments`, `invoiceLinkable`, `rateUsageFromInvoiceLines`, totals, derive helpers, DTOs.
+- For other modules (lessons audit 27, 2026-10-23): `signedTotal(type, amount)` / `creditSign(type)` — a credit note's amounts count negative (dashboard pulse, package, Swiss VAT return); `DEFAULT_PAYMENT_TERMS_DAYS` (30, when a contract names no terms) and `QUOTE_VALIDITY_DAYS` (30); `creditedSum(tx, ids)` — Σ issued credit notes per original, also behind the read model and the issue-time limit; `ratePricingFromInvoiceLines(tx, rateId)` → `{ lines, lastPeriodStart }`, the richer usage hook for contracts T024 (the day priced = line period start, else the document's, else its issue date; drafts included, like the count).
 - `ui.ts`: actions, types and the components (`InvoiceTable`, `InvoiceActions`, `InvoiceDetails`, `InvoiceStateLabel`, `NewDocumentButton`, the sheet, the editor, the new-draft form).
 - Actions: reads on `authedAction` + `can(read, invoice)` (the accountant reads), writes on `ownerAction`.
 - Wiring (composition root `src/instrumentation.ts`): `contracts.setRateUsage(invoices.rateUsageFromInvoiceLines)` — a contract rate used by a line cannot be deleted (D24). `modules/linking/linkables.ts` registers `invoiceLinkable` (issued invoices and credit notes carry their total; quotes are never paid).
