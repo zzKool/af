@@ -38,6 +38,7 @@ import {
   useCreateGroupIfNew,
   useDuplicateCheck,
 } from "@/modules/expenses/ui";
+import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
 import {
   checkSupplierInvoiceDuplicatesAction,
   copyLastSupplierInvoiceAction,
@@ -52,7 +53,6 @@ import type {
   SupplierOption,
 } from "@/modules/supplier-invoices/types";
 import { ExactNumberStop, exactMatches } from "./exact-number-stop";
-import { SupplierMatchCard, type VendorFacts } from "./supplier-match-card";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
 export type SupplierInvoiceInitial = {
@@ -329,7 +329,7 @@ export function NewSupplierInvoiceDialog({
           }}
         >
           {initial?.vendor && (
-            <SupplierMatchCard
+            <PartnerMatchCard
               vendor={initial.vendor}
               selectedId={partnerId}
               onUseMatch={setPartnerId}
