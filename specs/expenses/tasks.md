@@ -58,6 +58,7 @@
 - [x] T026 F88 (D47): the statement prints *owed* — `resolveStatement` on `owedBase`; test: the 0.30 residual's statement prints 0.00, residual = ledger.
 - [x] T027 Read API for the other modules (lessons audit 23, 25): `activeSettlementTransactionIds(among?)` (supplier invoices' picker, instead of `tx.settlement`); `getGroup(id)` was already exported through `queries.ts`.
 - [x] T028 Reads through the owners' read API (lessons audit 22, 23 follow-up, 25): `settleableTransactions` → `banking.outgoingMainRows` minus `activeSettlementTransactionIds`; the detail's booking dates → `banking.bookingDates`; the statement job → `banking.getBankTransaction`; every `tx.link` read → `linking.linksTouching` / `createdFromTargets`; the panel's links → `linking.linksWithLabels`; its receipt → `documents.getDocument`. No `tx.link` / `tx.bankTransaction` / `tx.document` left in the module.
+- [x] T029 Kernel helpers (lessons audit 27): the company-paid status on `isSettled(paid, [justified])`; the duplicate check's days on `daysBetween` / `addDays` (`daysApart` removed).
 
 ## Dependencies
 

@@ -7,7 +7,6 @@ export {
   DUPLICATE_AMOUNT_TOLERANCE,
   DUPLICATE_DATE_TOLERANCE_DAYS,
   DUPLICATE_MAX,
-  daysApart,
   dedupeMatches,
   type ExpenseDuplicateQuery,
   findExpenseDuplicates,
