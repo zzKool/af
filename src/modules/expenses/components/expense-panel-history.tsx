@@ -26,6 +26,7 @@ export function ExpenseHistoryList({ detail }: { detail: ExpensePanelDetail }) {
     paymentSourceId: t("expenses.form.paidBy"),
     paidAmount: t("expenses.col.paid"),
     documentMissing: t("expenses.form.documentMissing"),
+    partnerId: t("expenses.partner"),
     note: t("expenses.form.note"),
   };
   if (detail.history.length === 0) return <p className="text-[13px] text-muted-foreground">—</p>;

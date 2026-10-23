@@ -1,8 +1,9 @@
 "use client";
 
-// The supplier match card (specs/documents US1, harvest R39): the OCR vendor against the partners — *Use match*
+// The partner match card (specs/documents US1, harvest R39): the OCR vendor against the partners — *Use match*
 // on the best one (shown from 60 %), the other matches, or *New vendor* pre-filled with the OCR facts (name, VAT
-// number, address — documents T026), created through the partners module and selected at once.
+// number, address — documents T026), created as a vendor and selected at once. Used by the supplier-invoice and
+// the expense dialogs (F87 moved it here from supplier-invoices: it only ever used partners' actions and strings).
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -11,13 +12,9 @@ import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import type { OcrAddress } from "@/kernel/ocr/ocr";
-import type { PartnerMatch } from "@/modules/partners/ui";
-import {
-  createPartnerAction,
-  matchPartnersAction,
-  ocrAddressText,
-  partnerAddressFromOcr,
-} from "@/modules/partners/ui";
+import { createPartnerAction, matchPartnersAction } from "@/modules/partners/partners.actions";
+import type { PartnerMatch } from "@/modules/partners/types";
+import { ocrAddressText, partnerAddressFromOcr } from "./ocr-address";
 
 const BEST_FROM = 60;
 
@@ -28,7 +25,7 @@ export type VendorFacts = {
   address?: OcrAddress | null;
 };
 
-export function SupplierMatchCard({
+export function PartnerMatchCard({
   vendor,
   selectedId,
   onUseMatch,
@@ -97,12 +94,12 @@ export function SupplierMatchCard({
   return (
     <div
       className="sm:col-span-2 rounded-md border bg-muted/40 p-3 text-sm"
-      data-testid="supplier-match"
+      data-testid="partner-match"
     >
       <div className="font-medium">{t("partners.match.title")}</div>
       {best ? (
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span data-testid="supplier-match-best">
+          <span data-testid="partner-match-best">
             {t("partners.match.best", { name: best.name, percent: best.percent })}
           </span>
           <Button
@@ -110,7 +107,7 @@ export function SupplierMatchCard({
             size="sm"
             variant={selectedId === best.partnerId ? "secondary" : "default"}
             onClick={() => onUseMatch(best.partnerId)}
-            data-testid="supplier-match-use"
+            data-testid="partner-match-use"
           >
             {t("partners.match.use")}
           </Button>
@@ -173,7 +170,7 @@ export function SupplierMatchCard({
           variant="outline"
           className="mt-2"
           onClick={() => setCreating(true)}
-          data-testid="supplier-match-new"
+          data-testid="partner-match-new"
         >
           {t("partners.match.newVendor")}
         </Button>

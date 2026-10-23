@@ -224,7 +224,7 @@ flowchart LR
 
 | | |
 |---|---|
-| Status | **Built 2026-10-20** (two PRs): groups, the four payment sources, expenses with keys per (group, alias), ECB / bank bases, derived status, the ledger, FIFO settlements with rounding / exchange difference, the statement job, linkables, the list read model; the pages (`/expenses`, groups, the group page, settle, settlements, the statement print route), en/fr — `docs/expenses.md`, `specs/expenses/`. |
+| Status | **Built 2026-10-20** (two PRs): groups, the four payment sources, expenses with keys per (group, alias), ECB / bank bases, derived status, the ledger, FIFO settlements with rounding / exchange difference, the statement job, linkables, the list read model; the pages (`/expenses`, groups, the group page, settle, settlements, the statement print route), en/fr — `docs/expenses.md`, `specs/expenses/`. · **F87 (2026-10-24, D49 D50)**: an optional partner (a vendor) per expense — the default category proposed never overwriting, the match card from a document, the Partner column + filter, the partner page's Expenses tab (`specs/expense-partner/`). |
 
 ### 3.8 Traktamente — harvest calculator, own module
 

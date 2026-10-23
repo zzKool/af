@@ -16,15 +16,18 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import type { StateFamily } from "@/kernel/ui/state-label";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
+import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { isExpenseOpen, toExpenseDto } from "./expenses";
 import { groupLabel, toGroupDto } from "./groups";
 import { expenseHistory, type HistoryEntry } from "./history";
 import { activeSettlementTransactionIds, allocatedByExpense, toSettlementDto } from "./settlements";
+import { expenseStateFamily } from "./state-family";
 import { deriveExpenseStatus, owedBase } from "./status";
 import type {
   DocumentOption,
@@ -54,6 +57,9 @@ export const EXPENSE_COLUMNS = {
   groupDescription: { type: "text", searchable: true },
   date: { type: "date" },
   description: { type: "text", searchable: true },
+  // the partner (F87): the id filters in SQL (the partner page's deep link), the name is what the owner reads
+  partnerId: { type: "enum" },
+  partnerName: { type: "enum", searchable: true },
   kind: { type: "enum" },
   basCode: { type: "enum" },
   basLabel: { type: "text" },
@@ -88,6 +94,7 @@ export const EXPENSE_DEFAULT_SORT: SortSpec[] = [
 ];
 
 const DERIVED: ReadonlySet<string> = new Set([
+  "partnerName",
   "groupNumber",
   "groupDescription",
   "basLabel",
@@ -167,7 +174,7 @@ async function loadRows(
     orderBy: [{ date: "desc" }, { key: "desc" }],
     take: ROW_CAP,
   });
-  const [f, labels] = await Promise.all([
+  const [f, labels, names] = await Promise.all([
     facts(
       tx,
       rows.map((r) => r.id),
@@ -176,6 +183,9 @@ async function loadRows(
       tx,
       rows.map((r) => r.basCode),
     ),
+    partners.partnerNames(tx, [
+      ...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : []))),
+    ]),
   ]);
   const list: ExpenseListRow[] = rows.map((r) => {
     const dto = toExpenseDto(r);
@@ -188,6 +198,8 @@ async function loadRows(
       groupDescription: r.group.description,
       date: dto.date,
       description: dto.description,
+      partnerId: dto.partnerId,
+      partnerName: dto.partnerId ? (names.get(dto.partnerId) ?? null) : null,
       kind: dto.kind,
       basCode: dto.basCode,
       basLabel: labels.get(dto.basCode) ?? dto.basCode,
@@ -219,9 +231,14 @@ async function loadRows(
 
 function searchHit(row: ExpenseListRow, term: string): boolean {
   const t = term.toLowerCase();
-  return [row.key, row.description, row.groupDescription, row.note, row.basLabel].some((v) =>
-    (v ?? "").toLowerCase().includes(t),
-  );
+  return [
+    row.key,
+    row.description,
+    row.groupDescription,
+    row.note,
+    row.basLabel,
+    row.partnerName,
+  ].some((v) => (v ?? "").toLowerCase().includes(t));
 }
 
 export async function listExpenses(
@@ -267,6 +284,8 @@ export type ExpenseDetail = {
   groupLabel: string;
   paymentSource: { id: string; label: string; kind: PaymentSourceKind; currency: string };
   basLabel: string;
+  /** the expense's partner (F87) — a deactivated one stays shown, greyed */
+  partner: { id: string; name: string; isActive: boolean } | null;
   status: ExpenseStatus;
   allocatedBase: string;
   openBase: string;
@@ -325,12 +344,13 @@ export async function getExpenseDetail(
   });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Expense not found: ${id}`, retryable: false } };
-  const [f, labels, withLabels, isOpen, audit] = await Promise.all([
+  const [f, labels, withLabels, isOpen, audit, partner] = await Promise.all([
     facts(tx, [id]),
     settings.basLabels(tx, [row.basCode]),
     linking.linksWithLabels(tx, { type: "expense", id }),
     isExpenseOpen(tx, id),
     getAuditLog(tx, { entityType: "expense", entityId: id, limit: 20 }),
+    row.partnerId ? partners.getPartner(tx, row.partnerId) : null,
   ]);
   const dto = toExpenseDto(row);
   const derived = statusOf(dto, row.paymentSource.kind as PaymentSourceKind, f, id);
@@ -356,6 +376,9 @@ export async function getExpenseDetail(
         currency: row.paymentSource.currency,
       },
       basLabel: labels.get(row.basCode) ?? row.basCode,
+      partner: partner?.data
+        ? { id: partner.data.id, name: partner.data.name, isActive: partner.data.isActive }
+        : null,
       ...derived,
       isOpen,
       document,
@@ -369,6 +392,73 @@ export async function getExpenseDetail(
       })),
       history: expenseHistory(audit),
     },
+  };
+}
+
+// --- spend per partner (F87, FR-006) — the partner page composes this read; partners never import expenses ---
+
+export type PartnerExpenseRow = Pick<
+  ExpenseListRow,
+  | "id"
+  | "key"
+  | "date"
+  | "groupNumber"
+  | "description"
+  | "basCode"
+  | "basLabel"
+  | "amount"
+  | "currency"
+  | "amountBase"
+  | "baseProvisional"
+  | "status"
+> & {
+  /** the D40 family of the state, so the partner page draws it without importing expenses' UI */
+  stateFamily: StateFamily;
+};
+
+export type PartnerExpenses = {
+  /** newest first, at most `PARTNER_EXPENSE_ROWS` — the list behind *Open in Expenses* has them all */
+  rows: PartnerExpenseRow[];
+  count: number;
+  /** Σ amount_base of every expense of the partner — the same base the list's footer sums */
+  totalBase: string;
+  /** a base in the total is the ECB estimate of a company-paid expense not yet attached (`*`) */
+  anyProvisional: boolean;
+};
+
+export const PARTNER_EXPENSE_ROWS = 25;
+
+export async function expensesForPartner(
+  tx: TransactionClient,
+  partnerId: string,
+): Promise<PartnerExpenses> {
+  const all = await loadRows(tx, {
+    page: 1,
+    pageSize: ROW_CAP,
+    sort: EXPENSE_DEFAULT_SORT,
+    filters: { partnerId: { kind: "in", values: [partnerId] } },
+  });
+  let total = new D(0);
+  for (const r of all) total = total.plus(r.amountBase);
+  return {
+    rows: all.slice(0, PARTNER_EXPENSE_ROWS).map((r) => ({
+      id: r.id,
+      key: r.key,
+      date: r.date,
+      groupNumber: r.groupNumber,
+      description: r.description,
+      basCode: r.basCode,
+      basLabel: r.basLabel,
+      amount: r.amount,
+      currency: r.currency,
+      amountBase: r.amountBase,
+      baseProvisional: r.baseProvisional,
+      status: r.status,
+      stateFamily: expenseStateFamily(r.status),
+    })),
+    count: all.length,
+    totalBase: total.toFixed(2),
+    anyProvisional: all.some((r) => r.baseProvisional),
   };
 }
 

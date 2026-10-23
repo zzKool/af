@@ -29,7 +29,10 @@ vi.mock("@/modules/expenses/ui", async () => ({
   hasHighMatch: (ms: DuplicateMatch[]) => ms.some((m) => m.confidence === "high"),
   useDuplicateCheck: () => dup.matches,
 }));
-vi.mock("./supplier-match-card", () => ({ SupplierMatchCard: () => null }));
+vi.mock("@/modules/partners/ui", async (orig) => ({
+  ...(await orig<typeof import("@/modules/partners/ui")>()),
+  PartnerMatchCard: () => null,
+}));
 
 import { NewSupplierInvoiceDialog } from "./new-supplier-invoice-dialog";
 

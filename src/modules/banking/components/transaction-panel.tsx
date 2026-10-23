@@ -23,26 +23,14 @@ import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { InfoBanner } from "@/kernel/ui/info-banner";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { acceptTransferAction, getTransactionAction } from "@/modules/banking/banking.actions";
-import type { TransactionDetail } from "@/modules/banking/queries";
+import { type TransactionDetailWire, toTransactionEntryWire } from "@/modules/banking/detail-wire";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "@/modules/journal/ui";
 import { GraphLink, LinksList, SuggestionsSection } from "@/modules/linking/ui";
 import { RuleDialog } from "./rule-dialog";
 import { TransactionHistory } from "./transaction-history";
 import { TransactionStateLabel } from "./transaction-state";
 
-type Detail = Omit<TransactionDetail, "transaction" | "entry" | "links" | "import"> & {
-  transaction: Omit<TransactionDetail["transaction"], "createdAt"> & { createdAt: string };
-  entry:
-    | (Omit<NonNullable<TransactionDetail["entry"]>, "createdAt" | "updatedAt"> & {
-        createdAt: string;
-        updatedAt: string;
-      })
-    | null;
-  links: (Omit<TransactionDetail["links"][number], "createdAt"> & { createdAt: string })[];
-  import:
-    | (Omit<NonNullable<TransactionDetail["import"]>, "importedAt"> & { importedAt: string })
-    | null;
-};
+type Detail = TransactionDetailWire;
 
 const money = (amount: string, currency: string) => formatMoney(amount, currency);
 /** a rate as the bank / ECB gave it, without trailing zeros */
@@ -129,7 +117,7 @@ export function TransactionDetailView({
       return;
     }
     const d = r?.data && "data" in r.data ? r.data.data : undefined;
-    if (d) setDetail(d as unknown as Detail);
+    if (d) setDetail(d);
   }, [transactionId, load]);
 
   useEffect(() => {
@@ -297,13 +285,7 @@ export function TransactionDetailView({
                     categories={categories}
                     partners={partners}
                     canWrite={canWrite}
-                    onSaved={(e) =>
-                      entrySaved({
-                        ...e,
-                        createdAt: String(e.createdAt),
-                        updatedAt: String(e.updatedAt),
-                      })
-                    }
+                    onSaved={(e) => entrySaved(toTransactionEntryWire(e))}
                   />
                   {canWrite && (
                     <div>

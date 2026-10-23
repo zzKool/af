@@ -18,12 +18,13 @@ Spec: `spec.md` (+ `harvest.md`, the v1 / Excel input it was written from). No `
 
 - [x] T005 *(2026-10-23, lessons audit 28 + 27)* Bound a rate year in Stockholm: `deleteRate` counted the trips touching a year between UTC midnights, while trips are counted in Stockholm — a return at 00:30 on 1 January let the new year's row go, a departure at 00:30 on 1 January blocked the old year's. `rateYearBounds(year)` (calculator, beside `toLocal`; `toInstant` moved there from `trip.ts` so `rates.ts` can read it without a cycle). Same PR: the calculator's own `nextDate` → the kernel's `addDays`. Tests: `trip.test.ts` *the delete guard counts a rate year in Stockholm* (fails on `main`), `calculator.pure.test.ts` (the bounds; the day walk across the DST change and the year end). DIRECT
 - [x] T006 *(2026-10-24, lessons round 3 #1, audit 22)* The per-diem job reads the expense's earlier `created_from` links through `linking.linksTouching` (only those from the expense) instead of `tx.link`. Behaviour-neutral; `trip.test.ts` *the breakdown PDF … replaced on recompute* covers it. DIRECT
+- [x] T007 *(2026-10-24, lessons round 3 #2, audit 25)* `upsertTrip` reads the group through `expenses.getGroup` and its own trip by `groupId`, instead of `tx.expenseGroup` with `include: { trip }`. Same not-found error, same audit rows. Behaviour-neutral; `trip.test.ts` covers create, update and the group becoming a trip group. DIRECT
 
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
 - ~~`deleteRate` bounds the year in UTC while trips are counted in Stockholm (a return at 00:30 on 1 January lets the new year's row go) → **F67** (lessons audit 28)~~ — T005
 - ~~the error helpers written twice (`trip.ts`, `rates.ts`) → **F67** (audit 32)~~ — done 2026-10-23: `errors.ts`
-- `upsertTrip` reads `expense_groups` itself instead of `expenses.getGroup` → **F66** (audit 25)
+- ~~`upsertTrip` reads `expense_groups` itself instead of `expenses.getGroup` → **F66** (audit 25)~~ — T007
 - `SEK` in the description, the note, the panel and the sheet → **F70** (D39)
 - ~~the panel's on-screen money through `formatCurrency` → **F71**~~ — T004 (the printed sheet keeps it)
 

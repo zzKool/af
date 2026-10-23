@@ -1,7 +1,8 @@
 "use client";
 
-// The facts of the expense panel — description, category, note (saved on change / blur), *document missing* —
-// and its document (the Proof section).
+// The facts of the expense panel — description, the partner (F87: a fact, changeable in every state; it never
+// changes the category), category, note (saved on change / blur), *document missing* — and its document (the
+// Proof section).
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,7 @@ import { useT } from "@/kernel/i18n/use-t";
 import { DetailsGrid } from "@/kernel/ui/details-section";
 import type { CategoryOption } from "@/modules/expenses/types";
 import type { ExpensePanelDetail, SaveExpense } from "./expense-panel-shared";
+import { PartnerPicker, useVendors } from "./partner-picker";
 
 export function ExpenseFactsSection({
   detail,
@@ -34,6 +36,7 @@ export function ExpenseFactsSection({
   const t = useT();
   const ids = useId();
   const e = detail.expense;
+  const { vendors } = useVendors(canWrite && e.kind !== "per_diem");
 
   // the fields are put back to the saved values on every reload of the panel
   const fromDetail = () => ({ description: e.description, note: e.note ?? "" });
@@ -63,6 +66,22 @@ export function ExpenseFactsSection({
               }}
             />
           </div>
+          {e.kind !== "per_diem" && (
+            <div>
+              <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
+                {t("expenses.partner")}
+              </label>
+              <PartnerPicker
+                id={`${ids}-partner`}
+                value={e.partnerId}
+                onChange={(id) => id !== e.partnerId && void save({ partnerId: id })}
+                vendors={vendors}
+                current={detail.partner}
+                disabled={saving}
+                testId="panel-partner-picker"
+              />
+            </div>
+          )}
           <div>
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.category")}
