@@ -796,6 +796,25 @@ describe("US2 — paid by a link", () => {
     });
   });
 
+  it("the payment picker leaves out a row an active settlement refunds through; a cancelled one gives it back", async () => {
+    const refund = await chfRow("2026-03-31", "-400.00", "Zikrija");
+    const free = await chfRow("2026-03-31", "-120.00");
+    const ids = async () =>
+      run(owner.caller, async (tx) => (await payableTransactions(tx, "CHF")).map((t) => t.id));
+    expect(await ids()).toEqual(expect.arrayContaining([refund, free]));
+    await adminPool.query(
+      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
+       VALUES ($1, 'ST26-009', $2, $3, -400, 'CHF', 4300, 4300, now(), $4)`,
+      [owner.caller.tenantId, refund, owner.sources.privateCh.id, owner.caller.userId],
+    );
+    expect(await ids()).not.toContain(refund);
+    expect(await ids()).toContain(free);
+    await adminPool.query(
+      `UPDATE settlements SET status = 'cancelled', cancelled_at = now() WHERE number = 'ST26-009'`,
+    );
+    expect(await ids()).toContain(refund);
+  });
+
   it("a short payment within the tolerance closes it with the rounding note", async () => {
     const r = await create(julyInvoice());
     const row = await chfRow("2026-03-31", "-1297.15");
