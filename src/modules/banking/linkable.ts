@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as journal from "@/modules/journal";
 import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
@@ -10,24 +11,6 @@ import { accountLabel } from "./bank-accounts";
  * another transaction (`transfer`) or settles a reimbursement. For the matcher it is the row: its SEK base is
  * the journal entry's, its texts are every field Nordea gave (name, message, details, sender, recipient).
  */
-type Row = {
-  id: string;
-  bookingDate: Date;
-  amount: {
-    abs(): { toFixed(n: number): string };
-    gt(n: number): boolean;
-    toFixed(n: number): string;
-  };
-  currency: string;
-  description: string;
-  name: string | null;
-  message: string | null;
-  additionalDetails: string | null;
-  sender: string | null;
-  recipient: string | null;
-  bankAccount: Parameters<typeof accountLabel>[0];
-};
-
 const ROW_SELECT = {
   id: true,
   bookingDate: true,
@@ -40,7 +23,10 @@ const ROW_SELECT = {
   sender: true,
   recipient: true,
   bankAccount: true,
-} as const;
+} as const satisfies Prisma.BankTransactionSelect;
+
+/** the selected row — Prisma's own payload type (its Decimal, not a look-alike: lessons audit 30) */
+type Row = Prisma.BankTransactionGetPayload<{ select: typeof ROW_SELECT }>;
 
 async function toFacts(
   tx: TransactionClient,
