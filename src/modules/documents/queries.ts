@@ -28,6 +28,7 @@ import {
 import { DOCUMENT_COLUMNS, DOCUMENT_DEFAULT_SORT, type DocumentColumn } from "./library-columns";
 import { unlinkedIds } from "./linkable";
 import { amountText, parseCorrections, parseOcrPayload, resolveDocumentData } from "./ocr-payload";
+import { type DocumentState, documentState } from "./state-family";
 
 export {
   getDocumentDownloadUrl,
@@ -85,14 +86,19 @@ export type DocumentListRow = {
   became: DocumentBecame | null;
   reviewedAt: Date | null;
   createdAt: Date;
+  /** the derived state (F71: the same word as the inbox) — filled on the page rows; the filters read `status` */
+  state: DocumentState;
 };
+
+/** A loaded row before its state is derived: the two facts the state needs beside the public ones. */
+type LoadedRow = Omit<DocumentListRow, "state"> & { archivedAt: Date | null; updatedAt: Date };
 
 async function loadRows(
   tx: TransactionClient,
   caller: CallerIdentity,
   q: ListQuery,
   options: { exceptColumn?: string } = {},
-): Promise<DocumentListRow[]> {
+): Promise<LoadedRow[]> {
   // the accountant sees financial documents only (can): the base of every query
   const base = can(caller, "read", "relationship_document") ? {} : { documentType: "financial" };
   const where = buildWhere({ ...q, search: undefined }, STORED_COLUMNS, {
@@ -113,7 +119,9 @@ async function loadRows(
       mimeType: true,
       fileSize: true,
       reviewedAt: true,
+      archivedAt: true,
       createdAt: true,
+      updatedAt: true,
       ocrData: true,
       corrections: true,
     },
@@ -122,7 +130,7 @@ async function loadRows(
     tx,
     rows.map((r) => r.id),
   );
-  const list: DocumentListRow[] = rows.map((r) => {
+  const list: LoadedRow[] = rows.map((r) => {
     const resolved = resolveDocumentData(
       parseOcrPayload(r.ocrData)?.extractedData ?? null,
       parseCorrections(r.corrections),
@@ -143,7 +151,9 @@ async function loadRows(
       linked: !free.has(r.id),
       became: null,
       reviewedAt: r.reviewedAt,
+      archivedAt: r.archivedAt,
       createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
     };
   });
   return filterInMemory(list, q, DOCUMENT_COLUMNS, {
@@ -153,7 +163,7 @@ async function loadRows(
   });
 }
 
-function searchHit(row: DocumentListRow, term: string): boolean {
+function searchHit(row: LoadedRow, term: string): boolean {
   const t = term.toLowerCase();
   return [row.businessKey, row.fileName, row.vendor].some((v) =>
     (v ?? "").toLowerCase().includes(t),
@@ -164,7 +174,9 @@ export async function listDocuments(
   tx: TransactionClient,
   caller: CallerIdentity,
   q: ListQuery,
+  options: { now?: Date } = {},
 ): Promise<ListResult<DocumentListRow>> {
+  const now = options.now ?? new Date();
   const all = await loadRows(tx, caller, q);
   const page = finishList(all, q, DOCUMENT_COLUMNS, DOCUMENT_DEFAULT_SORT);
   // what each row of the page became, with the entity's key (FR-005) — labels for one page, not the whole set
@@ -175,11 +187,16 @@ export async function listDocuments(
   );
   return {
     ...page,
-    rows: page.rows.map((r) => {
+    rows: page.rows.map(({ archivedAt, updatedAt, ...r }) => {
       const b = became.get(r.id);
+      // the inbox's rule on the same facts (D34): any `created_from` target takes it out of the inbox
+      const state = documentState(
+        { status: r.status, archivedAt, reviewedAt: r.reviewedAt, updatedAt, became: !!b },
+        now,
+      );
       return b && (b.type === "expense" || b.type === "supplier_invoice")
-        ? { ...r, became: { type: b.type, id: b.id, key: b.key, label: b.label } }
-        : r;
+        ? { ...r, state, became: { type: b.type, id: b.id, key: b.key, label: b.label } }
+        : { ...r, state };
     }),
   };
 }
@@ -192,7 +209,7 @@ export async function distinctDocumentValues(
 ): Promise<DistinctValue[]> {
   const rows = await loadRows(tx, caller, q, { exceptColumn: column });
   return countDistinct(
-    rows.map((r) => r[column as keyof DocumentListRow]),
+    rows.map((r) => r[column as keyof LoadedRow]),
     DOCUMENT_COLUMNS[column],
   );
 }
@@ -205,9 +222,7 @@ export async function documentDateHierarchy(
 ): Promise<DateHierarchy> {
   if (DOCUMENT_COLUMNS[column].type !== "date") return { years: [], empty: 0 };
   const rows = await loadRows(tx, caller, q, { exceptColumn: column });
-  return buildDateHierarchy(
-    rows.map((r) => r[column as keyof DocumentListRow] as Date | string | null),
-  );
+  return buildDateHierarchy(rows.map((r) => r[column as keyof LoadedRow] as Date | string | null));
 }
 
 // --- the inbox (specs/documents US4, D34) ---

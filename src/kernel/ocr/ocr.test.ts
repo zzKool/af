@@ -6,6 +6,7 @@ import {
   createAzureOcrService,
   createMockOcrService,
   createOcrService,
+  extractAddressValue,
   extractBlobPath,
   MODEL_MAP,
   type OcrSource,
@@ -220,6 +221,54 @@ describe("extractBlobPath", () => {
     expect(() => extractBlobPath("https://example.com/other/abc.pdf")).toThrow(
       "Cannot extract blob path",
     );
+  });
+});
+
+// --- VendorAddress (documents T026, FR-003) ---
+
+describe("extractAddressValue", () => {
+  it("maps Azure's address parts and the printed lines", () => {
+    expect(
+      extractAddressValue({
+        type: "address",
+        content: "Storgatan 1\n111 22 Stockholm",
+        valueAddress: {
+          houseNumber: "1",
+          road: "Storgatan",
+          postalCode: "111 22",
+          city: "Stockholm",
+          countryRegion: "se",
+          streetAddress: "Storgatan 1",
+        },
+      }),
+    ).toEqual({
+      street: "Storgatan 1",
+      postalCode: "111 22",
+      city: "Stockholm",
+      country: "SE",
+      text: "Storgatan 1, 111 22 Stockholm",
+    });
+  });
+
+  it("builds the street from road + house number, drops a country that is not ISO alpha-2", () => {
+    expect(
+      extractAddressValue({
+        type: "address",
+        valueAddress: { road: "Market St", houseNumber: "548", countryRegion: "USA" },
+      }),
+    ).toEqual({ street: "Market St 548" });
+  });
+
+  it("is undefined for a missing, empty or non-address field", () => {
+    expect(extractAddressValue(undefined)).toBeUndefined();
+    expect(extractAddressValue({ type: "address", valueAddress: {} })).toBeUndefined();
+    expect(extractAddressValue({ type: "string", valueString: "Storgatan 1" })).toBeUndefined();
+  });
+
+  it("the mock invoice carries a vendor address", async () => {
+    const result = await createMockOcrService().analyzeDocument(mockSource, "invoice");
+    if (!result.success) throw new Error("mock failed");
+    expect(result.data.vendorAddress).toMatchObject({ city: "Stockholm", country: "SE" });
   });
 });
 

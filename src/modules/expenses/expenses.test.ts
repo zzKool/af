@@ -13,6 +13,7 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import * as documents from "@/modules/documents";
 import * as linking from "@/modules/linking";
 import {
   FIXTURE,
@@ -460,15 +461,93 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         documentId: doc.id,
       });
       expect(second.error?.message).toMatch(/already became expense/);
-      // linked → not deleted; the counter never goes back
-      const del = await deleteExpense(tx, owner.caller, noopAudit, e.data!.id);
-      expect(del.error?.message).toMatch(/linked/);
     });
     const list = await run(owner.caller, (tx) => listExpenses(tx, Q));
     expect(list.rows[0]).toMatchObject({
       key: "Ex213-Tr-01",
       hasDocument: true,
       documentMissing: false,
+    });
+  });
+
+  it("deletes one whose only link is its created_from (D36): the receipt goes back to the inbox as ready, its key kept", async () => {
+    const g = await group213();
+    const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "exp_20260310_001",
+      fileName: "exp_20260310_001.pdf",
+      status: "extracted",
+    });
+    const e = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, {
+        ...fixtureInput(g.id, FIXTURE.expenses[0]),
+        documentId: doc.id,
+      }),
+    );
+    expect(e.error).toBeUndefined();
+    const inboxState = (tx: Parameters<typeof documents.listInbox>[0]) =>
+      documents
+        .listInbox(tx, owner.caller)
+        .then((l) => l.rows.find((r) => r.id === doc.id)?.state ?? null);
+    const linkId = await run(owner.caller, async (tx) => {
+      expect(await inboxState(tx)).toBeNull(); // it became something: out of the inbox
+      const [origin] = await linking.linksTouching(tx, "expense", [e.data!.id]);
+      return origin.id;
+    });
+    await run(owner.caller, async (tx) => {
+      const del = await deleteExpense(tx, owner.caller, realAudit(tx, owner.caller), e.data!.id);
+      expect(del.data?.deleted).toBe(true);
+      expect(await linking.linksTouching(tx, "document", [doc.id])).toEqual([]);
+      expect(await inboxState(tx)).toBe("ready");
+      const d = await tx.document.findUnique({ where: { id: doc.id } });
+      expect(d?.businessKey).toBe("Ex213-Tr-01_2026-03-10_"); // keys are never reused
+    });
+    await assertAuditLogged(adminPool, owner.caller.tenantId, "delete", "link", linkId);
+    await assertAuditLogged(adminPool, owner.caller.tenantId, "delete", "expense", e.data!.id);
+    // the document can become something again; the counter moved on
+    const again = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, {
+        ...fixtureInput(g.id, FIXTURE.expenses[0]),
+        documentId: doc.id,
+      }),
+    );
+    expect(again.data?.key).toBe("Ex213-Tr-02");
+  });
+
+  it("refuses a delete when the receipt's expense also has a payment (D36): the created_from link stays", async () => {
+    const g = await group213();
+    const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "exp_20260310_002",
+      fileName: "exp_20260310_002.pdf",
+      status: "extracted",
+    });
+    const e = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, {
+        groupId: g.id,
+        date: "2026-03-10",
+        description: "ChatGPT subscription",
+        basCode: "580",
+        amount: "45.00",
+        currency: "CHF",
+        paymentSourceId: owner.sources.afSek.id,
+        documentId: doc.id,
+      }),
+    );
+    expect(e.error).toBeUndefined();
+    const [rowId] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-12", amount: "-523.17", details: "Kortköp 260310 OPENAI *CHATGPT SUBS" },
+      ]),
+    );
+    await run(owner.caller, async (tx) => {
+      const attached = await attachBankTransaction(tx, owner.caller, noopAudit, {
+        expenseId: e.data!.id,
+        bankTransactionId: rowId,
+      });
+      expect(attached.error).toBeUndefined();
+      const del = await deleteExpense(tx, owner.caller, noopAudit, e.data!.id);
+      expect(del.error?.message).toMatch(/settled or paid/);
+      const left = await linking.linksTouching(tx, "document", [doc.id]);
+      expect(left.map((l) => l.kind)).toEqual(["created_from"]);
     });
   });
 

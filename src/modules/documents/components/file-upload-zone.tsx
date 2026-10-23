@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { AppError } from "@/kernel/errors/app-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
+import { CodeChip } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 import type { DuplicateUploadRef } from "@/modules/documents/documents";
 import { uploadDocumentAction } from "@/modules/documents/documents.actions";
@@ -226,9 +227,8 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           state === "idle" && "border-muted-foreground/25 hover:border-muted-foreground/50",
           state === "dragover" && "border-primary bg-primary/5",
           state === "uploading" && "border-muted-foreground/25 cursor-wait",
-          state === "complete" && "border-green-500/50 bg-green-50 dark:bg-green-950/20",
-          state === "duplicate" &&
-            "border-amber-500/60 bg-amber-50 dark:bg-amber-950/20 cursor-default",
+          state === "complete" && "border-state-done/60",
+          state === "duplicate" && "border-state-attention/70 cursor-default",
           state === "error" && "border-destructive/50 bg-destructive/5",
         )}
       >
@@ -262,7 +262,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
 
         {state === "complete" && uploadedDoc && (
           <>
-            <CheckCircle className="mb-2 size-8 text-green-600 dark:text-green-400" />
+            <CheckCircle className="mb-2 size-8 text-state-done" />
             <p className="text-sm font-medium">{uploadedDoc.fileName}</p>
             <p className="text-xs text-muted-foreground">{uploadedDoc.businessKey}</p>
             <Button
@@ -287,15 +287,15 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <Copy className="mb-2 size-8 text-amber-600 dark:text-amber-400" />
+            <Copy className="mb-2 size-8 text-state-attention" />
             <p className="text-sm font-medium">{t("documents.upload.duplicate.title")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t("documents.upload.duplicate.body")}
             </p>
             <p className="mt-2 text-sm">
-              <span className="font-mono" data-testid="upload-duplicate-key">
-                {duplicateOf.businessKey}
-              </span>
+              <CodeChip>
+                <span data-testid="upload-duplicate-key">{duplicateOf.businessKey}</span>
+              </CodeChip>
               <span className="text-muted-foreground"> · {duplicateOf.fileName}</span>
             </p>
             <p className="text-xs text-muted-foreground">

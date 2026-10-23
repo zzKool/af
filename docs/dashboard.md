@@ -54,14 +54,13 @@ Note: `clock.ts` uses `sv-SE` internally for YYYY-MM-DD business keys — that's
 ## Dashboard Data Flow
 
 ```
-page.tsx → actions/dashboard.ts → services/dashboard.ts → Prisma
-                                       ↓
-                              Dual client pattern:
-                              - prisma (base): user, session tables
-                              - tx (RLS-scoped): tenant table
+page.tsx ── withTenantTransaction (one interactive transaction, the reads one after the other)
+   ├─ dashboard.ts  getDashboardData(prisma, tx, caller)   the header: name, company, last login
+   ├─ settings      getUserPreferences                      the locale
+   └─ overview.ts   dashboardOverview(tx, caller, today, since)   items · pulse · briefing
 ```
 
-The dashboard service is an **intentional exception** to the single-client pattern because Better Auth's `user` and `session` tables have no `tenant_id` column.
+`getDashboardData` takes two clients on purpose: the base `prisma` for Better Auth's `user` and `session` (no `tenant_id`, outside RLS) and `tx` for the tenant row. Open gaps: *Convergence* below.
 
 ## The overview — `overview.ts` (v3, feature inventory §3.14)
 
@@ -91,9 +90,9 @@ Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widge
 
 The suspects (the briefing's audit read, the rates gap check) are cheap; the 2.5–3 s seen in dev is the dev server. Nothing in this module is slow; the two biggest reads are other modules' list read models used as counters — F82 (banking) and F83 (package) if the page ever feels slow after B1.
 
-## Toast Infrastructure
+## Convergence (F79, 2026-10-23)
 
-[[Sonner]] is installed as the toast provider via `<Toaster />` in the root layout. No toast calls exist yet — first consumers arrive in Epic 3 mutations.
+`specs/dashboard/tasks.md` Phase 1: T001 the header's `try / catch` inside the tenant transaction (and the unused `getDashboardDataAction`), T002 the quarter's name and the *main* role re-stated here, T003 SC-001's world misses four item kinds, T004 the briefing's English entity names and two missing actions (i18n), T005 the page's dates, T006 the *due within 14 days* link unfiltered. Owned elsewhere: F66 (the partner / contract counts), F70 (`SEK`), F71 (money and badges), F82 / F83 (speed).
 
 ## Related
 

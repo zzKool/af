@@ -7,9 +7,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -21,12 +20,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
-import { formatDateShort } from "@/kernel/i18n/format-date";
-import { useLocale } from "@/kernel/i18n/locale-provider";
 import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import {
   archiveDocumentsAction,
   listInboxAction,
@@ -40,6 +38,7 @@ import type { InboxData, InboxItem } from "@/modules/documents/queries";
 import { NewExpenseDialog } from "@/modules/expenses/ui";
 import { SuggestionsSection } from "@/modules/linking/ui";
 import { NewSupplierInvoiceDialog } from "@/modules/supplier-invoices/ui";
+import { DocumentStateLabel } from "./document-state-label";
 import { initialFromFacts, type MakeItOptions } from "./make-it-section";
 
 const DocumentPreview = dynamic(() => import("@/modules/documents/components/document-preview"), {
@@ -50,15 +49,6 @@ const DocumentPreview = dynamic(() => import("@/modules/documents/components/doc
 export const INBOX_UNDO_MAX = 20;
 const TABS: readonly InboxTab[] = ["all", "pending", "ready", "duplicates", "archived"];
 const PENDING: readonly InboxState[] = ["needs_ocr", "processing", "stuck", "ocr_failed"];
-
-const STATE_STYLE: Record<InboxState, string> = {
-  needs_ocr: "bg-muted text-muted-foreground",
-  processing: "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200",
-  stuck: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  ocr_failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  ready: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  archived: "bg-muted text-muted-foreground",
-};
 
 /** The keyboard map (FR-022); the accountant's help lists the reading keys only (US4-7). */
 const KEYS: { keys: string; label: MessageKey; write: boolean }[] = [
@@ -97,8 +87,14 @@ export function isTyping(target: EventTarget | null): boolean {
 
 type UndoEntry = { kind: "archive" | "restore"; ids: string[] };
 
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
+/** On-screen money (D40); an OCR amount the formatter refuses shows as it came rather than breaking the pane. */
+function money(amount: string, currency: string | null): string {
+  try {
+    return formatMoney(amount, currency);
+  } catch {
+    return currency ? `${amount} ${currency}` : amount;
+  }
+}
 
 export function InboxWorkbench({
   initial,
@@ -111,7 +107,6 @@ export function InboxWorkbench({
   options: MakeItOptions | null;
 }) {
   const t = useT();
-  const { effectiveLocale: locale } = useLocale();
   const [data, setData] = useState<InboxData>(initial);
   const [tab, setTab] = useState<InboxTab>("all");
   const [q, setQ] = useState("");
@@ -390,19 +385,24 @@ export function InboxWorkbench({
     <div className="flex flex-col gap-3" data-testid="document-inbox">
       {/* tabs, search, help */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1" role="tablist">
+        {/* D40 underline tabs, the kit's look (the counts are in the words until F74 splits them into badges) */}
+        <div className="flex h-9 flex-wrap items-stretch gap-4 border-b" role="tablist">
           {TABS.map((k) => (
-            <Button
+            <button
               key={k}
-              size="sm"
+              type="button"
               role="tab"
               aria-selected={tab === k}
-              variant={tab === k ? "default" : "outline"}
               onClick={() => switchTab(k)}
               data-testid={`inbox-tab-${k}`}
+              className={`relative -mb-px border-b-2 px-0.5 text-[13px] whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 ${
+                tab === k
+                  ? "border-primary font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
             >
               {t(`documents.inbox.tab.${k}`, { count: countOf[k] })}
-            </Button>
+            </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
@@ -505,7 +505,7 @@ export function InboxWorkbench({
                     data-testid="inbox-row"
                     data-state={active ? "selected" : undefined}
                     data-inbox-state={r.state}
-                    className={`flex cursor-pointer items-start gap-2 px-3 py-2 ${active ? "bg-muted" : "hover:bg-muted/50"}`}
+                    className={`flex cursor-pointer items-start gap-2 px-3 py-2 ${active ? "bg-selection" : "hover:bg-hover"}`}
                     onClick={() => {
                       paneClosed.current = false;
                       setOpenId(r.id);
@@ -524,34 +524,28 @@ export function InboxWorkbench({
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium tabular-nums">{r.businessKey}</span>
-                        <Badge
-                          variant="outline"
-                          className={STATE_STYLE[r.state]}
-                          data-testid="inbox-state"
-                        >
-                          {t(`documents.inbox.state.${r.state}`)}
-                        </Badge>
+                        <CodeChip>{r.businessKey}</CodeChip>
+                        <DocumentStateLabel state={r.state} testId="inbox-state" />
                         <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">
-                          {formatDateShort(r.createdAt, locale ?? "en")}
+                          {/* yyyy-mm-dd (D40), the same day the library's Uploaded column shows */}
+                          {r.createdAt.slice(0, 10)}
                         </span>
                       </div>
-                      <div className="truncate text-muted-foreground" title={r.fileName}>
-                        {t(`documents.prefix.${r.prefixType}` as MessageKey)} · {r.fileName}
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                        <Tag>{t(`documents.prefix.${r.prefixType}` as MessageKey)}</Tag>
+                        <span className="truncate" title={r.fileName}>
+                          {r.fileName}
+                        </span>
                       </div>
                       {(r.vendor || r.amount || r.documentDate) && (
                         <div className="truncate text-xs tabular-nums">
-                          {[
-                            r.vendor,
-                            r.amount && r.currency ? money(r.amount, r.currency) : r.amount,
-                            r.documentDate,
-                          ]
+                          {[r.vendor, r.amount ? money(r.amount, r.currency) : null, r.documentDate]
                             .filter(Boolean)
                             .join(" · ")}
                         </div>
                       )}
                       {r.state === "stuck" && (
-                        <div className="text-xs text-amber-700 dark:text-amber-300">
+                        <div className="text-xs text-muted-foreground">
                           {t("documents.inbox.stuck")}
                         </div>
                       )}
@@ -691,14 +685,25 @@ function InboxPane({
   }, [row.id, signUrl]);
 
   const f = row.facts;
-  const facts: [MessageKey, string | null | undefined][] = [
+  const facts: [MessageKey, ReactNode][] = [
     ["documents.inbox.fact.vendor", row.vendor],
     ["documents.inbox.fact.number", f.invoiceNumber],
     [
       "documents.inbox.fact.amount",
-      row.amount && row.currency ? money(row.amount, row.currency) : row.amount,
+      row.amount ? (
+        <span key="amount" className="tabular-nums" data-amount={row.amount}>
+          {money(row.amount, row.currency)}
+        </span>
+      ) : null,
     ],
-    ["documents.inbox.fact.date", row.documentDate],
+    [
+      "documents.inbox.fact.date",
+      row.documentDate ? (
+        <span key="date" className="tabular-nums">
+          {row.documentDate}
+        </span>
+      ) : null,
+    ],
     [
       "documents.inbox.fact.quality",
       row.quality ? t(`documents.inbox.quality.${row.quality === "high" ? "high" : "low"}`) : null,
@@ -707,23 +712,29 @@ function InboxPane({
   const ocrable = ["needs_ocr", "stuck", "ocr_failed"].includes(row.state);
 
   return (
-    <div className="flex flex-col gap-4" data-testid="inbox-pane">
+    <div className="flex flex-col gap-3" data-testid="inbox-pane">
       <div>
-        <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">
-          <span data-testid="inbox-pane-key">{row.businessKey}</span>
-          <Badge variant="outline" className={STATE_STYLE[row.state]}>
-            {t(`documents.inbox.state.${row.state}`)}
-          </Badge>
+        <h2 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+          <CodeChip>
+            <span data-testid="inbox-pane-key">{row.businessKey}</span>
+          </CodeChip>
+          <DocumentStateLabel state={row.state} />
         </h2>
-        <p className="truncate text-sm text-muted-foreground" title={row.fileName}>
-          {row.fileName}
+        <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <Tag>{t(`documents.prefix.${row.prefixType}` as MessageKey)}</Tag>
+          <span className="truncate" title={row.fileName}>
+            {row.fileName}
+          </span>
         </p>
         {row.state === "stuck" && (
-          <p className="text-xs text-amber-700 dark:text-amber-300">{t("documents.inbox.stuck")}</p>
+          <p className="text-xs text-muted-foreground">{t("documents.inbox.stuck")}</p>
         )}
         {row.duplicateOf && (
           <p className="text-xs">
-            <Link href={`/documents/${row.duplicateOf.id}`} className="underline">
+            <Link
+              href={`/documents/${row.duplicateOf.id}`}
+              className="text-primary hover:underline"
+            >
               {t("documents.inbox.duplicateOf", { key: row.duplicateOf.businessKey })}
             </Link>
           </p>
@@ -736,12 +747,18 @@ function InboxPane({
           )}
           {canMake && (
             <>
-              <Button size="sm" onClick={() => onMake("expense")} data-testid="inbox-make-expense">
+              <Button
+                size="sm"
+                // one primary in the pane: *Run OCR* while the OCR is due, *Expense* once the facts are there
+                variant={canWrite && ocrable ? "outline" : "default"}
+                onClick={() => onMake("expense")}
+                data-testid="inbox-make-expense"
+              >
                 {t("documents.makeIt.expense")}
               </Button>
               <Button
                 size="sm"
-                variant="secondary"
+                variant="outline"
                 onClick={() => onMake("supplier")}
                 data-testid="inbox-make-supplier-invoice"
               >
@@ -785,26 +802,21 @@ function InboxPane({
           )}
           <Button
             size="sm"
-            variant="ghost"
+            variant="link"
             nativeButton={false}
             render={<Link href={`/documents/${row.id}`} />}
             data-testid="inbox-open"
           >
-            {t("documents.inbox.action.open")} →
+            {t("documents.inbox.action.open")}
           </Button>
         </div>
       </div>
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm" data-testid="inbox-facts">
-        {facts
-          .filter(([, v]) => v)
-          .map(([label, v]) => (
-            <div key={label} className="contents">
-              <dt className="text-muted-foreground">{t(label)}</dt>
-              <dd className="tabular-nums">{v}</dd>
-            </div>
-          ))}
-      </dl>
+      <DetailsSection title={t("documents.review.financial")}>
+        <div data-testid="inbox-facts">
+          <DetailsGrid rows={facts.filter(([, v]) => v).map(([label, v]) => [t(label), v])} />
+        </div>
+      </DetailsSection>
 
       {canLink && (
         <SuggestionsSection
@@ -817,13 +829,15 @@ function InboxPane({
         />
       )}
 
-      <div className="overflow-hidden rounded-lg border bg-background" style={{ height: "60vh" }}>
-        {signedUrl ? (
-          <DocumentPreview signedUrl={signedUrl} mimeType={row.mimeType} documentId={row.id} />
-        ) : (
-          <div className="h-full animate-pulse bg-muted" />
-        )}
-      </div>
+      <DetailsSection title={t("documents.preview.label")}>
+        <div className="overflow-hidden rounded-lg border bg-background" style={{ height: "60vh" }}>
+          {signedUrl ? (
+            <DocumentPreview signedUrl={signedUrl} mimeType={row.mimeType} documentId={row.id} />
+          ) : (
+            <div className="h-full animate-pulse bg-muted" />
+          )}
+        </div>
+      </DetailsSection>
     </div>
   );
 }

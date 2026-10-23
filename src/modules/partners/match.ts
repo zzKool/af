@@ -20,6 +20,30 @@ export type { MatchablePartner, MatchQuery, PartnerMatch };
 
 const fold = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 const alnum = (s: string | null | undefined) => fold(s).replace(/[^a-z0-9]/g, "");
+/** words only, one space between them — so "Storgatan 1," and "storgatan 1\n" compare equal, "1" ≠ "12" */
+const words = (s: string | null | undefined) =>
+  fold(s)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+const hasWords = (haystack: string, needle: string) => ` ${haystack} `.includes(` ${needle} `);
+
+/**
+ * The address rule (+20): one address contains the other, word by word — or the partner's street (its first part)
+ * appears in the OCR's address. Formats differ (`111 22 Stockholm` vs `Stockholm, 111 22`), the street rarely does.
+ */
+export function addressMatches(
+  query: string | null | undefined,
+  partner: string | null | undefined,
+) {
+  const q = words(query);
+  const p = words(partner);
+  if (!q || !p) return false;
+  if (hasWords(q, p) || hasWords(p, q)) return true;
+  const street = words(partner?.split(",")[0]);
+  return street.length >= 4 && /[a-z]/.test(street) && hasWords(q, street);
+}
 
 /** Levenshtein distance capped early: anything above `max` returns max + 1. */
 export function editDistance(a: string, b: string, max = 3): number {
@@ -57,11 +81,7 @@ export function scorePartnerMatch(query: MatchQuery, partner: MatchablePartner):
     }
   }
 
-  const qAddr = fold(query.address);
-  const pAddr = fold(partner.address);
-  if (qAddr && pAddr && (pAddr.includes(qAddr) || qAddr.includes(pAddr))) {
-    score += MATCH_WEIGHTS.addressContains;
-  }
+  if (addressMatches(query.address, partner.address)) score += MATCH_WEIGHTS.addressContains;
 
   if (query.type && partner.types.includes(query.type)) score += MATCH_WEIGHTS.typeMatch;
   return score;
@@ -85,12 +105,18 @@ export function rankPartnerMatches(
     .map((m) => ({ ...m, percent: matchPercent(m.score) }));
 }
 
-function flattenAddress(address: unknown): string | null {
+/** A stored address in postal order — street first (JSONB does not keep the keys' order). */
+export function flattenAddress(address: unknown): string | null {
   if (!address || typeof address !== "object") return null;
-  const parts = Object.values(address as Record<string, unknown>).filter(
-    (v): v is string => typeof v === "string" && v.trim() !== "",
-  );
-  return parts.length ? parts.join(", ") : null;
+  const a = address as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : "");
+  const parts = [
+    str(a.street),
+    [str(a.postalCode), str(a.city)].filter(Boolean).join(" "),
+    str(a.country),
+  ];
+  const kept = parts.filter(Boolean);
+  return kept.length ? kept.join(", ") : null;
 }
 
 /** The active partners of the tenant scored against the OCR's vendor facts. */
