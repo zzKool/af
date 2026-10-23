@@ -143,10 +143,9 @@ export async function removePayment(
     include: { lines: true },
   });
   if (!row) return { error: notFound("Supplier invoice", input.invoiceId) };
-  const link = await tx.link.findFirst({
-    where: { id: input.linkId, kind: "justifies", toType: "supplier_invoice", toId: row.id },
-    select: { id: true },
-  });
+  const link = (
+    await linking.linksTouching(tx, "supplier_invoice", [row.id], { kinds: ["justifies"] })
+  ).find((l) => l.id === input.linkId && l.to.type === "supplier_invoice" && l.to.id === row.id);
   if (!link) return { error: notFound("Payment link", input.linkId) };
   if (row.paidAmount)
     return { error: violation(`${row.key} was paid by an attached bank row — detach it instead`) };
@@ -255,15 +254,14 @@ export async function detachPayment(
   });
   if (!row) return { error: notFound("Supplier invoice", invoiceId) };
   if (!row.paidAmount) return { error: violation(`${row.key} has no attached bank row`) };
-  const links = await tx.link.findMany({
-    where: {
-      kind: "justifies",
-      fromType: "bank_transaction",
-      toType: "supplier_invoice",
-      toId: invoiceId,
-    },
-    select: { id: true },
-  });
+  const links = (
+    await linking.linksTouching(tx, "supplier_invoice", [invoiceId], { kinds: ["justifies"] })
+  ).filter(
+    (l) =>
+      l.from.type === "bank_transaction" &&
+      l.to.type === "supplier_invoice" &&
+      l.to.id === invoiceId,
+  );
   for (const l of links) {
     const removed = await linking.removeLink(tx, caller, audit, l.id, {
       owner: "supplier_invoice",
