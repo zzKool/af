@@ -15,12 +15,14 @@ import {
 } from "@/kernel/db/test-fixtures";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as linking from "@/modules/linking";
+import { entryHistory } from "./history";
 import * as journal from "./journal";
 import {
   categoriseEntryAction,
   createManualEntryAction,
   deleteManualEntryAction,
   getJournalEntryAction,
+  journalEntryHistoryAction,
   linkEntryAction,
   listJournalEntriesAction,
 } from "./journal.actions";
@@ -966,5 +968,88 @@ describe("US4 — the ledger", () => {
         (await listJournalEntries(tx, { page: 1, pageSize: 10, sort: [], filters: {} })).total,
       ).toBe(0);
     });
+  });
+});
+
+describe("F71 — the panel's History is the entry's audit trail", () => {
+  it("newest first: each change of the owner's facts, by hand or by a rule, then the creation; RLS", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const partner = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+      name: "OpenAI",
+      types: ["supplier"],
+    });
+    // one transaction per write: `now()` is the transaction's time, so the trail's order is the writes' order
+    const e = (
+      await run(caller, (tx) =>
+        journal.createBankEntries(tx, caller, realAudit(tx, caller), [
+          {
+            sourceId: uuid(),
+            entryDate: "2026-07-08",
+            description: "OpenAI",
+            counterpartyKey: "OPENAI",
+            amount: "-132.52",
+            currency: "SEK",
+          },
+        ]),
+      )
+    ).data?.[0];
+    if (!e) throw new Error("no entry");
+    await run(caller, (tx) =>
+      journal.categorise(
+        tx,
+        caller,
+        realAudit(tx, caller),
+        e.id,
+        { basCode: "657", noDocumentNeeded: true },
+        { by: "rule", ruleId: uuid() },
+      ),
+    );
+    await run(caller, (tx) =>
+      journal.categorise(tx, caller, realAudit(tx, caller), e.id, {
+        basCode: "654",
+        partnerId: partner.id,
+        note: "ChatGPT",
+        noDocumentNeeded: true,
+      }),
+    );
+    // a save that changes nothing is not a History line
+    await run(caller, (tx) =>
+      journal.categorise(tx, caller, realAudit(tx, caller), e.id, { note: "ChatGPT" }),
+    );
+
+    const history = await run(caller, (tx) => entryHistory(tx, e.id));
+    expect(history.map(({ action, by, changed }) => ({ action, by, changed }))).toEqual([
+      { action: "update", by: "manual", changed: ["basCode", "partnerId", "note"] },
+      { action: "update", by: "rule", changed: ["basCode", "noDocumentNeeded"] },
+      { action: "create", by: null, changed: [] },
+    ]);
+    expect(history.every((h) => !Number.isNaN(Date.parse(h.at)))).toBe(true);
+
+    // another tenant sees nothing of it
+    const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
+    expect(await run(other, (tx) => entryHistory(tx, e.id))).toEqual([]);
+  });
+
+  it("the accountant reads it through the action", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const e = (
+      await run(owner.callerIdentity, (tx) =>
+        journal.createManualEntry(tx, owner.callerIdentity, realAudit(tx, owner.callerIdentity), {
+          entryDate: "2026-07-08",
+          description: "forfait",
+          amount: "-10.00",
+          currency: "SEK",
+        }),
+      )
+    ).data;
+    if (!e) throw new Error("no entry");
+    const accountant = await createAuthenticatedContext(auth, "member", {
+      headers: owner.headers,
+      orgId: owner.callerIdentity.tenantId,
+    });
+    expect(accountant.callerIdentity.role).toBe("accountant");
+    mockHeaders = accountant.headers;
+    const r = await journalEntryHistoryAction({ id: e.id });
+    expect(r?.data && "data" in r.data ? r.data.data.map((h) => h.action) : r).toEqual(["create"]);
   });
 });
