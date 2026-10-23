@@ -429,6 +429,49 @@ describe("US3 — manual entries", () => {
   });
 });
 
+describe("FR-004 — only manual entries are link endpoints (T001)", () => {
+  it("a justifies from a bank entry is refused, from a manual entry accepted", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const doc = await adminPool.query(
+      `INSERT INTO documents (tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type, document_type, status, created_by, updated_at)
+       VALUES ($1, 'exp_t001', 't001.pdf', 'https://x', 'application/pdf', 1, 'expense', 'financial', 'uploaded', $2, now()) RETURNING id`,
+      [caller.tenantId, caller.userId],
+    );
+    const documentId: string = doc.rows[0].id;
+    await run(caller, async (tx) => {
+      const bank = await journal.createBankEntries(tx, caller, noopAudit, [
+        {
+          sourceId: uuid(),
+          entryDate: "2026-07-08",
+          description: "Prepaid licence",
+          counterpartyKey: "LICENCE",
+          amount: "-500.00",
+          currency: "SEK",
+        },
+      ]);
+      const manual = await journal.createManualEntry(tx, caller, noopAudit, {
+        entryDate: "2026-07-08",
+        description: "Prepaid licence",
+        amount: "-500.00",
+        currency: "SEK",
+      });
+      const fromBank = await linking.createLink(tx, caller, noopAudit, {
+        from: { type: "journal_entry", id: bank.data?.[0]?.id as string },
+        to: { type: "document", id: documentId },
+        kind: "justifies",
+      });
+      expect(fromBank.error?.code).toBe("NOT_FOUND");
+      const fromManual = await linking.createLink(tx, caller, noopAudit, {
+        from: { type: "journal_entry", id: manual.data?.id as string },
+        to: { type: "document", id: documentId },
+        kind: "justifies",
+      });
+      expect(fromManual.error).toBeUndefined();
+      expect(fromManual.data?.from).toEqual({ type: "journal_entry", id: manual.data?.id });
+    });
+  });
+});
+
 describe("US4 — the ledger", () => {
   it("sums the base of the filtered set; distinct values follow Excel semantics; RLS", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
