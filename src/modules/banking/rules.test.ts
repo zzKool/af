@@ -191,6 +191,52 @@ describe("US2 — rules that categorise", () => {
     });
   });
 
+  it("lessons audit 32: hitCount counts only the hits that change an entry", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await july(caller);
+    await run(caller, async (tx) => {
+      const created = await rules.createRule(tx, caller, noopAudit, {
+        name: "OpenAI",
+        matchType: "contains",
+        matchPattern: "OPENAI",
+        basCode: "654",
+      });
+      const ruleId = created.data?.id as string;
+      const t = await openaiOf(tx);
+      const e = await entryOf(tx, t.id);
+      const target = {
+        entryId: e?.id as string,
+        transactionId: t.id,
+        description: t.description,
+        text: {
+          counterpartyKey: t.counterpartyKey,
+          name: t.name,
+          additionalDetails: t.additionalDetails,
+          message: t.message,
+          sender: t.sender,
+          recipient: t.recipient,
+        },
+      };
+      const ruleRows = () => tx.categorisationRule.findMany({ where: { id: ruleId } });
+      const hits = async () =>
+        (await tx.categorisationRule.findUniqueOrThrow({ where: { id: ruleId } })).hitCount;
+
+      // first apply writes the category: one hit
+      const first = await rules.applyToEntries(tx, caller, noopAudit, await ruleRows(), [target]);
+      expect(first.data?.applied).toBe(1);
+      expect((await entryOf(tx, t.id))?.basCode).toBe("654");
+      expect(await hits()).toBe(1);
+      // the same rule on the same entry again: the journal changes nothing, nothing counted
+      await rules.applyToEntries(tx, caller, noopAudit, await ruleRows(), [target]);
+      expect(await hits()).toBe(1);
+      // an entry set by hand: the rule matches, the journal refuses to overwrite, nothing counted
+      await journal.categorise(tx, caller, noopAudit, e?.id as string, { basCode: "657" });
+      await rules.applyToEntries(tx, caller, noopAudit, await ruleRows(), [target]);
+      expect(await hits()).toBe(1);
+      expect((await entryOf(tx, t.id))?.basCode).toBe("657");
+    });
+  });
+
   it("scenario 6: create rule from a transaction — pre-filled, learned, applied at once", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     await july(caller);

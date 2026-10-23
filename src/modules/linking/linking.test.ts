@@ -21,7 +21,13 @@ import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/link
 import { partnerLinkable } from "@/modules/partners";
 import { ALLOCATING_KINDS } from "./kinds";
 import * as linking from "./linking";
-import { allocatedFrom, allocatedSums, createdFromTargets, linksTouching } from "./queries";
+import {
+  allocatedFrom,
+  allocatedSums,
+  createdFromTargets,
+  hasLinks,
+  linksTouching,
+} from "./queries";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 
@@ -307,6 +313,53 @@ describe("linking service", () => {
     expect(labelled.get(became.id)?.label).toBe(`expense ${expenseId.slice(0, 8)}`);
     expect(labelled.get(became.id)?.key).toBe(`expense ${expenseId.slice(0, 8)}`);
     expect(none.size).toBe(0);
+  });
+
+  it("hasLinks: true when the endpoint has a link of that kind, on either side; other kinds and entities do not count", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { tenantId, userId } = owner.callerIdentity;
+    const became = await createTestDocument(adminPool, tenantId, userId);
+    const justified = await createTestDocument(adminPool, tenantId, userId);
+    const untouched = await createTestDocument(adminPool, tenantId, userId);
+    const expenseId = uuid();
+    const rowId = uuid();
+    fakeExpenses.add(expenseId);
+    await adminPool.query(
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, created_by)
+       VALUES ($1, 'expense', $2, 'document', $3, 'created_from', $6),
+              ($1, 'bank_transaction', $4, 'document', $5, 'justifies', $6)`,
+      [tenantId, expenseId, became.id, rowId, justified.id, userId],
+    );
+
+    const answers = await withTenantTransaction(prisma, tenantId, async (tx) => ({
+      becameCreatedFrom: await hasLinks(tx, { type: "document", id: became.id }, "created_from"),
+      expenseCreatedFrom: await hasLinks(tx, { type: "expense", id: expenseId }, "created_from"),
+      becameJustifies: await hasLinks(tx, { type: "document", id: became.id }, "justifies"),
+      justifiedJustifies: await hasLinks(tx, { type: "document", id: justified.id }, "justifies"),
+      rowJustifies: await hasLinks(tx, { type: "bank_transaction", id: rowId }, "justifies"),
+      justifiedCreatedFrom: await hasLinks(
+        tx,
+        { type: "document", id: justified.id },
+        "created_from",
+      ),
+      untouched: await hasLinks(tx, { type: "document", id: untouched.id }, "justifies"),
+    }));
+    expect(answers).toEqual({
+      becameCreatedFrom: true,
+      expenseCreatedFrom: true,
+      becameJustifies: false,
+      justifiedJustifies: true,
+      rowJustifies: true,
+      justifiedCreatedFrom: false,
+      untouched: false,
+    });
+
+    // RLS: another tenant sees none of them
+    const other = await createAuthenticatedContext(auth, "owner");
+    const elsewhere = await withTenantTransaction(prisma, other.callerIdentity.tenantId, (tx) =>
+      hasLinks(tx, { type: "document", id: justified.id }, "justifies"),
+    );
+    expect(elsewhere).toBe(false);
   });
 
   it("allocations never exceed the target amount; remaining is reported", async () => {

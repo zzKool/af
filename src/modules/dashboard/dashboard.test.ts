@@ -1,154 +1,97 @@
-import { describe, expect, it, vi } from "vitest";
-import type { PrismaClient } from "@/generated/prisma/client";
-import type { CallerIdentity } from "@/kernel/auth/caller-identity";
-import type { TransactionClient } from "@/kernel/db/tenant-client";
-import { getDashboardData } from "@/modules/dashboard/dashboard";
+// The page header on the real database: the user's name, the tenant's name under RLS, the last login, the role —
+// and a failed statement inside the tenant transaction reaches the page instead of turning into an empty header.
+import { Pool } from "pg";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { auth } from "@/kernel/auth/auth";
+import { prisma } from "@/kernel/db/client";
+import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
+import { getDashboardData } from "./dashboard";
 
-const mockCaller: CallerIdentity = {
-  userId: "user-1",
-  tenantId: "tenant-1",
-  role: "owner",
-  source: "web",
-};
+const ADMIN_DATABASE_URL =
+  process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
+let adminPool: Pool;
 
-function createMockPrisma(overrides: {
-  userName?: string | null;
-  sessions?: { createdAt: Date }[];
-}) {
-  return {
-    user: {
-      findUnique: vi
-        .fn()
-        .mockResolvedValue(
-          overrides.userName !== undefined ? { name: overrides.userName } : { name: "Test User" },
-        ),
-    },
-    session: {
-      findMany: vi
-        .fn()
-        .mockResolvedValue(
-          overrides.sessions ?? [
-            { createdAt: new Date("2026-03-10T10:00:00Z") },
-            { createdAt: new Date("2026-03-09T08:00:00Z") },
-          ],
-        ),
-    },
-  } as unknown as PrismaClient;
-}
+beforeAll(() => {
+  adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+});
+beforeEach(async () => {
+  await cleanupTestData(adminPool);
+});
+afterAll(async () => {
+  await adminPool.end();
+});
 
-function createMockTx(overrides: {
-  companyName?: string | null;
-  throwOnTenant?: boolean;
-  partnerCount?: number;
-  activeContractCount?: number;
-}) {
-  return {
-    tenant: {
-      findUnique: overrides.throwOnTenant
-        ? vi.fn().mockRejectedValue(new Error("DB error"))
-        : vi
-            .fn()
-            .mockResolvedValue(
-              overrides.companyName !== undefined
-                ? { name: overrides.companyName }
-                : { name: "Acme AB" },
-            ),
-    },
-    partner: {
-      count: vi.fn().mockResolvedValue(overrides.partnerCount ?? 0),
-    },
-    contract: {
-      count: vi.fn().mockResolvedValue(overrides.activeContractCount ?? 0),
-    },
-  } as unknown as TransactionClient;
+async function tenantName(tenantId: string): Promise<string> {
+  const r = await adminPool.query("SELECT name FROM tenants WHERE id = $1", [tenantId]);
+  return r.rows[0].name;
 }
 
 describe("getDashboardData", () => {
-  it("returns full dashboard data on happy path", async () => {
-    const prisma = createMockPrisma({});
-    const tx = createMockTx({ partnerCount: 3, activeContractCount: 5 });
+  it("reads the user's name, the company and the role", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
 
-    const result = await getDashboardData(prisma, tx, mockCaller);
+    const header = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      getDashboardData(prisma, tx, caller),
+    );
 
-    expect(result).toEqual({
-      userName: "Test User",
-      companyName: "Acme AB",
-      lastLoginAt: "2026-03-09T08:00:00.000Z",
-      role: "owner",
-      partnerCount: 3,
-      activeContractCount: 5,
+    expect(header.userName).toBe("Test owner");
+    expect(header.companyName).toBe(await tenantName(caller.tenantId));
+    expect(header.role).toBe(caller.role);
+  });
+
+  it("the last login is the session before the current one", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const sessions = await adminPool.query(
+      `SELECT created_at FROM sessions WHERE user_id = $1 ORDER BY created_at DESC`,
+      [caller.userId],
+    );
+
+    const header = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      getDashboardData(prisma, tx, caller),
+    );
+
+    expect(header.lastLoginAt).toBe(
+      sessions.rows.length >= 2 ? new Date(sessions.rows[1].created_at).toISOString() : null,
+    );
+  });
+
+  it("a first login has no last login", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await adminPool.query(
+      `DELETE FROM sessions WHERE user_id = $1
+       AND id <> (SELECT id FROM sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1)`,
+      [caller.userId],
+    );
+
+    const header = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      getDashboardData(prisma, tx, caller),
+    );
+
+    expect(header.lastLoginAt).toBeNull();
+  });
+
+  it("each tenant sees its own company name (RLS)", async () => {
+    const a = await createAuthenticatedContext(auth, "owner");
+    const b = await createAuthenticatedContext(auth, "owner");
+
+    const header = await withTenantTransaction(prisma, b.callerIdentity.tenantId, (tx) =>
+      getDashboardData(prisma, tx, b.callerIdentity),
+    );
+
+    expect(header.companyName).toBe(await tenantName(b.callerIdentity.tenantId));
+    expect(header.companyName).not.toBe(await tenantName(a.callerIdentity.tenantId));
+  });
+
+  it("an aborted tenant transaction reaches the caller, not an empty header", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+
+    const read = withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      // an earlier read of the page failed: Postgres aborts the transaction
+      await tx.$executeRawUnsafe("SELECT 1/0").catch(() => {});
+      return getDashboardData(prisma, tx, caller);
     });
-  });
 
-  it("returns null lastLoginAt on first login (only one session)", async () => {
-    const prisma = createMockPrisma({
-      sessions: [{ createdAt: new Date("2026-03-10T10:00:00Z") }],
-    });
-    const tx = createMockTx({});
-
-    const result = await getDashboardData(prisma, tx, mockCaller);
-
-    expect(result.lastLoginAt).toBeNull();
-  });
-
-  it("returns null companyName when tenant query fails", async () => {
-    const prisma = createMockPrisma({});
-    const tx = createMockTx({ throwOnTenant: true });
-
-    const result = await getDashboardData(prisma, tx, mockCaller);
-
-    expect(result.companyName).toBeNull();
-  });
-
-  it("returns null companyName when tenant has no name", async () => {
-    const prisma = createMockPrisma({});
-    const tx = createMockTx({ companyName: null });
-
-    const result = await getDashboardData(prisma, tx, mockCaller);
-
-    expect(result.companyName).toBeNull();
-  });
-
-  it("returns 'User' fallback when user name is null", async () => {
-    const prisma = createMockPrisma({ userName: null });
-    const tx = createMockTx({});
-
-    const result = await getDashboardData(prisma, tx, mockCaller);
-
-    expect(result.userName).toBe("User");
-  });
-
-  it("returns correct role from caller identity", async () => {
-    const prisma = createMockPrisma({});
-    const tx = createMockTx({});
-
-    const result = await getDashboardData(prisma, tx, {
-      ...mockCaller,
-      role: "accountant",
-    });
-
-    expect(result.role).toBe("accountant");
-  });
-
-  it("returns partner and contract counts", async () => {
-    const prisma = createMockPrisma({});
-    const tx = createMockTx({ partnerCount: 7, activeContractCount: 12 });
-
-    const result = await getDashboardData(prisma, tx, mockCaller);
-
-    expect(result.partnerCount).toBe(7);
-    expect(result.activeContractCount).toBe(12);
-    expect(tx.partner.count).toHaveBeenCalledWith({ where: { isActive: true } });
-    expect(tx.contract.count).toHaveBeenCalledWith({ where: { isActive: true } });
-  });
-
-  it("returns zero counts when no partners or contracts exist", async () => {
-    const prisma = createMockPrisma({});
-    const tx = createMockTx({ partnerCount: 0, activeContractCount: 0 });
-
-    const result = await getDashboardData(prisma, tx, mockCaller);
-
-    expect(result.partnerCount).toBe(0);
-    expect(result.activeContractCount).toBe(0);
+    await expect(read).rejects.toThrow(/aborted/);
   });
 });

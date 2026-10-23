@@ -1,6 +1,8 @@
 import { XMLParser } from "fast-xml-parser";
 import { Prisma } from "@/generated/prisma/client";
+import { addDays, daysUntil } from "@/kernel/clock/calendar";
 import { logger } from "@/kernel/logging/logger";
+import { CURRENCIES } from "@/kernel/nav/constants";
 import type {
   EcbRateFetchResult,
   RateGap,
@@ -15,7 +17,13 @@ const ECB_API_BASE = "https://data-api.ecb.europa.eu/service/data";
 /** Fetch timeout — prevents indefinite hang if ECB API is unresponsive */
 const FETCH_TIMEOUT_MS = 30_000;
 
-export const DEFAULT_CURRENCY_PAIRS = ["EUR/SEK", "EUR/CHF", "EUR/USD"];
+/**
+ * The ECB pairs fetched: one `EUR/X` per currency the app knows, EUR itself aside (the ECB's reference rates are
+ * all against EUR). Derived, so a currency added to `CURRENCIES` is fetched without a second list (audit 30).
+ */
+export const DEFAULT_CURRENCY_PAIRS: readonly string[] = CURRENCIES.filter((c) => c !== "EUR").map(
+  (c) => `EUR/${c}`,
+);
 
 // XML parser configured for ECB SDMX format
 const xmlParser = new XMLParser({
@@ -77,7 +85,7 @@ function parseEcbXml(xml: string): Array<{ date: string; currency: string; rate:
  * which is what we store. The API key uses the non-EUR currency.
  */
 function buildEcbUrl(
-  currencyPairs: string[],
+  currencyPairs: readonly string[],
   options?: { startDate?: string; endDate?: string; lastN?: number },
 ): string {
   // Extract non-EUR currencies from pairs like "EUR/SEK" → "SEK"
@@ -261,24 +269,16 @@ export async function getRate(
 /** Inner gaps start at 3 missing weekdays: the longest TARGET closure is 2 (Good Friday + Easter Monday). */
 const GAP_MIN_WEEKDAYS = 3;
 
-/** ISO day ± n calendar days, in UTC (no local-time drift, audit 28). */
-function addDays(day: string, n: number): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-function daysApart(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+/** An ISO day falls Monday–Friday — read on the calendar day itself, never on a local-time instant (audit 28). */
+function isWeekday(day: string): boolean {
+  const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
+  return dow !== 0 && dow !== 6;
 }
 
 /** The ECB weekdays strictly between two ISO days. */
 function weekdaysStrictlyBetween(from: string, to: string): string[] {
   const days: string[] = [];
-  for (let d = addDays(from, 1); d < to; d = addDays(d, 1)) {
-    const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
-    if (dow !== 0 && dow !== 6) days.push(d);
-  }
+  for (let d = addDays(from, 1); d < to; d = addDays(d, 1)) if (isWeekday(d)) days.push(d);
   return days;
 }
 
@@ -324,7 +324,7 @@ export async function rateGaps(
         gaps.push({ pair, from: days[i - 1], to: days[i], missingDays });
     }
     const newest = days.at(-1) ?? null;
-    if (newest === null || daysApart(newest, today) >= NEAREST_RATE_MAX_DAYS) {
+    if (newest === null || daysUntil(newest, today) >= NEAREST_RATE_MAX_DAYS) {
       const missingDays = inWindow(
         weekdaysStrictlyBetween(newest ?? addDays(windowStart, -1), today),
       );
@@ -334,24 +334,9 @@ export async function rateGaps(
   return gaps;
 }
 
-/**
- * Count weekdays between two dates (exclusive of both endpoints).
- * Mon-Fri = weekday. Sat-Sun = weekend.
- */
-export function countWeekdaysBetween(from: Date, to: Date): number {
-  let count = 0;
-  const current = new Date(from);
-  current.setDate(current.getDate() + 1); // Start day after 'from'
-
-  while (current < to) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) {
-      count++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-
-  return count;
+/** Weekdays (Mon–Fri) strictly between two ISO days, both ends excluded: Fri → Mon is 0. */
+export function countWeekdaysBetween(from: string, to: string): number {
+  return weekdaysStrictlyBetween(from, to).length;
 }
 
 // Export for testing
@@ -402,16 +387,9 @@ export async function rateToBase(
   };
 }
 
-/** Weekdays between `from` and `to`, both inclusive. */
-function weekdaysInclusive(from: Date, to: Date): number {
-  let count = 0;
-  const current = new Date(from);
-  while (current <= to) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) count += 1;
-    current.setDate(current.getDate() + 1);
-  }
-  return count;
+/** Weekdays between two ISO days, both inclusive. */
+function weekdaysInclusive(from: string, to: string): number {
+  return countWeekdaysBetween(addDays(from, -1), addDays(to, 1));
 }
 
 /**
@@ -425,11 +403,8 @@ export async function rateStatus(
 ): Promise<RatePairStatus[]> {
   const pairs = options?.currencyPairs ?? DEFAULT_CURRENCY_PAIRS;
   const windowDays = options?.windowDays ?? 30;
-  const to = new Date(today);
-  const from = new Date(to);
-  from.setDate(from.getDate() - windowDays);
-  const settled = new Date(to);
-  settled.setDate(settled.getDate() - 2);
+  const from = addDays(today, -windowDays);
+  const settled = addDays(today, -2);
   const expected = weekdaysInclusive(from, settled);
 
   const rows = (await prisma.$queryRawUnsafe(
@@ -441,8 +416,8 @@ export async function rateStatus(
      WHERE currency_pair = ANY($1::text[])
      GROUP BY currency_pair`,
     pairs,
-    from.toISOString().slice(0, 10),
-    settled.toISOString().slice(0, 10),
+    from,
+    settled,
   )) as Array<{
     currency_pair: string;
     latest_date: string | null;

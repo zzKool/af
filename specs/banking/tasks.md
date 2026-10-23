@@ -61,3 +61,11 @@ T001–T003 → T004–T010 (T007 before T009) → T011–T012 → T013 → T014
 
 ## Lessons audit 23 — `feat/banking-history` (lane DIRECT: read API, no caller moved)
 - [x] T032 `queries.ts` read API: `outgoingMainRows(tx, limit)` (+ `OutgoingMainRow`), `bookingDates(tx, ids)`, `firstBookingDate(tx)`, exported through `index.ts`; tests in `reads.test.ts`. The callers in expenses / supplier-invoices / package move in their own lanes (lessons 23)
+
+## Lane 2 — cleanup round (lane DIRECT, behaviour-neutral; lessons audit 22, 23, 27, 29, 30, 32)
+- [x] T033 `transactionStates(tx, ids)` (+ `TransactionStateFacts`) in the read API — state, Σ allocated, transfer leg; for `package/collect.ts` (lessons 23; the caller moves in package's lane). Tests in `reads.test.ts`, `import.test.ts`
+- [ ] T034 banking's `tx.link` reads → linking (`allocatedFrom`, `linksTouching` with `kinds`, `hasLinks` / `linksTouching`): `queries.ts` `linkFacts`, `transfer-pairs.ts` `pairedIds`, `import.ts` `deleteImport`; the allocation sum takes linking's kind filter — totals proven unchanged on the seed (lessons 22)
+- [ ] T035 kernel helpers: `isSettled` in `deriveTransactionState`, `daysBetween` / `addDays` in `transfer-pairs.ts` (lessons 27)
+- [x] T036 `columnMapping` parsed on read: `parseColumnMapping` (`csv-parser.ts`, a zod schema of the stored structure) behind `formatConfig`, which returns null when it does not fit — `importCsv` refuses with a message instead of failing inside the parser; the settings test reads the seeded mapping without a cast (lessons 29)
+- [ ] T037 the local `ServiceResult` and Decimal look-alike in `linkable.ts`; `getBankFormats` → a DTO (lessons 30)
+- [x] T038 `statementKey` → `numbering.bankStatementKey` (the one slug helper behind `fileSlug` and it — same keys, hyphens for the statement); the bank text join once (`bankText` in `rules.ts`, read by the rule field `all` and both transfer-pair legs — blank fields skipped everywhere); a rule's `hitCount` / `lastHitAt` count only the hits that changed the entry (`changedBy`, before / after facts) (lessons 32)

@@ -37,6 +37,7 @@ Not every BAS category needs a preference row. `tenant_bas_preferences` rows are
 - Activating a category creates a preference row (or updates `isFavorite`)
 - Deactivating deletes the preference row entirely
 - Categories without a preference row are "available but inactive"
+- Other modules ask `isBasActivated(tx, code)` (settings' `queries.ts`) instead of reading `tenant_bas_preferences` ([[lessons]] audit 25)
 - This keeps the table small (~30-50 rows per tenant vs ~472 categories)
 
 ## Yearly Update Process

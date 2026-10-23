@@ -6,6 +6,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
 import { uuid } from "@/kernel/validation/scalars";
+import { getBasCategory, isBasActivated } from "@/modules/settings";
 import type { ExternalIdentifier, PartnerAddress, PartnerDto, PartnerSummaryDto } from "./types";
 
 // MUST NOT import from next/* or src/components/*
@@ -71,17 +72,11 @@ async function validateBasCategoryFK(
   basCode: string,
 ): Promise<AppError | null> {
   // 1. Verify the BAS category exists globally
-  const category = await tx.basCategory.findUnique({
-    where: { code: basCode },
-  });
-  if (!category) {
+  if (!(await getBasCategory(tx, basCode))) {
     return { code: "NOT_FOUND", message: "BAS category not found", retryable: false };
   }
-  // 2. Verify the tenant has activated this category (preference record exists = activated)
-  const pref = await tx.tenantBasPreference.findFirst({
-    where: { basCode },
-  });
-  if (!pref) {
+  // 2. Verify the tenant has activated this category
+  if (!(await isBasActivated(tx, basCode))) {
     return {
       code: "VALIDATION_ERROR",
       message: "BAS category not activated for this tenant",
@@ -327,11 +322,11 @@ export async function updatePartner(
 
   // Type-removal guard: prevent removing types referenced by active contracts
   if (data.types !== undefined) {
+    // Lazy: contracts imports partners (getPartner) — a static import here would be a cycle.
+    const { activeContractCount } = await import("@/modules/contracts");
     const removingClient = existing.types.includes("client") && !data.types.includes("client");
     if (removingClient) {
-      const activeContracts = await tx.contract.count({
-        where: { partnerId: id, isActive: true },
-      });
+      const activeContracts = await activeContractCount(tx, { partnerId: id });
       if (activeContracts > 0) {
         return {
           error: {
@@ -346,9 +341,7 @@ export async function updatePartner(
     const removingEmployee =
       existing.types.includes("employee") && !data.types.includes("employee");
     if (removingEmployee) {
-      const assignedContracts = await tx.contract.count({
-        where: { assignedEmployeeId: id, isActive: true },
-      });
+      const assignedContracts = await activeContractCount(tx, { assignedEmployeeId: id });
       if (assignedContracts > 0) {
         return {
           error: {

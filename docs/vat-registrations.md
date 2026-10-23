@@ -76,7 +76,7 @@ VAT registrations will be consumed by:
 - **Epic 10 (Invoicing)**: Invoice generation uses VAT rates from registrations
 - **Declaration exports**: Momsdeklaration filtering by VAT registration
 
-The `getVatRegistrations` service method will be reused by these future stories.
+Read API (settings' `queries.ts`): `getVatRegistrations(tx, caller)` for the list, `getVatRegistration(tx, id)` → `VatRegistrationDto | null` for a module that keeps a registration id on its rows (contracts — [[lessons]] audit 25).
 
 ## Auto-Save UX Pattern
 
