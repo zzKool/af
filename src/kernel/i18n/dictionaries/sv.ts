@@ -965,6 +965,9 @@ export const sv: Dictionary = {
   "traktamente.copyFrom": "Kopiera från {year}",
   "traktamente.copied": "{copied} länder kopierade, {skipped} fanns redan",
   "traktamente.paste": "Klistra in Skatteverkets CSV",
+  "traktamente.moreAdd": "Fler sätt att lägga till belopp",
+  "traktamente.paste.rows": "{count} rader",
+  "traktamente.trip.perDay": "{amount}/dag",
   "traktamente.paste.description":
     "År;Land eller område;Landskod;Normalbelopp — hänvisningar som ”Se Danmark” hoppas över.",
   "traktamente.paste.preview": "Förhandsgranska",

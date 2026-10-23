@@ -1113,6 +1113,9 @@ export const fr: Dictionary = {
   "traktamente.copyFrom": "Copier depuis {year}",
   "traktamente.copied": "{copied} pays copiés, {skipped} déjà présents",
   "traktamente.paste": "Coller le CSV de Skatteverket",
+  "traktamente.moreAdd": "Autres façons d'ajouter des barèmes",
+  "traktamente.paste.rows": "{count} lignes",
+  "traktamente.trip.perDay": "{amount}/jour",
   "traktamente.paste.description":
     "År;Land eller område;Landskod;Normalbelopp — les renvois comme « Se Danmark » sont ignorés.",
   "traktamente.paste.preview": "Aperçu",

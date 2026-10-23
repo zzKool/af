@@ -111,6 +111,17 @@ describe("TripPanel", () => {
     ).toBeTruthy();
   });
 
+  it("F71: on-screen money through formatMoney, the expense key a code chip, warnings with the attention icon", () => {
+    panel({}, "en");
+    expect(screen.getByTestId("trip-total").textContent).toBe("4\u202f200.00\u00a0SEK");
+    expect(screen.getByTestId("per-diem-expense").querySelector("code")).toHaveTextContent(
+      "Ex213-Ov-01",
+    );
+    expect(
+      screen.getByTestId("trip-result").querySelector('[data-state-family="attention"], svg'),
+    ).not.toBeNull();
+  });
+
   it("T003: the warnings print in the user's language", () => {
     panel();
     expect(screen.getByTestId("trip-result")).toHaveTextContent(
