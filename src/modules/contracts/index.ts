@@ -4,6 +4,7 @@
 
 export type {
   CreateContractRateInput,
+  RatePricing,
   RateUsage,
   UpdateContractRateInput,
 } from "./contract-rates";

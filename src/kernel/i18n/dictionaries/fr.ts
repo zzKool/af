@@ -303,6 +303,8 @@ export const fr: Dictionary = {
     "Ce tarif est utilisé sur {n} ligne(s) de facture et ne peut pas être supprimé — clôturez-le",
   "contracts.rates.error.usedLocked":
     "Ce tarif est utilisé sur {n} ligne(s) de facture — seules sa date de fin et sa note peuvent changer ; clôturez-le et ajoutez un nouveau tarif",
+  "contracts.rates.error.closesBeforePriced":
+    "Ce tarif a servi à des lignes de facture jusqu'au {day} — il ne peut pas se terminer le {validTo}, avant ce jour",
 
   // --- invoices: printed strings ---
   "invoice.title.invoice": "Facture",
