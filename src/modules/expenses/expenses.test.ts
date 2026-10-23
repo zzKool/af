@@ -37,6 +37,7 @@ import {
 import { createGroup, deleteGroup } from "./groups";
 import { createPaymentSource, setPaymentSourceActive } from "./payment-sources";
 import {
+  candidateDocuments,
   distinctExpenseValues,
   getExpenseDetail,
   ledgerSnapshot,
@@ -563,6 +564,24 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       const left = await linking.linksTouching(tx, "document", [doc.id]);
       expect(left.map((l) => l.kind)).toEqual(["created_from"]);
     });
+  });
+
+  it("the dialog's receipts are the documents module's candidates: taken, filed and archived ones are not offered", async () => {
+    const mk = (n: number) =>
+      createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+        businessKey: `exp_20260310_00${n}`,
+        fileName: `exp_20260310_00${n}.pdf`,
+        status: "extracted",
+      });
+    const [free, filed, archived] = [await mk(1), await mk(2), await mk(3)];
+    await adminPool.query(`UPDATE documents SET reviewed_at = now() WHERE id = $1`, [filed.id]);
+    await adminPool.query(`UPDATE documents SET archived_at = now() WHERE id = $1`, [archived.id]);
+    const ids = (await run(owner.caller, (tx) => candidateDocuments(tx, owner.caller))).map(
+      (d) => d.id,
+    );
+    expect(ids).toContain(free.id);
+    expect(ids).not.toContain(filed.id);
+    expect(ids).not.toContain(archived.id);
   });
 
   it("deletes: an open expense goes (key never reused), a group with expenses stays", async () => {

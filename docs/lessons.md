@@ -137,7 +137,7 @@ One PR each, in its owner's lane, all DIRECT:
 | 2 | traktamente | ~~`trip.ts:187` `tx.expenseGroup` → `expenses.getGroup`~~ — traktamente T007 (2026-10-24) | 25 |
 | 3 | supplier-invoices | `payableTransactions` `tx.settlement` → `expenses.activeSettlementTransactionIds` | 23 |
 | 4 | banking | ~~`uncategorisedTargets` `tx.journalEntry` → `journal.uncategorisedEntries`~~ ✓ T039 | 24 |
-| 5 | expenses, supplier-invoices | `candidateDocuments` → `documents.candidateDocuments` (one rule: archived out, paged after filtering) | 26 |
+| 5 | expenses, supplier-invoices | ~~`candidateDocuments` → `documents.candidateDocuments` (one rule: archived out, paged after filtering)~~ — both delegate; filed documents are no longer offered either (2026-10-24) | 26 |
 | 6 | banking | ~~`transaction-panel.tsx` cast → the action's wire type~~ ✓ T040 | 29 |
 | 7 | journal + schema | `rate_source` → one Postgres enum; drop `partner_default` (serialised schema PR) | 30, 32 |
 | 8 | expenses | ~~`EXPENSE_GROUP_SERIES` into `numbering/keys.ts`~~ — exported by numbering, `groups.ts` reads it (2026-10-24) | 32 |
