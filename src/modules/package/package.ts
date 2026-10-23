@@ -9,17 +9,11 @@ import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { packageKey } from "@/modules/numbering";
+import { parsePackageCounts } from "./counts";
 import { isPackagePeriod } from "./period";
 import type { PackageBuildDto, PackageCounts } from "./types";
 
-export const EMPTY_COUNTS: PackageCounts = {
-  bankRows: 0,
-  invoices: 0,
-  supplierInvoices: 0,
-  expenses: 0,
-  settlements: 0,
-  documents: 0,
-};
+export { EMPTY_COUNTS } from "./counts";
 
 export const buildRequestSchema = z.object({
   period: z.string().refine(isPackagePeriod, "Expected YYYY-MM or YYYY"),
@@ -27,7 +21,6 @@ export const buildRequestSchema = z.object({
 export type BuildRequest = z.infer<typeof buildRequestSchema>;
 
 export function toBuildDto(row: PackageBuild): PackageBuildDto {
-  const counts = (row.counts ?? {}) as Partial<PackageCounts>;
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -37,7 +30,7 @@ export function toBuildDto(row: PackageBuild): PackageBuildDto {
     status: row.status,
     documentId: row.documentId,
     businessKey: row.businessKey,
-    counts: { ...EMPTY_COUNTS, ...counts },
+    counts: parsePackageCounts(row.counts),
     flags: row.flags,
     notes: row.notes,
     error: row.error,
