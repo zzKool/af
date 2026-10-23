@@ -58,6 +58,8 @@ App-level reference data — **not** following mandatory template (no `tenantId`
 - `primaryDescriptionField` — Best column for journal entry description (counterparty name)
 - `referenceField` — Column containing payment references
 
+Read through `parseColumnMapping` (`csv-parser.ts`, a zod schema of the structure above — the F50-b pattern, lessons audit 29), never cast: `formatConfig` returns null when the stored JSON does not fit, and `importCsv` refuses with *The {format} format's column mapping is not readable* instead of failing inside the parser.
+
 ### bank_accounts Table (Tenant-Level)
 
 Follows the mandatory tenant model template (`id`, `tenantId`, `createdAt`, `updatedAt`, `createdBy`, `source`):
