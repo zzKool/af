@@ -76,9 +76,9 @@ describe("pure helpers", () => {
   });
 });
 
-async function world() {
+async function world(): Promise<{ registrationId: string; partnerId: string; contractId: string }> {
   const caller = owner.caller;
-  await run(caller, async (tx) => {
+  const ids = await run(caller, async (tx) => {
     // a CH registration, a Swiss client, an invoice issued in May, due in June → overdue in July
     const reg = await settings.createVatRegistration(tx, caller, noopAudit, {
       country: "CH",
@@ -158,6 +158,7 @@ async function world() {
       paymentSourceId: owner.sources.privateCh.id,
     });
     if (e.error) throw new Error(e.error.message);
+    return { registrationId: reg.data?.id as string, partnerId, contractId };
   });
   // a supplier invoice overdue since June
   const vendor = await createTestPartner(adminPool, owner.caller.tenantId, owner.caller.userId, {
@@ -185,6 +186,7 @@ async function world() {
     });
     if (si.error) throw new Error(si.error.message);
   });
+  return ids;
 }
 
 describe("the owner's dashboard", () => {
@@ -218,7 +220,7 @@ describe("the owner's dashboard", () => {
     expect(byKind.package_not_built?.count).toBeGreaterThanOrEqual(1);
     expect(byKind.vat_not_declared).toMatchObject({
       period: "CH 2026/Q2",
-      href: "/exports?period=CH%202026%2FQ2",
+      href: expect.stringMatching(/^\/exports\?period=CH%202026%2FQ2&registration=[0-9a-f-]{36}$/),
     });
     expect(byKind.documents_to_review).toBeUndefined();
     // priorities first, then the order of discovery
@@ -256,6 +258,91 @@ describe("the owner's dashboard", () => {
     expect(o.items.map((i) => i.kind).sort()).toEqual(["package_not_built", "vat_not_declared"]);
     expect(o.pulse.length).toBeGreaterThan(3);
     expect(o.briefing).toEqual({ since: null, lines: [] });
+  });
+
+  it("the receivables hint counts the open invoices only — a quote sent to the same client is no claim (F57)", async () => {
+    const { partnerId, contractId } = await world();
+    await run(owner.caller, async (tx) => {
+      const quote = await invoices.createDraft(tx, owner.caller, noopAudit, "2026-07-01", {
+        type: "quote",
+        partnerId,
+        contractId,
+        issueDate: "2026-07-01",
+        periodLabel: "2026 Q3",
+        periodStart: "2026-07-01",
+        periodEnd: "2026-09-30",
+      });
+      const id = quote.data?.id as string;
+      const line = quote.data?.lines[0];
+      await invoices.updateDraft(tx, owner.caller, noopAudit, {
+        id,
+        lines: [
+          {
+            description: "Consulting",
+            quantity: "60",
+            unitPrice: "1000.00",
+            vatRate: line?.vatRate ?? "0",
+            rateSourceId: line?.rateSourceId ?? null,
+          },
+        ],
+      });
+      const issued = await invoices.issue(
+        tx,
+        owner.caller,
+        noopAudit,
+        new Date("2026-07-01T10:00:00Z"),
+        { id },
+      );
+      if (issued.error) throw new Error(issued.error.message);
+      const sent = await invoices.markSent(
+        tx,
+        owner.caller,
+        noopAudit,
+        new Date("2026-07-02T10:00:00Z"),
+        id,
+      );
+      if (sent.error) throw new Error(sent.error.message);
+    });
+    const o = await run(owner.caller, (tx) => dashboardOverview(tx, owner.caller, TODAY, null));
+    // the CHF figure is the one invoice; the hint says one open invoice, not two documents
+    expect(o.pulse.find((m) => m.kind === "receivables")).toMatchObject({
+      value: "10810.00",
+      currency: "CHF",
+      hint: "1",
+    });
+  });
+
+  it("the quarter is declared per CH registration: a declaration shows on its own registration only (F56)", async () => {
+    const { registrationId: declaredReg } = await world();
+    const other = await run(owner.caller, (tx) =>
+      settings.createVatRegistration(tx, owner.caller, noopAudit, {
+        country: "CH",
+        vatNumber: "CHE-987.654.321 MWST",
+        rateSchedule: { rates: [8.1] },
+      }),
+    );
+    const otherReg = other.data?.id as string;
+    // CH 2026/Q2 declared (not yet paid) on the first registration only
+    await adminPool.query(
+      `INSERT INTO swiss_vat_declarations (tenant_id, vat_registration_id, period, declared_at, created_by, updated_at)
+       VALUES ($1, $2, 'CH 2026/Q2', '2026-07-10', $3, now())`,
+      [owner.caller.tenantId, declaredReg, owner.caller.userId],
+    );
+    const o = await run(owner.caller, (tx) => dashboardOverview(tx, owner.caller, TODAY, null));
+    const vat = o.items.filter((i) => i.kind === "vat_not_declared" || i.kind === "vat_not_paid");
+    expect(vat).toEqual([
+      expect.objectContaining({
+        id: `vat:${otherReg}`,
+        kind: "vat_not_declared",
+        period: "CH 2026/Q2",
+        href: `/exports?period=CH%202026%2FQ2&registration=${otherReg}`,
+      }),
+      expect.objectContaining({
+        id: `vat-paid:${declaredReg}`,
+        kind: "vat_not_paid",
+        href: `/exports?period=CH%202026%2FQ2&registration=${declaredReg}`,
+      }),
+    ]);
   });
 
   it("documents to review = the inbox's pending + ready, and the item opens the inbox (SC-005, FR-024)", async () => {
