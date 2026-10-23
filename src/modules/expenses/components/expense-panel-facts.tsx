@@ -1,7 +1,7 @@
 "use client";
 
 // The facts of the expense panel — description, category, note (saved on change / blur), *document missing* —
-// and its document.
+// and its document (the Proof section).
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT } from "@/kernel/i18n/use-t";
+import { DetailsGrid } from "@/kernel/ui/details-section";
 import type { CategoryOption } from "@/modules/expenses/types";
 import type { ExpensePanelDetail, SaveExpense } from "./expense-panel-shared";
 
@@ -45,8 +46,7 @@ export function ExpenseFactsSection({
   const { description, note } = form;
 
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-medium">{t("expenses.panel.facts")}</h3>
+    <div>
       {canWrite ? (
         <div className="grid gap-3" data-testid="facts-form">
           <div>
@@ -114,38 +114,42 @@ export function ExpenseFactsSection({
           </label>
         </div>
       ) : (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">{t("expenses.form.descriptionField")}</dt>
-          <dd>{e.description}</dd>
-          <dt className="text-muted-foreground">{t("expenses.form.note")}</dt>
-          <dd>{e.note ?? "—"}</dd>
-        </dl>
+        <DetailsGrid
+          rows={[
+            [t("expenses.form.descriptionField"), e.description],
+            [t("expenses.form.note"), e.note],
+          ]}
+        />
       )}
-    </section>
+    </div>
   );
 }
 
-export function ExpenseDocumentSection({ detail }: { detail: ExpensePanelDetail }) {
+/** The receipt the expense was created from — the first line of Proof. */
+export function ExpenseDocumentLine({ detail }: { detail: ExpensePanelDetail }) {
   const t = useT();
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-medium">{t("expenses.panel.document")}</h3>
-      {detail.document ? (
-        <p className="text-sm">
-          <Link
-            href={`/documents/${detail.document.id}`}
-            className="font-mono text-xs hover:underline"
-          >
-            {detail.document.fileName}
-          </Link>
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {detail.expense.documentMissing
-            ? t("expenses.document.missing")
-            : t("expenses.form.noDocument")}
-        </p>
-      )}
-    </section>
+    <DetailsGrid
+      rows={[
+        [
+          t("expenses.panel.document"),
+          detail.document ? (
+            <Link
+              key="doc"
+              href={`/documents/${detail.document.id}`}
+              className="font-mono text-xs text-primary hover:text-primary-hover hover:underline"
+            >
+              {detail.document.fileName}
+            </Link>
+          ) : (
+            <span key="none" className="text-muted-foreground">
+              {detail.expense.documentMissing
+                ? t("expenses.document.missing")
+                : t("expenses.form.noDocument")}
+            </span>
+          ),
+        ],
+      ]}
+    />
   );
 }

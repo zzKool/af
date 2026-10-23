@@ -1,14 +1,15 @@
 "use client";
 
-// The expenses list (US5): KPI strip from the ledger, DataTable on EXPENSE_COLUMNS with the derived status,
-// money in the row's currency, the side panel for the selected row, "New expense" in the toolbar.
+// The expenses list (US5, D40): the ledger's figures as quick filters, DataTable on EXPENSE_COLUMNS with the derived
+// state (<StateLabel>), money through formatMoney, the key a <CodeChip>, the payer a <Tag>, Date and Paid by as
+// quick filters, the docked side panel for the selected row. *New expense* is the title row's primary
+// (`header-actions.tsx`).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { type ReactNode, useMemo, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
 import type { ListResult } from "@/kernel/list-query/types";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import {
   DataTable,
@@ -16,6 +17,8 @@ import {
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { StateIcon } from "@/kernel/ui/state-label";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import {
   distinctExpensesAction,
   expenseDateHierarchyAction,
@@ -23,7 +26,6 @@ import {
 import type { ExpenseColumn } from "@/modules/expenses/queries";
 import type {
   CategoryOption,
-  DocumentOption,
   ExpenseKind,
   ExpenseListRow,
   ExpenseRateSource,
@@ -34,9 +36,8 @@ import type {
   TransactionOption,
 } from "@/modules/expenses/types";
 import { ExpensePanel } from "./expense-panel";
+import { ExpenseStateLabel } from "./expense-state";
 import { groupLabel } from "./labels";
-import { NewExpenseDialog } from "./new-expense-dialog";
-import { StatusBadge } from "./status-badge";
 
 /** Dates serialised for the client. */
 export type ExpenseRow = Omit<ExpenseListRow, "createdAt"> & { createdAt: string };
@@ -76,8 +77,8 @@ const DEFAULT_SORT = [
   { col: "key", dir: "desc" as const },
 ];
 
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
+/** a base column: its header names the currency, so the figure goes bare */
+const base = (amount: string) => formatMoney(amount, "SEK", { bare: true });
 
 export function ExpenseTable({
   result,
@@ -85,7 +86,6 @@ export function ExpenseTable({
   groups,
   categories,
   sources,
-  documents,
   transactions,
   canWrite,
   groupId,
@@ -97,10 +97,9 @@ export function ExpenseTable({
   groups: GroupOption[];
   categories: CategoryOption[];
   sources: SourceOption[];
-  documents: DocumentOption[];
   transactions: TransactionOption[];
   canWrite: boolean;
-  /** the group page: the list is scoped and the dialog pre-selects the group */
+  /** the group page: the list is scoped to the group */
   groupId?: string;
   hideKpis?: boolean;
   /** `?open=<id>` — the panel opens on this expense (the graph's "Open") */
@@ -110,7 +109,6 @@ export function ExpenseTable({
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
-  const [newOpen, setNewOpen] = useState(false);
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -155,20 +153,20 @@ export function ExpenseTable({
         key: "key",
         header: t("expenses.col.key"),
         type: "text",
-        width: "8rem",
+        width: "6.5rem",
         alwaysVisible: true,
-        cell: (row) => <span className="font-mono text-xs">{row.key}</span>,
+        cell: (row) => <CodeChip>{row.key}</CodeChip>,
       },
       {
         key: "groupDescription",
         header: t("expenses.col.group"),
         type: "text",
-        width: "12rem",
+        width: "9rem",
         defaultHidden: !!groupId,
         cell: (row) => (
           <Link
             href={`/expenses/groups/${row.groupId}`}
-            className="block truncate hover:underline"
+            className="block truncate text-primary hover:text-primary-hover hover:underline"
             onClick={(e) => e.stopPropagation()}
             title={`${row.groupNumber} — ${row.groupDescription}`}
           >
@@ -188,12 +186,18 @@ export function ExpenseTable({
         type: "number",
         defaultHidden: true,
       },
-      { key: "date", header: t("expenses.col.date"), type: "date", width: "6.5rem" },
+      {
+        key: "date",
+        header: t("expenses.col.date"),
+        type: "date",
+        width: "6.5rem",
+        quickFilter: true,
+      },
       {
         key: "description",
         header: t("expenses.col.description"),
         type: "text",
-        width: "16rem",
+        width: "10.5rem",
         cell: (row) => (
           <span className="block truncate" title={row.description}>
             {row.description}
@@ -211,7 +215,7 @@ export function ExpenseTable({
         key: "basLabel",
         header: t("expenses.col.category"),
         type: "text",
-        width: "11rem",
+        width: "8.5rem",
         cell: (row) => (
           <span className="block truncate" title={row.basLabel}>
             {row.basLabel}
@@ -236,7 +240,11 @@ export function ExpenseTable({
         header: t("expenses.col.amount"),
         type: "money",
         width: "8rem",
-        cell: (row) => <span className="tabular-nums">{money(row.amount, row.currency)}</span>,
+        cell: (row) => (
+          <span className="tabular-nums" data-amount={row.amount}>
+            {formatMoney(row.amount, row.currency)}
+          </span>
+        ),
       },
       {
         key: "currency",
@@ -249,12 +257,14 @@ export function ExpenseTable({
         key: "amountBase",
         header: t("expenses.col.amountBase"),
         type: "money",
-        width: "8rem",
+        width: "7rem",
+        // the base sits in the panel and in the footer's Σ; shown, the row is wider than the canvas (D40: no page scroll)
+        defaultHidden: true,
         cell: (row) => (
           <span
             className={`tabular-nums ${row.baseProvisional ? "text-muted-foreground italic" : ""}`}
           >
-            {formatCurrency(row.amountBase, "SEK")}
+            {base(row.amountBase)}
             {row.baseProvisional ? " *" : ""}
           </span>
         ),
@@ -281,7 +291,9 @@ export function ExpenseTable({
         defaultHidden: true,
         cell: (row) =>
           row.paidAmount ? (
-            <span className="tabular-nums">{money(row.paidAmount, row.paidCurrency ?? "SEK")}</span>
+            <span className="tabular-nums">
+              {formatMoney(row.paidAmount, row.paidCurrency ?? "SEK")}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
@@ -292,7 +304,14 @@ export function ExpenseTable({
         type: "enum",
         defaultHidden: true,
       },
-      { key: "paymentSourceLabel", header: t("expenses.col.paidBy"), type: "text", width: "7rem" },
+      {
+        key: "paymentSourceLabel",
+        header: t("expenses.col.paidBy"),
+        type: "enum",
+        width: "6rem",
+        quickFilter: true,
+        cell: (row) => <Tag>{row.paymentSourceLabel}</Tag>,
+      },
       {
         key: "paymentSourceId",
         header: `${t("expenses.col.paidBy")} (id)`,
@@ -310,7 +329,7 @@ export function ExpenseTable({
         header: t("expenses.col.status"),
         type: "enum",
         width: "9rem",
-        cell: (row) => <StatusBadge status={row.status} />,
+        cell: (row) => <ExpenseStateLabel status={row.status} />,
       },
       {
         key: "allocatedBase",
@@ -326,7 +345,7 @@ export function ExpenseTable({
         width: "7rem",
         cell: (row) =>
           row.paymentSourceKind === "private" ? (
-            <span className="tabular-nums">{formatCurrency(row.openBase, "SEK")}</span>
+            <span className="tabular-nums">{base(row.openBase)}</span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
@@ -335,16 +354,12 @@ export function ExpenseTable({
         key: "hasDocument",
         header: t("expenses.col.document"),
         type: "boolean",
-        width: "5rem",
+        width: "4.5rem",
         cell: (row) =>
           row.hasDocument ? (
-            <span className="text-green-700 dark:text-green-400">
-              {t("expenses.document.present")}
-            </span>
+            <span>{t("expenses.document.present")}</span>
           ) : row.documentMissing ? (
-            <span className="text-amber-700 dark:text-amber-400">
-              {t("expenses.document.missing")}
-            </span>
+            <Tag>{t("expenses.document.missing")}</Tag>
           ) : (
             <span className="text-muted-foreground">{t("expenses.document.none")}</span>
           ),
@@ -383,55 +398,44 @@ export function ExpenseTable({
   return (
     <div className="flex flex-col gap-3">
       {!hideKpis && ledger && (
-        <div className="flex flex-wrap gap-2 text-xs" data-testid="expense-kpis">
-          <button
-            type="button"
-            className="rounded-md border px-3 py-1.5 text-left hover:bg-muted"
+        <div className="flex flex-wrap gap-2" data-testid="expense-kpis">
+          <Kpi
+            label={t("expenses.kpi.openLiability")}
             onClick={() =>
               state.setFilter("status", { kind: "in", values: ["to_refund", "partially_refunded"] })
             }
           >
-            <span className="font-medium">{t("expenses.kpi.openLiability")}</span>
-            <span className="ml-2 tabular-nums" data-testid="kpi-open">
-              {formatCurrency(ledger.total.openBase, "SEK")} SEK
-            </span>
-            <span className="ml-2 text-muted-foreground">
+            <span data-testid="kpi-open">{formatMoney(ledger.total.openBase, "SEK")}</span>
+            <span className="text-muted-foreground">
               {t("expenses.kpi.openCount", { count: ledger.total.openCount })}
             </span>
-          </button>
+          </Kpi>
           {ledger.sources
             .filter((s) => s.openCount > 0)
             .map((s) => (
-              <button
-                type="button"
+              <Kpi
                 key={s.paymentSourceId}
-                className="rounded-md border px-3 py-1.5 text-left hover:bg-muted"
+                label={s.label}
                 onClick={() =>
-                  state.setFilter("paymentSourceId", { kind: "in", values: [s.paymentSourceId] })
+                  state.setFilter("paymentSourceLabel", { kind: "in", values: [s.label] })
                 }
               >
-                <span className="font-medium">{s.label}</span>
-                <span className="ml-2 tabular-nums">{formatCurrency(s.openBase, "SEK")} SEK</span>
-              </button>
+                {formatMoney(s.openBase, "SEK")}
+              </Kpi>
             ))}
-          <button
-            type="button"
-            className="rounded-md border px-3 py-1.5 text-left hover:bg-muted"
+          <Kpi
+            label={t("expenses.kpi.refunded")}
             onClick={() => state.setFilter("status", { kind: "in", values: ["refunded"] })}
           >
-            <span className="font-medium">{t("expenses.kpi.refunded")}</span>
-            <span className="ml-2 tabular-nums">
-              {formatCurrency(ledger.total.allocatedBase, "SEK")} SEK
-            </span>
-          </button>
+            {formatMoney(ledger.total.allocatedBase, "SEK")}
+          </Kpi>
           {ledger.awaitingLinkCount > 0 && (
-            <button
-              type="button"
-              className="rounded-md border border-amber-300 px-3 py-1.5 text-left hover:bg-muted"
+            <Kpi
+              icon={<StateIcon family="attention" />}
               onClick={() => state.setFilter("status", { kind: "in", values: ["awaiting_link"] })}
             >
               {t("expenses.kpi.awaitingLink", { count: ledger.awaitingLinkCount })}
-            </button>
+            </Kpi>
           )}
         </div>
       )}
@@ -442,7 +446,7 @@ export function ExpenseTable({
         state={state}
         filterSource={filterSource}
         valueLabel={(column, value) => {
-          if (value === null) return "(Blanks)";
+          if (value === null) return t("common.blanks");
           if (column === "status") return t(`expenses.status.${value as ExpenseStatus}`);
           if (column === "kind") return t(`expenses.kind.${value as ExpenseKind}`);
           if (column === "groupId") return groupLabels[value] ?? value;
@@ -464,45 +468,6 @@ export function ExpenseTable({
         sumCurrency={"SEK" as Currency}
         onRowClick={(row) => setSelectedId(row.id)}
         searchPlaceholder={t("expenses.search")}
-        toolbar={
-          <div className="flex gap-2">
-            {canWrite && (
-              <Button size="sm" onClick={() => setNewOpen(true)} data-testid="open-new-expense">
-                {t("expenses.new")}
-              </Button>
-            )}
-            {!groupId && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  nativeButton={false}
-                  render={<Link href="/expenses/groups" />}
-                >
-                  {t("expenses.nav.groups")}
-                </Button>
-                {canWrite && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link href="/expenses/settle" />}
-                  >
-                    {t("expenses.nav.settle")}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  nativeButton={false}
-                  render={<Link href="/expenses/settlements" />}
-                >
-                  {t("expenses.nav.settlements")}
-                </Button>
-              </>
-            )}
-          </div>
-        }
         emptyState={
           Object.keys(state.query.filters).length || state.query.search
             ? t("expenses.emptyFiltered")
@@ -518,17 +483,31 @@ export function ExpenseTable({
         canWrite={canWrite}
         onChanged={() => router.refresh()}
       />
-      {canWrite && (
-        <NewExpenseDialog
-          open={newOpen}
-          onOpenChange={setNewOpen}
-          groups={groups}
-          categories={categories}
-          sources={sources}
-          documents={documents}
-          defaultGroupId={groupId}
-        />
-      )}
     </div>
+  );
+}
+
+/** One figure of the ledger, a button that filters the list to the rows behind it. */
+function Kpi({
+  label,
+  icon,
+  onClick,
+  children,
+}: {
+  label?: string;
+  icon?: ReactNode;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-8 items-center gap-2 rounded-md border bg-surface px-3 text-[13px] hover:bg-hover"
+    >
+      {icon}
+      {label && <span className="font-semibold">{label}</span>}
+      <span className="inline-flex items-center gap-2 tabular-nums">{children}</span>
+    </button>
   );
 }

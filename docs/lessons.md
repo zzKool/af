@@ -256,6 +256,12 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **A golden file with CRLF does not survive `.gitattributes` `* text=auto eol=lf`**: the VAT CSV ends its lines with `\r\n`, a `.txt` golden would come back LF on checkout and fail on CI only. The golden is a JSON string instead (`swiss-vat-csv-golden.json`), which keeps the bytes whatever git does to line ends. Same rule for any future "byte-identical" export test (the package's CSVs).
 - [ ] **A full `npm run test` empties the seed the e2e needs** (auth setup fails with `toBeTruthy`) — `scripts/dev-env.sh reset` before any e2e after a full unit run, as `scripts/dev-env.md` says; easy to forget when switching branches mid-session.
 
+## F71 build (expenses adopts the D40 kit, 2026-10-23)
+
+- [ ] **The footer's one-currency Σ met its second module** (the lesson under *invoices* above): expenses mixes SEK / CHF / EUR too. Expenses dropped the Σ of *Amount* (the base columns carry the totals) rather than copy invoices' `list-sums.ts`. The kernel's per-column currency on `DataTableColumn` is now due — a kernel PR, not a module's; supplier invoices will be the third.
+- [ ] **Fixed column widths overflow the canvas**: the D40 DataTable keeps each column's `width`, so the expenses list's 11 default columns (≈ 98 rem) ran past a 1440 px window — *Status* and *Open* were off-screen in every screenshot since F39, unnoticed. Expenses narrowed its widths and hid the SEK base by default (≈ 75 rem). Check: Σ of the default widths ≤ ~75 rem at 1440 px beside the sidebar; a module with more needs the column chooser, not a page scroll.
+- [ ] **History from the audit trail is only as good as `toAuditData`**: the expense panel names the fields an update changed, but money edits show as *updated* with no field — the Decimals are not in `old_data` / `new_data` (F84). When F84 lands, the panel shows them without a change here.
+
 ## Documents Phase 3 build (T021–T025, T027, F50-f — 2026-10-23, #106 #108 #113 #114 #115 #116)
 
 - [ ] **Shared-file contention appears mid-session**: no PR held the dictionaries at the start; #107 (T019) opened one an hour later, and #108 went up beside it. Converting #108 to a draft is refused from a cloud session, so the merge was held until #107 landed, then `origin/main` merged in. Rule: check open PRs' files **right before each push that opens a PR**, not once per session; when caught late, hold the merge, never the push.

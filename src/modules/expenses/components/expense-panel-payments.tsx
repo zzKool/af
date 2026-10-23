@@ -18,13 +18,15 @@ import {
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
+import { formatMoney } from "@/kernel/money/format-money";
+import { CodeChip } from "@/kernel/ui/tags";
 import {
   attachBankTransactionAction,
   detachBankTransactionAction,
 } from "@/modules/expenses/expenses.actions";
-import type { SourceOption, TransactionOption } from "@/modules/expenses/types";
+import type { SettlementStatus, SourceOption, TransactionOption } from "@/modules/expenses/types";
 import { type ExpensePanelDetail, money, NONE } from "./expense-panel-shared";
+import { SettlementStateLabel } from "./expense-state";
 
 export function ExpenseAttachRow({
   detail,
@@ -82,7 +84,7 @@ export function ExpenseAttachRow({
 
   if (!canWrite || !companyPaid) return null;
   return (
-    <div className="mt-3 flex flex-wrap items-end gap-2" data-testid="attach-row">
+    <div className="flex flex-wrap items-end gap-2" data-testid="attach-row">
       {e.paidAmount ? (
         <Button
           size="sm"
@@ -127,26 +129,27 @@ export function ExpenseAttachRow({
   );
 }
 
-export function ExpenseSettlementsSection({ detail }: { detail: ExpensePanelDetail }) {
+/** The owner settlements the expense took part in (Proof): the number, the state, the SEK allocated. */
+export function ExpenseSettlementsList({ detail }: { detail: ExpensePanelDetail }) {
   const t = useT();
   if (detail.settlements.length === 0) return null;
   return (
-    <section>
-      <h3 className="mb-2 text-sm font-medium">{t("expenses.panel.settlements")}</h3>
-      <ul className="divide-y rounded-md border text-sm">
+    <div>
+      <div className="mb-1 text-xs text-muted-foreground">{t("expenses.panel.settlements")}</div>
+      <ul className="divide-y divide-subtle rounded-md border text-[13px]">
         {detail.settlements.map((s) => (
-          <li key={s.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
-            <span>
-              <Link href={`/expenses/settlements`} className="font-mono text-xs hover:underline">
-                {s.number}
+          <li key={s.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+            <span className="flex min-w-0 flex-wrap items-center gap-2">
+              <Link href={`/expenses/settlements/${s.id}`} className="hover:underline">
+                <CodeChip>{s.number}</CodeChip>
               </Link>
-              {s.bookingDate ? ` · ${s.bookingDate}` : ""}
-              {s.status === "cancelled" ? ` · ${t("expenses.settlements.status.cancelled")}` : ""}
+              {s.bookingDate && <span className="tabular-nums">{s.bookingDate}</span>}
+              <SettlementStateLabel status={s.status as SettlementStatus} />
             </span>
-            <span className="tabular-nums">{formatCurrency(s.allocatedBase, "SEK")} SEK</span>
+            <span className="shrink-0 tabular-nums">{formatMoney(s.allocatedBase, "SEK")}</span>
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   );
 }

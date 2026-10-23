@@ -2,6 +2,7 @@
 // columns, then the group, the payer, the BAS label, Σ settlement lines, Σ justifies allocations and the document
 // are joined over that set and the derived status / filters / search / sort / page run in memory.
 import { Prisma } from "@/generated/prisma/browser";
+import { getAuditLog } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
@@ -23,6 +24,7 @@ import * as linking from "@/modules/linking";
 import * as settings from "@/modules/settings";
 import { isExpenseOpen, toExpenseDto } from "./expenses";
 import { groupLabel, toGroupDto } from "./groups";
+import { expenseHistory, type HistoryEntry } from "./history";
 import { allocatedByExpense, toSettlementDto } from "./settlements";
 import { deriveExpenseStatus, owedBase } from "./status";
 import type {
@@ -56,7 +58,9 @@ export const EXPENSE_COLUMNS = {
   basCode: { type: "enum" },
   basLabel: { type: "text" },
   alias: { type: "enum" },
-  amount: { type: "money", sum: true },
+  // no Σ: a set mixes SEK, CHF, EUR and the footer labels every sum with one currency — the base columns carry
+  // the totals (lessons, F71 invoices: *the kit's footer has one currency for every Σ*)
+  amount: { type: "money" },
   currency: { type: "enum" },
   amountBase: { type: "money", sum: true },
   baseProvisional: { type: "boolean" },
@@ -64,7 +68,7 @@ export const EXPENSE_COLUMNS = {
   paidAmount: { type: "money" },
   paidCurrency: { type: "enum" },
   paymentSourceId: { type: "enum" },
-  paymentSourceLabel: { type: "text" },
+  paymentSourceLabel: { type: "enum" },
   paymentSourceKind: { type: "enum" },
   status: { type: "enum" },
   allocatedBase: { type: "money" },
@@ -282,6 +286,8 @@ export type ExpenseDetail = {
     status: string;
     bookingDate: string | null;
   }[];
+  /** the panel's History: the expense's audit trail, newest first */
+  history: HistoryEntry[];
 };
 
 export async function getExpenseDetail(
@@ -298,11 +304,12 @@ export async function getExpenseDetail(
   });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Expense not found: ${id}`, retryable: false } };
-  const [f, labels, links, isOpen] = await Promise.all([
+  const [f, labels, links, isOpen, audit] = await Promise.all([
     facts(tx, [id]),
     settings.basLabels(tx, [row.basCode]),
     linking.getLinksFor(tx, { type: "expense", id }),
     isExpenseOpen(tx, id),
+    getAuditLog(tx, { entityType: "expense", entityId: id, limit: 20 }),
   ]);
   const dto = toExpenseDto(row);
   const derived = statusOf(dto, row.paymentSource.kind as PaymentSourceKind, f, id);
@@ -352,6 +359,7 @@ export async function getExpenseDetail(
         status: l.settlement.status,
         bookingDate: bookingDates.get(l.settlement.bankTransactionId) ?? null,
       })),
+      history: expenseHistory(audit),
     },
   };
 }

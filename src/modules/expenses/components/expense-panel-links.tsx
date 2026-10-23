@@ -1,30 +1,28 @@
 "use client";
 
-// The links of the expense panel, with the way to its graph.
-import { Badge } from "@/components/ui/badge";
+// The links of the expense panel (Proof), with the way to its graph.
 import { useT } from "@/kernel/i18n/use-t";
+import { Tag } from "@/kernel/ui/tags";
 import { GraphLink } from "@/modules/linking/ui";
 import { type ExpensePanelDetail, money } from "./expense-panel-shared";
 
-export function ExpenseLinksSection({ detail }: { detail: ExpensePanelDetail }) {
+export function ExpenseLinksList({ detail }: { detail: ExpensePanelDetail }) {
   const t = useT();
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-medium">{t("expenses.panel.links")}</h3>
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{t("expenses.panel.links")}</span>
         <GraphLink self={{ type: "expense", id: detail.expense.id }} />
       </div>
       {detail.links.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("expenses.panel.noLinks")}</p>
+        <p className="text-[13px] text-muted-foreground">{t("expenses.panel.noLinks")}</p>
       ) : (
-        <ul className="divide-y rounded-md border text-sm">
+        <ul className="divide-y divide-subtle rounded-md border text-[13px]">
           {detail.links.map((l) => (
-            <li key={l.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
-              <span className="truncate">
-                <Badge variant="outline" className="mr-2">
-                  {l.kind}
-                </Badge>
-                {l.otherLabel ?? `${l.to.type} ${l.to.id}`}
+            <li key={l.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <Tag>{t(`linking.kind.${l.kind}`)}</Tag>
+                <span className="truncate">{l.otherLabel ?? `${l.to.type} ${l.to.id}`}</span>
               </span>
               {l.allocatedAmount && (
                 <span className="shrink-0 tabular-nums">
@@ -35,6 +33,6 @@ export function ExpenseLinksSection({ detail }: { detail: ExpensePanelDetail }) 
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
