@@ -543,14 +543,11 @@ export async function payableTransactions(
 ): Promise<PayableTransaction[]> {
   const rows = await banking.outgoingMainRows(tx, limit * 2);
   const ids = rows.map((r) => r.id);
-  const [used, settling] = await Promise.all([
+  // a row an active settlement refunds through pays the owner, not a supplier — expenses owns that fact
+  const [used, taken] = await Promise.all([
     linking.allocatedFrom(tx, "bank_transaction", ids),
-    tx.settlement.findMany({
-      where: { bankTransactionId: { in: ids }, status: "active" },
-      select: { bankTransactionId: true },
-    }),
+    expenses.activeSettlementTransactionIds(tx, ids),
   ]);
-  const taken = new Set(settling.map((s) => s.bankTransactionId));
   const out = rows
     .filter((r) => !taken.has(r.id))
     .map((r) => ({
