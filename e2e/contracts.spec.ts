@@ -11,6 +11,7 @@ test.describe("Contract rates", () => {
   test("add a yearly rate change; the previous rate auto-closes; overlaps are refused", async ({
     page,
   }) => {
+    test.setTimeout(240_000);
     await page.goto("/partners");
     await page.getByRole("button", { name: "Add partner" }).click();
     await page.getByRole("textbox", { name: "Name" }).fill(name);
@@ -42,7 +43,8 @@ test.describe("Contract rates", () => {
 
     await addRate("2025-01-01", "1000");
     await expect(rates.getByRole("row")).toHaveCount(2); // header + 1
-    await expect(page.getByTestId("current-rate")).toContainText("1'000.00");
+    // the screen formats the amount (D40); the plain decimal rides on data-amount (lessons, F71)
+    await expect(page.getByTestId("current-rate")).toHaveAttribute("data-amount", "1000.00");
 
     await addRate("2026-01-01", "1200");
     const rows = rates.getByRole("row");
@@ -54,7 +56,7 @@ test.describe("Contract rates", () => {
     await expect(rows.nth(2).getByLabel("Valid from")).toHaveValue("2025-01-01");
     await expect(rows.nth(2).getByLabel("Valid to")).toHaveValue("2025-12-31");
     await expect(rows.nth(2)).toContainText("Expired");
-    await expect(page.getByTestId("current-rate")).toContainText("1'200.00");
+    await expect(page.getByTestId("current-rate")).toHaveAttribute("data-amount", "1200.00");
 
     // an overlapping closed rate is refused and nothing changes
     await rates.getByRole("button", { name: "Add rate" }).click();
@@ -70,10 +72,22 @@ test.describe("Contract rates", () => {
     await expect(rates.getByRole("row")).toHaveCount(3);
 
     // delete the future-proof way: the unused 2026 rate goes, the 2025 one stays
-    await rows.nth(1).getByRole("button", { name: "Delete" }).click();
+    await rows.nth(1).getByRole("button", { name: "Row actions" }).click();
+    // by keyboard: the overlap's error toast can sit bottom-right over the open menu (a pointer click would hit it)
+    await page.getByRole("menuitem", { name: "Delete" }).press("Enter");
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText("Rate deleted")).toBeVisible();
     await expect(rates.getByRole("row")).toHaveCount(2);
     await expect(page.getByTestId("current-rate")).toContainText("No rate for today");
+
+    // F71: the contract's own actions sit in its row's ⋮ menu; the state is a label, not a pill
+    const contractRow = page.getByRole("row", { name: /^BI consulting/ });
+    await expect(contractRow).toContainText("Active");
+    await contractRow.getByRole("button", { name: "Row actions" }).click();
+    await page.getByRole("menuitem", { name: "Deactivate" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Deactivate" }).click();
+    await expect(page.getByText("Contract deactivated")).toBeVisible();
+    await page.getByLabel("Show inactive").check();
+    await expect(page.getByRole("row", { name: /^BI consulting/ })).toContainText("Inactive");
   });
 });

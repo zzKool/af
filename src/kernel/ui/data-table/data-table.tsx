@@ -15,19 +15,12 @@ import {
   ChevronUp,
   Columns3,
   Filter as FilterIcon,
-  MoreVertical,
   Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -66,6 +59,7 @@ import { RangeFilter } from "./filters/range-filter";
 import { TextFilter } from "./filters/text-filter";
 import { isPinned, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, orderColumns, RESIZE_STEP } from "./layout";
 import { type TableLayoutState, useTableLayout } from "./preferences";
+import { RowActionsMenu } from "./row-actions-menu";
 import type { BulkAction, DataTableColumn, DataTableFilterSource, RowAction } from "./types";
 import type { ListQueryState } from "./use-list-query";
 
@@ -611,34 +605,6 @@ export function DataTable<Row extends { id: string }>({
         </div>
       </div>
     </div>
-  );
-}
-
-// --- a row's ⋮ menu ---
-
-function RowActionsMenu({ actions, label }: { actions: RowAction[]; label: string }) {
-  if (actions.length === 0) return null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
-        aria-label={label}
-      >
-        <MoreVertical className="size-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto min-w-40">
-        {actions.map((a) => (
-          <DropdownMenuItem
-            key={a.label}
-            disabled={a.disabled}
-            variant={a.destructive ? "destructive" : "default"}
-            onClick={a.onClick}
-          >
-            {a.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

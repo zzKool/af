@@ -1,10 +1,13 @@
 "use client";
 
+// The Contracts tab of the partner page: the contracts as a kit Table (a handful of rows — no DataTable, no URL
+// state), the derived state as <StateLabel> through state-family.ts, the currency as a <Tag>, the current rate
+// through formatMoney, Deactivate / Reactivate in the row's ⋮ menu (F71, D40). A row click expands the
+// contract's form and its Rates section.
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useAction } from "next-safe-action/hooks";
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -27,8 +30,12 @@ import {
 } from "@/components/ui/table";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import { CURRENCIES, type Currency, PAYMENT_TERMS } from "@/kernel/nav/constants";
+import { formatMoney } from "@/kernel/money/format-money";
+import { CURRENCIES, PAYMENT_TERMS } from "@/kernel/nav/constants";
+import { RowActionsMenu } from "@/kernel/ui/data-table";
+import { DetailsSection } from "@/kernel/ui/details-section";
+import { StateLabel } from "@/kernel/ui/state-label";
+import { Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
   createContractAction,
@@ -36,6 +43,7 @@ import {
   reactivateContractAction,
   updateContractAction,
 } from "@/modules/contracts/contracts.actions";
+import { contractState, contractStateFamily } from "@/modules/contracts/state-family";
 import type { CurrentRate } from "@/modules/contracts/types";
 import { type ContractRateRow, ContractRates } from "./contract-rates";
 
@@ -76,16 +84,12 @@ function ContractEditForm({
   vatRegistrations,
   employeePartners,
   onAutoSave,
-  onDeactivate,
-  onReactivate,
   onRatesChange,
 }: {
   contract: ContractRow;
   vatRegistrations: VatOption[];
   employeePartners: EmployeeOption[];
   onAutoSave: (id: string, field: string, value: unknown) => Promise<boolean>;
-  onDeactivate: (contract: ContractRow) => void;
-  onReactivate: (contract: ContractRow) => void;
   onRatesChange: (contractId: string, rates: ContractRateRow[]) => void;
 }) {
   const t = useT();
@@ -125,7 +129,7 @@ function ContractEditForm({
   }, [externalRefs, contract.id, onAutoSave]);
 
   return (
-    <div className="space-y-4 border-l-2 border-primary/20 p-4">
+    <div className="space-y-4 border-l-2 border-subtle bg-surface p-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>{t("contracts.form.name")}</Label>
@@ -155,9 +159,13 @@ function ContractEditForm({
         </div>
         <div>
           <Label>{t("contracts.currentRate")}</Label>
-          <p className="flex h-9 items-center text-sm tabular-nums" data-testid="current-rate">
+          <p
+            className="flex h-9 items-center text-sm tabular-nums"
+            data-testid="current-rate"
+            data-amount={contract.currentRate?.rate}
+          >
             {contract.currentRate
-              ? `${formatCurrency(contract.currentRate.rate, (contract.currency ?? "CHF") as Currency)} ${contract.currency ?? ""} / ${t(`contracts.rates.unit.${contract.currentRate.unit}`)}`
+              ? `${formatMoney(contract.currentRate.rate, contract.currency)} / ${t(`contracts.rates.unit.${contract.currentRate.unit}`)}`
               : t("contracts.currentRate.none")}
           </p>
         </div>
@@ -260,9 +268,8 @@ function ContractEditForm({
       </div>
 
       {/* External References */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <Label>{t("contracts.form.references")}</Label>
+      <DetailsSection title={t("contracts.form.references")}>
+        <div className="mb-2 flex justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -323,7 +330,7 @@ function ContractEditForm({
             {t("contracts.form.saveReferences")}
           </Button>
         )}
-      </div>
+      </DetailsSection>
 
       {/* Rates (D24) */}
       <ContractRates
@@ -332,19 +339,6 @@ function ContractEditForm({
         rates={contract.rates}
         onRatesChange={onRatesChange}
       />
-
-      {/* Actions */}
-      <div className="flex gap-2 pt-2">
-        {contract.isActive ? (
-          <Button variant="destructive" size="sm" onClick={() => onDeactivate(contract)}>
-            {t("partners.deactivate")}
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={() => onReactivate(contract)}>
-            {t("partners.reactivate")}
-          </Button>
-        )}
-      </div>
     </div>
   );
 }
@@ -514,30 +508,75 @@ export function ContractList({
       },
       {
         id: "currentRate",
-        header: t("contracts.currentRate"),
+        header: () => <span className="block text-right">{t("contracts.currentRate")}</span>,
         cell: ({ row }) => {
           const rate = row.original.currentRate;
-          const curr = row.original.currency;
-          if (!rate) return "—";
-          return `${formatCurrency(rate.rate, (curr ?? "CHF") as Currency)} ${curr ?? ""}`.trim();
+          if (!rate) return <span className="text-muted-foreground">—</span>;
+          return (
+            <span className="block text-right tabular-nums" data-amount={rate.rate}>
+              {formatMoney(rate.rate, row.original.currency)}
+            </span>
+          );
         },
+      },
+      {
+        accessorKey: "currency",
+        header: t("contracts.form.currency"),
+        cell: ({ row }) =>
+          row.original.currency ? (
+            <Tag>{row.original.currency}</Tag>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
       },
       {
         accessorKey: "paymentTerms",
         header: t("contracts.form.paymentTerms"),
-        cell: ({ row }) => row.original.paymentTerms ?? "—",
+        cell: ({ row }) =>
+          row.original.paymentTerms ?? <span className="text-muted-foreground">—</span>,
       },
       {
         accessorKey: "isActive",
         header: t("partners.col.status"),
+        cell: ({ row }) => {
+          const state = contractState(row.original.isActive);
+          return (
+            <StateLabel family={contractStateFamily(state)} state={t(`partners.status.${state}`)} />
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
         cell: ({ row }) => (
-          <Badge variant={row.original.isActive ? "default" : "secondary"}>
-            {row.original.isActive ? t("partners.status.active") : t("partners.status.inactive")}
-          </Badge>
+          // the ⋮ menu's clicks (its items portal, but React events bubble through the tree) never toggle the row
+          // biome-ignore lint/a11y/noStaticElementInteractions: only stops propagation; the menu is the control
+          // biome-ignore lint/a11y/useKeyWithClickEvents: same — the trigger is a real button
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <RowActionsMenu
+              label={t("table.rowActions")}
+              actions={
+                row.original.isActive
+                  ? [
+                      {
+                        label: t("partners.deactivate"),
+                        destructive: true,
+                        onClick: () => handleDeactivate(row.original),
+                      },
+                    ]
+                  : [
+                      {
+                        label: t("partners.reactivate"),
+                        onClick: () => void handleReactivate(row.original),
+                      },
+                    ]
+              }
+            />
+          </div>
         ),
       },
     ],
-    [t],
+    [t, handleDeactivate, handleReactivate],
   );
 
   const table = useReactTable({
@@ -636,7 +675,7 @@ export function ContractList({
                 table.getRowModel().rows.map((row) => (
                   <Fragment key={row.id}>
                     <TableRow
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="cursor-pointer hover:bg-hover"
                       onClick={() =>
                         setExpandedId(expandedId === row.original.id ? null : row.original.id)
                       }
@@ -655,8 +694,6 @@ export function ContractList({
                             vatRegistrations={vatRegistrations}
                             employeePartners={employeePartners}
                             onAutoSave={handleAutoSave}
-                            onDeactivate={handleDeactivate}
-                            onReactivate={handleReactivate}
                             onRatesChange={handleRatesChange}
                           />
                         </TableCell>
