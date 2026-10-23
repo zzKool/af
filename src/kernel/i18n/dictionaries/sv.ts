@@ -996,6 +996,17 @@ export const sv: Dictionary = {
   "traktamente.trip.expenseWritten": "Traktamentsutlägg {key}: {amount} SEK",
   "traktamente.trip.expenseLink": "Traktamentsutlägg",
   "traktamente.trip.rateLink": "Belopp",
+  "traktamente.trip.reason.noOvernight": "ingen övernattning",
+  "traktamente.trip.warning.twoRateYears": "resan sträcker sig över två beloppsår ({years})",
+  "traktamente.trip.warning.mealsExceedDays":
+    "måltidsavdraget överstiger dagbeloppen — inget är skattefritt",
+  "traktamente.trip.error.missingRate": "Inget normalbelopp för {countryCode} år {year}",
+  "traktamente.trip.error.missingMealAmounts":
+    "Sveriges måltidsbelopp för {year} saknas i beloppstabellen",
+  "traktamente.trip.error.tooManyMeals": "{what} ({count}) överstiger resans {days} dagar",
+  "traktamente.trip.error.tooManyNights":
+    "Nätter utan betalt logi ({count}) överstiger resans {nights} nätter",
+  "traktamente.trip.error.longStay": "Faktorn för långvarig förrättning ligger mellan 0 och 1",
 
   // --- supplier invoices ---
   "supplierInvoices.title": "Leverantörsfakturor",

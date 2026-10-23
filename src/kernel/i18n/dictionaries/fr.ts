@@ -1143,6 +1143,18 @@ export const fr: Dictionary = {
   "traktamente.trip.expenseWritten": "Dépense d'indemnité {key} : {amount} SEK",
   "traktamente.trip.expenseLink": "Dépense d'indemnité",
   "traktamente.trip.rateLink": "Barèmes",
+  "traktamente.trip.reason.noOvernight": "pas de nuit hors du domicile",
+  "traktamente.trip.warning.twoRateYears": "le voyage s'étend sur deux années de barème ({years})",
+  "traktamente.trip.warning.mealsExceedDays":
+    "la réduction pour repas dépasse les montants journaliers — rien n'est exonéré",
+  "traktamente.trip.error.missingRate":
+    "Aucun barème d'indemnité de voyage pour {countryCode} en {year}",
+  "traktamente.trip.error.missingMealAmounts":
+    "Les montants des repas suédois de {year} manquent dans le barème",
+  "traktamente.trip.error.tooManyMeals": "{what} ({count}) : plus que les {days} jours du voyage",
+  "traktamente.trip.error.tooManyNights":
+    "Nuits sans logement payé ({count}) : plus que les {nights} nuits du voyage",
+  "traktamente.trip.error.longStay": "Le facteur de long séjour est compris entre 0 et 1",
 
   // --- supplier invoices ---
   "supplierInvoices.title": "Factures fournisseurs",

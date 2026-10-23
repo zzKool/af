@@ -1132,6 +1132,17 @@ export const en = {
   "traktamente.trip.expenseWritten": "Per-diem expense {key}: {amount} SEK",
   "traktamente.trip.expenseLink": "Per-diem expense",
   "traktamente.trip.rateLink": "Rates",
+  "traktamente.trip.reason.noOvernight": "no overnight stay",
+  "traktamente.trip.warning.twoRateYears": "trip spans two rate years ({years})",
+  "traktamente.trip.warning.mealsExceedDays":
+    "the meal deduction exceeds the day amounts — nothing is tax-free",
+  "traktamente.trip.error.missingRate": "No travel allowance rate for {countryCode} in {year}",
+  "traktamente.trip.error.missingMealAmounts":
+    "The Swedish meal amounts of {year} are missing in the rate table",
+  "traktamente.trip.error.tooManyMeals": "{what} ({count}) exceed the {days} days of the trip",
+  "traktamente.trip.error.tooManyNights":
+    "Nights without paid lodging ({count}) exceed the {nights} nights of the trip",
+  "traktamente.trip.error.longStay": "The long-stay factor is between 0 and 1",
 
   // --- supplier invoices ---
   "supplierInvoices.title": "Supplier invoices",
