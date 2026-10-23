@@ -25,3 +25,7 @@
 
 - [x] T014 *(2026-10-23, audit 31)* `swiss-vat.pure.test.ts` stops counting its own arrays: the fixture's `detailsInvoices` / `detailsInputSources` were checked against the arrays the test had just filtered itself (V8, V9). The selection is the query's (`invoices.invoicesForDeclaration`, status ≠ draft; input VAT by date) — now `exports.test.ts` *the drill-down is the query's selection*: a draft in the quarter never appears, an empty quarter lists no invoice, no input source, every total 0.00. The pure test's status filter is labelled as input preparation. DIRECT
 - Audit 29 (`manual` / `snapshot` parsed on read) — already done by F56, T009 (`declaration-read.ts`). Nothing left.
+
+## Lessons round 3 · DIRECT
+
+- [x] T015 *(2026-10-24, lessons round 3 — "seen on the way")* `declare` writes the snapshot through `snapshotToJson` (`declaration-read.ts`, beside `parseSnapshot`: the lines as `Prisma.InputJsonArray`, `base` / `rate` only when present) instead of `lines as unknown as Prisma.InputJsonValue`. Behaviour-neutral. Test: `declaration-read.pure.test.ts` (written lines read back the same; no undefined keys).

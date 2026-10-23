@@ -3,7 +3,7 @@
 // when no expense paid it. Split from ./declarations so the write side may call the return (./queries) without a
 // cycle: queries → declaration-read ← declarations → queries.
 import { z } from "zod/v4";
-import type { SwissVatDeclaration } from "@/generated/prisma/client";
+import type { Prisma, SwissVatDeclaration } from "@/generated/prisma/client";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as expenses from "@/modules/expenses";
 import {
@@ -34,6 +34,20 @@ export function parseSnapshot(value: unknown): SwissVatLine[] | null {
   if (value === null || value === undefined) return null;
   const parsed = snapshotSchema.safeParse(value);
   return parsed.success ? (parsed.data as SwissVatLine[]) : null;
+}
+
+/** The write side of `parseSnapshot`: the lines as Prisma JSON, the optional keys only when present — no cast. */
+export function snapshotToJson(lines: readonly SwissVatLine[]): Prisma.InputJsonArray {
+  return lines.map((l) => ({
+    ref: l.ref,
+    section: l.section,
+    labelFr: l.labelFr,
+    labelEn: l.labelEn,
+    source: l.source,
+    amount: l.amount,
+    ...(l.base !== undefined ? { base: l.base } : {}),
+    ...(l.rate !== undefined ? { rate: l.rate } : {}),
+  }));
 }
 
 export function parseManual(value: unknown): ManualRefs {

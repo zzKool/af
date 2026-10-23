@@ -484,17 +484,15 @@ export async function applyToEntries(
   };
 }
 
-/** The tenant's uncategorised bank entries with their transaction text (the candidates of an on-demand apply). */
+/**
+ * The tenant's uncategorised bank entries with their transaction text (the candidates of an on-demand apply).
+ * The entries through journal's read API — banking does not read `journal_entries` (lessons audit 24).
+ */
 export async function uncategorisedTargets(
   tx: TransactionClient,
   limit = 20_000,
 ): Promise<EntryTarget[]> {
-  const entries = await tx.journalEntry.findMany({
-    where: { sourceType: "bank_transaction", categorisedBy: null },
-    select: { id: true, sourceId: true },
-    orderBy: { entryDate: "desc" },
-    take: limit,
-  });
+  const entries = await journal.uncategorisedEntries(tx, "bank_transaction", limit);
   const ids = entries.flatMap((e) => (e.sourceId ? [e.sourceId] : []));
   const txs = await tx.bankTransaction.findMany({ where: { id: { in: ids } } });
   const byId = new Map(txs.map((t) => [t.id, t]));
