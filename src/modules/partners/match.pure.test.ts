@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createMockOcrService } from "@/kernel/ocr/ocr";
 import cases from "../../../specs/documents/fixtures/duplicate-check-cases.json";
+import { ocrAddressText, partnerAddressFromOcr } from "./components/ocr-address";
 import {
   addressMatches,
   BEST_MATCH_PERCENT,
@@ -11,7 +12,6 @@ import {
   rankPartnerMatches,
   scorePartnerMatch,
 } from "./match";
-import { ocrAddressText, partnerAddressFromOcr } from "./ocr-address";
 
 type Fixture = {
   partnerMatch: {

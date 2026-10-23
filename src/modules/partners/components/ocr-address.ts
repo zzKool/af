@@ -1,7 +1,7 @@
 // The OCR's vendor address on its way into the partners module (documents T026, FR-003, US1/AC4): the text the
 // supplier match scores, and the address *Create new partner* is pre-filled with. Pure — the dialogs import it.
 import type { OcrAddress } from "@/kernel/ocr/ocr";
-import type { PartnerAddress } from "./types";
+import type { PartnerAddress } from "../types";
 
 const cut = (s: string | undefined, max: number) => {
   const t = s?.trim();

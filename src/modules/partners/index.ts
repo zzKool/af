@@ -19,7 +19,6 @@ export {
   rankPartnerMatches,
   scorePartnerMatch,
 } from "./match";
-export { ocrAddressText, partnerAddressFromOcr } from "./ocr-address";
 export type { CreatePartnerInput, UpdatePartnerInput } from "./partners";
 export {
   createPartner,
