@@ -86,9 +86,11 @@ export async function collectPeriod(
   const rows = [...mainRows, ...savingsRows];
   const rowIds = rows.map((r) => r.id);
   const rowById = new Map(rows.map((r) => [r.id, r]));
-  const [entries, rowLinks] = await Promise.all([
+  const [entries, rowLinks, rowStates] = await Promise.all([
     journal.entriesForSources(tx, "bank_transaction", rowIds),
     linking.linksTouching(tx, "bank_transaction", rowIds),
+    // the row's state with its allocation and transfer facts — banking's own derivation (lessons audit 23)
+    banking.transactionStates(tx, rowIds),
   ]);
 
   // --- 2. what the rows point at ---
@@ -233,29 +235,18 @@ export async function collectPeriod(
   const bank: BankSheetRow[] = rows.map((r) => {
     const e = entries.get(r.id) ?? null;
     const own = linksFrom.get(r.id) ?? [];
-    let allocated = new D(0);
-    let inTransfer = false;
     const related: string[] = [];
     for (const l of own) {
       const other = l.from.type === "bank_transaction" && l.from.id === r.id ? l.to : l.from;
       const key = keys.get(endpointKey(other)) ?? UNKNOWN_LABEL;
-      if (l.kind === "transfer") {
-        inTransfer = true;
-        related.push(`transfer ↔ ${key}`);
-      } else if (l.kind === "settles") {
-        related.push(`settles ${key}`);
-        if (l.allocatedAmount) allocated = allocated.plus(l.allocatedAmount);
-      } else {
-        related.push(key);
-        if (l.allocatedAmount) allocated = allocated.plus(l.allocatedAmount);
-      }
+      if (l.kind === "transfer") related.push(`transfer ↔ ${key}`);
+      else if (l.kind === "settles") related.push(`settles ${key}`);
+      else related.push(key);
     }
-    const status = banking.deriveTransactionState({
-      amount: r.amount,
-      allocated: allocated.toFixed(2),
-      inTransfer,
-      noDocumentNeeded: e?.noDocumentNeeded ?? false,
-    });
+    // every period row is banking's own, so it has a state; the fallback is an unreachable "no links"
+    const facts = rowStates.get(r.id) ?? { state: "open", allocated: "0.00", inTransfer: false };
+    const status = facts.state;
+    const allocated = new D(facts.allocated);
     const abs = new D(r.amount).abs();
     const delta = status === "linked" || status === "no_document" ? new D(0) : abs.minus(allocated);
     const rowFlags: string[] = [];
@@ -394,7 +385,8 @@ export async function collectPeriod(
     const origin = originOf.get(s.id);
     const doc = origin ? docById.get(origin) : undefined;
     const rowFlags: string[] = [];
-    if (!doc) {
+    // the owner's rule (supplier invoices' `hasDocument`), not a second one here (lessons audit 26)
+    if (!s.hasDocument) {
       rowFlags.push("missing document");
       flags.push({
         kind: "missing_document",
@@ -443,7 +435,8 @@ export async function collectPeriod(
     const origin = originOf.get(e.id) ?? perDiemDocs.get(e.id);
     const doc = origin ? docById.get(origin) : undefined;
     const rowFlags: string[] = [];
-    if (!doc) {
+    // the owner's rule (expenses' `hasDocument`; a per-diem breakdown is a `created_from` document too)
+    if (!e.hasDocument) {
       rowFlags.push("missing document");
       flags.push({
         kind: "missing_document",
