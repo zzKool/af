@@ -484,6 +484,8 @@ describe("documents service", () => {
 
       expect(result.data).toBeDefined();
       expect(result.data?.fileName).toBe("find-me.pdf");
+      // F50-f: a DTO — the OCR payload parsed, null before the OCR ran
+      expect(result.data?.ocrData).toBeNull();
     });
 
     it("returns NOT_FOUND for missing document", async () => {

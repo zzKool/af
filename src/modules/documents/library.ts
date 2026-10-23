@@ -1,5 +1,6 @@
 // Library (story 5.4): the filtered list, counts, recent documents, the download URL; and the plain facts + byte
 // readers another module needs to copy documents (the accountant package).
+import type { Prisma } from "@/generated/prisma/client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can, documentSubject } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
@@ -47,9 +48,7 @@ export async function getDocuments(
   sort: DocumentSort,
   pagination: { page: number; pageSize: number },
 ): Promise<ServiceResult<{ items: DocumentListItem[]; totalCount: number }>> {
-  // Build where clause
-  // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
-  const where: any = {};
+  const where: Prisma.DocumentWhereInput = {};
 
   // Roles without relationship-document access are forced to financial-only regardless of filter input
   if (!can(caller, "read", "relationship_document")) {
@@ -70,16 +69,17 @@ export async function getDocuments(
     // NOTE: Date filter uses createdAt (upload date), not extractedDate (invoice/transaction date).
     // The "Date" column in the UI shows extractedDate when available, creating a semantic mismatch.
     // Fixing this properly requires an indexed extractedDate column (see story action item).
-    where.createdAt = {};
+    const createdAt: Prisma.DateTimeFilter = {};
     if (filters.dateFrom) {
-      where.createdAt.gte = new Date(filters.dateFrom);
+      createdAt.gte = new Date(filters.dateFrom);
     }
     if (filters.dateTo) {
       // Include the full day
       const endDate = new Date(filters.dateTo);
       endDate.setHours(23, 59, 59, 999);
-      where.createdAt.lte = endDate;
+      createdAt.lte = endDate;
     }
+    where.createdAt = createdAt;
   }
 
   if (filters.search) {
@@ -151,11 +151,9 @@ export async function getDocumentStats(
     byType: Record<string, number>;
   }>
 > {
-  // biome-ignore lint/suspicious/noExplicitAny: Prisma where type is complex
-  const where: any = {};
-  if (!can(caller, "read", "relationship_document")) {
-    where.documentType = "financial";
-  }
+  const where: Prisma.DocumentWhereInput = can(caller, "read", "relationship_document")
+    ? {}
+    : { documentType: "financial" };
 
   // "to review" is the inbox's number (`inboxTotals`), not a second count here
   const [totalCount, statusGroups, typeGroups] = await Promise.all([

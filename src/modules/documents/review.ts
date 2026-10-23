@@ -14,6 +14,7 @@ import { isDocumentLinked } from "./linkable";
 import {
   type CorrectionsPatch,
   correctionsPatchSchema,
+  type OcrPayload,
   parseCorrections,
   parseOcrPayload,
   resolveDocumentData,
@@ -44,32 +45,48 @@ export type DocumentReviewData = {
   readOnly: boolean;
 };
 
+/** One document as other modules see it (through `index.ts`): stored columns and the OCR payload read once. */
+export type DocumentDto = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  blobUrl: string;
+  mimeType: string;
+  fileSize: number;
+  prefixType: string;
+  documentType: string;
+  status: string;
+  /** `parseOcrPayload` of `ocr_data`: null until the OCR ran; `rawResponse` stays in the column */
+  ocrData: OcrPayload | null;
+  createdAt: Date;
+};
+
 export async function getDocument(
   tx: TransactionClient,
   documentId: string,
-): Promise<
-  ServiceResult<{
-    id: string;
-    businessKey: string;
-    fileName: string;
-    blobUrl: string;
-    mimeType: string;
-    fileSize: number;
-    prefixType: string;
-    documentType: string;
-    status: string;
-    // biome-ignore lint/suspicious/noExplicitAny: Prisma JsonValue type
-    ocrData: any;
-    createdAt: Date;
-  }>
-> {
-  const doc = await tx.document.findUnique({ where: { id: documentId } });
+): Promise<ServiceResult<DocumentDto>> {
+  const doc = await tx.document.findUnique({
+    where: { id: documentId },
+    select: {
+      id: true,
+      businessKey: true,
+      fileName: true,
+      blobUrl: true,
+      mimeType: true,
+      fileSize: true,
+      prefixType: true,
+      documentType: true,
+      status: true,
+      ocrData: true,
+      createdAt: true,
+    },
+  });
   if (!doc) {
     return {
       error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
     };
   }
-  return { data: doc };
+  return { data: { ...doc, ocrData: parseOcrPayload(doc.ocrData) } };
 }
 
 export async function getDocumentOcrData(

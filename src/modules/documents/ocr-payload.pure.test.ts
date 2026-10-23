@@ -5,7 +5,9 @@ import {
   amountText,
   correctionsPatchSchema,
   knownCurrency,
+  ocrPayloadToJson,
   parseCorrections,
+  parseOcrPayload,
   resolveDocumentData,
 } from "./ocr-payload";
 
@@ -77,5 +79,41 @@ describe("amountText / knownCurrency", () => {
     expect(knownCurrency("chf")).toBe("CHF");
     expect(knownCurrency(" EUR ")).toBe("EUR");
     for (const v of [undefined, null, "", "GBP", 42]) expect(knownCurrency(v)).toBeNull();
+  });
+});
+
+describe("ocrPayloadToJson (the OCR job's write, F50-f)", () => {
+  it("round-trips through parseOcrPayload; undefined fields are dropped like the column would", () => {
+    const json = ocrPayloadToJson({
+      extractedData: {
+        vendorName: "SBB",
+        invoiceTotal: 120.5,
+        currency: "CHF",
+        merchantName: undefined,
+        confidence: 0.9,
+        modelUsed: "prebuilt-receipt",
+        pageCount: 1,
+        processingTimeMs: 10,
+      },
+      rawResponse: { analyzeResult: { documents: [] } },
+      quality: "high",
+    });
+    expect(json).toEqual({
+      extractedData: {
+        vendorName: "SBB",
+        invoiceTotal: 120.5,
+        currency: "CHF",
+        confidence: 0.9,
+        modelUsed: "prebuilt-receipt",
+        pageCount: 1,
+        processingTimeMs: 10,
+      },
+      rawResponse: { analyzeResult: { documents: [] } },
+      quality: "high",
+    });
+    expect(parseOcrPayload(json as Parameters<typeof parseOcrPayload>[0])).toEqual({
+      extractedData: json.extractedData,
+      quality: "high",
+    });
   });
 });
