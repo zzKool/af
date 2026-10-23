@@ -10,3 +10,11 @@
 - [x] T008 DB test: fixture month → entries + notes (SC-001), twice → identical (SC-002), roles (SC-003), savings placement
 - [x] T009 Page `/package` + `PackagePage` component (list, Build, Download, notes pane, polling), nav item, strings en + fr, nav tests, `e2e/auth.spec.ts`
 - [x] T010 E2E `e2e/package.spec.ts` + screenshot; docs `docs/accountant-package.md`, `docs/index.md`, `docs/feature-inventory.md`
+
+## F71 — the page adopts the D40 kit (2026-10-23, `feat/package-kit`)
+
+- [x] T011 Golden first: the sha-256 of the zip, `summary.xlsx`, `notes.md` and the year zip on `main` (aec3173), over the fixture plus a delta and an unpaid-invoice flag, in UTC (`package-golden.json`, `generators.pure.test.ts`) — unchanged after the restyle
+- [x] T012 `state-family.ts`: `periodState` (building · failed · flagged · built · ready · empty) and the one map of states and build statuses → families; `state-family.pure.test.ts`
+- [x] T013 The months as a DataTable: `month-columns.ts`, `periodRow` / `listMonths` / `distinctMonthValues` / `monthDateHierarchy` in memory over `periodOverview`, the two filter actions; *Month* quick filter; keys → `<CodeChip>`; row buttons → ⋮ `rowActions`; the years a kit `Table` with `RowActionsMenu`; DB test on the state, the Month and the state filters
+- [x] T014 The docked panel (`package-panel.tsx`): one primary (*Build* / *Rebuild*) beside *Download v{n}*, `DetailsSection`s (Flags · Documents · `notes.md` · Built versions), build statuses as `<StateLabel>`; flags on screen through `formatMoney` / `<CodeChip>` (`flag-list.tsx` + its test) — the flag carries `amount` / `currency` / `account` / `date` for the screen only
+- [x] T015 Strings en / fr / sv (`package.col.month` / `state`, `package.state.*`, `package.flag.open`, `package.downloadVersion`, `package.version.flags`, `package.empty`; `package.status.*` capitalised; ten unused keys dropped); e2e `package.spec.ts` on the table and the panel; screenshots light + dark; [[accountant-package]]
