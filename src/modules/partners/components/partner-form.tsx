@@ -1,13 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,12 +16,8 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/kernel/nav/constants";
-import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
-import {
-  deactivatePartnerAction,
-  reactivatePartnerAction,
-  updatePartnerAction,
-} from "@/modules/partners/partners.actions";
+import { DetailsSection } from "@/kernel/ui/details-section";
+import { updatePartnerAction } from "@/modules/partners/partners.actions";
 
 type BasOption = { code: string; label: string };
 
@@ -61,16 +53,13 @@ type AddressData = {
 interface PartnerFormProps {
   partner: PartnerData;
   basOptions: BasOption[];
-  hideHeader?: boolean;
-  onNameSaved?: (name: string) => void;
+  /** After a saved name or types change — the page's title row shows both. */
+  onSaved?: (patch: { name?: string; types?: string[] }) => void;
 }
 
-export function PartnerForm({
-  partner,
-  basOptions,
-  hideHeader = false,
-  onNameSaved,
-}: PartnerFormProps) {
+// The partner page's editable facts (auto-save on blur / change), one collapsible `DetailsSection` per group
+// (D40). The title row, the state and Deactivate / Reactivate belong to the page (`PartnerDetailTabs`).
+export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) {
   const [name, setName] = useState(partner.name);
   const [shortCode, setShortCode] = useState(partner.shortCode ?? "");
   const [orgNumber, setOrgNumber] = useState(partner.orgNumber ?? "");
@@ -90,18 +79,9 @@ export function PartnerForm({
   const [externalIdentifiers, setExternalIdentifiers] = useState<ExternalIdentifier[]>(
     (partner.externalIdentifiers as ExternalIdentifier[]) ?? [],
   );
-  const [isActive, setIsActive] = useState(partner.isActive);
 
   const { executeAsync: execUpdate } = useAction(updatePartnerAction);
-  const { executeAsync: execDeactivate } = useAction(deactivatePartnerAction);
-  const { executeAsync: execReactivate } = useAction(reactivatePartnerAction);
-
   const t = useT();
-  const { dialogProps, confirm } = useConfirmDialog({
-    title: t("partners.deactivateConfirm.title"),
-    variant: "destructive",
-    confirmLabel: t("partners.deactivate"),
-  });
 
   // Auto-save helper for simple fields
   const autoSave = useCallback(
@@ -122,11 +102,9 @@ export function PartnerForm({
     async (field: string, currentValue: string, originalValue: string | null) => {
       if (currentValue === (originalValue ?? "")) return;
       const ok = await autoSave(field, currentValue);
-      if (ok && field === "name" && onNameSaved) {
-        onNameSaved(currentValue);
-      }
+      if (ok && field === "name") onSaved?.({ name: currentValue });
     },
-    [autoSave, onNameSaved],
+    [autoSave, onSaved],
   );
 
   // onChange handlers for selects — "__none__" sentinel clears to empty string (→ null in service)
@@ -147,9 +125,11 @@ export function PartnerForm({
         return;
       }
       setTypes(newTypes);
-      autoSave("types", newTypes);
+      void autoSave("types", newTypes).then((ok) => {
+        if (ok) onSaved?.({ types: newTypes });
+      });
     },
-    [types, autoSave, t],
+    [types, autoSave, onSaved, t],
   );
 
   // Address save
@@ -181,64 +161,11 @@ export function PartnerForm({
     [externalIdentifiers, autoSave],
   );
 
-  const handleDeactivate = useCallback(() => {
-    confirm(
-      async () => {
-        const result = await execDeactivate({ id: partner.id });
-        const error = extractError(result);
-        if (error) throw new Error(error);
-        setIsActive(false);
-        toast.success(t("partners.deactivated", { name }));
-      },
-      {
-        description: t("partners.deactivateConfirm.description", { name }),
-      },
-    );
-  }, [confirm, execDeactivate, partner.id, name, t]);
-
-  const handleReactivate = useCallback(async () => {
-    const result = await execReactivate({ id: partner.id });
-    const error = extractError(result);
-    if (error) {
-      toast.error(error);
-      return;
-    }
-    setIsActive(true);
-    toast.success(t("partners.reactivated", { name }));
-  }, [execReactivate, partner.id, name, t]);
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      {!hideHeader && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/partners" className="text-muted-foreground hover:text-foreground">
-              &larr; {t("partners.title")}
-            </Link>
-            <h1 className="text-2xl font-semibold">{name}</h1>
-            <Badge variant={isActive ? "default" : "secondary"}>
-              {isActive ? t("partners.status.active") : t("partners.status.inactive")}
-            </Badge>
-          </div>
-          {isActive ? (
-            <Button variant="destructive" size="sm" onClick={handleDeactivate}>
-              {t("partners.deactivate")}
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={handleReactivate}>
-              {t("partners.reactivate")}
-            </Button>
-          )}
-        </div>
-      )}
-
+    <div className="flex flex-col gap-1">
       {/* Basic Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("partners.form.basic")}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+      <DetailsSection title={t("partners.form.basic")}>
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="name">{t("partners.col.name")}</Label>
             <Input
@@ -312,15 +239,12 @@ export function PartnerForm({
               onBlur={() => handleBlur("phone", phone, partner.phone)}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </DetailsSection>
 
       {/* Defaults */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("partners.form.defaults")}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+      <DetailsSection title={t("partners.form.defaults")}>
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label>{t("partners.col.currency")}</Label>
             <Select
@@ -410,15 +334,12 @@ export function PartnerForm({
               {t("partners.form.paymentTermsHint")}
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </DetailsSection>
 
       {/* Address */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("partners.form.address")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <DetailsSection title={t("partners.form.address")}>
+        <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="street">{t("partners.form.street")}</Label>
@@ -457,20 +378,12 @@ export function PartnerForm({
           <Button variant="outline" size="sm" onClick={handleAddressSave}>
             {t("partners.form.saveAddress")}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </DetailsSection>
 
       {/* External Identifiers */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{t("partners.form.identifiers")}</CardTitle>
-            <Button variant="outline" size="sm" onClick={addExternalIdentifier}>
-              {t("partners.form.addIdentifier")}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <DetailsSection title={t("partners.form.identifiers")}>
+        <div className="space-y-3">
           {externalIdentifiers.length === 0 && (
             <p className="text-sm text-muted-foreground">{t("partners.form.noIdentifiers")}</p>
           )}
@@ -506,15 +419,18 @@ export function PartnerForm({
               </Button>
             </div>
           ))}
-          {externalIdentifiers.length > 0 && (
-            <Button variant="outline" size="sm" onClick={handleExternalIdsSave}>
-              {t("partners.form.saveIdentifiers")}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={addExternalIdentifier}>
+              {t("partners.form.addIdentifier")}
             </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {!hideHeader && <ConfirmDialog {...dialogProps} />}
+            {externalIdentifiers.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleExternalIdsSave}>
+                {t("partners.form.saveIdentifiers")}
+              </Button>
+            )}
+          </div>
+        </div>
+      </DetailsSection>
     </div>
   );
 }
