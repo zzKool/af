@@ -177,14 +177,14 @@ export function JournalTable({
       },
       {
         key: "basCode",
-        header: `${t("journal.col.category")} (code)`,
+        header: t("journal.col.categoryCode"),
         type: "enum",
         defaultHidden: true,
       },
       { key: "partnerName", header: t("journal.col.partner"), type: "text", width: "10rem" },
       {
         key: "partnerId",
-        header: `${t("journal.col.partner")} (id)`,
+        header: t("journal.col.partnerId"),
         type: "enum",
         defaultHidden: true,
       },
@@ -279,8 +279,20 @@ export function JournalTable({
           </span>
         ),
       },
-      { key: "createdAt", header: "Created", type: "date", width: "7rem", defaultHidden: true },
-      { key: "updatedAt", header: "Updated", type: "date", width: "7rem", defaultHidden: true },
+      {
+        key: "createdAt",
+        header: t("journal.col.created"),
+        type: "date",
+        width: "7rem",
+        defaultHidden: true,
+      },
+      {
+        key: "updatedAt",
+        header: t("journal.col.updated"),
+        type: "date",
+        width: "7rem",
+        defaultHidden: true,
+      },
     ],
     [t],
   );
@@ -308,7 +320,7 @@ export function JournalTable({
         state={state}
         filterSource={filterSource}
         valueLabel={(column, value) => {
-          if (value === null) return "(Blanks)";
+          if (value === null) return t("common.blanks");
           if (column === "sourceType")
             return t(`journal.source.${value as "bank_transaction" | "manual"}`);
           if (column === "basCode") return categoryLabels[value] ?? value;
