@@ -2,7 +2,7 @@
 // paid / partially paid come from the links' allocations (settlement tolerance D25), overdue from the due
 // date, credited from issued credit notes, expired / converted for quotes. `today` is clock.today().
 import { Prisma } from "@/generated/prisma/browser";
-import { isSettled } from "@/kernel/money/settlement";
+import { isSettled, openAmount } from "@/kernel/money/settlement";
 import type { InvoiceState, InvoiceStatus, InvoiceType } from "./types";
 
 const D = Prisma.Decimal;
@@ -47,10 +47,9 @@ export function deriveState(input: DeriveInput, today: string): InvoiceState {
   return status === "sent" ? "sent" : "issued";
 }
 
-/** `total − credited − allocated`, floored at 0, as a 2-decimal string. */
+/** `total − credited − allocated`, floored at 0, as a 2-decimal string — the kernel's `openAmount`. */
 export function remainingAmount(totalAmount: string, allocated: string, credited = "0"): string {
-  const r = new D(totalAmount).sub(new D(credited)).sub(new D(allocated));
-  return (r.isNegative() ? new D(0) : r).toFixed(2);
+  return openAmount(totalAmount, allocated, credited).toFixed(2);
 }
 
 /**
