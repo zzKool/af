@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { PrismaClient } from "@/generated/prisma/client";
+import { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { createAuditEntry } from "@/kernel/audit/audit";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { withTenantConnection, withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createTestTenant, createTestUser } from "@/kernel/db/test-fixtures";
 
@@ -175,5 +177,94 @@ describe("audit_logs RLS isolation", () => {
         });
       }),
     ).rejects.toThrow();
+  });
+});
+
+// What createAuditEntry writes into old_data / new_data (F50-g): the write mapper must store exactly what the
+// former `as any` casts stored — null and omitted as SQL NULL, a record as its JSON form.
+describe("createAuditEntry — the JSON written", () => {
+  const caller = (): CallerIdentity => ({
+    userId: userA.id,
+    tenantId: tenantA.id,
+    role: "owner",
+    source: "web",
+  });
+
+  async function stored(entityId: string) {
+    return withTenantConnection(appPool, tenantA.id, async (client) => {
+      const res = await client.query(
+        `SELECT old_data, new_data, jsonb_typeof(old_data) AS old_type, jsonb_typeof(new_data) AS new_type
+           FROM audit_logs WHERE entity_id = $1`,
+        [entityId],
+      );
+      return res.rows[0];
+    });
+  }
+
+  it("an omitted field is SQL NULL; an explicit null is the JSON null (what the casts always wrote)", async () => {
+    const [nulls, omitted] = [randomUUID(), randomUUID()];
+    await withTenantTransaction(prisma, tenantA.id, async (tx) => {
+      await createAuditEntry(tx, caller(), {
+        action: "delete",
+        entityType: "partner",
+        entityId: nulls,
+        oldData: null,
+        newData: null,
+      });
+      await createAuditEntry(tx, caller(), {
+        action: "create",
+        entityType: "partner",
+        entityId: omitted,
+      });
+    });
+    expect(await stored(omitted)).toEqual({
+      old_data: null,
+      new_data: null,
+      old_type: null,
+      new_type: null,
+    });
+    expect(await stored(nulls)).toEqual({
+      old_data: null,
+      new_data: null,
+      old_type: "null",
+      new_type: "null",
+    });
+  });
+
+  it("a record is stored as its JSON form: dates as ISO strings, decimals as strings, undefined dropped", async () => {
+    const entityId = randomUUID();
+    const oldData: Record<string, unknown> = {
+      name: "Acme",
+      amount: new Prisma.Decimal("1402.50"),
+      issuedAt: new Date("2026-03-21T16:00:00.000Z"),
+      types: ["client", "supplier"],
+      address: { city: "Neuchâtel", zip: null },
+      note: undefined,
+      active: true,
+      count: 3,
+    };
+    await withTenantTransaction(prisma, tenantA.id, (tx) =>
+      createAuditEntry(tx, caller(), {
+        action: "update",
+        entityType: "partner",
+        entityId,
+        oldData,
+        newData: { active: false },
+      }),
+    );
+    expect(await stored(entityId)).toEqual({
+      old_data: {
+        name: "Acme",
+        amount: "1402.5",
+        issuedAt: "2026-03-21T16:00:00.000Z",
+        types: ["client", "supplier"],
+        address: { city: "Neuchâtel", zip: null },
+        active: true,
+        count: 3,
+      },
+      new_data: { active: false },
+      old_type: "object",
+      new_type: "object",
+    });
   });
 });
