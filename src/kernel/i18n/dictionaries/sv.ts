@@ -1257,6 +1257,7 @@ export const sv: Dictionary = {
   "documents.review.rerunOcr": "Kör OCR igen",
   "documents.review.rerunOcrConfirm":
     "OCR körs igen på dokumentet. Dina korrigeringar behålls; de extraherade uppgifterna ersätts av den nya läsningen.",
+  "documents.review.restored": "{key} är tillbaka i inkorgen",
   "documents.category.financial": "Ekonomiskt",
   "documents.category.relationship": "Relation",
   "documents.prefix.expense": "Utlägg",

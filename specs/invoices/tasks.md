@@ -53,5 +53,9 @@
 - [x] T030 `app/(app)/invoices/[id]/page.tsx`: `declaredOn(tx, period, invoice.vatRegistrationId)`
 - [x] T031 Tests: `new-invoice-form.test.tsx` (the actions are fakes with the service's rule; B's list held back; fails on the old form with *ca* refused), `invoice-actions.test.tsx` (fake timers: 29 polls no hint, 30th hint, quiet after, click → polling again); docs (F76 row, F56 row, [[invoices]], lessons)
 
+## F71 — `feat/invoices-kit` (the D40 kit, LIGHT)
+
+- [x] T032 States → `<StateLabel>` through one map (`state-family.ts`, `InvoiceStateLabel`); on-screen money → `formatMoney` (list, title meta, side panel, related; the sheet keeps `formatCurrency`); keys → `<CodeChip>`; type / currency / VAT period → `<Tag>`; ⋮ `rowActions`; the page's aside → `InvoiceDetails` (`DetailsSection`s); one primary per title row (`NewDocumentButton` *New invoice ▾ New quote*; on the page *Issue* or the `<SplitButton>` *Create credit note / Convert to invoice ▾ Copy*); `quickFilter` Date (the Month tree) and Client (`partnerName` → enum); footer Σ never across currencies (`list-sums.ts`); lesson 19 (b) — `vat-treatment.ts` takes `RateSchedule | null`, no cast. Tests: `state-family.pure.test.ts`, `list-sums.pure.test.ts`, `print-identity.pure.test.tsx` (baseline committed before the change); `e2e/linking.spec.ts` reads `data-amount`. Left: a copy button on a key title and *History* in the panel (no kit piece / no key — F74), the English column headers *Issued at · Sent at · Created · Updated* (F74, i18n)
+
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.

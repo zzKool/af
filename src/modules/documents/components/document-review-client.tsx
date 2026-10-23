@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { ArchivedSection } from "@/modules/documents/components/archived-section";
 import { DocumentReviewFooter } from "@/modules/documents/components/document-review-footer";
 import { DocumentReviewForm } from "@/modules/documents/components/document-review-form";
 import { DocumentReviewHeader } from "@/modules/documents/components/document-review-header";
@@ -152,17 +153,28 @@ export function DocumentReviewClient({
             />
           )}
 
-          {data.status !== "generated" && (became || (makeItOptions && !data.readOnly)) && (
-            <MakeItSection
+          {/* FR-001: an archived document is parked — no *Make it…*, *Restore* instead (archive refuses a became row) */}
+          {data.status !== "generated" && data.archivedAt && !became && (
+            <ArchivedSection
               documentId={data.id}
               documentKey={data.businessKey}
-              facts={resolvedData}
-              reviewedAt={data.reviewedAt}
-              became={became}
-              options={makeItOptions}
-              financial={data.documentType === "financial"}
+              archivedAt={data.archivedAt}
+              readOnly={data.readOnly}
             />
           )}
+
+          {data.status !== "generated" &&
+            (became || (makeItOptions && !data.readOnly && !data.archivedAt)) && (
+              <MakeItSection
+                documentId={data.id}
+                documentKey={data.businessKey}
+                facts={resolvedData}
+                reviewedAt={data.reviewedAt}
+                became={became}
+                options={makeItOptions}
+                financial={data.documentType === "financial"}
+              />
+            )}
 
           {data.status !== "generated" && (
             <DocumentReviewFooter
