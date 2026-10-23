@@ -9,7 +9,7 @@ import * as settings from "@/modules/settings";
 import { fifoOrder } from "./fifo";
 import { groupLabel } from "./groups";
 import { allocatedByExpense, isStatementSuperseded } from "./settlements";
-import { openBase } from "./status";
+import { owedBase } from "./status";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -64,7 +64,8 @@ export async function resolveStatement(
     settings.getTenantProfile(tx, caller),
     banking.getBankTransaction(tx, s.bankTransactionId),
   ]);
-  // what each expense still has open AFTER this settlement, over every active settlement (this one included)
+  // what each expense still owes AFTER this settlement, over every active settlement (this one included) —
+  // `owedBase`, the list's and the ledger's rule: a remainder under the tolerance prints 0.00 (F88, D47)
   const allocated = await allocatedByExpense(
     tx,
     s.lines.map((l) => l.expenseId),
@@ -80,7 +81,7 @@ export async function resolveStatement(
       currency: l.expense.currency,
       amountBase: l.expense.amountBase.toFixed(2),
       allocatedBase: l.allocatedBase.toFixed(2),
-      remainingOpen: openBase(l.expense.amountBase, allocated.get(l.expenseId) ?? new D(0)).toFixed(
+      remainingOpen: owedBase(l.expense.amountBase, allocated.get(l.expenseId) ?? new D(0)).toFixed(
         2,
       ),
       note: l.note,

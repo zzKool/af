@@ -320,6 +320,46 @@ describe("the return of a quarter", () => {
     expect(ret?.invoices.find((i) => i.currency === "EUR")?.conversion?.rate).toBe("0.930000");
   });
 
+  it("the drill-down is the query's selection: a draft never appears, an empty quarter lists nothing (V8, V9)", async () => {
+    const f = await quarter();
+    await run(owner.caller, async (tx) => {
+      const c = await client(owner.caller, tx, "Draft AG", "DA", "CH", f.regId, "CHF");
+      const draft = await invoices.createDraft(tx, owner.caller, noopAudit, "2026-05-20", {
+        partnerId: c.partnerId,
+        contractId: c.contractId,
+        issueDate: "2026-05-20",
+        periodLabel: "2026 May",
+        periodStart: "2026-05-01",
+        periodEnd: "2026-05-31",
+      });
+      expect(draft.error).toBeUndefined();
+    });
+    const q2 = (
+      await run(owner.caller, (tx) =>
+        swissVatReturn(tx, owner.caller, { registrationId: f.regId, period: PERIOD, today: TODAY }),
+      )
+    ).data;
+    expect(q2?.invoices.map((i) => i.number)).toEqual([
+      "BG26-INV-001",
+      "VA26-CN-001",
+      "VA26-INV-001",
+    ]);
+    const q1 = (
+      await run(owner.caller, (tx) =>
+        swissVatReturn(tx, owner.caller, {
+          registrationId: f.regId,
+          period: "CH 2026/Q1",
+          today: TODAY,
+        }),
+      )
+    ).data;
+    expect(q1?.invoices).toEqual([]);
+    expect(q1?.inputSources).toEqual([]);
+    const refs = byRef(q1?.lines ?? []);
+    for (const ref of ["200", "299", "399", "479", "500", "510"])
+      expect(refs[ref]?.amount, `ref ${ref}`).toBe("0.00");
+  });
+
   it("the periods: from the first stored quarter to today's, newest first; the CH registrations", async () => {
     const f = await quarter();
     expect(await run(owner.caller, (tx) => swissVatPeriods(tx, TODAY))).toEqual([

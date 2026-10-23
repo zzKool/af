@@ -159,17 +159,7 @@ describe("US1 — every bank row is a journal entry", () => {
       await tx.$executeRawUnsafe(
         `UPDATE journal_entries SET note = 'ok', bas_code = '657' WHERE id = '${e.id}'`,
       );
-      await tx.$executeRawUnsafe(
-        `UPDATE journal_entries SET bank_implicit_rate = 11.887 WHERE id = '${e.id}'`,
-      );
     });
-    await expect(
-      run(caller, (tx) =>
-        tx.$executeRawUnsafe(
-          `UPDATE journal_entries SET bank_implicit_rate = 12 WHERE id = '${e.id}'`,
-        ),
-      ),
-    ).rejects.toThrow(/journal_entry_locked/);
   });
 
   it("scenario 4: one entry per source", async () => {

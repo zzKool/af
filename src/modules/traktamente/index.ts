@@ -11,12 +11,13 @@ export {
   HALF_DAY_FACTOR,
   LONG_STAY_FACTORS,
   NO_OVERNIGHT,
-  nextDate,
   PerDiemError,
   perDiemDescription,
   perDiemNote,
   RETURN_HALF_UNTIL_MINUTES,
+  rateYearBounds,
   TENANT_ZONE,
+  toInstant,
   toLocal,
 } from "./calculator";
 export type { RenderPerDiemData } from "./jobs/render-per-diem";
@@ -44,7 +45,6 @@ export type { TripInput } from "./trip";
 export {
   computeForTrip,
   createOrReplacePerDiemExpense,
-  toInstant,
   tripInputSchema,
   upsertTrip,
 } from "./trip";
