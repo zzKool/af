@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Draft — awaiting the owner's read (questions Q1–Q3 at the end)
+**Status**: Ready for tasks — read by the owner 2026-10-23, Q1 A · Q2 A · Q3 A (D50)
 
 **Input**: D49 (owner, 2026-10-23): "Expenses stay merchant-level, with an optional partner: a restaurant, an airline, a hotel chain can be picked as the expense's partner, so spend per partner can be seen, and the partner's default BAS pre-fills the category when the expense has none. Optional: an expense without a partner stays valid." F87: picker in the dialog and the panel, default BAS proposed never overwriting, spend per partner on the partner's 360° page and as a Partner column + filter on the expenses list; the OCR merchant vs the partner; duplicate check and `Ex` keys unchanged.
 
@@ -83,9 +83,9 @@ The owner wants to know how much went to *SAS* and to *Restaurant Le Cerf*. On t
 
 ### User Story 4 - The OCR merchant and the partner (Priority: P2)
 
-A receipt goes through *Make it… → Expense*: the OCR merchant name pre-fills the description (as today). The dialog shows the best matching partner and lets the owner use it, or create a new vendor from the merchant name. *(The exact behaviour is Q1.)*
+A receipt goes through *Make it… → Expense*: the OCR merchant name pre-fills the description (as today). The dialog shows the best matching vendor and lets the owner use it, or create a new vendor from the merchant name (Q1 → A).
 
-**Acceptance Scenarios** (written for the recommended answer to Q1; adjusted after the owner's read):
+**Acceptance Scenarios**:
 
 1. **Given** a merchant *RESTAURANT LE CERF SA* and an active vendor *Restaurant Le Cerf* **When** the dialog opens from the review page **Then** a match card shows *Restaurant Le Cerf* (from 60 %, the supplier-invoice dialog's rule) with *Use match*; using it picks the partner and proposes its default category (US1-1).
 2. **Given** no match from 60 % **Then** the card offers *New vendor* with the merchant name (and the OCR address when there is one) pre-filled; creating it picks the new partner at once.
@@ -100,7 +100,7 @@ A receipt goes through *Make it… → Expense*: the OCR merchant name pre-fills
 - **The key is unchanged**: the alias is the category's short code at creation; a partner-proposed category gives the same key as the same category chosen by hand. Changing the partner later never changes the key, the category or the alias.
 - **The lock is unchanged**: `expenses_lock_when_settled` keeps its column list; the partner is not in it (US2).
 - **A deactivated partner** stays shown on the expenses that carry it (name greyed with its state); it is not offered for new picks; the expense can keep it or clear it.
-- **A partner that is also a supplier**: its supplier invoices are not in the Expenses tab (Q3).
+- **A partner that is also a supplier**: its supplier invoices are not in the Expenses tab (Q3 → A: spend = expenses only; the supplier-invoice list filters by supplier).
 - **A Swiss VAT payment** (kind `vat_payment`) may carry a partner (the tax administration as a vendor), like a receipt.
 - **The accountant package and exports**: unchanged — no new column in the package's files (a later row if the accountant wants it).
 - **The linking graph**: the partner is a column, not a link — the partner's graph page does not show expenses; the Expenses tab does.
@@ -110,15 +110,15 @@ A receipt goes through *Make it… → Expense*: the OCR merchant name pre-fills
 
 ### Functional Requirements
 
-- **FR-001** An expense has an optional **partner** (a partner of the tenant, validated through the partners module when written: exists, active, of a type the picker allows — Q2). No FK across modules (constitution §2); expenses without one are valid. A per-diem expense never has one.
+- **FR-001** An expense has an optional **partner** (a partner of the tenant, validated through the partners module when written: exists, active, carries the type `vendor` — Q2 → A). No FK across modules (constitution §2); expenses without one are valid. A per-diem expense never has one.
 - **FR-002** `createExpense` / `updateExpense` accept the partner (set or clear). On update it is a **fact**, not a money fact: allowed in every state, audited with the field name the History shows.
 - **FR-003** The **default category is proposed, never overwriting**: in the new-expense dialog, picking a partner sets the category to the partner's default only when the category is empty or was itself set by a previous partner's default; a category the owner chose is never replaced. The service does not apply defaults — what the dialog sends is what is saved.
 - **FR-004** The **panel** shows the partner in *About* and lets the owner set / change / clear it in *Facts* (saved on change); it never changes the category.
 - **FR-005** The **expenses list** (`EXPENSE_COLUMNS`) gains `partnerId` (enum filter) and `partnerName` (enum, searchable, sortable), shown by default after *Description*. Distinct values follow the Excel semantics with *(blank)*. The list search matches the partner name.
 - **FR-006** A **read for the partner page**: `expensesForPartner(partnerId)` → the rows (as US3-3) and the totals (count, Σ base, any provisional) — the page composes it; the partners module does not import expenses.
 - **FR-007** The partner page gets an **Expenses** tab with a count badge (US3), owner-only like the page; *Open in Expenses* deep-links the list with the Partner filter.
-- **FR-008** The **picker** offers active partners of the allowed type(s) (Q2), searchable by name, with *none*; used by the dialog and the panel.
-- **FR-009** The OCR merchant ↔ partner behaviour of the dialog (Q1).
+- **FR-008** The **picker** offers active **vendors** (Q2 → A), searchable by name, with *none*; used by the dialog and the panel. A partner that is not a vendor is refused by the service (*Pick a vendor*).
+- **FR-009** The **match card** (Q1 → A) — the supplier-invoice dialog's card, the same rules: the OCR merchant (`merchantName`, else `vendorName`) and its address scored by `matchPartners` against active vendors; the best from 60 % with *Use match*, the other matches, *New vendor* pre-filled (name, address; type `vendor`) and picked at once. Shown when the dialog has OCR facts (*Make it…*); the plain picker otherwise. Nothing is picked without a click.
 - **FR-010** Unchanged, by test: the `Ex` key of an expense with a partner equals the key without one for the same group × category; the duplicate check's matches are the same with and without a partner; the lock trigger refuses the same changes as before and accepts a partner change on a settled expense.
 - **FR-011** Strings in en / fr / sv (`expenses.partner*`, `partners.tab.expenses`).
 
@@ -144,29 +144,8 @@ A receipt goes through *Make it… → Expense*: the OCR merchant name pre-fills
 - No partner on the trip / per-diem side, no partner default for the payer or the currency.
 - Supplier invoices keep their own required supplier (`specs/supplier-invoices` FR-001) — not touched.
 
-## Questions for the owner (one batch)
+## Decisions (the owner, 2026-10-23 — D50)
 
-### Q1 — The OCR merchant vs the partner
-
-When an expense is made from a receipt, the OCR gives a merchant name. What should the dialog do with it?
-
-| Option | Answer | Implications |
-|--------|--------|--------------|
-| **A (recommended)** | The supplier dialog's match card: best partner from 60 % with *Use match*, else *New vendor* pre-filled from the merchant (and its address) | Same behaviour as supplier invoices, reuses `matchPartners` and the card; one click to attach or create; nothing is picked without a click |
-| B | Match suggestion only (*Use match*), no *New vendor* | Partners are created only on the partners page; fewer one-off partners (a café you visit once never becomes one) |
-| C | Nothing automatic: the plain picker, the merchant stays only in the description | Smallest build; spend per partner depends on the owner remembering to pick |
-
-### Q2 — Which partners can be picked
-
-| Option | Answer | Implications |
-|--------|--------|--------------|
-| **A (recommended)** | Vendors only (type `vendor`); a partner created from the dialog is a vendor | The picker stays short (no clients, no employees); matches supplier invoices' rule; a restaurant / airline / hotel is a vendor |
-| B | Any active partner | Covers the odd case (lunch paid to a client's canteen), but the picker mixes clients and employees with merchants |
-| C | Any active partner; picking a non-vendor adds the type `vendor` to it | Flexible, but a pick silently changes a partner's types |
-
-### Q3 — What the partner page counts as spend
-
-| Option | Answer | Implications |
-|--------|--------|--------------|
-| **A (recommended)** | Expenses only (the Expenses tab with its total) | What D49 asks; supplier invoices stay on their own list, filtered by supplier |
-| B | A *Spend* tab: the partner's expenses **and** supplier invoices, one total in base plus a subtotal each | One number per merchant whatever the paper (an airline that sometimes invoices); reads a second module, a bit more to build and test |
+- **Q1 → A** The OCR merchant meets the partners through the supplier dialog's match card: *Use match* from 60 %, else *New vendor* pre-filled; nothing picked without a click (FR-009, US4).
+- **Q2 → A** Vendors only; a partner created from the dialog is a vendor (FR-001, FR-008).
+- **Q3 → A** Spend on the partner page = its expenses only (US3, FR-006, FR-007); supplier invoices stay on their own list.
