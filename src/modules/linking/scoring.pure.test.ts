@@ -10,6 +10,7 @@ import {
   confidenceOf,
   daysBetween,
   partialTokens,
+  proposedAllocation,
   type RowFacts,
   rank,
   scoreMatch,
@@ -392,5 +393,75 @@ describe("properties (SC-002)", () => {
       ),
       { numRuns: 200 },
     );
+  });
+});
+
+// F61-b (lessons audit 10): a receipt OCR read no currency on is *unknown*, never SEK — no amount points, no
+// currency penalty, never dropped; reference, name and date only; and nothing to allocate.
+describe("a receipt whose currency was not read (F61-b)", () => {
+  const receipt: EntityFacts = {
+    type: "document",
+    id: "d1",
+    label: "DOC-0042",
+    amount: "45.90",
+    currency: null,
+    amountBase: null,
+    date: "2026-03-10",
+    reference: null,
+    partnerName: "Migros",
+    texts: [],
+    direction: "outgoing",
+    remaining: "45.90",
+  };
+  const row = (currency: string, amount: string, text: string): RowFacts => ({
+    amount,
+    currency,
+    amountBase: null,
+    date: "2026-03-10",
+    texts: [text],
+  });
+
+  it("never scores as SEK: the same amount on a SEK row earns no amount points", () => {
+    const m = scoreMatch(row("SEK", "-45.90", "KORTKÖP RANDOM SHOP"), receipt);
+    expect(m).not.toBeNull();
+    expect(m?.reasons.some((r) => /amount/i.test(r))).toBe(false);
+    expect(m?.reasons.some((r) => /currency/i.test(r))).toBe(false);
+    expect(m?.score).toBe(30); // the date only
+    expect(m?.crossCurrency).toBe(false);
+  });
+
+  it("a SEK row and a CHF row score the same — the currency decides nothing", () => {
+    const sek = scoreMatch(row("SEK", "-45.90", "MIGROS NEUCHATEL"), receipt);
+    const chf = scoreMatch(row("CHF", "-45.90", "MIGROS NEUCHATEL"), receipt);
+    expect(chf).not.toBeNull(); // not dropped as cross-currency without a base
+    expect(chf?.score).toBe(sek?.score);
+    expect(chf?.score).toBe(55); // name 25 + date 30, no penalty
+    expect(chf?.reasons).toEqual(["Partner name match", "Same date"]);
+  });
+
+  it("is not dropped without a reference either (a SEK-defaulted CHF pair used to be)", () => {
+    expect(scoreMatch(row("CHF", "-99.00", "SOMETHING ELSE"), receipt)?.score).toBe(30);
+  });
+
+  it("proposes no allocation, whatever the remainders", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 1_000_000 }), (cents) => {
+        const remaining = (cents / 100).toFixed(2);
+        expect(
+          proposedAllocation(
+            { crossCurrency: false },
+            { remaining, currency: "SEK" },
+            { remaining, currency: null },
+          ),
+        ).toBeNull();
+      }),
+    );
+    expect(
+      proposedAllocation(
+        { crossCurrency: false },
+        { remaining: "50.00", currency: "CHF" },
+        { remaining: "45.90", currency: "CHF" },
+      ),
+    ).toBe("45.90");
   });
 });

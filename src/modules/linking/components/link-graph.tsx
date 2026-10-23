@@ -8,12 +8,11 @@ import { useRouter } from "next/navigation";
 import { Fragment, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
 import { cn } from "@/lib/utils";
 import { layoutGraph, shortLabel } from "@/modules/linking/graph-layout";
 import { entityHref, graphHref } from "@/modules/linking/hrefs";
 import type { Graph, GraphNode, LinkableType } from "@/modules/linking/types";
+import { moneyText } from "./money";
 
 const NODE_FILL: Record<LinkableType, string> = {
   document: "fill-slate-500",
@@ -39,10 +38,7 @@ export function LinkGraph({ graph }: { graph: Graph }) {
     for (const n of graph.nodes) out.set(n.depth, [...(out.get(n.depth) ?? []), n]);
     return [...out.entries()].sort(([a], [b]) => a - b);
   }, [graph]);
-  const amountOf = (n: GraphNode) =>
-    n.amount && n.currency
-      ? `${formatCurrency(n.amount, n.currency as Currency)} ${n.currency}`
-      : null;
+  const amountOf = (n: GraphNode) => moneyText(n.amount, n.currency);
   const side = extent * 2;
   // the picture is scaled to its box: deeper graphs get larger glyphs so the text stays legible
   const k = Math.max(1, side / 800);
@@ -69,12 +65,7 @@ export function LinkGraph({ graph }: { graph: Graph }) {
             const [near, far] = (nf?.depth ?? 0) <= (nt?.depth ?? 0) ? [a, b] : [b, a];
             const lx = near.x + (far.x - near.x) * 0.6;
             const ly = near.y + (far.y - near.y) * 0.6;
-            const label = [
-              t(`linking.kind.${e.kind}`),
-              e.allocatedAmount && e.currency
-                ? `${formatCurrency(e.allocatedAmount, e.currency as Currency)} ${e.currency}`
-                : null,
-            ]
+            const label = [t(`linking.kind.${e.kind}`), moneyText(e.allocatedAmount, e.currency)]
               .filter(Boolean)
               .join(" · ");
             return (

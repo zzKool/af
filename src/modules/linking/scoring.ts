@@ -1,7 +1,8 @@
 // The one scorer (specs/linking/spec.md FR-002, harvest §4.1 / §8.1): a bank row against an entity, in either
 // direction. Pure — Decimal strings in, a score with its reasons out; no I/O. Weights: full reference 40,
 // partial invoice number 20, partner name 25, amount 40 / 30 / 20 / 10, date 30 / 25 / 15 / 5, currency −10
-// unless a reference matched. HIGH = (reference ∧ ≥ 60) ∨ ≥ 80, MEDIUM ≥ 50, else LOW.
+// unless a reference matched. HIGH = (reference ∧ ≥ 60) ∨ ≥ 80, MEDIUM ≥ 50, else LOW. A side whose currency is
+// not known (null, F61-b) is never compared on the amount and never penalised: reference, name and date only.
 import { Prisma } from "@/generated/prisma/client";
 import type { Confidence, EntityFacts, LinkableType, MatchResult } from "./types";
 
@@ -11,7 +12,8 @@ type Dec = InstanceType<typeof Prisma.Decimal>;
 /** The bank row as the scorer sees it (the signed amount is irrelevant — the finder picked the direction). */
 export type RowFacts = {
   amount: string;
-  currency: string;
+  /** null = not known (never for a bank row today — the type is the facts' one) */
+  currency: string | null;
   amountBase: string | null;
   /** ISO booking date */
   date: string;
@@ -162,13 +164,17 @@ export function scoreMatch(row: RowFacts, entity: EntityFacts): MatchResult | nu
     reasons.push("Description keyword match");
   }
 
-  // 3. the amount — same currency, or the SEK bases (cross-currency, within 6 %)
-  const crossCurrency = row.currency !== entity.currency;
+  // 3. the amount — same currency, or the SEK bases (cross-currency, within 6 %); nothing when a currency is
+  //    not known (F61-b: an unread receipt is not SEK)
+  const unknownCurrency = row.currency === null || entity.currency === null;
+  const crossCurrency = !unknownCurrency && row.currency !== entity.currency;
   const rowAmount = new D(row.amount).abs();
   const entityAmount = new D(entity.amount).abs();
   const entityRemaining = new D(entity.remaining).abs();
   let tier: number | null = null;
-  if (!crossCurrency) {
+  if (unknownCurrency) {
+    // no amount points, no penalty, never dropped
+  } else if (!crossCurrency) {
     const tiers = [amountTier(rowAmount, entityAmount)];
     // a row that pays exactly what is still open on a partly paid entity is an exact match too
     if (entityRemaining.gt(0) && !entityRemaining.eq(entityAmount))
@@ -228,6 +234,19 @@ export function scoreMatch(row: RowFacts, entity: EntityFacts): MatchResult | nu
     reference,
     crossCurrency,
   };
+}
+
+/**
+ * What applying the pair would allocate: `min(open on the row, open on the entity)` in the shared currency; null
+ * when the currencies differ or one is not known — such a pair is linked without an allocation, or not here.
+ */
+export function proposedAllocation(
+  match: Pick<MatchResult, "crossCurrency">,
+  row: { remaining: string; currency: string | null },
+  entity: { remaining: string; currency: string | null },
+): string | null {
+  if (match.crossCurrency || row.currency === null || entity.currency === null) return null;
+  return D.min(new D(row.remaining), new D(entity.remaining)).toFixed(2);
 }
 
 const TIER: Record<Confidence, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };

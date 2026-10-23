@@ -21,8 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatCurrency } from "@/kernel/money/format-currency";
-import type { Currency } from "@/kernel/nav/constants";
 import { TransactionDetailView } from "@/modules/banking/ui";
 import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
 import type { InboxRow } from "@/modules/linking/inbox";
@@ -34,10 +32,8 @@ import {
 import type { BulkApplyResult, EntityFacts, Suggestion } from "@/modules/linking/types";
 import { attachHref } from "../hrefs";
 import { needsOwnFlow } from "../kinds";
+import { moneyText } from "./money";
 import { CONFIDENCE_STYLE, SuggestionsSection, useReasonLabel } from "./suggestions-section";
-
-const money = (amount: string, currency: string) =>
-  `${formatCurrency(amount, currency as Currency)} ${currency}`;
 
 type Tab = "rows" | "documents";
 
@@ -312,7 +308,7 @@ export function InboxWorkbench({
                             className={`tabular-nums ${r.row.direction === "incoming" ? "text-green-700 dark:text-green-400" : ""}`}
                           >
                             {r.row.direction === "incoming" ? "+" : "−"}
-                            {money(r.row.amount, r.row.currency)}
+                            {moneyText(r.row.amount, r.row.currency) ?? r.row.amount}
                           </span>
                           {r.state === "partial" && (
                             <Badge variant="outline">{t("banking.state.partial")}</Badge>
@@ -415,7 +411,9 @@ export function InboxWorkbench({
                 <h2 className="text-base font-semibold">{doc.label}</h2>
                 <p className="text-sm text-muted-foreground tabular-nums">
                   {doc.date}
-                  {Number(doc.amount) > 0 ? ` · ${money(doc.amount, doc.currency)}` : ""}
+                  {Number(doc.amount) > 0 && moneyText(doc.amount, doc.currency)
+                    ? ` · ${moneyText(doc.amount, doc.currency)}`
+                    : ""}
                 </p>
                 <Button
                   size="sm"
