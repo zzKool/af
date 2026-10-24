@@ -97,6 +97,29 @@ test.describe("Document Library", () => {
       timeout: 10_000,
     });
   });
+
+  // F73: + New → Upload document lands on ?new=1 — the zone in a dialog; closing drops the param
+  test("?new=1 opens the upload dialog", async ({ page }) => {
+    await page.goto("/documents?new=1");
+    const dialog = page.getByTestId("upload-document-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Upload document" })).toBeVisible();
+    const stamp = crypto.randomUUID().slice(0, 8);
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: `e2e-new-${stamp}.pdf`,
+      mimeType: "application/pdf",
+      buffer: Buffer.from(`%PDF-1.4 e2e-new-${stamp}`),
+    });
+    await expect(dialog.getByRole("button", { name: "Upload another" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page).not.toHaveURL(/new=1/);
+    // the list behind refreshed with the new row
+    await page.getByRole("textbox", { name: "Search" }).fill(`e2e-new-${stamp}`);
+    await expect(page.getByText(`e2e-new-${stamp}.pdf`)).toBeVisible({ timeout: 10_000 });
+  });
 });
 
 test.describe("Document Library — the accountant", () => {
@@ -106,6 +129,9 @@ test.describe("Document Library — the accountant", () => {
     await page.goto("/documents");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload document" })).toHaveCount(0);
+    // ?new=1 opens nothing for a role that cannot upload
+    await page.goto("/documents?new=1");
+    await expect(page.getByTestId("upload-document-dialog")).toHaveCount(0);
     // no Delete in any row's ⋮ menu
     const firstRowMenu = page.getByRole("button", { name: "Row actions" }).first();
     if (await firstRowMenu.count()) {

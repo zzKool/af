@@ -11,6 +11,7 @@ const PAGES: Record<string, string> = {
   "banking-inbox": "/banking/inbox",
   "banking-imports": "/banking/imports",
   documents: "/documents",
+  "documents-new": "/documents?new=1",
   "documents-inbox": "/documents/inbox",
   journal: "/journal",
   partners: "/partners",
