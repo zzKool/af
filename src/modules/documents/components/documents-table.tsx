@@ -4,7 +4,8 @@
 // loads one page, header filters fetch their values through the module's actions. The derived state as
 // <StateLabel> through the module's one family map (the inbox's word), the key as a code chip, the kind as a tag,
 // money through formatMoney; Open / Download / Delete (owner, confirmed) in the row's ⋮; Document date and Kind
-// as quick filters; the upload zone above the table refreshes the page.
+// as quick filters; the upload zone above the table refreshes the page. `?new=1` (+ New → Upload document, F73)
+// opens the same zone in a dialog.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -22,6 +23,7 @@ import {
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import {
@@ -34,6 +36,7 @@ import type { DocumentListRow } from "@/modules/documents/queries";
 import { DocumentStateLabel } from "./document-state-label";
 import { FileUploadZone } from "./file-upload-zone";
 import { becameHref } from "./make-it-section";
+import { UploadDocumentDialog } from "./upload-document-dialog";
 
 /** What the page hands over: Dates serialised, nothing else. */
 export type DocumentRow = Omit<DocumentListRow, "createdAt" | "reviewedAt"> & {
@@ -113,6 +116,7 @@ export function DocumentsTable({
 }) {
   const t = useT();
   const router = useRouter();
+  const [uploadOpen, setUploadOpen] = useNewParam(canUpload);
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const { executeAsync: downloadUrl } = useAction(getDocumentDownloadUrlAction);
   const { executeAsync: remove } = useAction(deleteDocumentAction);
@@ -337,6 +341,14 @@ export function DocumentsTable({
         emptyState={t("documents.empty")}
       />
       <ConfirmDialog {...dialogProps} />
+      {canUpload && (
+        <UploadDocumentDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          prefixOptions={prefixOptions}
+          onUploadComplete={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

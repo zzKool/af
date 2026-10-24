@@ -34,6 +34,16 @@ Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 ·
 - Business keys are fixed functions: `Ex{group}-{BAS alias}-{seq}_{date}_`, invoices `{client short}{yy}-{nnn}` via `number_series`. No prefix settings.
 - Docs: `docs/<topic>.md` with `[[wiki-links]]`, indexed in `docs/index.md`. Specs in `specs/<module>/`.
 
+## Real data — never leaves the box (D51)
+The owner's real company data (partners, amounts, bank rows, documents, invoices) lives **only** on his own box (the prod compose). **The repo is public.**
+- **No access**: no agent session connects to the box — no database URL, credentials, tunnel or MCP server pointed at it. `.mcp.json`'s Postgres is the laptop's `af_dev` (seed data) only.
+- **Nothing real in the repo, PRs, artifacts, project docs or memory**: no real names of clients / suppliers, amounts, IBANs, invoice numbers, CSVs, PDFs, dumps, logs. Fixtures, tests and examples use invented data.
+- **Screenshots** (definition of done) come from a cloud session or the dev / test database on seed data — never from the box, never from a screen the owner shares.
+- **Bug reports**: when the owner describes a bug with real values, reproduce it with invented ones before writing a test, a lesson or a PR; never copy his values.
+- **The box sends out only**: image pulls (ghcr), the ECB rates fetch (nothing sent), Azure Document Intelligence in the region the owner chose (the documents themselves go there for reading, nothing else). Sentry stays off on the box (`NEXT_PUBLIC_SENTRY_DSN` empty).
+- **The owner's infrastructure stays private too**: no hardware, hostnames, network layout, VM setup, regions or access paths of his box in the repo — the runbook stays generic ([[deployment]]).
+- Unsure whether something is real data → treat it as real.
+
 ## Git
 - Trunk `main`; branches `feat/<module>-<topic>`; PR into `main`; conventional commits (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`).
 - Never commit to `main` directly, never force-push, never commit secrets or `.env.local`.
@@ -42,7 +52,7 @@ Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 ·
 
 ## Do / Don't
 - Do read the spec folder of the module before touching it; do update `docs/<module>.md` in the same PR.
-- Do attach a screenshot of every new page and every generated PDF to the PR (definition of done §4.5).
+- Do attach a screenshot of every new page and every generated PDF to the PR (definition of done §4.5) — on seed data only (D51).
 - Do keep the architecture guard green; if a rule blocks you, propose a constitution change, don't work around it.
 - Don't add a setting, a config engine or a generic framework for a single use.
 - Don't touch `schema.prisma`, nav constants or i18n dictionaries in parallel with another branch.

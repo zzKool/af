@@ -11,7 +11,7 @@ supplier_invoices        group_id (FK → expense_groups) · key (`SI213-Acc-01`
                          partner_id (validated UUID, type vendor) · invoice_number (unique per tenant + partner; case- and space-insensitive in the service)
                          invoice_date · due_date (≥ invoice_date) · due_date_defaulted · currency
                          amount_net · vat_amount (≥ 0) · amount_total (= net + VAT ± 0.01, > 0)
-                         amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | bank | manual · rate_date?
+                         amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | bank | manual (the shared Postgres enum, F67) · rate_date?
                          paid_amount? / paid_currency? (the bank row's, once a cross-currency payment is attached)
                          bas_code · vat_registration_id? (validated) · document_missing · note?
                          cancelled · cancelled_reason? · cancelled_at?

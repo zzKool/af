@@ -1,10 +1,6 @@
 // Row → DTO, and `iso` (a date column → yyyy-mm-dd) the writes share.
 import type { SupplierInvoice, SupplierInvoiceLine } from "@/generated/prisma/client";
-import type {
-  SupplierInvoiceDto,
-  SupplierInvoiceLineDto,
-  SupplierInvoiceRateSource,
-} from "./types";
+import type { SupplierInvoiceDto, SupplierInvoiceLineDto } from "./types";
 
 // --- DTO mapping ---
 
@@ -43,7 +39,7 @@ export function toSupplierInvoiceDto(
     amountTotal: row.amountTotal.toFixed(2),
     amountBase: row.amountBase.toFixed(2),
     rate: row.rate.toString(),
-    rateSource: row.rateSource as SupplierInvoiceRateSource,
+    rateSource: row.rateSource,
     rateDate: iso(row.rateDate),
     paidAmount: row.paidAmount ? row.paidAmount.toFixed(2) : null,
     paidCurrency: row.paidCurrency,

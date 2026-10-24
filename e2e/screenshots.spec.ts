@@ -7,10 +7,12 @@ import { type Page, test } from "@playwright/test";
 const PAGES: Record<string, string> = {
   dashboard: "/dashboard",
   banking: "/banking",
+  "banking-new": "/banking?new=1",
   "banking-rules": "/banking/rules",
   "banking-inbox": "/banking/inbox",
   "banking-imports": "/banking/imports",
   documents: "/documents",
+  "documents-new": "/documents?new=1",
   "documents-inbox": "/documents/inbox",
   journal: "/journal",
   partners: "/partners",
