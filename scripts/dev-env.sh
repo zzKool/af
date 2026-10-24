@@ -157,7 +157,11 @@ chromium() {
   say "chromium"
   local want real dir
   for kind in chromium chromium-headless-shell; do
-    want=$(node -e "const {registry}=require('playwright-core/lib/server/registry/index');console.log(registry.findExecutable('$kind').executablePath())")
+    # Playwright ≥1.6x no longer exports its registry: ask the CLI where the build goes (first "Install location")
+    want=$(node -e "const {registry}=require('playwright-core/lib/server/registry/index');console.log(registry.findExecutable('$kind').executablePath())" 2>/dev/null) || {
+      dir=$(npx playwright install --dry-run "$kind" | awk '/Install location/{print $3; exit}')
+      if [ "$kind" = chromium ]; then want="$dir/chrome-linux64/chrome"; else want="$dir/chrome-headless-shell-linux64/chrome-headless-shell"; fi
+    }
     if [ -x "$want" ]; then echo "  $kind ok"; continue; fi
     if [ "$kind" = chromium ]; then
       real=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux*/chrome 2>/dev/null | sort -V | tail -1 || true)

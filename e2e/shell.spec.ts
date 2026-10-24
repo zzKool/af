@@ -13,7 +13,10 @@ test.describe("Shell", () => {
     await page.goto("/dashboard");
 
     const trigger = page.getByRole("button", { name: /^Account: / });
-    const label = (await trigger.getAttribute("aria-label"))?.replace(/^Account: /, "") ?? "";
+    // the button is named by a visually hidden text (no aria-label since axe 4.14's label-content-name-mismatch)
+    const label =
+      (await trigger.locator(".sr-only").textContent())?.replace(/^Account: /, "") ?? "";
+    expect(label).not.toBe("");
     await trigger.click();
 
     const menu = page.getByRole("menu");

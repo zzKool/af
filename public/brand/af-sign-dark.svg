@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 166.88 252.19">
+  <title>AnalyticsFab</title>
   <path fill="none" stroke-miterlimit="10" stroke-width="14" stroke="#E8EAEE" d="m87.62,199.64H21c-8.24,0-14.69-7.07-13.94-15.27L22.14,19.48c.65-7.07,6.7-12.48,13.94-12.48h11.23c7.25,0,13.3,5.41,13.94,12.48l26.37,180.16Z"/>
   <path fill="none" stroke-miterlimit="10" stroke-width="14" stroke="#EC4A64" d="m145.49,199.64H21c-8.24,0-14.69-7.07-13.94-15.27l5.12-55.94,127.6-57.04c9.26-4.14,19.71,2.64,19.71,12.78v101.48c0,7.73-6.27,14-14,14Z"/>
 </svg>

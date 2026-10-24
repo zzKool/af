@@ -80,17 +80,20 @@ describe("the ledger's strings (T009)", () => {
     ["en-GB", "en"],
     ["fr-CH", "fr"],
     ["sv-SE", "sv"],
-  ] as const)("%s: the four last headers and the blank label come from the dictionary", (locale, lang) => {
-    const { columns, valueLabel } = ledger(locale);
-    const header = Object.fromEntries(columns.map((c) => [c.key, c.header]));
-    expect(header).toMatchObject({
-      createdAt: translate(lang, "journal.col.created"),
-      updatedAt: translate(lang, "journal.col.updated"),
-      basCode: translate(lang, "journal.col.categoryCode"),
-      partnerId: translate(lang, "journal.col.partnerId"),
-    });
-    expect(valueLabel("basCode", null)).toBe(translate(lang, "common.blanks"));
-  });
+  ] as const)(
+    "%s: the four last headers and the blank label come from the dictionary",
+    (locale, lang) => {
+      const { columns, valueLabel } = ledger(locale);
+      const header = Object.fromEntries(columns.map((c) => [c.key, c.header]));
+      expect(header).toMatchObject({
+        createdAt: translate(lang, "journal.col.created"),
+        updatedAt: translate(lang, "journal.col.updated"),
+        basCode: translate(lang, "journal.col.categoryCode"),
+        partnerId: translate(lang, "journal.col.partnerId"),
+      });
+      expect(valueLabel("basCode", null)).toBe(translate(lang, "common.blanks"));
+    },
+  );
 
   it("a French user sees none of the old English", () => {
     const { columns, valueLabel } = ledger("fr-CH");

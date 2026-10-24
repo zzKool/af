@@ -282,15 +282,13 @@ describe("DocumentReviewClient", () => {
     expect(screen.queryByTestId("rerun-ocr")).not.toBeInTheDocument();
   });
 
-  it.each([
-    "uploaded",
-    "processing",
-    "ocr_failed",
-    "generated",
-  ])("does not offer Re-run OCR on a %s document (the inbox's Run OCR covers pending / failed)", (status) => {
-    render(<DocumentReviewClient data={makeReviewData({ status })} />);
-    expect(screen.queryByTestId("rerun-ocr")).not.toBeInTheDocument();
-  });
+  it.each(["uploaded", "processing", "ocr_failed", "generated"])(
+    "does not offer Re-run OCR on a %s document (the inbox's Run OCR covers pending / failed)",
+    (status) => {
+      render(<DocumentReviewClient data={makeReviewData({ status })} />);
+      expect(screen.queryByTestId("rerun-ocr")).not.toBeInTheDocument();
+    },
+  );
 
   // --- Archived (FR-001, T022) ---
   const makeItOptions = {

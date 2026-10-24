@@ -217,11 +217,10 @@ function UserMenu({ userLabel }: { userLabel: string }) {
   const t = useT();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className="ml-1 flex size-7 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        aria-label={`${t("shell.account")}: ${userLabel}`}
-      >
-        {initials(userLabel)}
+      <DropdownMenuTrigger className="ml-1 flex size-7 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+        {/* named by the hidden text, the initials are decoration (axe 4.14 label-content-name-mismatch) */}
+        <span className="sr-only">{`${t("shell.account")}: ${userLabel}`}</span>
+        <span aria-hidden>{initials(userLabel)}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {/* Base UI: a menu label is a group label — outside a Menu.Group it throws when the menu opens */}

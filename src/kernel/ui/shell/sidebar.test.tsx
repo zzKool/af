@@ -31,7 +31,7 @@ describe("Sidebar — counts of open work (F72)", () => {
     render(<Sidebar role={OWNER} counts={{ "/banking": 3 }} />);
     const banking = screen.getByRole("link", { name: "Banking" });
     expect(banking).toHaveAttribute("title", "Banking (3)");
-    expect(banking.textContent).toBe("");
+    expect(banking.textContent).toBe("Banking"); // the label, visually hidden — no number in the link
     expect(screen.getByRole("link", { name: "Journal" })).toHaveAttribute("title", "Journal");
   });
 
