@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { extractError } from "@/kernel/errors/extract-error";
@@ -25,6 +26,10 @@ import {
 import { useDocumentReviewStore } from "@/modules/documents/stores/use-document-review-store";
 
 const MAX_RETRIES = 3;
+/** while the OCR reads the document (a type change, a re-run), the page looks again every few seconds */
+const OCR_POLL_MS = 3000;
+const OCR_POLL_MAX = 60; // three minutes: past that the inbox's *stuck* takes over
+const READING = new Set(["uploaded", "processing"]);
 
 async function saveWithRetry(
   documentId: string,
@@ -70,6 +75,23 @@ export function DocumentReviewClient({
   const setCorrections = useDocumentReviewStore((s) => s.setCorrections);
   const setSaveStatus = useDocumentReviewStore((s) => s.setSaveStatus);
   const resetFromServer = useDocumentReviewStore((s) => s.resetFromServer);
+
+  const router = useRouter();
+  // the OCR is reading it (after a type change or a re-run): refresh until it is read or failed (D52)
+  const reading = READING.has(data.status);
+  useEffect(() => {
+    if (!reading) return;
+    let polls = 0;
+    const id = setInterval(() => {
+      polls += 1;
+      if (polls > OCR_POLL_MAX) {
+        clearInterval(id);
+        return;
+      }
+      router.refresh();
+    }, OCR_POLL_MS);
+    return () => clearInterval(id);
+  }, [reading, router]);
 
   // Initialize store from server data
   useEffect(() => {
@@ -155,6 +177,8 @@ export function DocumentReviewClient({
             </div>
           ) : (
             <DocumentReviewForm
+              // the fields are uncontrolled: a new reading (status, time) remounts them with its values
+              key={`${data.status}-${new Date(data.updatedAt).getTime()}`}
               data={data}
               resolvedData={resolvedData}
               prefixType={prefixType}

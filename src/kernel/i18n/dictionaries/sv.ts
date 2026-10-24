@@ -1402,6 +1402,7 @@ export const sv: Dictionary = {
   "documents.review.rerunOcr": "Kör OCR igen",
   "documents.review.rerunOcrConfirm":
     "OCR körs igen på dokumentet. Dina korrigeringar behålls; de extraherade uppgifterna ersätts av den nya läsningen.",
+  "documents.review.rereading": "{type} — OCR läser dokumentet igen",
   "documents.review.restored": "{key} är tillbaka i inkorgen",
   "documents.category.financial": "Ekonomiskt",
   "documents.category.relationship": "Relation",
@@ -1449,6 +1450,8 @@ export const sv: Dictionary = {
   "documents.preview.fit": "Anpassa",
   "documents.preview.page": "Sida {page}/{pages}",
   "documents.upload.type": "Dokumenttyp",
+  "documents.upload.typePlaceholder": "Välj typ…",
+  "documents.upload.chooseType": "Välj dokumenttyp först: den avgör hur OCR läser dokumentet",
   "documents.upload.zone": "Ladda upp dokument",
   "documents.upload.tap": "Tryck för att ladda upp",
   "documents.upload.drop": "Släpp filen här eller klicka för att bläddra",
