@@ -16,10 +16,8 @@ export default async function DashboardPage() {
   const auth = await requireCaller({ action: "read", subject: "dashboard" });
   const today = createClock().today();
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [header, prefs] = await Promise.all([
-      getDashboardData(prisma, tx, auth),
-      getUserPreferences(tx, auth),
-    ]);
+    const header = await getDashboardData(prisma, tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
     const since = header.lastLoginAt ? new Date(header.lastLoginAt) : null;
     const overview = await dashboardOverview(tx, auth, today, since);
     return { header, prefs, overview };

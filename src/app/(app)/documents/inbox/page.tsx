@@ -20,13 +20,12 @@ export default async function DocumentInboxPage() {
   const auth = await requireCaller({ action: "read", subject: "financial_document" });
   const canWrite = can(auth, "update", "financial_document");
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [inbox, prefs] = await Promise.all([listInbox(tx, auth), getUserPreferences(tx, auth)]);
+    const inbox = await listInbox(tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
     let options: MakeItOptions | null = null;
     if (canWrite) {
-      const [expense, supplier] = await Promise.all([
-        expensePageOptions(tx, auth, { documents: false, transactions: false }),
-        supplierInvoicePageOptions(tx, auth, { documents: false }),
-      ]);
+      const expense = await expensePageOptions(tx, auth, { documents: false, transactions: false });
+      const supplier = await supplierInvoicePageOptions(tx, auth, { documents: false });
       options = {
         expense: {
           groups: expense.groups,

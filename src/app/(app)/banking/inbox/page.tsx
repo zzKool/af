@@ -16,13 +16,11 @@ import { getUserPreferences } from "@/modules/settings";
 export default async function InboxPage() {
   const auth = await requireCaller({ action: "read", subject: "bank_transaction" });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [rows, documents, categories, partners, prefs] = await Promise.all([
-      inboxRows(tx),
-      unlinkedDocuments(tx),
-      categoryOptions(tx, auth),
-      partnerOptions(tx),
-      getUserPreferences(tx, auth),
-    ]);
+    const rows = await inboxRows(tx);
+    const documents = await unlinkedDocuments(tx);
+    const categories = await categoryOptions(tx, auth);
+    const partners = await partnerOptions(tx);
+    const prefs = await getUserPreferences(tx, auth);
     return { rows, documents, categories, partners, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

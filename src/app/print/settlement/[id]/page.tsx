@@ -17,10 +17,8 @@ export default async function PrintSettlementPage({ params, searchParams }: Para
   const { id } = await params;
   const caller = await requirePrintCaller(searchParams, `/print/settlement/${id}`);
   const data = await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
-    const [statement, prefs] = await Promise.all([
-      resolveStatement(tx, caller, id),
-      getUserPreferences(tx, caller),
-    ]);
+    const statement = await resolveStatement(tx, caller, id);
+    const prefs = await getUserPreferences(tx, caller);
     return { statement, locale: (prefs.data?.locale ?? null) as "en" | "fr" | null };
   });
   if (!data.statement) notFound();

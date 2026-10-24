@@ -63,7 +63,8 @@ export async function periodOverview(
   tx: TransactionClient,
   today: string,
 ): Promise<PeriodOverview[]> {
-  const [builds, first] = await Promise.all([listBuilds(tx), firstMonth(tx)]);
+  const builds = await listBuilds(tx);
+  const first = await firstMonth(tx);
   const thisMonth = monthOf(today);
   const months = monthsBetween(first && first < thisMonth ? first : thisMonth, thisMonth);
   const byPeriod = new Map<string, PackageBuildDto[]>();

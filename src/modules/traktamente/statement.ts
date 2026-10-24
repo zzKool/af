@@ -33,10 +33,10 @@ export async function resolvePerDiemStatement(
   if (!trip) return null;
   const result = parsePerDiemResult(trip.computed);
   if (!result) return null;
-  const [profile, expense] = await Promise.all([
-    settings.getTenantProfile(tx, caller),
-    trip.perDiemExpenseId ? expenses.getExpense(tx, trip.perDiemExpenseId) : Promise.resolve(null),
-  ]);
+  const profile = await settings.getTenantProfile(tx, caller);
+  const expense = trip.perDiemExpenseId
+    ? await expenses.getExpense(tx, trip.perDiemExpenseId)
+    : null;
   const dep = toLocal(trip.departureAt);
   const ret = toLocal(trip.returnAt);
   return {

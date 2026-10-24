@@ -1,7 +1,7 @@
 // The graph read model (constitution §1.2, D18): everything connected to one entity, breadth-first over the
 // `links` table up to `depth` hops, each node labelled by its module's linkable. A disposable view — nothing is
 // stored. Capped so a busy partner never returns the whole company.
-import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import { getLinkable } from "./linkable";
 import { linksTouching } from "./queries";
 import type { Graph, GraphEdge, GraphNode, LinkableType, LinkDto, LinkEndpoint } from "./types";
@@ -87,15 +87,13 @@ export async function neighbourhood(
     truncated = (await linksOf(tx, frontier)).some((l) => !edges.has(l.id));
   }
 
-  // labels through the linkables, in parallel per node (≤ maxNodes)
-  await Promise.all(
-    [...nodes.values()].map(async (n) => {
-      const s = await getLinkable(n.type)?.summary(tx, n.id);
-      n.label = s?.label ?? `${n.type} ${n.id.slice(0, 8)}`;
-      n.amount = s?.amount ?? null;
-      n.currency = s?.currency ?? null;
-    }),
-  );
+  // labels through the linkables, one node at a time (≤ maxNodes; one tx runs one query at a time, F53)
+  await mapInOrder([...nodes.values()], async (n) => {
+    const s = await getLinkable(n.type)?.summary(tx, n.id);
+    n.label = s?.label ?? `${n.type} ${n.id.slice(0, 8)}`;
+    n.amount = s?.amount ?? null;
+    n.currency = s?.currency ?? null;
+  });
   // an edge whose far end the cap cut is not drawn — the picture only shows what it names
   const kept = [...edges.values()]
     .filter((e) => nodes.has(e.from) && nodes.has(e.to))

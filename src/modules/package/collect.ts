@@ -8,7 +8,7 @@
 // invoice PDFs, the `created_from` documents, the per-diem breakdowns, the statements, the documents a row
 // justifies directly — each once, under its business key.
 import { Prisma } from "@/generated/prisma/browser";
-import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { settlementTolerance } from "@/kernel/money/settlement";
 import * as banking from "@/modules/banking";
@@ -86,12 +86,11 @@ export async function collectPeriod(
   const rows = [...mainRows, ...savingsRows];
   const rowIds = rows.map((r) => r.id);
   const rowById = new Map(rows.map((r) => [r.id, r]));
-  const [entries, rowLinks, rowStates] = await Promise.all([
-    journal.entriesForSources(tx, "bank_transaction", rowIds),
-    linking.linksTouching(tx, "bank_transaction", rowIds),
-    // the row's state with its allocation and transfer facts — banking's own derivation (lessons audit 23)
-    banking.transactionStates(tx, rowIds),
-  ]);
+  const entries = await journal.entriesForSources(tx, "bank_transaction", rowIds);
+  const rowLinks = await linking.linksTouching(tx, "bank_transaction", rowIds);
+  const rowStates =
+    await // the row's state with its allocation and transfer facts — banking's own derivation (lessons audit 23)
+    banking.transactionStates(tx, rowIds);
 
   // --- 2. what the rows point at ---
   const justified = new Map<string, Set<string>>(); // type → ids justified by a period row
@@ -111,13 +110,11 @@ export async function collectPeriod(
   const justifiedOf = (type: string): Set<string> => justified.get(type) ?? new Set();
 
   // --- 3. the entities: dated in the period ∪ justified by a period row ---
-  const [invoiceList, supplierList, expenseList, settlementList, ledger] = await Promise.all([
-    invoices.listInvoices(tx, ALL, today),
-    supplierInvoices.listSupplierInvoices(tx, ALL, { today }),
-    expenses.listExpenses(tx, ALL),
-    expenses.listSettlements(tx),
-    expenses.ledgerSnapshot(tx),
-  ]);
+  const invoiceList = await invoices.listInvoices(tx, ALL, today);
+  const supplierList = await supplierInvoices.listSupplierInvoices(tx, ALL, { today });
+  const expenseList = await expenses.listExpenses(tx, ALL);
+  const settlementList = await expenses.listSettlements(tx);
+  const ledger = await expenses.ledgerSnapshot(tx);
 
   const invoiceRows = invoiceList.rows.filter(
     (i) =>
@@ -146,23 +143,21 @@ export async function collectPeriod(
   settlementRows.sort((a, b) => a.number.localeCompare(b.number) || a.id.localeCompare(b.id));
 
   // --- 4. the entities' own links (documents they became from, the rows that paid them) ---
-  const [invoiceDetails, supplierLinks, expenseLinks, perDiemDocs] = await Promise.all([
-    Promise.all(invoiceRows.map((i) => invoices.getInvoice(tx, i.id, today))),
-    linking.linksTouching(
-      tx,
-      "supplier_invoice",
-      supplierRows.map((s) => s.id),
-    ),
-    linking.linksTouching(
-      tx,
-      "expense",
-      expenseRows.map((e) => e.id),
-    ),
-    traktamente.perDiemDocumentsFor(
-      tx,
-      expenseRows.filter((e) => e.kind === "per_diem").map((e) => e.id),
-    ),
-  ]);
+  const invoiceDetails = await mapInOrder(invoiceRows, (i) => invoices.getInvoice(tx, i.id, today));
+  const supplierLinks = await linking.linksTouching(
+    tx,
+    "supplier_invoice",
+    supplierRows.map((s) => s.id),
+  );
+  const expenseLinks = await linking.linksTouching(
+    tx,
+    "expense",
+    expenseRows.map((e) => e.id),
+  );
+  const perDiemDocs = await traktamente.perDiemDocumentsFor(
+    tx,
+    expenseRows.filter((e) => e.kind === "per_diem").map((e) => e.id),
+  );
 
   // --- 5. the documents ---
   const wanted = new Map<string, PackageFolder>(); // document id → folder

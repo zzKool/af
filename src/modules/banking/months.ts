@@ -144,20 +144,18 @@ export async function bankMonths(
   options: { today: string },
 ): Promise<BankMonthsOverview> {
   const thisMonth = options.today.slice(0, 7);
-  const [accounts, imports, firstRow] = await Promise.all([
-    tx.bankAccount.findMany({
-      orderBy: [{ role: "asc" }, { currency: "asc" }, { accountAlias: "asc" }],
-      select: { id: true, accountAlias: true, accountNumber: true, currency: true, role: true },
-    }),
-    tx.bankImport.findMany({
-      where: { periodFrom: { not: null }, periodTo: { not: null } },
-      select: { bankAccountId: true, periodFrom: true, periodTo: true },
-    }),
-    tx.bankTransaction.findFirst({
-      orderBy: { bookingDate: "asc" },
-      select: { bookingDate: true },
-    }),
-  ]);
+  const accounts = await tx.bankAccount.findMany({
+    orderBy: [{ role: "asc" }, { currency: "asc" }, { accountAlias: "asc" }],
+    select: { id: true, accountAlias: true, accountNumber: true, currency: true, role: true },
+  });
+  const imports = await tx.bankImport.findMany({
+    where: { periodFrom: { not: null }, periodTo: { not: null } },
+    select: { bankAccountId: true, periodFrom: true, periodTo: true },
+  });
+  const firstRow = await tx.bankTransaction.findFirst({
+    orderBy: { bookingDate: "asc" },
+    select: { bookingDate: true },
+  });
   const firstMonths = [
     addMonths(thisMonth, -(MONTHS_WINDOW - 1)),
     ...imports.flatMap((i) => (i.periodFrom ? [iso(i.periodFrom).slice(0, 7)] : [])),
@@ -168,19 +166,15 @@ export async function bankMonths(
   const start = new Date(`${from}-01T00:00:00Z`);
   const endExclusive = new Date(`${addMonths(thisMonth, 1)}-01T00:00:00Z`);
 
-  const [rows, built] = await Promise.all([
-    tx.bankTransaction.findMany({
-      where: { bookingDate: { gte: start, lt: endExclusive } },
-      select: { id: true, bankAccountId: true, bookingDate: true, amount: true },
-    }),
-    accountantPackage.builtPeriods(tx, months),
-  ]);
+  const rows = await tx.bankTransaction.findMany({
+    where: { bookingDate: { gte: start, lt: endExclusive } },
+    select: { id: true, bankAccountId: true, bookingDate: true, amount: true },
+  });
+  const built = await accountantPackage.builtPeriods(tx, months);
 
   const ids = rows.map((r) => r.id);
-  const [entries, links] = await Promise.all([
-    journal.entriesForSources(tx, "bank_transaction", ids),
-    linking.linksTouching(tx, "bank_transaction", ids),
-  ]);
+  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
+  const links = await linking.linksTouching(tx, "bank_transaction", ids);
   const facts = linkFactsOf(links);
 
   const covered = new Map<string, Set<string>>();
