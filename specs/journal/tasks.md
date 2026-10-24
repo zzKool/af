@@ -21,12 +21,17 @@ Spec: `spec.md`. No `plan.md` (D45: a plan only on a schema change) and no phase
 
 - [x] T011 Adopt the D40 kit on `/journal` (F71, 2026-10-23): the derived *Proof* through `state-family.ts` + `JournalProofLabel` (the cell and the panel title), money through `formatMoney` with `data-amount` (no palette green — `text-state-done` for money in), the source / account and the BAS code as `<Tag>`s (`basName` drops the code from the words beside it), the counterparty key as a `<CodeChip>`, ⋮ `rowActions` (a bank entry: *Open the bank row*; a manual entry, owner: *Delete entry* through `ConfirmDialog`), the panel as `DetailsSection`s — About · Proof · Categorisation · **History** (collapsed; `history.ts` reads the entry's audit trail: created, then each change of the owner's facts, *by a rule* when a rule wrote it) —, *New entry* as the one primary in the title row (`NewEntryButton`), Date and Account (`accountAlias`, a derived column; a manual entry under *Manual*) as quick filters. Touches **i18n** (7 `journal.*` keys, en / fr / sv). LIGHT
 
+## Phase 3: Round 3 hygiene (2026-10-24)
+
+- [x] T012 `rate_source` VarChar + CHECK → one Postgres enum `rate_source` shared with expenses and supplier invoices (`bank` refused in the journal by `journal_entries_rate_source_check`); `partner_default` dropped from `journal_categorised_by` (migration `20261024120000_rate_source_enum`, refuses to run if a row holds it). The mappers stop casting: `journalRateSource` narrows the stored enum (throws on `bank`), the DTO lists are pinned to the enum by `rate-source.pure.test.ts` in the three modules. Counts per value identical before / after on the seed + one fixture row per value (17 / 17). Left in banking's lane: `history.ts:33` still lists `partner_default`, so the read type `CategorisedBy` keeps it. DIRECT · **schema** (lessons *Left for round 3* #7, F67)
+- [x] T013 `positiveRate` (up to 6 decimals, > 0) from `kernel/validation/scalars.ts`; journal's, expenses' and supplier invoices' copies removed, same messages. DIRECT (F50-j)
+
 Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never disagree:
 
 - banking reads `journal_entries` itself (`banking/rules.ts:450` `uncategorisedTargets`) and settings keeps a commented-out count → **F66** (audit 24; settings' count deleted 2026-10-23, lane 9 — the base-currency lock is F70's) — *journal's read API built 2026-10-23: `uncategorisedEntries(tx, sourceType, limit)`; banking's caller moves in its lane*
 - `base.pure.test.ts` checks `baseAmount` with its own expression (SC-001's property test proves nothing) → **F67** (audit 31)
 - `partner_default` never written; a SEK manual entry with rate `1.000000` refused by string compare → **F67** (audit 32) — *journal's part built 2026-10-23: the rate compared as a Decimal; `partner_default` **removed** (a partner-only rule writes `rule` with its `rule_id`, T002 writes `manual`): `categorise` no longer accepts it, journal's own reads drop it; the read type keeps it until banking's `history.ts:33` / `transaction-table.tsx:380` stop listing it, then the enum value and its three i18n keys go with F67's schema PR*
 - `rate_source` VarChar + CHECK and a second `RateSource` type → **F67** (audit 30)
-- `positiveRate` declared in three modules → **F50-j**
+- ~~`positiveRate` declared in three modules → **F50-j**~~ — T013
 - `SEK` / `BASE_CURRENCY` in the service, the footer sum and the panel → **F70** (D39)
 - the D40 kit (states, on-screen money) → **F71** (built: T011)

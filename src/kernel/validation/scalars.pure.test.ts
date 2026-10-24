@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { basCode, isoDate, money, positiveMoney, uuid } from "./scalars";
+import { basCode, isoDate, money, positiveMoney, positiveRate, uuid } from "./scalars";
 
 const ok = (s: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
   s.safeParse(v).success;
@@ -34,6 +34,14 @@ describe("kernel/validation scalars", () => {
     expect(ok(positiveMoney, "0.00")).toBe(false);
     expect(message(positiveMoney, "0")).toBe("The amount must be positive");
     expect(message(positiveMoney, "1.234")).toBe("Use digits with up to 2 decimals");
+  });
+
+  it("positiveRate: digits with up to 6 decimals, strictly above zero (F50-j)", () => {
+    for (const v of ["1", "11.1", "0.000001", "11.899657"]) expect(ok(positiveRate, v)).toBe(true);
+    for (const v of ["0", "0.000000", "-1", "1.1234567", "1,5", "", "1."])
+      expect(ok(positiveRate, v)).toBe(false);
+    expect(message(positiveRate, "1.1234567")).toBe("Use digits with up to 6 decimals");
+    expect(message(positiveRate, "0")).toBe("The rate must be positive");
   });
 
   it("basCode: 3 or 4 digits", () => {

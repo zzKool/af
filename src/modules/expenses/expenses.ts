@@ -11,7 +11,14 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
-import { basCode, isoDate, money, positiveMoney, uuid } from "@/kernel/validation/scalars";
+import {
+  basCode,
+  isoDate,
+  money,
+  positiveMoney,
+  positiveRate,
+  uuid,
+} from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
@@ -33,11 +40,6 @@ const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
 // --- Zod schemas (the boundary) ---
-
-const positiveRate = z
-  .string()
-  .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
-  .refine((v) => Number(v) > 0, "The rate must be positive");
 
 export const duplicateAckSchema = z.object({
   entityIds: z.array(uuid).min(1).max(5),
@@ -108,7 +110,7 @@ export function toExpenseDto(row: Expense): ExpenseDto {
     vatRegistrationId: row.vatRegistrationId,
     amountBase: row.amountBase.toFixed(2),
     rate: row.rate.toString(),
-    rateSource: row.rateSource as ExpenseRateSource,
+    rateSource: row.rateSource,
     rateDate: iso(row.rateDate),
     baseProvisional: row.baseProvisional,
     paidAmount: row.paidAmount ? row.paidAmount.toFixed(2) : null,

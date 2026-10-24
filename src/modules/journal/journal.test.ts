@@ -162,6 +162,25 @@ describe("US1 — every bank row is a journal entry", () => {
     });
   });
 
+  it("rate_source is the shared enum, never `bank` in the journal; partner_default is gone (F67)", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const insert = (source: string, by = "NULL") =>
+      run(caller, (tx) =>
+        tx.$executeRawUnsafe(
+          `INSERT INTO journal_entries (tenant_id, source_type, entry_date, description, amount, currency,
+             amount_base, rate, rate_source, categorised_by, updated_at, created_by)
+           VALUES ('${caller.tenantId}', 'manual', '2026-07-08', 'x', 10, 'EUR', 111, 11.1, '${source}', ${by},
+             now(), '${caller.userId}')`,
+        ),
+      );
+    await expect(insert("bank")).rejects.toThrow(/journal_entries_rate_source_check/);
+    await expect(insert("ecb")).rejects.toThrow(/invalid input value for enum rate_source/);
+    await expect(insert("manual", "'partner_default'")).rejects.toThrow(
+      /invalid input value for enum journal_categorised_by/,
+    );
+    await expect(insert("ecb_nearest", "'rule'")).resolves.toBe(1);
+  });
+
   it("scenario 4: one entry per source", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const id = uuid();

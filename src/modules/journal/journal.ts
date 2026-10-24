@@ -11,11 +11,12 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
-import { basCode, isoDate, uuid } from "@/kernel/validation/scalars";
+import { basCode, isoDate, positiveRate, uuid } from "@/kernel/validation/scalars";
 import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import { withImplicitRates } from "./implicit-rate";
+import { journalRateSource } from "./rate-source";
 import type {
   BankEntryInput,
   CategorisedBy,
@@ -56,11 +57,6 @@ export function baseAmount(amount: Dec | string, rate: Dec | string): Dec {
 // --- Zod schemas (the boundary) ---
 
 const signedMoney = z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Use digits with up to 2 decimals");
-const positiveRate = z
-  .string()
-  .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
-  .refine((v) => Number(v) > 0, "The rate must be positive");
-
 export const bankEntrySchema = z.object({
   sourceId: uuid,
   entryDate: isoDate,
@@ -109,7 +105,7 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     currency: row.currency,
     amountBase: row.amountBase.toFixed(2),
     rate: row.rate.toString(),
-    rateSource: row.rateSource as RateSource,
+    rateSource: journalRateSource(row.rateSource),
     rateDate: iso(row.rateDate),
     // derived from the transfer link on read (T005, `withImplicitRates`); never stored (F86 dropped the column)
     bankImplicitRate: null,
@@ -117,7 +113,7 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     partnerId: row.partnerId,
     note: row.note,
     noDocumentNeeded: row.noDocumentNeeded,
-    categorisedBy: (row.categorisedBy as CategorisedBy | null) ?? null,
+    categorisedBy: row.categorisedBy,
     ruleId: row.ruleId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

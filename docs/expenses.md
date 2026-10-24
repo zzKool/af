@@ -11,7 +11,7 @@ expense_groups     number (series `expense_group`, never reused) · description 
 payment_sources    label (unique) · kind ∈ bank_account | private · bank_account_id? (validated UUID) · currency · is_active · owner_user_id?
 expenses           group_id (FK) · key (`Ex213-Tr-01`, unique) · seq · alias (snapshot) · kind ∈ receipt | per_diem | vat_payment
                    date · description · bas_code · amount (> 0) · currency · vat_amount? · vat_registration_id?
-                   amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | bank | manual · rate_date?
+                   amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | bank | manual (the shared Postgres enum, F67) · rate_date?
                    base_provisional · paid_amount? / paid_currency? (the bank row's, once attached) · payment_source_id (FK)
                    document_missing · partner_id? (F87: a vendor, validated UUID through partners, no FK; CHECK: never on a per_diem) · note?
 settlements        number (`ST26-001`, series `ST{yy}`) · bank_transaction_id (validated; one active per row) · payment_source_id (FK)

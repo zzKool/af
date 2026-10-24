@@ -83,7 +83,7 @@ export async function rebase(
     data: {
       amountBase: baseAmount(next.total, row.rate),
       rate: row.rate,
-      rateSource: row.rateSource as SupplierInvoiceRateSource,
+      rateSource: row.rateSource,
       rateDate: iso(row.rateDate),
     },
   };
