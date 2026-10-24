@@ -46,6 +46,28 @@ jobs:
             echo "mtags=$image-migrate:main,$image-migrate:sha-$short" >> "$GITHUB_OUTPUT"
             echo "version=sha-$short" >> "$GITHUB_OUTPUT"
           fi
+      # the image must boot before it is published: a dependency can break the standalone output while every
+      # PR check stays green (playwright-core 1.64, 2026-10-24 — the app answered 500 on every request)
+      - name: app image (local, for the smoke test)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runner
+          load: true
+          tags: af-smoke:local
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+      - name: smoke — the image boots and /api/health answers JSON
+        run: |
+          docker run -d --name smoke -p 3000:3000 -e JOBS_DISABLED=1 \
+            -e DATABASE_URL=postgresql://smoke:smoke@127.0.0.1:1/smoke \
+            -e AUTH_SECRET=smoke-smoke-smoke-smoke-smoke-smoke-32 -e AUTH_URL=http://127.0.0.1:3000 \
+            af-smoke:local
+          body=""
+          for i in $(seq 1 30); do body=$(curl -s localhost:3000/api/health || true); [ -n "$body" ] && break; sleep 2; done
+          echo "health: $body"; docker logs smoke 2>&1 | tail -20
+          # 200 ok or 503 "db down" both prove a booted app (no database here); "Internal Server Error" does not
+          echo "$body" | grep -q '"status"'
       - name: app image
         uses: docker/build-push-action@v7
         with:
