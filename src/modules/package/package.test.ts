@@ -40,6 +40,7 @@ import {
   listMonths,
   livePreview,
   monthDateHierarchy,
+  periodFlags,
   periodOverview,
 } from "./queries";
 import { summaryRows } from "./summary";
@@ -637,6 +638,108 @@ describe("the build job (FR-005, SC-001, SC-002)", () => {
 });
 
 const build2 = () => build("2026-06");
+
+describe("F83 — periodFlags: the flags without the package (the dashboard's item)", () => {
+  const both = (period: string, today: string) =>
+    run(owner.caller, async (tx) => ({
+      preview: (await livePreview(tx, period, today)).flags,
+      flags: await periodFlags(tx, period, today),
+    }));
+
+  it("the fixture month: the same flags as livePreview, in the same order", async () => {
+    await juneFixture();
+    const { preview, flags } = await both("2026-06", TODAY);
+    expect(preview.length).toBeGreaterThan(0);
+    expect(flags).toEqual(preview);
+    // every kind the month raises comes through the narrow read too
+    expect(new Set(flags.map((f) => f.kind))).toEqual(new Set(preview.map((f) => f.kind)));
+  });
+
+  it("what a period row justifies from another month is found (the date window widens to it); an empty month has none", async () => {
+    const f = await juneFixture();
+    const caller = owner.caller;
+    await rate("2026-07-03");
+    await run(caller, async (tx) => {
+      const vendor = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+        name: "Invented Hosting AB",
+        types: ["vendor"],
+        defaultCurrency: "SEK",
+      });
+      const batch = await expenses.createGroup(tx, caller, noopAudit, {
+        description: "2026-04 — April",
+        kind: "batch",
+      });
+      // a May supplier invoice without its document, an April card expense without its receipt
+      const si = await supplierInvoices.createSupplierInvoice(tx, caller, noopAudit, {
+        groupId: batch.data?.id as string,
+        partnerId: vendor.id,
+        invoiceNumber: "H-77",
+        invoiceDate: "2026-05-10",
+        amountNet: "400.00",
+        vatAmount: "100.00",
+        amountTotal: "500.00",
+        basCode: "653",
+      });
+      if (si.error) throw new Error(si.error.message);
+      const card = await expenses.createExpense(tx, caller, noopAudit, {
+        groupId: batch.data?.id as string,
+        date: "2026-04-14",
+        description: "Invented software",
+        basCode: "580",
+        amount: "150.00",
+        currency: "SEK",
+        paymentSourceId: owner.sources.afSek.id,
+      });
+      if (card.error) throw new Error(card.error.message);
+      // the June client payment moves out: July's ten francs leave the June invoice open
+      await linking.removeLink(
+        tx,
+        caller,
+        noopAudit,
+        (await linking.getLinksFor(tx, { type: "invoice", id: f.invoiceId })).data?.[0]
+          ?.id as string,
+      );
+      // July pays all three: the May invoice, the April expense, ten francs of the June client invoice
+      const [hosting, software] = await importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-02", amount: "-500.00", name: "INVENTED HOSTING", message: "H-77" },
+        { date: "2026-07-03", amount: "-150.00", name: "INVENTED SOFTWARE" },
+      ]);
+      const [client] = await importRows(tx, caller, owner.accounts.chf, "CHF", [
+        { date: "2026-07-03", amount: "10.00", name: "VAUDOISE", message: f.invoiceNumber },
+      ]);
+      const paid = await supplierInvoices.recordPayment(tx, caller, noopAudit, {
+        invoiceId: si.data.id,
+        bankTransactionId: hosting as string,
+      });
+      if (paid.error) throw new Error(paid.error.message);
+      const attached = await expenses.attachBankTransaction(tx, caller, noopAudit, {
+        expenseId: card.data.id,
+        bankTransactionId: software as string,
+      });
+      if (attached.error) throw new Error(attached.error.message);
+      const short = await linking.createLink(tx, caller, noopAudit, {
+        from: { type: "bank_transaction", id: client as string },
+        to: { type: "invoice", id: f.invoiceId },
+        kind: "justifies",
+        allocatedAmount: "10.00",
+        currency: "CHF",
+      });
+      if (short.error) throw new Error(short.error.message);
+    });
+    const july = await both("2026-07", "2026-08-01");
+    expect(july.flags).toEqual(july.preview);
+    // dated in April, May and June — selected only because a July row justifies them
+    expect(july.flags.map((x) => [x.kind, x.entity])).toEqual(
+      expect.arrayContaining([
+        ["unpaid_invoice", "invoice"],
+        ["missing_document", "supplier_invoice"],
+        ["missing_document", "expense"],
+      ]),
+    );
+    const august = await both("2026-08", "2026-09-01");
+    expect(august).toEqual({ preview: [], flags: [] });
+  });
+});
 
 describe("the savings export (D31) and the year package", () => {
   it("the savings CSV joins the package of the month it was imported in, not of its booking dates", async () => {

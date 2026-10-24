@@ -22,4 +22,4 @@ Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never
 - ~~`dashboard.ts:75-76` reads `partner` and `contract` directly for two fields no page renders → **F66** (lessons audit 25)~~ — deleted with T001 (2026-10-23)
 - `"SEK"` written as the pulse's and the items' currency (payables, liability, invoiced this year, amounts) → **F70** (D39)
 - ~~money on screen through `formatCurrency` + the code (three money formats on one dashboard), the priority badges' palette colours → **F71** (D40 kit; lessons *small inconsistencies*)~~ — T007 (2026-10-23)
-- rows to justify read as a full list, last month's flags as the whole package preview → **F82**, **F83** (F55; only if the page feels slow after B1)
+- ~~rows to justify read as a full list, last month's flags as the whole package preview → **F82**, **F83**~~ — 2026-10-24: `banking.rowsToJustifyCount`, `package.periodFlags` ([[dashboard]] *Speed*)
