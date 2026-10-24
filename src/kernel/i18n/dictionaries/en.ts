@@ -1540,6 +1540,7 @@ export const en = {
   "documents.review.rerunOcr": "Re-run OCR",
   "documents.review.rerunOcrConfirm":
     "The OCR runs again on this document. Your corrections stay; the extracted facts are replaced by the new reading.",
+  "documents.review.rereading": "{type} — the OCR reads the document again",
   "documents.review.restored": "{key} is back in the inbox",
   "documents.category.financial": "Financial",
   "documents.category.relationship": "Relationship",
@@ -1586,6 +1587,8 @@ export const en = {
   "documents.preview.fit": "Fit",
   "documents.preview.page": "Page {page}/{pages}",
   "documents.upload.type": "Document type",
+  "documents.upload.typePlaceholder": "Choose the type…",
+  "documents.upload.chooseType": "Choose the document type first: it decides how the OCR reads it",
   "documents.upload.zone": "Upload document",
   "documents.upload.tap": "Tap to upload",
   "documents.upload.drop": "Drop file here or click to browse",

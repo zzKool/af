@@ -237,3 +237,15 @@ export function uploadDocumentKey(kind: UploadKind, date: string, seq: number): 
   assertSeq(seq);
   return `${UPLOAD_KIND_PREFIX[kind]}${date.replace(/-/g, "")}_${pad(seq, 3)}`;
 }
+
+const UPLOAD_KEY = /^(exp|inv|ctrt|nda|cert)_(\d{8}_\d{3,})$/;
+
+/**
+ * The same provisional key for another kind (D52): `exp_20261020_001` → `inv_20261020_001` — same date, same
+ * number (the `doc-yyyy-mm` series is shared by every kind, so it stays unique). Null when `key` is not a
+ * provisional upload key (a final key, a generated document's) — that key does not follow the type.
+ */
+export function reprefixUploadKey(key: string, kind: UploadKind): string | null {
+  const m = UPLOAD_KEY.exec(key);
+  return m ? `${UPLOAD_KIND_PREFIX[kind]}${m[2]}` : null;
+}

@@ -21,6 +21,7 @@ const stamp = String(Date.now()).slice(-6);
 const pdf = (label: string) => Buffer.from(`%PDF-1.4 e2e-inbox-${stamp}-${label}`);
 
 async function upload(page: Page, name: string, bytes: Buffer) {
+  await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
   await page.locator('input[type="file"]').setInputFiles({
     name,
     mimeType: "application/pdf",

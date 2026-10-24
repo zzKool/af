@@ -16,6 +16,7 @@ import {
   packageKey,
   quoteNumber,
   quoteSeries,
+  reprefixUploadKey,
   settlementNumber,
   settlementSeries,
   statementPdfKey,
@@ -116,6 +117,16 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(isUploadKind("nda")).toBe(true);
     expect(isUploadKind("receipt")).toBe(false);
     expect(Object.values(UPLOAD_KIND_PREFIX)).toEqual(["exp_", "inv_", "ctrt_", "nda_", "cert_"]);
+  });
+
+  it("a provisional key follows the kind: same date, same number (D52); a final key does not", () => {
+    expect(reprefixUploadKey("exp_20261020_001", "invoice")).toBe("inv_20261020_001");
+    expect(reprefixUploadKey("inv_20261020_014", "expense")).toBe("exp_20261020_014");
+    expect(reprefixUploadKey("ctrt_20261020_1234", "nda")).toBe("nda_20261020_1234");
+    expect(reprefixUploadKey("exp_20261020_001", "expense")).toBe("exp_20261020_001");
+    expect(reprefixUploadKey("Ex213-Tr-01_2026-03-10_", "invoice")).toBeNull();
+    expect(reprefixUploadKey("InvoiceAF_VA26-INV-001", "expense")).toBeNull();
+    expect(reprefixUploadKey("exp_2026102_001", "invoice")).toBeNull();
   });
 
   it("validates its inputs instead of producing garbage keys", () => {

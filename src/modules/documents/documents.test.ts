@@ -972,6 +972,104 @@ describe("documents service", () => {
 
       await assertAuditLogged(adminPool, tenantId, "update", "document", docId);
     });
+
+    // D52: the type drives the reading — before the review the key follows the type and the new model reads it again
+    async function readExpense(name: string) {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          PDF_BUFFER,
+          name,
+          "expense",
+        );
+        return stored(r).id;
+      });
+      // the receipt model read it; the owner corrected the vendor
+      await adminPool.query(
+        `UPDATE documents SET status = 'extracted', corrections = '{"vendorName":"Northwind Cloud Inc."}'::jsonb WHERE id = $1`,
+        [docId],
+      );
+      const key = (
+        await adminPool.query(`SELECT business_key FROM documents WHERE id = $1`, [docId])
+      ).rows[0].business_key as string;
+      const classify = (kind: string) =>
+        withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          return documentService.classifyDocument(tx, owner.callerIdentity, audit, docId, kind);
+        });
+      const row = async () =>
+        (
+          await adminPool.query(
+            `SELECT business_key, status, prefix_type, corrections FROM documents WHERE id = $1`,
+            [docId],
+          )
+        ).rows[0];
+      return { owner, tenantId, docId, key, classify, row };
+    }
+
+    it("expense → invoice before the review: inv_ key, same date and number; read again; corrections kept", async () => {
+      const { key, classify, row, docId } = await readExpense("type-reread.pdf");
+      expect(key).toMatch(/^exp_\d{8}_\d{3}$/);
+
+      const result = await classify("invoice");
+
+      const expected = key.replace(/^exp_/, "inv_");
+      expect(result.data).toMatchObject({
+        prefixType: "invoice",
+        businessKey: expected,
+        reread: true,
+      });
+      const after = await row();
+      expect(after.business_key).toBe(expected);
+      expect(after.status).toBe("uploaded"); // the job reads it with prebuilt-invoice
+      expect(after.corrections).toEqual({ vendorName: "Northwind Cloud Inc." });
+
+      // and back: the same key again
+      await adminPool.query(`UPDATE documents SET status = 'extracted' WHERE id = $1`, [docId]);
+      const back = await classify("expense");
+      expect(back.data).toMatchObject({ businessKey: key, reread: true });
+    });
+
+    it("a kind with the same model swaps the key but is not read again (contract → nda: layout)", async () => {
+      const { classify, row, docId } = await readExpense("type-same-model.pdf");
+      await classify("contract");
+      await adminPool.query(`UPDATE documents SET status = 'extracted' WHERE id = $1`, [docId]);
+
+      const result = await classify("nda");
+
+      expect(result.data?.reread).toBe(false);
+      expect(result.data?.businessKey).toMatch(/^nda_\d{8}_\d{3}$/);
+      expect((await row()).status).toBe("extracted");
+    });
+
+    it("after the review a type change is a label only: the key and the reading stay", async () => {
+      const { key, classify, row, docId } = await readExpense("type-reviewed.pdf");
+      await adminPool.query(`UPDATE documents SET reviewed_at = NOW() WHERE id = $1`, [docId]);
+
+      const result = await classify("invoice");
+
+      expect(result.data).toMatchObject({ prefixType: "invoice", businessKey: key, reread: false });
+      const after = await row();
+      expect(after.business_key).toBe(key);
+      expect(after.status).toBe("extracted");
+    });
+
+    it("a document still queued is not re-queued: the job reads the new type when it runs", async () => {
+      const { classify, docId } = await readExpense("type-queued.pdf");
+      await adminPool.query(`UPDATE documents SET status = 'uploaded' WHERE id = $1`, [docId]);
+
+      const result = await classify("invoice");
+
+      expect(result.data?.reread).toBe(false);
+      expect(result.data?.businessKey).toMatch(/^inv_/);
+    });
   });
 
   describe("reverseChargeDocumentIds (D54, F91)", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
+import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import { classifyDocumentAction } from "@/modules/documents/documents.actions";
 
@@ -33,6 +35,7 @@ export function DocumentClassificationSection({
   onClassificationChange,
 }: DocumentClassificationSectionProps) {
   const t = useT();
+  const router = useRouter();
   const isFinancial = prefixType === "expense" || prefixType === "invoice";
   const category = isFinancial ? "financial" : "relationship";
 
@@ -49,8 +52,18 @@ export function DocumentClassificationSection({
         return;
       }
       onClassificationChange(newPrefixType);
+      // the type drives the reading (D52): the key follows it and the new kind's model reads the document again
+      const done = result?.data?.data;
+      if (done?.reread) {
+        toast.success(
+          t("documents.review.rereading", {
+            type: t(`documents.prefix.${newPrefixType}` as MessageKey),
+          }),
+        );
+      }
+      router.refresh();
     },
-    [documentId, onClassificationChange],
+    [documentId, onClassificationChange, router, t],
   );
 
   const handleCategoryChange = useCallback(

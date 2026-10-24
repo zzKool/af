@@ -13,6 +13,7 @@ test.describe("Document Library", () => {
 
     // upload a PDF — Azurite must be running (CI and local)
     const stamp = crypto.randomUUID().slice(0, 8); // not the clock: parallel journeys, same millisecond
+    await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
     await page.locator('input[type="file"]').setInputFiles({
       name: `e2e-library-${stamp}.pdf`,
       mimeType: "application/pdf",
@@ -24,6 +25,7 @@ test.describe("Document Library", () => {
 
     // the same bytes again: the card, nothing stored (specs/documents US2); "Upload another" clears it
     await page.getByRole("button", { name: "Upload another" }).click();
+    await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
     await page.locator('input[type="file"]').setInputFiles({
       name: `e2e-library-${stamp}-copy.pdf`,
       mimeType: "application/pdf",
@@ -105,6 +107,7 @@ test.describe("Document Library", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Upload document" })).toBeVisible();
     const stamp = crypto.randomUUID().slice(0, 8);
+    await dialog.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
     await dialog.locator('input[type="file"]').setInputFiles({
       name: `e2e-new-${stamp}.pdf`,
       mimeType: "application/pdf",

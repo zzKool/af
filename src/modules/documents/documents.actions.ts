@@ -151,13 +151,26 @@ export const classifyDocumentAction = authedAction
   .schema(classifySchema)
   .metadata({ name: "classifyDocument" })
   .action(async ({ ctx, parsedInput }) => {
-    return documentService.classifyDocument(
+    const result = await documentService.classifyDocument(
       ctx.tx,
       ctx.callerIdentity,
       ctx.audit,
       parsedInput.documentId,
       parsedInput.documentType,
     );
+    // the type drives the reading (D52): the new kind's model reads it again, queued after the commit
+    if (result.data?.reread) {
+      const { tenantId, userId } = ctx.callerIdentity;
+      const documentId = parsedInput.documentId;
+      ctx.onCommit(async () => {
+        await enqueue(
+          processDocumentJob,
+          { tenantId, userId, documentId },
+          { singletonKey: documentId },
+        );
+      });
+    }
+    return result;
   });
 
 export const markDocumentReviewedAction = authedAction

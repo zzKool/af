@@ -87,6 +87,11 @@ const MODEL_MAP: Record<string, string> = {
   certificate: "prebuilt-layout",
 };
 
+/** The Document Intelligence model a kind is read with — a type change re-reads only when this differs (D52). */
+export function ocrModelFor(prefixType: string): string {
+  return MODEL_MAP[prefixType] ?? "prebuilt-layout";
+}
+
 // --- Field extraction helpers (typed, no `any`) ---
 
 function extractStringValue(field?: DocumentFieldOutput): string | undefined {
