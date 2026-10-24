@@ -17,7 +17,7 @@ The runtime image carries no Prisma CLI and no migrations engine — the app nev
 
 ## The homelab (production)
 
-The owner's box, step by step (Proxmox, the encrypted app VM, Tailscale, backups, OCR keys): [[homelab-proxmox]]. The generic path below works on any Linux box with Docker. The first time:
+Any Linux box with Docker. The first time:
 
 ```bash
 sudo mkdir -p /opt/af && cd /opt/af
