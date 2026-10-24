@@ -94,5 +94,11 @@
     "typescript": "^5",
     "vitest": "^4.0.18",
     "wait-on": "^9.0.4"
+  },
+  "allowScripts": {
+    "@prisma/engines": true,
+    "prisma": true,
+    "esbuild": true,
+    "@sentry/cli": true
   }
 }

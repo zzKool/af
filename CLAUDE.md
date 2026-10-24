@@ -55,6 +55,6 @@ The owner's real company data (partners, amounts, bank rows, documents, invoices
 - Do attach a screenshot of every new page and every generated PDF to the PR (definition of done §4.5) — on seed data only (D51).
 - Do keep the architecture guard green; if a rule blocks you, propose a constitution change, don't work around it.
 - Don't add a setting, a config engine or a generic framework for a single use.
-- Don't touch `schema.prisma`, nav constants or i18n dictionaries in parallel with another branch.
+- Don't touch `schema.prisma`, nav constants, i18n dictionaries or `package.json` in parallel with another branch.
 - Don't copy code from `af_core` or v2 history; harvest behaviour and tests into specs.
 - Ask before anything irreversible: migrations that drop data, deleting documents, changing numbering series.
