@@ -16,6 +16,11 @@ export const auth = betterAuth({
     organization({
       allowUserToCreateOrganization: true,
       creatorRole: "owner",
+      // better-auth 1.7 asks for a verified email before accepting an invitation when ids come from the
+      // database (`generateId: false`), taking them for predictable. Ours are `gen_random_uuid()` (v4, random),
+      // the accept still checks the invitation's email against the session's, and v1 sends no email to verify
+      // with (D14, A2) — so the 1.5 behaviour is kept explicitly (F52).
+      requireEmailVerificationOnInvitation: false,
       organizationHooks: {
         afterCreateOrganization: async ({ organization: org }) => {
           // Uses a transaction with SET LOCAL to bypass RLS on the tenants table.
@@ -37,10 +42,11 @@ export const auth = betterAuth({
     }),
     nextCookies(),
   ],
-  experimental: { joins: true },
   advanced: {
     database: {
       generateId: false,
+      // was `experimental.joins` until better-auth 1.7 (F52)
+      joins: true,
     },
   },
 });
