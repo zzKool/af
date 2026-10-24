@@ -55,7 +55,9 @@ vi.mock("@/kernel/ocr/ocr", () => ({
 }));
 
 // Import after mocks
-const { processDocumentJob } = await import("@/modules/documents/jobs/process-document");
+const { processDocumentJob, isReachableAzureBlob } = await import(
+  "@/modules/documents/jobs/process-document"
+);
 const { parseOcrPayload } = await import("@/modules/documents/ocr-payload");
 
 const data = { tenantId: "tenant-1", userId: "user-1", documentId: "doc-1" };
@@ -367,5 +369,66 @@ describe("processDocument dead-letter handler (after the last retry)", () => {
     await deadLetter();
 
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("the OCR source: bytes unless the blob is in real Azure Storage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ["http://127.0.0.1:10000/devstoreaccount1/documents/t/f.pdf", false],
+    ["http://localhost:10000/devstoreaccount1/documents/t/f.pdf", false],
+    // the prod compose: Azurite by its service name — Azure DI can never reach it
+    ["http://azurite:10000/devstoreaccount1/documents/t/f.pdf", false],
+    ["https://afprod.blob.core.windows.net/documents/t/f.pdf", true],
+    ["http://afprod.blob.core.windows.net/documents/t/f.pdf", false],
+    ["https://blob.core.windows.net.evil.example/documents/t/f.pdf", false],
+    ["not a url", false],
+  ])("%s → reachable %s", (url, expected) => {
+    expect(isReachableAzureBlob(url)).toBe(expected);
+  });
+
+  it("sends the bytes for a document stored in the compose's Azurite", async () => {
+    const doc = {
+      ...baseDocument,
+      blobUrl: "http://azurite:10000/devstoreaccount1/documents/tenant-1/file.pdf",
+    };
+    mockFindUnique
+      .mockResolvedValueOnce(doc)
+      .mockResolvedValueOnce({ ...doc, status: "processing" });
+    mockUpdate.mockResolvedValue({});
+    mockAnalyzeDocument.mockResolvedValue(successOcrResult);
+
+    await run();
+
+    expect(mockDownloadBlob).toHaveBeenCalledWith("tenant-1/file.pdf");
+    expect(mockGenerateSasUrl).not.toHaveBeenCalled();
+    expect(mockAnalyzeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "buffer" }),
+      "invoice",
+    );
+  });
+
+  it("sends a SAS link for a document in Azure Storage", async () => {
+    const doc = {
+      ...baseDocument,
+      blobUrl: "https://afprod.blob.core.windows.net/documents/tenant-1/file.pdf",
+    };
+    mockFindUnique
+      .mockResolvedValueOnce(doc)
+      .mockResolvedValueOnce({ ...doc, status: "processing" });
+    mockUpdate.mockResolvedValue({});
+    mockAnalyzeDocument.mockResolvedValue(successOcrResult);
+
+    await run();
+
+    expect(mockGenerateSasUrl).toHaveBeenCalled();
+    expect(mockDownloadBlob).not.toHaveBeenCalled();
+    expect(mockAnalyzeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "url" }),
+      "invoice",
+    );
   });
 });
