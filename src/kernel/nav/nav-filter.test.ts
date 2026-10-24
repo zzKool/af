@@ -92,8 +92,19 @@ describe("NAV_ITEMS configuration", () => {
   test("every + New entry opens an enabled page", () => {
     const enabled = NAV_ITEMS.filter((i) => i.enabled).map((i) => i.path);
     for (const n of NEW_ITEMS) {
-      expect(enabled.some((p) => n.href === p || n.href.startsWith(`${p}/`))).toBe(true);
+      const path = n.href.split("?")[0];
+      expect(enabled.some((p) => path === p || path.startsWith(`${p}/`))).toBe(true);
     }
+  });
+
+  test("F73: + New opens the dialog — ?new=1 on every list page, the invoice is its own page", () => {
+    expect(NEW_ITEMS.map((n) => n.href)).toEqual([
+      "/documents?new=1",
+      "/banking?new=1",
+      "/invoices/new",
+      "/supplier-invoices?new=1",
+      "/expenses?new=1",
+    ]);
   });
 
   test("all paths start with /", () => {

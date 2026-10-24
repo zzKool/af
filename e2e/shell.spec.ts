@@ -23,6 +23,30 @@ test.describe("Shell", () => {
     await expect(page).toHaveURL(/\/settings\/my-preferences$/);
     expect(errors).toEqual([]);
   });
+
+  // F73: + New opens the page's dialog — from another page, and on the page itself (same route, new params)
+  test("+ New opens the dialog: from the dashboard, and again on the page it lands on", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    const newMenu = page.getByRole("button", { name: "New", exact: true });
+    await newMenu.click();
+    await page.getByRole("menuitem", { name: "Expense" }).click();
+    await expect(page).toHaveURL(/\/expenses\?new=1/);
+    const expense = page.getByTestId("new-expense-dialog");
+    await expect(expense).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(expense).toBeHidden();
+    await expect(page).not.toHaveURL(/new=1/);
+    // already on /expenses: + New → Expense opens it again
+    await newMenu.click();
+    await page.getByRole("menuitem", { name: "Expense" }).click();
+    await expect(expense).toBeVisible();
+    await page.keyboard.press("Escape");
+    await newMenu.click();
+    await page.getByRole("menuitem", { name: "Import bank CSV" }).click();
+    await expect(page.getByTestId("import-dialog")).toBeVisible();
+  });
 });
 
 // The colour scheme (D43): System / Light / Dark under My Preferences. A freshly registered owner (a user
