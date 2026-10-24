@@ -8,6 +8,7 @@ export const en = {
   "common.edit": "Edit",
   "common.open": "Open",
   "common.yes": "Yes",
+  "common.reverseCharge": "Reverse charge",
   "common.no": "No",
   "common.today": "Today",
 

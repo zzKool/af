@@ -97,6 +97,8 @@ export type SupplierInvoiceListRow = {
   open: string;
   documentMissing: boolean;
   hasDocument: boolean;
+  /** made from a document that says the buyer pays the VAT (D54, F91) */
+  reverseCharge: boolean;
   note: string | null;
   cancelled: boolean;
   createdAt: Date;

@@ -89,6 +89,30 @@ export async function getDocument(
   return { data: { ...doc, ocrData: parseOcrPayload(doc.ocrData) } };
 }
 
+/**
+ * The documents among `ids` that say the buyer pays the VAT (D54): the OCR's reading as corrected on review
+ * (`reverseCharge` — the owner can set or clear it). What a flagged document became shows a tag (F91); nothing is
+ * computed from it.
+ */
+export async function reverseChargeDocumentIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  // the two JSON paths only, in SQL — `ocr_data` also holds the raw response, too heavy to load per list row.
+  // A correction wins when the key is there (true or false), the OCR's reading otherwise — `resolveDocumentData`.
+  // RLS CRITICAL: tenant_id = current_setting('app.tenant_id') is the safety net
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id::text AS id FROM documents
+    WHERE id = ANY(${[...ids]}::uuid[])
+      AND tenant_id = current_setting('app.tenant_id')::uuid
+      AND CASE WHEN corrections ? 'reverseCharge'
+               THEN corrections->>'reverseCharge' = 'true'
+               ELSE ocr_data->'extractedData'->>'reverseCharge' = 'true' END
+  `;
+  return new Set(rows.map((r) => r.id));
+}
+
 export async function getDocumentOcrData(
   tx: TransactionClient,
   documentId: string,

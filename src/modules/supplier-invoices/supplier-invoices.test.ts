@@ -311,6 +311,29 @@ describe("US1 — record a supplier invoice", () => {
     expect(d.editable).toBe(true);
   });
 
+  it("made from a document that says reverse charge (D54, F91): the row and the panel carry the flag", async () => {
+    const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "inv_20260314_003",
+      fileName: "inv_20260314_003.pdf",
+      prefixType: "invoice",
+      status: "extracted",
+    });
+    // the OCR missed it, the owner ticked it on review
+    await adminPool.query(
+      `UPDATE documents SET ocr_data = '{"extractedData":{"reverseCharge":false}}'::jsonb, corrections = '{"reverseCharge":true}'::jsonb WHERE id = $1`,
+      [doc.id],
+    );
+    const flagged = await create(julyInvoice({ documentId: doc.id }));
+    const plain = await create(julyInvoice({ invoiceNumber: "9162" }));
+    expect(flagged.error ?? plain.error).toBeUndefined();
+
+    const list = await run(owner.caller, (tx) => listSupplierInvoices(tx, Q));
+    const byId = new Map(list.rows.map((r) => [r.id, r]));
+    expect(byId.get(flagged.data!.id)?.reverseCharge).toBe(true);
+    expect(byId.get(plain.data!.id)?.reverseCharge).toBe(false);
+    expect((await detail(flagged.data!.id)).document?.reverseCharge).toBe(true);
+  });
+
   it("deletes one whose only link is its created_from (D36): the document goes back to the inbox as ready, its key kept; a payment still refuses", async () => {
     const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
       businessKey: "inv_20260314_002",
