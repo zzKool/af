@@ -7,6 +7,7 @@ import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
+import { userName } from "@/kernel/auth/users";
 import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
@@ -50,8 +51,7 @@ export type UploadResult =
  * with the plain client after the tenant transaction — never inside it. Null when the user is gone.
  */
 export async function uploaderName(db: PrismaClient, userId: string): Promise<string | null> {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
-  return user?.name ?? null;
+  return userName(db, userId);
 }
 
 export function contentHashOf(bytes: Buffer): string {

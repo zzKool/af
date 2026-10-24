@@ -1,6 +1,7 @@
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { tenantMembers } from "@/kernel/auth/users";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
 
@@ -114,11 +115,6 @@ export async function listTenantMembers(
   tx: TransactionClient,
   caller: CallerIdentity,
 ): Promise<ServiceResult<{ id: string; userId: string; role: string }[]>> {
-  // Member table has no RLS — querying through the RLS-scoped tx is safe
-  // because SET LOCAL only affects tables with RLS policies.
-  const members = await tx.member.findMany({
-    where: { organizationId: caller.tenantId },
-    select: { id: true, userId: true, role: true },
-  });
-  return { data: members };
+  // `members` is kernel/auth's (no RLS) — read through its API (F66)
+  return { data: await tenantMembers(tx, caller.tenantId) };
 }

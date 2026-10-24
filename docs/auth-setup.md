@@ -113,6 +113,8 @@ export const { GET, POST } = toNextJsHandler(auth);
 
 Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invitations`, `verifications`) are **global cross-tenant tables** owned by Better Auth.
 
+**Modules read them through `src/kernel/auth/users.ts`** (F66): `userName(db, userId)`, `tenantMembers(db, tenantId)` — never `tx.user` / `tx.member` in `src/modules/*`. A new read a module needs is one more function there.
+
 **NEVER add RLS policies to auth tables.** Adding RLS would break Better Auth silently. Only app domain tables (in `app.prisma`) get RLS via [[prisma-rls-setup]].
 
 ## Adding New Auth Features
@@ -129,6 +131,7 @@ Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invit
 | File | Purpose |
 |------|---------|
 | `src/kernel/auth/auth.ts` | Better Auth server config + `getAuthContext()` |
+| `src/kernel/auth/users.ts` | Read API of `users` / `members` for the modules (F66) |
 | `src/kernel/auth/auth-client.ts` | Better Auth React client with organization plugin |
 | `src/app/api/auth/[...all]/route.ts` | Auth API route handler |
 | `src/app/(auth)/login/page.tsx` | Login page |
