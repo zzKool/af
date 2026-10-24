@@ -53,11 +53,10 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
 
     const storage = createStorageService();
     const blobPath = extractBlobPath(doc.blobUrl);
-    const isLocalBlob = doc.blobUrl.includes("127.0.0.1") || doc.blobUrl.includes("localhost");
-
     let source: OcrSource;
-    if (isLocalBlob) {
-      // Azurite is not reachable from Azure DI (nor from the mock OCR): send the bytes.
+    if (!isReachableAzureBlob(doc.blobUrl)) {
+      // Azurite — on 127.0.0.1 locally, on `azurite:10000` inside the prod compose — is not reachable from
+      // Azure DI (nor from the mock OCR): send the bytes. Only a real Azure Blob URL goes out as a SAS link.
       const fileBuffer = await storage.downloadBlob(blobPath);
       source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
     } else {
@@ -137,6 +136,19 @@ async function markFailed({ tenantId, userId, documentId }: ProcessDocumentData)
       newData: { status: "ocr_failed" },
     });
   });
+}
+
+/**
+ * Can Azure Document Intelligence fetch this blob by URL? Only a real Azure Storage blob (https, `*.blob.core.windows.net`).
+ * Anything else — Azurite on 127.0.0.1 or on the compose network (`http://azurite:10000/…`) — must be sent as bytes.
+ */
+export function isReachableAzureBlob(blobUrl: string): boolean {
+  try {
+    const url = new URL(blobUrl);
+    return url.protocol === "https:" && url.hostname.endsWith(".blob.core.windows.net");
+  } catch {
+    return false;
+  }
 }
 
 export const processDocumentJob: JobDefinition<ProcessDocumentData> = {

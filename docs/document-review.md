@@ -78,6 +78,14 @@ A relationship document (contract, NDA) becomes nothing: only *Just file it* is 
 
 The supplier dialog first shows the **supplier match** ([[partners]] `matchPartners`): the best partner from 60 % with *Use match*, the other matches, *New vendor* (name, VAT and the OCR vendor address pre-filled — the address also scores the match, +20, `createPartnerAction`, selected at once). Both dialogs run the **entity duplicate check** when the key fields settle (400 ms): a *high* match blocks until a note says why it is not one (*Create anyway*, `duplicateAck` → the note on the entity, the acknowledgement in the audit row); a *medium* match warns inline. Rules in [[expenses]] and [[supplier-invoices]].
 
+## What the reading fills (2026-10-24)
+
+- Vendor / merchant, dates, invoice #, **vendor VAT number**, totals, VAT, **currency** (from Azure's amounts — it was never read before), line items with **Tax %**.
+- **Billed to** (invoices, D53): name and VAT number as printed, editable; a warning *Not addressed to {company}* when neither the name nor the VAT number fits the company profile and its VAT registrations (`billed-to.ts`, `checkBilledTo`). Never blocks.
+- **Reverse charge** (D54): ticked when the text says so, the owner can set or clear it; a tag on the title row. Nothing is computed — the VAT treatment stays the accountant's.
+- **Mark as Reviewed (n corrections made)** counts the fields that differ from the OCR's reading (`corrections-count.ts`), not the fields read.
+- Screenshots: `specs/documents/screenshots/review-billed-to-reverse-charge.png`, `review-billed-to-mismatch.png` (seed data).
+
 ## Role-Based Access
 
 | Action | Owner | Accountant |
@@ -102,7 +110,13 @@ On an **extracted** document the owner has *Re-run OCR* in the header. It asks f
 
 ## Document Classification
 
-Owners can reclassify documents by changing the category (financial/relationship) and sub-type (expense, invoice, contract, nda, certificate). This updates `documentType` and `prefixType` but **never changes the business key** (immutable after generation).
+Owners can reclassify documents by changing the category (financial/relationship) and sub-type (expense, invoice, contract, nda, certificate). This updates `documentType` and `prefixType`.
+
+**The type drives the reading (D52).** Before the owner reviewed the document (and while it became nothing — see below), a type change also
+- swaps the provisional key's prefix, same date and number: `exp_20261024_002` ↔ `inv_20261024_002` (`numbering.reprefixUploadKey`; a final key or a generated document's never changes — a generated document cannot be reclassified at all);
+- reads the document again when the new kind has another model (`ocrModelFor`: receipt ↔ invoice ↔ layout; contract → NDA is the same layout, no new reading): an *extracted* or *OCR failed* document goes back to *uploaded* and the action queues the job after the commit, exactly like *Re-run OCR* — `corrections` stays. A document still *uploaded* is not re-queued (the job reads the new type when it runs); one *processing* is left to finish, the owner re-runs it after.
+
+`classifyDocument` returns `{ documentType, prefixType, businessKey, reread }`; the page toasts *Invoice — the OCR reads the document again* and refreshes. While the document is *uploaded* / *processing* the review page refreshes itself every 3 s (three minutes at most — past that the inbox's *stuck* takes over), and the form remounts on a new reading (its fields are uncontrolled), so the new facts appear without a reload. After the review a type change is a label only: the owner checked the facts, the key and the reading stay.
 
 A **linked** document cannot be reclassified: something became from it (`created_from`) or a bank row justifies it (`justifies`). Linked is derived from the links (`linkable.ts` — `linkedIds` / `isDocumentLinked`, through `linking.linksTouching`), never from the stored status; `"linked"` is not a status value. Deleting a document asks `linking.isLinked` (any link — the database trigger's own test) before writing anything, so the *blocked* audit row survives.
 

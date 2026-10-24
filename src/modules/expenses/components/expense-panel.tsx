@@ -122,6 +122,11 @@ export function ExpensePanel({
                   {money(e.amount, e.currency)}
                 </span>
                 <ExpenseStateLabel status={detail.status} testId="panel-status" />
+                {detail.document?.reverseCharge && (
+                  <span data-testid="panel-reverse-charge" className="inline-flex">
+                    <Tag>{t("common.reverseCharge")}</Tag>
+                  </span>
+                )}
               </SheetTitle>
               <SheetDescription className="flex flex-wrap items-center gap-1.5">
                 <span data-testid="panel-key" className="inline-flex">

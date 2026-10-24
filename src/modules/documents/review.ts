@@ -7,9 +7,10 @@ import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { SIGNED_URL_TTL_SECONDS } from "@/kernel/nav/constants";
-import { extractBlobPath, type OcrExtractedData } from "@/kernel/ocr/ocr";
+import { extractBlobPath, type OcrExtractedData, ocrModelFor } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
 import { getDocumentClassification } from "@/modules/documents/business-key";
+import { isUploadKind, reprefixUploadKey } from "@/modules/numbering";
 import { isDocumentLinked } from "./linkable";
 import {
   type CorrectionsPatch,
@@ -87,6 +88,30 @@ export async function getDocument(
     };
   }
   return { data: { ...doc, ocrData: parseOcrPayload(doc.ocrData) } };
+}
+
+/**
+ * The documents among `ids` that say the buyer pays the VAT (D54): the OCR's reading as corrected on review
+ * (`reverseCharge` — the owner can set or clear it). What a flagged document became shows a tag (F91); nothing is
+ * computed from it.
+ */
+export async function reverseChargeDocumentIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  // the two JSON paths only, in SQL — `ocr_data` also holds the raw response, too heavy to load per list row.
+  // A correction wins when the key is there (true or false), the OCR's reading otherwise — `resolveDocumentData`.
+  // RLS CRITICAL: tenant_id = current_setting('app.tenant_id') is the safety net
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id::text AS id FROM documents
+    WHERE id = ANY(${[...ids]}::uuid[])
+      AND tenant_id = current_setting('app.tenant_id')::uuid
+      AND CASE WHEN corrections ? 'reverseCharge'
+               THEN corrections->>'reverseCharge' = 'true'
+               ELSE ocr_data->'extractedData'->>'reverseCharge' = 'true' END
+  `;
+  return new Set(rows.map((r) => r.id));
 }
 
 export async function getDocumentOcrData(
@@ -220,13 +245,32 @@ export async function updateDocumentCorrections(
   return { data: { corrections: parseCorrections(result[0].corrections) ?? {} } };
 }
 
+/** The statuses whose reading a type change replaces (D52): read, failed. `uploaded` is still queued — the job reads
+ * the new type when it runs; `processing` is left to finish (the owner re-runs it after). */
+const REREAD_FROM = new Set(["extracted", "ocr_failed"]);
+
+export type ClassifyResult = {
+  documentType: string;
+  prefixType: string;
+  businessKey: string;
+  /** the OCR was set back to `uploaded` to read the document again with the new kind's model — queue the job */
+  reread: boolean;
+};
+
+/**
+ * The type drives the reading (D52). Before the owner reviewed the document (and while it became nothing — a linked
+ * document keeps its kind), a type change also
+ * - swaps the provisional key's prefix, same date and number: `exp_20261020_001` ↔ `inv_20261020_001`;
+ * - re-reads the document when the new kind has another model (receipt ↔ invoice ↔ layout); corrections stay.
+ * After the review it is a label change only: the owner checked the facts.
+ */
 export async function classifyDocument(
   tx: TransactionClient,
   caller: CallerIdentity,
   audit: AuditLogger,
   documentId: string,
   newPrefixType: string,
-): Promise<ServiceResult<{ documentType: string; prefixType: string }>> {
+): Promise<ServiceResult<ClassifyResult>> {
   // Owner-only
   if (!can(caller, "update", "financial_document")) {
     return {
@@ -235,7 +279,7 @@ export async function classifyDocument(
   }
 
   const newDocumentType = getDocumentClassification(newPrefixType);
-  if (!newDocumentType) {
+  if (!newDocumentType || !isUploadKind(newPrefixType)) {
     return {
       error: {
         code: "VALIDATION_ERROR",
@@ -247,11 +291,26 @@ export async function classifyDocument(
 
   const doc = await tx.document.findUnique({
     where: { id: documentId },
-    select: { status: true, documentType: true, prefixType: true },
+    select: {
+      status: true,
+      documentType: true,
+      prefixType: true,
+      businessKey: true,
+      reviewedAt: true,
+    },
   });
   if (!doc) {
     return {
       error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
+    };
+  }
+  if (doc.status === "generated") {
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: "A generated document keeps the kind its producer gave it",
+        retryable: false,
+      },
     };
   }
 
@@ -266,21 +325,46 @@ export async function classifyDocument(
     };
   }
 
-  // Update documentType and prefixType — NOT businessKey (immutable)
+  const followsType = doc.reviewedAt === null && doc.prefixType !== newPrefixType;
+  const businessKey = followsType
+    ? (reprefixUploadKey(doc.businessKey, newPrefixType) ?? doc.businessKey)
+    : doc.businessKey;
+  const reread =
+    followsType &&
+    REREAD_FROM.has(doc.status) &&
+    ocrModelFor(doc.prefixType) !== ocrModelFor(newPrefixType);
+
   await tx.document.update({
     where: { id: documentId },
-    data: { documentType: newDocumentType, prefixType: newPrefixType },
+    data: {
+      documentType: newDocumentType,
+      prefixType: newPrefixType,
+      ...(businessKey !== doc.businessKey ? { businessKey } : {}),
+      ...(reread ? { status: "uploaded" as const } : {}),
+    },
   });
 
   await audit.log({
     action: "update",
     entityType: "document",
     entityId: documentId,
-    oldData: { documentType: doc.documentType, prefixType: doc.prefixType },
-    newData: { documentType: newDocumentType, prefixType: newPrefixType },
+    oldData: {
+      documentType: doc.documentType,
+      prefixType: doc.prefixType,
+      ...(businessKey !== doc.businessKey ? { businessKey: doc.businessKey } : {}),
+      ...(reread ? { status: doc.status } : {}),
+    },
+    newData: {
+      documentType: newDocumentType,
+      prefixType: newPrefixType,
+      ...(businessKey !== doc.businessKey ? { businessKey } : {}),
+      ...(reread ? { status: "uploaded", event: "ocr_rerun", reason: "type_changed" } : {}),
+    },
   });
 
-  return { data: { documentType: newDocumentType, prefixType: newPrefixType } };
+  return {
+    data: { documentType: newDocumentType, prefixType: newPrefixType, businessKey, reread },
+  };
 }
 
 export async function markDocumentReviewed(

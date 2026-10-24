@@ -27,6 +27,7 @@ export {
   prepareOcrRerun,
   refreshSignedUrl,
   resolveDocumentData,
+  reverseChargeDocumentIds,
   sameContentDocumentIds,
   storeGeneratedDocument,
   unarchiveDocuments,

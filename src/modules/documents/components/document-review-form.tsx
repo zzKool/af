@@ -1,5 +1,6 @@
 "use client";
 
+import type { CompanyIdentity } from "@/modules/documents/billed-to";
 import { DocumentClassificationSection } from "@/modules/documents/components/document-classification-section";
 import { FinancialFieldsSection } from "@/modules/documents/components/financial-fields-section";
 import { LineItemsSection } from "@/modules/documents/components/line-items-section";
@@ -20,6 +21,7 @@ type DocumentReviewFormProps = {
   onFieldChange: (field: string, value: unknown) => void;
   onItemsChange: (items: OcrLineItem[]) => void;
   onClassificationChange: (newPrefixType: string) => void;
+  company?: CompanyIdentity | null;
 };
 
 export function DocumentReviewForm({
@@ -31,6 +33,7 @@ export function DocumentReviewForm({
   onFieldChange,
   onItemsChange,
   onClassificationChange,
+  company = null,
 }: DocumentReviewFormProps) {
   const isFinancial = prefixType === "expense" || prefixType === "invoice";
 
@@ -52,6 +55,7 @@ export function DocumentReviewForm({
             readOnly={readOnly}
             onFieldChange={onFieldChange}
             saveStatus={saveStatus}
+            company={company}
           />
 
           <LineItemsSection

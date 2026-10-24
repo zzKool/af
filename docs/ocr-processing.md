@@ -26,13 +26,15 @@ Prefix types map to Azure DI prebuilt models via a configurable map:
 
 | Prefix Type | Model | Fields Extracted |
 |-------------|-------|-----------------|
-| expense | prebuilt-receipt | MerchantName, Total, TransactionDate, Items |
-| invoice | prebuilt-invoice | VendorName, VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, InvoiceDate, PaymentDetails, Items |
+| expense | prebuilt-receipt | MerchantName, Total, TotalTax, TransactionDate, Items (Description, Quantity, Price, TotalPrice); the currency from the amounts |
+| invoice | prebuilt-invoice | VendorName, VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, SubTotal, TotalTax, InvoiceDate, DueDate, InvoiceId, CustomerName (else BillingAddressRecipient) + CustomerTaxId (D53), PaymentDetails, Items (Description folded to one line, Quantity, UnitPrice, Amount, Tax, TaxRate → `taxRate` %); the currency from the amounts |
 | contract | prebuilt-layout | Raw text only |
 | nda | prebuilt-layout | Raw text only |
 | certificate | prebuilt-layout | Raw text only |
 
 Unknown/custom prefix types (from tenant configuration in Story 3.4) fall back to `prebuilt-layout` with a warning log.
+
+**The currency** (2026-10-24): Azure DI has no document-level currency field — each amount carries its own `valueCurrency.currencyCode`. `extractCurrencyCode` takes the first ISO code among the totals, then the lines; none → unknown (never SEK, F61-b). **Reverse charge** (D54): `mentionsReverseCharge(content)` on the document's text (en / fr / sv / de / it / es) sets `reverseCharge` — a flag, no VAT computed. The mapping is the pure `mapAnalyzeResult`, tested on stored responses of the real shape with invented values (`__fixtures__/azure-*.json`, `ocr-mapping.pure.test.ts`).
 
 ## Dual Source Approach
 
@@ -42,7 +44,7 @@ Unknown/custom prefix types (from tenant configuration in Story 3.4) fall back t
 | Azurite local | Azure cloud | Buffer (`base64Source`) | Azure DI can't reach localhost |
 | Azurite local | Mock | Buffer (N/A) | Mock ignores source |
 
-Detection: `blobUrl.includes("127.0.0.1")` → local blob. `AZURE_DI_ENDPOINT?.includes("azure")` → remote OCR.
+Detection: `isReachableAzureBlob(blobUrl)` (`documents/jobs/process-document.ts`) — only an `https://*.blob.core.windows.net` URL goes to Azure DI as a SAS link; everything else (Azurite on `127.0.0.1` locally, `http://azurite:10000` inside the prod compose) is sent as bytes. `AZURE_DI_ENDPOINT` set → remote OCR, else the mock.
 
 ## Quality Classification
 

@@ -70,6 +70,7 @@ const COLUMN_KEYS = [
   "openBase",
   "documentMissing",
   "hasDocument",
+  "reverseCharge",
   "note",
   "vatAmount",
   "createdAt",
@@ -392,6 +393,14 @@ export function ExpenseTable({
           ),
       },
       {
+        // D54, F91: made from a document that says the buyer pays the VAT — a tag, nothing computed
+        key: "reverseCharge",
+        header: t("common.reverseCharge"),
+        type: "boolean",
+        width: "6.5rem",
+        cell: (row) => (row.reverseCharge ? <Tag>{t("common.yes")}</Tag> : null),
+      },
+      {
         key: "documentMissing",
         header: t("expenses.form.documentMissing"),
         type: "boolean",
@@ -486,6 +495,7 @@ export function ExpenseTable({
           if (
             column === "baseProvisional" ||
             column === "hasDocument" ||
+            column === "reverseCharge" ||
             column === "documentMissing"
           )
             return value === "true" ? t("common.yes") : t("common.no");

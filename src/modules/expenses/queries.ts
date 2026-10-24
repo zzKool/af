@@ -81,6 +81,7 @@ export const EXPENSE_COLUMNS = {
   openBase: { type: "money", sum: true },
   documentMissing: { type: "boolean" },
   hasDocument: { type: "boolean" },
+  reverseCharge: { type: "boolean" },
   note: { type: "text", searchable: true },
   vatAmount: { type: "money" },
   createdAt: { type: "date" },
@@ -104,6 +105,7 @@ const DERIVED: ReadonlySet<string> = new Set([
   "allocatedBase",
   "openBase",
   "hasDocument",
+  "reverseCharge",
 ]);
 const STORED_COLUMNS: ColumnMap = Object.fromEntries(
   Object.entries(EXPENSE_COLUMNS).filter(([k]) => !DERIVED.has(k)),
@@ -117,24 +119,39 @@ type Facts = {
   justified: Map<string, Dec>;
   /** expenses with a created_from document, or any document justifying them */
   hasDocument: Set<string>;
+  /** expenses made from a document that says the buyer pays the VAT (D54, F91) — a tag, nothing computed */
+  reverseCharge: Set<string>;
 };
 
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
-  const f: Facts = { allocated: new Map(), justified: new Map(), hasDocument: new Set() };
+  const f: Facts = {
+    allocated: new Map(),
+    justified: new Map(),
+    hasDocument: new Set(),
+    reverseCharge: new Set(),
+  };
   if (ids.length === 0) return f;
   const allocated = await allocatedByExpense(tx, ids);
   const links = await linking.linksTouching(tx, "expense", ids, {
     kinds: ["created_from", "justifies"],
   });
   f.allocated = allocated;
+  const origin = new Map<string, string>(); // expense → the document it was made from
   for (const l of links) {
     if (l.kind === "created_from") {
-      if (l.from.type === "expense") f.hasDocument.add(l.from.id);
+      if (l.from.type === "expense") {
+        f.hasDocument.add(l.from.id);
+        origin.set(l.from.id, l.to.id);
+      }
     } else if (l.to.type !== "expense") {
       // a justifies link FROM an expense proves something else, not this expense
     } else if (l.from.type === "bank_transaction" && l.allocatedAmount) {
       f.justified.set(l.to.id, (f.justified.get(l.to.id) ?? new D(0)).plus(l.allocatedAmount));
     } else if (l.from.type === "document") f.hasDocument.add(l.to.id);
+  }
+  const flagged = await documents.reverseChargeDocumentIds(tx, [...origin.values()]);
+  for (const [expenseId, documentId] of origin) {
+    if (flagged.has(documentId)) f.reverseCharge.add(expenseId);
   }
   return f;
 }
@@ -215,6 +232,7 @@ async function loadRows(
       ...derived,
       documentMissing: dto.documentMissing,
       hasDocument: f.hasDocument.has(r.id),
+      reverseCharge: f.reverseCharge.has(r.id),
       note: dto.note,
       vatAmount: dto.vatAmount,
       createdAt: dto.createdAt,
@@ -289,7 +307,8 @@ export type ExpenseDetail = {
   openBase: string;
   /** the money facts may still change (`isExpenseOpen`, D37) — the panel reads this, never its own copy */
   isOpen: boolean;
-  document: { id: string; businessKey: string; fileName: string } | null;
+  /** the document it was made from; `reverseCharge` — it says the buyer pays the VAT (D54, F91) */
+  document: { id: string; businessKey: string; fileName: string; reverseCharge: boolean } | null;
   links: (LinkDto & { otherLabel: string | null })[];
   settlements: {
     id: string;
@@ -356,7 +375,14 @@ export async function getExpenseDetail(
   let document: ExpenseDetail["document"] = null;
   if (origin) {
     const d = (await documents.getDocument(tx, origin.to.id)).data;
-    document = d ? { id: d.id, businessKey: d.businessKey, fileName: d.fileName } : null;
+    document = d
+      ? {
+          id: d.id,
+          businessKey: d.businessKey,
+          fileName: d.fileName,
+          reverseCharge: f.reverseCharge.has(id),
+        }
+      : null;
   }
   const bookingDates = await banking.bookingDates(
     tx,

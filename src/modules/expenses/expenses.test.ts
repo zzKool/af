@@ -485,6 +485,55 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     });
   });
 
+  it("made from a document that says reverse charge (D54, F91): the row and the panel carry the flag", async () => {
+    const g = await group213();
+    const flagged = await createTestDocument(
+      adminPool,
+      owner.caller.tenantId,
+      owner.caller.userId,
+      {
+        businessKey: "exp_20260310_001",
+        fileName: "exp_20260310_001.pdf",
+        status: "extracted",
+      },
+    );
+    const plain = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      businessKey: "exp_20260310_002",
+      fileName: "exp_20260310_002.pdf",
+      status: "extracted",
+    });
+    // the OCR read the note on the first; the owner set nothing
+    await adminPool.query(
+      `UPDATE documents SET ocr_data = '{"extractedData":{"reverseCharge":true}}'::jsonb WHERE id = $1`,
+      [flagged.id],
+    );
+    const make = (i: 0 | 1, documentId: string) =>
+      run(owner.caller, (tx) =>
+        createExpense(tx, owner.caller, noopAudit, {
+          ...fixtureInput(g.id, FIXTURE.expenses[i]),
+          documentId,
+        }),
+      );
+    const a = await make(0, flagged.id);
+    const b = await make(1, plain.id);
+    expect(a.error ?? b.error).toBeUndefined();
+
+    const list = await run(owner.caller, (tx) => listExpenses(tx, Q));
+    const byId = new Map(list.rows.map((r) => [r.id, r]));
+    expect(byId.get(a.data!.id)?.reverseCharge).toBe(true);
+    expect(byId.get(b.data!.id)?.reverseCharge).toBe(false);
+    const detail = await run(owner.caller, (tx) => getExpenseDetail(tx, a.data!.id));
+    expect(detail.data?.document?.reverseCharge).toBe(true);
+
+    // the owner clears it on the document → gone from what it became
+    await adminPool.query(
+      `UPDATE documents SET corrections = '{"reverseCharge":false}'::jsonb WHERE id = $1`,
+      [flagged.id],
+    );
+    const again = await run(owner.caller, (tx) => getExpenseDetail(tx, a.data!.id));
+    expect(again.data?.document?.reverseCharge).toBe(false);
+  });
+
   it("deletes one whose only link is its created_from (D36): the receipt goes back to the inbox as ready, its key kept", async () => {
     const g = await group213();
     const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {

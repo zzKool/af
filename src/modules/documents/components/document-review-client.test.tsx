@@ -200,6 +200,28 @@ describe("DocumentReviewClient", () => {
   });
 
   // --- Review status ---
+  // --- D52: while the OCR reads it again (a type change, a re-run) the page looks every few seconds ---
+  it("refreshes while the OCR reads the document, not once it is read", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(
+        <DocumentReviewClient data={makeReviewData({ status: "processing" })} />,
+      );
+      vi.advanceTimersByTime(3000);
+      expect(mockRefresh).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(6000);
+      expect(mockRefresh).toHaveBeenCalledTimes(3);
+      unmount();
+      mockRefresh.mockReset();
+
+      render(<DocumentReviewClient data={makeReviewData({ status: "extracted" })} />);
+      vi.advanceTimersByTime(30_000);
+      expect(mockRefresh).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows awaiting review when not reviewed", () => {
     render(<DocumentReviewClient data={makeReviewData({ reviewedAt: null })} />);
     expect(screen.getByText("Awaiting review")).toBeInTheDocument();

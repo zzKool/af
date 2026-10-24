@@ -42,7 +42,6 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
   const [rotation, setRotation] = useState(0);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
-  const pdfDocRef = useRef<{ destroy: () => void } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isPdf = mimeType === "application/pdf";
@@ -62,17 +61,10 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
     return () => clearInterval(interval);
   }, [documentId]);
 
-  // Cleanup PDF on unmount
-  useEffect(() => {
-    return () => {
-      pdfDocRef.current?.destroy();
-    };
-  }, []);
-
-  const onDocumentLoadSuccess = useCallback((pdf: { numPages: number; destroy: () => void }) => {
+  // <Document> destroys its own loading task on unmount (react-pdf ≥ 11 has no destroy on the proxy)
+  const onDocumentLoadSuccess = useCallback((pdf: { numPages: number }) => {
     setNumPages(pdf.numPages);
     setLoading(false);
-    pdfDocRef.current = pdf;
   }, []);
 
   const onDocumentLoadError = useCallback(() => {
@@ -209,8 +201,16 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={null}
+            // react-pdf 11 suspends by default; this page shows its own spinner from the callbacks
+            suspense={false}
           >
-            <Page pageNumber={currentPage} scale={zoom} rotate={rotation} loading={null} />
+            <Page
+              pageNumber={currentPage}
+              scale={zoom}
+              rotate={rotation}
+              loading={null}
+              suspense={false}
+            />
           </Document>
         ) : (
           // biome-ignore lint/performance/noImgElement: signed Azure blob URLs with rotation/zoom — next/image not compatible

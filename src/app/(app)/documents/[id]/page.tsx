@@ -3,14 +3,16 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { getDocumentForReviewAction } from "@/modules/documents";
-import type { Became, MakeItOptions } from "@/modules/documents/ui";
+import type { Became, CompanyIdentity, MakeItOptions } from "@/modules/documents/ui";
 import { DocumentReviewClient } from "@/modules/documents/ui";
 import { expensePageOptions } from "@/modules/expenses";
 import { linksWithLabels } from "@/modules/linking";
+import { getTenantProfile, getVatRegistrations } from "@/modules/settings";
 import { supplierInvoicePageOptions } from "@/modules/supplier-invoices";
 
-// The review page composes what the document became (the linking module's read) and, for the owner, the two
-// creation dialogs' option lists so *Make it…* (specs/documents US1) opens them pre-filled.
+// The review page composes what the document became (the linking module's read), the company identity an invoice
+// is checked against (D53, settings' read) and, for the owner, the two creation dialogs' option lists so *Make it…*
+// (specs/documents US1) opens them pre-filled.
 export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireCaller({ action: "read", subject: "financial_document" });
@@ -22,7 +24,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
   const data = result.data.data;
   const canMake = !data.readOnly && data.status !== "generated";
 
-  const { became, makeItOptions } = await withTenantTransaction(
+  const { became, makeItOptions, company } = await withTenantTransaction(
     prisma,
     auth.tenantId,
     async (tx) => {
@@ -53,9 +55,26 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           },
         };
       }
-      return { became, makeItOptions };
+      // who an invoice should be billed to (D53): the company's name, org number and VAT numbers
+      const profile = await getTenantProfile(tx, auth);
+      const registrations = await getVatRegistrations(tx, auth);
+      const company: CompanyIdentity | null = profile.data
+        ? {
+            name: profile.data.name,
+            orgNumber: profile.data.orgNumber,
+            vatNumbers: (registrations.data ?? []).map((r) => r.vatNumber),
+          }
+        : null;
+      return { became, makeItOptions, company };
     },
   );
 
-  return <DocumentReviewClient data={data} became={became} makeItOptions={makeItOptions} />;
+  return (
+    <DocumentReviewClient
+      data={data}
+      became={became}
+      makeItOptions={makeItOptions}
+      company={company}
+    />
+  );
 }

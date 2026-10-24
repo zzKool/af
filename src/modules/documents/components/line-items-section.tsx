@@ -142,6 +142,9 @@ export function LineItemsSection({
                 <th className="px-2 py-1 text-right font-medium w-20">
                   {t("documents.lines.tax")}
                 </th>
+                <th className="px-2 py-1 text-right font-medium w-20">
+                  {t("documents.lines.taxRate")}
+                </th>
                 {!readOnly && (
                   <th className="w-10">
                     <span className="sr-only">{t("documents.lines.remove")}</span>
@@ -212,6 +215,20 @@ export function LineItemsSection({
                       defaultValue={item.tax != null ? String(item.tax) : ""}
                       disabled={readOnly}
                       onBlur={(e) => updateItem(index, "tax", e.target.value)}
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <Input
+                      id={`line-item-${index}-taxRate`}
+                      aria-label={t("documents.lines.aria.taxRate", { n: index + 1 })}
+                      className="h-8 text-sm text-right"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      defaultValue={item.taxRate != null ? String(item.taxRate) : ""}
+                      disabled={readOnly}
+                      onBlur={(e) => updateItem(index, "taxRate", e.target.value)}
                     />
                   </td>
                   {!readOnly && (

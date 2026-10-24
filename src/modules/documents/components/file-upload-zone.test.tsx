@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+import type { ReactElement } from "react";
 
 const { mockExecuteAsync, mockToast } = vi.hoisted(() => ({
   mockExecuteAsync: vi.fn(),
@@ -34,6 +35,13 @@ const defaultProps = {
     { documentType: "invoice", prefix: "inv_" },
   ],
 };
+
+/** the owner picks the type first — there is no default (D52) */
+function renderWithType(ui: ReactElement, type = "expense") {
+  const r = render(ui);
+  fireEvent.change(screen.getByLabelText("Document type"), { target: { value: type } });
+  return r;
+}
 
 function successResult(overrides?: Partial<{ id: string; businessKey: string; fileName: string }>) {
   return {
@@ -92,8 +100,31 @@ describe("FileUploadZone", () => {
     render(<FileUploadZone {...defaultProps} />);
     const select = screen.getByLabelText("Document type") as HTMLSelectElement;
     expect(select).toBeInTheDocument();
-    expect(select.options).toHaveLength(2);
-    expect(select.options[0].textContent).toContain("expense");
+    // the placeholder, then the kinds by their names — nothing chosen
+    expect(select.options).toHaveLength(3);
+    expect(select.value).toBe("");
+    expect(select.options[1].textContent).toBe("Expense (exp_)");
+  });
+
+  it("asks for the type before an upload: nothing is posted, the type selector gets the focus", async () => {
+    render(<FileUploadZone {...defaultProps} />);
+    expect(screen.getByTestId("upload-choose-type")).toBeInTheDocument();
+    const input = document.querySelector("input[type='file']") as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, "click");
+
+    fireEvent.click(screen.getByLabelText("Upload document"));
+    expect(clickSpy).not.toHaveBeenCalled(); // the file picker does not open
+
+    const validFile = new File(["pdf content"], "test.pdf", { type: "application/pdf" });
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [validFile] } });
+    });
+
+    expect(mockExecuteAsync).not.toHaveBeenCalled();
+    expect(mockToast.info).toHaveBeenCalledWith(
+      "Choose the document type first: it decides how the OCR reads it",
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText("Document type"));
   });
 
   it("shows file format and size info", () => {
@@ -111,7 +142,7 @@ describe("FileUploadZone", () => {
   });
 
   it("shows error state for oversized file", async () => {
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const bigFile = new File(["x".repeat(11 * 1024 * 1024)], "big.pdf", {
@@ -126,7 +157,7 @@ describe("FileUploadZone", () => {
   });
 
   it("shows error state for unsupported file extension", async () => {
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const exeFile = new File(["content"], "malware.exe", { type: "application/octet-stream" });
@@ -141,7 +172,7 @@ describe("FileUploadZone", () => {
   it("calls executeAsync with FormData on valid file", async () => {
     mockExecuteAsync.mockResolvedValue(successResult());
 
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const validFile = new File(["pdf content"], "test.pdf", { type: "application/pdf" });
@@ -158,7 +189,7 @@ describe("FileUploadZone", () => {
   it("shows complete state with business key after successful upload", async () => {
     mockExecuteAsync.mockResolvedValue(successResult({ fileName: "receipt.pdf" }));
 
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const validFile = new File(["pdf content"], "receipt.pdf", { type: "application/pdf" });
@@ -177,7 +208,7 @@ describe("FileUploadZone", () => {
     );
     mockExecuteAsync.mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_002" }));
 
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
     const file = new File(["pdf content"], "photo.pdf", { type: "application/pdf" });
     await act(async () => {
@@ -209,7 +240,7 @@ describe("FileUploadZone", () => {
 
   it("a duplicate whose uploader is gone and that became nothing shows the date alone", async () => {
     mockExecuteAsync.mockResolvedValueOnce(duplicateResult(null, null));
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
     await act(async () => {
       fireEvent.change(input, {
@@ -227,7 +258,7 @@ describe("FileUploadZone", () => {
       },
     });
 
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const validFile = new File(["pdf content"], "fake.pdf", { type: "application/pdf" });
@@ -243,7 +274,7 @@ describe("FileUploadZone", () => {
     const user = userEvent.setup();
     mockExecuteAsync.mockResolvedValue(successResult({ fileName: "receipt.pdf" }));
 
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const validFile = new File(["pdf content"], "receipt.pdf", { type: "application/pdf" });
@@ -262,7 +293,7 @@ describe("FileUploadZone", () => {
     const onComplete = vi.fn();
     mockExecuteAsync.mockResolvedValue(successResult());
 
-    render(<FileUploadZone {...defaultProps} onUploadComplete={onComplete} />);
+    renderWithType(<FileUploadZone {...defaultProps} onUploadComplete={onComplete} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const validFile = new File(["pdf content"], "test.pdf", { type: "application/pdf" });
@@ -285,7 +316,7 @@ describe("FileUploadZone", () => {
       data: { error: { code: "FORBIDDEN", message: "Requires owner role" } },
     });
 
-    render(<FileUploadZone {...defaultProps} onError={onError} />);
+    renderWithType(<FileUploadZone {...defaultProps} onError={onError} />);
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
 
     const validFile = new File(["content"], "test.pdf", { type: "application/pdf" });
@@ -299,7 +330,7 @@ describe("FileUploadZone", () => {
   it("shows toast when multiple files are dropped", async () => {
     mockExecuteAsync.mockResolvedValue(successResult());
 
-    render(<FileUploadZone {...defaultProps} />);
+    renderWithType(<FileUploadZone {...defaultProps} />);
     const zone = screen.getByLabelText("Upload document");
 
     const files = [

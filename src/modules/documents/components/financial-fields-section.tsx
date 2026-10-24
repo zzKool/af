@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
+import { StateIcon } from "@/kernel/ui/state-label";
+import { type CompanyIdentity, checkBilledTo } from "@/modules/documents/billed-to";
 import type { OcrExtractedData } from "@/modules/documents/documents.actions";
 
 type FinancialFieldsSectionProps = {
@@ -21,6 +24,8 @@ type FinancialFieldsSectionProps = {
   readOnly: boolean;
   onFieldChange: (field: string, value: unknown) => void;
   saveStatus: Record<string, string>;
+  /** the company profile and its VAT numbers: who an invoice should be billed to (D53); null = no check */
+  company?: CompanyIdentity | null;
 };
 
 function OcrHint({
@@ -45,9 +50,11 @@ export function FinancialFieldsSection({
   readOnly,
   onFieldChange,
   saveStatus,
+  company = null,
 }: FinancialFieldsSectionProps) {
   const t = useT();
   const isInvoice = prefixType === "invoice";
+  const billedTo = isInvoice && company ? checkBilledTo(company, resolvedData) : "unknown";
 
   const handleBlur = useCallback(
     (field: string, value: string, type: "text" | "number" = "text") => {
@@ -138,6 +145,66 @@ export function FinancialFieldsSection({
         </div>
       )}
 
+      {/* Vendor VAT number (invoice only) */}
+      {isInvoice && (
+        <div className="space-y-1">
+          <Label htmlFor="vendorTaxId">
+            {t("documents.review.vendorTaxId")}
+            {statusIndicator("vendorTaxId")}
+          </Label>
+          <Input
+            id="vendorTaxId"
+            defaultValue={String(resolvedData.vendorTaxId ?? "")}
+            disabled={readOnly}
+            onBlur={(e) => handleBlur("vendorTaxId", e.target.value)}
+          />
+          <OcrHint field="vendorTaxId" extractedData={extractedData} resolvedData={resolvedData} />
+        </div>
+      )}
+
+      {/* Billed to (invoice only, D53): read from the document, checked against the company */}
+      {isInvoice && (
+        <fieldset className="space-y-2 rounded-md border p-3" data-testid="billed-to">
+          <legend className="px-1 text-sm font-medium">{t("documents.review.billedTo")}</legend>
+          {billedTo === "mismatch" && company && (
+            <div
+              className="flex items-start gap-2 rounded-md bg-tag px-3 py-2 text-sm text-foreground"
+              role="alert"
+              data-testid="billed-to-mismatch"
+            >
+              <StateIcon family="attention" className="mt-0.5" />
+              {t("documents.review.billedToMismatch", { company: company.name })}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="customerName">
+                {t("documents.review.customerName")}
+                {statusIndicator("customerName")}
+              </Label>
+              <Input
+                id="customerName"
+                defaultValue={String(resolvedData.customerName ?? "")}
+                disabled={readOnly}
+                onBlur={(e) => handleBlur("customerName", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="customerTaxId">
+                {t("documents.review.customerTaxId")}
+                {statusIndicator("customerTaxId")}
+              </Label>
+              <Input
+                id="customerTaxId"
+                defaultValue={String(resolvedData.customerTaxId ?? "")}
+                disabled={readOnly}
+                onBlur={(e) => handleBlur("customerTaxId", e.target.value)}
+              />
+            </div>
+          </div>
+        </fieldset>
+      )}
+
       {/* Amount */}
       <div className="space-y-1">
         <Label htmlFor="invoiceTotal">
@@ -210,6 +277,25 @@ export function FinancialFieldsSection({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Reverse charge (D54): read from the document's text, the owner can set or clear it; no VAT computed */}
+      <div className="space-y-1">
+        {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={resolvedData.reverseCharge === true}
+            disabled={readOnly}
+            onCheckedChange={(checked) => onFieldChange("reverseCharge", checked === true)}
+            aria-label={t("documents.review.reverseCharge")}
+            data-testid="reverse-charge"
+          />
+          <span>
+            {t("documents.review.reverseCharge")}
+            {statusIndicator("reverseCharge")}
+          </span>
+        </label>
+        <p className="text-xs text-muted-foreground">{t("documents.review.reverseChargeHint")}</p>
       </div>
     </div>
   );
