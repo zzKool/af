@@ -46,6 +46,7 @@ export function createTenantStore<T extends Record<string, unknown>>(initialStat
   const store = create<T>()(() => ({ ...initialState }));
   const shouldReset = createTenantTracker();
 
+  // biome-ignore lint/correctness/noComponentHookFactories: a store factory, called once at module scope like zustand's create — the hook's identity is stable
   function useTenantAwareStore<U>(selector: (state: T) => U): U {
     const tenantId = useTenantId();
 

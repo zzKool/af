@@ -1,6 +1,9 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "plugins": ["./biome-plugins/decimal-to-number.grit"],
+  "markdown": {
+    "formatter": { "enabled": false }
+  },
   "css": {
     "parser": {
       "tailwindDirectives": true
