@@ -1,20 +1,14 @@
 name: CI/CD Pipeline
-# Policy (phase-0): pull requests run lint, typecheck, unit tests and the production build (~3–4 min).
-# E2E (Playwright + Azurite + seeded DB) runs on every push to main and on manual dispatch — fix-forward if red.
+# Policy (2026-10-24): every code PR and every push to main run the full pipeline — lint, typecheck, unit tests,
+# build and E2E, the four in parallel. A docs-only PR (scripts/ci-docs-only.sh decides) still starts the workflow:
+# the `changes` job reports green and the four heavy jobs report *skipped*, which merge-when-green.sh counts as
+# green — so a check always exists to wait for (workflow-level paths-ignore would leave none).
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "_bmad*/**"
   pull_request:
     branches: [main]
-    paths-ignore: # same list as push: a docs-only PR runs nothing (merge-when-green.sh merges it directly)
-      - "**.md"
-      - "docs/**"
-      - "_bmad*/**"
   workflow_dispatch:
 
 env:
@@ -24,30 +18,59 @@ env:
   NEXT_PUBLIC_SENTRY_DSN: ""
 
 jobs:
+  # Pull requests only: docs-only → the heavy jobs are skipped. Push to main and workflow_dispatch → always full.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      docs_only: ${{ steps.detect.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          sparse-checkout: scripts/ci-docs-only.sh
+          sparse-checkout-cone-mode: false
+      - id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"; echo "$GITHUB_EVENT_NAME → full pipeline"; exit 0
+          fi
+          # renames count with both names (moving code into docs/ is not a docs change); the API stops at 3000 files
+          files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)')
+          if [ "$(echo "$files" | wc -l)" -ge 3000 ]; then docs_only=false; else docs_only=$(echo "$files" | scripts/ci-docs-only.sh); fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "docs_only=$docs_only"; echo "$files" | head -50
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-      - run: npm ci
       - run: npm run lint
 
   typecheck:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-      - run: npm ci
-      - run: npx prisma generate
       - run: npm run typecheck
 
   unit-test:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -68,12 +91,9 @@ jobs:
       DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-      - run: npm ci
-      - run: npx prisma generate
       - name: Run migrations (superuser)
         run: npx prisma migrate deploy
         env:
@@ -98,7 +118,9 @@ jobs:
       - run: npm run test
 
   build-and-e2e:
-    needs: [lint, typecheck, unit-test]
+    # not chained behind the other three: all four run side by side and the merge waits for every one
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -121,51 +143,48 @@ jobs:
       AZURE_STORAGE_CONTAINER: documents
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-      - run: npm ci
-      - run: npx prisma generate
       - name: Cache Next.js build
         uses: actions/cache@v6
         with:
           path: .next/cache
-          key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx') }}
-          restore-keys: nextjs-${{ hashFiles('package-lock.json') }}-
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - name: Build without standalone (for next start + E2E)
         run: npm run build
         env:
           NEXT_OUTPUT_STANDALONE: "false"
+      - id: playwright
+        run: echo "version=$(node -p "require('./node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
-        if: github.event_name != 'pull_request'
+        id: playwright-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Install Playwright browsers
-        if: github.event_name != 'pull_request'
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Install Playwright system deps (browsers from cache)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: Run migrations (superuser)
         run: npx prisma migrate deploy
-        if: github.event_name != 'pull_request'
         env:
           DATABASE_URL: postgresql://af:test@localhost:5433/af_test
       - name: Seed database (superuser)
-        if: github.event_name != 'pull_request'
         run: npx prisma db seed
         env:
           DATABASE_URL: postgresql://af:test@localhost:5433/af_test
       - name: Start Azurite blob storage
-        if: github.event_name != 'pull_request'
         run: |
           docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
           npx wait-on tcp:10000 --timeout 10000
       - name: Create Azurite blob container
-        if: github.event_name != 'pull_request'
         run: node -e "const{BlobServiceClient}=require('@azure/storage-blob');BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING).getContainerClient(process.env.AZURE_STORAGE_CONTAINER).createIfNotExists().then(r=>console.log('Container ready:',r.succeeded?'created':'exists'))"
       - name: Start server and run E2E tests
-        if: github.event_name != 'pull_request'
         run: |
           npx next start -p 3000 > server.log 2>&1 &
           npx wait-on http://localhost:3000 --timeout 30000 || (cat server.log && exit 1)
@@ -179,14 +198,14 @@ jobs:
           PORT: 3000
           HOSTNAME: localhost
       - uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() }}
         with:
           name: page-screenshots
           path: e2e-screenshots/
           if-no-files-found: ignore
           retention-days: 30
       - uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() }}
         with:
           name: playwright-report
           path: |
@@ -203,7 +222,7 @@ jobs:
   deploy:
     # Azure (docs/deployment.md): the images publish.yml pushed to ghcr.io — the migrate job first, then the app's
     # new revision. Enable once the resources exist and the `production` environment holds the secrets.
-    needs: [build-and-e2e]
+    needs: [lint, typecheck, unit-test, build-and-e2e]
     if: false # TODO: Enable when Azure is provisioned
     runs-on: ubuntu-latest
     environment: production

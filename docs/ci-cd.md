@@ -1,4 +1,4 @@
-> **Policy since phase-0 (2026-10-20):** pull requests run lint, typecheck, unit tests and the production build (~3–4 min). E2E runs on every push to `main` and on manual dispatch (`workflow_dispatch`); a red E2E on `main` is fixed forward in the next PR. **Images**: `publish.yml` builds the app and migrate images on every push to `main` and every `v*` tag and pushes them to `ghcr.io/zzkool/af` — the homelab and Azure pull, never build ([[deployment]]).
+> **Policy since 2026-10-24:** every code PR and every push to `main` run the full pipeline — lint, typecheck, unit tests, build **and E2E** — the four jobs side by side. A docs-only PR still runs the workflow, but only its `changes` job does work: the four heavy jobs report *skipped* and `scripts/merge-when-green.sh` merges it in under a minute. **Images**: `publish.yml` builds the app and migrate images on every push to `main` and every `v*` tag and pushes them to `ghcr.io/zzkool/af` — the homelab and Azure pull, never build ([[deployment]]). (Until 2026-10-24 the E2E ran on `main` only.)
 
 # CI/CD Pipeline
 
@@ -6,27 +6,32 @@
 
 ```mermaid
 graph LR
-    A[Push/PR to develop] --> B[lint]
-    A --> C[typecheck]
-    A --> D[unit-test]
-    B --> E[build]
-    C --> E
-    D --> E
-    E --> F[e2e]
-    F --> G[deploy - disabled]
+    A[PR / push to main / dispatch] --> X[changes]
+    X -->|docs-only PR: skipped| B[lint]
+    X --> C[typecheck]
+    X --> D[unit-test]
+    X --> E[build-and-e2e]
+    B --> G[deploy - disabled]
+    C --> G
+    D --> G
+    E --> G
 ```
 
 | Job | What it does | Target time |
 |-----|-------------|-------------|
+| **changes** | PR only: lists the PR's files (both names of a rename) through the API and runs `scripts/ci-docs-only.sh` → `docs_only` | <20 s |
 | **lint** | Biome check on all files | <1 min |
 | **typecheck** | `tsc --noEmit` | <1 min |
 | **unit-test** | Vitest with PostgreSQL 17 service | <2 min |
-| **build** | `next build` with standalone output | <3 min |
-| **e2e** | Playwright against standalone server | <5 min |
+| **build-and-e2e** | `next build`, then migrations + seed + Azurite, `next start`, Playwright | <6 min |
 | **publish** (`publish.yml`, main + tags) | `docker build` of the `runner` and `migrate` stages → `ghcr.io/zzkool/af:{main,sha-…,v…}` | <6 min (layer cache) |
 | **deploy** | Azure Container Apps (disabled until provisioned; [[deployment]]) | N/A |
 
-**Triggers:** Every push to `main` and every PR targeting `main`. A change that only touches `.md`, `docs/` or `_bmad*/` files runs nothing — not the PR checks, not CI on `main`, not `publish` (`paths-ignore` on all three triggers, 2026-10-22); `scripts/merge-when-green.sh` merges such a PR without waiting. A PR that mixes code and docs runs everything. Release tags (`v*`) always publish.
+**Triggers:** every PR targeting `main`, every push to `main`, `workflow_dispatch` — never filtered at workflow level (a `paths-ignore` would leave no check for `merge-when-green.sh` to wait for).
+
+**Docs-only** (`scripts/ci-docs-only.sh`, the one place the rule lives): every changed path is `*.md` or under `docs/` or `specs/`. Anything else — or any path under `.github/`, `prisma/`, `src/kernel/i18n/dictionaries/`, `package*.json`, `Dockerfile*`, `docker-compose*`, even a `.md` there — runs everything. A push to `main` and a manual run always run everything. A skipped job is a reported check with conclusion `skipped`, which counts as green. `publish.yml` keeps its own `paths-ignore` (a docs commit changes nothing in the image; release tags always publish).
+
+**Caches** (nothing holding a secret or an `.env` file): `~/.npm` (setup-node) and `node_modules` keyed on OS + Node + `package-lock.json` — on a hit `npm ci` is skipped and only the postinstall runs (`.github/actions/setup`, shared by every job); `.next/cache` keyed on the lockfile + the sources (`src/`, `public/`, the configs); Playwright's Chromium keyed on the installed `playwright-core` version (system packages are still installed on a hit). The Prisma client is not cached: `prisma generate` takes ~2 s.
 
 ## Local Development
 
@@ -156,10 +161,10 @@ Migrations run BEFORE deploying the new image. If migration fails, the old conta
 
 | Metric | Value |
 |--------|-------|
-| Free tier | 2,000 min/month (private repo) |
+| Free tier | unlimited (public repo) |
 | Est. per PR run | ~8 min (billed per job-minute) |
 | Est. monthly usage | ~1,600 min during active dev |
-| Savings from `paths-ignore` | ~20% (docs-only pushes) |
+| Docs-only PRs | `changes` only (~15 s); the heavy jobs are skipped |
 | First lever if approaching limit | lint+typecheck on PR only, not push |
 
 ## Discipline Note

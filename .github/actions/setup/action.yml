@@ -1,0 +1,27 @@
+name: setup
+description: >
+  Node + dependencies for a CI job, after actions/checkout. node_modules is cached on the OS, the Node version and
+  package-lock.json; on a hit `npm ci` is skipped and only the postinstall runs (the pdf.js worker copy into public/
+  and `prisma generate` — ~2 s, not worth a cache of its own). Nothing here holds a secret or an .env file.
+inputs:
+  node-version:
+    description: Node major version
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm # ~/.npm, used when node_modules misses
+    - id: node-modules
+      uses: actions/cache@v6
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-node${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
+    - if: steps.node-modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci # runs the postinstall too
+    - if: steps.node-modules.outputs.cache-hit == 'true'
+      shell: bash
+      run: npm run postinstall

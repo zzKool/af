@@ -2,16 +2,16 @@
 
 Phase-0 item 7 (2026-10-20). What every change passes before it reaches `main`, and where each check lives. Constitution §4 is the rule; this page is the plumbing.
 
-## On every pull request (`.github/workflows/ci.yml`)
+## On every pull request and every push to `main` (`.github/workflows/ci.yml`)
+A docs-only PR (`scripts/ci-docs-only.sh`, see [[ci-cd]]) runs only the `changes` job; the jobs below report *skipped*. The four run side by side.
 | job | what | fails when |
 |---|---|---|
 | `lint` | `biome check .` | formatting or lint errors (warnings pass) |
 | `typecheck` | `tsc --noEmit` | any type error |
 | `unit-test` | `prisma migrate deploy` on a fresh Postgres 17 → **schema ↔ migrations drift check** → `vitest run` (server + pure + client projects) | a migration and the schema disagree (annotated on the run), any test red; the architecture guard is one of the tests |
-| `build-and-e2e` | `next build` | the app does not build |
+| `build-and-e2e` | `next build`, then Playwright: migrations + seed + Azurite, `next start`, `npm run e2e` | the app does not build, any journey red |
 
-## On `main` (after merge) and on `workflow_dispatch`
-The same, plus Playwright: migrations + seed + Azurite, `next start`, `npm run e2e`. Two artifacts: `playwright-report` (traces and failure screenshots) and **`page-screenshots`** — `e2e/screenshots.spec.ts` captures every page as the seeded owner, so each run on `main` leaves pictures a human can look at (§4.5). PR authors still attach their own screenshots of new pages and PDFs.
+Two artifacts from `build-and-e2e`: `playwright-report` (traces and failure screenshots) and **`page-screenshots`** — `e2e/screenshots.spec.ts` captures every page as the seeded owner, so each run leaves pictures a human can look at (§4.5). PR authors still attach their own screenshots of new pages and PDFs. (Until 2026-10-24 the E2E ran on `main` only.)
 
 ## Flaky tests
 `retries: 0` — nothing is retried into green. A test that fails without a code change is quarantined in the same PR: `quarantine("#<issue> — why")` from `e2e/fixtures/quarantine.ts` as the first line of the test (Vitest: `it.skip` with the same comment), the issue tracks the fix. Traces are kept on failure.
@@ -34,9 +34,9 @@ In a sandbox without Docker Hub / the Prisma CDN / Google Fonts (a cloud agent s
 |---|---|
 | spec checklist ticked | PR template, `specs/<module>/tasks.md` |
 | lint / typecheck / test green, guard passes | PR jobs |
-| e2e happy path green, flaky quarantined | `main` run; `e2e/<module>.spec.ts` |
+| e2e happy path green, flaky quarantined | PR and `main` runs; `e2e/<module>.spec.ts` |
 | property tests on money / allocations | `*.pure.test.ts` with fast-check (allocation, numbering, list-query) |
-| screenshots of pages and PDFs | PR body; `page-screenshots` artifact on `main` |
+| screenshots of pages and PDFs | PR body; `page-screenshots` artifact on every run |
 | `docs/<module>.md` linked from the index | PR template |
 | no secrets / SAS URLs / `console.*`; audit rows | guard test (`console`), review |
 | shared files touched → no other open PR on them | PR template |
