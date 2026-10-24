@@ -31,14 +31,12 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     journal,
     expenses,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [partner, basPrefs, contracts, vat, employees, contacts] = await Promise.all([
-      partnerService.getPartner(tx, id),
-      settingsService.getTenantBasPreferences(tx, callerIdentity),
-      contractService.getContracts(tx, id, { includeInactive: true, today }),
-      settingsService.getVatRegistrations(tx, callerIdentity),
-      partnerService.getPartners(tx, { types: ["employee"] }),
-      partnerService.listPartnerContacts(tx, id),
-    ]);
+    const partner = await partnerService.getPartner(tx, id);
+    const basPrefs = await settingsService.getTenantBasPreferences(tx, callerIdentity);
+    const contracts = await contractService.getContracts(tx, id, { includeInactive: true, today });
+    const vat = await settingsService.getVatRegistrations(tx, callerIdentity);
+    const employees = await partnerService.getPartners(tx, { types: ["employee"] });
+    const contacts = await partnerService.listPartnerContacts(tx, id);
     // the rate history of every contract, one query (D24) — the contract rows carry it to the client
     const rates = await contractService.listContractRatesFor(
       tx,
@@ -51,17 +49,15 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     const documentIds = links.flatMap((l) =>
       [l.from, l.to].filter((e) => e.type === "document").map((e) => e.id),
     );
-    const [documents, journal, expenses] = await Promise.all([
-      documentsByIds(tx, [...new Set(documentIds)]),
-      listJournalEntries(tx, {
-        page: 1,
-        pageSize: 25,
-        sort: JOURNAL_DEFAULT_SORT,
-        filters: { partnerId: { kind: "in", values: [id] } },
-      }),
-      // spend with this partner (F87): its expenses, newest first, and Σ base
-      expensesForPartner(tx, id),
-    ]);
+    const documents = await documentsByIds(tx, [...new Set(documentIds)]);
+    const journal = await listJournalEntries(tx, {
+      page: 1,
+      pageSize: 25,
+      sort: JOURNAL_DEFAULT_SORT,
+      filters: { partnerId: { kind: "in", values: [id] } },
+    });
+    // spend with this partner (F87): its expenses, newest first, and Σ base
+    const expenses = await expensesForPartner(tx, id);
     return {
       partnerResult: partner,
       basPrefsResult: basPrefs,

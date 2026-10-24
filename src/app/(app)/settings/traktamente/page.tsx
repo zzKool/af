@@ -23,7 +23,8 @@ export default async function TraktamenteSettingsPage({
       Number.isInteger(requested) && requested > 2000
         ? requested
         : (years[0] ?? new Date().getFullYear());
-    const [rows, prefs] = await Promise.all([listRates(tx, year), getUserPreferences(tx, auth)]);
+    const rows = await listRates(tx, year);
+    const prefs = await getUserPreferences(tx, auth);
     return { years, year, rows, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

@@ -122,10 +122,10 @@ type Facts = {
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
   const f: Facts = { allocated: new Map(), justified: new Map(), hasDocument: new Set() };
   if (ids.length === 0) return f;
-  const [allocated, links] = await Promise.all([
-    allocatedByExpense(tx, ids),
-    linking.linksTouching(tx, "expense", ids, { kinds: ["created_from", "justifies"] }),
-  ]);
+  const allocated = await allocatedByExpense(tx, ids);
+  const links = await linking.linksTouching(tx, "expense", ids, {
+    kinds: ["created_from", "justifies"],
+  });
   f.allocated = allocated;
   for (const l of links) {
     if (l.kind === "created_from") {
@@ -174,18 +174,16 @@ async function loadRows(
     orderBy: [{ date: "desc" }, { key: "desc" }],
     take: ROW_CAP,
   });
-  const [f, labels, names] = await Promise.all([
-    facts(
-      tx,
-      rows.map((r) => r.id),
-    ),
-    settings.basLabels(
-      tx,
-      rows.map((r) => r.basCode),
-    ),
-    partners.partnerNames(tx, [
-      ...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : []))),
-    ]),
+  const f = await facts(
+    tx,
+    rows.map((r) => r.id),
+  );
+  const labels = await settings.basLabels(
+    tx,
+    rows.map((r) => r.basCode),
+  );
+  const names = await partners.partnerNames(tx, [
+    ...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : []))),
   ]);
   const list: ExpenseListRow[] = rows.map((r) => {
     const dto = toExpenseDto(r);
@@ -336,22 +334,22 @@ export async function getExpenseDetail(
 ): Promise<ServiceResult<ExpenseDetail>> {
   const row = await tx.expense.findUnique({
     where: { id },
-    include: {
-      group: true,
-      paymentSource: true,
-      settlementLines: { include: { settlement: true } },
-    },
+    include: { group: true, paymentSource: true },
   });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Expense not found: ${id}`, retryable: false } };
-  const [f, labels, withLabels, isOpen, audit, partner] = await Promise.all([
-    facts(tx, [id]),
-    settings.basLabels(tx, [row.basCode]),
-    linking.linksWithLabels(tx, { type: "expense", id }),
-    isExpenseOpen(tx, id),
-    getAuditLog(tx, { entityType: "expense", entityId: id, limit: 20 }),
-    row.partnerId ? partners.getPartner(tx, row.partnerId) : null,
-  ]);
+  // its own read: Prisma loads an include's relations in parallel on the tx, and a third one queues
+  // behind the client's running query — pg's "already executing" warning (F53)
+  const settlementLines = await tx.settlementLine.findMany({
+    where: { expenseId: id },
+    include: { settlement: true },
+  });
+  const f = await facts(tx, [id]);
+  const labels = await settings.basLabels(tx, [row.basCode]);
+  const withLabels = await linking.linksWithLabels(tx, { type: "expense", id });
+  const isOpen = await isExpenseOpen(tx, id);
+  const audit = await getAuditLog(tx, { entityType: "expense", entityId: id, limit: 20 });
+  const partner = row.partnerId ? await partners.getPartner(tx, row.partnerId) : null;
   const dto = toExpenseDto(row);
   const derived = statusOf(dto, row.paymentSource.kind as PaymentSourceKind, f, id);
   const origin = withLabels.find((l) => l.kind === "created_from" && l.from.id === id);
@@ -362,7 +360,7 @@ export async function getExpenseDetail(
   }
   const bookingDates = await banking.bookingDates(
     tx,
-    row.settlementLines.map((l) => l.settlement.bankTransactionId),
+    settlementLines.map((l) => l.settlement.bankTransactionId),
   );
   return {
     data: {
@@ -383,7 +381,7 @@ export async function getExpenseDetail(
       isOpen,
       document,
       links: withLabels,
-      settlements: row.settlementLines.map((l) => ({
+      settlements: settlementLines.map((l) => ({
         id: l.settlement.id,
         number: l.settlement.number,
         allocatedBase: l.allocatedBase.toFixed(2),

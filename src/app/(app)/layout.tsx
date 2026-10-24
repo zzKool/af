@@ -63,12 +63,10 @@ export default async function AppLayout({
     can(auth, "create", "bank_transaction")
       ? withTenantTransaction(prisma, auth.tenantId, async (tx) => {
           const today = createClock().today();
-          const [banking, documents, invoices, supplierInvoices] = await Promise.all([
-            rowsToJustifyCount(tx),
-            inboxOpenCount(tx, auth),
-            overdueInvoiceCount(tx, today),
-            overdueSupplierInvoiceCount(tx, today),
-          ]);
+          const banking = await rowsToJustifyCount(tx);
+          const documents = await inboxOpenCount(tx, auth);
+          const invoices = await overdueInvoiceCount(tx, today);
+          const supplierInvoices = await overdueSupplierInvoiceCount(tx, today);
           return {
             "/banking": banking,
             "/documents": documents,

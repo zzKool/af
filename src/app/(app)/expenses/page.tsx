@@ -29,12 +29,10 @@ export default async function ExpensesPage({
     defaultSort: EXPENSE_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, ledger, options, prefs] = await Promise.all([
-      listExpenses(tx, query),
-      ledgerSnapshot(tx),
-      expensePageOptions(tx, auth),
-      getUserPreferences(tx, auth),
-    ]);
+    const result = await listExpenses(tx, query);
+    const ledger = await ledgerSnapshot(tx);
+    const options = await expensePageOptions(tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
     return { result, ledger, options, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

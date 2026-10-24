@@ -33,12 +33,10 @@ export default async function DocumentsPage({
     defaultSort: DOCUMENT_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, stats, inbox, prefs] = await Promise.all([
-      listDocuments(tx, auth, query),
-      getDocumentStats(tx, auth),
-      inboxTotals(tx, auth),
-      getUserPreferences(tx, auth),
-    ]);
+    const result = await listDocuments(tx, auth, query);
+    const stats = await getDocumentStats(tx, auth);
+    const inbox = await inboxTotals(tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
     return { result, stats: stats.data ?? null, inbox, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

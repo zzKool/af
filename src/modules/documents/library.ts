@@ -95,28 +95,26 @@ export async function getDocuments(
   // Map sort field to Prisma column name
   const orderBy = { [sort.field]: sort.direction };
 
-  const [docs, totalCount] = await Promise.all([
-    tx.document.findMany({
-      where,
-      orderBy,
-      skip: (pagination.page - 1) * pagination.pageSize,
-      take: pagination.pageSize,
-      select: {
-        id: true,
-        businessKey: true,
-        fileName: true,
-        prefixType: true,
-        documentType: true,
-        status: true,
-        createdAt: true,
-        fileSize: true,
-        reviewedAt: true,
-        ocrData: true,
-        corrections: true,
-      },
-    }),
-    tx.document.count({ where }),
-  ]);
+  const docs = await tx.document.findMany({
+    where,
+    orderBy,
+    skip: (pagination.page - 1) * pagination.pageSize,
+    take: pagination.pageSize,
+    select: {
+      id: true,
+      businessKey: true,
+      fileName: true,
+      prefixType: true,
+      documentType: true,
+      status: true,
+      createdAt: true,
+      fileSize: true,
+      reviewedAt: true,
+      ocrData: true,
+      corrections: true,
+    },
+  });
+  const totalCount = await tx.document.count({ where });
 
   // Resolve extracted data for list display
   const items: DocumentListItem[] = docs.map((doc) => {
@@ -159,19 +157,17 @@ export async function getDocumentStats(
     : { documentType: "financial" };
 
   // "to review" is the inbox's number (`inboxTotals`), not a second count here
-  const [totalCount, statusGroups, typeGroups] = await Promise.all([
-    tx.document.count({ where }),
-    tx.document.groupBy({
-      by: ["status"],
-      where,
-      _count: true,
-    }),
-    tx.document.groupBy({
-      by: ["documentType"],
-      where,
-      _count: true,
-    }),
-  ]);
+  const totalCount = await tx.document.count({ where });
+  const statusGroups = await tx.document.groupBy({
+    by: ["status"],
+    where,
+    _count: true,
+  });
+  const typeGroups = await tx.document.groupBy({
+    by: ["documentType"],
+    where,
+    _count: true,
+  });
 
   const byStatus: Record<string, number> = {};
   for (const g of statusGroups) {

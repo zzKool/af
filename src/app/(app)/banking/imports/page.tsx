@@ -28,11 +28,9 @@ export default async function BankImportsPage({
     defaultSort: IMPORT_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, accounts, prefs] = await Promise.all([
-      listImportsPage(tx, query),
-      getBankAccounts(tx, auth),
-      getUserPreferences(tx, auth),
-    ]);
+    const result = await listImportsPage(tx, query);
+    const accounts = await getBankAccounts(tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
     return { result, accounts: accounts.data ?? [], prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

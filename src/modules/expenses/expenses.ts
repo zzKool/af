@@ -272,10 +272,8 @@ async function checkPartner(
  * two facts, so the database refuses what this refuses. *Detach* removes the link before it rewrites the money.
  */
 async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
-  const [lines, links] = await Promise.all([
-    tx.settlementLine.count({ where: { expenseId: id } }),
-    linking.linksTouching(tx, "expense", [id], { kinds: ["justifies"] }),
-  ]);
+  const lines = await tx.settlementLine.count({ where: { expenseId: id } });
+  const links = await linking.linksTouching(tx, "expense", [id], { kinds: ["justifies"] });
   const payments = links.filter((l) => l.to.type === "expense" && l.to.id === id);
   return lines === 0 && payments.length === 0;
 }

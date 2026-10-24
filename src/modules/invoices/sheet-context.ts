@@ -29,15 +29,16 @@ export async function resolveSheetContext(
   const res = await getInvoice(tx, id, today ?? new Date().toISOString().slice(0, 10));
   if (!res.data) return null;
   const invoice = res.data;
-  const [partner, profile, regs, accounts, related] = await Promise.all([
-    partners.getPartner(tx, invoice.partnerId),
-    settings.getTenantProfile(tx, caller),
-    settings.getVatRegistrations(tx, caller),
-    banking.getBankAccounts(tx, caller),
-    invoice.relatedInvoiceId
-      ? tx.invoice.findUnique({ where: { id: invoice.relatedInvoiceId }, select: { number: true } })
-      : Promise.resolve(null),
-  ]);
+  const partner = await partners.getPartner(tx, invoice.partnerId);
+  const profile = await settings.getTenantProfile(tx, caller);
+  const regs = await settings.getVatRegistrations(tx, caller);
+  const accounts = await banking.getBankAccounts(tx, caller);
+  const related = invoice.relatedInvoiceId
+    ? await tx.invoice.findUnique({
+        where: { id: invoice.relatedInvoiceId },
+        select: { number: true },
+      })
+    : null;
   const registration = regs.data?.find((r) => r.id === invoice.vatRegistrationId) ?? null;
   const treatment = vatTreatmentFor(registration, {
     address: partner.data?.address ?? null,

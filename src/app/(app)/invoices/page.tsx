@@ -28,11 +28,9 @@ export default async function InvoicesPage({
     prisma,
     auth.tenantId,
     async (tx) => {
-      const [result, clients, prefs] = await Promise.all([
-        listInvoices(tx, query, today),
-        getPartners(tx, { types: ["client"], includeInactive: true }),
-        getUserPreferences(tx, auth),
-      ]);
+      const result = await listInvoices(tx, query, today);
+      const clients = await getPartners(tx, { types: ["client"], includeInactive: true });
+      const prefs = await getUserPreferences(tx, auth);
       return { result, clients: clients.data ?? [], prefs };
     },
   );
