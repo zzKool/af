@@ -1,3 +1,4 @@
+// Browser Sentry (Next.js loads this file in the client; was sentry.client.config.ts until Sentry 11, F52).
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
