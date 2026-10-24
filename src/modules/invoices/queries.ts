@@ -276,6 +276,36 @@ function searchHit(row: InvoiceListRow, term: string): boolean {
   );
 }
 
+/**
+ * The sidebar's count on Invoices (F72): the issued invoices whose state is *overdue* — the dashboard's
+ * *invoices overdue* — without the list. Only the candidates are read (invoices, not draft, due before today:
+ * five columns), their sums, then `deriveState` decides (a partly paid or credited one is not overdue).
+ */
+export async function overdueInvoiceCount(tx: TransactionClient, today: string): Promise<number> {
+  const rows = await tx.invoice.findMany({
+    where: {
+      type: "invoice",
+      status: { not: "draft" },
+      dueDate: { lt: new Date(`${today}T00:00:00Z`) },
+    },
+    take: ROW_CAP,
+    select: { id: true, type: true, status: true, totalAmount: true, dueDate: true },
+  });
+  if (rows.length === 0) return 0;
+  const sums = await derivedSums(
+    tx,
+    rows.map((r) => r.id),
+  );
+  return rows.filter(
+    (r) =>
+      deriveFor(
+        { ...r, totalAmount: r.totalAmount.toFixed(2), dueDate: iso(r.dueDate) },
+        sums,
+        today,
+      ).state === "overdue",
+  ).length;
+}
+
 export async function listInvoices(
   tx: TransactionClient,
   q: ListQuery,

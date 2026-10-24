@@ -128,3 +128,7 @@ E2E `e2e/banking.spec.ts` (SEK only — CI has no ECB rates): the July sample �
 Seed: the three accounts with roles and the two default rules (`prisma/seed.ts`).
 
 Related: [[journal]], [[linking]], [[bank-accounts]], [[rates]], [[feature-inventory]] §3.10, the `bas-accounting` skill.
+
+## The sidebar's count (F72)
+
+`rowsToJustifyCount(tx)` (`open-work.ts`) — the main accounts' rows still to justify (open | partial), the number of the dashboard's *rows to justify*, for the sidebar's *Banking* badge, loaded with every page by the app layout. Three narrowing reads: the rows (id, amount) → the links touching them (`linkFactsOf`: Σ allocated, transfer legs) → the journal's flag of the rows still open (`journal.entriesForSources`); the state is `deriveTransactionState`. `open-work.test.ts` holds it against `listTransactions(state ∈ open, partial)`.
