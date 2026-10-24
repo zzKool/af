@@ -94,7 +94,7 @@ See [[deployment]] for Azure Container Apps setup.
 
 - **DSN:** `NEXT_PUBLIC_SENTRY_DSN` env var — empty string disables Sentry (graceful no-op for local dev)
 - **Source maps:** Uploaded only in production CI builds via `SENTRY_AUTH_TOKEN` (GitHub Actions secret)
-- **Config files:** `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
+- **Config files:** `src/instrumentation-client.ts` (browser; was `sentry.client.config.ts` before Sentry 11), `sentry.server.config.ts`, `sentry.edge.config.ts`
 - **Instrumentation:** `src/instrumentation.ts` loads Sentry on server/edge startup
 
 ### What Gets Reported
