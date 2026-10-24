@@ -142,7 +142,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
 ];
 
-/** The sidebar's **+ New** menu: each entry opens the page whose primary action makes the thing. */
+/** The sidebar's **+ New** menu: each entry opens the page whose primary action makes the thing — with `?new=1`,
+ *  which opens that action's dialog at once (F73, `kernel/ui/shell/use-new-param.ts`); a new invoice is a page. */
 export type NewItem = {
   href: string;
   labelKey: Extract<MessageKey, `nav.new.${string}`>;
@@ -150,16 +151,16 @@ export type NewItem = {
   roles: CallerIdentity["role"][];
 };
 export const NEW_ITEMS: readonly NewItem[] = [
-  { href: "/documents", labelKey: "nav.new.document", icon: "Upload", roles: ["owner"] },
-  { href: "/banking", labelKey: "nav.new.csv", icon: "Landmark", roles: ["owner"] },
+  { href: "/documents?new=1", labelKey: "nav.new.document", icon: "Upload", roles: ["owner"] },
+  { href: "/banking?new=1", labelKey: "nav.new.csv", icon: "Landmark", roles: ["owner"] },
   { href: "/invoices/new", labelKey: "nav.new.invoice", icon: "Receipt", roles: ["owner"] },
   {
-    href: "/supplier-invoices",
+    href: "/supplier-invoices?new=1",
     labelKey: "nav.new.supplierInvoice",
     icon: "ReceiptText",
     roles: ["owner"],
   },
-  { href: "/expenses", labelKey: "nav.new.expense", icon: "Wallet", roles: ["owner"] },
+  { href: "/expenses?new=1", labelKey: "nav.new.expense", icon: "Wallet", roles: ["owner"] },
 ];
 
 /**

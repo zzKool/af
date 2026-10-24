@@ -1,10 +1,10 @@
 "use client";
 
 // The page's one primary (D40 title row): *New supplier invoice* and the dialog it opens. The sidebar's **+ New**
-// lands on this page, whose primary makes the thing.
-import { useState } from "react";
+// lands on this page with `?new=1`, which opens the dialog (F73). Rendered only for a caller who may create.
 import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
+import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import type {
   CategoryOption,
   DocumentOption,
@@ -30,7 +30,7 @@ export function NewSupplierInvoiceButton({
   defaultGroupId?: string;
 }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useNewParam();
   return (
     <>
       <Button onClick={() => setOpen(true)} data-testid="open-new-supplier-invoice">

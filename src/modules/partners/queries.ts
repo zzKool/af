@@ -61,14 +61,12 @@ export async function listPartners(
   q: ListQuery,
 ): Promise<ListResult<PartnerDto>> {
   const where = buildWhere(q, PARTNER_COLUMNS);
-  const [rows, total] = await Promise.all([
-    tx.partner.findMany({
-      where,
-      orderBy: buildOrderBy(q, PARTNER_COLUMNS, PARTNER_DEFAULT_SORT),
-      ...paginate(q),
-    }),
-    tx.partner.count({ where }),
-  ]);
+  const rows = await tx.partner.findMany({
+    where,
+    orderBy: buildOrderBy(q, PARTNER_COLUMNS, PARTNER_DEFAULT_SORT),
+    ...paginate(q),
+  });
+  const total = await tx.partner.count({ where });
   return { rows: rows.map(toPartnerDto), total };
 }
 

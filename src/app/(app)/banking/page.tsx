@@ -37,17 +37,14 @@ export default async function BankingPage({
   });
   const today = createClock().today();
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, balances, accounts, categories, partners, imports, prefs, months] =
-      await Promise.all([
-        listTransactions(tx, query),
-        accountBalances(tx),
-        getBankAccounts(tx, auth),
-        categoryOptions(tx, auth),
-        partnerOptions(tx),
-        listImports(tx),
-        getUserPreferences(tx, auth),
-        bankMonths(tx, { today }),
-      ]);
+    const result = await listTransactions(tx, query);
+    const balances = await accountBalances(tx);
+    const accounts = await getBankAccounts(tx, auth);
+    const categories = await categoryOptions(tx, auth);
+    const partners = await partnerOptions(tx);
+    const imports = await listImports(tx);
+    const prefs = await getUserPreferences(tx, auth);
+    const months = await bankMonths(tx, { today });
     return {
       months,
       result,

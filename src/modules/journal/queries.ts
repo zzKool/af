@@ -87,11 +87,9 @@ async function loadRows(
   );
   // banking is loaded on first use: it imports the journal at load time (the cycle of implicit-rate.ts)
   const banking = await import("@/modules/banking");
-  const [names, labels, aliases] = await Promise.all([
-    partners.partnerNames(tx, partnerIds),
-    settings.basLabels(tx, codes),
-    banking.accountAliasesFor(tx, bankSources),
-  ]);
+  const names = await partners.partnerNames(tx, partnerIds);
+  const labels = await settings.basLabels(tx, codes);
+  const aliases = await banking.accountAliasesFor(tx, bankSources);
   const entries = await withImplicitRates(tx, rows.map(toJournalEntryDto));
   const states = await linksStates(tx, entries);
   const list: JournalListRow[] = entries.map((r) => ({

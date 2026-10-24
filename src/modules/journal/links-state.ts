@@ -34,11 +34,11 @@ export async function linksStates(
     e.sourceType === "bank_transaction" && e.sourceId ? [e.sourceId] : [],
   );
   const manualIds = entries.flatMap((e) => (e.sourceType === "manual" ? [e.id] : []));
-  const [fromBank, fromManual, transfers] = await Promise.all([
-    linking.allocatedFrom(tx, "bank_transaction", bankIds),
-    linking.allocatedFrom(tx, "journal_entry", manualIds),
-    linking.linksTouching(tx, "bank_transaction", bankIds, { kinds: ["transfer"] }),
-  ]);
+  const fromBank = await linking.allocatedFrom(tx, "bank_transaction", bankIds);
+  const fromManual = await linking.allocatedFrom(tx, "journal_entry", manualIds);
+  const transfers = await linking.linksTouching(tx, "bank_transaction", bankIds, {
+    kinds: ["transfer"],
+  });
   const inTransfer = new Set(transfers.flatMap((l) => [l.from.id, l.to.id]));
   const out = new Map<string, { allocated: string; state: LinksState }>();
   for (const e of entries) {

@@ -28,3 +28,9 @@ Kit only (`kernel/ui`, `components/ui`, `kernel/i18n`); no module folder, no sch
 - [x] T4 `details.about` / `details.proof` / `details.history` keys for the modules' panels
 - [x] T5 tests: `data-table.test.tsx` — a Swedish user's four popovers and filter button, `describeFilter` with the sv translator, Hide → rail → saved → reload keeps it → Show; `kit.test.tsx` — an id value shows its label, the none sentinel its label, a child-component item via `items`, unknown → placeholder / blank, never the id
 - [x] T6 docs: features F74 (+ F71's History note), ui-conventions (panel, DataTable i18n, select), feature-inventory D40, lessons, banking, roadmap
+
+## F72 — sidebar counts of open work (2026-10-24, `feat/shell-sidebar-counts`, LIGHT)
+
+- [x] `Sidebar` / `AppShell` take `counts` (nav path → n): a `<CountBadge>` right of the label when n > 0, a dot when collapsed (the count in the tooltip); the link's accessible name stays the label (`aria-label`), so e2e and screen readers still find *Banking*. `sidebar.test.tsx`.
+- [x] The app layout loads them for the owner (`can create bank_transaction`, like the dashboard's to-do) in one tenant transaction, in parallel with its other reads: banking `rowsToJustifyCount` (`open-work.test.ts` against the list), documents `inboxOpenCount` (`inbox.test.ts`: = `inboxTotals.total`, owner and accountant), invoices `overdueInvoiceCount` (`invoices.test.ts`: draft no, overdue yes, partly paid no). No i18n, no nav constant changed.
+- [x] Supplier invoices: `overdueSupplierInvoiceCount` (not cancelled, due before today → allocations → `deriveSupplierInvoiceStatus`); `supplier-invoices.test.ts` holds it equal to `kpis(…).overdueCount` on three days (paid and cancelled never counted) — *`feat/shell-sidebar-counts-si`*.

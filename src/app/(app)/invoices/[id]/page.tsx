@@ -32,12 +32,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const ctx = await resolveSheetContext(tx, auth, id, today);
     if (!ctx) return null;
-    const [related, partner, declared, prefs] = await Promise.all([
-      relatedDocuments(tx, id),
-      getPartner(tx, ctx.invoice.partnerId),
-      declaredOn(tx, ctx.invoice.declarationPeriod, ctx.invoice.vatRegistrationId),
-      getUserPreferences(tx, auth),
-    ]);
+    const related = await relatedDocuments(tx, id);
+    const partner = await getPartner(tx, ctx.invoice.partnerId);
+    const declared = await declaredOn(
+      tx,
+      ctx.invoice.declarationPeriod,
+      ctx.invoice.vatRegistrationId,
+    );
+    const prefs = await getUserPreferences(tx, auth);
     return { ctx, related, partner: partner.data ?? null, declared, prefs: prefs.data };
   });
   if (!data) notFound();

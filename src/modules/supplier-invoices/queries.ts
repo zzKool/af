@@ -6,7 +6,7 @@ import { getAuditLog } from "@/kernel/audit/audit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { addDays } from "@/kernel/clock/calendar";
 import { createClock } from "@/kernel/clock/clock";
-import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
 import { buildDateHierarchy, buildWhere, countDistinct } from "@/kernel/list-query/prisma";
@@ -116,10 +116,10 @@ type Facts = {
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
   const f: Facts = { allocated: new Map(), payers: new Map(), hasDocument: new Set() };
   if (ids.length === 0) return f;
-  const [allocated, links] = await Promise.all([
-    allocatedSums(tx, ids),
-    linking.linksTouching(tx, "supplier_invoice", ids, { kinds: ["justifies", "created_from"] }),
-  ]);
+  const allocated = await allocatedSums(tx, ids);
+  const links = await linking.linksTouching(tx, "supplier_invoice", ids, {
+    kinds: ["justifies", "created_from"],
+  });
   f.allocated = allocated;
   for (const l of links) {
     if (l.kind === "created_from" && l.from.type === "supplier_invoice")
@@ -173,20 +173,18 @@ async function loadRows(
     take: ROW_CAP,
   });
   const today = options.today ?? clock.today();
-  const [f, labels, names] = await Promise.all([
-    facts(
-      tx,
-      rows.map((r) => r.id),
-    ),
-    settings.basLabels(
-      tx,
-      rows.map((r) => r.basCode),
-    ),
-    partners.partnerNames(
-      tx,
-      rows.map((r) => r.partnerId),
-    ),
-  ]);
+  const f = await facts(
+    tx,
+    rows.map((r) => r.id),
+  );
+  const labels = await settings.basLabels(
+    tx,
+    rows.map((r) => r.basCode),
+  );
+  const names = await partners.partnerNames(
+    tx,
+    rows.map((r) => r.partnerId),
+  );
   const list: SupplierInvoiceListRow[] = rows.map((r) => {
     const dto = toSupplierInvoiceDto(r);
     const derived = statusOf(dto, f, r.id, today);
@@ -341,25 +339,21 @@ export async function getSupplierInvoiceDetail(
       error: { code: "NOT_FOUND", message: `Supplier invoice not found: ${id}`, retryable: false },
     };
   }
-  const [f, labels, names, links, regs, history] = await Promise.all([
-    facts(tx, [id]),
-    settings.basLabels(tx, [row.basCode]),
-    partners.partnerNames(tx, [row.partnerId]),
-    linking.getLinksFor(tx, { type: "supplier_invoice", id }),
-    row.vatRegistrationId ? settings.getVatRegistrations(tx, caller) : Promise.resolve(null),
-    supplierInvoiceHistory(tx, id),
-  ]);
+  const f = await facts(tx, [id]);
+  const labels = await settings.basLabels(tx, [row.basCode]);
+  const names = await partners.partnerNames(tx, [row.partnerId]);
+  const links = await linking.getLinksFor(tx, { type: "supplier_invoice", id });
+  const regs = row.vatRegistrationId ? await settings.getVatRegistrations(tx, caller) : null;
+  const history = await supplierInvoiceHistory(tx, id);
   const dto = toSupplierInvoiceDto(row);
   const derived = statusOf(dto, f, id, today);
   const all = links.data ?? [];
-  const withLabels = await Promise.all(
-    all.map(async (l) => {
-      const other = l.from.type === "supplier_invoice" && l.from.id === id ? l.to : l.from;
-      const linkable = linking.getLinkable(other.type);
-      const summary = linkable ? await linkable.summary(tx, other.id) : null;
-      return { ...l, otherLabel: summary?.label ?? null };
-    }),
-  );
+  const withLabels = await mapInOrder(all, async (l) => {
+    const other = l.from.type === "supplier_invoice" && l.from.id === id ? l.to : l.from;
+    const linkable = linking.getLinkable(other.type);
+    const summary = linkable ? await linkable.summary(tx, other.id) : null;
+    return { ...l, otherLabel: summary?.label ?? null };
+  });
   const origin = all.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: SupplierInvoiceDetail["document"] = null;
   if (origin) {
@@ -429,6 +423,36 @@ export async function supplierInvoiceHistory(
 export const DUE_SOON_DAYS = 14;
 
 /** Open, overdue, due within 14 days, paid this month — SEK, non-cancelled invoices (US3). */
+/**
+ * The sidebar's count on Supplier invoices (F72): how many are *overdue* — the KPI strip's and the dashboard's
+ * `overdueCount` — without `kpis`. Only the candidates are read (not cancelled, due before today), their
+ * allocations, then `deriveSupplierInvoiceStatus` decides (a settled one is paid, not overdue).
+ */
+export async function overdueSupplierInvoiceCount(
+  tx: TransactionClient,
+  today = clock.today(),
+): Promise<number> {
+  const rows = await tx.supplierInvoice.findMany({
+    where: { cancelled: false, dueDate: { lt: new Date(`${today}T00:00:00Z`) } },
+    select: { id: true, amountTotal: true, paidAmount: true, dueDate: true },
+  });
+  if (rows.length === 0) return 0;
+  const allocated = await allocatedSums(
+    tx,
+    rows.map((r) => r.id),
+  );
+  return rows.filter(
+    (r) =>
+      deriveSupplierInvoiceStatus({
+        cancelled: false,
+        total: (r.paidAmount ?? r.amountTotal).toFixed(2),
+        allocated: (allocated.get(r.id) ?? new D(0)).toFixed(2),
+        dueDate: r.dueDate.toISOString().slice(0, 10),
+        today,
+      }).status === "overdue",
+  ).length;
+}
+
 export async function kpis(
   tx: TransactionClient,
   today = clock.today(),
@@ -544,10 +568,8 @@ export async function payableTransactions(
   const rows = await banking.outgoingMainRows(tx, limit * 2);
   const ids = rows.map((r) => r.id);
   // a row an active settlement refunds through pays the owner, not a supplier — expenses owns that fact
-  const [used, taken] = await Promise.all([
-    linking.allocatedFrom(tx, "bank_transaction", ids),
-    expenses.activeSettlementTransactionIds(tx, ids),
-  ]);
+  const used = await linking.allocatedFrom(tx, "bank_transaction", ids);
+  const taken = await expenses.activeSettlementTransactionIds(tx, ids);
   const out = rows
     .filter((r) => !taken.has(r.id))
     .map((r) => ({

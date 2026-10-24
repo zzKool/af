@@ -41,13 +41,11 @@ export default async function ExpenseGroupPage({
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const group = await getGroupDetail(tx, id);
     if (group.error) return null;
-    const [result, options, prefs, trip, supplierInvoices] = await Promise.all([
-      listExpenses(tx, query, { groupId: id }),
-      expensePageOptions(tx, auth),
-      getUserPreferences(tx, auth),
-      getTrip(tx, id),
-      listForGroup(tx, id),
-    ]);
+    const result = await listExpenses(tx, query, { groupId: id });
+    const options = await expensePageOptions(tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
+    const trip = await getTrip(tx, id);
+    const supplierInvoices = await listForGroup(tx, id);
     const year = trip
       ? toLocal(trip.departureAt).date.slice(0, 4)
       : String(new Date().getFullYear());

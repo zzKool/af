@@ -126,12 +126,14 @@ export async function swissVatReturn(
     };
   }
   const { from, to } = quarterBounds(input.period);
-  const [docs, declaration, supplierRows, expenseRows] = await Promise.all([
-    invoices.invoicesForDeclaration(tx, input.period),
-    getDeclaration(tx, reg.id, input.period),
-    supplierInvoices.inputVatSources(tx, { registrationId: reg.id, from, to }),
-    expenses.inputVatSources(tx, { registrationId: reg.id, from, to }),
-  ]);
+  const docs = await invoices.invoicesForDeclaration(tx, input.period);
+  const declaration = await getDeclaration(tx, reg.id, input.period);
+  const supplierRows = await supplierInvoices.inputVatSources(tx, {
+    registrationId: reg.id,
+    from,
+    to,
+  });
+  const expenseRows = await expenses.inputVatSources(tx, { registrationId: reg.id, from, to });
 
   const returnInvoices: ReturnInvoice[] = [];
   const unconvertible: string[] = [];

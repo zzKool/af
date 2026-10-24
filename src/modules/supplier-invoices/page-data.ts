@@ -26,13 +26,11 @@ export async function supplierInvoicePageOptions(
   caller: CallerIdentity,
   options: { documents?: boolean } = {},
 ): Promise<SupplierInvoicePageOptions> {
-  const [groups, categories, suppliers, regs, documents] = await Promise.all([
-    expenses.listGroups(tx),
-    expenses.expenseCategoryOptions(tx, caller),
-    supplierOptions(tx),
-    settings.getVatRegistrations(tx, caller),
-    options.documents === false ? Promise.resolve([]) : candidateDocuments(tx, caller),
-  ]);
+  const groups = await expenses.listGroups(tx);
+  const categories = await expenses.expenseCategoryOptions(tx, caller);
+  const suppliers = await supplierOptions(tx);
+  const regs = await settings.getVatRegistrations(tx, caller);
+  const documents = options.documents === false ? [] : await candidateDocuments(tx, caller);
   return {
     groups: groups.map((g) => ({
       id: g.id,

@@ -63,13 +63,11 @@ export async function expensePageOptions(
   caller: CallerIdentity,
   options: { documents?: boolean; transactions?: boolean } = {},
 ): Promise<ExpensePageOptions> {
-  const [groups, categories, sources, documents, transactions] = await Promise.all([
-    listGroups(tx),
-    expenseCategoryOptions(tx, caller),
-    listPaymentSources(tx),
-    options.documents === false ? Promise.resolve([]) : candidateDocuments(tx, caller),
-    options.transactions === false ? Promise.resolve([]) : settleableTransactions(tx),
-  ]);
+  const groups = await listGroups(tx);
+  const categories = await expenseCategoryOptions(tx, caller);
+  const sources = await listPaymentSources(tx);
+  const documents = options.documents === false ? [] : await candidateDocuments(tx, caller);
+  const transactions = options.transactions === false ? [] : await settleableTransactions(tx);
   return {
     groups: groups.map((g) => ({
       id: g.id,
