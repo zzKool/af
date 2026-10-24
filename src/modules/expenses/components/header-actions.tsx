@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
+import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import type {
   CategoryOption,
   DocumentOption,
@@ -37,7 +38,8 @@ export function NewExpenseButton({
   label?: string;
 }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
+  // `?new=1` — the sidebar's **+ New → Expense** (F73) — opens the dialog; closing drops the param
+  const [open, setOpen] = useNewParam();
   return (
     <>
       <Button onClick={() => setOpen(true)} data-testid="open-new-expense">
