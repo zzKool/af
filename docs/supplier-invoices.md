@@ -67,3 +67,7 @@ E2E `e2e/supplier-invoices.spec.ts` (SEK only, dated around today): a vendor wit
 ## Not built here
 
 ~~Payments from the banking workbench~~ (F58: the row's side opens this panel with the row preselected; `recordPayment` / `attachPayment` write), the dashboard's *supplier invoices due* item (reads `kpis` / the list filtered on `overdue`), the package's `supplier-invoices/` folder (accountant package feature), the Swedish moms prep over `inputVatForPeriod`; the Swiss return is built ([[exports]]).
+
+## The sidebar's count (F72)
+
+`overdueSupplierInvoiceCount(tx, today)` — how many are *overdue*, the KPI strip's and the dashboard's number, for the sidebar's *Supplier invoices* badge (the app layout, the owner, every page): the not-cancelled invoices due before today, their allocations (`allocatedSums`), `deriveSupplierInvoiceStatus`. Held equal to `kpis(…).overdueCount` in `supplier-invoices.test.ts`.

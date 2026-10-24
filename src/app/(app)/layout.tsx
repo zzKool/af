@@ -14,6 +14,7 @@ import { rowsToJustifyCount } from "@/modules/banking";
 import { inboxOpenCount } from "@/modules/documents";
 import { overdueInvoiceCount } from "@/modules/invoices";
 import { upsertTablePreferenceAction } from "@/modules/settings";
+import { overdueSupplierInvoiceCount } from "@/modules/supplier-invoices";
 
 export default async function AppLayout({
   children,
@@ -65,7 +66,13 @@ export default async function AppLayout({
           const banking = await rowsToJustifyCount(tx);
           const documents = await inboxOpenCount(tx, auth);
           const invoices = await overdueInvoiceCount(tx, today);
-          return { "/banking": banking, "/documents": documents, "/invoices": invoices };
+          const supplierInvoices = await overdueSupplierInvoiceCount(tx, today);
+          return {
+            "/banking": banking,
+            "/documents": documents,
+            "/invoices": invoices,
+            "/supplier-invoices": supplierInvoices,
+          };
         })
       : Promise.resolve({}),
   ]);
