@@ -54,7 +54,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - `queries.ts` names the module's read API. Pages and other modules read through it (via `index.ts`); writes go through actions → services.
 - Server actions are named `<verb><Entity>Action` (`createPartnerAction`), never the same name as the service function.
 - Services take a tenant-scoped `tx` (RLS session set) and a `CallerIdentity`; return `ServiceResult<T>`; never throw for business errors.
-- Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod (field scalars — `uuid`, `isoDate`, `money`, `positiveMoney`, `basCode` — from `kernel/validation/scalars`, never redeclared), call the service, return `{ data | error: AppError }`.
+- Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod (field scalars — `uuid`, `isoDate`, `money`, `positiveMoney`, `positiveRate`, `basCode` — from `kernel/validation/scalars`, never redeclared), call the service, return `{ data | error: AppError }`.
 - Every mutation on a financial or linked entity writes an audit row with source provenance.
 - A module that can be linked exports `linkable: { type, exists(id), summary(id), amount(id) }` and registers it with `modules/linking`.
 - Cross-module references are UUIDs validated through the target module's `index.ts`, not cross-table FKs (RLS blocks them). **Shared references** are the named exception — a table other modules may point at with a real FK: today only `expense_groups` (from `traktamente.trips.group_id` and `supplier_invoices.group_id`, D38). Reads still go through the owner's `index.ts` (`expenses.getGroup`), never a Prisma relation include across modules; adding a shared reference is a constitution PR.
