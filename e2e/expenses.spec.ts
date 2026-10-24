@@ -260,9 +260,22 @@ test.describe("Expenses", () => {
     await page.goto("/expenses");
     await expect(page.getByRole("heading", { name: "Expenses" })).toBeVisible();
     await expect(page.getByTestId("open-new-expense")).toHaveCount(0);
+    // ?new=1 opens nothing for a role that cannot create
+    await page.goto("/expenses?new=1");
+    await expect(page.getByTestId("new-expense-dialog")).toHaveCount(0);
     await page.goto("/expenses/settlements");
     await expect(page.getByRole("heading", { name: "Settlements" })).toBeVisible();
     await expect(page.getByTestId("cancel-settlement")).toHaveCount(0);
     await ctx.close();
+  });
+
+  // F73: + New → Expense lands on ?new=1 — the dialog opens; closing drops the param
+  test("?new=1 opens the new expense dialog", async ({ page }) => {
+    await page.goto("/expenses?new=1");
+    const dialog = page.getByTestId("new-expense-dialog");
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page).not.toHaveURL(/new=1/);
   });
 });

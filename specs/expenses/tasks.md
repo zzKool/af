@@ -65,3 +65,6 @@
 ## Dependencies
 
 T001 → T002/T003 → T004 → T005 → T006 → T007 → T008 → T009 → T010 → T011 → T012 → (merge) → T013–T018.
+
+## F73 — + New opens the dialog (2026-10-24, `feat/expenses-new-dialog`, LIGHT)
+- [x] T032 `/expenses?new=1` opens the new expense dialog: `NewExpenseButton`'s open state is the kernel's `useNewParam()` (rendered only for a caller who may create — the list's title row and the group page); closing drops the param. No i18n change. Tests: the hook's own (`kernel/ui/shell/use-new-param.test.tsx`); e2e `expenses` (?new=1 → the dialog → Esc → no param; the accountant: nothing opens); screenshot `expenses-new` light + dark. The sidebar's href gains `?new=1` in F73's last PR (nav).
