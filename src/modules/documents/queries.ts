@@ -433,6 +433,39 @@ export async function inboxTotals(
   return (await listInbox(tx, caller, { now })).counts;
 }
 
+/**
+ * The inbox's *need attention* number (pending + ready = `inboxTotals(…).total`) without the inbox: the
+ * sidebar's count on Documents (F72), read with every page. Only the rows that can still be in the inbox are
+ * loaded (not archived, not reviewed, not generated — four columns), the `created_from` links of those, and
+ * `inboxState` decides — the inbox's own rule, so both numbers agree. No facts, twins or OCR payload.
+ */
+export async function inboxOpenCount(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  now: Date = new Date(),
+): Promise<number> {
+  const base = can(caller, "read", "relationship_document") ? {} : { documentType: "financial" };
+  const docs = await tx.document.findMany({
+    where: { ...base, status: { not: "generated" }, archivedAt: null, reviewedAt: null },
+    take: ROW_CAP,
+    select: { id: true, status: true, updatedAt: true },
+  });
+  if (docs.length === 0) return 0;
+  const became = await createdFromTargets(
+    tx,
+    docs.map((d) => d.id),
+  );
+  let count = 0;
+  for (const d of docs) {
+    const state = inboxState(
+      { ...d, archivedAt: null, reviewedAt: null, became: became.has(d.id) },
+      now,
+    );
+    if (state && state !== "archived") count++;
+  }
+  return count;
+}
+
 /** A document a creation dialog may pick: one still waiting for its decision (lessons audit 26). */
 export type CandidateDocument = {
   id: string;
