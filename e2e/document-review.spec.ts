@@ -118,7 +118,9 @@ test.describe("Document review page — owner", () => {
     test.setTimeout(90_000);
     await openOwnDocument(page);
     // the owner ticks *Reverse charge* on the document (D54) — what it becomes carries the tag (F91)
-    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, { timeout: 30_000 });
+    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
+      timeout: 30_000,
+    });
     const reverseCharge = page.getByTestId("reverse-charge");
     await reverseCharge.click();
     await expect(reverseCharge).toHaveAttribute("aria-checked", "true");
