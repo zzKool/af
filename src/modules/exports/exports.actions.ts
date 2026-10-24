@@ -42,11 +42,9 @@ export const swissVatPeriodsAction = authedAction
   .metadata({ name: "swissVatPeriods" })
   .action(async ({ ctx }) => {
     if (!can(ctx.callerIdentity, "read", "accountant_package")) return forbidden;
-    const [periods, registrations, payments] = await Promise.all([
-      swissVatPeriods(ctx.tx, clock.today()),
-      chRegistrations(ctx.tx, ctx.callerIdentity),
-      vatPaymentOptions(ctx.tx),
-    ]);
+    const periods = await swissVatPeriods(ctx.tx, clock.today());
+    const registrations = await chRegistrations(ctx.tx, ctx.callerIdentity);
+    const payments = await vatPaymentOptions(ctx.tx);
     return { data: { periods, registrations, payments } };
   });
 

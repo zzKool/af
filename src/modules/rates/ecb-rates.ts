@@ -372,7 +372,8 @@ export async function rateToBase(
     ccy === "EUR"
       ? { date, currencyPair: "EUR/EUR", rate: "1", rateSource: "ecb_daily", actualDate: date }
       : await getRate(db, date, `EUR/${ccy}`);
-  const [eurTo, eurFrom] = await Promise.all([leg(to), leg(from)]);
+  const eurTo = await leg(to);
+  const eurFrom = await leg(from);
   if (!eurTo || !eurFrom) return null;
   const borrowed = [eurTo, eurFrom]
     .filter((l) => l.rateSource === "ecb_nearest")

@@ -16,10 +16,8 @@ export default async function PrintPerDiemPage({ params, searchParams }: Params)
   const { groupId } = await params;
   const caller = await requirePrintCaller(searchParams, `/print/per-diem/${groupId}`);
   const data = await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
-    const [statement, prefs] = await Promise.all([
-      resolvePerDiemStatement(tx, caller, groupId),
-      getUserPreferences(tx, caller),
-    ]);
+    const statement = await resolvePerDiemStatement(tx, caller, groupId);
+    const prefs = await getUserPreferences(tx, caller);
     return { statement, locale: prefs.data?.locale ?? null };
   });
   if (!data.statement) notFound();

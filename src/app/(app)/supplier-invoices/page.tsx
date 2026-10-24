@@ -29,12 +29,10 @@ export default async function SupplierInvoicesPage({
     defaultSort: SUPPLIER_INVOICE_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, strip, options, prefs] = await Promise.all([
-      listSupplierInvoices(tx, query),
-      kpis(tx),
-      supplierInvoicePageOptions(tx, auth),
-      getUserPreferences(tx, auth),
-    ]);
+    const result = await listSupplierInvoices(tx, query);
+    const strip = await kpis(tx);
+    const options = await supplierInvoicePageOptions(tx, auth);
+    const prefs = await getUserPreferences(tx, auth);
     return { result, strip, options, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

@@ -11,15 +11,13 @@ export default async function BasCategoriesSettingsPage() {
 
   // Fetch initial data within tenant transaction
   const { categories, preferences } = await withTenantTransaction(prisma, tenantId, async (tx) => {
-    const [cats, prefs] = await Promise.all([
-      tx.basCategory.findMany({
-        orderBy: [{ classNum: "asc" }, { code: "asc" }],
-      }),
-      tx.tenantBasPreference.findMany({
-        include: { basCategory: true },
-        orderBy: [{ basCategory: { classNum: "asc" } }, { basCategory: { code: "asc" } }],
-      }),
-    ]);
+    const cats = await tx.basCategory.findMany({
+      orderBy: [{ classNum: "asc" }, { code: "asc" }],
+    });
+    const prefs = await tx.tenantBasPreference.findMany({
+      include: { basCategory: true },
+      orderBy: [{ basCategory: { classNum: "asc" } }, { basCategory: { code: "asc" } }],
+    });
     return {
       categories: cats,
       preferences: prefs.map((p) => ({

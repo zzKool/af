@@ -78,14 +78,12 @@ type Sums = {
 async function derivedSums(tx: TransactionClient, ids: readonly string[]): Promise<Sums> {
   const sums: Sums = { allocated: new Map(), credited: new Map(), converted: new Map() };
   if (ids.length === 0) return sums;
-  const [allocated, credits, conversions] = await Promise.all([
-    linking.allocatedSums(tx, "invoice", ids),
-    creditedSum(tx, ids),
-    tx.invoice.findMany({
-      where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
-      select: { relatedInvoiceId: true, number: true },
-    }),
-  ]);
+  const allocated = await linking.allocatedSums(tx, "invoice", ids);
+  const credits = await creditedSum(tx, ids);
+  const conversions = await tx.invoice.findMany({
+    where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
+    select: { relatedInvoiceId: true, number: true },
+  });
   sums.allocated = allocated;
   sums.credited = credits;
   for (const c of conversions)
@@ -227,13 +225,11 @@ async function loadRows(
       updatedAt: true,
     },
   });
-  const [sums, names] = await Promise.all([
-    derivedSums(
-      tx,
-      rows.map((r) => r.id),
-    ),
-    partners.partnerNames(tx, [...new Set(rows.map((r) => r.partnerId))]),
-  ]);
+  const sums = await derivedSums(
+    tx,
+    rows.map((r) => r.id),
+  );
+  const names = await partners.partnerNames(tx, [...new Set(rows.map((r) => r.partnerId))]);
   const list: InvoiceListRow[] = rows.map((r) => {
     const base = {
       id: r.id,

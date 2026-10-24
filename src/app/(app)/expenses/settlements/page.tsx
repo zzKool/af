@@ -12,7 +12,8 @@ import { getUserPreferences } from "@/modules/settings";
 export default async function SettlementsPage() {
   const auth = await requireCaller({ action: "read", subject: "settlement" });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [rows, prefs] = await Promise.all([listSettlements(tx), getUserPreferences(tx, auth)]);
+    const rows = await listSettlements(tx);
+    const prefs = await getUserPreferences(tx, auth);
     return { rows, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
