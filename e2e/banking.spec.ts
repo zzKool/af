@@ -132,4 +132,18 @@ test.describe("Banking", () => {
     await july.click();
     await expect(page).not.toHaveURL(/f\.bookingDate/);
   });
+
+  // F73: + New → Import bank CSV lands on ?new=1 — the import dialog opens; closing drops the param
+  test("?new=1 opens the import dialog", async ({ page }) => {
+    await page.goto("/banking?new=1");
+    const dialog = page.getByTestId("import-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId("import-file")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page).not.toHaveURL(/new=1/);
+    // the imports page reads it too
+    await page.goto("/banking/imports?new=1");
+    await expect(page.getByTestId("import-dialog")).toBeVisible();
+  });
 });

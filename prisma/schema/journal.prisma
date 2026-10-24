@@ -15,13 +15,25 @@ enum JournalSource {
   @@map("journal_source")
 }
 
-/// who set the category / partner last: a rule, the partner's default, or the owner by hand (null = uncategorised)
+/// who set the category / partner last: a rule or the owner by hand (null = uncategorised)
 enum JournalCategorisedBy {
   manual
   rule
-  partner_default
 
   @@map("journal_categorised_by")
+}
+
+/// where a money fact's rate comes from (journal, expenses, supplier invoices): rates' `rateToBase` words
+/// (same_currency · ecb_daily · ecb_nearest), a rate typed by hand (manual), or the bank row's own base (bank —
+/// expenses and supplier invoices only; journal_entries keeps a CHECK against it)
+enum RateSource {
+  same_currency
+  ecb_daily
+  ecb_nearest
+  manual
+  bank
+
+  @@map("rate_source")
 }
 
 model JournalEntry {
@@ -39,8 +51,8 @@ model JournalEntry {
   /// SEK base = round(amount × rate, 2) — written once
   amountBase       Decimal               @map("amount_base") @db.Decimal(15, 2)
   rate             Decimal               @db.Decimal(18, 6)
-  /// same_currency | ecb_daily | ecb_nearest | manual
-  rateSource       String                @map("rate_source") @db.VarChar(20)
+  /// the RateSource enum, never `bank` (CHECK)
+  rateSource       RateSource            @map("rate_source")
   rateDate         DateTime?             @map("rate_date") @db.Date
   /// 3-digit BAS group (bas_categories.code), validated at write
   basCode          String?               @map("bas_code") @db.VarChar(4)

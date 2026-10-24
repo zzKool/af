@@ -9,9 +9,9 @@ Module `src/modules/journal` · schema `prisma/schema/journal.prisma` · migrati
 ```
 journal_entries   source_type ∈ bank_transaction | manual · source_id? (the transaction id, validated UUID; unique per source)
                   entry_date · description · counterparty_key?        (copied at import — the journal never reads banking)
-                  amount (signed) · currency · amount_base (SEK, 2 dp) · rate (6 dp) · rate_source ∈ same_currency | ecb_daily | ecb_nearest | manual · rate_date?
+                  amount (signed) · currency · amount_base (SEK, 2 dp) · rate (6 dp) · rate_source ∈ same_currency | ecb_daily | ecb_nearest | manual (the shared `rate_source` enum, `bank` refused by a CHECK) · rate_date?
                   bas_code? (bas_categories.code, 3 digits) · partner_id? · note? · no_document_needed
-                  categorised_by ∈ manual | rule | null · rule_id?   (the enum still has `partner_default`, never written — audit 32, goes with F67's schema PR)
+                  categorised_by ∈ manual | rule | null · rule_id?   (`partner_default` dropped from the enum, F67 2026-10-24)
 ```
 
 Trigger `journal_entries_lock_money`: amount, currency, amount_base, rate, rate_source, rate_date, entry_date, source, description, counterparty_key never change. The bank's implied rate is not stored: the DTO's `bankImplicitRate` is derived from the `transfer` link (the column went with F86, D48). `block_delete_when_linked('journal_entry')`. RLS.

@@ -1,8 +1,8 @@
 "use client";
 
 // The banking pages' title-row actions (D40: secondary buttons, then one primary).
-//   /banking          Inbox · Imports · Rules · [Import CSV]
-//   /banking/imports  [Import CSV]
+//   /banking          Inbox · Imports · Rules · [Import CSV]   (?new=1 opens the import dialog, F73)
+//   /banking/imports  [Import CSV]                            (?new=1 too)
 //   /banking/rules    Apply rules (dry run → confirm) · [New rule]
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,15 +13,17 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import { applyRulesAction } from "@/modules/banking/banking.actions";
 import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
 import { type AccountOption, ImportDialog } from "./import-dialog";
 import { RuleDialog } from "./rule-dialog";
 
-/** The primary of the workbench and the imports page: opens the import dialog. */
+/** The primary of the workbench and the imports page: opens the import dialog — also from `?new=1`, the
+ *  sidebar's **+ New → Import bank CSV** (F73). Rendered for a caller who may import only. */
 export function ImportCsvButton({ accounts }: { accounts: AccountOption[] }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useNewParam();
   return (
     <>
       <Button onClick={() => setOpen(true)} data-testid="open-import">

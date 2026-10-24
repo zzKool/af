@@ -108,7 +108,7 @@ export function toExpenseDto(row: Expense): ExpenseDto {
     vatRegistrationId: row.vatRegistrationId,
     amountBase: row.amountBase.toFixed(2),
     rate: row.rate.toString(),
-    rateSource: row.rateSource as ExpenseRateSource,
+    rateSource: row.rateSource,
     rateDate: iso(row.rateDate),
     baseProvisional: row.baseProvisional,
     paidAmount: row.paidAmount ? row.paidAmount.toFixed(2) : null,

@@ -11,7 +11,7 @@ import {
 } from "./types";
 
 const ACTIONS = new Set(["create", "update", "delete"]);
-const BY = new Set<string>(["manual", "rule"]); // partner_default is never written (audit 32)
+const BY: readonly CategorisedBy[] = ["manual", "rule"]; // partner_default: never written, dropped from the enum (F67)
 /** an entry's trail is short (create + a few categorisations); the panel shows at most this many lines */
 const LIMIT = 50;
 
@@ -48,7 +48,7 @@ export async function entryHistory(
       {
         at: r.createdAt.toISOString(),
         action,
-        by: typeof by === "string" && BY.has(by) ? (by as CategorisedBy) : null,
+        by: BY.find((b) => b === by) ?? null,
         changed,
       },
     ];
