@@ -1,0 +1,143 @@
+{
+  "apiVersion": "2024-11-30",
+  "modelId": "prebuilt-invoice",
+  "content": "Invoice\nInvoice number\nNW-2026-0042\nDate of issue\nMarch 14, 2026\nNorthwind Cloud Inc.\nBill to\nDev AB\nStorgatan 1\n111 22 Stockholm\nSweden\nSE VAT SE556677889901\nEU OSS VAT EU999000111\nDescription Qty Unit price Tax Amount\nCloud plan (per seat)\n1\n$49.00\n0%[1]\n$49.00\nMar 14-Apr 14, 2026\nTotal $49.00\n[1] Tax to be paid on reverse charge basis\nPage 1 of 1",
+  "pages": [
+    {
+      "pageNumber": 1
+    }
+  ],
+  "documents": [
+    {
+      "docType": "invoice",
+      "confidence": 1,
+      "fields": {
+        "VendorName": {
+          "type": "string",
+          "valueString": "Northwind Cloud Inc.",
+          "content": "Northwind Cloud Inc.",
+          "confidence": 0.94
+        },
+        "VendorTaxId": {
+          "type": "string",
+          "valueString": "EU999000111",
+          "content": "EU999000111",
+          "confidence": 0.94
+        },
+        "CustomerName": {
+          "type": "string",
+          "valueString": "Dev AB",
+          "content": "Dev AB",
+          "confidence": 0.94
+        },
+        "BillingAddressRecipient": {
+          "type": "string",
+          "valueString": "Dev AB",
+          "content": "Dev AB",
+          "confidence": 0.94
+        },
+        "CustomerTaxId": {
+          "type": "string",
+          "valueString": "SE556677889901",
+          "content": "SE556677889901",
+          "confidence": 0.94
+        },
+        "InvoiceId": {
+          "type": "string",
+          "valueString": "NW-2026-0042",
+          "content": "NW-2026-0042",
+          "confidence": 0.94
+        },
+        "InvoiceDate": {
+          "type": "date",
+          "valueDate": "2026-03-14",
+          "content": "March 14, 2026",
+          "confidence": 0.93
+        },
+        "DueDate": {
+          "type": "date",
+          "valueDate": "2026-03-14",
+          "content": "March 14, 2026",
+          "confidence": 0.93
+        },
+        "InvoiceTotal": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 49,
+            "currencyCode": "USD",
+            "currencySymbol": "$"
+          },
+          "content": "49",
+          "confidence": 0.96
+        },
+        "SubTotal": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 49,
+            "currencyCode": "USD",
+            "currencySymbol": "$"
+          },
+          "content": "49",
+          "confidence": 0.96
+        },
+        "AmountDue": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 49,
+            "currencyCode": "USD",
+            "currencySymbol": "USD"
+          },
+          "content": "49",
+          "confidence": 0.96
+        },
+        "Items": {
+          "type": "array",
+          "valueArray": [
+            {
+              "type": "object",
+              "valueObject": {
+                "Description": {
+                  "type": "string",
+                  "valueString": "Cloud plan (per seat)\nMar 14-Apr 14, 2026",
+                  "content": "Cloud plan (per seat)\nMar 14-Apr 14, 2026",
+                  "confidence": 0.94
+                },
+                "Quantity": {
+                  "type": "number",
+                  "valueNumber": 1,
+                  "confidence": 0.95
+                },
+                "UnitPrice": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 49,
+                    "currencyCode": "USD",
+                    "currencySymbol": "$"
+                  },
+                  "content": "49",
+                  "confidence": 0.96
+                },
+                "Amount": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 49,
+                    "currencyCode": "USD",
+                    "currencySymbol": "$"
+                  },
+                  "content": "49",
+                  "confidence": 0.96
+                },
+                "TaxRate": {
+                  "type": "string",
+                  "valueString": "0%[1]",
+                  "content": "0%[1]",
+                  "confidence": 0.94
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

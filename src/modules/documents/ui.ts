@@ -19,3 +19,4 @@ export * from "./components/make-it-section";
 export * from "./components/payment-details-section";
 export * from "./components/relationship-fields-section";
 export * from "./documents.actions";
+export type { BilledToCheck, CompanyIdentity } from "./types";

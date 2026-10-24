@@ -78,6 +78,14 @@ A relationship document (contract, NDA) becomes nothing: only *Just file it* is 
 
 The supplier dialog first shows the **supplier match** ([[partners]] `matchPartners`): the best partner from 60 % with *Use match*, the other matches, *New vendor* (name, VAT and the OCR vendor address pre-filled — the address also scores the match, +20, `createPartnerAction`, selected at once). Both dialogs run the **entity duplicate check** when the key fields settle (400 ms): a *high* match blocks until a note says why it is not one (*Create anyway*, `duplicateAck` → the note on the entity, the acknowledgement in the audit row); a *medium* match warns inline. Rules in [[expenses]] and [[supplier-invoices]].
 
+## What the reading fills (2026-10-24)
+
+- Vendor / merchant, dates, invoice #, **vendor VAT number**, totals, VAT, **currency** (from Azure's amounts — it was never read before), line items with **Tax %**.
+- **Billed to** (invoices, D53): name and VAT number as printed, editable; a warning *Not addressed to {company}* when neither the name nor the VAT number fits the company profile and its VAT registrations (`billed-to.ts`, `checkBilledTo`). Never blocks.
+- **Reverse charge** (D54): ticked when the text says so, the owner can set or clear it; a tag on the title row. Nothing is computed — the VAT treatment stays the accountant's.
+- **Mark as Reviewed (n corrections made)** counts the fields that differ from the OCR's reading (`corrections-count.ts`), not the fields read.
+- Screenshots: `specs/documents/screenshots/review-billed-to-reverse-charge.png`, `review-billed-to-mismatch.png` (seed data).
+
 ## Role-Based Access
 
 | Action | Owner | Accountant |

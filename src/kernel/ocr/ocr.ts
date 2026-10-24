@@ -41,6 +41,11 @@ export interface OcrExtractedData {
   totalTax?: number;
   currency?: string;
   invoiceNumber?: string;
+  /** who the invoice is addressed to (Azure DI's `CustomerName`, else `BillingAddressRecipient`) and their VAT number */
+  customerName?: string;
+  customerTaxId?: string;
+  /** the document says the buyer pays the VAT (reverse charge) — read from the text, any of en / fr / sv / de / it / es */
+  reverseCharge?: boolean;
   merchantName?: string;
   transactionDate?: string;
   paymentDetails?: { iban?: string; swift?: string; bankName?: string }[];
@@ -68,6 +73,8 @@ export interface OcrLineItem {
   unitPrice?: number;
   amount?: number;
   tax?: number;
+  /** the printed rate in percent (`25%` → 25; `0%[1]` → 0) */
+  taxRate?: number;
 }
 
 // --- Model selection ---
@@ -84,6 +91,50 @@ const MODEL_MAP: Record<string, string> = {
 
 function extractStringValue(field?: DocumentFieldOutput): string | undefined {
   return field?.type === "string" ? field.valueString : undefined;
+}
+
+/** A string field with its whitespace folded: Azure keeps the printed line breaks (`…(per seat)\nJul 27…`). */
+function extractTextValue(field?: DocumentFieldOutput): string | undefined {
+  const value = extractStringValue(field)?.replace(/\s+/g, " ").trim();
+  return value ? value : undefined;
+}
+
+/**
+ * The document's currency. Azure DI puts it inside each amount (`valueCurrency.currencyCode`) — there is no
+ * document-level currency field — so the first ISO code among the given amounts wins; none → unknown, never a guess.
+ */
+export function extractCurrencyCode(
+  fields: Record<string, DocumentFieldOutput> | undefined,
+  keys: readonly string[],
+): string | undefined {
+  const amounts: (DocumentFieldOutput | undefined)[] = keys.map((k) => fields?.[k]);
+  for (const item of extractArrayValue(fields?.Items) ?? []) {
+    const obj = item.type === "object" ? item.valueObject : undefined;
+    amounts.push(obj?.Amount, obj?.TotalPrice, obj?.UnitPrice, obj?.Price);
+  }
+  for (const field of amounts) {
+    if (field?.type !== "currency") continue;
+    const code = field.valueCurrency?.currencyCode?.trim().toUpperCase();
+    if (code && /^[A-Z]{3}$/.test(code)) return code;
+  }
+  return undefined;
+}
+
+/** A line's tax rate in percent: `"25%"`, `"0%[1]"`, `"7,7 %"` or a number (a fraction ≤ 1 is read as such). */
+export function extractTaxRate(field?: DocumentFieldOutput): number | undefined {
+  if (field?.type === "number" && field.valueNumber !== undefined) {
+    return field.valueNumber <= 1 ? Math.round(field.valueNumber * 10000) / 100 : field.valueNumber;
+  }
+  const match = extractStringValue(field)?.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  return match ? Number(match[1].replace(",", ".")) : undefined;
+}
+
+const REVERSE_CHARGE =
+  /reverse[\s-]*charge|autoliquidation|omvänd\s+skattskyldighet|steuerschuldnerschaft\s+des\s+leistungsempfängers|inversione\s+contabile|inversión\s+del\s+sujeto\s+pasivo/i;
+
+/** Does the document's text say the buyer pays the VAT? A flag for the owner and the accountant, no VAT computed. */
+export function mentionsReverseCharge(text?: string): boolean {
+  return !!text && REVERSE_CHARGE.test(text);
 }
 
 function extractCurrencyValue(field?: DocumentFieldOutput): number | undefined {
@@ -179,14 +230,77 @@ function extractLineItems(fields?: Record<string, DocumentFieldOutput>): OcrLine
       const obj = item.type === "object" ? item.valueObject : undefined;
       if (!obj) return null;
       return {
-        description: extractStringValue(obj.Description),
+        description: extractTextValue(obj.Description),
         quantity: extractNumberValue(obj.Quantity),
-        unitPrice: extractCurrencyValue(obj.UnitPrice),
+        unitPrice: extractCurrencyValue(obj.UnitPrice ?? obj.Price),
         amount: extractCurrencyValue(obj.Amount ?? obj.TotalPrice),
         tax: extractCurrencyValue(obj.Tax),
+        taxRate: extractTaxRate(obj.TaxRate),
       };
     })
     .filter((v): v is NonNullable<typeof v> => v !== null);
+}
+
+/**
+ * Azure DI's `analyzeResult` → the facts the app keeps. Pure, so it is tested on a stored response of the real shape
+ * (`__fixtures__/azure-*.json`, invented values) rather than on the mock's own fixture.
+ */
+export function mapAnalyzeResult(
+  analyzeResult: AnalyzeOperationOutput["analyzeResult"],
+  modelId: string,
+  processingTimeMs: number,
+): { data: OcrExtractedData; quality: "high" | "low" | "none" } {
+  const doc = analyzeResult?.documents?.[0];
+  const fields = doc?.fields;
+  const rawText = analyzeResult?.content;
+  const pageCount = analyzeResult?.pages?.length ?? 0;
+  const confidence = doc?.confidence ?? 0;
+
+  // Extract fields based on model type
+  const isReceipt = modelId === "prebuilt-receipt";
+
+  const data: OcrExtractedData = {
+    // Invoice fields
+    vendorName: isReceipt ? undefined : extractStringValue(fields?.VendorName),
+    vendorTaxId: isReceipt ? undefined : extractStringValue(fields?.VendorTaxId),
+    vendorAddress: isReceipt ? undefined : extractAddressValue(fields?.VendorAddress),
+    invoiceDate: isReceipt ? undefined : extractDateValue(fields?.InvoiceDate),
+    dueDate: isReceipt ? undefined : extractDateValue(fields?.DueDate),
+    invoiceTotal: isReceipt
+      ? extractCurrencyValue(fields?.Total)
+      : extractCurrencyValue(fields?.InvoiceTotal),
+    subtotal: extractCurrencyValue(fields?.SubTotal ?? fields?.Subtotal),
+    totalTax: extractCurrencyValue(fields?.TotalTax),
+    currency: extractCurrencyCode(
+      fields,
+      isReceipt
+        ? ["Total", "Subtotal", "TotalTax"]
+        : ["InvoiceTotal", "AmountDue", "SubTotal", "Subtotal", "TotalTax"],
+    ),
+    invoiceNumber: isReceipt ? undefined : extractStringValue(fields?.InvoiceId),
+    customerName: isReceipt
+      ? undefined
+      : (extractTextValue(fields?.CustomerName) ??
+        extractTextValue(fields?.BillingAddressRecipient)),
+    customerTaxId: isReceipt ? undefined : extractTextValue(fields?.CustomerTaxId),
+    reverseCharge: mentionsReverseCharge(rawText) || undefined,
+    // Receipt fields
+    merchantName: isReceipt ? extractStringValue(fields?.MerchantName) : undefined,
+    transactionDate: isReceipt ? extractDateValue(fields?.TransactionDate) : undefined,
+    // Payment details (invoice only)
+    paymentDetails: isReceipt ? undefined : extractPaymentDetails(fields),
+    // Line items
+    items: extractLineItems(fields),
+    // Metadata
+    confidence,
+    modelUsed: modelId,
+    pageCount,
+    rawText,
+    processingTimeMs,
+  };
+
+  const quality = classifyQuality(modelId, confidence, data);
+  return { data, quality };
 }
 
 // --- Azure DI Implementation ---
@@ -242,46 +356,7 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
       }
 
       const processingTimeMs = Date.now() - startMs;
-
-      const doc = result.analyzeResult?.documents?.[0];
-      const fields = doc?.fields;
-      const rawText = result.analyzeResult?.content;
-      const pageCount = result.analyzeResult?.pages?.length ?? 0;
-      const confidence = doc?.confidence ?? 0;
-
-      // Extract fields based on model type
-      const isReceipt = modelId === "prebuilt-receipt";
-
-      const data: OcrExtractedData = {
-        // Invoice fields
-        vendorName: isReceipt ? undefined : extractStringValue(fields?.VendorName),
-        vendorTaxId: isReceipt ? undefined : extractStringValue(fields?.VendorTaxId),
-        vendorAddress: isReceipt ? undefined : extractAddressValue(fields?.VendorAddress),
-        invoiceDate: isReceipt ? undefined : extractDateValue(fields?.InvoiceDate),
-        dueDate: isReceipt ? undefined : extractDateValue(fields?.DueDate),
-        invoiceTotal: isReceipt
-          ? extractCurrencyValue(fields?.Total)
-          : extractCurrencyValue(fields?.InvoiceTotal),
-        subtotal: extractCurrencyValue(fields?.SubTotal ?? fields?.Subtotal),
-        totalTax: extractCurrencyValue(fields?.TotalTax),
-        currency: isReceipt ? undefined : extractStringValue(fields?.CurrencyCode),
-        invoiceNumber: isReceipt ? undefined : extractStringValue(fields?.InvoiceId),
-        // Receipt fields
-        merchantName: isReceipt ? extractStringValue(fields?.MerchantName) : undefined,
-        transactionDate: isReceipt ? extractDateValue(fields?.TransactionDate) : undefined,
-        // Payment details (invoice only)
-        paymentDetails: isReceipt ? undefined : extractPaymentDetails(fields),
-        // Line items
-        items: extractLineItems(fields),
-        // Metadata
-        confidence,
-        modelUsed: modelId,
-        pageCount,
-        rawText,
-        processingTimeMs,
-      };
-
-      const quality = classifyQuality(modelId, confidence, data);
+      const { data, quality } = mapAnalyzeResult(result.analyzeResult, modelId, processingTimeMs);
 
       return {
         success: true,
@@ -314,6 +389,7 @@ const MOCK_FIXTURES: Record<string, { data: OcrExtractedData; quality: "high" | 
         invoiceDate: "2026-03-14",
         currency: "SEK",
         invoiceNumber: "INV-2026-001",
+        customerName: "Dev AB",
         paymentDetails: [{ iban: "SE1234567890123456", swift: "NDEASESS" }],
         items: [
           {

@@ -27,9 +27,12 @@ const UPLOAD_KINDS = ["expense", "invoice", "contract", "nda", "certificate"];
 export function DocumentReviewHeader({
   data,
   became = null,
+  reverseCharge = false,
 }: {
   data: DocumentReviewData;
   became?: Became | null;
+  /** the document says the buyer pays the VAT (D54) — a tag, nothing computed */
+  reverseCharge?: boolean;
 }) {
   const t = useT();
   const quality = data.quality ? QUALITY_LABEL[data.quality] : undefined;
@@ -60,6 +63,7 @@ export function DocumentReviewHeader({
           {UPLOAD_KINDS.includes(data.prefixType) && (
             <Tag>{t(`documents.prefix.${data.prefixType}` as MessageKey)}</Tag>
           )}
+          {reverseCharge && <Tag>{t("documents.review.reverseCharge")}</Tag>}
           {/* OCR quality is metadata about the extraction, not a state — owner only */}
           {!data.readOnly && quality && <Tag>{t(quality)}</Tag>}
           {became && (
