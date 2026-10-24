@@ -20,6 +20,9 @@ updates:
       # TypeScript 7 is the native rewrite; held until Next.js and the tooling support it (F52, 2026-10-24).
       - dependency-name: typescript
         update-types: [version-update:semver-major]
+      # The types follow the Node we run (CI / Dockerfile), not the newest Node — majors move with that infra PR.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
