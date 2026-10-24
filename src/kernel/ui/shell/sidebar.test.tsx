@@ -8,6 +8,10 @@ vi.mock("@/kernel/ui/shell/shell-context", () => ({ useShell: () => shell }));
 
 import { Sidebar } from "./sidebar";
 
+// a variable, not a literal: `role={OWNER}` reads as an ARIA role to the linter
+const OWNER = "owner" as const;
+const ACCOUNTANT = "accountant" as const;
+
 describe("Sidebar — counts of open work (F72)", () => {
   afterEach(() => {
     cleanup();
@@ -15,7 +19,7 @@ describe("Sidebar — counts of open work (F72)", () => {
   });
 
   it("a badge beside the label when the count is > 0; none at 0 or absent; the link keeps its name", () => {
-    render(<Sidebar role="owner" counts={{ "/banking": 3, "/documents": 0 }} />);
+    render(<Sidebar role={OWNER} counts={{ "/banking": 3, "/documents": 0 }} />);
     const banking = screen.getByRole("link", { name: "Banking" });
     expect(banking.textContent).toBe("Banking3");
     expect(screen.getByRole("link", { name: "Documents" }).textContent).toBe("Documents");
@@ -24,7 +28,7 @@ describe("Sidebar — counts of open work (F72)", () => {
 
   it("collapsed: a dot, the count in the tooltip", () => {
     shell.collapsed = true;
-    render(<Sidebar role="owner" counts={{ "/banking": 3 }} />);
+    render(<Sidebar role={OWNER} counts={{ "/banking": 3 }} />);
     const banking = screen.getByRole("link", { name: "Banking" });
     expect(banking).toHaveAttribute("title", "Banking (3)");
     expect(banking.textContent).toBe("");
@@ -32,7 +36,7 @@ describe("Sidebar — counts of open work (F72)", () => {
   });
 
   it("no counts given (the accountant) — nothing extra", () => {
-    render(<Sidebar role="accountant" />);
+    render(<Sidebar role={ACCOUNTANT} />);
     expect(screen.getByRole("link", { name: "Banking" }).textContent).toBe("Banking");
   });
 });
