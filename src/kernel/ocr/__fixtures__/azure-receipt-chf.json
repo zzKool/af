@@ -1,0 +1,87 @@
+{
+  "apiVersion": "2024-11-30",
+  "modelId": "prebuilt-receipt",
+  "content": "Café Exemple\nRue du Lac 3\n2000 Neuchâtel\n15.03.2026\nEspresso x2 9.00\nCroissant 9.50\nTotal CHF 18.50\nTVA 8.1% incl. 1.40",
+  "pages": [
+    {
+      "pageNumber": 1
+    }
+  ],
+  "documents": [
+    {
+      "docType": "receipt.retailMeal",
+      "confidence": 0.98,
+      "fields": {
+        "MerchantName": {
+          "type": "string",
+          "valueString": "Café Exemple",
+          "content": "Café Exemple",
+          "confidence": 0.94
+        },
+        "TransactionDate": {
+          "type": "date",
+          "valueDate": "2026-03-15",
+          "content": "15.03.2026",
+          "confidence": 0.97
+        },
+        "Total": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 18.5,
+            "currencyCode": "CHF"
+          },
+          "content": "18.5",
+          "confidence": 0.96
+        },
+        "TotalTax": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 1.4,
+            "currencyCode": "CHF"
+          },
+          "content": "1.4",
+          "confidence": 0.96
+        },
+        "Items": {
+          "type": "array",
+          "valueArray": [
+            {
+              "type": "object",
+              "valueObject": {
+                "Description": {
+                  "type": "string",
+                  "valueString": "Espresso\nx2",
+                  "content": "Espresso\nx2",
+                  "confidence": 0.94
+                },
+                "Price": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 4.5,
+                    "currencyCode": "CHF"
+                  },
+                  "content": "4.5",
+                  "confidence": 0.96
+                },
+                "TotalPrice": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 9,
+                    "currencyCode": "CHF"
+                  },
+                  "content": "9",
+                  "confidence": 0.96
+                },
+                "Quantity": {
+                  "type": "number",
+                  "valueNumber": 2,
+                  "confidence": 0.9
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

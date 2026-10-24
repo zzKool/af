@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import type { CompanyIdentity } from "@/modules/documents/billed-to";
 import { ArchivedSection } from "@/modules/documents/components/archived-section";
 import { DocumentReviewFooter } from "@/modules/documents/components/document-review-footer";
 import { DocumentReviewForm } from "@/modules/documents/components/document-review-form";
@@ -14,8 +15,10 @@ import {
   type MakeItOptions,
   MakeItSection,
 } from "@/modules/documents/components/make-it-section";
+import { countCorrections } from "@/modules/documents/corrections-count";
 import {
   type DocumentReviewData,
+  type OcrExtractedData,
   type OcrLineItem,
   updateDocumentCorrectionsAction,
 } from "@/modules/documents/documents.actions";
@@ -49,12 +52,15 @@ export function DocumentReviewClient({
   data,
   became = null,
   makeItOptions = null,
+  company = null,
 }: {
   data: DocumentReviewData;
   /** what the document became (specs/documents US1) — the page reads the `created_from` link */
   became?: Became | null;
   /** the dialogs' option lists; null for the accountant and for generated documents (no *Make it…*) */
   makeItOptions?: MakeItOptions | null;
+  /** who an invoice should be billed to (D53) — the page reads the company profile */
+  company?: CompanyIdentity | null;
 }) {
   const t = useT();
   const [prefixType, setPrefixType] = useState(data.prefixType);
@@ -113,10 +119,17 @@ export function DocumentReviewClient({
 
   // Compute resolved data from store corrections
   const resolvedData = { ...data.resolvedData, ...corrections };
+  // the fields the owner changed: what differs from the OCR's reading — the store holds every resolved field, so
+  // its key count was the number of fields read, not of corrections (14 on an untouched invoice)
+  const correctionsCount = countCorrections(data.extractedData, resolvedData);
 
   return (
     <div className="flex flex-col gap-4 px-5 pt-3.5 pb-5">
-      <DocumentReviewHeader data={data} became={became} />
+      <DocumentReviewHeader
+        data={data}
+        became={became}
+        reverseCharge={resolvedData.reverseCharge === true}
+      />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Left pane — Preview (sticky) */}
@@ -150,6 +163,7 @@ export function DocumentReviewClient({
               onFieldChange={handleFieldChange}
               onItemsChange={handleItemsChange}
               onClassificationChange={handleClassificationChange}
+              company={company}
             />
           )}
 
@@ -184,7 +198,7 @@ export function DocumentReviewClient({
               updatedAt={data.updatedAt}
               readOnly={data.readOnly}
               saveStatus={saveStatus}
-              correctionsCount={Object.keys(corrections).length}
+              correctionsCount={correctionsCount}
             />
           )}
         </div>

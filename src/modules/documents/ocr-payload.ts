@@ -60,6 +60,7 @@ const lineItem = z
     unitPrice: amount.optional(),
     amount: amount.optional(),
     tax: amount.optional(),
+    taxRate: z.number().min(0).max(100).optional(),
   })
   .strict();
 
@@ -68,6 +69,9 @@ const CORRECTION_FIELDS = {
   vendorTaxId: text,
   merchantName: text,
   invoiceNumber: text,
+  customerName: text,
+  customerTaxId: text,
+  reverseCharge: z.boolean(),
   invoiceDate: isoDate,
   transactionDate: isoDate,
   dueDate: isoDate,
