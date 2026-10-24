@@ -30,7 +30,7 @@ curl -s localhost:3000/api/health                        # {"status":"ok","db":"
 
 Then the first user: register on `/register` (the first account becomes the owner of its tenant); invite the accountant from Settings. Seed data (`prisma/seed.ts`) is for development only — never run it against production.
 
-**TLS and the name**: `deploy/Caddyfile.example` → `deploy/Caddyfile` with the real host; Caddy gets the certificate from Let's Encrypt by itself and proxies to `127.0.0.1:3000`. `AUTH_URL` must be that public address (Better Auth validates origins). Keep `AF_PORT` bound to localhost behind the proxy (`AF_PORT=127.0.0.1:3000`).
+**TLS and the name**: `deploy/Caddyfile.example` → `deploy/Caddyfile` with the real host; Caddy gets the certificate from Let's Encrypt by itself and proxies to `127.0.0.1:3000`. `AUTH_URL` must be that public address (Better Auth validates origins). Keep `AF_PORT` bound to localhost behind the proxy (`AF_PORT=127.0.0.1:3000` in `.env`).
 
 **Update** (after CI published a new `main`):
 
@@ -40,7 +40,7 @@ AF_TAG=sha-abc123def456 docker compose -f docker-compose.prod.yml pull   # or AF
 AF_TAG=sha-abc123def456 docker compose -f docker-compose.prod.yml up -d  # migrate runs, then the app restarts
 ```
 
-Put `AF_TAG` in `.env.prod` to make it stick. A migration that fails leaves the app on the previous image (the `migrate` container exits non-zero and `app` does not start) — fix forward or roll `AF_TAG` back.
+Put `AF_TAG` in a file named **`.env`** next to the compose file to make it stick — not in `.env.prod`: compose chooses images and ports from `.env` (interpolation), `.env.prod` only reaches the containers (`env_file`). The same goes for `AF_PORT`: `AF_PORT=127.0.0.1:3000` in `.env` keeps the app off the local network behind a proxy; in `.env.prod` it is ignored and the port binds on every interface. Check with `docker compose -f docker-compose.prod.yml config`. Before an update, snapshot the host or VM: a new image may migrate the database, so rolling back means restoring the snapshot, not only the tag. A migration that fails leaves the app on the previous image (the `migrate` container exits non-zero and `app` does not start) — fix forward or roll `AF_TAG` back.
 
 **Backups** (constitution §7: financial records survive the host): `scripts/backup.sh` nightly from cron — a `pg_dump` custom-format dump plus the blob volume as a tarball, kept 30 days, copied off-host when `BACKUP_OFFSITE` points at a mounted remote (a NAS share, an rclone mount, an Azure Blob container mounted with blobfuse):
 
