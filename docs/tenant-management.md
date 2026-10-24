@@ -50,6 +50,7 @@ Page (server component) → fetches data server-side
 - **Service:** `src/modules/settings/settings.ts` — MUST NOT import from `next/*`
 - **Actions:** `src/modules/settings/settings.actions.ts` — `ownerAction` chain, Zod validation
 - **Page:** `src/app/(app)/settings/company/page.tsx` — server component renders client form
+- **Kernel read:** `src/kernel/db/tenant.ts` `tenantProfile(tx, tenantId)` — the `tenants` row is the kernel's (tenancy.prisma); `settings.getTenantProfile` reads through it and is what other modules call (F66). The update path (`updateTenantProfile`) still reads and writes the row itself: its audit `oldData` is the whole row.
 
 ## Tenant Switching
 
