@@ -12,6 +12,7 @@ async function openOwnDocument(page: Page): Promise<void> {
   // random, not the clock: parallel journeys starting in the same millisecond would upload the same bytes (a duplicate)
   const stamp = crypto.randomUUID().slice(0, 8);
   const name = `e2e-review-${stamp}.pdf`;
+  await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
   await page.locator('input[type="file"]').setInputFiles({
     name,
     mimeType: "application/pdf",
@@ -28,6 +29,31 @@ async function openOwnDocument(page: Page): Promise<void> {
 
 test.describe("Document review page — owner", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
+
+  test("the type drives the reading: expense → invoice swaps the key and reads it again (D52)", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await openOwnDocument(page);
+    const key = page.getByTestId("document-review-key");
+    await expect(key).toHaveText(/^exp_\d{8}_\d{3}$/);
+    const upload = (await key.textContent()) ?? "";
+    // the mock OCR reads it as a receipt; the page follows the reading on its own
+    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
+      timeout: 30_000,
+    });
+
+    await page.locator("#prefixType").click();
+    await page.getByRole("option", { name: "Invoice" }).click();
+
+    // same date, same number; the invoice model reads it, the page lands on Ready again with the invoice's fields
+    await expect(key).toHaveText(upload.replace(/^exp_/, "inv_"));
+    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
+      timeout: 30_000,
+    });
+    await expect(page.locator("#invoiceNumber")).toBeVisible();
+    await expect(page.getByTestId("billed-to")).toBeVisible();
+  });
 
   test("owner can navigate to a document detail page from list", async ({ page }) => {
     await openOwnDocument(page);

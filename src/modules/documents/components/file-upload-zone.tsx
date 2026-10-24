@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AppError } from "@/kernel/errors/app-error";
+import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
 import { CodeChip } from "@/kernel/ui/tags";
@@ -32,7 +33,8 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
   // unique: the zone renders twice when + New opens the upload dialog over the library (F73)
   const prefixId = useId();
   const [state, setState] = useState<UploadState>("idle");
-  const [selectedPrefix, setSelectedPrefix] = useState(prefixOptions[0]?.documentType ?? "");
+  // no default (D52): the type picks the OCR model and the key's prefix — the owner chooses it before the upload
+  const [selectedPrefix, setSelectedPrefix] = useState("");
   const [uploadedDoc, setUploadedDoc] = useState<{
     id: string;
     businessKey: string;
@@ -44,6 +46,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typeRef = useRef<HTMLSelectElement>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { executeAsync } = useAction(uploadDocumentAction);
@@ -52,8 +55,18 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
   }, []);
 
+  const askForType = useCallback(() => {
+    setState("idle");
+    toast.info(t("documents.upload.chooseType"));
+    typeRef.current?.focus();
+  }, [t]);
+
   const handleUpload = useCallback(
     async (file: File, force = false) => {
+      if (!selectedPrefix) {
+        askForType();
+        return;
+      }
       // Client-side pre-validation
       if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
         setErrorMessage(`File exceeds ${MAX_FILE_SIZE_MB} MB limit`);
@@ -113,7 +126,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         onUploadComplete?.(data);
       }
     },
-    [executeAsync, selectedPrefix, onUploadComplete, onError, t],
+    [executeAsync, selectedPrefix, askForType, onUploadComplete, onError, t],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -158,8 +171,12 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
 
   const handleClick = useCallback(() => {
     if (state === "uploading") return;
+    if (!selectedPrefix) {
+      askForType();
+      return;
+    }
     inputRef.current?.click();
-  }, [state]);
+  }, [state, selectedPrefix, askForType]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -200,14 +217,20 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         </label>
         <select
           id={prefixId}
+          ref={typeRef}
           value={selectedPrefix}
           onChange={(e) => setSelectedPrefix(e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-2 text-sm"
           disabled={state === "uploading"}
+          required
+          data-testid="upload-type"
         >
+          <option value="" disabled>
+            {t("documents.upload.typePlaceholder")}
+          </option>
           {prefixOptions.map((opt) => (
             <option key={opt.documentType} value={opt.documentType}>
-              {opt.documentType} ({opt.prefix})
+              {t(`documents.prefix.${opt.documentType}` as MessageKey)} ({opt.prefix})
             </option>
           ))}
         </select>
@@ -240,6 +263,11 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
             <p className="text-sm text-muted-foreground">
               {isTouchDevice ? t("documents.upload.tap") : t("documents.upload.drop")}
             </p>
+            {!selectedPrefix && (
+              <p className="mt-1 text-xs text-foreground" data-testid="upload-choose-type">
+                {t("documents.upload.chooseType")}
+              </p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
               {t("documents.upload.hint", { max: MAX_FILE_SIZE_MB })}
             </p>

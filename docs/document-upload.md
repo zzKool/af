@@ -40,6 +40,9 @@ Provisional key of a raw upload, a fixed function (D6, see [[numbering]]): `uplo
 - Date uses Stockholm timezone via the Clock abstraction
 - `NNN` = `nextInSeries(tx, caller, "doc-yyyy-mm")`: gap-free per tenant per month, row-locked in the upload transaction
 - The document gets its final key when it becomes something: expense receipt `Ex213-Tr-01_2026-03-11_`, issued invoice `InvoiceAF_VA26-INV-001.pdf`
+- Until then the provisional key **follows the type** (D52): a type change on the review page before the review swaps the prefix, same date and number — `reprefixUploadKey("exp_20261024_002", "invoice")` → `inv_20261024_002` (the series is shared by every kind, so the key stays unique). See [[document-review]].
+
+**No default type (D52).** The upload's *Document type* starts on *Choose the type…*: the type picks the OCR model and the key's prefix, so a click on the zone or a dropped file without one posts nothing — a toast says to choose it and the selector gets the focus. The options read *Expense (exp_)*, *Invoice (inv_)*… The choice stays for *Upload another*.
 
 ## Document Classification
 

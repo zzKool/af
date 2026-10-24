@@ -1554,6 +1554,7 @@ export const fr: Dictionary = {
   "documents.review.rerunOcr": "Relancer l'OCR",
   "documents.review.rerunOcrConfirm":
     "L'OCR est relancé sur ce document. Vos corrections sont conservées ; les données extraites sont remplacées par la nouvelle lecture.",
+  "documents.review.rereading": "{type} — l'OCR relit le document",
   "documents.review.restored": "{key} est de retour dans la boîte de réception",
   "documents.category.financial": "Financier",
   "documents.category.relationship": "Relation",
@@ -1601,6 +1602,9 @@ export const fr: Dictionary = {
   "documents.preview.fit": "Ajuster",
   "documents.preview.page": "Page {page}/{pages}",
   "documents.upload.type": "Type de document",
+  "documents.upload.typePlaceholder": "Choisir le type…",
+  "documents.upload.chooseType":
+    "Choisissez d'abord le type de document : il décide comment l'OCR le lit",
   "documents.upload.zone": "Téléverser un document",
   "documents.upload.tap": "Touchez pour téléverser",
   "documents.upload.drop": "Déposez le fichier ici ou cliquez pour parcourir",

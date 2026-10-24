@@ -414,3 +414,7 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 - [ ] **An API sign-in has no active organisation**: `POST /api/auth/sign-in/email` gives a session whose `activeOrganizationId` is null, so `requireCaller` redirects to `/login` — the login page sets it. A script that walks the app calls `organization/set-active` after signing in.
 - [ ] **`pkill -f "next start"` kills the shell that runs it** (its own command line matches) — twice here. Use `pkill -f "[n]ext-server"`, or the pid.
 
+
+## F90 build (the type drives the reading, 2026-10-24)
+- [ ] **`router.refresh()` does not reach a `defaultValue` input**: the review form's fields are uncontrolled, so a new OCR reading arrived in the props and the fields kept the old values. The form is keyed on the reading (`status` + `updatedAt`) and remounts; a correction save does not refresh, so typing is never interrupted.
+- [ ] **A test cluster rebuilt by `scripts/dev-env.sh db` has no e2e users**: the auth setup fails with *User not found* in the server log. `scripts/dev-env.sh migrate seed` before the e2e.

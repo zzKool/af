@@ -110,7 +110,13 @@ On an **extracted** document the owner has *Re-run OCR* in the header. It asks f
 
 ## Document Classification
 
-Owners can reclassify documents by changing the category (financial/relationship) and sub-type (expense, invoice, contract, nda, certificate). This updates `documentType` and `prefixType` but **never changes the business key** (immutable after generation).
+Owners can reclassify documents by changing the category (financial/relationship) and sub-type (expense, invoice, contract, nda, certificate). This updates `documentType` and `prefixType`.
+
+**The type drives the reading (D52).** Before the owner reviewed the document (and while it became nothing — see below), a type change also
+- swaps the provisional key's prefix, same date and number: `exp_20261024_002` ↔ `inv_20261024_002` (`numbering.reprefixUploadKey`; a final key or a generated document's never changes — a generated document cannot be reclassified at all);
+- reads the document again when the new kind has another model (`ocrModelFor`: receipt ↔ invoice ↔ layout; contract → NDA is the same layout, no new reading): an *extracted* or *OCR failed* document goes back to *uploaded* and the action queues the job after the commit, exactly like *Re-run OCR* — `corrections` stays. A document still *uploaded* is not re-queued (the job reads the new type when it runs); one *processing* is left to finish, the owner re-runs it after.
+
+`classifyDocument` returns `{ documentType, prefixType, businessKey, reread }`; the page toasts *Invoice — the OCR reads the document again* and refreshes. While the document is *uploaded* / *processing* the review page refreshes itself every 3 s (three minutes at most — past that the inbox's *stuck* takes over), and the form remounts on a new reading (its fields are uncontrolled), so the new facts appear without a reload. After the review a type change is a label only: the owner checked the facts, the key and the reading stay.
 
 A **linked** document cannot be reclassified: something became from it (`created_from`) or a bank row justifies it (`justifies`). Linked is derived from the links (`linkable.ts` — `linkedIds` / `isDocumentLinked`, through `linking.linksTouching`), never from the stored status; `"linked"` is not a status value. Deleting a document asks `linking.isLinked` (any link — the database trigger's own test) before writing anything, so the *blocked* audit row survives.
 
