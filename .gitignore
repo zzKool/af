@@ -72,3 +72,6 @@ public/pdf.worker.min.mjs
 .vercel
 backups/
 e2e-screenshots/
+
+# The owner's private notes (his box setup, D51) — never committed, never read by agents unless he asks
+/private/
