@@ -22,7 +22,7 @@ import {
   prepareOcrRerun,
   unarchiveDocuments,
 } from "./documents";
-import { listInbox } from "./queries";
+import { inboxOpenCount, listInbox } from "./queries";
 
 const ADMIN_DATABASE_URL =
   process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
@@ -385,5 +385,11 @@ describe("listInbox", () => {
     const r = await run(accountant, (tx) => listInbox(tx, accountant, { now: NOW }));
     expect(r.rows.map((x) => x.id)).not.toContain(d.contract.id);
     expect(r.counts).toEqual({ pending: 3, ready: 2, duplicates: 2, archived: 1, total: 5 });
+  });
+
+  it("F72: the sidebar's cheap count is the inbox's total, for each role", async () => {
+    await seed();
+    expect(await run(owner, (tx) => inboxOpenCount(tx, owner, NOW))).toBe(6);
+    expect(await run(accountant, (tx) => inboxOpenCount(tx, accountant, NOW))).toBe(5);
   });
 });

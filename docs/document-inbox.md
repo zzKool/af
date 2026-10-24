@@ -22,7 +22,7 @@ Derived, never stored (`modules/documents/inbox.ts`, `listInbox` in `queries.ts`
 | `ready` | status `extracted` | Ready |
 | `archived` | `archived_at` set (any status) | Archived |
 
-- **All** = Pending + Ready; the title says *{n} documents need attention* — the same number as the library's *Inbox (n)* link and the dashboard's *documents to review* (`inboxTotals`, SC-005).
+- **All** = Pending + Ready; the title says *{n} documents need attention* — the same number as the library's *Inbox (n)* link and the dashboard's *documents to review* (`inboxTotals`, SC-005) — and the sidebar's count on *Documents* (F72: `inboxOpenCount`, the same `inboxState` over the rows that can still be in the inbox, four columns, no facts or twins).
 - **Duplicates** = inbox rows whose bytes (`content_hash`) exist more than once in the tenant (a linked, archived or **generated** twin counts — FR-011: the client's copy of an issued invoice, uploaded anyway, is captioned *Duplicate of InvoiceAF_VA26-INV-007.pdf*); the younger ones are captioned *Duplicate of {oldest key}*. A generated PDF is never an inbox row: `listInbox` reads only the generated rows whose hash a loaded document shares, and only their key, hash and date.
 - Counts are over the whole inbox; the search (key, file name, vendor as corrected) and the tab narrow the list only.
 - **Scale**: one read of the tenant's non-generated documents per request (cap 20 000, like the library) plus the generated twins of those hashes, state / twins / counts in memory. Right for one company; revisit when a tenant passes a few thousand documents ([[lessons]]).

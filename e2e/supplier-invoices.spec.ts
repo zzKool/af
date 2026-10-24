@@ -171,6 +171,19 @@ test.describe("Supplier invoices", () => {
     await page.goto("/supplier-invoices");
     await expect(page.getByRole("heading", { name: "Supplier invoices" })).toBeVisible();
     await expect(page.getByTestId("open-new-supplier-invoice")).toHaveCount(0);
+    // ?new=1 opens nothing for a role that cannot create
+    await page.goto("/supplier-invoices?new=1");
+    await expect(page.getByTestId("new-supplier-invoice-dialog")).toHaveCount(0);
     await ctx.close();
+  });
+
+  // F73: + New → Supplier invoice lands on ?new=1 — the dialog opens; closing drops the param
+  test("?new=1 opens the new supplier invoice dialog", async ({ page }) => {
+    await page.goto("/supplier-invoices?new=1");
+    const dialog = page.getByTestId("new-supplier-invoice-dialog");
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page).not.toHaveURL(/new=1/);
   });
 });

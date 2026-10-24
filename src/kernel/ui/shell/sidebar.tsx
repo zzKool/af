@@ -2,6 +2,8 @@
 
 // The sidebar (D40): + New · Dashboard · the groups of the monthly loop · Settings pinned to the bottom.
 // 190 px, collapses to 56 px icons from the top bar's toggle. Hidden by role here, enforced by the server.
+// `counts` (F72): open work per nav path, loaded with the app layout — a <CountBadge> right of the label when > 0
+// (a dot when collapsed). The link's accessible name stays the label (e2e and screen readers find "Banking").
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,9 +19,19 @@ import { NAV_GROUPS, NAV_ITEMS, type NavItem, NEW_ITEMS } from "@/kernel/nav/con
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 import { SHELL_ICONS } from "@/kernel/ui/shell/icons";
 import { useShell } from "@/kernel/ui/shell/shell-context";
+import { CountBadge } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ role }: { role: CallerIdentity["role"] }) {
+/** open work per nav path (`/banking` → rows to justify, …); absent or 0 = no badge */
+export type NavCounts = Partial<Record<string, number>>;
+
+export function Sidebar({
+  role,
+  counts = {},
+}: {
+  role: CallerIdentity["role"];
+  counts?: NavCounts;
+}) {
   const t = useT();
   const pathname = usePathname();
   const { collapsed } = useShell();
@@ -36,23 +48,33 @@ export function Sidebar({ role }: { role: CallerIdentity["role"] }) {
     const active = pathname === item.path || pathname.startsWith(`${item.path}/`);
     const Icon = SHELL_ICONS[item.icon];
     const label = t(item.labelKey);
+    const count = counts[item.path] ?? 0;
     return (
       <Link
         key={item.path}
         href={item.path}
-        title={collapsed ? label : undefined}
-        aria-label={collapsed ? label : undefined}
+        title={collapsed ? (count > 0 ? `${label} (${count})` : label) : undefined}
+        aria-label={label}
         aria-current={active ? "page" : undefined}
         className={cn(
           "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-colors",
           active
             ? "bg-nav-active font-semibold text-primary-hover"
             : "text-foreground hover:bg-hover",
-          collapsed && "justify-center px-0",
+          collapsed && "relative justify-center px-0",
         )}
       >
         {Icon && <Icon className="size-4 shrink-0" aria-hidden />}
         {!collapsed && <span className="truncate">{label}</span>}
+        {count > 0 &&
+          (collapsed ? (
+            <span
+              className="absolute top-1 right-1.5 size-1.5 rounded-full bg-muted-foreground"
+              aria-hidden
+            />
+          ) : (
+            <CountBadge count={count} className="ml-auto" />
+          ))}
       </Link>
     );
   };
