@@ -392,6 +392,7 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 ## F72 build (sidebar counts, 2026-10-24)
 
 - [ ] **The banking count's last step reads whole journal entries for a flag**: `journal.entriesForSources` loads every column plus the implicit rates to answer `noDocumentNeeded` for the still-open rows. With few open rows it is ~2 ms; at 3 000 bank rows of which 2 600 open (no entries — a worst case) the count took ~43 ms and light pages +~30 ms. Action: a journal read `noDocumentFlags(tx, "bank_transaction", ids) → Set<id>` (one column) in the journal's lane, then `open-work.ts` switches.
+- [ ] **`biome check … | tail -1` hides a red lint**: the pipe's status is `tail`'s, and the last line is the same *Checked N files* on success and failure; a `role="owner"` prop in a new test (an ARIA role to Biome's a11y rule) reached CI that way. Check lint by its exit code (`npx biome check . --diagnostic-level=error; echo $?`) before pushing; pass a `role` prop through a variable in tests.
 - [ ] **A layout read runs on every navigation that re-renders the layout**, not on client-side page changes (Next keeps the layout): the counts refresh on a full load, `router.refresh()` and server actions that revalidate — a badge can lag a client navigation. Accepted for counts; anything that must be exact belongs to the page.
 
 ## F53 build (one query at a time on a transaction, 2026-10-24)
