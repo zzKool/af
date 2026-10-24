@@ -14,6 +14,7 @@ import { rowsToJustifyCount } from "@/modules/banking";
 import { inboxOpenCount } from "@/modules/documents";
 import { overdueInvoiceCount } from "@/modules/invoices";
 import { upsertTablePreferenceAction } from "@/modules/settings";
+import { overdueSupplierInvoiceCount } from "@/modules/supplier-invoices";
 
 export default async function AppLayout({
   children,
@@ -62,12 +63,18 @@ export default async function AppLayout({
     can(auth, "create", "bank_transaction")
       ? withTenantTransaction(prisma, auth.tenantId, async (tx) => {
           const today = createClock().today();
-          const [banking, documents, invoices] = await Promise.all([
+          const [banking, documents, invoices, supplierInvoices] = await Promise.all([
             rowsToJustifyCount(tx),
             inboxOpenCount(tx, auth),
             overdueInvoiceCount(tx, today),
+            overdueSupplierInvoiceCount(tx, today),
           ]);
-          return { "/banking": banking, "/documents": documents, "/invoices": invoices };
+          return {
+            "/banking": banking,
+            "/documents": documents,
+            "/invoices": invoices,
+            "/supplier-invoices": supplierInvoices,
+          };
         })
       : Promise.resolve({}),
   ]);

@@ -429,6 +429,36 @@ export async function supplierInvoiceHistory(
 export const DUE_SOON_DAYS = 14;
 
 /** Open, overdue, due within 14 days, paid this month — SEK, non-cancelled invoices (US3). */
+/**
+ * The sidebar's count on Supplier invoices (F72): how many are *overdue* — the KPI strip's and the dashboard's
+ * `overdueCount` — without `kpis`. Only the candidates are read (not cancelled, due before today), their
+ * allocations, then `deriveSupplierInvoiceStatus` decides (a settled one is paid, not overdue).
+ */
+export async function overdueSupplierInvoiceCount(
+  tx: TransactionClient,
+  today = clock.today(),
+): Promise<number> {
+  const rows = await tx.supplierInvoice.findMany({
+    where: { cancelled: false, dueDate: { lt: new Date(`${today}T00:00:00Z`) } },
+    select: { id: true, amountTotal: true, paidAmount: true, dueDate: true },
+  });
+  if (rows.length === 0) return 0;
+  const allocated = await allocatedSums(
+    tx,
+    rows.map((r) => r.id),
+  );
+  return rows.filter(
+    (r) =>
+      deriveSupplierInvoiceStatus({
+        cancelled: false,
+        total: (r.paidAmount ?? r.amountTotal).toFixed(2),
+        allocated: (allocated.get(r.id) ?? new D(0)).toFixed(2),
+        dueDate: r.dueDate.toISOString().slice(0, 10),
+        today,
+      }).status === "overdue",
+  ).length;
+}
+
 export async function kpis(
   tx: TransactionClient,
   today = clock.today(),

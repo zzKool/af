@@ -32,6 +32,7 @@ import {
   kpis,
   listForGroup,
   listSupplierInvoices,
+  overdueSupplierInvoiceCount,
   payableTransactions,
   supplierOptions,
 } from "./queries";
@@ -1238,6 +1239,14 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
       paidThisMonthCount: 1,
       overdueCount: 1,
     });
+    // F72: the sidebar's count is the KPI's — the paid and the cancelled one are never counted
+    for (const today of ["2026-03-20", "2026-04-01", "2026-04-11"]) {
+      const [count, all] = await run(owner.caller, (tx) =>
+        Promise.all([overdueSupplierInvoiceCount(tx, today), kpis(tx, today)]),
+      );
+      expect(count).toBe(all.overdueCount);
+    }
+    expect(await run(owner.caller, (tx) => overdueSupplierInvoiceCount(tx, "2026-04-11"))).toBe(2);
   });
 
   it("supplier options are the vendors; the VAT read model sums what was stored under a registration", async () => {
