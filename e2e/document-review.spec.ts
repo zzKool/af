@@ -117,6 +117,12 @@ test.describe("Document review page — owner", () => {
   }) => {
     test.setTimeout(90_000);
     await openOwnDocument(page);
+    // the owner ticks *Reverse charge* on the document (D54) — what it becomes carries the tag (F91)
+    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, { timeout: 30_000 });
+    const reverseCharge = page.getByTestId("reverse-charge");
+    await reverseCharge.click();
+    await expect(reverseCharge).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("Reverse charge (saving…)")).toHaveCount(0, { timeout: 10_000 });
     const makeIt = page.getByTestId("make-it");
     await expect(makeIt).toBeVisible();
     await expect(makeIt.getByTestId("make-it-file")).toBeEnabled();
@@ -163,6 +169,7 @@ test.describe("Document review page — owner", () => {
     await page.goto(href ?? "/expenses");
     await expect(page.getByTestId("expense-panel")).toBeVisible();
     await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-\w+-\d+/);
+    await expect(page.getByTestId("panel-reverse-charge")).toHaveText("Reverse charge");
   });
 
   test("documents list shows each row's derived state as icon + word", async ({ page }) => {
