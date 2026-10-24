@@ -32,8 +32,8 @@ model SupplierInvoice {
   /// SEK base of the total: ECB of the invoice date; the bank row's base once a cross-currency payment is attached
   amountBase        Decimal  @map("amount_base") @db.Decimal(15, 2)
   rate              Decimal  @db.Decimal(18, 6)
-  /// same_currency | ecb_daily | ecb_nearest | bank | manual
-  rateSource        String   @map("rate_source") @db.VarChar(20)
+  /// the RateSource enum (journal.prisma)
+  rateSource        RateSource @map("rate_source")
   rateDate          DateTime? @map("rate_date") @db.Date
   /// what the bank row paid when the payment is in another currency (D-g = D26), once attached
   paidAmount        Decimal? @map("paid_amount") @db.Decimal(15, 2)

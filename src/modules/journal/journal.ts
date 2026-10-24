@@ -16,6 +16,7 @@ import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import { withImplicitRates } from "./implicit-rate";
+import { journalRateSource } from "./rate-source";
 import type {
   BankEntryInput,
   CategorisedBy,
@@ -109,7 +110,7 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     currency: row.currency,
     amountBase: row.amountBase.toFixed(2),
     rate: row.rate.toString(),
-    rateSource: row.rateSource as RateSource,
+    rateSource: journalRateSource(row.rateSource),
     rateDate: iso(row.rateDate),
     // derived from the transfer link on read (T005, `withImplicitRates`); never stored (F86 dropped the column)
     bankImplicitRate: null,
@@ -117,7 +118,7 @@ export function toJournalEntryDto(row: JournalEntry): JournalEntryDto {
     partnerId: row.partnerId,
     note: row.note,
     noDocumentNeeded: row.noDocumentNeeded,
-    categorisedBy: (row.categorisedBy as CategorisedBy | null) ?? null,
+    categorisedBy: row.categorisedBy,
     ruleId: row.ruleId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
