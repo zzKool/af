@@ -42,7 +42,7 @@ Unknown/custom prefix types (from tenant configuration in Story 3.4) fall back t
 | Azurite local | Azure cloud | Buffer (`base64Source`) | Azure DI can't reach localhost |
 | Azurite local | Mock | Buffer (N/A) | Mock ignores source |
 
-Detection: `blobUrl.includes("127.0.0.1")` → local blob. `AZURE_DI_ENDPOINT?.includes("azure")` → remote OCR.
+Detection: `isReachableAzureBlob(blobUrl)` (`documents/jobs/process-document.ts`) — only an `https://*.blob.core.windows.net` URL goes to Azure DI as a SAS link; everything else (Azurite on `127.0.0.1` locally, `http://azurite:10000` inside the prod compose) is sent as bytes. `AZURE_DI_ENDPOINT` set → remote OCR, else the mock.
 
 ## Quality Classification
 
