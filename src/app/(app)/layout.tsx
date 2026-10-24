@@ -1,4 +1,6 @@
 import { requireCaller } from "@/kernel/auth/caller";
+import { can } from "@/kernel/auth/can";
+import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { LocaleProvider } from "@/kernel/i18n/locale-provider";
@@ -8,6 +10,9 @@ import { Providers } from "@/kernel/ui/providers";
 import { AppShell } from "@/kernel/ui/shell/app-shell";
 import { parseTheme } from "@/kernel/ui/theme";
 import { ThemeSync } from "@/kernel/ui/theme-sync";
+import { rowsToJustifyCount } from "@/modules/banking";
+import { inboxOpenCount } from "@/modules/documents";
+import { overdueInvoiceCount } from "@/modules/invoices";
 import { upsertTablePreferenceAction } from "@/modules/settings";
 
 export default async function AppLayout({
@@ -39,7 +44,7 @@ export default async function AppLayout({
 
   // Fetch user locale preference — direct Prisma query, NOT withTenantTransaction
   // (UserPreference is user-scoped with no RLS)
-  const [userPref, user, tablePrefs, browser] = await Promise.all([
+  const [userPref, user, tablePrefs, browser, counts] = await Promise.all([
     prisma.userPreference.findUnique({
       where: { userId: auth.userId },
       select: { locale: true, theme: true },
@@ -52,6 +57,19 @@ export default async function AppLayout({
     }),
     // no preference = the browser's language, taken from the request so server pages and client agree
     browserLocale(),
+    // F72: the sidebar's open work — the owner's to-do, like the dashboard's; one cheap read per module, in the
+    // tenant's own transaction (never the dashboard's computation)
+    can(auth, "create", "bank_transaction")
+      ? withTenantTransaction(prisma, auth.tenantId, async (tx) => {
+          const today = createClock().today();
+          const [banking, documents, invoices] = await Promise.all([
+            rowsToJustifyCount(tx),
+            inboxOpenCount(tx, auth),
+            overdueInvoiceCount(tx, today),
+          ]);
+          return { "/banking": banking, "/documents": documents, "/invoices": invoices };
+        })
+      : Promise.resolve({}),
   ]);
   const tableLayouts = Object.fromEntries(tablePrefs.map((p) => [p.tableKey, p.preferences]));
 
@@ -61,7 +79,12 @@ export default async function AppLayout({
       <LocaleProvider initialLocale={userPref?.locale ?? null} browserLocale={browser}>
         <TablePreferencesProvider initial={tableLayouts} save={upsertTablePreferenceAction}>
           {/* the D40 shell: top bar · sidebar · canvas (breadcrumb, page, docked details panel) */}
-          <AppShell role={role} tenants={tenants} userLabel={user?.name || user?.email || ""}>
+          <AppShell
+            role={role}
+            tenants={tenants}
+            userLabel={user?.name || user?.email || ""}
+            counts={counts}
+          >
             {children}
           </AppShell>
         </TablePreferencesProvider>
