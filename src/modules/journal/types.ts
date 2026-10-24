@@ -17,9 +17,9 @@ const RATE_SOURCE_SET: Record<RateSource, true> = {
 };
 export const RATE_SOURCES = Object.keys(RATE_SOURCE_SET) as readonly RateSource[];
 
-/** `partner_default` is never written (audit 32, decided: removed — a partner-only rule writes `rule`, journal T002's
- * proposal writes `manual`). It stays in this read type only until banking's `history.ts` stops listing it and the
- * enum value is dropped with F67's schema PR. */
+/** `partner_default` is gone from the database (F67's schema PR dropped the enum value; a partner-only rule writes
+ * `rule`, journal T002's proposal writes `manual`) — no row can hold it. It stays in this read type only until
+ * banking's `history.ts:33` stops listing it (banking's lane, lessons *Left for round 3*). */
 export type CategorisedBy = "manual" | "rule" | "partner_default";
 
 export type JournalEntryDto = {
