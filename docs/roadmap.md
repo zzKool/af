@@ -26,6 +26,16 @@ Every module of [[feature-inventory]] §3 has a build behind it; the status line
 | Dashboard, settings | to-do list, pulse, briefing; company, VAT registrations, bank accounts, BAS, traktamente, rates, my preferences | [[dashboard]] |
 | Cross-cutting | RLS, `can()`, audit, pg-boss, per-user table layouts, en / fr / sv, CI with e2e on `main`, images on `ghcr.io`, homelab runbook + backups | [[constitution]], [[deployment]] |
 
+### Since the slices — 2026-10-24
+
+The OCR reading, finished before the owner's real documents go through it (B1):
+
+| ID | What works | Decision · doc |
+|---|---|---|
+| F89 | OCR reads the **currency** (receipts too), **line Tax %**, the vendor VAT number, **Billed to** (name + VAT number, a warning when neither fits the company), the **reverse-charge** flag; the corrections counter counts real corrections | D53, D54 · [[ocr-processing]], [[document-review]] |
+| F90 | **The type drives the reading**: a type change re-runs the OCR with that type's model (corrections stay); the provisional key follows the type until reviewed / became; the upload asks for the type, no default | D52 · [[document-review]] |
+| F91 | **Reverse-charge tag** on the expense / supplier invoice made from a flagged document — a tag only, the VAT treatment stays the accountant's | D54 · [[expenses]], [[supplier-invoices]] |
+
 ## Left — to a first real version
 
 Decided with the owner on 2026-10-21: **cut-off 2023-04** (the start of the activity); **no Excel history import** — the owner enters his data himself; **UI/UX after the features**, as a direction decision first.
@@ -45,9 +55,9 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ### B. Real-data readiness (the owner, with the agent's help)
 
-- [ ] **B1** The owner enters 2023-04 onwards: partners, contracts with their rate history, bank CSVs, invoices (the series counters continue from the last numbers he used). Every oddity he hits is a bug report worth more than a test.
-- [ ] **B2** Azure Document Intelligence (F0) keys in the homelab `.env.prod` — without them the mock OCR runs.
-- [ ] **B3** The homelab actually running it: `docker-compose.prod.yml`, the nightly backup cron, one restore drill with real data ([[deployment]]). The Azure job stays `if: false`.
+- [ ] **B1** The owner enters 2023-04 onwards — **next up**, plan under *Next up*: partners, contracts with their rate history, bank CSVs, invoices, supplier invoices / receipts through OCR, links, the package. Every oddity he hits is a bug report worth more than a test (reproduced with invented values — D51).
+- [x] **B2** Azure Document Intelligence keys set on the owner's box — real OCR active, the mock no longer runs there (2026-10-24, [[deployment]]).
+- [x] **B3** The owner's box runs the prod compose, the nightly backups, and a restore drill passed (2026-10-24, [[deployment]]). The Azure job stays `if: false`.
 - [ ] **B4** The accountant's two confirmations (non-blocking): the 3960/7960 pair for exchange differences (D26), CH acquisition tax never applies (D23).
 
 ### C. Finish and polish
@@ -60,10 +70,38 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ## Next up
 
-1. **~~F56~~ (2026-10-23) · ~~F57~~ (2026-10-22) · F59 · F60 — the wrong figures the audit found** (Swiss VAT return, credit notes, a supplier invoice's rate, the ECB fallback). S–M each, four modules, no shared file: one round of four builders in parallel. First, because some of these write values that are locked once written (rates, SEK bases) — fixed before the owner's real data goes in.
-2. ~~**F58**~~ (2026-10-23, D37's small fix: generic `justifies` onto expenses / supplier invoices refused, the inbox opens their panel). ~~F39's restyle~~ (done 2026-10-22); its module follow-up **F71** goes one module at a time, after that module's round-1 fix.
-3. ~~**F70 — base currency per tenant**~~ — *parked 2026-10-23 (D46)*: the guard F85 instead. Next from the owner's decisions: F86 (drop the two columns, one migration), ~~F88~~ (statement prints owed, 2026-10-23), F87 (optional partner on expenses — spec read 2026-10-23, D50; build from `specs/expense-partner/tasks.md`).
-4. **B1 — the owner enters 2023-04 onwards.** Alongside, as they fit: the documents convergence (`specs/documents/tasks.md` Phase 3 — ~~T019, T021–T025, T027~~ (2026-10-23, #107 #106 #108 #113 #114 #115) and ~~F50-f~~ (#116); ~~T020~~ (#119, D36) · ~~T026~~ (#123); left T028 (the review page passes the vendor address — one line in `modules/documents`)), F61–F67, ~~F69~~ (2026-10-23), F71, ~~F72 · F73~~ (2026-10-24) and ~~F74~~ (2026-10-23), and the convergence passes **F77–F80** (journal, rates, dashboard, traktamente — built without a full spec trail; docs PR each, any module whose round-1 fix has merged) — ~~F77~~ (2026-10-23: `specs/journal/tasks.md` T001–T009) · ~~F78~~ (2026-10-23: `specs/rates/spec.md` + `tasks.md` T001–T006, the warning gap → F81) · ~~F81~~ (2026-10-23, with rates T001, T003–T006; T007 left — a constitution PR on `BaseRateResult`'s Decimal) · ~~F79~~ (2026-10-23: `specs/dashboard/tasks.md` T001–T006) · ~~F80~~ (2026-10-23: `specs/traktamente/tasks.md` T001–T003).
+### 1. B1 — 2023-Q2 end to end, on the owner's box
+
+The acceptance test: one real quarter, from the start of the activity, through every module, ending in a package compared with what the accountant filed. The owner does the entering; the agent fixes what he reports (D51: never on the box, never with his values).
+
+```
+settings ─► partners ─► contracts ─► rates backfill ─► bank CSVs ─► invoices
+                                                          │             │
+                     receipts / supplier invoices ─► OCR ─► review ─► Make it…
+                                                          │             │
+                                                          └──► links ◄──┘
+                                                                 │
+                                    package 2023-04 · 05 · 06 ─► compare 2023-06 with what was filed
+```
+
+1. **Settings** — company profile, VAT registrations, the three Nordea accounts, BAS categories as the accountant uses them.
+2. **Partners** — the clients and suppliers of 2023-Q2 (short codes, identifiers, default currency / BAS / terms).
+3. **Contracts** — with their 2023 daily rates (the dated rate history).
+4. **Rates** — `scripts/fetch-rates.ts 2023-04-01` before any money fact (A3; the SEK bases are locked once written).
+5. **Bank CSVs** — SEK, CHF and savings, 2023-04 → 06; rules, transfer pairs.
+6. **Invoices** — the quarter's invoices, numbered as they were issued.
+7. **Supplier invoices / receipts** — uploaded with their type (F90), read by the real OCR (B2), reviewed, *Make it…* expense / supplier invoice; owner-paid expenses and their reimbursements; traktamente trips if any.
+8. **Links** — the bank rows justified (the inbox's suggestions, *Link to…* for the rest); nothing left to justify for the quarter.
+9. **Package** — 2023-04, 05, 06; **the 2023-06 package compared with what was filed** — every difference is either explained or a bug report.
+
+Done when the 2023-06 package matches what was filed, or every difference has a reason written down. Each oddity → a row in [[features]] or a line in [[lessons]], reproduced on seed / invented data before a test or a fix.
+
+### 2. Alongside, as they fit
+
+- **Left from earlier rounds**: ~~F56 · F57 · F58 · F59 · F60~~ (the audit's wrong figures, 2026-10-23); ~~F85 · F86 · F87 · F88~~ (the owner's 2026-10-23 decisions, built 2026-10-23 → 24); ~~F72 · F73~~ (2026-10-24), ~~F74~~ (2026-10-23); F70 parked (D46).
+- **F71** — the kit in the last modules: dashboard, settings, rates (one PR each).
+- **F67** — the audit's hygiene, line by line; **F66**'s last item (dashboard's kernel reads).
+- The documents convergence is done (`specs/documents/tasks.md` Phase 3, T019–T028); the convergence passes ~~F77–F81~~ are built (2026-10-23).
 
 F03 Members is *later*: the owner will not invite the accountant into the app for now (2026-10-22). The dispatch table is [[features]].
 
