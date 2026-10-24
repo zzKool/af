@@ -23,7 +23,7 @@ import { describe, expect, test } from "vitest";
 const ALLOWED: Record<string, { count: number; why: string }> = {
   "src/app/(app)/layout.tsx": {
     count: 2,
-    why: "one withTenantTransaction per membership (each its own client); then the pool, no tx",
+    why: "one withTenantTransaction per membership (each its own client); then the pool beside the sidebar counts' own withTenantTransaction (F72)",
   },
   "src/app/(app)/settings/rates/page.tsx": {
     count: 1,
