@@ -53,6 +53,7 @@ Environment setup, settings, and deployment configuration.
 - [[local-environment-setup]] — Prerequisites, quick start, and service verification · cloud sessions: `scripts/dev-env.sh` / `scripts/dev-env.md`
 - [[environment-variables]] — Required env vars and their purpose
 - [[deployment]] — the runbook: the images CI publishes (app + one-shot migrate), the homelab stack (`docker-compose.prod.yml`, update by tag, Caddy for TLS), backups and the restore drill, `/api/health`, the Azure path (scale to zero, ≈ €17–20)
+- [[homelab-proxmox]] — the owner's box step by step: HP EliteDesk 800 G2 Mini, Proxmox, the encrypted app VM, Docker + AF, Tailscale serve, Azure DI in Switzerland North, backups in three layers, the restore drill, Omarchy beside
 - [[ci-cd]] — CI/CD pipeline, Docker, E2E testing, and recovery runbook
 
 ## Pages

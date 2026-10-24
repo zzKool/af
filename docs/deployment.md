@@ -17,7 +17,7 @@ The runtime image carries no Prisma CLI and no migrations engine — the app nev
 
 ## The homelab (production)
 
-Any Linux box with Docker. The first time:
+The owner's box, step by step (Proxmox, the encrypted app VM, Tailscale, backups, OCR keys): [[homelab-proxmox]]. The generic path below works on any Linux box with Docker. The first time:
 
 ```bash
 sudo mkdir -p /opt/af && cd /opt/af
@@ -61,7 +61,7 @@ docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 
 `scripts/restore.sh` stops the app, restores the dump into a fresh database and swaps it in, replaces the blob volume's data, starts the app (migrations run first) and calls the health endpoint.
 
-**Monitoring**: the container's `HEALTHCHECK` is `/api/health` (database round trip, jobs state, version, uptime); `restart: unless-stopped` brings the app back after a reboot; Sentry (`SENTRY_DSN`) for errors; the logs are JSON on stdout (`docker compose logs -f app`, `LOG_LEVEL`).
+**Monitoring**: the container's `HEALTHCHECK` is `/api/health` (database round trip, jobs state, version, uptime); `restart: unless-stopped` brings the app back after a reboot; Sentry stays **off** on the owner's box (D51 — `NEXT_PUBLIC_SENTRY_DSN` empty); the logs are JSON on stdout (`docker compose logs -f app`, `LOG_LEVEL`).
 
 **Azure Document Intelligence** is the one cloud dependency of the homelab stack (OCR): `AZURE_DI_ENDPOINT` / `AZURE_DI_KEY` (F0 free tier, 500 pages a month). Without them the mock OCR runs — fine for a trial, not for real receipts.
 

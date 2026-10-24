@@ -3,7 +3,7 @@
 import { AlertCircle, CheckCircle, Copy, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AppError } from "@/kernel/errors/app-error";
@@ -29,6 +29,8 @@ type UploadState = "idle" | "dragover" | "uploading" | "complete" | "duplicate" 
 
 export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: FileUploadZoneProps) {
   const t = useT();
+  // unique: the zone renders twice when + New opens the upload dialog over the library (F73)
+  const prefixId = useId();
   const [state, setState] = useState<UploadState>("idle");
   const [selectedPrefix, setSelectedPrefix] = useState(prefixOptions[0]?.documentType ?? "");
   const [uploadedDoc, setUploadedDoc] = useState<{
@@ -193,11 +195,11 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
     <div className="space-y-3">
       {/* Prefix type selector */}
       <div className="flex items-center gap-2">
-        <label htmlFor="prefix-type" className="text-sm font-medium text-muted-foreground">
+        <label htmlFor={prefixId} className="text-sm font-medium text-muted-foreground">
           {t("documents.upload.type")}
         </label>
         <select
-          id="prefix-type"
+          id={prefixId}
           value={selectedPrefix}
           onChange={(e) => setSelectedPrefix(e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-2 text-sm"
