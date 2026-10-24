@@ -40,7 +40,8 @@ The owner's real company data (partners, amounts, bank rows, documents, invoices
 - **Nothing real in the repo, PRs, artifacts, project docs or memory**: no real names of clients / suppliers, amounts, IBANs, invoice numbers, CSVs, PDFs, dumps, logs. Fixtures, tests and examples use invented data.
 - **Screenshots** (definition of done) come from a cloud session or the dev / test database on seed data — never from the box, never from a screen the owner shares.
 - **Bug reports**: when the owner describes a bug with real values, reproduce it with invented ones before writing a test, a lesson or a PR; never copy his values.
-- **The box sends out only**: image pulls (ghcr), the ECB rates fetch (nothing sent), Azure Document Intelligence in **Switzerland North** (the owner's choice, 2026-10-24 — the documents themselves go there for reading, nothing else). Sentry stays off on the box (`NEXT_PUBLIC_SENTRY_DSN` empty).
+- **The box sends out only**: image pulls (ghcr), the ECB rates fetch (nothing sent), Azure Document Intelligence in the region the owner chose (the documents themselves go there for reading, nothing else). Sentry stays off on the box (`NEXT_PUBLIC_SENTRY_DSN` empty).
+- **The owner's infrastructure stays private too**: no hardware, hostnames, network layout, VM setup, regions or access paths of his box in the repo — the runbook stays generic ([[deployment]]).
 - Unsure whether something is real data → treat it as real.
 
 ## Git
