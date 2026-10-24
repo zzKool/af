@@ -54,7 +54,6 @@ export function Sidebar({
         key={item.path}
         href={item.path}
         title={collapsed ? (count > 0 ? `${label} (${count})` : label) : undefined}
-        aria-label={label}
         aria-current={active ? "page" : undefined}
         className={cn(
           "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-colors",
@@ -65,7 +64,9 @@ export function Sidebar({
         )}
       >
         {Icon && <Icon className="size-4 shrink-0" aria-hidden />}
-        {!collapsed && <span className="truncate">{label}</span>}
+        {/* the name comes from this text, not an aria-label (axe 4.14 label-content-name-mismatch); the
+            count stays out of it (aria-hidden) so the link is named exactly its label */}
+        <span className={collapsed ? "sr-only" : "truncate"}>{label}</span>
         {count > 0 &&
           (collapsed ? (
             <span
@@ -73,7 +74,9 @@ export function Sidebar({
               aria-hidden
             />
           ) : (
-            <CountBadge count={count} className="ml-auto" />
+            <span className="ml-auto" aria-hidden>
+              <CountBadge count={count} />
+            </span>
           ))}
       </Link>
     );
