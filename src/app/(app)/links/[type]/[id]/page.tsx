@@ -35,10 +35,8 @@ export default async function LinkGraphPage({
   const depth = Number.isInteger(depthParam) ? depthParam : GRAPH_DEFAULT_DEPTH;
 
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [graph, prefs] = await Promise.all([
-      neighbourhood(tx, { type: type as LinkableType, id }, { depth }),
-      getUserPreferences(tx, auth),
-    ]);
+    const graph = await neighbourhood(tx, { type: type as LinkableType, id }, { depth });
+    const prefs = await getUserPreferences(tx, auth);
     return { graph, prefs };
   });
   if (!data.graph) notFound();

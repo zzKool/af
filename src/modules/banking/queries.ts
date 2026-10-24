@@ -4,7 +4,7 @@
 // are joined over that set, and the derived filters / search / sort / page run in memory (cap 20 000 rows).
 import { Prisma } from "@/generated/prisma/browser";
 import { addDays } from "@/kernel/clock/calendar";
-import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { filterInMemory, finishList } from "@/kernel/list-query/memory";
 import { buildDateHierarchy, buildWhere, countDistinct } from "@/kernel/list-query/prisma";
@@ -109,10 +109,10 @@ type LinkFacts = { allocated: Map<string, string>; transfer: Set<string> };
  */
 async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise<LinkFacts> {
   if (ids.length === 0) return { allocated: new Map(), transfer: new Set() };
-  const [allocated, transfers] = await Promise.all([
-    linking.allocatedFrom(tx, "bank_transaction", ids),
-    linking.linksTouching(tx, "bank_transaction", ids, { kinds: ["transfer"] }),
-  ]);
+  const allocated = await linking.allocatedFrom(tx, "bank_transaction", ids);
+  const transfers = await linking.linksTouching(tx, "bank_transaction", ids, {
+    kinds: ["transfer"],
+  });
   const transfer = new Set<string>();
   for (const t of transfers) for (const end of [t.from, t.to]) transfer.add(end.id);
   return { allocated, transfer };
@@ -178,18 +178,14 @@ async function loadRows(
     },
   });
   const ids = rows.map((r) => r.id);
-  const [entries, facts] = await Promise.all([
-    journal.entriesForSources(tx, "bank_transaction", ids),
-    linkFacts(tx, ids),
-  ]);
+  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
+  const facts = await linkFacts(tx, ids);
   const partnerIds = [
     ...new Set([...entries.values()].flatMap((e) => (e.partnerId ? [e.partnerId] : []))),
   ];
   const codes = [...entries.values()].flatMap((e) => (e.basCode ? [e.basCode] : []));
-  const [names, labels] = await Promise.all([
-    partners.partnerNames(tx, partnerIds),
-    settings.basLabels(tx, codes),
-  ]);
+  const names = await partners.partnerNames(tx, partnerIds);
+  const labels = await settings.basLabels(tx, codes);
   const list: TransactionListRow[] = rows.map((r) => {
     const e = entries.get(r.id) ?? null;
     const allocated = facts.allocated.get(r.id) ?? "0.00";
@@ -343,14 +339,12 @@ export async function transactionStates(
 ): Promise<Map<string, TransactionStateFacts>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return new Map();
-  const [rows, entries, facts] = await Promise.all([
-    tx.bankTransaction.findMany({
-      where: { id: { in: unique } },
-      select: { id: true, amount: true },
-    }),
-    journal.entriesForSources(tx, "bank_transaction", unique),
-    linkFacts(tx, unique),
-  ]);
+  const rows = await tx.bankTransaction.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, amount: true },
+  });
+  const entries = await journal.entriesForSources(tx, "bank_transaction", unique);
+  const facts = await linkFacts(tx, unique);
   return new Map(
     rows.map((r) => {
       const allocated = facts.allocated.get(r.id) ?? "0.00";
@@ -417,22 +411,18 @@ export async function getTransaction(
     return {
       error: { code: "NOT_FOUND", message: `Bank transaction not found: ${id}`, retryable: false },
     };
-  const [entries, facts, links, transfers] = await Promise.all([
-    journal.entriesForSources(tx, "bank_transaction", [id]),
-    linkFacts(tx, [id]),
-    linking.getLinksFor(tx, { type: "bank_transaction", id }),
-    proposeTransfers(tx, id),
-  ]);
+  const entries = await journal.entriesForSources(tx, "bank_transaction", [id]);
+  const facts = await linkFacts(tx, [id]);
+  const links = await linking.getLinksFor(tx, { type: "bank_transaction", id });
+  const transfers = await proposeTransfers(tx, id);
   const entry = entries.get(id) ?? null;
   const allocated = facts.allocated.get(id) ?? "0.00";
-  const withLabels = await Promise.all(
-    (links.data ?? []).map(async (l) => {
-      const other = l.from.type === "bank_transaction" && l.from.id === id ? l.to : l.from;
-      const linkable = linking.getLinkable(other.type);
-      const summary = linkable ? await linkable.summary(tx, other.id) : null;
-      return { ...l, otherLabel: summary?.label ?? null };
-    }),
-  );
+  const withLabels = await mapInOrder(links.data ?? [], async (l) => {
+    const other = l.from.type === "bank_transaction" && l.from.id === id ? l.to : l.from;
+    const linkable = linking.getLinkable(other.type);
+    const summary = linkable ? await linkable.summary(tx, other.id) : null;
+    return { ...l, otherLabel: summary?.label ?? null };
+  });
   return {
     data: {
       transaction: toTransactionDto(row),
@@ -469,13 +459,11 @@ export async function listImports(
 export async function listRulesWithLabels(tx: TransactionClient): Promise<RuleListRow[]> {
   const rules = await listRules(tx);
   const partnerIds = [...new Set(rules.flatMap((r) => (r.partnerId ? [r.partnerId] : [])))];
-  const [names, labels] = await Promise.all([
-    partners.partnerNames(tx, partnerIds),
-    settings.basLabels(
-      tx,
-      rules.flatMap((r) => (r.basCode ? [r.basCode] : [])),
-    ),
-  ]);
+  const names = await partners.partnerNames(tx, partnerIds);
+  const labels = await settings.basLabels(
+    tx,
+    rules.flatMap((r) => (r.basCode ? [r.basCode] : [])),
+  );
   return rules.map((r) => ({
     ...r,
     partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,

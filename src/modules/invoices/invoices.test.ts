@@ -717,11 +717,20 @@ describe("US5 — derived states and the list", () => {
       withTenantTransaction(prisma, caller.tenantId, (tx) =>
         queries.getInvoice(tx, d.id, today),
       ).then((r) => [r.data?.state, r.data?.remaining]);
+    // F72: the sidebar's count reads the same state — a draft never, an overdue invoice once, partly paid not
+    const overdue = (today: string) =>
+      withTenantTransaction(prisma, caller.tenantId, (tx) =>
+        queries.overdueInvoiceCount(tx, today),
+      );
+    await januaryDraft(caller, w);
     expect(await state("2026-02-10")).toEqual(["issued", "25944.00"]);
+    expect(await overdue("2026-02-10")).toBe(0);
     expect(await state("2026-03-10")).toEqual(["overdue", "25944.00"]);
+    expect(await overdue("2026-03-10")).toBe(1);
 
     expect((await pay(caller, d.id, "20000.00")).error).toBeUndefined();
     expect(await state("2026-03-10")).toEqual(["partially_paid", "5944.00"]);
+    expect(await overdue("2026-03-10")).toBe(0);
     expect((await pay(caller, d.id, "5934.00")).error).toBeUndefined(); // 10 CHF bank fee short
     expect(await state("2026-03-10")).toEqual(["paid", "10.00"]);
     // the linking module never over-allocates

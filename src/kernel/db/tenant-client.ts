@@ -17,6 +17,11 @@ type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>
  *   return tx.tenantConfig.findMany();
  * });
  * ```
+ *
+ * One transaction = one pg client, and a pg client runs one query at a time: the awaits inside the
+ * callback go one after the other — never `Promise.all` (or `allSettled` / `any` / `race`) over `tx`.
+ * pg queues overlapping queries anyway (no speed is lost) but warns "client.query() while already
+ * executing", removed in pg@9 (F53). For a list, `mapInOrder`. The architecture guard enforces it.
  */
 export async function withTenantTransaction<T>(
   prisma: PrismaClient,
@@ -69,6 +74,19 @@ export async function withTenantConnection<T>(
   } finally {
     pgClient.release();
   }
+}
+
+/**
+ * `items.map(fn)` awaited one item at a time, results in order — the `Promise.all(items.map(…))` for a
+ * transaction client (see withTenantTransaction: one query at a time on one client).
+ */
+export async function mapInOrder<T, R>(
+  items: readonly T[],
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = [];
+  for (const [i, item] of items.entries()) out.push(await fn(item, i));
+  return out;
 }
 
 export type { TransactionClient };

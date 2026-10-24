@@ -78,14 +78,12 @@ type Sums = {
 async function derivedSums(tx: TransactionClient, ids: readonly string[]): Promise<Sums> {
   const sums: Sums = { allocated: new Map(), credited: new Map(), converted: new Map() };
   if (ids.length === 0) return sums;
-  const [allocated, credits, conversions] = await Promise.all([
-    linking.allocatedSums(tx, "invoice", ids),
-    creditedSum(tx, ids),
-    tx.invoice.findMany({
-      where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
-      select: { relatedInvoiceId: true, number: true },
-    }),
-  ]);
+  const allocated = await linking.allocatedSums(tx, "invoice", ids);
+  const credits = await creditedSum(tx, ids);
+  const conversions = await tx.invoice.findMany({
+    where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
+    select: { relatedInvoiceId: true, number: true },
+  });
   sums.allocated = allocated;
   sums.credited = credits;
   for (const c of conversions)
@@ -227,13 +225,11 @@ async function loadRows(
       updatedAt: true,
     },
   });
-  const [sums, names] = await Promise.all([
-    derivedSums(
-      tx,
-      rows.map((r) => r.id),
-    ),
-    partners.partnerNames(tx, [...new Set(rows.map((r) => r.partnerId))]),
-  ]);
+  const sums = await derivedSums(
+    tx,
+    rows.map((r) => r.id),
+  );
+  const names = await partners.partnerNames(tx, [...new Set(rows.map((r) => r.partnerId))]);
   const list: InvoiceListRow[] = rows.map((r) => {
     const base = {
       id: r.id,
@@ -278,6 +274,36 @@ function searchHit(row: InvoiceListRow, term: string): boolean {
   return [row.number, row.partnerName, row.periodLabel].some((v) =>
     (v ?? "").toLowerCase().includes(t),
   );
+}
+
+/**
+ * The sidebar's count on Invoices (F72): the issued invoices whose state is *overdue* — the dashboard's
+ * *invoices overdue* — without the list. Only the candidates are read (invoices, not draft, due before today:
+ * five columns), their sums, then `deriveState` decides (a partly paid or credited one is not overdue).
+ */
+export async function overdueInvoiceCount(tx: TransactionClient, today: string): Promise<number> {
+  const rows = await tx.invoice.findMany({
+    where: {
+      type: "invoice",
+      status: { not: "draft" },
+      dueDate: { lt: new Date(`${today}T00:00:00Z`) },
+    },
+    take: ROW_CAP,
+    select: { id: true, type: true, status: true, totalAmount: true, dueDate: true },
+  });
+  if (rows.length === 0) return 0;
+  const sums = await derivedSums(
+    tx,
+    rows.map((r) => r.id),
+  );
+  return rows.filter(
+    (r) =>
+      deriveFor(
+        { ...r, totalAmount: r.totalAmount.toFixed(2), dueDate: iso(r.dueDate) },
+        sums,
+        today,
+      ).state === "overdue",
+  ).length;
 }
 
 export async function listInvoices(

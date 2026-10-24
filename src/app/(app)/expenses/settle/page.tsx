@@ -8,11 +8,9 @@ import { SettleWork } from "@/modules/expenses/ui";
 export default async function SettlePage() {
   const auth = await requireCaller({ action: "create", subject: "settlement" });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [open, options, ledger] = await Promise.all([
-      openPrivateExpenses(tx),
-      expensePageOptions(tx, auth, { documents: false }),
-      ledgerSnapshot(tx),
-    ]);
+    const open = await openPrivateExpenses(tx);
+    const options = await expensePageOptions(tx, auth, { documents: false });
+    const ledger = await ledgerSnapshot(tx);
     return { open, options, ledger };
   });
   return (

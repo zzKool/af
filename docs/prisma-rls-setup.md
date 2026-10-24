@@ -54,6 +54,10 @@ const configs = await withTenantTransaction(prisma, tenantId, async (tx) => {
 3. PostgreSQL RLS policies filter all queries to the scoped tenant
 4. On commit/rollback, `SET LOCAL` is automatically cleared — safe for connection pooling
 
+### One query at a time (F53)
+
+One transaction is one pg client, and a pg client runs one query at a time. Inside the callback the awaits go one after the other — never `Promise.all` / `allSettled` / `any` / `race` over `tx` (pg queues the overlap anyway, so nothing is gained, and warns *client.query() while already executing*, which pg@9 removes). A list goes through `mapInOrder(items, fn)` from the same file. `src/kernel/guards/one-client.guard.test.ts` fails a file that touches a transaction and calls `Promise.all`; its allow-list holds the few files whose parallel work runs on separate clients. [[lessons]]
+
 ### Raw SQL Access
 
 For queries outside Prisma's ORM, use `withTenantConnection`:

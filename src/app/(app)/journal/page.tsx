@@ -29,12 +29,10 @@ export default async function JournalPage({
     defaultSort: JOURNAL_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, categories, partners, prefs] = await Promise.all([
-      listJournalEntries(tx, query),
-      categoryOptions(tx, auth),
-      partnerOptions(tx),
-      getUserPreferences(tx, auth),
-    ]);
+    const result = await listJournalEntries(tx, query);
+    const categories = await categoryOptions(tx, auth);
+    const partners = await partnerOptions(tx);
+    const prefs = await getUserPreferences(tx, auth);
     return { result, categories, partners, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

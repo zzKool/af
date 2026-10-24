@@ -3,7 +3,7 @@
 // (category, partner, *no document needed*) and the links that touch it today. A removed link's trail is not found
 // here: its row is gone and the kernel reads the trail by entity id only (lessons, F71 banking History).
 import { getAuditLog } from "@/kernel/audit/audit";
-import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import type { CategorisedBy } from "@/modules/journal";
 import * as journal from "@/modules/journal";
@@ -91,10 +91,8 @@ export async function transactionHistory(
     return {
       error: { code: "NOT_FOUND", message: `Bank transaction not found: ${id}`, retryable: false },
     };
-  const [entries, links] = await Promise.all([
-    journal.entriesForSources(tx, "bank_transaction", [id]),
-    linking.getLinksFor(tx, { type: "bank_transaction", id }),
-  ]);
+  const entries = await journal.entriesForSources(tx, "bank_transaction", [id]);
+  const links = await linking.getLinksFor(tx, { type: "bank_transaction", id });
   const entry = entries.get(id);
   const trails: { entityType: string; entityId: string }[] = [
     { entityType: "bank_transaction", entityId: id },
@@ -102,7 +100,7 @@ export async function transactionHistory(
     ...(links.data ?? []).map((l) => ({ entityType: "link", entityId: l.id })),
   ];
   const rows = (
-    await Promise.all(trails.map((t) => getAuditLog(tx, { ...t, limit: TRAIL_LIMIT })))
+    await mapInOrder(trails, (t) => getAuditLog(tx, { ...t, limit: TRAIL_LIMIT }))
   ).flat();
   return { data: toHistoryEvents(rows, id) };
 }

@@ -1,5 +1,5 @@
 // Read API of the linking module.
-import type { TransactionClient } from "@/kernel/db/tenant-client";
+import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import { ALLOCATING_KINDS } from "./kinds";
 import { getLinkable } from "./linkable";
 import { getLinksFor, toLinkDto } from "./linking";
@@ -13,13 +13,11 @@ export async function linksWithLabels(
   self: LinkEndpoint,
 ): Promise<(LinkDto & { otherLabel: string | null })[]> {
   const links = (await getLinksFor(tx, self)).data ?? [];
-  return Promise.all(
-    links.map(async (l) => {
-      const other = l.from.type === self.type && l.from.id === self.id ? l.to : l.from;
-      const summary = await getLinkable(other.type)?.summary(tx, other.id);
-      return { ...l, otherLabel: summary?.label ?? null };
-    }),
-  );
+  return mapInOrder(links, async (l) => {
+    const other = l.from.type === self.type && l.from.id === self.id ? l.to : l.from;
+    const summary = await getLinkable(other.type)?.summary(tx, other.id);
+    return { ...l, otherLabel: summary?.label ?? null };
+  });
 }
 
 /**

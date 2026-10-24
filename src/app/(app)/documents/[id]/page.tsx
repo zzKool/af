@@ -34,10 +34,11 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           : null;
       let makeItOptions: MakeItOptions | null = null;
       if (canMake && !became) {
-        const [expense, supplier] = await Promise.all([
-          expensePageOptions(tx, auth, { documents: false, transactions: false }),
-          supplierInvoicePageOptions(tx, auth, { documents: false }),
-        ]);
+        const expense = await expensePageOptions(tx, auth, {
+          documents: false,
+          transactions: false,
+        });
+        const supplier = await supplierInvoicePageOptions(tx, auth, { documents: false });
         makeItOptions = {
           expense: {
             groups: expense.groups,

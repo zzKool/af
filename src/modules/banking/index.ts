@@ -46,6 +46,7 @@ export {
   monthRange,
   needsProof,
 } from "./months";
+export { rowsToJustifyCount } from "./open-work";
 export * from "./queries";
 export type { EntryTarget, RuleInput, RuleLike, UpdateRuleInput } from "./rules";
 export {

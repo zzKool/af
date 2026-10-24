@@ -11,7 +11,14 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY, CURRENCIES } from "@/kernel/nav/constants";
-import { basCode, isoDate, money, positiveMoney, uuid } from "@/kernel/validation/scalars";
+import {
+  basCode,
+  isoDate,
+  money,
+  positiveMoney,
+  positiveRate,
+  uuid,
+} from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as journal from "@/modules/journal";
@@ -33,11 +40,6 @@ const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
 // --- Zod schemas (the boundary) ---
-
-const positiveRate = z
-  .string()
-  .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
-  .refine((v) => Number(v) > 0, "The rate must be positive");
 
 export const duplicateAckSchema = z.object({
   entityIds: z.array(uuid).min(1).max(5),
@@ -270,10 +272,8 @@ async function checkPartner(
  * two facts, so the database refuses what this refuses. *Detach* removes the link before it rewrites the money.
  */
 async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
-  const [lines, links] = await Promise.all([
-    tx.settlementLine.count({ where: { expenseId: id } }),
-    linking.linksTouching(tx, "expense", [id], { kinds: ["justifies"] }),
-  ]);
+  const lines = await tx.settlementLine.count({ where: { expenseId: id } });
+  const links = await linking.linksTouching(tx, "expense", [id], { kinds: ["justifies"] });
   const payments = links.filter((l) => l.to.type === "expense" && l.to.id === id);
   return lines === 0 && payments.length === 0;
 }

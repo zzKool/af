@@ -45,10 +45,8 @@ export default async function PackagePage({
   });
   const today = createClock().today();
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [overview, prefs] = await Promise.all([
-      periodOverview(tx, today),
-      getUserPreferences(tx, auth),
-    ]);
+    const overview = await periodOverview(tx, today);
+    const prefs = await getUserPreferences(tx, auth);
     return { overview, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
