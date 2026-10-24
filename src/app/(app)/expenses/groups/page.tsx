@@ -12,7 +12,8 @@ import { getUserPreferences } from "@/modules/settings";
 export default async function ExpenseGroupsPage() {
   const auth = await requireCaller({ action: "read", subject: "expense" });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [groups, prefs] = await Promise.all([listGroups(tx), getUserPreferences(tx, auth)]);
+    const groups = await listGroups(tx);
+    const prefs = await getUserPreferences(tx, auth);
     return { groups, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));

@@ -60,28 +60,26 @@ export async function dashboardOverview(
   const pulse: PulseMetric[] = [];
 
   // --- the figures everyone reads: balances, receivables, payables, the owner's liability, the year ---
-  const [mainIds, balances, openInvoices, supplierKpis, ledger, yearInvoices] = await Promise.all([
-    banking.listMainAccountIds(tx),
-    banking.accountBalances(tx),
-    invoices.listInvoices(
-      tx,
-      q({ state: { kind: "in", values: ["issued", "sent", "partially_paid", "overdue"] } }, 20_000),
-      today,
+  const mainIds = await banking.listMainAccountIds(tx);
+  const balances = await banking.accountBalances(tx);
+  const openInvoices = await invoices.listInvoices(
+    tx,
+    q({ state: { kind: "in", values: ["issued", "sent", "partially_paid", "overdue"] } }, 20_000),
+    today,
+  );
+  const supplierKpis = await supplierInvoices.kpis(tx, today);
+  const ledger = await expenses.ledgerSnapshot(tx);
+  const yearInvoices = await invoices.listInvoices(
+    tx,
+    q(
+      {
+        type: { kind: "in", values: ["invoice", "credit_note"] },
+        issueDate: { kind: "dates", from: `${today.slice(0, 4)}-01-01`, to: today },
+      },
+      20_000,
     ),
-    supplierInvoices.kpis(tx, today),
-    expenses.ledgerSnapshot(tx),
-    invoices.listInvoices(
-      tx,
-      q(
-        {
-          type: { kind: "in", values: ["invoice", "credit_note"] },
-          issueDate: { kind: "dates", from: `${today.slice(0, 4)}-01-01`, to: today },
-        },
-        20_000,
-      ),
-      today,
-    ),
-  ]);
+    today,
+  );
   // the main accounts only (the savings account is yearly, D31) — banking says which are main
   const mainAccounts = balances.filter((b) => mainIds.includes(b.bankAccountId));
   for (const b of mainAccounts) {
@@ -154,21 +152,22 @@ export async function dashboardOverview(
 
   // --- the owner's to-do ---
   if (owner) {
-    const [rowsToJustify, stats, unlinkedDocs, missingReceipts, awaitingRows] = await Promise.all([
-      mainIds.length
-        ? banking.listTransactions(
-            tx,
-            q({
-              state: { kind: "in", values: ["open", "partial"] },
-              bankAccountId: { kind: "in", values: mainIds },
-            }),
-          )
-        : Promise.resolve({ total: 0 }),
-      documents.inboxTotals(tx, caller),
-      linking.unlinkedDocuments(tx),
-      expenses.listExpenses(tx, q({ hasDocument: { kind: "in", values: ["false"] } })),
-      Promise.resolve(ledger.awaitingLinkCount),
-    ]);
+    const rowsToJustify = mainIds.length
+      ? await banking.listTransactions(
+          tx,
+          q({
+            state: { kind: "in", values: ["open", "partial"] },
+            bankAccountId: { kind: "in", values: mainIds },
+          }),
+        )
+      : { total: 0 };
+    const stats = await documents.inboxTotals(tx, caller);
+    const unlinkedDocs = await linking.unlinkedDocuments(tx);
+    const missingReceipts = await expenses.listExpenses(
+      tx,
+      q({ hasDocument: { kind: "in", values: ["false"] } }),
+    );
+    const awaitingRows = ledger.awaitingLinkCount;
     if (rowsToJustify.total > 0) {
       items.push({
         id: "rows",
@@ -273,10 +272,8 @@ export async function dashboardOverview(
 
   // --- month-end and the quarter: everyone (the accountant waits for both) ---
   const lastMonth = previousMonth(today);
-  const [builds, preview] = await Promise.all([
-    packageModule.listBuilds(tx),
-    packageModule.livePreview(tx, lastMonth, today),
-  ]);
+  const builds = await packageModule.listBuilds(tx);
+  const preview = await packageModule.livePreview(tx, lastMonth, today);
   const built = builds.some((b) => b.period === lastMonth && b.status === "built");
   if (!built || preview.flags.length > 0) {
     items.push({

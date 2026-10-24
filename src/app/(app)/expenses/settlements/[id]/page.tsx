@@ -15,10 +15,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const auth = await requireCaller({ action: "read", subject: "settlement" });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [statement, prefs] = await Promise.all([
-      resolveStatement(tx, auth, id),
-      getUserPreferences(tx, auth),
-    ]);
+    const statement = await resolveStatement(tx, auth, id);
+    const prefs = await getUserPreferences(tx, auth);
     return { statement, prefs };
   });
   if (!data.statement) notFound();

@@ -27,13 +27,11 @@ export default async function ExportsPage({
   const params = await searchParams;
   const today = createClock().today();
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [registrations, periods, payments, declarations, prefs] = await Promise.all([
-      chRegistrations(tx, auth),
-      swissVatPeriods(tx, today),
-      vatPaymentOptions(tx),
-      listDeclarations(tx),
-      getUserPreferences(tx, auth),
-    ]);
+    const registrations = await chRegistrations(tx, auth);
+    const periods = await swissVatPeriods(tx, today);
+    const payments = await vatPaymentOptions(tx);
+    const declarations = await listDeclarations(tx);
+    const prefs = await getUserPreferences(tx, auth);
     const registrationId =
       registrations.find((r) => r.id === params.registration)?.id ?? registrations[0]?.id ?? null;
     const period = periods.includes(params.period ?? "") ? (params.period as string) : periods[0];

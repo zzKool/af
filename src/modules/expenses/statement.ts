@@ -60,10 +60,8 @@ export async function resolveStatement(
     },
   });
   if (!s) return null;
-  const [profile, t] = await Promise.all([
-    settings.getTenantProfile(tx, caller),
-    banking.getBankTransaction(tx, s.bankTransactionId),
-  ]);
+  const profile = await settings.getTenantProfile(tx, caller);
+  const t = await banking.getBankTransaction(tx, s.bankTransactionId);
   // what each expense still owes AFTER this settlement, over every active settlement (this one included) —
   // `owedBase`, the list's and the ledger's rule: a remainder under the tolerance prints 0.00 (F88, D47)
   const allocated = await allocatedByExpense(

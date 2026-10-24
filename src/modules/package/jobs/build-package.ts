@@ -1,6 +1,7 @@
 // The build job `package.build` (spec FR-005, harvest R8, D17): collect in one transaction, download the documents
 // outside any transaction, zip (pure), store the zip as a document and mark the build built — or mark it failed
 // with the reason and store nothing. One job per build id (exclusive); a retry of a building build resumes.
+import { mapInOrder } from "@/kernel/db/tenant-client";
 import { withJobContext } from "@/kernel/jobs/context";
 import type { JobDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
@@ -39,7 +40,7 @@ export async function collectForBuild(
   const data = await collectPeriod(tx, p, today);
   const months =
     p.kind === "year"
-      ? await Promise.all(monthsOf(p.period).map((m) => collectPeriod(tx, parsePeriod(m), today)))
+      ? await mapInOrder(monthsOf(p.period), (m) => collectPeriod(tx, parsePeriod(m), today))
       : [];
   return { data, months };
 }

@@ -23,10 +23,8 @@ export default async function PartnersPage({
   });
 
   const { result, prefs } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const [result, prefs] = await Promise.all([
-      listPartners(tx, query),
-      getUserPreferences(tx, auth),
-    ]);
+    const result = await listPartners(tx, query);
+    const prefs = await getUserPreferences(tx, auth);
     return { result, prefs };
   });
   const t = translator(await requestLocale(prefs.data?.locale));

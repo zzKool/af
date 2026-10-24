@@ -18,10 +18,8 @@ export default async function BankAccountsSettingsPage() {
 
   // Fetch initial data via service methods (single source of truth for queries)
   const { accounts, formats } = await withTenantTransaction(prisma, tenantId, async (tx) => {
-    const [accountsResult, bankFormats] = await Promise.all([
-      bankService.getBankAccounts(tx, callerIdentity),
-      bankService.getBankFormats(tx),
-    ]);
+    const accountsResult = await bankService.getBankAccounts(tx, callerIdentity);
+    const bankFormats = await bankService.getBankFormats(tx);
 
     return {
       accounts: (accountsResult.data ?? []).map((a) => ({
