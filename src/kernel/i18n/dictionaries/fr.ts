@@ -8,6 +8,7 @@ export const fr: Dictionary = {
   "common.edit": "Modifier",
   "common.open": "Ouvrir",
   "common.yes": "Oui",
+  "common.reverseCharge": "Autoliquidation",
   "common.no": "Non",
   "common.today": "Aujourd'hui",
 

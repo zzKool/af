@@ -1072,6 +1072,66 @@ describe("documents service", () => {
     });
   });
 
+  describe("reverseChargeDocumentIds (D54, F91)", () => {
+    it("the OCR's flag as corrected: a correction wins either way; unread documents are not flagged", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      const upload = (name: string) =>
+        withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          const r = await documentService.uploadDocument(
+            tx,
+            owner.callerIdentity,
+            audit,
+            mockStorage,
+            testClock,
+            Buffer.from(`%PDF-1.4 rc-${name}-${crypto.randomUUID()}`),
+            `${name}.pdf`,
+            "invoice",
+          );
+          return stored(r).id;
+        });
+      const read = await upload("read"); // the OCR saw the note
+      const cleared = await upload("cleared"); // the OCR saw it, the owner cleared it
+      const set = await upload("set"); // the OCR missed it, the owner set it
+      const plain = await upload("plain"); // nothing anywhere
+      const unread = await upload("unread"); // no OCR yet
+      const ocr = (flag: boolean) =>
+        JSON.stringify({
+          extractedData: { reverseCharge: flag, confidence: 0.9 },
+          quality: "high",
+        });
+      await adminPool.query(`UPDATE documents SET ocr_data = $2::jsonb WHERE id = $1`, [
+        read,
+        ocr(true),
+      ]);
+      await adminPool.query(
+        `UPDATE documents SET ocr_data = $2::jsonb, corrections = '{"reverseCharge":false}'::jsonb WHERE id = $1`,
+        [cleared, ocr(true)],
+      );
+      await adminPool.query(
+        `UPDATE documents SET ocr_data = $2::jsonb, corrections = '{"reverseCharge":true}'::jsonb WHERE id = $1`,
+        [set, ocr(false)],
+      );
+      await adminPool.query(`UPDATE documents SET ocr_data = $2::jsonb WHERE id = $1`, [
+        plain,
+        ocr(false),
+      ]);
+
+      const flagged = await withTenantTransaction(prisma, tenantId, (tx) =>
+        documentService.reverseChargeDocumentIds(tx, [read, cleared, set, plain, unread]),
+      );
+
+      expect([...flagged].sort()).toEqual([read, set].sort());
+      // another tenant sees nothing of these
+      const other = await createAuthenticatedContext(auth, "owner");
+      const none = await withTenantTransaction(prisma, other.callerIdentity.tenantId, (tx) =>
+        documentService.reverseChargeDocumentIds(tx, [read, set]),
+      );
+      expect(none.size).toBe(0);
+    });
+  });
+
   describe("markDocumentReviewed", () => {
     it("sets reviewedAt and reviewedBy", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");

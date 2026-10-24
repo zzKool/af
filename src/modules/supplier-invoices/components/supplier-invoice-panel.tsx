@@ -19,7 +19,7 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { DetailsSection } from "@/kernel/ui/details-section";
-import { CodeChip } from "@/kernel/ui/tags";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import type { PayableTransaction } from "@/modules/supplier-invoices/queries";
 import {
@@ -147,6 +147,11 @@ export function SupplierInvoicePanel({
                   daysOverdue={detail.daysOverdue}
                   testId="panel-status"
                 />
+                {detail.document?.reverseCharge && (
+                  <span data-testid="panel-reverse-charge" className="inline-flex">
+                    <Tag>{t("common.reverseCharge")}</Tag>
+                  </span>
+                )}
               </SheetTitle>
               <div className="text-[22px] font-semibold tabular-nums" data-testid="panel-amount">
                 {money(si.amountTotal, si.currency)}

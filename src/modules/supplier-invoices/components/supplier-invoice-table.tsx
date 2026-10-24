@@ -24,7 +24,7 @@ import {
   useListQuery,
 } from "@/kernel/ui/data-table";
 import { StateIcon } from "@/kernel/ui/state-label";
-import { CodeChip } from "@/kernel/ui/tags";
+import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import type { SupplierInvoiceColumn } from "@/modules/supplier-invoices/queries";
 import {
@@ -79,6 +79,7 @@ const COLUMN_KEYS = [
   "open",
   "documentMissing",
   "hasDocument",
+  "reverseCharge",
   "note",
   "cancelled",
   "createdAt",
@@ -422,6 +423,14 @@ export function SupplierInvoiceTable({
           ),
       },
       {
+        // D54, F91: made from a document that says the buyer pays the VAT — a tag, nothing computed
+        key: "reverseCharge",
+        header: t("common.reverseCharge"),
+        type: "boolean",
+        width: "6.5rem",
+        cell: (row) => (row.reverseCharge ? <Tag>{t("common.yes")}</Tag> : null),
+      },
+      {
         key: "documentMissing",
         header: t("supplierInvoices.form.documentMissing"),
         type: "boolean",
@@ -572,6 +581,7 @@ export function SupplierInvoiceTable({
           if (
             column === "dueDateDefaulted" ||
             column === "hasDocument" ||
+            column === "reverseCharge" ||
             column === "documentMissing" ||
             column === "cancelled"
           )

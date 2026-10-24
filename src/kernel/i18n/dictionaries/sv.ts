@@ -10,6 +10,7 @@ export const sv: Dictionary = {
   "common.edit": "Redigera",
   "common.open": "Öppna",
   "common.yes": "Ja",
+  "common.reverseCharge": "Omvänd skattskyldighet",
   "common.no": "Nej",
   "common.today": "Idag",
 
