@@ -467,36 +467,36 @@ describe("F74 — the filter popovers speak the UI language", () => {
   });
 });
 
+function Page({
+  initial,
+  save,
+}: {
+  initial: Record<string, unknown>;
+  save: () => Promise<undefined>;
+}) {
+  return (
+    <TablePreferencesProvider initial={initial} save={save}>
+      <DockedCanvas>
+        <main>
+          <DataTable
+            tableKey="tx"
+            columns={columns}
+            result={{ rows, total: 2 }}
+            state={makeState()}
+          />
+        </main>
+        <Sheet open onOpenChange={() => {}}>
+          <SheetContent data-testid="panel">
+            <SheetTitle>Row</SheetTitle>
+          </SheetContent>
+        </Sheet>
+      </DockedCanvas>
+    </TablePreferencesProvider>
+  );
+}
+
 describe("F74 — the docked panel remembers open / hidden per table", () => {
   beforeEach(() => localStorage.clear());
-
-  function Page({
-    initial,
-    save,
-  }: {
-    initial: Record<string, unknown>;
-    save: () => Promise<undefined>;
-  }) {
-    return (
-      <TablePreferencesProvider initial={initial} save={save}>
-        <DockedCanvas>
-          <main>
-            <DataTable
-              tableKey="tx"
-              columns={columns}
-              result={{ rows, total: 2 }}
-              state={makeState()}
-            />
-          </main>
-          <Sheet open onOpenChange={() => {}}>
-            <SheetContent data-testid="panel">
-              <SheetTitle>Row</SheetTitle>
-            </SheetContent>
-          </Sheet>
-        </DockedCanvas>
-      </TablePreferencesProvider>
-    );
-  }
 
   it("Hide collapses the panel to a rail, the choice is saved with the table, and a reload keeps it", async () => {
     vi.useFakeTimers();

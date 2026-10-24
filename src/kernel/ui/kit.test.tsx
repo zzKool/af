@@ -25,17 +25,17 @@ describe("StateLabel — icon + word, never colour alone (D40)", () => {
   });
 });
 
-describe("Sheet — docked inside the shell, overlay outside", () => {
-  function Panel() {
-    return (
-      <Sheet open onOpenChange={() => {}}>
-        <SheetContent data-testid="panel">
-          <SheetTitle>Row</SheetTitle>
-        </SheetContent>
-      </Sheet>
-    );
-  }
+function Panel() {
+  return (
+    <Sheet open onOpenChange={() => {}}>
+      <SheetContent data-testid="panel">
+        <SheetTitle>Row</SheetTitle>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
+describe("Sheet — docked inside the shell, overlay outside", () => {
   it("inside DockedCanvas the panel renders in the dock, beside the page, with no backdrop", () => {
     render(
       <DockedCanvas>
@@ -80,14 +80,15 @@ describe("DetailsSection", () => {
   });
 });
 
+const ID = "7f3c2a10-4b1e-4d2a-9c0e-1a2b3c4d5e6f";
+
+function Partners() {
+  return <SelectItem value={ID}>Valtech Switzerland SA</SelectItem>;
+}
+
 describe("Select — shows the item's label, never a raw value (F74)", () => {
-  const ID = "7f3c2a10-4b1e-4d2a-9c0e-1a2b3c4d5e6f";
   const trigger = (testId: string) =>
     screen.getByTestId(testId).querySelector("[data-slot=select-value]")?.textContent ?? "";
-
-  function Partners() {
-    return <SelectItem value={ID}>Valtech Switzerland SA</SelectItem>;
-  }
 
   it("an id value shows its label; the none sentinel shows its label", () => {
     render(
