@@ -18,7 +18,7 @@ src/
     jobs/            pg-boss queue behind JobDefinition/ScheduleDefinition + withJobContext (see async-jobs)
     list-query/      ListQuery contract: types, URL codec, Prisma where/orderBy/distinct helpers, Zod schema (D20)
     logging/         pino logger
-    validation/      shared Zod scalars (uuid, isoDate, money, positiveMoney, basCode) — business schemas stay in modules
+    validation/      shared Zod scalars (uuid, isoDate, money, positiveMoney, positiveRate, basCode) — business schemas stay in modules
     money/           currency + number formatting (Decimal at the boundary), settlement tolerance (D25)
     nav/             nav constants + role filter
     ocr/             Azure Document Intelligence adapter (+ fixtures)
