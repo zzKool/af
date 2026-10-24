@@ -17,5 +17,11 @@ export const money = z.string().regex(/^\d+(\.\d{1,2})?$/, "Use digits with up t
 /** `money`, strictly greater than zero. */
 export const positiveMoney = money.refine((v) => Number(v) > 0, "The amount must be positive");
 
+/** An exchange rate as a decimal string with up to 6 decimals, strictly greater than zero (`"11.234567"`). */
+export const positiveRate = z
+  .string()
+  .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
+  .refine((v) => Number(v) > 0, "The rate must be positive");
+
 /** A BAS account code: 3 or 4 digits. */
 export const basCode = z.string().regex(/^\d{3,4}$/, "A BAS code is 3 or 4 digits");

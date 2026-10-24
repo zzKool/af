@@ -1,14 +1,16 @@
 // The Zod schemas — the service's boundary: create, update, the VAT / category split lines.
 import { z } from "zod/v4";
 import { CURRENCIES } from "@/kernel/nav/constants";
-import { basCode, isoDate, money, positiveMoney, uuid } from "@/kernel/validation/scalars";
+import {
+  basCode,
+  isoDate,
+  money,
+  positiveMoney,
+  positiveRate,
+  uuid,
+} from "@/kernel/validation/scalars";
 
 // --- Zod schemas (the boundary) ---
-
-const positiveRate = z
-  .string()
-  .regex(/^\d+(\.\d{1,6})?$/, "Use digits with up to 6 decimals")
-  .refine((v) => Number(v) > 0, "The rate must be positive");
 
 export const lineSchema = z.object({
   lineNo: z.number().int().min(1),
