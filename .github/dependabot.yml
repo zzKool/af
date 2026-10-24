@@ -1,0 +1,31 @@
+# F52 — weekly updates; minor + patch grouped into one PR per ecosystem, majors one PR each (read the changelog).
+# Security updates are switched on in the repository settings (Dependabot security updates) and are not grouped.
+# Each update PR goes through the same gate as any PR (CI); package.json is a "never together" file — merge one at a time.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Stockholm
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Stockholm
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
