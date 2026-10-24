@@ -144,6 +144,6 @@ const ownerRoleMiddleware = createMiddleware<{
  */
 export const ownerAction = authedAction.use(ownerRoleMiddleware);
 
+export { ActionError } from "@/kernel/actions/errors";
 // Re-export for test cleanup
 export { resetRateLimit };
-export { ActionError } from "@/kernel/actions/errors";

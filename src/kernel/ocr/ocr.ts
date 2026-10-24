@@ -427,4 +427,4 @@ export function extractBlobPath(blobUrl: string): string {
 }
 
 // Exported for testing
-export { MODEL_MAP, classifyQuality, MOCK_FIXTURES };
+export { classifyQuality, MOCK_FIXTURES, MODEL_MAP };

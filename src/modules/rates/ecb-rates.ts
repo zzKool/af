@@ -340,7 +340,7 @@ export function countWeekdaysBetween(from: string, to: string): number {
 }
 
 // Export for testing
-export { parseEcbXml, buildEcbUrl };
+export { buildEcbUrl, parseEcbXml };
 
 /**
  * What `rateToBase` hands the modules that write a money fact. Still a Decimal, unlike the module's other DTOs

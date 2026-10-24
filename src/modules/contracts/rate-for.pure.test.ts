@@ -9,22 +9,21 @@ type Rate = { id: string; validFrom: string; validTo: string | null; rate: strin
 describe("rate lookup — the owner's history (specs/contracts/fixtures/rate-history-cases.json)", () => {
   const rates = cases.rates as Rate[];
 
-  it.each(cases.lookupCases)("$case: $date → $expectRateId", ({
-    date,
-    expectRateId,
-    expectRate,
-  }) => {
-    const hit = pickRate(rates, date);
-    expect(hit?.id ?? null).toBe(expectRateId);
-    expect(hit?.rate ?? null).toBe(expectRate);
-  });
+  it.each(cases.lookupCases)(
+    "$case: $date → $expectRateId",
+    ({ date, expectRateId, expectRate }) => {
+      const hit = pickRate(rates, date);
+      expect(hit?.id ?? null).toBe(expectRateId);
+      expect(hit?.rate ?? null).toBe(expectRate);
+    },
+  );
 
-  it.each(cases.gapScenario.cases)("gap scenario $case: $date → $expectRateId", ({
-    date,
-    expectRateId,
-  }) => {
-    expect(pickRate(cases.gapScenario.rates as Rate[], date)?.id ?? null).toBe(expectRateId);
-  });
+  it.each(cases.gapScenario.cases)(
+    "gap scenario $case: $date → $expectRateId",
+    ({ date, expectRateId }) => {
+      expect(pickRate(cases.gapScenario.rates as Rate[], date)?.id ?? null).toBe(expectRateId);
+    },
+  );
 
   it("states are relative to a given today, never stored", () => {
     const r2025 = rates[0];
