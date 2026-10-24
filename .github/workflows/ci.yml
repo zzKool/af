@@ -12,10 +12,10 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '22'
-  AUTH_SECRET: 'ci-test-secret-not-for-production'
-  AUTH_URL: 'http://localhost:3000'
-  NEXT_PUBLIC_SENTRY_DSN: ''
+  NODE_VERSION: "22"
+  AUTH_SECRET: "ci-test-secret-not-for-production"
+  AUTH_URL: "http://localhost:3000"
+  NEXT_PUBLIC_SENTRY_DSN: ""
 
 jobs:
   # Pull requests only: docs-only → the heavy jobs are skipped. Push to main and workflow_dispatch → always full.
@@ -139,7 +139,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://af_app:app@localhost:5433/af_test
       DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
-      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
       AZURE_STORAGE_CONTAINER: documents
     steps:
       - uses: actions/checkout@v7
@@ -155,7 +155,7 @@ jobs:
       - name: Build without standalone (for next start + E2E)
         run: npm run build
         env:
-          NEXT_OUTPUT_STANDALONE: 'false'
+          NEXT_OUTPUT_STANDALONE: "false"
       - id: playwright
         run: echo "version=$(node -p "require('./node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers

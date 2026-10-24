@@ -6,11 +6,11 @@ name: publish
 on:
   push:
     branches: [main]
-    tags: ['v*'] # tag pushes ignore paths-ignore: a release tag always builds
+    tags: ["v*"] # tag pushes ignore paths-ignore: a release tag always builds
     paths-ignore: # a docs-only commit changes nothing in the image
-      - '**.md'
-      - 'docs/**'
-      - '_bmad*/**'
+      - "**.md"
+      - "docs/**"
+      - "_bmad*/**"
   workflow_dispatch:
 
 permissions:

@@ -65,12 +65,40 @@ export const UNKNOWN_LABEL = "?";
 type KeyIndex = Map<string, string>;
 const endpointKey = (e: LinkEndpoint): string => `${e.type}:${e.id}`;
 
-export async function collectPeriod(
+type PeriodRow = Awaited<ReturnType<typeof banking.rawRowsForPeriod>>[number];
+type InvoiceRow = Awaited<ReturnType<typeof invoices.listInvoices>>["rows"][number];
+type SupplierListRow = Awaited<
+  ReturnType<typeof supplierInvoices.listSupplierInvoices>
+>["rows"][number];
+type ExpenseListRow = Awaited<ReturnType<typeof expenses.listExpenses>>["rows"][number];
+type SettlementListRow = Awaited<ReturnType<typeof expenses.listSettlements>>[number];
+type InvoiceDetail = NonNullable<Awaited<ReturnType<typeof invoices.getInvoice>>["data"]>;
+
+/** How a row is named in the sheets and the flags: `<account> <date> <amount> <currency>`. */
+const rowLabel = (r: {
+  accountLabel: string;
+  bookingDate: string;
+  amount: string;
+  currency: string;
+}) => `${r.accountLabel} ${r.bookingDate} ${money(r.amount, r.currency)}`;
+
+/** The period's bank rows and what they point at — where both readers start (the collector, `collectFlags`). */
+export type PeriodRows = {
+  rows: PeriodRow[];
+  rowById: Map<string, PeriodRow>;
+  rowLinks: LinkDto[];
+  /** the row's state with its allocation and transfer facts — banking's own derivation (lessons audit 23) */
+  rowStates: Awaited<ReturnType<typeof banking.transactionStates>>;
+  /** type → ids justified by a period row */
+  justified: Map<string, Set<string>>;
+  settledIds: Set<string>;
+  transferPairs: [string, string][];
+};
+
+export async function periodRows(
   tx: TransactionClient,
   period: PackagePeriod,
-  today: string,
-): Promise<PeriodData> {
-  // --- 1. the rows ---
+): Promise<PeriodRows> {
   const mainRows = await banking.rawRowsForPeriod(tx, {
     from: period.from,
     to: period.to,
@@ -86,14 +114,10 @@ export async function collectPeriod(
   const rows = [...mainRows, ...savingsRows];
   const rowIds = rows.map((r) => r.id);
   const rowById = new Map(rows.map((r) => [r.id, r]));
-  const entries = await journal.entriesForSources(tx, "bank_transaction", rowIds);
   const rowLinks = await linking.linksTouching(tx, "bank_transaction", rowIds);
-  const rowStates =
-    await // the row's state with its allocation and transfer facts — banking's own derivation (lessons audit 23)
-    banking.transactionStates(tx, rowIds);
+  const rowStates = await banking.transactionStates(tx, rowIds);
 
-  // --- 2. what the rows point at ---
-  const justified = new Map<string, Set<string>>(); // type → ids justified by a period row
+  const justified = new Map<string, Set<string>>();
   const settledIds = new Set<string>();
   const transferPairs: [string, string][] = [];
   for (const l of rowLinks) {
@@ -107,33 +131,52 @@ export async function collectPeriod(
       transferPairs.push([l.from.id, l.to.id]);
     }
   }
-  const justifiedOf = (type: string): Set<string> => justified.get(type) ?? new Set();
+  return { rows, rowById, rowLinks, rowStates, justified, settledIds, transferPairs };
+}
 
-  // --- 3. the entities: dated in the period ∪ justified by a period row ---
-  const invoiceList = await invoices.listInvoices(tx, ALL, today);
-  const supplierList = await supplierInvoices.listSupplierInvoices(tx, ALL, { today });
-  const expenseList = await expenses.listExpenses(tx, ALL);
-  const settlementList = await expenses.listSettlements(tx);
-  const ledger = await expenses.ledgerSnapshot(tx);
+export type PeriodLists = {
+  invoices: InvoiceRow[];
+  suppliers: SupplierListRow[];
+  expenses: ExpenseListRow[];
+  settlements: SettlementListRow[];
+};
 
-  const invoiceRows = invoiceList.rows.filter(
+export type PeriodEntities = {
+  invoiceRows: InvoiceRow[];
+  supplierRows: SupplierListRow[];
+  expenseRows: ExpenseListRow[];
+  activeSettlements: SettlementListRow[];
+  settlementRows: SettlementListRow[];
+};
+
+/**
+ * The entities of the period (FR-002): dated in it ∪ justified by a period row (invoices issued, never quotes or
+ * drafts; supplier invoices not cancelled), settlements settled by a period row — in the package's order (R6).
+ * Pure over the lists, so a reader that lists less (a date window) selects the same rows.
+ */
+export function selectEntities(
+  period: PackagePeriod,
+  lists: PeriodLists,
+  pr: Pick<PeriodRows, "justified" | "settledIds">,
+): PeriodEntities {
+  const justifiedOf = (type: string): Set<string> => pr.justified.get(type) ?? new Set();
+  const invoiceRows = lists.invoices.filter(
     (i) =>
       i.type !== "quote" &&
       i.status !== "draft" &&
       i.number !== null &&
       (inPeriod(i.issueDate, period) || justifiedOf("invoice").has(i.id)),
   );
-  const supplierRows = supplierList.rows.filter(
+  const supplierRows = lists.suppliers.filter(
     (s) =>
       !s.cancelled &&
       (inPeriod(s.invoiceDate, period) || justifiedOf("supplier_invoice").has(s.id)),
   );
-  const expenseRows = expenseList.rows.filter(
+  const expenseRows = lists.expenses.filter(
     (e) => inPeriod(e.date, period) || justifiedOf("expense").has(e.id),
   );
-  const activeSettlements = settlementList.filter((s) => s.status === "active");
-  const settlementRows = activeSettlements.filter((s) => settledIds.has(s.id));
-
+  const activeSettlements = lists.settlements.filter((s) => s.status === "active");
+  const settlementRows = activeSettlements.filter((s) => pr.settledIds.has(s.id));
   // deterministic order (R6): by key / number, then id
   invoiceRows.sort(
     (a, b) => (a.number ?? "").localeCompare(b.number ?? "") || a.id.localeCompare(b.id),
@@ -141,8 +184,157 @@ export async function collectPeriod(
   supplierRows.sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id));
   expenseRows.sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id));
   settlementRows.sort((a, b) => a.number.localeCompare(b.number) || a.id.localeCompare(b.id));
+  return { invoiceRows, supplierRows, expenseRows, activeSettlements, settlementRows };
+}
 
-  // --- 4. the entities' own links (documents they became from, the rows that paid them) ---
+// --- the flags (R7, FR-004): one builder per kind of row, shared by the collector and `collectFlags` ---
+
+/** A bank row's sheet facts — its state, Σ allocated, the open delta — and its flag, if any (main accounts only). */
+export function bankRowFacts(
+  r: PeriodRow,
+  facts: { state: string; allocated: string } | undefined,
+): { status: BankSheetRow["status"]; allocated: Dec; delta: Dec; flag: PackageFlag | null } {
+  // every period row is banking's own, so it has a state; the fallback is an unreachable "no links"
+  const f = facts ?? { state: "open", allocated: "0.00" };
+  const status = f.state as BankSheetRow["status"];
+  const allocated = new D(f.allocated);
+  const abs = new D(r.amount).abs();
+  const delta = status === "linked" || status === "no_document" ? new D(0) : abs.minus(allocated);
+  const where = {
+    amount: r.amount,
+    currency: r.currency,
+    account: r.accountLabel,
+    date: r.bookingDate,
+  };
+  let flag: PackageFlag | null = null;
+  if (r.accountRole === "main" && status === "open") {
+    flag = {
+      kind: "unlinked_row",
+      entity: "bank_transaction",
+      id: r.id,
+      key: rowLabel(r),
+      detail: r.description,
+      ...where,
+    };
+  } else if (
+    r.accountRole === "main" &&
+    status === "partial" &&
+    delta.gt(settlementTolerance(abs))
+  ) {
+    flag = {
+      kind: "delta",
+      entity: "bank_transaction",
+      id: r.id,
+      key: rowLabel(r),
+      detail: `allocated ${money(allocated.toFixed(2), r.currency)}, ${money(delta.toFixed(2), r.currency)} open`,
+      ...where,
+      amount: delta.toFixed(2),
+    };
+  }
+  return { status, allocated, delta, flag };
+}
+
+/** An issued invoice: its PDF not rendered yet, then not paid / credited (the invoice's own state). */
+export function invoiceFlags(inv: InvoiceDetail, pdfReady: boolean): PackageFlag[] {
+  const out: PackageFlag[] = [];
+  const key = inv.number ?? inv.id;
+  if (!pdfReady) {
+    out.push({
+      kind: "document_not_ready",
+      entity: "invoice",
+      id: inv.id,
+      key,
+      detail: "the PDF has not been rendered yet",
+    });
+  }
+  const settled = inv.state === "paid" || inv.state === "credited" || inv.type === "credit_note";
+  if (!settled) {
+    out.push({
+      kind: "unpaid_invoice",
+      entity: "invoice",
+      id: inv.id,
+      key,
+      detail: `${inv.state.replace("_", " ")}, ${money(inv.remaining, inv.currency)} open`,
+      amount: inv.remaining,
+      currency: inv.currency,
+    });
+  }
+  return out;
+}
+
+/** The owner's rule (supplier invoices' `hasDocument`), not a second one here (lessons audit 26). */
+export function supplierInvoiceFlag(s: SupplierListRow): PackageFlag | null {
+  return s.hasDocument
+    ? null
+    : {
+        kind: "missing_document",
+        entity: "supplier_invoice",
+        id: s.id,
+        key: s.key,
+        detail: `${s.partnerName} ${s.invoiceNumber}`,
+      };
+}
+
+/** The owner's rule (expenses' `hasDocument`; a per-diem breakdown is a `created_from` document too). */
+export function expenseFlag(e: ExpenseListRow): PackageFlag | null {
+  return e.hasDocument
+    ? null
+    : {
+        kind: "missing_document",
+        entity: "expense",
+        id: e.id,
+        key: e.key,
+        detail: e.description,
+      };
+}
+
+/** A settlement whose reimbursement statement is not rendered yet. */
+export function settlementFlag(s: SettlementListRow, statementReady: boolean): PackageFlag | null {
+  return statementReady
+    ? null
+    : {
+        kind: "document_not_ready",
+        entity: "settlement",
+        id: s.id,
+        key: s.number,
+        detail: "the reimbursement statement has not been rendered yet",
+      };
+}
+
+export async function collectPeriod(
+  tx: TransactionClient,
+  period: PackagePeriod,
+  today: string,
+): Promise<PeriodData> {
+  // --- 1. the rows and what they point at ---
+  const pr = await periodRows(tx, period);
+  const { rows, rowById, rowLinks, rowStates, transferPairs } = pr;
+  const entries = await journal.entriesForSources(
+    tx,
+    "bank_transaction",
+    rows.map((r) => r.id),
+  );
+  const justifiedOf = (type: string): Set<string> => pr.justified.get(type) ?? new Set();
+
+  // --- 2. the entities: every list whole (the notes and the key index read beyond the selection) ---
+  const invoiceList = await invoices.listInvoices(tx, ALL, today);
+  const supplierList = await supplierInvoices.listSupplierInvoices(tx, ALL, { today });
+  const expenseList = await expenses.listExpenses(tx, ALL);
+  const settlementList = await expenses.listSettlements(tx);
+  const ledger = await expenses.ledgerSnapshot(tx);
+  const { invoiceRows, supplierRows, expenseRows, activeSettlements, settlementRows } =
+    selectEntities(
+      period,
+      {
+        invoices: invoiceList.rows,
+        suppliers: supplierList.rows,
+        expenses: expenseList.rows,
+        settlements: settlementList,
+      },
+      pr,
+    );
+
+  // --- 3. the entities' own links (documents they became from, the rows that paid them) ---
   const invoiceDetails = await mapInOrder(invoiceRows, (i) => invoices.getInvoice(tx, i.id, today));
   const supplierLinks = await linking.linksTouching(
     tx,
@@ -159,7 +351,7 @@ export async function collectPeriod(
     expenseRows.filter((e) => e.kind === "per_diem").map((e) => e.id),
   );
 
-  // --- 5. the documents ---
+  // --- 4. the documents ---
   const wanted = new Map<string, PackageFolder>(); // document id → folder
   const want = (id: string | null | undefined, folder: PackageFolder) => {
     if (id && !wanted.has(id)) wanted.set(id, folder);
@@ -195,14 +387,8 @@ export async function collectPeriod(
     }))
     .sort((a, b) => a.folder.localeCompare(b.folder) || a.fileName.localeCompare(b.fileName));
 
-  // --- 6. the key index: every endpoint the sheets name ---
+  // --- 5. the key index: every endpoint the sheets name ---
   const keys: KeyIndex = new Map();
-  const rowLabel = (r: {
-    accountLabel: string;
-    bookingDate: string;
-    amount: string;
-    currency: string;
-  }) => `${r.accountLabel} ${r.bookingDate} ${money(r.amount, r.currency)}`;
   for (const r of rows) keys.set(`bank_transaction:${r.id}`, rowLabel(r));
   for (const i of invoiceRows) keys.set(`invoice:${i.id}`, i.number ?? i.id);
   for (const s of supplierRows) keys.set(`supplier_invoice:${s.id}`, s.key);
@@ -212,7 +398,7 @@ export async function collectPeriod(
   const allLinks = dedupeLinks([...rowLinks, ...supplierLinks, ...expenseLinks]);
   await resolveMissingKeys(tx, keys, allLinks);
 
-  // --- 7. the bank sheet ---
+  // --- 6. the bank sheet ---
   const labels = await settings.basLabels(
     tx,
     [...entries.values()].flatMap((e) => (e.basCode ? [e.basCode] : [])),
@@ -238,42 +424,11 @@ export async function collectPeriod(
       else if (l.kind === "settles") related.push(`settles ${key}`);
       else related.push(key);
     }
-    // every period row is banking's own, so it has a state; the fallback is an unreachable "no links"
-    const facts = rowStates.get(r.id) ?? { state: "open", allocated: "0.00", inTransfer: false };
-    const status = facts.state;
-    const allocated = new D(facts.allocated);
-    const abs = new D(r.amount).abs();
-    const delta = status === "linked" || status === "no_document" ? new D(0) : abs.minus(allocated);
+    const { status, allocated, delta, flag } = bankRowFacts(r, rowStates.get(r.id));
     const rowFlags: string[] = [];
-    if (r.accountRole === "main" && status === "open") {
-      rowFlags.push("unlinked");
-      flags.push({
-        kind: "unlinked_row",
-        entity: "bank_transaction",
-        id: r.id,
-        key: rowLabel(r),
-        detail: r.description,
-        amount: r.amount,
-        currency: r.currency,
-        account: r.accountLabel,
-        date: r.bookingDate,
-      });
-    } else if (r.accountRole === "main" && status === "partial") {
-      const tolerance = settlementTolerance(abs);
-      if (delta.gt(tolerance)) {
-        rowFlags.push("delta");
-        flags.push({
-          kind: "delta",
-          entity: "bank_transaction",
-          id: r.id,
-          key: rowLabel(r),
-          detail: `allocated ${money(allocated.toFixed(2), r.currency)}, ${money(delta.toFixed(2), r.currency)} open`,
-          amount: delta.toFixed(2),
-          currency: r.currency,
-          account: r.accountLabel,
-          date: r.bookingDate,
-        });
-      }
+    if (flag) {
+      rowFlags.push(flag.kind === "unlinked_row" ? "unlinked" : "delta");
+      flags.push(flag);
     }
     return {
       id: r.id,
@@ -308,7 +463,7 @@ export async function collectPeriod(
     };
   });
 
-  // --- 8. income ---
+  // --- 7. income ---
   const income: IncomeRow[] = invoiceDetails.flatMap((d, idx) => {
     const row = invoiceRows[idx];
     const inv = d.data;
@@ -316,31 +471,10 @@ export async function collectPeriod(
     const reasons: string[] = [];
     if (inPeriod(inv.issueDate, period)) reasons.push("issued");
     if (justifiedOf("invoice").has(inv.id)) reasons.push("paid");
-    const rowFlags: string[] = [];
     const pdf = inv.pdfDocumentId ? docById.get(inv.pdfDocumentId) : undefined;
-    if (!pdf) {
-      rowFlags.push("pdf not ready");
-      flags.push({
-        kind: "document_not_ready",
-        entity: "invoice",
-        id: inv.id,
-        key: inv.number,
-        detail: "the PDF has not been rendered yet",
-      });
-    }
-    const settled = inv.state === "paid" || inv.state === "credited" || inv.type === "credit_note";
-    if (!settled) {
-      rowFlags.push("unpaid");
-      flags.push({
-        kind: "unpaid_invoice",
-        entity: "invoice",
-        id: inv.id,
-        key: inv.number,
-        detail: `${inv.state.replace("_", " ")}, ${money(inv.remaining, inv.currency)} open`,
-        amount: inv.remaining,
-        currency: inv.currency,
-      });
-    }
+    const own = invoiceFlags(inv, !!pdf);
+    const rowFlags = own.map((f) => (f.kind === "unpaid_invoice" ? "unpaid" : "pdf not ready"));
+    flags.push(...own);
     return [
       {
         id: inv.id,
@@ -367,7 +501,7 @@ export async function collectPeriod(
     ];
   });
 
-  // --- 9. supplier invoices ---
+  // --- 8. supplier invoices ---
   const paidVia = new Map<string, string[]>();
   for (const l of supplierLinks) {
     if (l.kind === "justifies" && l.from.type === "bank_transaction") {
@@ -379,18 +513,9 @@ export async function collectPeriod(
   const suppliers: SupplierRow[] = supplierRows.map((s) => {
     const origin = originOf.get(s.id);
     const doc = origin ? docById.get(origin) : undefined;
-    const rowFlags: string[] = [];
-    // the owner's rule (supplier invoices' `hasDocument`), not a second one here (lessons audit 26)
-    if (!s.hasDocument) {
-      rowFlags.push("missing document");
-      flags.push({
-        kind: "missing_document",
-        entity: "supplier_invoice",
-        id: s.id,
-        key: s.key,
-        detail: `${s.partnerName} ${s.invoiceNumber}`,
-      });
-    }
+    const flag = supplierInvoiceFlag(s);
+    const rowFlags = flag ? ["missing document"] : [];
+    if (flag) flags.push(flag);
     const reasons: string[] = [];
     if (inPeriod(s.invoiceDate, period)) reasons.push("dated");
     if (justifiedOf("supplier_invoice").has(s.id)) reasons.push("paid");
@@ -420,7 +545,7 @@ export async function collectPeriod(
     };
   });
 
-  // --- 10. expenses + settlements ---
+  // --- 9. expenses + settlements ---
   const settlementOf = new Map<string, { number: string; bookingDate: string | null }>();
   for (const s of activeSettlements) {
     for (const line of s.lines) settlementOf.set(line.expenseId, s);
@@ -429,18 +554,9 @@ export async function collectPeriod(
   const expenseRowsOut: ExpenseRow[] = expenseRows.map((e) => {
     const origin = originOf.get(e.id) ?? perDiemDocs.get(e.id);
     const doc = origin ? docById.get(origin) : undefined;
-    const rowFlags: string[] = [];
-    // the owner's rule (expenses' `hasDocument`; a per-diem breakdown is a `created_from` document too)
-    if (!e.hasDocument) {
-      rowFlags.push("missing document");
-      flags.push({
-        kind: "missing_document",
-        entity: "expense",
-        id: e.id,
-        key: e.key,
-        detail: e.description,
-      });
-    }
+    const flag = expenseFlag(e);
+    const rowFlags = flag ? ["missing document"] : [];
+    if (flag) flags.push(flag);
     const reasons: string[] = [];
     if (inPeriod(e.date, period)) reasons.push("dated");
     if (justifiedOf("expense").has(e.id)) reasons.push("paid");
@@ -470,17 +586,9 @@ export async function collectPeriod(
   });
   const settlements: SettlementRow[] = settlementRows.map((s) => {
     const doc = s.statementDocumentId ? docById.get(s.statementDocumentId) : undefined;
-    const rowFlags: string[] = [];
-    if (!doc) {
-      rowFlags.push("statement not ready");
-      flags.push({
-        kind: "document_not_ready",
-        entity: "settlement",
-        id: s.id,
-        key: s.number,
-        detail: "the reimbursement statement has not been rendered yet",
-      });
-    }
+    const flag = settlementFlag(s, !!doc);
+    const rowFlags = flag ? ["statement not ready"] : [];
+    if (flag) flags.push(flag);
     return {
       id: s.id,
       number: s.number,
@@ -498,7 +606,7 @@ export async function collectPeriod(
     };
   });
 
-  // --- 11. links, transfers, liability, VAT ---
+  // --- 10. links, transfers, liability, VAT ---
   const links: LinkRow[] = allLinks
     .map((l) => ({
       id: l.id,

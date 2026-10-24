@@ -11,6 +11,7 @@ import type {
 } from "@/kernel/list-query/types";
 import * as banking from "@/modules/banking";
 import { collectPeriod, countsOf } from "./collect";
+import { collectFlags } from "./flags";
 import {
   MONTH_COLUMN_KEYS,
   MONTH_COLUMNS,
@@ -145,6 +146,18 @@ export async function livePreview(
     counts: countsOf(data),
     files: data.documents.map((d) => `${d.folder}/${d.fileName}`),
   };
+}
+
+/**
+ * The flags of a period as `livePreview` would show them, without collecting the package (F83) — the dashboard's
+ * *last month's package* item. Same flags, same order; `flags.test.ts` holds it against `livePreview`.
+ */
+export async function periodFlags(
+  tx: TransactionClient,
+  period: string,
+  today: string,
+): Promise<PackageFlag[]> {
+  return collectFlags(tx, parsePeriod(period), today);
 }
 
 // The months of the checklist as a DataTable (F71, D20): every column is computed (live counts, flags, the

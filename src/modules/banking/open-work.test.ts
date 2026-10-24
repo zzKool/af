@@ -10,8 +10,13 @@ import { auth } from "@/kernel/auth/auth";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenant-client";
-import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
+import {
+  cleanupTestData,
+  createAuthenticatedContext,
+  createTestDocument,
+} from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
+import * as linking from "@/modules/linking";
 import { createBankAccount } from "./bank-accounts";
 import { importCsv } from "./import";
 import { rowsToJustifyCount } from "./open-work";
@@ -136,6 +141,49 @@ describe("F72 — rowsToJustifyCount, the sidebar's Banking count", () => {
     const count = await run(caller, rowsToJustifyCount);
     expect(count).toBe(await listedToJustify(caller, [ids.sek, ids.chf]));
     expect(count).toBe(11); // 12 rows, AVGIFTER NORDEA categorised "no document" by the default rule
+  });
+
+  it("F82 — the dashboard's count: a fully justified row leaves it, a partly justified one stays — the list's number", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await setup(caller);
+    expect(
+      (await importFile(caller, ids.sek, "nordea-2026-07-sek-sample.csv")).error,
+    ).toBeUndefined();
+    const [whole, part] = await run(caller, (tx) =>
+      tx.bankTransaction.findMany({
+        where: { bankAccountId: ids.sek, name: { not: "AVGIFTER NORDEA" } },
+        orderBy: [{ bookingDate: "asc" }, { rowIndex: "asc" }],
+        take: 2,
+      }),
+    );
+    if (!whole || !part) throw new Error("fixture rows");
+    // two receipts carrying each row's amount: one justifies its row whole, the other half of its row
+    for (const [row, share] of [
+      [whole, 1],
+      [part, 0.5],
+    ] as const) {
+      const amount = row.amount.abs();
+      const doc = await createTestDocument(adminPool, caller.tenantId, caller.userId, {
+        status: "extracted",
+      });
+      await adminPool.query(`UPDATE documents SET corrections = $2 WHERE id = $1`, [
+        doc.id,
+        JSON.stringify({ invoiceTotal: Number(amount.toFixed(2)), currency: "SEK" }),
+      ]);
+      const link = await run(caller, (tx) =>
+        linking.createLink(tx, caller, noopAudit, {
+          from: { type: "bank_transaction", id: row.id },
+          to: { type: "document", id: doc.id },
+          kind: "justifies",
+          allocatedAmount: amount.mul(share).toFixed(2),
+          currency: "SEK",
+        }),
+      );
+      expect(link.error).toBeUndefined();
+    }
+    const count = await run(caller, rowsToJustifyCount);
+    expect(count).toBe(await listedToJustify(caller, [ids.sek, ids.chf]));
+    expect(count).toBe(10); // the 11 of the first test, less the whole one; the half one is partial
   });
 
   it("an accepted transfer pair leaves the count; RLS: another tenant counts nothing", async () => {

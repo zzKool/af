@@ -152,15 +152,8 @@ export async function dashboardOverview(
 
   // --- the owner's to-do ---
   if (owner) {
-    const rowsToJustify = mainIds.length
-      ? await banking.listTransactions(
-          tx,
-          q({
-            state: { kind: "in", values: ["open", "partial"] },
-            bankAccountId: { kind: "in", values: mainIds },
-          }),
-        )
-      : { total: 0 };
+    // a count, not the workbench's list (F82): the main accounts' open | partial rows
+    const rowsToJustify = await banking.rowsToJustifyCount(tx);
     const stats = await documents.inboxTotals(tx, caller);
     const unlinkedDocs = await linking.unlinkedDocuments(tx);
     const missingReceipts = await expenses.listExpenses(
@@ -168,11 +161,11 @@ export async function dashboardOverview(
       q({ hasDocument: { kind: "in", values: ["false"] } }),
     );
     const awaitingRows = ledger.awaitingLinkCount;
-    if (rowsToJustify.total > 0) {
+    if (rowsToJustify > 0) {
       items.push({
         id: "rows",
         kind: "rows_to_justify",
-        count: rowsToJustify.total,
+        count: rowsToJustify,
         priority: "high",
         href: "/banking/inbox",
       });
@@ -273,13 +266,14 @@ export async function dashboardOverview(
   // --- month-end and the quarter: everyone (the accountant waits for both) ---
   const lastMonth = previousMonth(today);
   const builds = await packageModule.listBuilds(tx);
-  const preview = await packageModule.livePreview(tx, lastMonth, today);
+  // the flags only, not the whole package preview (F83)
+  const flags = await packageModule.periodFlags(tx, lastMonth, today);
   const built = builds.some((b) => b.period === lastMonth && b.status === "built");
-  if (!built || preview.flags.length > 0) {
+  if (!built || flags.length > 0) {
     items.push({
       id: "package",
       kind: built ? "package_flags" : "package_not_built",
-      count: preview.flags.length,
+      count: flags.length,
       priority: built ? "low" : "medium",
       href: "/package",
       period: lastMonth,
