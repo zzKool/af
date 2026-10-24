@@ -2,7 +2,7 @@
 
 The library (`/documents`) is a list page on the kernel `DataTable` (D19, D20; the last page migrated off v2's legacy table — phase-0 item 8). Owners see every document and upload / delete; the accountant sees financial documents only, read-only.
 
-The title row links the work page: *Inbox (n)* → `/documents/inbox` (a secondary button — the page's one primary is *Upload document* in the upload zone), n = the documents that still need a decision (pending + ready, `inboxTotals`) — see [[document-inbox]].
+The title row links the work page: *Inbox (n)* → `/documents/inbox` (a secondary button — the page's one primary is *Upload document* in the upload zone; `?new=1` — the sidebar's **+ New → Upload document**, F73 — opens the same zone in a dialog, `UploadDocumentDialog`, closing it drops the param), n = the documents that still need a decision (pending + ready, `inboxTotals`) — see [[document-inbox]].
 
 **D40 kit (F71, 2026-10-23).** The row's state is the document's **derived state** — the inbox's word on the same facts (`documentState` in `state-family.ts`, the module's one state → family map), shown as `<DocumentStateLabel>` (icon + word): *Needs OCR*, *Processing* (◐), *Processing* stuck / *OCR failed* (!), *Ready* (◐ — facts there, decision not), *Archived* (–), *Filed* (✓ — it became something or was filed as is), *generated* (– — the app's own PDF). The key is a `<CodeChip>`, Kind and Type are `<Tag>`s, the amount goes through `formatMoney` (`342.50 SEK`), Open / Download / Delete sit in the row's ⋮ (`rowActions`), *Kind* and *Document date* are quick filters. No coloured pill is left.
 
@@ -13,6 +13,7 @@ src/app/(app)/documents/page.tsx     parseListQuery(searchParams) → listDocume
 src/modules/documents/queries.ts     DOCUMENT_COLUMNS · listDocuments · distinctDocumentValues · documentDateHierarchy
 src/modules/documents/documents.actions.ts   distinctDocumentValuesAction · documentDateHierarchyAction (the header filters)
 src/modules/documents/components/documents-table.tsx   the table, the upload zone above it, Open / Download / Delete in the row's ⋮
+src/modules/documents/components/upload-document-dialog.tsx   the zone in a dialog, opened by ?new=1 (kernel useNewParam)
 src/modules/documents/state-family.ts   documentState (the inbox's rule + filed / generated) · the one state → D40 family map
 ```
 
