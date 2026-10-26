@@ -8,7 +8,13 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { canAllocate, remaining, sumAllocations } from "./allocation";
-import { ALLOCATING_KINDS, EXCLUSIVE_KINDS, isKindAllowed, needsOwnFlow } from "./kinds";
+import {
+  ALLOCATING_KINDS,
+  EXCLUSIVE_KINDS,
+  EXCLUSIVE_SIDES,
+  isKindAllowed,
+  needsOwnFlow,
+} from "./kinds";
 import { getLinkable } from "./linkable";
 import type {
   AllocationStatus,
@@ -152,24 +158,27 @@ export async function createLink(
     };
   }
 
-  // Exclusive kinds (created_from): a document becomes one thing, an entity has one origin. Pre-checked for
-  // a clean error; the partial unique indexes enforce it regardless.
+  // Exclusive kinds: a document becomes one thing, an entity has one origin (created_from, both sides); an entity is
+  // the period of one subscription (occurrence_of, the entity's side). Pre-checked for a clean error; the partial
+  // unique indexes enforce it regardless.
   if (EXCLUSIVE_KINDS.includes(kind)) {
     const taken = await tx.link.findFirst({
       where: {
         kind,
         OR: [
           { fromType: from.type, fromId: from.id },
-          { toType: to.type, toId: to.id },
+          ...(EXCLUSIVE_SIDES[kind] === "from" ? [] : [{ toType: to.type, toId: to.id }]),
         ],
       },
       select: { fromType: true, fromId: true, toType: true, toId: true },
     });
     if (taken) {
       const side =
-        taken.toType === to.type && taken.toId === to.id
-          ? `${to.type} ${to.id} already became ${taken.fromType} ${taken.fromId}`
-          : `${from.type} ${from.id} was already created from ${taken.toType} ${taken.toId}`;
+        kind === "occurrence_of"
+          ? `${from.type} ${from.id} is already a period of ${taken.toType} ${taken.toId}`
+          : taken.toType === to.type && taken.toId === to.id
+            ? `${to.type} ${to.id} already became ${taken.fromType} ${taken.fromId}`
+            : `${from.type} ${from.id} was already created from ${taken.toType} ${taken.toId}`;
       return { error: violation(side) };
     }
   }

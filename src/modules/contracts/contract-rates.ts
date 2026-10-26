@@ -8,6 +8,7 @@ import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { addDays } from "@/kernel/clock/calendar";
+import { covers, type DateInterval, overlaps, pickInterval } from "@/kernel/clock/intervals";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
 import { isoDate, uuid } from "@/kernel/validation/scalars";
@@ -69,25 +70,14 @@ export type UpdateContractRateInput = z.input<typeof updateContractRateSchema>;
 
 // --- pure pieces (tested without a DB in rate-for.pure.test.ts) ---
 
-export type RateInterval = { validFrom: string; validTo: string | null };
+export type RateInterval = DateInterval;
 
-/** Inclusive calendar-day containment; open end = forever. ISO strings compare lexically. */
-export function covers(r: RateInterval, date: string): boolean {
-  return r.validFrom <= date && (r.validTo === null || r.validTo >= date);
-}
+/** Inclusive calendar-day containment and overlap — the kernel's dated-interval rule (`kernel/clock/intervals`). */
+export { covers, overlaps };
 
-export function overlaps(a: RateInterval, b: RateInterval): boolean {
-  const aEnd = a.validTo ?? "9999-12-31";
-  const bEnd = b.validTo ?? "9999-12-31";
-  return a.validFrom <= bEnd && b.validFrom <= aEnd;
-}
-
-/** The one interval that contains `date`, or null. With non-overlapping input there is at most one. */
+/** The one rate that contains `date`, or null (the kernel's `pickInterval`, shared with subscriptions' prices). */
 export function pickRate<T extends RateInterval>(rates: readonly T[], date: string): T | null {
-  const hits = rates.filter((r) => covers(r, date));
-  if (hits.length === 0) return null;
-  // Defensive: should the data ever overlap (it cannot — exclusion constraint), the latest start wins (v1 R6).
-  return hits.reduce((best, r) => (r.validFrom > best.validFrom ? r : best));
+  return pickInterval(rates, date);
 }
 
 /**

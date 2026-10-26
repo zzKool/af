@@ -79,7 +79,7 @@ The subscription's page shows its periods as a timeline (newest first): *2026-11
 1. **Given** a monthly subscription from 2026-01-14 **Then** its expected dates are the 14th of each month from January; anchored on the 31st, a shorter month uses its last day (2026-02-28); yearly from 2025-03-02 → every 2 March.
 2. **Given** a period **Then** its state is the first that applies:
    - *skipped* — its expected date falls in a pause (US5-3);
-   - *upcoming* — today is before its window (expected date − 3 days);
+   - *upcoming* — today is before its window (expected date − 3 days) and no receipt / bill arrived early (one that did makes the period *due*, to confirm — its window opens ten days ahead);
    - *done* — the attributed entity has its document **and** is paid (an expense: its payment link when paid from a company account; a supplier invoice: its own derived status `paid`);
    - *charged* — the entity is paid, no document (*receipt missing*; an expense made from its row);
    - *documented* — the entity has its document and is not paid yet (an expense: *charge missing*; a supplier invoice: *to pay*, or *overdue* when its own status says so);

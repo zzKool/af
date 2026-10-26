@@ -30,6 +30,7 @@ Derived, never stored (`modules/documents/inbox.ts`, `listInbox` in `queries.ts`
 
 **The same rule for other modules** (read APIs on `index.ts`, lessons audit 26):
 
+- `inboxFinancialFacts(tx, caller, { from, to } | { ids })` (F94) — the financial documents still in the inbox (the same rule) dated in the window by their OCR date, or picked by id, with the OCR facts as corrected: vendor, VAT number, number, dates, total / subtotal / tax, a known currency or null. The subscriptions matcher's receipts and bills.
 - `candidateDocuments(tx, caller, types, { limit = 200 })` — the documents of those `prefixType`s still waiting in the inbox (any state but `archived`), newest first, each with its `state`. The rule runs before the limit, so taken documents never hide a free one. For the expense and supplier-invoice dialogs' document picker (their own copies move to it in their lanes).
 - `documentsByIds(tx, ids)` carries `documentState` (`documentState()`: the inbox state, else `filed` / `generated`); `DocumentStateLabel` is on `documents/ui` — the partner page's Documents tab (partners T011).
 

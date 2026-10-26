@@ -180,13 +180,19 @@ export function statusOf(
 async function loadRows(
   tx: TransactionClient,
   q: ListQuery,
-  options: { exceptColumn?: string; groupId?: string } = {},
+  options: { exceptColumn?: string; groupId?: string; ids?: readonly string[] } = {},
 ): Promise<ExpenseListRow[]> {
   const where = buildWhere({ ...q, search: undefined }, STORED_COLUMNS, {
     exceptColumn: options.exceptColumn,
   });
   const rows = await tx.expense.findMany({
-    where: options.groupId ? { AND: [where, { groupId: options.groupId }] } : where,
+    where: {
+      AND: [
+        where,
+        ...(options.groupId ? [{ groupId: options.groupId }] : []),
+        ...(options.ids ? [{ id: { in: [...options.ids] } }] : []),
+      ],
+    },
     include: { group: true, paymentSource: true },
     orderBy: [{ date: "desc" }, { key: "desc" }],
     take: ROW_CAP,
@@ -255,6 +261,18 @@ function searchHit(row: ExpenseListRow, term: string): boolean {
     row.basLabel,
     row.partnerName,
   ].some((v) => (v ?? "").toLowerCase().includes(t));
+}
+
+/**
+ * The list rows of `ids` — status, document, payer — whatever the list's filters (F94: the subscriptions module
+ * reads the expenses attributed to its periods through this, never the table). An unknown id is absent.
+ */
+export async function expenseRowsByIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+): Promise<ExpenseListRow[]> {
+  if (ids.length === 0) return [];
+  return loadRows(tx, { page: 1, pageSize: ROW_CAP, filters: {}, sort: [] }, { ids });
 }
 
 export async function listExpenses(

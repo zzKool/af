@@ -38,7 +38,7 @@ The matrix lives in `kinds.ts`; a new linkable type is one line there plus a `Li
 | Σ allocations **from** one source ≤ its amount, same currency (a bank transaction, a manual journal entry) | `createLink` checks the source's summary too (R19) | service-level — polymorphic sources have no single table to read in a trigger; the target side stays DB-checked |
 | no self-link, no duplicate | explicit check / `DUPLICATE_ENTRY` | `links_not_self_check`, unique index |
 | `created_from` is exclusive on both ends | `EXCLUSIVE_KINDS` pre-check (`already became …` / `already created from …`) | partial unique indexes `links_created_from_origin_key`, `links_created_from_entity_key` |
-| `occurrence_of` is exclusive on the entity | `EXCLUSIVE_KINDS` pre-check | partial unique index `links_occurrence_of_entity_key` |
+| `occurrence_of` is exclusive on the entity | `EXCLUSIVE_KINDS` pre-check, on the side `EXCLUSIVE_SIDES` names (`from`) | partial unique index `links_occurrence_of_entity_key` |
 | a linked document is never hard-deleted | `deleteDocument` translates the trigger into `BUSINESS_RULE_VIOLATION` | trigger `documents_block_delete_when_linked` (`block_delete_when_linked('document')`) — reuse it for every linkable table |
 | every link / unlink is audited | `audit.log` create/delete with the endpoints | — |
 | a `justifies` onto an **expense** or a **supplier invoice** is written and removed by its own module only (D37, F58) | `createLink` / `removeLink` refuse it unless `{ owner: <that type> }` is passed (`kinds.ts`: `OWN_PAYMENT_FLOW`, `needsOwnFlow`); the refusal carries `details.ownFlow` | — |
