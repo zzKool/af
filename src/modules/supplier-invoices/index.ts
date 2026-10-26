@@ -23,6 +23,8 @@ export {
   removePayment,
 } from "./payments";
 export * from "./queries";
+// global search (F93): the module's palette hits
+export { searchSupplierInvoiceHits } from "./search";
 export { DEFAULT_PAYMENT_TERMS_DAYS, deriveSupplierInvoiceStatus } from "./status";
 export type {
   LineInput,

@@ -68,6 +68,8 @@ export {
   updateRule,
   updateRuleSchema,
 } from "./rules";
+// global search (F93): the module's palette hits
+export { searchBankTransactionHits } from "./search";
 export type { TransferLeg } from "./transfer-pairs";
 export {
   acceptTransfer,

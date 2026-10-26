@@ -101,6 +101,7 @@ Done when the 2023-06 package matches what was filed, or every difference has a 
 
 - **Left from earlier rounds**: ~~F56 · F57 · F58 · F59 · F60~~ (the audit's wrong figures, 2026-10-23); ~~F85 · F86 · F87 · F88~~ (the owner's 2026-10-23 decisions, built 2026-10-23 → 24); ~~F72 · F73~~ (2026-10-24), ~~F74~~ (2026-10-23); F70 parked (D46).
 - **F71** — the kit in the last modules: dashboard, settings, rates (one PR each).
+- ~~**F93**~~ — the Ctrl K global search (2026-10-26, [[search]]).
 - **F67** — the audit's hygiene, line by line; **F66**'s last item (dashboard's kernel reads).
 - The documents convergence is done (`specs/documents/tasks.md` Phase 3, T019–T028); the convergence passes ~~F77–F81~~ are built (2026-10-23).
 

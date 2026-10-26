@@ -15,6 +15,7 @@ import { inboxOpenCount } from "@/modules/documents";
 import { overdueInvoiceCount } from "@/modules/invoices";
 import { upsertTablePreferenceAction } from "@/modules/settings";
 import { overdueSupplierInvoiceCount } from "@/modules/supplier-invoices";
+import { globalSearchAction } from "./search.actions";
 
 export default async function AppLayout({
   children,
@@ -89,6 +90,7 @@ export default async function AppLayout({
             tenants={tenants}
             userLabel={user?.name || user?.email || ""}
             counts={counts}
+            search={globalSearchAction}
           >
             {children}
           </AppShell>

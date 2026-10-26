@@ -61,6 +61,8 @@ export {
   setPaymentSourceActive,
 } from "./payment-sources";
 export * from "./queries";
+// global search (F93): the module's palette hits
+export { searchExpenseHits, searchSettlementHits } from "./search";
 export type { ConfirmInput, ProposeInput } from "./settlements";
 export {
   activeSettlementTransactionIds,

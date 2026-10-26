@@ -50,7 +50,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Destructive actions go through `ConfirmDialog`.
 
 ## Shell (only F39's builder and later shell PRs)
-- [ ] Top bar 44 px: toggle · logo (`public/brand/af-logo.svg`, `-dark` in dark) · search `Ctrl P` · tenant · avatar.
+- [ ] Top bar 44 px: toggle · logo (`public/brand/af-logo.svg`, `-dark` in dark) · search `Ctrl K` (the palette, F93 — `Ctrl P` opens it too) · tenant · avatar.
 - [ ] Sidebar order: Dashboard · *Records* Banking, Documents, Journal · *Sales* Partners, Invoices · *Costs* Supplier invoices, Expenses · *Close* Package, Declarations · Settings at the bottom. The nav constants and i18n dictionaries are shared files — one PR at a time.
 - [ ] A new page: its nav item gets a `group` (where it falls in the monthly loop); a named sub-page goes in `SUB_PAGES` (`kernel/ui/shell/routes.ts`) so the breadcrumb and the search know it.
 - [ ] Landmark names stay English (`Main navigation`, `Breadcrumb`) — the e2e and screen readers rely on them.
