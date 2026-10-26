@@ -38,6 +38,16 @@ export const ALLOCATING_KINDS: readonly LinkKind[] = ["justifies", "settles"];
 export const EXCLUSIVE_KINDS: readonly LinkKind[] = ["created_from", "occurrence_of"];
 
 /**
+ * Which side of an exclusive kind is exclusive: `created_from` both (a document becomes one thing, an entity has
+ * one origin); `occurrence_of` the entity only (an entity is the period of one subscription; a subscription has
+ * many periods). The partial unique indexes in the migrations say the same.
+ */
+export const EXCLUSIVE_SIDES: Readonly<Partial<Record<LinkKind, "both" | "from">>> = {
+  created_from: "both",
+  occurrence_of: "from",
+};
+
+/**
  * Entities whose payments their own module writes (D37, F58): the bank row's amount, base and rate land on the
  * entity together with the `justifies` link (*attach* / *record payment*), and come off with it (*detach* /
  * *remove payment*). Linking's generic paths (inbox apply, *Link to…*, *Unlink*) refuse a `justifies` onto

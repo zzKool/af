@@ -91,6 +91,7 @@ CRUD on Settings → Bank accounts ([[bank-accounts]]). Once a CSV is imported i
 
 Expenses and supplier invoices read `bank_transactions` themselves today; these replace those reads (the callers move in their own lanes):
 
+- `outgoingRowsInWindow(tx, { bankAccountIds, from, to })` → `WindowRow[]` (F94): outgoing rows of those accounts booked inside the window (inclusive), oldest first, *linked* / *no document* rows dropped, with every text field, the journal partner / category / flag, |base| and what is left — the subscriptions matcher's candidates.
 - `outgoingMainRows(tx, limit)` → `OutgoingMainRow[]`: outgoing rows on **main** accounts, newest first (`id` breaks ties), with the journal base — the settle / attach pickers and *Link payment* start from it and filter their own (settling rows, nothing left to allocate).
 - `bookingDates(tx, ids)` → `Map<id, YYYY-MM-DD>`; unknown ids absent.
 - `firstBookingDate(tx)` → `YYYY-MM-DD` of the first bank row, or null — the package's `firstMonth` reads it.

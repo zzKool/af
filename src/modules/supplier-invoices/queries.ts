@@ -176,13 +176,24 @@ const clock = createClock();
 async function loadRows(
   tx: TransactionClient,
   q: ListQuery,
-  options: { exceptColumn?: string; groupId?: string; today?: string } = {},
+  options: {
+    exceptColumn?: string;
+    groupId?: string;
+    today?: string;
+    ids?: readonly string[];
+  } = {},
 ): Promise<SupplierInvoiceListRow[]> {
   const where = buildWhere({ ...q, search: undefined }, STORED_COLUMNS, {
     exceptColumn: options.exceptColumn,
   });
   const rows = await tx.supplierInvoice.findMany({
-    where: options.groupId ? { AND: [where, { groupId: options.groupId }] } : where,
+    where: {
+      AND: [
+        where,
+        ...(options.groupId ? [{ groupId: options.groupId }] : []),
+        ...(options.ids ? [{ id: { in: [...options.ids] } }] : []),
+      ],
+    },
     include: { group: true },
     orderBy: [{ invoiceDate: "desc" }, { key: "desc" }],
     take: ROW_CAP,
@@ -292,6 +303,19 @@ export async function supplierInvoiceDateHierarchy(
 }
 
 /** The group page's section: every invoice of the group, newest first (FR-005 `listForGroup`). */
+/**
+ * The list rows of `ids` — the derived status (paid / overdue …), document — whatever the list's filters (F94: the
+ * subscriptions module reads its periods' supplier invoices through this). An unknown id is absent.
+ */
+export async function supplierInvoiceRowsByIds(
+  tx: TransactionClient,
+  ids: readonly string[],
+  today?: string,
+): Promise<SupplierInvoiceListRow[]> {
+  if (ids.length === 0) return [];
+  return loadRows(tx, { page: 1, pageSize: ROW_CAP, filters: {}, sort: [] }, { ids, today });
+}
+
 export async function listForGroup(
   tx: TransactionClient,
   groupId: string,

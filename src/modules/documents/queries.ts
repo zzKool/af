@@ -27,7 +27,13 @@ import {
 } from "./inbox";
 import { DOCUMENT_COLUMNS, DOCUMENT_DEFAULT_SORT, type DocumentColumn } from "./library-columns";
 import { unlinkedIds } from "./linkable";
-import { amountText, parseCorrections, parseOcrPayload, resolveDocumentData } from "./ocr-payload";
+import {
+  amountText,
+  knownCurrency,
+  parseCorrections,
+  parseOcrPayload,
+  resolveDocumentData,
+} from "./ocr-payload";
 import { type DocumentState, documentState } from "./state-family";
 
 export {
@@ -532,6 +538,106 @@ export async function candidateDocuments(
       fileName: d.fileName,
       status: d.status,
       state,
+    });
+  }
+  return out;
+}
+
+/** An inbox document's OCR facts, as corrected on review — what a matcher reads (`inboxFinancialFacts`, F94). */
+export type InboxDocumentFacts = {
+  id: string;
+  businessKey: string;
+  fileName: string;
+  prefixType: string;
+  /** the vendor (invoices) or the merchant (receipts) */
+  vendorName: string | null;
+  vendorVatNumber: string | null;
+  invoiceNumber: string | null;
+  /** the document's own date: invoice date, else transaction date */
+  date: string | null;
+  dueDate: string | null;
+  /** 2 dp, null when OCR read none */
+  total: string | null;
+  subtotal: string | null;
+  tax: string | null;
+  /** null when OCR read no known currency (never guessed) */
+  currency: string | null;
+};
+
+/**
+ * The financial documents still waiting in the inbox (the inbox's own rule — nothing created from them, not filed,
+ * not archived, not generated), dated inside `[from, to]` by their OCR date (a document without a date is left out)
+ * or picked by id (any date), with the facts as corrected on review. The subscriptions module's receipt / bill
+ * candidates (F94).
+ */
+export async function inboxFinancialFacts(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  q: ({ from: string; to: string } | { ids: readonly string[] }) & { now?: Date },
+): Promise<InboxDocumentFacts[]> {
+  const byIds = "ids" in q;
+  if (!can(caller, "read", "financial_document")) return [];
+  if (byIds ? q.ids.length === 0 : q.from > q.to) return [];
+  const now = q.now ?? new Date();
+  const docs = await tx.document.findMany({
+    where: {
+      documentType: "financial",
+      status: { not: "generated" },
+      ...(byIds ? { id: { in: [...q.ids] } } : {}),
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: ROW_CAP,
+    select: {
+      id: true,
+      businessKey: true,
+      fileName: true,
+      prefixType: true,
+      status: true,
+      archivedAt: true,
+      reviewedAt: true,
+      updatedAt: true,
+      ocrData: true,
+      corrections: true,
+    },
+  });
+  const became = await createdFromTargets(
+    tx,
+    docs.map((d) => d.id),
+  );
+  const out: InboxDocumentFacts[] = [];
+  for (const d of docs) {
+    const state = inboxState(
+      {
+        status: d.status,
+        archivedAt: d.archivedAt,
+        reviewedAt: d.reviewedAt,
+        updatedAt: d.updatedAt,
+        became: became.has(d.id),
+      },
+      now,
+    );
+    if (state === null || state === "archived") continue;
+    const r = resolveDocumentData(
+      parseOcrPayload(d.ocrData)?.extractedData ?? null,
+      parseCorrections(d.corrections),
+    );
+    const date = r.invoiceDate || r.transactionDate || null;
+    if (!byIds && (!date || date < q.from || date > q.to)) continue;
+    const currency = knownCurrency(r.currency);
+    out.push({
+      id: d.id,
+      businessKey: d.businessKey,
+      fileName: d.fileName,
+      prefixType: d.prefixType,
+      vendorName: r.vendorName || r.merchantName || null,
+      vendorVatNumber: r.vendorTaxId || null,
+      invoiceNumber: r.invoiceNumber || null,
+      date,
+      dueDate: r.dueDate || null,
+      total: amountText(r.invoiceTotal),
+      subtotal: amountText(r.subtotal),
+      tax: amountText(r.totalTax),
+      currency,
     });
   }
   return out;

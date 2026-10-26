@@ -37,6 +37,7 @@ import type {
   TransactionState,
   TransactionStateFacts,
   TransferProposal,
+  WindowRow,
 } from "./types";
 
 export { getBankAccounts, getBankFormats } from "./bank-accounts";
@@ -314,6 +315,56 @@ export async function outgoingMainRows(
     accountLabel: accountLabel(r.bankAccount),
     amountBase: entries.get(r.id)?.amountBase ?? null,
   }));
+}
+
+/**
+ * Outgoing rows of the given accounts booked inside `[from, to]` (inclusive) that still have something left to
+ * justify, with every text field Nordea gave and the journal facts a matcher reads (F94: the subscriptions module's
+ * row candidates — it never reads `bank_transactions` itself). Oldest first; a row whose state is *linked* or
+ * *no document* is dropped (its `noDocumentNeeded` flag is still reported on the rest).
+ */
+export async function outgoingRowsInWindow(
+  tx: TransactionClient,
+  q: { bankAccountIds: readonly string[]; from: string; to: string },
+): Promise<WindowRow[]> {
+  if (q.bankAccountIds.length === 0 || q.from > q.to) return [];
+  const rows = await tx.bankTransaction.findMany({
+    where: {
+      amount: { lt: 0 },
+      bankAccountId: { in: [...q.bankAccountIds] },
+      bookingDate: { gte: new Date(`${q.from}T00:00:00Z`), lte: new Date(`${q.to}T00:00:00Z`) },
+    },
+    orderBy: [{ bookingDate: "asc" }, { id: "asc" }],
+  });
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+  // one after the other: a transaction has one connection (F53)
+  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
+  const states = await transactionStates(tx, ids);
+  const out: WindowRow[] = [];
+  for (const r of rows) {
+    const state = states.get(r.id);
+    if (state && (state.state === "linked" || state.state === "no_document")) continue;
+    const entry = entries.get(r.id);
+    const abs = r.amount.abs();
+    out.push({
+      id: r.id,
+      bankAccountId: r.bankAccountId,
+      bookingDate: r.bookingDate.toISOString().slice(0, 10),
+      amount: abs.toFixed(2),
+      currency: r.currency,
+      amountBase: entry?.amountBase ? entry.amountBase.replace(/^-/, "") : null,
+      texts: [r.name, r.message, r.additionalDetails, r.sender, r.recipient, r.description].filter(
+        (t): t is string => !!t && t.trim() !== "",
+      ),
+      description: r.description,
+      journalPartnerId: entry?.partnerId ?? null,
+      journalBasCode: entry?.basCode ?? null,
+      noDocumentNeeded: entry?.noDocumentNeeded ?? false,
+      remaining: abs.minus(state?.allocated ?? "0").toFixed(2),
+    });
+  }
+  return out;
 }
 
 /** Booking dates (`YYYY-MM-DD`) of bank rows by id; an unknown id is absent. */

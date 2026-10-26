@@ -20,6 +20,7 @@ export type Subject =
   | "supplier_invoice"
   | "expense"
   | "settlement"
+  | "subscription" // F94: recurring costs described once — expectations, never money facts
   | "accountant_package"
   | "tenant_settings" // company profile, VAT registrations, BAS preferences, bank accounts, prefixes
   | "user_preferences"
@@ -46,6 +47,7 @@ const TENANT_ALL: Rules = {
   supplier_invoice: ALL,
   expense: ALL,
   settlement: ALL,
+  subscription: ALL,
   accountant_package: ALL,
   tenant_settings: ALL,
   user_preferences: ALL,
@@ -68,6 +70,7 @@ const RULES: Record<Role, Rules> = {
     supplier_invoice: READ,
     expense: READ,
     settlement: READ,
+    subscription: READ,
     accountant_package: READ,
     user_preferences: ALL,
   },

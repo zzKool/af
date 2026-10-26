@@ -247,6 +247,27 @@ export type OutgoingMainRow = {
   amountBase: string | null;
 };
 
+/** An outgoing row inside a date window with what a matcher reads (`outgoingRowsInWindow`, F94). Amounts absolute. */
+export type WindowRow = {
+  id: string;
+  bankAccountId: string;
+  bookingDate: string;
+  /** |amount|, 2 dp */
+  amount: string;
+  currency: string;
+  /** |the journal entry's base|, null before the row has one */
+  amountBase: string | null;
+  /** name, message, additional details, sender, recipient, description — the non-empty ones */
+  texts: string[];
+  description: string;
+  /** the partner a rule or the owner put on the row's journal entry */
+  journalPartnerId: string | null;
+  journalBasCode: string | null;
+  noDocumentNeeded: boolean;
+  /** |amount| − Σ allocated from the row, 2 dp */
+  remaining: string;
+};
+
 export type AccountBalance = {
   bankAccountId: string;
   label: string;
