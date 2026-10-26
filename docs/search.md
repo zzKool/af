@@ -16,6 +16,7 @@ app/(app)/layout.tsx ── search={globalSearchAction}            the compositi
      (Dialog + combobox,            ├─ modules/invoices/search.ts           searchInvoiceHits
       Pages filtered here)          ├─ modules/supplier-invoices/search.ts  searchSupplierInvoiceHits
                                     ├─ modules/expenses/search.ts           searchExpenseHits · searchSettlementHits
+                                    ├─ modules/subscriptions/search.ts      searchSubscriptionHits (F94)
                                     ├─ modules/documents/search.ts          searchDocumentHits
                                     └─ modules/banking/search.ts            searchBankTransactionHits
  kernel/search: SearchHit / SearchGroup types · parseSearchQuery (text + amount) · rankOf · toGroup · orderGroups

@@ -40,6 +40,7 @@ export function ActionItemsWidget({ items }: { items: ActionItem[] }) {
                     {t(`dashboard.action.${item.kind}`, {
                       count: item.count,
                       period: item.period ?? "",
+                      ...item.params,
                     })}
                     {item.amount && (
                       <span className="ml-1 text-muted-foreground tabular-nums">

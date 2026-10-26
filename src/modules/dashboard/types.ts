@@ -11,6 +11,7 @@ export const ACTION_KINDS = [
   "owner_liability",
   "expenses_awaiting_row",
   "receipts_missing",
+  "subscriptions_attention",
   "rate_gaps",
   "package_not_built",
   "package_flags",
@@ -29,6 +30,8 @@ export type ActionItem = {
   amount?: { value: string; currency: string };
   /** a month (`2026-06`) or a quarter (`CH 2026/Q2`) the item is about */
   period?: string;
+  /** more figures the item's sentence names (F94: the subscription periods to confirm / charge / receipt missing) */
+  params?: Record<string, number>;
   priority: ActionPriority;
   href: string;
 };

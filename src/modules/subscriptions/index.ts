@@ -23,6 +23,7 @@ export type { SubscriptionPageOptions, SubscriptionVendorOption } from "./page-d
 export { subscriptionPageOptions } from "./page-data";
 export { RECEIPT_WINDOW, ROW_WINDOW } from "./periods";
 export * from "./queries";
+export { searchSubscriptionHits } from "./search";
 export type { SubscriptionInput, UpdateSubscriptionInput } from "./subscriptions";
 export {
   addPause,

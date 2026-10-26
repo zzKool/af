@@ -12,6 +12,7 @@ import { searchDocumentHits } from "@/modules/documents";
 import { searchExpenseHits, searchSettlementHits } from "@/modules/expenses";
 import { searchInvoiceHits } from "@/modules/invoices";
 import { searchPartnerHits } from "@/modules/partners";
+import { searchSubscriptionHits } from "@/modules/subscriptions";
 import { searchSupplierInvoiceHits } from "@/modules/supplier-invoices";
 
 type Search = (
@@ -27,6 +28,7 @@ const SEARCHES: Search[] = [
   searchSupplierInvoiceHits,
   searchExpenseHits,
   searchSettlementHits,
+  searchSubscriptionHits,
   searchDocumentHits,
   searchBankTransactionHits,
 ];
