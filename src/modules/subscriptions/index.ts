@@ -8,11 +8,19 @@ export type {
   ConfirmPrefill,
   ConfirmResult,
 } from "./confirm";
-export { confirm, confirmAllExact, confirmPrefill, confirmSchema } from "./confirm";
+export {
+  confirm,
+  confirmAllExact,
+  confirmPrefill,
+  confirmSchema,
+  periodCandidates,
+} from "./confirm";
 export type { LoadedSubscription } from "./facts";
 export { loadSubscriptions } from "./facts";
 export { subscriptionLinkable } from "./linkable";
 export { EXACT_PCT } from "./matcher";
+export type { SubscriptionPageOptions, SubscriptionVendorOption } from "./page-data";
+export { subscriptionPageOptions } from "./page-data";
 export { RECEIPT_WINDOW, ROW_WINDOW } from "./periods";
 export * from "./queries";
 export type { SubscriptionInput, UpdateSubscriptionInput } from "./subscriptions";

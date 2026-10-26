@@ -10,7 +10,7 @@ import { useAction } from "next-safe-action/hooks";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Sheet,
@@ -186,31 +186,49 @@ export function ExpensePanel({
               </DetailsSection>
             </div>
 
-            {canWrite && isOpen && detail.links.every((l) => l.kind === "created_from") && (
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  data-testid="delete-expense"
-                  onClick={() =>
-                    deleteDialog.confirm(
-                      async () => {
-                        const r = await remove({ id: e.id });
-                        const error = extractError(r);
-                        if (error) throw new Error(error);
-                        toast.success(t("expenses.panel.deleted"));
-                        onClose();
-                        onChanged?.();
-                        router.refresh();
-                      },
-                      { description: t("expenses.panel.deleteConfirm", { key: e.key }) },
-                    )
-                  }
-                >
-                  {t("expenses.panel.delete")}
-                </Button>
-              </div>
-            )}
+            {canWrite &&
+              e.kind !== "per_diem" &&
+              !detail.links.some((l) => l.kind === "occurrence_of") && (
+                <div className="flex justify-end">
+                  {/* F94 US1-5: a subscription described from this expense, which becomes its first period */}
+                  <Link
+                    href={`/subscriptions?new=1&from=expense:${e.id}`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                    data-testid="make-recurring"
+                  >
+                    {t("expenses.panel.makeRecurring")}
+                  </Link>
+                </div>
+              )}
+            {canWrite &&
+              isOpen &&
+              detail.links.every(
+                (l) => l.kind === "created_from" || l.kind === "occurrence_of",
+              ) && (
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    data-testid="delete-expense"
+                    onClick={() =>
+                      deleteDialog.confirm(
+                        async () => {
+                          const r = await remove({ id: e.id });
+                          const error = extractError(r);
+                          if (error) throw new Error(error);
+                          toast.success(t("expenses.panel.deleted"));
+                          onClose();
+                          onChanged?.();
+                          router.refresh();
+                        },
+                        { description: t("expenses.panel.deleteConfirm", { key: e.key }) },
+                      )
+                    }
+                  >
+                    {t("expenses.panel.delete")}
+                  </Button>
+                </div>
+              )}
             <ConfirmDialog {...deleteDialog.dialogProps} />
           </>
         ) : (

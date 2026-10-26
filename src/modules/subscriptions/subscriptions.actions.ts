@@ -8,7 +8,13 @@ import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { isoDate, uuid } from "@/kernel/validation/scalars";
-import { confirm, confirmAllExact, confirmPrefill, confirmSchema } from "./confirm";
+import {
+  confirm,
+  confirmAllExact,
+  confirmPrefill,
+  confirmSchema,
+  periodCandidates,
+} from "./confirm";
 import {
   distinctSubscriptionValues,
   getSubscriptionDetail,
@@ -18,6 +24,7 @@ import {
   subscriptionDateHierarchy,
 } from "./queries";
 import * as service from "./subscriptions";
+import type { SubscriptionDetailWire } from "./types";
 
 const clock = createClock();
 const forbidden = {
@@ -81,7 +88,22 @@ export const getSubscriptionAction = authedAction
   .metadata({ name: "getSubscription" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "subscription")) return forbidden;
-    return getSubscriptionDetail(ctx.tx, ctx.callerIdentity, parsedInput.id, clock.today());
+    const r = await getSubscriptionDetail(
+      ctx.tx,
+      ctx.callerIdentity,
+      parsedInput.id,
+      clock.today(),
+    );
+    if (r.error) return { error: r.error };
+    const wire: SubscriptionDetailWire = {
+      ...r.data,
+      subscription: {
+        ...r.data.subscription,
+        createdAt: r.data.subscription.createdAt.toISOString(),
+        updatedAt: r.data.subscription.updatedAt.toISOString(),
+      },
+    };
+    return { data: wire };
   });
 
 const periodRef = z.object({
@@ -97,6 +119,14 @@ export const confirmPrefillAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "subscription")) return forbidden;
     return confirmPrefill(ctx.tx, ctx.callerIdentity, parsedInput, clock.today());
+  });
+
+export const periodCandidatesAction = authedAction
+  .schema(z.object({ subscriptionId: uuid, periodDate: isoDate }))
+  .metadata({ name: "subscriptionPeriodCandidates" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "subscription")) return forbidden;
+    return periodCandidates(ctx.tx, ctx.callerIdentity, parsedInput, clock.today());
   });
 
 // --- writes (owner) ---

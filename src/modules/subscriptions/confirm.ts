@@ -5,6 +5,7 @@
 import { z } from "zod/v4";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
@@ -427,4 +428,39 @@ export async function confirmAllExact(
     }
   }
   return { data: report };
+}
+
+export type PeriodCandidates = {
+  rows: banking.WindowRow[];
+  documents: documents.InboxDocumentFacts[];
+};
+
+/**
+ * *Assign a row… / Assign a receipt…* (FR-009): every open outgoing row of the payer's account in the period's row
+ * window, whatever the amount or text (expense periods only), and every inbox document dated within a month of the
+ * expected date, whatever the vendor — the owner picks; the confirm then runs as for a match.
+ */
+export async function periodCandidates(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  input: { subscriptionId: string; periodDate: string },
+  today: string,
+): Promise<ServiceResult<PeriodCandidates>> {
+  const [sub] = await loadSubscriptions(tx, caller, today, [input.subscriptionId]);
+  if (!sub) return { error: notFound("Subscription", input.subscriptionId) };
+  const period = sub.periods.find((p) => p.date === input.periodDate);
+  if (!period)
+    return { error: violation(`${sub.subscription.name} expects nothing on ${input.periodDate}`) };
+  const rows =
+    sub.subscription.becomes === "expense" && sub.bankAccountId
+      ? await banking.outgoingRowsInWindow(tx, {
+          bankAccountIds: [sub.bankAccountId],
+          ...period.rowWindow,
+        })
+      : [];
+  const docs = await documents.inboxFinancialFacts(tx, caller, {
+    from: addDays(period.date, -31),
+    to: addDays(period.date, 31),
+  });
+  return { data: { rows, documents: docs } };
 }

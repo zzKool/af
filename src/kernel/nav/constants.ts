@@ -113,6 +113,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     group: "costs",
   },
   {
+    path: "/subscriptions",
+    label: "Subscriptions",
+    labelKey: "nav.subscriptions",
+    icon: "Repeat",
+    roles: ["owner", "accountant"],
+    enabled: true,
+    group: "costs",
+  },
+  {
     path: "/package",
     label: "Package",
     labelKey: "nav.package",
@@ -161,6 +170,12 @@ export const NEW_ITEMS: readonly NewItem[] = [
     roles: ["owner"],
   },
   { href: "/expenses?new=1", labelKey: "nav.new.expense", icon: "Wallet", roles: ["owner"] },
+  {
+    href: "/subscriptions?new=1",
+    labelKey: "nav.new.subscription",
+    icon: "Repeat",
+    roles: ["owner"],
+  },
 ];
 
 /**

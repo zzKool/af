@@ -187,3 +187,11 @@ export type AttentionCounts = {
   /** receipts and bills together */
   documentMissing: number;
 };
+
+/** `SubscriptionDetail` as a Server Action returns it to the panel: the timestamps as ISO strings. */
+export type SubscriptionDetailWire = Omit<SubscriptionDetail, "subscription"> & {
+  subscription: Omit<SubscriptionDto, "createdAt" | "updatedAt"> & {
+    createdAt: string;
+    updatedAt: string;
+  };
+};
