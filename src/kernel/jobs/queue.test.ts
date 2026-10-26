@@ -86,6 +86,47 @@ describe("kernel/jobs queue (pg-boss)", () => {
     expect(attempts).toBe(2); // first attempt + retryLimit 1
   }, 30_000);
 
+  // F92: a batch upload queues up to 50 OCR jobs at once. Each job name is its own queue with its own
+  // worker taking one job at a time, so that backlog waits in its own queue and never sits in front of
+  // another module's job (the invoice PDF render polled by the page — lessons, 2026-10-22).
+  it("a backlog on one queue runs one at a time and never delays another queue's job", async () => {
+    const boss = await getBoss();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const slowDone: string[] = [];
+    let slowDoneWhenFastRan = -1;
+    const slowJob: JobDefinition<{ id: string }> = {
+      name: "test.backlog-slow",
+      options: { retryLimit: 0 },
+      handler: async (data) => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((r) => setTimeout(r, 1_000));
+        inFlight--;
+        slowDone.push(data.id);
+      },
+    };
+    const fastJob: JobDefinition<{ id: string }> = {
+      name: "test.backlog-fast",
+      options: { retryLimit: 0 },
+      handler: async () => {
+        slowDoneWhenFastRan = slowDone.length;
+      },
+    };
+    for (const name of [slowJob.name, fastJob.name]) {
+      await boss.deleteQueue(name).catch(() => undefined);
+    }
+    expect(await startJobs([slowJob, fastJob])).toBe(true);
+
+    for (let i = 0; i < 5; i++) await enqueue(slowJob, { id: `s${i}` });
+    await enqueue(fastJob, { id: "render" });
+
+    await waitFor(() => slowDoneWhenFastRan >= 0, 15_000);
+    expect(slowDoneWhenFastRan).toBeLessThan(5); // ran while the backlog was still there
+    await waitFor(() => slowDone.length === 5, 20_000);
+    expect(maxInFlight).toBe(1); // one OCR at a time per process
+  }, 40_000);
+
   it("stopJobs is safe to call twice and getBoss restarts afterwards", async () => {
     await stopJobs(1_000);
     await stopJobs(1_000);
