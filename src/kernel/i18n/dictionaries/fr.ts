@@ -53,6 +53,7 @@ export const fr: Dictionary = {
   "shell.search.group.supplier_invoice": "Factures fournisseurs",
   "shell.search.group.expense": "Dépenses",
   "shell.search.group.settlement": "Remboursements",
+  "shell.search.group.subscription": "Abonnements",
   "shell.search.group.document": "Documents",
   "shell.search.group.bank_transaction": "Lignes bancaires",
   "shell.breadcrumb": "Fil d'Ariane",
@@ -1444,6 +1445,7 @@ export const fr: Dictionary = {
   "dashboard.action.expenses_awaiting_row":
     "{count} dépense(s) payée(s) par la société sans ligne bancaire",
   "dashboard.action.receipts_missing": "{count} dépense(s) sans justificatif",
+  "dashboard.action.subscriptions_attention": "{count} période(s) d'abonnement à traiter — {toConfirm} à confirmer · {chargeMissing} débit(s) manquant(s) · {documentMissing} reçu(s) / facture(s) manquant(s)",
   "dashboard.action.rate_gaps": "{count} jour(s) BCE sans taux sur les 30 derniers jours",
   "dashboard.action.package_not_built":
     "Dossier {period} pas encore généré ({count} signalement(s))",

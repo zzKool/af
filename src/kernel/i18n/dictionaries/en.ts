@@ -53,6 +53,7 @@ export const en = {
   "shell.search.group.supplier_invoice": "Supplier invoices",
   "shell.search.group.expense": "Expenses",
   "shell.search.group.settlement": "Settlements",
+  "shell.search.group.subscription": "Subscriptions",
   "shell.search.group.document": "Documents",
   "shell.search.group.bank_transaction": "Bank rows",
   "shell.breadcrumb": "Breadcrumb",
@@ -1430,6 +1431,7 @@ export const en = {
   "dashboard.action.expenses_awaiting_row":
     "{count} company-paid expense(s) awaiting their bank row",
   "dashboard.action.receipts_missing": "{count} expense(s) without a receipt",
+  "dashboard.action.subscriptions_attention": "{count} subscription period(s) need you — {toConfirm} to confirm · {chargeMissing} charge(s) missing · {documentMissing} receipt(s) / bill(s) missing",
   "dashboard.action.rate_gaps": "{count} ECB day(s) without a rate in the last 30 days",
   "dashboard.action.package_not_built": "Package {period} not built yet ({count} flag(s))",
   "dashboard.action.package_flags": "Package {period} built with {count} flag(s)",
