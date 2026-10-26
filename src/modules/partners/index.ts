@@ -45,4 +45,6 @@ export {
   updatePartnerContactAction,
 } from "./partners.actions";
 export * from "./queries";
+// global search (F93): the module's palette hits
+export { searchPartnerHits } from "./search";
 export type * from "./types";

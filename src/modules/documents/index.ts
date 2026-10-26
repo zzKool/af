@@ -68,4 +68,6 @@ export type { ProcessDocumentData } from "./jobs/process-document";
 export { documentJobs, processDocumentJob } from "./jobs/process-document";
 export { documentLinkable, unlinkedFinancialDocuments } from "./linkable";
 export * from "./queries";
+// global search (F93): the module's palette hits
+export { searchDocumentHits } from "./search";
 export { type DocumentState, documentState } from "./state-family";
