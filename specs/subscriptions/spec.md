@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-26
 
-**Status**: Draft — waiting for the owner's read (questions Q1–Q4 at the end). Decisions will be recorded as D57.
+**Status**: Draft — read by the owner 2026-10-26: Q1 → A, Q3 → A; Q2 and Q4 re-asked with examples (end of file). Decisions will be recorded as D57 once all four are answered.
 
 **Input**: the owner, 2026-10-26: "Most company-card charges are monthly or yearly online subscriptions (SaaS, hosting, tools), in SEK, CHF or EUR. Every period I repeat the same steps: the receipt PDF arrives, I upload it, *Make it…* expense or supplier invoice with the same vendor, BAS, group and currency, then link the bank row. I want to describe a subscription once and have the app do the repetitive part."
 
@@ -100,7 +100,7 @@ The October SEK CSV is imported. For the SEK subscription *Byteform* (paid from 
 2. **Given** the text test **Then** the match text is searched (contains, case-insensitive) in every text field of the row (name, message, details, sender, recipient).
 3. **Given** a row whose journal entry already names the subscription's vendor as its partner (set by a banking rule or by hand) **Then** the text test passes without the match text — the rules the owner already has help, they are not duplicated.
 4. **Given** an **expense** subscription and a row **in the subscription's currency** **When** confirmed **Then** the expense is created with the row's amount, currency and booking date (bank facts, not the expectation), attached to the row, linked `occurrence_of`; the duplicate check of expenses runs as for any new expense (a high match blocks, as there).
-5. **Given** a row in **another currency** than the subscription's (a EUR subscription on the SEK card) **Then** the receipt's amount is the expense's amount (D26), so the confirm needs the receipt: the period shows *charged on the bank — waiting for the receipt* and **Confirm** is offered once the receipt is matched too (US4-3) — *see Q1*.
+5. **Given** a row in **another currency** than the subscription's (a EUR subscription on the SEK card) **Then** the receipt's amount is the expense's amount (D26), so the confirm needs the receipt: the period shows *charged on the bank — waiting for the receipt* and **Confirm** is offered once the receipt is matched too (US4-3) — Q1 → A: nothing is created from an expected amount.
 6. **Given** a **supplier-invoice** subscription **Then** the invoice number comes from the invoice (required and unique, `specs/supplier-invoices` FR-001, D35): a row alone never creates a supplier invoice; the period waits for its invoice (US4).
 7. **Given** two rows match one period, or one row matches two subscriptions **Then** nothing is preselected: the period lists the candidates and the owner picks one; a row taken by one period is no longer offered to another.
 8. **Given** **Confirm all exact (n)** on the page **Then** every period whose only candidate is an exact match (same currency, amount within 0.5 %, the text matched) is confirmed in one action, reporting confirmed / skipped with the reason; the others stay for one-by-one confirmation.
@@ -225,36 +225,49 @@ The owner works in the linking inbox or on a document's review page rather than 
 - One price per date; a period expects one charge. Usage-based bills (a variable amount every month) fit with a wide tolerance (up to 50 %), or as a supplier-invoice subscription where the invoice decides.
 - Matching is computed on request, like linking's suggestions (≤ the open rows of the windows); no cache, no job.
 - No email reading, no vendor API: receipts still arrive by upload.
-- Past periods count from the start date (Q3).
+- Past periods count from the start date (Q3 → A): during B1 the backlog from 2023-04 is the to-do list.
 
-## Questions for the owner (one batch)
+## Decisions so far (the owner, 2026-10-26)
 
-**Q1 — A foreign-currency card charge seen before its receipt** (US3-5). A 22.00 EUR subscription is charged −253.40 SEK on the SEK card; the receipt is not there yet. The expense's amount is the receipt's (D26) and the first payment link locks it (D37).
+- **Q1 → A** A foreign-currency card charge seen before its receipt waits for the receipt; one confirm then creates the expense from the receipt and attaches the row (US3-5, FR-008).
+- **Q3 → A** Periods count from the subscription's start date (Assumptions).
 
-| Option | Answer | Implications |
-|--------|--------|--------------|
-| A | **Wait for the receipt** (recommended) | The period shows *charged — waiting for the receipt*; one confirm when it arrives creates the expense from the receipt and attaches the row. Nothing ever locks an expected amount. |
-| B | Create at once with the **expected** price | One confirm right away, amount 22.00 EUR typed from the expectation, then locked by the attach; a receipt that says 22.50 means deleting and re-creating the expense. |
-| C | Create at once, **attach later** | The expense is created with the expected price as a draft; the row is attached only when the receipt confirms the amount — two confirms per period. |
+## Questions still open (re-asked 2026-10-26)
 
-**Q2 — The expense group of each period.** The Excel had *217 — Online subscription*; the mapping also says "a month of subscriptions is a group", and supplier invoices sit in "the month".
+**Q2 — Which expense group a subscription's expenses go into.** Today **every** expense and supplier invoice must sit in a group: the group's number is part of the key (`Ex{group}-{alias}-{seq}`, the counter runs per group × alias). Groups have two kinds: *trip* (a journey — flight, hotel, meals, per diem together) and *batch* (anything else; the Excel had `217 — Online subscription`). So a subscription's expense needs a group, whatever we choose:
 
-| Option | Answer | Implications |
-|--------|--------|--------------|
-| A | **One group on the subscription** (recommended) | Every period lands in it (e.g. all SaaS in 217 forever); keys grow `Ex217-IT-01 … -47`. Simplest. |
-| B | **The month's group**, picked at each confirm, pre-filled with the group the last confirm of that month used (else the subscription's) | Matches "a month is a group"; one more field to check at each confirm. |
-| C | The app **creates** `YYYY-MM — Subscriptions` per month | No picking, but groups get a month the expenses module does not know today (a schema change there). |
-
-**Q3 — Past periods.** During B1 you enter 2023-04 onwards. A subscription started in 2023 has ~40 past periods.
+```
+A  one shared batch group for all subscriptions     B  one group per subscription
+   217 — Subscriptions                                 220 — Tabula Pro   Ex220-IT-01, -02, -03 …
+     Ex217-IT-01  Tabula     2026-09                    221 — Byteform     Ex221-IT-01, -02 …
+     Ex217-IT-02  Byteform   2026-09                    222 — Hostberg     SI222-IT-01 …
+     Ex217-IT-03  Tabula     2026-10 …
+```
 
 | Option | Answer | Implications |
 |--------|--------|--------------|
-| A | **From the start date** (recommended) | The past periods are the backlog you are entering anyway; the to-do shrinks as the CSVs and receipts go in. |
-| B | From the day the subscription is created | No backlog to-dos; past charges are attributed by *Assign a row…* or *Make it recurring* only. |
+| A | **One shared group** "Subscriptions" (recommended — what the Excel did) | Set once; the subscription form pre-fills it. Keys grow `Ex217-IT-01 … -150` over the years; which subscription a key belongs to is in the description and the subscription page, not the key. |
+| B | **One group per subscription** | The key's number tells the subscription (`Ex220-…` = Tabula); the group page = that subscription's history. Many small groups in the groups list. |
+| C | **No group** for non-trip expenses | Changes the key rule (`Ex{group}-…`) for every expense — a numbering change, out of F94; a separate decision first. |
 
-**Q4 — Supplier-invoice subscriptions at all?** A SaaS that sends a numbered invoice (the hosting, the accountant's monthly fee) could stay an expense instead.
+Whatever the choice, the subscription stores its group and the owner can change it for future periods (US5-5).
+
+**Q4 — Can a subscription produce supplier invoices, or only expenses?** The app keeps two kinds of costs apart, and a monthly charge can be either:
+
+```
+Expense — a card receipt, already paid            Supplier invoice — a bill to pay later
+  "Tabula" charges the card, emails a receipt        "Hostberg" (Swiss hosting) sends a bill
+  Receipt · 22.00 EUR · paid                          Invoice 2026-0412 · CHF 120.00 + 8.1 % = 129.72
+                                                      due 2026-11-25 · you transfer from AF CHF
+  → Ex217-IT-10                                      → SI217-IT-01
+    no number, no due date                             invoice number required + unique (D35)
+    paid when charged                                  unpaid → overdue if not paid by the due date
+                                                       its CH VAT reclaimed (Swiss form ref. 400, D28)
+```
+
+For a subscription the difference matters: an expense period can be filled by the bank row or the receipt; a supplier-invoice period always waits for the bill (the number is on it), and can be *overdue* before it is paid.
 
 | Option | Answer | Implications |
 |--------|--------|--------------|
-| A | **Both** (recommended, as you described) | Receipts → expenses, numbered invoices with VAT to reclaim → supplier invoices (D28's CH input VAT); the period waits for the invoice. |
-| B | Expenses only | Smaller build (no supplier-invoice confirm, no payment-record path); supplier invoices keep *Copy last*. |
+| A | **Both** | Recurring bills (a monthly accountant fee, a Swiss hosting with MWST) are subscriptions too. A larger build: the supplier-invoice confirm and its payment path. |
+| B | **Expenses only** (recommended if all your recurring charges are card receipts) | Smaller; recurring bills keep *Copy last* on the supplier-invoice dialog, as today. Can be added later without changing what exists. |
