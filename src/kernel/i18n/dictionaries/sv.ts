@@ -1455,7 +1455,7 @@ export const sv: Dictionary = {
   "documents.upload.chooseType": "Välj dokumenttyp först: den avgör hur OCR läser dokumentet",
   "documents.upload.zone": "Ladda upp dokument",
   "documents.upload.tap": "Tryck för att ladda upp",
-  "documents.upload.drop": "Släpp filen här eller klicka för att bläddra",
+  "documents.upload.drop": "Släpp filerna här eller klicka för att bläddra",
   "documents.upload.hint": "PDF, JPEG, PNG, TIFF — max {max} MB",
   "documents.upload.release": "Släpp för att ladda upp",
   "documents.upload.uploading": "Laddar upp…",
@@ -1471,6 +1471,17 @@ export const sv: Dictionary = {
   "documents.upload.duplicate.becameSupplierInvoice": "blev leverantörsfaktura {key}",
   "documents.upload.duplicate.useExisting": "Använd befintligt dokument",
   "documents.upload.duplicate.uploadAnyway": "Ladda upp ändå",
+  "documents.upload.tooMany": "Högst {max} filer åt gången — välj färre",
+  "documents.upload.batch.progress": "Laddar upp {done} av {total}…",
+  "documents.upload.batch.summary":
+    "{done} av {total} · {uploaded} uppladdade · {duplicate} dubbletter · {failed} misslyckade",
+  "documents.upload.batch.more": "Ladda upp fler",
+  "documents.upload.batch.sameAs": "Samma fil som",
+  "documents.upload.batch.state.queued": "Väntar",
+  "documents.upload.batch.state.uploading": "Laddar upp",
+  "documents.upload.batch.state.uploaded": "Uppladdad",
+  "documents.upload.batch.state.duplicate": "Dubblett",
+  "documents.upload.batch.state.failed": "Misslyckades",
   "documents.duplicate.panel.title": "Möjlig dubblett upptäckt",
   "documents.duplicate.panel.similar": "En liknande post finns",
   "documents.duplicate.panel.open": "Öppna {key}",
@@ -1581,7 +1592,6 @@ export const sv: Dictionary = {
   "partners.match.created": "Leverantören {name} skapad",
   "documents.upload.unsupported": "Filtypen stöds inte. Tillåtna: PDF, JPEG, PNG, TIFF",
   "documents.upload.failed": "Uppladdningen misslyckades",
-  "documents.upload.oneFile": "En fil i taget",
 
   // --- rates (Settings → Exchange rates) ---
   // --- settings ---
