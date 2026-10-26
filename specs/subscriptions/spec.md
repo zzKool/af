@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-26
 
-**Status**: Ready for plan — read by the owner 2026-10-26: Q1 A · Q2 B · Q3 A · Q4 A (D57).
+**Status**: Ready for build — read by the owner 2026-10-26: Q1 A · Q2 B · Q3 A · Q4 A (D57); [plan.md](plan.md), [tasks.md](tasks.md).
 
 **Input**: the owner, 2026-10-26: "Most company-card charges are monthly or yearly online subscriptions (SaaS, hosting, tools), in SEK, CHF or EUR. Every period I repeat the same steps: the receipt PDF arrives, I upload it, *Make it…* expense or supplier invoice with the same vendor, BAS, group and currency, then link the bank row. I want to describe a subscription once and have the app do the repetitive part." — and on Q4: "I have some recurring costs that are monthly supplier invoices (my accounting company charges me every month) and I pay this invoice via e-banking (not with the card, but transfer); the shared office invoices are monthly too; Skatteverket and the salary are also recurring monthly things I pay."
 
@@ -121,7 +121,7 @@ The October receipt of *Tabula* is uploaded (a bill for a supplier-invoice subsc
 **Acceptance Scenarios**:
 
 1. **Given** an uploaded financial document that became nothing **Then** it is a candidate for a subscription when its OCR vendor matches the subscription's vendor (the partners' match from 60 %, a VAT number equal → certain) **and** its date is within the period's receipt window (expected date − 10 … + 10 days) **and**, when OCR read a currency, its total is within the tolerance (in its own currency against the price of that currency, else converted as in US3-1).
-2. **Given** a period with a receipt candidate and no entity **When** confirmed **Then** the owning module's dialog opens pre-filled — the OCR facts as corrected on review win over the subscription's expectations; the subscription fills what the document does not carry (category, group, payer, partner, VAT registration) — and saving creates the entity from the document (`created_from`, D27) and `occurrence_of`.
+2. **Given** a period with a receipt candidate and no entity **When** confirmed **Then** a confirm dialog opens with the owning module's fields pre-filled (one dialog, one transaction — plan *Decisions*) — the OCR facts as corrected on review win over the subscription's expectations; the subscription fills what the document does not carry (category, group, payer, partner, VAT registration) — and saving creates the entity from the document (`created_from`, D27) and `occurrence_of`.
 3. **Given** an **expense** period whose row was matched too (US3-5) **Then** the same save attaches it (attach, D26) — receipt and charge in one confirm. A supplier invoice is created unpaid; its payment follows later (US3-6).
 4. **Given** a period already *charged* (its expense made from the row, US3-4) **When** the receipt is confirmed **Then** the receipt is attached to that expense (FR-012): `created_from`, the document renamed with the expense's key; the expense's money facts are not touched (the bank's are the facts); the period becomes *done*.
 5. **Given** a receipt whose OCR amount differs from the attached expense beyond the tolerance (the row was not this subscription's) **Then** confirm warns and the owner can still attach or reassign.
