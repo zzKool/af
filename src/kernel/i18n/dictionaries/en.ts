@@ -1603,7 +1603,7 @@ export const en = {
   "documents.upload.chooseType": "Choose the document type first: it decides how the OCR reads it",
   "documents.upload.zone": "Upload document",
   "documents.upload.tap": "Tap to upload",
-  "documents.upload.drop": "Drop file here or click to browse",
+  "documents.upload.drop": "Drop files here or click to browse",
   "documents.upload.hint": "PDF, JPEG, PNG, TIFF — max {max} MB",
   "documents.upload.release": "Release to upload",
   "documents.upload.uploading": "Uploading…",
@@ -1619,6 +1619,17 @@ export const en = {
   "documents.upload.duplicate.becameSupplierInvoice": "became supplier invoice {key}",
   "documents.upload.duplicate.useExisting": "Use existing document",
   "documents.upload.duplicate.uploadAnyway": "Upload anyway",
+  "documents.upload.tooMany": "At most {max} files at once — choose fewer",
+  "documents.upload.batch.progress": "Uploading {done} of {total}…",
+  "documents.upload.batch.summary":
+    "{done} of {total} · {uploaded} uploaded · {duplicate} duplicates · {failed} failed",
+  "documents.upload.batch.more": "Upload more",
+  "documents.upload.batch.sameAs": "Same file as",
+  "documents.upload.batch.state.queued": "Waiting",
+  "documents.upload.batch.state.uploading": "Uploading",
+  "documents.upload.batch.state.uploaded": "Uploaded",
+  "documents.upload.batch.state.duplicate": "Duplicate",
+  "documents.upload.batch.state.failed": "Failed",
   "documents.duplicate.panel.title": "Possible duplicate detected",
   "documents.duplicate.panel.similar": "A similar entry exists",
   "documents.duplicate.panel.open": "Open {key}",
@@ -1730,7 +1741,6 @@ export const en = {
   "partners.match.created": "Vendor {name} created",
   "documents.upload.unsupported": "Unsupported file type. Accepted: PDF, JPEG, PNG, TIFF",
   "documents.upload.failed": "Upload failed",
-  "documents.upload.oneFile": "One file at a time",
 } as const;
 
 export type MessageKey = keyof typeof en;

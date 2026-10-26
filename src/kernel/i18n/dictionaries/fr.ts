@@ -1620,7 +1620,7 @@ export const fr: Dictionary = {
     "Choisissez d'abord le type de document : il décide comment l'OCR le lit",
   "documents.upload.zone": "Téléverser un document",
   "documents.upload.tap": "Touchez pour téléverser",
-  "documents.upload.drop": "Déposez le fichier ici ou cliquez pour parcourir",
+  "documents.upload.drop": "Déposez les fichiers ici ou cliquez pour parcourir",
   "documents.upload.hint": "PDF, JPEG, PNG, TIFF — {max} Mo max",
   "documents.upload.release": "Relâchez pour téléverser",
   "documents.upload.uploading": "Envoi…",
@@ -1636,6 +1636,17 @@ export const fr: Dictionary = {
   "documents.upload.duplicate.becameSupplierInvoice": "devenu la facture fournisseur {key}",
   "documents.upload.duplicate.useExisting": "Utiliser le document existant",
   "documents.upload.duplicate.uploadAnyway": "Téléverser quand même",
+  "documents.upload.tooMany": "Au plus {max} fichiers à la fois — choisissez-en moins",
+  "documents.upload.batch.progress": "Envoi de {done} sur {total}…",
+  "documents.upload.batch.summary":
+    "{done} sur {total} · {uploaded} envoyés · {duplicate} doublons · {failed} en échec",
+  "documents.upload.batch.more": "Envoyer d'autres fichiers",
+  "documents.upload.batch.sameAs": "Même fichier que",
+  "documents.upload.batch.state.queued": "En attente",
+  "documents.upload.batch.state.uploading": "Envoi",
+  "documents.upload.batch.state.uploaded": "Envoyé",
+  "documents.upload.batch.state.duplicate": "Doublon",
+  "documents.upload.batch.state.failed": "Échec",
   "documents.duplicate.panel.title": "Doublon possible détecté",
   "documents.duplicate.panel.similar": "Une entrée similaire existe",
   "documents.duplicate.panel.open": "Ouvrir {key}",
@@ -1747,5 +1758,4 @@ export const fr: Dictionary = {
   "documents.upload.unsupported":
     "Type de fichier non pris en charge. Acceptés : PDF, JPEG, PNG, TIFF",
   "documents.upload.failed": "Échec de l'envoi",
-  "documents.upload.oneFile": "Un fichier à la fois",
 };

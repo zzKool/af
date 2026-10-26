@@ -316,7 +316,11 @@ export function DocumentsTable({
   return (
     <div className="flex flex-col gap-4" data-testid="documents-library">
       {canUpload && (
-        <FileUploadZone prefixOptions={prefixOptions} onUploadComplete={() => router.refresh()} />
+        <FileUploadZone
+          prefixOptions={prefixOptions}
+          onUploadComplete={() => router.refresh()}
+          onBatchComplete={() => router.refresh()}
+        />
       )}
       <DataTable
         tableKey="documents"
@@ -347,6 +351,7 @@ export function DocumentsTable({
           onOpenChange={setUploadOpen}
           prefixOptions={prefixOptions}
           onUploadComplete={() => router.refresh()}
+          onBatchComplete={() => router.refresh()}
         />
       )}
     </div>
