@@ -56,6 +56,7 @@ model ExpenseGroup {
   expenses         Expense[]
   trip             Trip?
   supplierInvoices SupplierInvoice[]
+  subscriptions    Subscription[]
 
   @@unique([tenantId, number], map: "expense_groups_tenant_number_key")
   @@map("expense_groups")

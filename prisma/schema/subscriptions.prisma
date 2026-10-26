@@ -1,0 +1,98 @@
+// Subscriptions (F94, D57, specs/subscriptions): a recurring cost described once — expectations only.
+// A subscription holds no money fact of record: every amount, base and rate is written by the expense or
+// supplier invoice a confirm creates. Periods and their state are computed on read, never stored; an entity is
+// attributed to a subscription by an `occurrence_of` link (modules/linking).
+
+/// what a confirmed period becomes
+enum SubscriptionBecomes {
+  expense
+  supplier_invoice
+
+  @@map("subscription_becomes")
+}
+
+/// monthly: the start date's day of month (clamped to the month's last day); yearly: the start date's day and month
+enum SubscriptionCadence {
+  monthly
+  yearly
+
+  @@map("subscription_cadence")
+}
+
+model Subscription {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  name              String              @db.VarChar(120)
+  /// the vendor (validated UUID through partners: active, type vendor)
+  partnerId         String              @map("partner_id") @db.Uuid
+  becomes           SubscriptionBecomes
+  basCode           String              @map("bas_code") @db.VarChar(4)
+  /// the shared reference expense_groups (D38): by default the subscription's own batch group (Q2 B)
+  groupId           String              @map("group_id") @db.Uuid
+  /// validated UUID through expenses (a supplier-invoice subscription: a bank-account source only)
+  paymentSourceId   String              @map("payment_source_id") @db.Uuid
+  /// validated UUID through settings (supplier invoices)
+  vatRegistrationId String?             @map("vat_registration_id") @db.Uuid
+  cadence           SubscriptionCadence
+  /// the anchor of every expected date
+  startDate         DateTime            @map("start_date") @db.Date
+  endDate           DateTime?           @map("end_date") @db.Date
+  /// searched (contains, case-insensitive) in a bank row's text fields
+  matchText         String?             @map("match_text") @db.VarChar(100)
+  /// how far a charge may differ from the expected price, in percent (0–50)
+  tolerancePct      Decimal             @default(5) @map("tolerance_pct") @db.Decimal(5, 2)
+  note              String?             @db.VarChar(500)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy         String              @map("created_by") @db.Uuid
+  source            String              @default("web") @db.VarChar(20)
+
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group  ExpenseGroup        @relation(fields: [groupId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  prices SubscriptionPrice[]
+  pauses SubscriptionPause[]
+
+  @@unique([tenantId, name], map: "subscriptions_tenant_name_key")
+  @@index([tenantId, partnerId])
+  @@map("subscriptions")
+}
+
+/// a dated expected price — an expectation, never a money fact; non-overlapping per subscription (exclusion in SQL)
+model SubscriptionPrice {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  subscriptionId String    @map("subscription_id") @db.Uuid
+  validFrom      DateTime  @map("valid_from") @db.Date
+  validTo        DateTime? @map("valid_to") @db.Date
+  amount         Decimal   @db.Decimal(15, 2)
+  currency       String    @db.Char(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy      String    @map("created_by") @db.Uuid
+  source         String    @default("web") @db.VarChar(20)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, subscriptionId, validFrom(sort: Desc)], map: "idx_subscription_prices_valid_from")
+  @@map("subscription_prices")
+}
+
+/// a range in which no charge is expected (the periods in it are skipped)
+model SubscriptionPause {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  subscriptionId String   @map("subscription_id") @db.Uuid
+  fromDate       DateTime @map("from_date") @db.Date
+  toDate         DateTime @map("to_date") @db.Date
+  note           String   @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  createdBy      String   @map("created_by") @db.Uuid
+  source         String   @default("web") @db.VarChar(20)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, subscriptionId])
+  @@map("subscription_pauses")
+}
