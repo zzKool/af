@@ -1,6 +1,6 @@
 # Linking — the single link table
 
-Module `src/modules/linking` · schema `prisma/schema/linking.prisma` · migrations `20261020060000_add_links`, `20261020190000_add_created_from_link_kind` · phase-0 item 3c · spec `specs/linking/` (suggestions, part 1) · decisions D18, D25, D27.
+Module `src/modules/linking` · schema `prisma/schema/linking.prisma` · migrations `20261020060000_add_links`, `20261020190000_add_created_from_link_kind`, `20261026200000_add_subscriptions` (the `occurrence_of` kind) · phase-0 item 3c · spec `specs/linking/` (suggestions, part 1) · decisions D18, D25, D27.
 
 > Linking is the product (constitution §1.2). The `links` table is the one source of truth for relationships between documents, bank transactions, journal entries, invoices, supplier invoices, expenses, settlements, partners and contracts. Everything above it — suggestions, the graph, the accountant package — is a read model.
 
@@ -8,7 +8,7 @@ Module `src/modules/linking` · schema `prisma/schema/linking.prisma` · migrati
 
 ```
 links (tenant_id, from_type, from_id, to_type, to_id, kind, allocated_amount, currency, note, created_at, created_by, source)
-  kind ∈ justifies | transfer | settles | belongs_to | created_from   (CHECK constraint)
+  kind ∈ justifies | transfer | settles | belongs_to | created_from | occurrence_of   (CHECK constraint)
   unique (tenant, from, to, kind) · RLS tenant_isolation · immutable rows (change = remove + create, both audited)
 ```
 
@@ -21,6 +21,7 @@ Endpoints are polymorphic (`type` + `id`) — no cross-table foreign keys (RLS b
 | `settles` | bank_transaction → settlement (owner reimbursement) | yes |
 | `belongs_to` | document / invoice / supplier_invoice / expense → partner / contract | no |
 | `created_from` | expense / supplier_invoice → document ("what this document became", D27) | no — and exclusive: one origin per document, one document per entity |
+| `occurrence_of` | expense / supplier_invoice → subscription ("which subscription this is a period of", F94, D57) | no — exclusive on the entity: one subscription per entity; an attribution, never proof — it goes with a deleted expense / supplier invoice like `created_from` |
 
 The matrix lives in `kinds.ts`; a new linkable type is one line there plus a `Linkable` in its module.
 
@@ -37,6 +38,7 @@ The matrix lives in `kinds.ts`; a new linkable type is one line there plus a `Li
 | Σ allocations **from** one source ≤ its amount, same currency (a bank transaction, a manual journal entry) | `createLink` checks the source's summary too (R19) | service-level — polymorphic sources have no single table to read in a trigger; the target side stays DB-checked |
 | no self-link, no duplicate | explicit check / `DUPLICATE_ENTRY` | `links_not_self_check`, unique index |
 | `created_from` is exclusive on both ends | `EXCLUSIVE_KINDS` pre-check (`already became …` / `already created from …`) | partial unique indexes `links_created_from_origin_key`, `links_created_from_entity_key` |
+| `occurrence_of` is exclusive on the entity | `EXCLUSIVE_KINDS` pre-check | partial unique index `links_occurrence_of_entity_key` |
 | a linked document is never hard-deleted | `deleteDocument` translates the trigger into `BUSINESS_RULE_VIOLATION` | trigger `documents_block_delete_when_linked` (`block_delete_when_linked('document')`) — reuse it for every linkable table |
 | every link / unlink is audited | `audit.log` create/delete with the endpoints | — |
 | a `justifies` onto an **expense** or a **supplier invoice** is written and removed by its own module only (D37, F58) | `createLink` / `removeLink` refuse it unless `{ owner: <that type> }` is passed (`kinds.ts`: `OWN_PAYMENT_FLOW`, `needsOwnFlow`); the refusal carries `details.ownFlow` | — |
