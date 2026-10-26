@@ -60,6 +60,7 @@ Environment setup, settings, and deployment configuration.
 Page-specific documentation and patterns.
 
 - [[dashboard]] — Route config, locale resolution, page archetypes, toast infrastructure
+- [[search]] — the Ctrl K palette (F93): each module's `search<Kind>Hits`, composed in the app layer (no registry), amount formats, ranking, the volume measurement; af-design: kit `Dialog`, combobox a11y, landmark names stay English
 - [[bas-categories]] — BAS kontoplan reference data, no-RLS shared data pattern, natural key, sparse preferences
 - [[vat-registrations]] — Multi-country VAT registration management, rate schedule JSONB, auto-save pattern
 - [[bank-accounts]] — Bank account configuration with CSV format library, two-table pattern, multi-currency accounts
