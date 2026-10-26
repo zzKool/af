@@ -1,6 +1,7 @@
 // Supplier invoices — specs/supplier-invoices/spec.md US1 (record), US2 (payments by link, cross-currency attach,
 // cancel, delete), US3 (list, KPIs, pickers), US4 (VAT read model) against the real database, on the expenses
 // harness (accounts, aliases, fixture rates, Nordea imports for real bank rows).
+import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
@@ -389,6 +390,36 @@ describe("US1 — record a supplier invoice", () => {
     expect(
       (await run(owner.caller, (tx) => candidateDocuments(tx, owner.caller))).map((c) => c.id),
     ).toContain(doc.id);
+  });
+
+  it("deletes one attributed to a subscription (F94): occurrence_of goes with it, like created_from", async () => {
+    const r = await create(julyInvoice({}));
+    expect(r.error).toBeUndefined();
+    const subscriptionId = randomUUID();
+    await adminPool.query(
+      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, payment_source_id,
+         cadence, start_date, created_by, updated_at)
+       VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '657', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
+      [
+        subscriptionId,
+        owner.caller.tenantId,
+        r.data!.partnerId,
+        r.data!.groupId,
+        randomUUID(),
+        owner.caller.userId,
+      ],
+    );
+    await run(owner.caller, async (tx) => {
+      const link = await linking.createLink(tx, owner.caller, noopAudit, {
+        from: { type: "supplier_invoice", id: r.data!.id },
+        to: { type: "subscription", id: subscriptionId },
+        kind: "occurrence_of",
+      });
+      expect(link.error).toBeUndefined();
+      const del = await deleteSupplierInvoice(tx, owner.caller, noopAudit, r.data!.id);
+      expect(del.data).toEqual({ deleted: true });
+      expect(await linking.linksTouching(tx, "subscription", [subscriptionId])).toEqual([]);
+    });
   });
 
   it("lines: Σ net and Σ VAT must match; each line has its category; replaced on update", async () => {

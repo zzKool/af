@@ -1,4 +1,4 @@
-// Delete (while nothing but its document refers to it, D36), cancel (a typed flag with a reason, only while open)
+// Delete (while nothing but its document and its subscription refer to it, D36, F94), cancel (a typed flag with a reason, only while open)
 // and uncancel (D28).
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
@@ -11,10 +11,13 @@ import { invalid, notFound, violation } from "./errors";
 import type { SupplierInvoiceDto } from "./types";
 import { isOpen } from "./validation";
 
+/** The links that go with a deleted invoice: its `created_from` (D36) and its `occurrence_of` (F94, an attribution). */
+const DELETE_WITH_ENTITY: ReadonlySet<string> = new Set(["created_from", "occurrence_of"]);
+
 /**
- * Delete only while nothing refers to it; otherwise cancel (D28). Its `created_from` link alone does not block
- * (D36): it goes through linking and the document returns to the inbox as *ready*, its key kept. A payment or any
- * other link still refuses.
+ * Delete only while nothing refers to it; otherwise cancel (D28). Its `created_from` and `occurrence_of` links alone
+ * do not block (D36, F94): they go through linking and the document returns to the inbox as *ready*, its key kept.
+ * A payment or any other link still refuses.
  */
 export async function deleteSupplierInvoice(
   tx: TransactionClient,
@@ -25,7 +28,7 @@ export async function deleteSupplierInvoice(
   const row = await tx.supplierInvoice.findUnique({ where: { id } });
   if (!row) return { error: notFound("Supplier invoice", id) };
   const links = await linking.linksTouching(tx, "supplier_invoice", [id]);
-  if (row.paidAmount || links.some((l) => l.kind !== "created_from")) {
+  if (row.paidAmount || links.some((l) => !DELETE_WITH_ENTITY.has(l.kind))) {
     return {
       error: violation(`${row.key} is linked (a payment or another link) — cancel it instead`),
     };

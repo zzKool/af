@@ -461,9 +461,15 @@ export async function updateExpense(
 }
 
 /**
- * Delete an open expense. Its `created_from` link alone does not block (D36): it goes through linking, and the
- * receipt returns to the inbox as *ready* — corrections and the key it got kept (keys are never reused). Any other
- * link, a settlement line or a payment still refuses.
+ * The links that go with a deleted expense instead of blocking it: its `created_from` (D36 — the receipt returns to
+ * the inbox) and its `occurrence_of` (F94 — an attribution to a subscription, not proof; the period is due again).
+ */
+const DELETE_WITH_ENTITY: ReadonlySet<string> = new Set(["created_from", "occurrence_of"]);
+
+/**
+ * Delete an open expense. Its `created_from` and `occurrence_of` links alone do not block (D36, F94): they go
+ * through linking, and the receipt returns to the inbox as *ready* — corrections and the key it got kept (keys are
+ * never reused). Any other link, a settlement line or a payment still refuses.
  */
 export async function deleteExpense(
   tx: TransactionClient,
@@ -477,7 +483,7 @@ export async function deleteExpense(
     return { error: violation(`${row.key} is settled or paid and cannot be deleted`) };
   }
   const links = await linking.linksTouching(tx, "expense", [id]);
-  if (links.some((l) => l.kind !== "created_from"))
+  if (links.some((l) => !DELETE_WITH_ENTITY.has(l.kind)))
     return {
       error: violation(`${row.key} is linked and cannot be deleted — remove its links first`),
     };
@@ -493,6 +499,78 @@ export async function deleteExpense(
     oldData: toAuditData(row),
   });
   return { data: { deleted: true } };
+}
+
+/**
+ * The receipt arrives after the expense (F94 FR-012 — an expense made from its bank row, the receipt later): the
+ * document becomes this expense as `createExpense({documentId})` would have made it — its key renamed to the
+ * expense's, the `created_from` link — and `document_missing` is cleared. Allowed in every state: the document is
+ * proof, not a money fact (the lock trigger's columns are untouched). Refused when the expense already has its
+ * document or the document already became something (the link's exclusivity).
+ */
+export async function attachDocument(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  input: { expenseId: string; documentId: string },
+): Promise<ServiceResult<ExpenseDto>> {
+  const row = await tx.expense.findUnique({ where: { id: input.expenseId } });
+  if (!row) return { error: notFound("Expense", input.expenseId) };
+  if (await linking.hasLinks(tx, { type: "expense", id: row.id }, "created_from")) {
+    return { error: violation(`${row.key} already has its document — remove it first`) };
+  }
+  const link = await linking.createLink(tx, caller, audit, {
+    from: { type: "expense", id: row.id },
+    to: { type: "document", id: input.documentId },
+    kind: "created_from",
+  });
+  if (link.error) return { error: link.error };
+  const renamed = await documents.assignBusinessKey(
+    tx,
+    caller,
+    audit,
+    input.documentId,
+    expenseDocumentKey(row.key, row.date.toISOString().slice(0, 10)),
+  );
+  if (renamed.error) throw new RollbackError(renamed.error);
+  const updated = row.documentMissing
+    ? await tx.expense.update({ where: { id: row.id }, data: { documentMissing: false } })
+    : row;
+  await audit.log({
+    action: "update",
+    entityType: "expense",
+    entityId: row.id,
+    oldData: { documentMissing: row.documentMissing },
+    newData: { documentId: input.documentId, documentMissing: false },
+  });
+  return { data: toExpenseDto(updated) };
+}
+
+/**
+ * Undo `attachDocument` (or the document a creation attached): the `created_from` link goes through linking and the
+ * document is back in the inbox as *ready*, its key kept (keys are never reused, D36). Allowed in every state.
+ */
+export async function detachDocument(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  input: { expenseId: string },
+): Promise<ServiceResult<ExpenseDto>> {
+  const row = await tx.expense.findUnique({ where: { id: input.expenseId } });
+  if (!row) return { error: notFound("Expense", input.expenseId) };
+  const links = await linking.linksTouching(tx, "expense", [row.id], { kinds: ["created_from"] });
+  const origin = links.find((l) => l.from.type === "expense" && l.from.id === row.id);
+  if (!origin) return { error: violation(`${row.key} has no document to remove`) };
+  const removed = await linking.removeLink(tx, caller, audit, origin.id);
+  if (removed.error) return { error: removed.error };
+  await audit.log({
+    action: "update",
+    entityType: "expense",
+    entityId: row.id,
+    oldData: { documentId: origin.to.id },
+    newData: { documentId: null },
+  });
+  return { data: toExpenseDto(row) };
 }
 
 /**
