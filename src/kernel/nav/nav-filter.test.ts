@@ -15,6 +15,7 @@ describe("filterNavItems", () => {
       "Invoices",
       "Supplier invoices",
       "Expenses",
+      "Subscriptions",
       "Package",
       "Declarations",
       "Settings",
@@ -31,6 +32,7 @@ describe("filterNavItems", () => {
       "Invoices",
       "Supplier invoices",
       "Expenses",
+      "Subscriptions",
       "Package",
       "Declarations",
       "Settings",
@@ -104,6 +106,7 @@ describe("NAV_ITEMS configuration", () => {
       "/invoices/new",
       "/supplier-invoices?new=1",
       "/expenses?new=1",
+      "/subscriptions?new=1",
     ]);
   });
 

@@ -2,10 +2,11 @@
 
 // The end of the supplier-invoice panel: uncancel a cancelled invoice; cancel (with a reason) or delete one that
 // has no payments — delete only while nothing but its document is linked (D36: the document returns to the inbox).
+import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
@@ -45,6 +46,16 @@ export function SupplierInvoicePanelActions({
   if (!canWrite) return null;
   return (
     <div className="flex flex-wrap justify-end gap-2">
+      {!si.cancelled && !detail.links.some((l) => l.kind === "occurrence_of") && (
+        // F94 US1-5: a subscription described from this invoice, which becomes its first period
+        <Link
+          href={`/subscriptions?new=1&from=supplier_invoice:${si.id}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+          data-testid="make-recurring"
+        >
+          {t("supplierInvoices.panel.makeRecurring")}
+        </Link>
+      )}
       {si.cancelled ? (
         <Button
           size="sm"
