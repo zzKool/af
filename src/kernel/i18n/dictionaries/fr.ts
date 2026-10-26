@@ -1445,7 +1445,8 @@ export const fr: Dictionary = {
   "dashboard.action.expenses_awaiting_row":
     "{count} dépense(s) payée(s) par la société sans ligne bancaire",
   "dashboard.action.receipts_missing": "{count} dépense(s) sans justificatif",
-  "dashboard.action.subscriptions_attention": "{count} période(s) d'abonnement à traiter — {toConfirm} à confirmer · {chargeMissing} débit(s) manquant(s) · {documentMissing} reçu(s) / facture(s) manquant(s)",
+  "dashboard.action.subscriptions_attention":
+    "{count} période(s) d'abonnement à traiter — {toConfirm} à confirmer · {chargeMissing} débit(s) manquant(s) · {documentMissing} reçu(s) / facture(s) manquant(s)",
   "dashboard.action.rate_gaps": "{count} jour(s) BCE sans taux sur les 30 derniers jours",
   "dashboard.action.package_not_built":
     "Dossier {period} pas encore généré ({count} signalement(s))",
@@ -1486,6 +1487,9 @@ export const fr: Dictionary = {
   "dashboard.briefing.entity.partner_contact": "contact(s)",
   "dashboard.briefing.entity.payment_source": "source(s) de paiement",
   "dashboard.briefing.entity.settlement": "règlement(s)",
+  "dashboard.briefing.entity.subscription": "abonnement(s)",
+  "dashboard.briefing.entity.subscription_price": "prix d'abonnement",
+  "dashboard.briefing.entity.subscription_pause": "suspension(s) d'abonnement",
   "dashboard.briefing.entity.supplier_invoice": "facture(s) fournisseur",
   "dashboard.briefing.entity.swiss_vat_declaration": "décompte(s) TVA",
   "dashboard.briefing.entity.tenant": "paramètres de l'entreprise",
