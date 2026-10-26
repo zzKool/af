@@ -31,6 +31,7 @@ import {
   updateExpenseAction,
 } from "@/modules/expenses/expenses.actions";
 import type { CategoryOption, SourceOption, TransactionOption } from "@/modules/expenses/types";
+import { ExpenseDocumentAttach } from "./expense-panel-document";
 import { ExpenseDocumentLine, ExpenseFactsSection } from "./expense-panel-facts";
 import { ExpenseHistoryList } from "./expense-panel-history";
 import { ExpenseLinksList } from "./expense-panel-links";
@@ -144,6 +145,7 @@ export function ExpensePanel({
               <DetailsSection title={t("details.proof")}>
                 <div className="flex flex-col gap-3">
                   <ExpenseDocumentLine detail={detail} />
+                  <ExpenseDocumentAttach detail={detail} canWrite={canWrite} onChanged={changed} />
                   <ExpenseAttachRow
                     detail={detail}
                     sources={sources}

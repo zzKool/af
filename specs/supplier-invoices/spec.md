@@ -40,7 +40,7 @@ The −1 297.20 CHF row on the CHF account pays it: *Link payment* on the invoic
 5. **Given** a paid invoice **When** its link is removed (banking side or `removePayment`) **Then** `unpaid` again (or `partially_paid`).
 6. **Given** an unpaid invoice with `due_date < today` **Then** `overdue` with `days_overdue`; paid invoices are never overdue.
 7. **Given** an unpaid, unlinked invoice **When** cancelled with a reason **Then** `cancelled` (typed flag, the only one), excluded from the open totals; cancel refused once a payment exists; uncancel allowed.
-8. **Given** an invoice with a link or a document **When** deleted **Then** refused (cancel instead) — except an invoice whose only link is its `created_from`: deleted, its document back in the inbox (D36, 2026-10-22); an unlinked, documentless one is deleted (audited), the key never reused.
+8. **Given** an invoice with a link or a document **When** deleted **Then** refused (cancel instead) — except an invoice whose only links are its `created_from` and its `occurrence_of`: deleted, its document back in the inbox (D36, 2026-10-22; `occurrence_of` F94, 2026-10-26); an unlinked, documentless one is deleted (audited), the key never reused.
 
 ---
 

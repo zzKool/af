@@ -16,12 +16,14 @@ export {
 export type { AttachInput, ExpenseInput, PerDiemInput, UpdateExpenseInput } from "./expenses";
 export {
   attachBankTransaction,
+  attachDocument,
   attachSchema,
   baseAmount,
   createExpense,
   createPerDiemExpense,
   deleteExpense,
   detachBankTransaction,
+  detachDocument,
   duplicateAckSchema,
   expenseInputSchema,
   isExpenseOpen,

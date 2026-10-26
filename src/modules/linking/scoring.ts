@@ -47,6 +47,7 @@ const REFERENCE_LABEL: Record<LinkableType, string> = {
   journal_entry: "Reference in message",
   partner: "Name in message",
   contract: "Reference in message",
+  subscription: "Name in message",
 };
 
 const NAME_LABEL: Partial<Record<LinkableType, string>> = {

@@ -25,6 +25,7 @@ const NODE_FILL: Record<LinkableType, string> = {
   supplier_invoice: "fill-chart-3",
   expense: "fill-chart-3",
   settlement: "fill-chart-3",
+  subscription: "fill-chart-3",
   document: "fill-chart-4",
   partner: "fill-chart-5",
   contract: "fill-chart-5",

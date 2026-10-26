@@ -13,6 +13,7 @@ import { renderStatementJob } from "@/modules/expenses/jobs/render-statement";
 import { vendorOptions } from "@/modules/expenses/page-data";
 import * as paymentSources from "@/modules/expenses/payment-sources";
 import {
+  candidateDocuments,
   distinctExpenseValues,
   EXPENSE_COLUMN_KEYS,
   type ExpenseColumn,
@@ -274,6 +275,31 @@ export const detachBankTransactionAction = ownerAction
       ctx.audit,
       parsedInput.expenseId,
     ),
+  );
+
+/** The receipts an expense may still take (the inbox's expense documents) — the panel's *Attach receipt* picker. */
+export const candidateExpenseDocumentsAction = authedAction
+  .schema(z.object({}))
+  .metadata({ name: "candidateExpenseDocuments" })
+  .action(async ({ ctx }) => {
+    if (!can(ctx.callerIdentity, "read", "expense")) return forbidden;
+    return { data: await candidateDocuments(ctx.tx, ctx.callerIdentity) };
+  });
+
+/** The receipt after the expense (F94 FR-012): the document becomes this expense — renamed, `created_from`. */
+export const attachExpenseDocumentAction = ownerAction
+  .schema(z.object({ expenseId: uuid, documentId: uuid }))
+  .metadata({ name: "attachExpenseDocument" })
+  .action(async ({ ctx, parsedInput }) =>
+    expenseService.attachDocument(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
+
+/** Remove the expense's document: back in the inbox as *ready*, its key kept (D36). */
+export const detachExpenseDocumentAction = ownerAction
+  .schema(z.object({ expenseId: uuid }))
+  .metadata({ name: "detachExpenseDocument" })
+  .action(async ({ ctx, parsedInput }) =>
+    expenseService.detachDocument(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
 
 /** Confirm: the settlement, its lines, the `settles` link; the statement job is enqueued once committed. */
