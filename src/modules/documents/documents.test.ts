@@ -389,6 +389,54 @@ describe("documents service", () => {
       expect(stored(result1).businessKey).toContain("_001");
       expect(stored(result2).businessKey).toContain("_002");
     });
+
+    // F92: a batch is N single uploads, one transaction each — what the upload zone does per file
+    it("a batch of 4 files, one type: own key each, the duplicate and the refused file write nothing and use no number", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+      const one = (bytes: Buffer, name: string) =>
+        withTenantTransaction(prisma, tenantId, (tx) =>
+          documentService.uploadDocument(
+            tx,
+            owner.callerIdentity,
+            createRealAuditLogger(tx, owner.callerIdentity),
+            mockStorage,
+            testClock,
+            bytes,
+            name,
+            "invoice",
+          ),
+        );
+      const notAPdf = Buffer.from("plain text, no magic bytes".padEnd(1024, " "));
+
+      const results = [];
+      for (const [bytes, name] of [
+        [pdf("batch-a"), "a.pdf"],
+        [pdf("batch-a"), "a-again.pdf"], // the same bytes as the first file
+        [notAPdf, "c.pdf"],
+        [pdf("batch-d"), "d.pdf"],
+      ] as const) {
+        results.push(await one(bytes, name));
+      }
+
+      expect(stored(results[0]).businessKey).toBe("inv_20260314_001");
+      expect(results[1].data?.kind).toBe("duplicate");
+      if (results[1].data?.kind === "duplicate") {
+        expect(results[1].data.existing.id).toBe(stored(results[0]).id);
+      }
+      expect(results[2].error?.code).toBe("VALIDATION_ERROR");
+      // the failure blocked nothing, and no number was spent on the duplicate or the refused file
+      expect(stored(results[3]).businessKey).toBe("inv_20260314_002");
+
+      const rows = await adminPool.query(
+        "SELECT business_key FROM documents WHERE tenant_id = $1 ORDER BY business_key",
+        [tenantId],
+      );
+      expect(rows.rows.map((r) => r.business_key)).toEqual([
+        "inv_20260314_001",
+        "inv_20260314_002",
+      ]);
+    });
   });
 
   describe("RLS isolation", () => {

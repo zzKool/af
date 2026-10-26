@@ -35,6 +35,7 @@ The OCR reading, finished before the owner's real documents go through it (B1):
 | F89 | OCR reads the **currency** (receipts too), **line Tax %**, the vendor VAT number, **Billed to** (name + VAT number, a warning when neither fits the company), the **reverse-charge** flag; the corrections counter counts real corrections | D53, D54 · [[ocr-processing]], [[document-review]] |
 | F90 | **The type drives the reading**: a type change re-runs the OCR with that type's model (corrections stay); the provisional key follows the type until reviewed / became; the upload asks for the type, no default | D52 · [[document-review]] |
 | F91 | **Reverse-charge tag** on the expense / supplier invoice made from a flagged document — a tag only, the VAT treatment stays the accountant's | D54 · [[expenses]], [[supplier-invoices]] |
+| F92 | **Several files at once, one type** (2026-10-26): up to 50 files per drop / pick, each through the one-file upload (own key, duplicate check, OCR job); a per-file result list — uploaded · duplicate · failed | D55 · [[document-upload]] |
 
 ## Left — to a first real version
 
@@ -100,6 +101,7 @@ Done when the 2023-06 package matches what was filed, or every difference has a 
 
 - **Left from earlier rounds**: ~~F56 · F57 · F58 · F59 · F60~~ (the audit's wrong figures, 2026-10-23); ~~F85 · F86 · F87 · F88~~ (the owner's 2026-10-23 decisions, built 2026-10-23 → 24); ~~F72 · F73~~ (2026-10-24), ~~F74~~ (2026-10-23); F70 parked (D46).
 - **F71** — the kit in the last modules: dashboard, settings, rates (one PR each).
+- ~~**F93**~~ — the Ctrl K global search (2026-10-26, [[search]]).
 - **F94 Subscriptions** (FULL, D57) — spec read 2026-10-26; `specs/subscriptions/` plan + tasks, then the module (schema PR first, alone).
 - **F67** — the audit's hygiene, line by line; **F66**'s last item (dashboard's kernel reads).
 - The documents convergence is done (`specs/documents/tasks.md` Phase 3, T019–T028); the convergence passes ~~F77–F81~~ are built (2026-10-23).

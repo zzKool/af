@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
@@ -286,7 +286,7 @@ describe("FileUploadZone", () => {
 
     await user.click(screen.getByText("Upload another"));
 
-    expect(screen.getByText(/drop file here|tap to upload/i)).toBeInTheDocument();
+    expect(screen.getByText(/drop files here|tap to upload/i)).toBeInTheDocument();
   });
 
   it("calls onUploadComplete callback on success", async () => {
@@ -327,28 +327,155 @@ describe("FileUploadZone", () => {
     expect(onError).toHaveBeenCalledWith({ code: "FORBIDDEN", message: "Requires owner role" });
   });
 
-  it("shows toast when multiple files are dropped", async () => {
-    mockExecuteAsync.mockResolvedValue(successResult());
-
-    renderWithType(<FileUploadZone {...defaultProps} />);
-    const zone = screen.getByLabelText("Upload document");
-
-    const files = [
-      new File(["a"], "a.pdf", { type: "application/pdf" }),
-      new File(["b"], "b.pdf", { type: "application/pdf" }),
-    ];
-
+  // --- F92: several files, one type ---
+  function dropFiles(zone: HTMLElement, files: File[]) {
     const dataTransfer = {
       files,
       items: files.map((f) => ({ kind: "file", type: f.type, getAsFile: () => f })),
       types: ["Files"],
     };
-
-    await act(async () => {
+    return act(async () => {
       fireEvent.drop(zone, { dataTransfer });
     });
+  }
+  const pdfFile = (name: string) => new File([name], name, { type: "application/pdf" });
 
-    expect(mockToast.info).toHaveBeenCalledWith("One file at a time");
+  it("a batch of 3: one uploaded, one duplicate, one failed — one row each, one refresh at the end", async () => {
+    mockExecuteAsync
+      .mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_001", fileName: "a.pdf" }))
+      .mockResolvedValueOnce(duplicateResult())
+      .mockResolvedValueOnce({
+        data: { error: { code: "VALIDATION_ERROR", message: "Not a PDF", retryable: false } },
+      });
+    const onBatchComplete = vi.fn();
+    const onUploadComplete = vi.fn();
+
+    renderWithType(
+      <FileUploadZone
+        {...defaultProps}
+        onBatchComplete={onBatchComplete}
+        onUploadComplete={onUploadComplete}
+      />,
+      "invoice",
+    );
+    await dropFiles(screen.getByLabelText("Upload document"), [
+      pdfFile("a.pdf"),
+      pdfFile("b.pdf"),
+      pdfFile("c.pdf"),
+    ]);
+
+    // each file through the one-file action, with the one type chosen before
+    expect(mockExecuteAsync).toHaveBeenCalledTimes(3);
+    for (const [i, name] of ["a.pdf", "b.pdf", "c.pdf"].entries()) {
+      const fd = mockExecuteAsync.mock.calls[i][0] as FormData;
+      expect((fd.get("file") as File).name).toBe(name);
+      expect(fd.get("prefixType")).toBe("invoice");
+      expect(fd.get("force")).toBeNull();
+    }
+
+    const rows = screen.getAllByTestId("upload-batch-row");
+    expect(rows.map((r) => r.getAttribute("data-status"))).toEqual([
+      "uploaded",
+      "duplicate",
+      "failed",
+    ]);
+    expect(within(rows[0]).getByTestId("upload-batch-key")).toHaveTextContent("exp_20260314_001");
+    expect(within(rows[0]).getByRole("link")).toHaveAttribute("href", "/documents/doc-1");
+    // the duplicate card's behaviour on its row
+    expect(within(rows[1]).getByTestId("upload-batch-duplicate-key")).toHaveTextContent(
+      "exp_20260301_004",
+    );
+    expect(within(rows[1]).getByRole("link", { name: "Use existing document" })).toHaveAttribute(
+      "href",
+      "/documents/doc-0",
+    );
+    expect(within(rows[2]).getByTestId("upload-batch-reason")).toHaveTextContent("Not a PDF");
+    expect(screen.getByTestId("upload-batch-summary")).toHaveTextContent(
+      "3 of 3 · 1 uploaded · 1 duplicates · 1 failed",
+    );
+    // the inbox count and the sidebar badge: one refresh for the batch, not one per file
+    expect(onBatchComplete).toHaveBeenCalledTimes(1);
+    expect(onUploadComplete).not.toHaveBeenCalled();
+    expect(mockToast.info).not.toHaveBeenCalled();
+  });
+
+  it("a file refused before posting (too large) fails its row only; the others still upload", async () => {
+    mockExecuteAsync.mockResolvedValue(successResult());
+    renderWithType(<FileUploadZone {...defaultProps} />);
+    const big = new File(["x".repeat(11 * 1024 * 1024)], "big.pdf", { type: "application/pdf" });
+    await dropFiles(screen.getByLabelText("Upload document"), [big, pdfFile("ok.pdf")]);
+
+    expect(mockExecuteAsync).toHaveBeenCalledTimes(1);
+    const rows = screen.getAllByTestId("upload-batch-row");
+    expect(rows.map((r) => r.getAttribute("data-status"))).toEqual(["failed", "uploaded"]);
+    expect(within(rows[0]).getByText(/exceeds 10 MB limit/i)).toBeInTheDocument();
+  });
+
+  it("a row's second chance: Upload anyway posts that file with force, Try again posts it again", async () => {
+    mockExecuteAsync
+      .mockResolvedValueOnce(duplicateResult())
+      .mockResolvedValueOnce({
+        data: { error: { code: "INTERNAL_ERROR", message: "Storage down", retryable: true } },
+      })
+      .mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_007" }))
+      .mockResolvedValueOnce(successResult({ businessKey: "exp_20260314_008" }));
+    const onBatchComplete = vi.fn();
+    renderWithType(<FileUploadZone {...defaultProps} onBatchComplete={onBatchComplete} />);
+    await dropFiles(screen.getByLabelText("Upload document"), [pdfFile("d.pdf"), pdfFile("e.pdf")]);
+    expect(onBatchComplete).not.toHaveBeenCalled(); // nothing stored yet
+
+    let rows = screen.getAllByTestId("upload-batch-row");
+    await act(async () => {
+      fireEvent.click(within(rows[0]).getByRole("button", { name: "Upload anyway" }));
+    });
+    const forced = mockExecuteAsync.mock.calls[2][0] as FormData;
+    expect((forced.get("file") as File).name).toBe("d.pdf");
+    expect(forced.get("force")).toBe("true");
+
+    rows = screen.getAllByTestId("upload-batch-row");
+    await act(async () => {
+      fireEvent.click(within(rows[1]).getByRole("button", { name: "Try again" }));
+    });
+    const again = mockExecuteAsync.mock.calls[3][0] as FormData;
+    expect((again.get("file") as File).name).toBe("e.pdf");
+    expect(again.get("force")).toBeNull();
+
+    rows = screen.getAllByTestId("upload-batch-row");
+    expect(rows.map((r) => r.getAttribute("data-status"))).toEqual(["uploaded", "uploaded"]);
+    expect(onBatchComplete).toHaveBeenCalledTimes(2);
+  });
+
+  it("more than 50 files: nothing is posted, a toast says the limit", async () => {
+    renderWithType(<FileUploadZone {...defaultProps} />);
+    const files = Array.from({ length: 51 }, (_, i) => pdfFile(`f${i}.pdf`));
+    await dropFiles(screen.getByLabelText("Upload document"), files);
+    expect(mockExecuteAsync).not.toHaveBeenCalled();
+    expect(mockToast.info).toHaveBeenCalledWith("At most 50 files at once — choose fewer");
+    expect(screen.queryByTestId("upload-batch")).not.toBeInTheDocument();
+  });
+
+  it("the file picker takes several files too; Upload more empties the list", async () => {
+    mockExecuteAsync.mockResolvedValue(successResult());
+    renderWithType(<FileUploadZone {...defaultProps} />);
+    const input = document.querySelector("input[type='file']") as HTMLInputElement;
+    expect(input.multiple).toBe(true);
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [pdfFile("x.pdf"), pdfFile("y.pdf")] } });
+    });
+    expect(screen.getAllByTestId("upload-batch-row")).toHaveLength(2);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Upload more" }));
+    });
+    expect(screen.queryByTestId("upload-batch")).not.toBeInTheDocument();
+  });
+
+  it("several files without a type: nothing is posted, the type is asked for", async () => {
+    render(<FileUploadZone {...defaultProps} />);
+    await dropFiles(screen.getByLabelText("Upload document"), [pdfFile("a.pdf"), pdfFile("b.pdf")]);
+    expect(mockExecuteAsync).not.toHaveBeenCalled();
+    expect(mockToast.info).toHaveBeenCalledWith(
+      "Choose the document type first: it decides how the OCR reads it",
+    );
   });
 
   it("changes prefix type via selector", async () => {

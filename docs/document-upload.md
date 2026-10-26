@@ -2,7 +2,7 @@
 
 ## Overview
 
-Documents are uploaded via `FileUploadZone` component on the `/documents` page (owner-only). The upload pipeline validates files, stores blobs in Azure, generates business keys, and enqueues the OCR job after commit.
+Documents are uploaded via `FileUploadZone` component on the `/documents` page (owner-only). The upload pipeline validates files, stores blobs in Azure, generates business keys, and enqueues the OCR job after commit. One file or several at once (up to 50, one type for all — *Several files at once* below); every file takes the same path.
 
 ## Upload Pipeline
 
@@ -21,8 +21,30 @@ User drops file → FileUploadZone (client component)
       → tx.document.create({ status: 'uploaded', ... })
       → audit.log({ action: 'create', entityType: 'document' })
     → onCommit: enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: documentId })
-  → Client shows business key + "Upload another"
+  → Client shows business key + "Upload another"   (several files: one row per file, see below)
 ```
+
+## Several files at once (F92, D55 — 2026-10-26)
+
+Drop several files on the zone or pick several in the file dialog. The **type is chosen once** and applies to every file; the selector is locked while the batch runs.
+
+```
+3 files, type "expense"
+  │  one after the other — the same postOne → uploadDocumentAction a single file uses
+  ├─ a.pdf      → stored     exp_20261026_006   ─► its own OCR job
+  ├─ copy.pdf   → duplicate  (same bytes as a.pdf: nothing written, no number used)
+  └─ broken.pdf → failed     "Unsupported file type…" (nothing written, no number used)
+  ▼
+result list (one row each) ──► one router.refresh() ──► inbox count + sidebar badge
+```
+
+- **No second path.** `upload-batch.ts` (pure) runs the one-file upload per file; each call is its own action, transaction, key (`nextInSeries`), duplicate check and OCR job. A failure — a refused file, a server error, a dropped connection — is that file's row; the next file goes on.
+- **Sequential**: Next.js posts server actions one after the other anyway, and the key series is row-locked per upload — parallel posts would only wait on each other.
+- **The rows**: *Waiting* · *Uploading* · *Uploaded* (the key, linked to the review page) · *Duplicate* (the duplicate card's behaviour: *Use existing document*, *Upload anyway* → that file again with `force`) · *Failed* (the reason, *Try again*). The summary line counts the rows — a batch has no state of its own. *Upload more* empties the list.
+- **Limits**: at most `MAX_UPLOAD_BATCH_FILES` = 50 per drop; more is refused as a whole (a toast, nothing posted). Each file keeps the 10 MB / type check, before posting and again on the server.
+- **One file** keeps the single view (key, *Upload another*, the duplicate card).
+- **Refresh**: the parent's `onBatchComplete` (`router.refresh()`) once when the batch is through and after a row's retry stores a file — the library, *Inbox (n)* and the sidebar badge are server-rendered.
+- **OCR backlog**: 50 uploads queue 50 `documents.process-document` jobs. Every job name is its own pg-boss queue with its own worker taking one job at a time (`batchSize` 1, `localConcurrency` 1), so the backlog is read one document after the other (with Azure DI ~10–15 s each, ~10 min for 50) and never sits in front of another queue — the invoice PDF render (`invoices.render-pdf`) the invoice page polls for keeps its own worker. `kernel/jobs/queue.test.ts` holds that. See [[async-jobs]].
 
 ## File Validation
 
@@ -42,7 +64,7 @@ Provisional key of a raw upload, a fixed function (D6, see [[numbering]]): `uplo
 - The document gets its final key when it becomes something: expense receipt `Ex213-Tr-01_2026-03-11_`, issued invoice `InvoiceAF_VA26-INV-001.pdf`
 - Until then the provisional key **follows the type** (D52): a type change on the review page before the review swaps the prefix, same date and number — `reprefixUploadKey("exp_20261024_002", "invoice")` → `inv_20261024_002` (the series is shared by every kind, so the key stays unique). See [[document-review]].
 
-**No default type (D52).** The upload's *Document type* starts on *Choose the type…*: the type picks the OCR model and the key's prefix, so a click on the zone or a dropped file without one posts nothing — a toast says to choose it and the selector gets the focus. The options read *Expense (exp_)*, *Invoice (inv_)*… The choice stays for *Upload another*.
+**No default type (D52).** The upload's *Document type* starts on *Choose the type…*: the type picks the OCR model and the key's prefix, so a click on the zone or dropped files without one post nothing — a toast says to choose it and the selector gets the focus. The options read *Expense (exp_)*, *Invoice (inv_)*… The choice stays for *Upload another*.
 
 ## Document Classification
 

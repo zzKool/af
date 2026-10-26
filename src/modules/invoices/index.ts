@@ -43,6 +43,8 @@ export {
   rateUsageFromInvoiceLines,
   vatRegistrationUsageFromInvoices,
 } from "./rate-usage";
+// global search (F93): the module's palette hits
+export { searchInvoiceHits } from "./search";
 export { resolveSheetContext, type SheetContext } from "./sheet-context";
 export { creditSign, signedTotal } from "./signed";
 export type { InvoiceTotals, LineInput, LineTotals } from "./totals";

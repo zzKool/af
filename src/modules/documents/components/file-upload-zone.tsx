@@ -14,8 +14,21 @@ import { CodeChip } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 import type { DuplicateUploadRef } from "@/modules/documents/documents";
 import { uploadDocumentAction } from "@/modules/documents/documents.actions";
+import {
+  ACCEPTED_UPLOAD_EXTENSIONS,
+  type BatchItemStatus,
+  countOutcomes,
+  MAX_UPLOAD_BATCH_FILES,
+  outcomeOf,
+  precheckUpload,
+  runUploadBatch,
+  type UploadActionResult,
+  type UploadBatchItem,
+  type UploadOutcome,
+} from "@/modules/documents/upload-batch";
+import { UploadBatchList } from "./upload-batch-list";
 
-const ACCEPTED_EXTENSIONS = ".pdf,.jpg,.jpeg,.png,.tiff,.tif";
+const ACCEPTED_EXTENSIONS = ACCEPTED_UPLOAD_EXTENSIONS.map((e) => `.${e}`).join(",");
 const SLOW_UPLOAD_MS = 3000;
 
 type PrefixOption = { documentType: string; prefix: string };
@@ -23,12 +36,19 @@ type PrefixOption = { documentType: string; prefix: string };
 type FileUploadZoneProps = {
   prefixOptions: PrefixOption[];
   onUploadComplete?: (doc: { id: string; businessKey: string; fileName: string }) => void;
+  /** F92: once a batch of several files is through (and after a row's retry) — the parent refreshes once */
+  onBatchComplete?: () => void;
   onError?: (error: AppError) => void;
 };
 
-type UploadState = "idle" | "dragover" | "uploading" | "complete" | "duplicate" | "error";
+type UploadState = "idle" | "dragover" | "uploading" | "complete" | "duplicate" | "error" | "batch";
 
-export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: FileUploadZoneProps) {
+export function FileUploadZone({
+  prefixOptions,
+  onUploadComplete,
+  onBatchComplete,
+  onError,
+}: FileUploadZoneProps) {
   const t = useT();
   // unique: the zone renders twice when + New opens the upload dialog over the library (F73)
   const prefixId = useId();
@@ -48,8 +68,33 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
   const inputRef = useRef<HTMLInputElement>(null);
   const typeRef = useRef<HTMLSelectElement>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // F92: several files, one type — the rows of the result list, and whether the batch is still going
+  const [batch, setBatch] = useState<UploadBatchItem[] | null>(null);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const batchTypeRef = useRef("");
+  const busyRef = useRef(false);
 
   const { executeAsync } = useAction(uploadDocumentAction);
+
+  /** The one upload path: one file, one action call — a batch is this, once per file. */
+  const postOne = useCallback(
+    async (file: File, prefixType: string, force = false): Promise<UploadOutcome> => {
+      const problem = precheckUpload(file, MAX_FILE_SIZE_MB);
+      if (problem === "tooLarge") {
+        return { kind: "failed", reason: `File exceeds ${MAX_FILE_SIZE_MB} MB limit` };
+      }
+      if (problem === "unsupported") {
+        return { kind: "failed", reason: t("documents.upload.unsupported") };
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("prefixType", prefixType);
+      if (force) formData.append("force", "true");
+      const result = await executeAsync(formData);
+      return outcomeOf(result as UploadActionResult, t("documents.upload.failed"));
+    },
+    [executeAsync, t],
+  );
 
   useEffect(() => {
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
@@ -67,110 +112,164 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         askForType();
         return;
       }
-      // Client-side pre-validation
-      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        setErrorMessage(`File exceeds ${MAX_FILE_SIZE_MB} MB limit`);
-        setState("error");
-        return;
-      }
-
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-      const validExts = ["pdf", "jpg", "jpeg", "png", "tiff", "tif"];
-      if (!validExts.includes(ext)) {
-        setErrorMessage(t("documents.upload.unsupported"));
+      // Client-side pre-validation: nothing is posted for a file the server would refuse anyway
+      const problem = precheckUpload(file, MAX_FILE_SIZE_MB);
+      if (problem) {
+        setErrorMessage(
+          problem === "tooLarge"
+            ? `File exceeds ${MAX_FILE_SIZE_MB} MB limit`
+            : t("documents.upload.unsupported"),
+        );
         setState("error");
         return;
       }
 
       fileRef.current = file;
+      busyRef.current = true;
+      setBatch(null);
       setState("uploading");
       setShowSlow(false);
 
       slowTimerRef.current = setTimeout(() => setShowSlow(true), SLOW_UPLOAD_MS);
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("prefixType", selectedPrefix);
-      if (force) formData.append("force", "true");
-
-      const result = await executeAsync(formData);
-
+      const outcome = await postOne(file, selectedPrefix, force);
       clearTimeout(slowTimerRef.current);
       setShowSlow(false);
+      busyRef.current = false;
 
-      if (result?.serverError) {
-        const err = result.serverError as AppError;
-        setErrorMessage(err.message ?? t("documents.upload.failed"));
+      if (outcome.kind === "failed") {
+        setErrorMessage(outcome.reason);
         setState("error");
-        onError?.(err);
+        if (outcome.error) onError?.(outcome.error);
         return;
       }
-
-      if (result?.data?.error) {
-        setErrorMessage(result.data.error.message);
-        setState("error");
-        onError?.(result.data.error);
-        return;
-      }
-
-      const data = result?.data?.data;
-      if (data?.kind === "duplicate") {
+      if (outcome.kind === "duplicate") {
         // the same bytes are already here (specs/documents US2): nothing was stored — the owner decides
-        setDuplicateOf(data.existing);
+        setDuplicateOf(outcome.existing);
         setState("duplicate");
         return;
       }
-      if (data?.kind === "stored") {
-        setUploadedDoc(data);
-        setState("complete");
-        onUploadComplete?.(data);
-      }
+      setUploadedDoc(outcome.doc);
+      setState("complete");
+      onUploadComplete?.(outcome.doc);
     },
-    [executeAsync, selectedPrefix, askForType, onUploadComplete, onError, t],
+    [postOne, selectedPrefix, askForType, onUploadComplete, onError, t],
+  );
+
+  const setBatchItem = useCallback(
+    (index: number, status: BatchItemStatus, outcome?: UploadOutcome) =>
+      setBatch((prev) =>
+        prev ? prev.map((it, j) => (j === index ? { ...it, status, outcome } : it)) : prev,
+      ),
+    [],
+  );
+
+  /** F92: several files at once — the type chosen once, each file through `postOne`, one row each. */
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      if (!selectedPrefix) {
+        askForType();
+        return;
+      }
+      if (files.length === 1) {
+        handleUpload(files[0]);
+        return;
+      }
+      if (files.length > MAX_UPLOAD_BATCH_FILES) {
+        setState(batch ? "batch" : "idle");
+        toast.info(t("documents.upload.tooMany", { max: MAX_UPLOAD_BATCH_FILES }));
+        return;
+      }
+      const prefixType = selectedPrefix;
+      batchTypeRef.current = prefixType;
+      busyRef.current = true;
+      setUploadedDoc(null);
+      setDuplicateOf(null);
+      setErrorMessage("");
+      setBatch(files.map((file) => ({ file, status: "queued" as const })));
+      setBatchRunning(true);
+      setState("batch");
+
+      const outcomes = await runUploadBatch(
+        files,
+        (file) => postOne(file, prefixType),
+        setBatchItem,
+        t("documents.upload.failed"),
+      );
+
+      busyRef.current = false;
+      setBatchRunning(false);
+      // the inbox count and the sidebar badge are server-rendered: one refresh for the whole batch
+      if (outcomes.some((o) => o.kind === "uploaded")) onBatchComplete?.();
+    },
+    [selectedPrefix, askForType, handleUpload, batch, postOne, setBatchItem, onBatchComplete, t],
+  );
+
+  /** A row's second chance: *Try again* on a failed file, *Upload anyway* (force) on a duplicate. */
+  const retryBatchItem = useCallback(
+    async (index: number, force: boolean) => {
+      const item = batch?.[index];
+      if (!item || busyRef.current) return;
+      busyRef.current = true;
+      setBatchRunning(true);
+      setBatchItem(index, "uploading");
+      let outcome: UploadOutcome;
+      try {
+        outcome = await postOne(item.file, batchTypeRef.current, force);
+      } catch (error) {
+        outcome = {
+          kind: "failed",
+          reason: error instanceof Error ? error.message : t("documents.upload.failed"),
+        };
+      }
+      setBatchItem(index, outcome.kind, outcome);
+      busyRef.current = false;
+      setBatchRunning(false);
+      if (outcome.kind === "uploaded") onBatchComplete?.();
+    },
+    [batch, postOne, setBatchItem, onBatchComplete, t],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setState((s) => (s === "uploading" ? s : "dragover"));
+    if (busyRef.current) return;
+    setState("dragover");
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setState((s) => (s === "uploading" ? s : "idle"));
-  }, []);
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (busyRef.current) return;
+      setState(batch ? "batch" : "idle");
+    },
+    [batch],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const files = e.dataTransfer.files;
-      if (files.length > 1) {
-        toast.info(t("documents.upload.oneFile"));
-      }
-      if (files.length > 0) {
-        handleUpload(files[0]);
-      }
+      if (busyRef.current) return;
+      handleFiles(Array.from(e.dataTransfer.files ?? []));
     },
-    [handleUpload, t],
+    [handleFiles],
   );
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleUpload(file);
-      }
+      const files = Array.from(e.target.files ?? []);
       // Reset input so same file can be re-selected
       if (inputRef.current) inputRef.current.value = "";
+      handleFiles(files);
     },
-    [handleUpload],
+    [handleFiles],
   );
 
   const handleClick = useCallback(() => {
-    if (state === "uploading") return;
+    if (state === "uploading" || busyRef.current) return;
     if (!selectedPrefix) {
       askForType();
       return;
@@ -193,6 +292,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
     setUploadedDoc(null);
     setDuplicateOf(null);
     setErrorMessage("");
+    setBatch(null);
     fileRef.current = null;
   }, []);
 
@@ -221,7 +321,7 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           value={selectedPrefix}
           onChange={(e) => setSelectedPrefix(e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-          disabled={state === "uploading"}
+          disabled={state === "uploading" || batchRunning}
           required
           data-testid="upload-type"
         >
@@ -255,6 +355,8 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           state === "complete" && "border-state-done/60",
           state === "duplicate" && "border-state-attention/70 cursor-default",
           state === "error" && "border-destructive/50 bg-destructive/5",
+          state === "batch" && "border-muted-foreground/25",
+          state === "batch" && batchRunning && "cursor-wait",
         )}
       >
         {state === "idle" && (
@@ -365,6 +467,26 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
           </div>
         )}
 
+        {state === "batch" && batch && (
+          <>
+            {batchRunning ? (
+              <Loader2 className="mb-2 size-8 animate-spin text-muted-foreground" />
+            ) : (
+              <Upload className="mb-2 size-8 text-muted-foreground" />
+            )}
+            <p className="text-sm text-muted-foreground" data-testid="upload-batch-progress">
+              {batchRunning
+                ? t("documents.upload.batch.progress", {
+                    done: countOutcomes(batch.map((it) => it.status)).done,
+                    total: batch.length,
+                  })
+                : isTouchDevice
+                  ? t("documents.upload.tap")
+                  : t("documents.upload.drop")}
+            </p>
+          </>
+        )}
+
         {state === "error" && (
           <>
             <AlertCircle className="mb-2 size-8 text-destructive" />
@@ -384,9 +506,20 @@ export function FileUploadZone({ prefixOptions, onUploadComplete, onError }: Fil
         )}
       </div>
 
+      {state === "batch" && batch && (
+        <UploadBatchList
+          items={batch}
+          running={batchRunning}
+          onRetry={(i) => retryBatchItem(i, false)}
+          onUploadAnyway={(i) => retryBatchItem(i, true)}
+          onReset={handleReset}
+        />
+      )}
+
       <input
         ref={inputRef}
         type="file"
+        multiple
         accept={ACCEPTED_EXTENSIONS}
         className="hidden"
         onChange={handleFileSelect}
