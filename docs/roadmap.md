@@ -35,6 +35,7 @@ The OCR reading, finished before the owner's real documents go through it (B1):
 | F89 | OCR reads the **currency** (receipts too), **line Tax %**, the vendor VAT number, **Billed to** (name + VAT number, a warning when neither fits the company), the **reverse-charge** flag; the corrections counter counts real corrections | D53, D54 · [[ocr-processing]], [[document-review]] |
 | F90 | **The type drives the reading**: a type change re-runs the OCR with that type's model (corrections stay); the provisional key follows the type until reviewed / became; the upload asks for the type, no default | D52 · [[document-review]] |
 | F91 | **Reverse-charge tag** on the expense / supplier invoice made from a flagged document — a tag only, the VAT treatment stays the accountant's | D54 · [[expenses]], [[supplier-invoices]] |
+| F92 | **Several files at once, one type** (2026-10-26): up to 50 files per drop / pick, each through the one-file upload (own key, duplicate check, OCR job); a per-file result list — uploaded · duplicate · failed | D55 · [[document-upload]] |
 
 ## Left — to a first real version
 
