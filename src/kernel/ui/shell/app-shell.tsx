@@ -7,6 +7,7 @@
 // The page content is server-rendered children; the shell only arranges it.
 import type { ReactNode } from "react";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import type { RunSearch } from "@/kernel/search/types";
 import { Breadcrumb } from "@/kernel/ui/shell/breadcrumb";
 import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
 import { ShellProvider } from "@/kernel/ui/shell/shell-context";
@@ -18,6 +19,7 @@ export function AppShell({
   tenants,
   userLabel,
   counts,
+  search,
   children,
 }: {
   role: CallerIdentity["role"];
@@ -25,12 +27,14 @@ export function AppShell({
   userLabel: string;
   /** F72: open work per nav path, loaded by the app layout */
   counts?: NavCounts;
+  /** F93: the global search action, composed by the app layout (the kernel knows no module) */
+  search?: RunSearch;
   children: ReactNode;
 }) {
   return (
     <ShellProvider>
       <div className="flex h-screen flex-col bg-app">
-        <Topbar role={role} tenants={tenants} userLabel={userLabel} />
+        <Topbar role={role} tenants={tenants} userLabel={userLabel} search={search} />
         <div className="flex min-h-0 flex-1">
           <Sidebar role={role} counts={counts} />
           <div className="flex min-w-0 flex-1 overflow-hidden rounded-tl-[10px] border-t border-l bg-surface">
