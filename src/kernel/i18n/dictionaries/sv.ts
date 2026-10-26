@@ -55,6 +55,7 @@ export const sv: Dictionary = {
   "shell.search.group.supplier_invoice": "Leverantörsfakturor",
   "shell.search.group.expense": "Utlägg",
   "shell.search.group.settlement": "Regleringar",
+  "shell.search.group.subscription": "Abonnemang",
   "shell.search.group.document": "Dokument",
   "shell.search.group.bank_transaction": "Bankrader",
   "shell.breadcrumb": "Brödsmulor",
@@ -1293,6 +1294,8 @@ export const sv: Dictionary = {
   "dashboard.action.expenses_awaiting_row":
     "{count} företagsbetalt/-da utlägg väntar på sin bankrad",
   "dashboard.action.receipts_missing": "{count} utlägg utan kvitto",
+  "dashboard.action.subscriptions_attention":
+    "{count} abonnemangsperiod(er) behöver dig — {toConfirm} att bekräfta · {chargeMissing} debitering(ar) saknas · {documentMissing} kvitto/faktura saknas",
   "dashboard.action.rate_gaps": "{count} ECB-dag(ar) utan kurs de senaste 30 dagarna",
   "dashboard.action.package_not_built": "Paket {period} inte byggt ännu ({count} flagga/-or)",
   "dashboard.action.package_flags": "Paket {period} byggt med {count} flagga/-or",
@@ -1332,6 +1335,9 @@ export const sv: Dictionary = {
   "dashboard.briefing.entity.partner_contact": "kontakt(er)",
   "dashboard.briefing.entity.payment_source": "betalningskälla(or)",
   "dashboard.briefing.entity.settlement": "avräkning(ar)",
+  "dashboard.briefing.entity.subscription": "abonnemang",
+  "dashboard.briefing.entity.subscription_price": "abonnemangspris",
+  "dashboard.briefing.entity.subscription_pause": "abonnemangspaus(er)",
   "dashboard.briefing.entity.supplier_invoice": "leverantörsfaktura(or)",
   "dashboard.briefing.entity.swiss_vat_declaration": "schweizisk momsdeklaration(er)",
   "dashboard.briefing.entity.tenant": "företagsinställningar",

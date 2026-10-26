@@ -9,6 +9,7 @@ export const SEARCH_KINDS = [
   "supplier_invoice",
   "expense",
   "settlement",
+  "subscription",
   "document",
   "bank_transaction",
 ] as const;

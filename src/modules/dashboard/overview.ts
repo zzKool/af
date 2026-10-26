@@ -18,6 +18,7 @@ import * as invoices from "@/modules/invoices";
 import * as linking from "@/modules/linking";
 import * as packageModule from "@/modules/package";
 import * as rates from "@/modules/rates";
+import * as subscriptions from "@/modules/subscriptions";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 import type { ActionItem, BriefingLine, DashboardOverview, PulseMetric } from "./types";
 
@@ -228,6 +229,23 @@ export async function dashboardOverview(
         amount: { value: ledger.total.openBase, currency: "SEK" },
         priority: "medium",
         href: "/expenses/settle",
+      });
+    }
+    // F94 US6: the subscription periods that need the owner — to confirm, a charge missing, a receipt / bill missing.
+    // An overdue supplier-invoice period is not counted: the supplier-invoices item above already is.
+    const subs = await subscriptions.attentionCounts(tx, caller, today);
+    if (subs.periods > 0) {
+      items.push({
+        id: "subscriptions",
+        kind: "subscriptions_attention",
+        count: subs.periods,
+        params: {
+          toConfirm: subs.toConfirm,
+          chargeMissing: subs.chargeMissing,
+          documentMissing: subs.documentMissing,
+        },
+        priority: "medium",
+        href: "/subscriptions?f.attention=range:1:",
       });
     }
     if (awaitingRows > 0) {
