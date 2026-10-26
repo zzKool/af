@@ -82,11 +82,12 @@ export function PeriodRow({
             {t("subscriptions.period.rows")}
           </legend>
           {period.rows.map((r) => (
-            <label key={r.rowId} className="flex flex-wrap items-center gap-2">
+            <div key={r.rowId} className="flex flex-wrap items-center gap-2">
               {canWrite && period.rows.length > 1 && (
                 <input
                   type="radio"
                   name={`row-${period.date}`}
+                  aria-label={`${r.bookingDate} ${r.description}`}
                   checked={rowId === r.rowId}
                   onChange={() => setRowId(r.rowId)}
                 />
@@ -111,7 +112,7 @@ export function PeriodRow({
                   {t("subscriptions.period.hintCategory")}
                 </span>
               )}
-            </label>
+            </div>
           ))}
         </fieldset>
       )}
@@ -121,11 +122,12 @@ export function PeriodRow({
             {t("subscriptions.period.documents")}
           </legend>
           {period.documents.map((d) => (
-            <label key={d.documentId} className="flex flex-wrap items-center gap-2">
+            <div key={d.documentId} className="flex flex-wrap items-center gap-2">
               {canWrite && period.documents.length > 1 && (
                 <input
                   type="radio"
                   name={`doc-${period.date}`}
+                  aria-label={d.businessKey}
                   checked={docId === d.documentId}
                   onChange={() => setDocId(d.documentId)}
                 />
@@ -147,7 +149,7 @@ export function PeriodRow({
                 </span>
               )}
               {d.ambiguous && <Tag>{t("subscriptions.period.ambiguous")}</Tag>}
-            </label>
+            </div>
           ))}
         </fieldset>
       )}
