@@ -173,6 +173,12 @@ export const RULE_MATCH_FIELDS: readonly RuleMatchField[] = [
   "all",
 ];
 export type RuleSource = "manual" | "learned";
+/** Which way the money goes for a rule to hit (F116 PR C1). */
+export type RuleSign = "any" | "in" | "out";
+export const RULE_SIGNS: readonly RuleSign[] = ["any", "in", "out"];
+/** How often a rule's rows come — flagged when off, never a condition. */
+export type RuleCadence = "none" | "monthly" | "quarterly" | "yearly";
+export const RULE_CADENCES: readonly RuleCadence[] = ["none", "monthly", "quarterly", "yearly"];
 
 export type CategorisationRuleDto = {
   id: string;
@@ -185,6 +191,13 @@ export type CategorisationRuleDto = {
   basCode: string | null;
   partnerId: string | null;
   noDocumentNeeded: boolean;
+  /** F116 PR C1 — null = any account */
+  bankAccountId: string | null;
+  sign: RuleSign;
+  /** |amount| the rule expects, in the row's currency; null = any amount */
+  expectedAmount: string | null;
+  tolerancePct: string;
+  cadence: RuleCadence;
   priority: number;
   isActive: boolean;
   ruleSource: RuleSource;
@@ -202,7 +215,7 @@ export type RuleListRow = CategorisationRuleDto & {
   basLabel: string | null;
 };
 
-/** The text of a transaction a rule looks at. */
+/** The text of a transaction a rule looks at — and, when known, its account and signed amount (F116 PR C1). */
 export type RuleText = {
   counterpartyKey: string;
   name: string | null;
@@ -210,6 +223,26 @@ export type RuleText = {
   message: string | null;
   sender: string | null;
   recipient: string | null;
+  /** a condition the caller cannot answer (no account, no amount) is not checked */
+  bankAccountId?: string | null;
+  /** signed decimal string */
+  amount?: string | null;
+};
+
+/** Why a rule whose text matched did not fire — or fired off its cadence (the rules page's *Needs a look*). */
+export type RuleNearMissReason = "account" | "sign" | "amount" | "cadence";
+
+export type RuleNearMiss = {
+  transactionId: string;
+  bookingDate: string;
+  amount: string;
+  currency: string;
+  description: string;
+  ruleId: string;
+  ruleName: string;
+  reason: RuleNearMissReason;
+  /** for an amount miss: what the rule expects (± its tolerance) */
+  expected: string | null;
 };
 
 export type RuleTestResult = { matches: number; tested: number; sample: string[] };

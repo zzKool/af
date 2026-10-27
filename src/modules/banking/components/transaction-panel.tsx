@@ -364,9 +364,14 @@ export function TransactionDetailView({
                 basCode: tx.basCode,
                 partnerId: tx.partnerId,
                 noDocumentNeeded: tx.noDocumentNeeded,
+                // F116 PR C1: the row's account and direction; the amount stays open (a price change is not a new
+                // counterparty) — the owner types it when the rule should hold one price
+                bankAccountId: tx.bankAccountId,
+                sign: Number(tx.amount) > 0 ? "in" : "out",
               }}
               categories={categories}
               partners={partners}
+              accounts={[{ id: tx.bankAccountId, label: detail.accountLabel }]}
               onSaved={changed}
             />
           )}

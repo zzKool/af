@@ -5,6 +5,7 @@
 // MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
 import type { CategorisationRule } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -18,13 +19,19 @@ import type {
   ApplyRulesResult,
   BankTransactionDto,
   CategorisationRuleDto,
+  RuleCadence,
   RuleMatchField,
   RuleMatchType,
+  RuleNearMiss,
+  RuleNearMissReason,
+  RuleSign,
   RuleSource,
   RuleTestResult,
   RuleText,
 } from "./types";
-import { RULE_MATCH_FIELDS, RULE_MATCH_TYPES } from "./types";
+import { RULE_CADENCES, RULE_MATCH_FIELDS, RULE_MATCH_TYPES, RULE_SIGNS } from "./types";
+
+const D = Prisma.Decimal;
 
 const violation = (message: string, details?: Record<string, string | number>): AppError => ({
   code: "BUSINESS_RULE_VIOLATION",
@@ -53,6 +60,11 @@ export type RuleLike = {
   priority: number;
   createdAt: Date;
   isActive?: boolean;
+  /** F116 PR C1 — absent = no condition */
+  bankAccountId?: string | null;
+  sign?: RuleSign | string;
+  expectedAmount?: { toString(): string } | string | null;
+  tolerancePct?: { toString(): string } | string | null;
 };
 
 /** Active rules, priority desc → longer pattern first → newest first (deterministic tie-break, R56). */
@@ -129,10 +141,79 @@ export function matchRule(
   }
 }
 
-/** The first rule (in `orderRules` order) that matches, or null. */
-export function firstHit<R extends RuleLike>(ordered: readonly R[], text: RuleText): R | null {
-  for (const r of ordered) if (matchRule(r, text)) return r;
+/**
+ * The conditions beyond the text (F116 FR-007): the paying account, the sign, the expected |amount| ± tolerance %.
+ * Null when they hold; else the first one that does not. A fact the caller does not know is not checked.
+ */
+export function conditionMiss(
+  rule: Pick<RuleLike, "bankAccountId" | "sign" | "expectedAmount" | "tolerancePct">,
+  text: Pick<RuleText, "bankAccountId" | "amount">,
+): Exclude<RuleNearMissReason, "cadence"> | null {
+  if (rule.bankAccountId && text.bankAccountId && rule.bankAccountId !== text.bankAccountId)
+    return "account";
+  if (text.amount != null && text.amount !== "") {
+    const amount = new D(text.amount);
+    if (rule.sign === "in" && amount.lte(0)) return "sign";
+    if (rule.sign === "out" && amount.gte(0)) return "sign";
+    if (rule.expectedAmount != null && String(rule.expectedAmount) !== "") {
+      const expected = new D(String(rule.expectedAmount));
+      const tolerance = expected.mul(new D(String(rule.tolerancePct ?? "0.5"))).div(100);
+      if (amount.abs().minus(expected).abs().gt(tolerance)) return "amount";
+    }
+  }
   return null;
+}
+
+/** The first rule (in `orderRules` order) whose text matches and whose conditions hold, or null. */
+export function firstHit<R extends RuleLike>(ordered: readonly R[], text: RuleText): R | null {
+  for (const r of ordered) if (matchRule(r, text) && conditionMiss(r, text) === null) return r;
+  return null;
+}
+
+/** When no rule hits: the first rule whose text matched but a condition did not — the *Needs a look* entry. */
+export function firstNearMiss<R extends RuleLike>(
+  ordered: readonly R[],
+  text: RuleText,
+): { rule: R; reason: Exclude<RuleNearMissReason, "cadence"> } | null {
+  if (firstHit(ordered, text)) return null;
+  for (const r of ordered) {
+    if (!matchRule(r, text)) continue;
+    const reason = conditionMiss(r, text);
+    if (reason) return { rule: r, reason };
+  }
+  return null;
+}
+
+/** The days between two rows of a rule with a cadence that read as on time (a weekend, a short month, a holiday). */
+export const CADENCE_DAYS: Record<Exclude<RuleCadence, "none">, readonly [number, number]> = {
+  monthly: [20, 40],
+  quarterly: [75, 105],
+  yearly: [330, 400],
+};
+
+/**
+ * The rows of one rule that came off its cadence (pure): booking dates, oldest first → the later row of every gap
+ * outside the band. A flag, never a condition (D67's answer, as built): a year file of interest rows would
+ * otherwise leave eleven of twelve uncategorised.
+ */
+export function offCadence(
+  cadence: RuleCadence,
+  rows: readonly { id: string; bookingDate: string }[],
+): string[] {
+  if (cadence === "none") return [];
+  const [min, max] = CADENCE_DAYS[cadence];
+  const sorted = [...rows].sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
+  const out: string[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    if (!prev || !cur) continue;
+    const days =
+      (Date.parse(`${cur.bookingDate}T00:00:00Z`) - Date.parse(`${prev.bookingDate}T00:00:00Z`)) /
+      86_400_000;
+    if (days < min || days > max) out.push(cur.id);
+  }
+  return out;
 }
 
 export function regexError(pattern: string): string | null {
@@ -158,6 +239,21 @@ export const ruleInputSchema = z
     basCode: basCode.nullable().optional(),
     partnerId: uuid.nullable().optional(),
     noDocumentNeeded: z.boolean().default(false),
+    bankAccountId: uuid.nullable().optional(),
+    sign: z.enum(RULE_SIGNS as [RuleSign, ...RuleSign[]]).default("any"),
+    expectedAmount: z
+      .string()
+      .trim()
+      .regex(/^\d+(\.\d{1,2})?$/, "An amount like 132.52")
+      .nullable()
+      .optional(),
+    tolerancePct: z
+      .string()
+      .trim()
+      .regex(/^\d+(\.\d{1,2})?$/, "A percentage like 0.5")
+      .refine((v) => Number(v) <= 50, "At most 50 %")
+      .default("0.5"),
+    cadence: z.enum(RULE_CADENCES as [RuleCadence, ...RuleCadence[]]).default("none"),
     priority: z.number().int().min(0).max(999).default(100),
     isActive: z.boolean().default(true),
   })
@@ -178,6 +274,21 @@ export const updateRuleSchema = z.object({
   basCode: basCode.nullable().optional(),
   partnerId: uuid.nullable().optional(),
   noDocumentNeeded: z.boolean().optional(),
+  bankAccountId: uuid.nullable().optional(),
+  sign: z.enum(RULE_SIGNS as [RuleSign, ...RuleSign[]]).optional(),
+  expectedAmount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,2})?$/, "An amount like 132.52")
+    .nullable()
+    .optional(),
+  tolerancePct: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,2})?$/, "A percentage like 0.5")
+    .refine((v) => Number(v) <= 50, "At most 50 %")
+    .optional(),
+  cadence: z.enum(RULE_CADENCES as [RuleCadence, ...RuleCadence[]]).optional(),
   priority: z.number().int().min(0).max(999).optional(),
   isActive: z.boolean().optional(),
 });
@@ -205,6 +316,11 @@ export function toRuleDto(row: CategorisationRule): CategorisationRuleDto {
     basCode: row.basCode,
     partnerId: row.partnerId,
     noDocumentNeeded: row.noDocumentNeeded,
+    bankAccountId: row.bankAccountId,
+    sign: row.sign as RuleSign,
+    expectedAmount: row.expectedAmount ? row.expectedAmount.toFixed(2) : null,
+    tolerancePct: row.tolerancePct.toFixed(2),
+    cadence: row.cadence as RuleCadence,
     priority: row.priority,
     isActive: row.isActive,
     ruleSource: row.ruleSource as RuleSource,
@@ -223,7 +339,7 @@ function parseError(e: z.ZodError): AppError {
 
 async function validateTargets(
   tx: TransactionClient,
-  input: { basCode?: string | null; partnerId?: string | null },
+  input: { basCode?: string | null; partnerId?: string | null; bankAccountId?: string | null },
 ): Promise<AppError | null> {
   if (input.basCode) {
     const cat = await settings.getBasCategory(tx, input.basCode);
@@ -232,6 +348,15 @@ async function validateTargets(
   if (input.partnerId) {
     const p = await partners.getPartner(tx, input.partnerId);
     if (!p.data) return notFound("Partner", input.partnerId);
+  }
+  if (input.bankAccountId) {
+    const a = await tx.bankAccount.findUnique({
+      where: { id: input.bankAccountId },
+      select: { bankFormatId: true },
+    });
+    if (!a) return notFound("Bank account", input.bankAccountId);
+    if (!a.bankFormatId)
+      return invalid("A private instrument has no rows — a rule cannot match it");
   }
   return null;
 }
@@ -275,6 +400,11 @@ export async function createRule(
         basCode: r.basCode ?? null,
         partnerId: r.partnerId ?? null,
         noDocumentNeeded: r.noDocumentNeeded,
+        bankAccountId: r.bankAccountId ?? null,
+        sign: r.sign,
+        expectedAmount: r.expectedAmount ?? null,
+        tolerancePct: r.tolerancePct,
+        cadence: r.cadence,
         priority: r.priority,
         isActive: r.isActive,
         ruleSource,
@@ -487,6 +617,8 @@ export function ruleTarget(t: {
   message: string | null;
   sender: string | null;
   recipient: string | null;
+  bankAccountId?: string;
+  amount?: { toFixed(n: number): string } | string;
 }): RuleTarget {
   return {
     transactionId: t.id,
@@ -498,6 +630,13 @@ export function ruleTarget(t: {
       message: t.message,
       sender: t.sender,
       recipient: t.recipient,
+      bankAccountId: t.bankAccountId ?? null,
+      amount:
+        t.amount === undefined
+          ? null
+          : typeof t.amount === "string"
+            ? t.amount
+            : t.amount.toFixed(2),
     },
   };
 }
@@ -521,6 +660,73 @@ export async function applyRules(
   const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
   const targets = await uncategorisedTargets(tx);
   return applyToTransactions(tx, caller, audit, rules, targets, options);
+}
+
+/**
+ * The rules page's *Needs a look* (F116 FR-007): uncategorised rows whose text matched a rule but whose account,
+ * sign or amount did not — the rule that almost fired and why; and rows a rule with a cadence categorised off its
+ * rhythm. Newest first, capped.
+ */
+export async function ruleNearMisses(tx: TransactionClient, limit = 100): Promise<RuleNearMiss[]> {
+  const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
+  const ordered = orderRules(rules);
+  const out: RuleNearMiss[] = [];
+  const conditional = ordered.filter(
+    (r) => r.bankAccountId || r.sign !== "any" || r.expectedAmount !== null,
+  );
+  if (conditional.length > 0) {
+    for (const t of await uncategorisedTransactions(tx, 2_000)) {
+      const near = firstNearMiss(ordered, ruleTarget(t).text);
+      if (!near) continue;
+      out.push({
+        transactionId: t.id,
+        bookingDate: t.bookingDate.toISOString().slice(0, 10),
+        amount: t.amount.toFixed(2),
+        currency: t.currency,
+        description: t.description,
+        ruleId: near.rule.id,
+        ruleName: near.rule.name,
+        reason: near.reason,
+        expected:
+          near.reason === "amount" && near.rule.expectedAmount
+            ? `${near.rule.expectedAmount.toFixed(2)} ± ${near.rule.tolerancePct.toFixed(2)} %`
+            : null,
+      });
+    }
+  }
+  for (const r of ordered.filter((x) => x.cadence !== "none")) {
+    const rows = await tx.bankTransaction.findMany({
+      where: { ruleId: r.id },
+      select: { id: true, bookingDate: true, amount: true, currency: true, description: true },
+      orderBy: { bookingDate: "asc" },
+    });
+    const late = new Set(
+      offCadence(
+        r.cadence as RuleCadence,
+        rows.map((x) => ({ id: x.id, bookingDate: x.bookingDate.toISOString().slice(0, 10) })),
+      ),
+    );
+    for (const x of rows.filter((y) => late.has(y.id))) {
+      out.push({
+        transactionId: x.id,
+        bookingDate: x.bookingDate.toISOString().slice(0, 10),
+        amount: x.amount.toFixed(2),
+        currency: x.currency,
+        description: x.description,
+        ruleId: r.id,
+        ruleName: r.name,
+        reason: "cadence",
+        expected: null,
+      });
+    }
+  }
+  return out
+    .sort(
+      (a, b) =>
+        b.bookingDate.localeCompare(a.bookingDate) ||
+        a.transactionId.localeCompare(b.transactionId),
+    )
+    .slice(0, limit);
 }
 
 /** How many of the newest uncategorised transactions a pattern would hit (the dialog's "Test"). */

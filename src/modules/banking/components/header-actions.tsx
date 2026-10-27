@@ -17,7 +17,7 @@ import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import { applyRulesAction } from "@/modules/banking/banking.actions";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 import { type AccountOption, ImportDialog } from "./import-dialog";
-import { RuleDialog } from "./rule-dialog";
+import { type RuleAccountOption, RuleDialog } from "./rule-dialog";
 
 /** The primary of the workbench and the imports page: opens the import dialog — also from `?new=1`, the
  *  sidebar's **+ New → Import bank CSV** (F73). Rendered for a caller who may import only. */
@@ -66,9 +66,11 @@ export function WorkbenchActions({
 export function RulesActions({
   categories,
   partners,
+  accounts = [],
 }: {
   categories: CategoryOption[];
   partners: PartnerOption[];
+  accounts?: RuleAccountOption[];
 }) {
   const t = useT();
   const router = useRouter();
@@ -118,6 +120,7 @@ export function RulesActions({
         rule={null}
         categories={categories}
         partners={partners}
+        accounts={accounts}
         onSaved={() => router.refresh()}
       />
       {/* the dry run's answer; nothing to apply → the same dialog, the confirm disabled */}

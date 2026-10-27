@@ -11,6 +11,7 @@ export * from "./components/import-dialog";
 export * from "./components/imports-table";
 export * from "./components/private-instruments";
 export * from "./components/rule-dialog";
+export * from "./components/rule-near-misses";
 export * from "./components/rules-table";
 export * from "./components/transaction-panel";
 export * from "./components/transaction-state";
