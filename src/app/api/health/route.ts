@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/kernel/db/client";
-import { jobsEnabled } from "@/kernel/jobs/queue";
+import { failedJobs, jobsEnabled } from "@/kernel/jobs/queue";
 
 // The health endpoint (docs/deployment.md): what a container healthcheck, a reverse proxy and Azure's probes
 // call. Unauthenticated, no data — a database round trip and the build's version; 503 when the database is gone.
@@ -16,12 +16,16 @@ export async function GET() {
       { status: 503, headers: { "cache-control": "no-store" } },
     );
   }
+  // F110: terminal job failures are a health fact — a failed invoice PDF or package build shows here first
+  const failed = await failedJobs();
   return NextResponse.json(
     {
       status: "ok",
       db: "ok",
       dbLatencyMs: Date.now() - startedAt,
       jobs: jobsEnabled() ? "enabled" : "disabled",
+      failedJobs: failed.total,
+      failedJobsByQueue: failed.byQueue,
       version: process.env.APP_VERSION ?? null,
       uptimeSeconds: Math.round(process.uptime()),
     },

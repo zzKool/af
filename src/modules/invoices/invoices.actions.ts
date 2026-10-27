@@ -157,6 +157,33 @@ export const issueInvoiceAction = ownerAction
     return result;
   });
 
+/**
+ * F110: the one-click requeue. The PDF job is exclusive per invoice, so a render still queued or running is
+ * not doubled (`queued: false`); a job that failed terminally gets a fresh one. Nothing to do once the PDF is
+ * there.
+ */
+export const requeueInvoicePdfAction = ownerAction
+  .schema(z.object({ id: uuid }))
+  .metadata({ name: "requeueInvoicePdf" })
+  .action(async ({ ctx, parsedInput }) => {
+    const found = await getInvoice(ctx.tx, parsedInput.id, clock.today());
+    if (found.error) return found;
+    const inv = found.data;
+    if (inv.status === "draft" || inv.pdfDocumentId) return { data: { queued: false } };
+    const { tenantId, userId } = ctx.callerIdentity;
+    const invoiceId = inv.id;
+    let queued = false;
+    ctx.onCommit(async () => {
+      queued =
+        (await enqueue(
+          renderInvoicePdfJob,
+          { tenantId, userId, invoiceId },
+          { singletonKey: invoiceId },
+        )) !== null;
+    });
+    return { data: { queued } };
+  });
+
 export const markSentAction = ownerAction
   .schema(z.object({ id: uuid }))
   .metadata({ name: "markInvoiceSent" })

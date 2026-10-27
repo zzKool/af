@@ -5,9 +5,14 @@ import "@testing-library/jest-dom/vitest";
 // V12 — the page polls for the issued PDF ~2 min; when the polls run out it says so and offers to poll again,
 // instead of going quiet on "PDF is being generated…".
 const refresh = vi.fn();
+// F110: the try-again click queues the render again (through the action) before polling again
+const requeue = vi.fn(async () => ({ data: { data: { queued: true } } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: vi.fn(), isPending: false }),
+  useAction: (action: unknown) => ({
+    executeAsync: action === "requeue" ? requeue : vi.fn(),
+    isPending: false,
+  }),
 }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@/modules/documents/ui", () => ({ getDocumentDownloadUrlAction: vi.fn() }));
@@ -19,6 +24,7 @@ vi.mock("@/modules/invoices/invoices.actions", () => ({
   deleteDraftAction: vi.fn(),
   issueInvoiceAction: vi.fn(),
   markSentAction: vi.fn(),
+  requeueInvoicePdfAction: "requeue",
 }));
 
 import { InvoiceActions } from "./invoice-actions";
@@ -62,11 +68,13 @@ describe("InvoiceActions — the PDF poll (V12)", () => {
 
     await runPolls(1);
     expect(refresh).toHaveBeenCalledTimes(30);
-    expect(screen.getByTestId("pdf-poll-again")).toHaveTextContent("Try again");
+    expect(screen.getByTestId("pdf-poll-again")).toHaveTextContent("Generate again");
     await runPolls(3);
     expect(refresh).toHaveBeenCalledTimes(30); // quiet: no timer left
 
     fireEvent.click(screen.getByTestId("pdf-poll-again"));
+    await act(async () => {}); // the requeue action resolves, then the polls start over
+    expect(requeue).toHaveBeenCalledWith({ id: "inv-1" });
     expect(refresh).toHaveBeenCalledTimes(31);
     expect(screen.queryByTestId("pdf-poll-again")).toBeNull();
     await runPolls(1);

@@ -2,7 +2,7 @@
 // documents module as `Reimb_ST26-001_2026-03-31.pdf`, referenced by `statement_document_id` (the lock lets it
 // through once) and linked `justifies` from the refund's bank row — the justification the refund never had.
 import { withJobContext } from "@/kernel/jobs/context";
-import type { JobDefinition } from "@/kernel/jobs/types";
+import type { JobContext, JobDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import { renderPathToPdf } from "@/kernel/pdf/pdf";
 import { createStorageService } from "@/kernel/storage/storage";
@@ -95,6 +95,34 @@ export async function renderStatement(
   logger.info({ settlementId, number: target.number }, "expenses.render-statement: stored");
 }
 
+/** After the last retry (F110): the failure goes on the settlement's trail. */
+export async function markStatementFailed(
+  { tenantId, userId, settlementId }: RenderStatementData,
+  ctx: JobContext,
+): Promise<void> {
+  logger.error(
+    { settlementId, failure: ctx.failure },
+    "expenses.render-statement: failed after all retries",
+  );
+  await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
+    const s = await tx.settlement.findUnique({
+      where: { id: settlementId },
+      select: { statementDocumentId: true },
+    });
+    if (!s || s.statementDocumentId) return;
+    await audit.log({
+      action: "update",
+      entityType: "settlement",
+      entityId: settlementId,
+      newData: {
+        statementRender: "failed",
+        error: ctx.failure?.error ?? "unknown error",
+        attempts: ctx.failure?.attempts ?? null,
+      },
+    });
+  });
+}
+
 export const renderStatementJob: JobDefinition<RenderStatementData> = {
   name: "expenses.render-statement",
   options: {
@@ -105,6 +133,7 @@ export const renderStatementJob: JobDefinition<RenderStatementData> = {
     expireInSeconds: 120,
   },
   handler: (data) => renderStatement(data),
+  onDeadLetter: markStatementFailed,
 };
 
 export const expenseJobs = [renderStatementJob];
