@@ -141,6 +141,89 @@ describe("US2 — rules that categorise", () => {
     await assertAuditLogged(adminPool, caller.tenantId, "create", "categorisation_rule", undefined);
   });
 
+  it("F116 PR C1: an amount or an account the row does not have leaves it uncategorised — and listed under Needs a look", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await july(caller);
+    await run(caller, async (tx) => {
+      const chf = await createBankAccount(tx, caller, noopAudit, {
+        accountAlias: "Plusgirokonto CHF",
+        accountNumber: "123 45 67-8",
+        currency: "CHF",
+        bankFormatId: nordeaFormatId,
+      });
+      const priced = await rules.createRule(tx, caller, noopAudit, {
+        name: "OpenAI at 150",
+        matchType: "contains",
+        matchPattern: "OPENAI",
+        basCode: "654",
+        bankAccountId: sek,
+        sign: "out",
+        expectedAmount: "150.00",
+        tolerancePct: "0.5",
+        cadence: "monthly",
+      });
+      expect(priced.error).toBeUndefined();
+      expect(priced.data).toMatchObject({
+        bankAccountId: sek,
+        sign: "out",
+        expectedAmount: "150.00",
+        tolerancePct: "0.50",
+        cadence: "monthly",
+      });
+      const applied = await rules.applyRules(tx, caller, noopAudit, { dryRun: false });
+      expect(applied.data?.preview.map((p) => p.ruleName)).not.toContain("OpenAI at 150");
+      expect((await entryOf(tx, (await openaiOf(tx)).id))?.basCode).toBeNull();
+      const misses = await rules.ruleNearMisses(tx);
+      expect(misses).toEqual([
+        expect.objectContaining({
+          ruleName: "OpenAI at 150",
+          reason: "amount",
+          expected: "150.00 ± 0.50 %",
+          amount: "-132.52",
+        }),
+      ]);
+      // the right price: it hits, the miss is gone
+      await rules.updateRule(tx, caller, noopAudit, {
+        id: priced.data?.id as string,
+        expectedAmount: "132.52",
+      });
+      await rules.applyRules(tx, caller, noopAudit, { dryRun: false });
+      expect((await entryOf(tx, (await openaiOf(tx)).id))?.basCode).toBe("654");
+      expect(await rules.ruleNearMisses(tx)).toEqual([]);
+
+      // bound to another account: a near miss of its own kind
+      await rules.createRule(tx, caller, noopAudit, {
+        name: "Anthropic on CHF",
+        matchType: "contains",
+        matchPattern: "ANTHROPIC",
+        basCode: "654",
+        bankAccountId: chf.data?.id,
+      });
+      expect((await rules.ruleNearMisses(tx)).map((m) => [m.ruleName, m.reason])).toEqual([
+        ["Anthropic on CHF", "account"],
+      ]);
+      // a private instrument has no rows: refused as a rule's account
+      const priv = await tx.bankAccount.create({
+        data: {
+          tenantId: caller.tenantId,
+          accountAlias: "Private SE",
+          accountNumber: "Private SE",
+          currency: "SEK",
+          role: "owner_private",
+          createdBy: caller.userId,
+        },
+      });
+      const refused = await rules.createRule(tx, caller, noopAudit, {
+        name: "Private",
+        matchType: "contains",
+        matchPattern: "X",
+        basCode: "654",
+        bankAccountId: priv.id,
+      });
+      expect(refused.error?.code).toBe("VALIDATION_ERROR");
+    });
+  });
+
   it("scenario 3: a partner-only rule fills the partner's default category", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     await july(caller);

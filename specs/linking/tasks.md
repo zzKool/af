@@ -44,5 +44,6 @@
 - [x] T020 The spec: the five-line rule, the seven cases, US1–US6, FR-001–FR-010, SC-001–005, the owner's four questions (docs PR, 2026-10-27).
 - [ ] T021 PR A `feat/linking-engine-window` — FR-001–FR-004, FR-009 (scorer, finder, memory), FR-010. Answered (D67) — in progress.
 - [ ] T022 PR B `feat/linking-engine-fx` — FR-005, FR-006. After F114 PR 1 merges.
-- [ ] T023 PR C `feat/banking-rules-engine` — FR-007, FR-008. Question 3 answered: the rule shape now, the module stays to F104.
+- [x] T023 PR C1 `feat/banking-rules-engine` (built 2026-10-28) — FR-007: the migration (`20261028090000_rule_conditions`), `conditionMiss` / `firstNearMiss` / `offCadence` / `ruleNearMisses`, the dialog's *Only when…*, the rules page's *Needs a look*; `rule-conditions.pure.test.ts`, the DB case in `rules.test.ts`.
+- [ ] T024 PR C2 `feat/subscriptions-as-rules` — FR-008: `subscriptions.toRule`, the matcher on `banking.conditionMiss` (one tolerance), *Make it a rule*.
 

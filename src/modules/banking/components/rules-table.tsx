@@ -21,7 +21,7 @@ import {
 import type { RuleListRow } from "@/modules/banking/types";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 import { filterSourceOf } from "./filter-source";
-import { RuleDialog } from "./rule-dialog";
+import { type RuleAccountOption, RuleDialog } from "./rule-dialog";
 
 export type RuleRow = Omit<RuleListRow, "lastHitAt" | "createdAt" | "updatedAt"> & {
   lastHitAt: string | null;
@@ -52,11 +52,13 @@ export function RulesTable({
   result,
   categories,
   partners,
+  accounts = [],
   canWrite,
 }: {
   result: ListResult<RuleRow>;
   categories: CategoryOption[];
   partners: PartnerOption[];
+  accounts?: RuleAccountOption[];
   canWrite: boolean;
 }) {
   const t = useT();
@@ -227,6 +229,7 @@ export function RulesTable({
           rule={editing}
           categories={categories}
           partners={partners}
+          accounts={accounts}
           onSaved={() => router.refresh()}
         />
       )}

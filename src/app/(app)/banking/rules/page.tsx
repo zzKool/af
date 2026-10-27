@@ -12,8 +12,10 @@ import {
   partnerOptions,
   RULE_COLUMN_KEYS,
   RULE_DEFAULT_SORT,
+  ruleAccountOptions,
+  ruleNearMisses,
 } from "@/modules/banking";
-import { RulesActions, RulesTable } from "@/modules/banking/ui";
+import { RuleNearMisses, RulesActions, RulesTable } from "@/modules/banking/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 // Categorisation rules — the order they run in, new / edit / delete, apply with dry run (specs/banking US2).
@@ -31,8 +33,10 @@ export default async function BankRulesPage({
     const result = await listRulesPage(tx, query);
     const categories = await categoryOptions(tx, auth);
     const partners = await partnerOptions(tx);
+    const accounts = await ruleAccountOptions(tx);
+    const nearMisses = await ruleNearMisses(tx);
     const prefs = await getUserPreferences(tx, auth);
-    return { result, categories, partners, prefs };
+    return { result, categories, partners, accounts, nearMisses, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const canWrite = can(auth, "update", "bank_transaction");
@@ -41,8 +45,17 @@ export default async function BankRulesPage({
     <ListPage
       title={t("banking.rules.title")}
       meta={t("banking.rules.meta", { count: data.result.total })}
-      actions={canWrite && <RulesActions categories={data.categories} partners={data.partners} />}
+      actions={
+        canWrite && (
+          <RulesActions
+            categories={data.categories}
+            partners={data.partners}
+            accounts={data.accounts}
+          />
+        )
+      }
     >
+      <RuleNearMisses misses={data.nearMisses} />
       <RulesTable
         result={{
           ...data.result,
@@ -55,6 +68,7 @@ export default async function BankRulesPage({
         }}
         categories={data.categories}
         partners={data.partners}
+        accounts={data.accounts}
         canWrite={canWrite}
       />
     </ListPage>
