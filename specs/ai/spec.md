@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: Draft for the owner's read · no code before his word · the design is [[local-ai]] §1–§4, §9
+**Status**: Approved by the owner 2026-10-27 (answers below) — ready for `/speckit-plan` (schema) and PR 1 · the design is [[local-ai]] §1–§4, §9
 
 **Input**: the owner, 2026-10-26 / 27: "the local AI should pick the best BAS account, recognise the counterparty behind a bank text (a card descriptor → Microsoft) and detect mistakes"; D65 lifted 2026-10-27; the four planning questions answered *no preference* → the plan's defaults (below).
 
@@ -82,11 +82,11 @@ BAS precision   the codes as stored — four digits
 - **SC-004** On the box (the owner's eval, counts only): stage-1 HIGH proposals agree with the owner's hand-set category ≥ 95 %; the model's HIGH ≥ 85 % — below that, the policy's thresholds move before PR 2 ships to the box's `AI_PROVIDER`.
 - **SC-005** The import is not slower: `importCsv` only enqueues; the job runs after the transaction commits.
 
-## Questions for the owner (one batch)
+## The owner's answers (2026-10-27)
 
-1. **The shown sources**: the word *remembered* for the memory and *proposed* for the model — or one word (*proposed*) with the source in the tooltip?
-2. **Pre-fill**: HIGH proposals pre-filled in the Category picker (one key accepts), or always shown above it, never pre-filled (one key still accepts)?
-3. **The *Proposed* column** on the transactions list: wanted, or only in Work and the panel?
+1. **The source is shown**: *rule* · *partner default* · *remembered* · *proposed* (the model) — FR-009 as written.
+2. **HIGH proposals are pre-filled** in the Category picker, for now — the owner may switch back to *shown above, never pre-filled*. So the switch is **one constant** (`PREFILL_HIGH = true` in `proposals/policy.ts`, no setting) and the UI is built for both: a pre-filled value is drawn as a proposal (its family colour, the source word, *Accept* / `a`) until accepted — **it is not saved**, the row stays uncategorised and the package does not read it. MEDIUM and LOW are never pre-filled.
+3. **A *Proposed* column** on the transactions list: the code + the D40 family colour, filterable (*has a proposal*, by source, by family) and sortable by confidence.
 
 ## Assumptions
 
