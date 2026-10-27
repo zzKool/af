@@ -776,6 +776,13 @@ export const en = {
   "linking.justify.incoming":
     "An incoming row is justified by the invoice it pays — pick it under Suggestions.",
   "linking.justify.needsOptions": "The groups and payment sources could not be loaded.",
+  // --- the payment picker (F97 US2) ---
+  "linking.picker.pick": "Pick",
+  "linking.picker.change": "Change",
+  "linking.picker.left": "left",
+  "linking.picker.none": "No row scores for this one — search below.",
+  "linking.picker.search": "Search a row: text, amount or date…",
+  "linking.picker.noHits": "No row matches.",
   "linking.inbox.report.title": "Apply HIGH",
   "linking.inbox.report.summary": "{applied} applied · {skipped} skipped · {failed} failed",
   "linking.inbox.skip.NO_CANDIDATES": "No candidates",
