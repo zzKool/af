@@ -3,7 +3,12 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { signupClosed } from "@/kernel/auth/signup";
 import { prisma } from "@/kernel/db/client";
+
+// D61 / F105: once the box is closed (`AUTH_SIGNUP=closed`) nobody registers and nobody creates a tenant —
+// read once at start-up, like the rest of the configuration.
+const closed = signupClosed();
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || process.env.AUTH_URL || "http://localhost:3000",
@@ -11,10 +16,11 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+    disableSignUp: closed,
   },
   plugins: [
     organization({
-      allowUserToCreateOrganization: true,
+      allowUserToCreateOrganization: !closed,
       creatorRole: "owner",
       // better-auth 1.7 asks for a verified email before accepting an invitation when ids come from the
       // database (`generateId: false`), taking them for predictable. Ours are `gen_random_uuid()` (v4, random),

@@ -22,13 +22,15 @@ Any Linux box with Docker. The first time:
 ```bash
 sudo mkdir -p /opt/af && cd /opt/af
 git clone https://github.com/zzKool/af.git .           # the compose file, the scripts, the Caddyfile example
-cp .env.prod.example .env.prod && $EDITOR .env.prod      # secrets: POSTGRES_PASSWORD, AUTH_SECRET, AUTH_URL, DI keys
+cp .env.prod.example .env.prod && $EDITOR .env.prod      # secrets: POSTGRES_PASSWORD, AF_APP_PASSWORD (+ DATABASE_URL), AUTH_SECRET, AUTH_URL, DI keys
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d          # db → migrate (exits 0) → app; azurite as blob storage
 curl -s localhost:3000/api/health                        # {"status":"ok","db":"ok","jobs":"enabled","version":"sha-…"}
 ```
 
-Then the first user: register on `/register` (the first account becomes the owner of its tenant); invite the accountant from Settings. Seed data (`prisma/seed.ts`) is for development only — never run it against production.
+Then the first user: with `AUTH_SIGNUP` unset, register on `/register` (the first account becomes the owner of its tenant). **Then close the box**: `AUTH_SIGNUP=closed` in `.env.prod` and `docker compose -f docker-compose.prod.yml up -d app` — from then on `/register` is a 404, Better Auth refuses sign-ups and new organisations, and the login page shows no *create an account* (D61, F105). A second user (the accountant, F03) is added by the admin CLI when it exists (F112), never by reopening sign-up. Seed data (`prisma/seed.ts`) is for development only — never run it against production.
+
+The app role's password: the migrations create `af_app` with the password `app`; the migrate container then runs `scripts/set-app-password.mjs`, which sets it to `AF_APP_PASSWORD` from `.env.prod` — so `DATABASE_URL` must carry the same value. Changing it is editing both lines and `up -d` (migrate runs again, the app restarts with the new URL).
 
 **TLS and the name**: `deploy/Caddyfile.example` → `deploy/Caddyfile` with the real host; Caddy gets the certificate from Let's Encrypt by itself and proxies to `127.0.0.1:3000`. `AUTH_URL` must be that public address (Better Auth validates origins). Keep `AF_PORT` bound to localhost behind the proxy (`AF_PORT=127.0.0.1:3000` in `.env`).
 

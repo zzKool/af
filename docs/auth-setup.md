@@ -31,6 +31,14 @@ Better Auth Session
 | `member.role = "owner"` | Owner role |
 | `member.role = "member"` | Accountant role |
 
+## Closing the box (D61, F105)
+
+`AUTH_SIGNUP=closed` (read once at start-up by `src/kernel/auth/signup.ts`) does three things: Better Auth's `emailAndPassword.disableSignUp`, the organization plugin's `allowUserToCreateOrganization: false`, and `/register` answering 404 (the login page hides its *create an account* links). Unset — dev, CI, the e2e — everything stays open. The production runbook sets it after the owner's first registration ([[deployment]]).
+
+`getCaller()` (pages) refuses what the action middleware refuses: no session, no active tenant, **no membership of the active tenant, or an unknown organisation role** (`isKnownOrgRole`, one list in `can.ts`) — a member removed from the tenant keeps a cookie until it expires but no page renders for it.
+
+The app role's password comes from `AF_APP_PASSWORD`, set by `scripts/set-app-password.mjs` in the migrate image after every deploy (the init migration created `af_app` with `app`; dev and CI keep it).
+
 ## Session Structure
 
 After sign-in with an active organization:
@@ -134,8 +142,10 @@ Auth tables (`users`, `sessions`, `accounts`, `organizations`, `members`, `invit
 | `src/kernel/auth/users.ts` | Read API of `users` / `members` for the modules (F66) |
 | `src/kernel/auth/auth-client.ts` | Better Auth React client with organization plugin |
 | `src/app/api/auth/[...all]/route.ts` | Auth API route handler |
-| `src/app/(auth)/login/page.tsx` | Login page |
-| `src/app/(auth)/register/page.tsx` | Registration page |
+| `src/kernel/auth/signup.ts` | `signupClosed()` — `AUTH_SIGNUP=closed` (F105) |
+| `src/app/(auth)/login/page.tsx` + `login-form.tsx` | Login page (server) + form (client) |
+| `src/app/(auth)/register/page.tsx` + `register-form.tsx` | Registration page (404 when closed) + form |
+| `scripts/set-app-password.mjs` | `af_app` password from `AF_APP_PASSWORD`, run by the migrate image |
 | `src/middleware.ts` | Route protection (cookie check) |
 | `prisma/schema/auth.prisma` | Auth schema (regenerated via `npx auth generate`) |
 | `src/kernel/auth/auth.test.ts` | Auth integration tests |
