@@ -117,7 +117,7 @@ SQL
       continue
     fi
     sum=$(sha256sum "$dir/migration.sql" | cut -d' ' -f1)
-    psql "$MIG_URL" -q -v ON_ERROR_STOP=1 -f "$dir/migration.sql" >/dev/null
+    psql "$MIG_URL" -q -1 -v ON_ERROR_STOP=1 -f "$dir/migration.sql" >/dev/null   # -1: one transaction, like prisma migrate (a TEMP … ON COMMIT DROP table lives through the file)
     psql "$MIG_URL" -q -v ON_ERROR_STOP=1 -c "insert into _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count) values (gen_random_uuid(), '$sum', now(), '$name', now(), 1)"
     echo "  applied $name"
     applied=$((applied + 1))

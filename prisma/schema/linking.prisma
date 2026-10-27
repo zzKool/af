@@ -37,3 +37,73 @@ model Link {
   @@index([tenantId, toType, toId], map: "idx_links_to")
   @@map("links")
 }
+
+// F98 (specs/ai): proposals — what the rules, the history and (PR 2) the local model propose for a bank row's
+// category or partner. The ONLY table the AI side writes: no fact, no link, no status is written by a proposal —
+// accepting one goes through banking's `categorise` (the owner's key). *Current* (the newest run per target and
+// kind), *superseded* and *open* are derived on read. Owned by modules/linking.
+
+/// what a proposal is about (documents arrive with F99-b)
+enum ProposalTarget {
+  bank_transaction
+
+  @@map("proposal_target")
+}
+
+/// the fact proposed
+enum ProposalKind {
+  bas
+  partner
+
+  @@map("proposal_kind")
+}
+
+/// where it came from — shown to the owner as a word (the owner, 2026-10-27)
+enum ProposalSource {
+  rule
+  partner_default
+  memory
+  model
+
+  @@map("proposal_source")
+}
+
+/// the owner's key — a fact with a time, never a status
+enum ProposalDecision {
+  accepted
+  rejected
+
+  @@map("proposal_decision")
+}
+
+model Proposal {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  /// the job run that made it — the newest run per (target, kind) is the current proposal
+  runId         String            @map("run_id") @db.Uuid
+  targetType    ProposalTarget    @map("target_type")
+  targetId      String            @map("target_id") @db.Uuid
+  kind          ProposalKind
+  /// the proposal itself, typed per kind (`proposals/payload.ts` parses it on read)
+  payload       Json              @db.JsonB
+  source        ProposalSource
+  confidence    Decimal           @db.Decimal(3, 2)
+  reason        String?           @db.VarChar(200)
+  model         String?           @db.VarChar(100)
+  promptVersion String?           @map("prompt_version") @db.VarChar(20)
+  /// sha256 of the row's facts when proposed — a rejected proposal is not made again while it is unchanged
+  factsHash     String            @map("facts_hash") @db.VarChar(64)
+  decision      ProposalDecision?
+  decidedAt     DateTime?         @map("decided_at") @db.Timestamptz
+  decidedBy     String?           @map("decided_by") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  createdBy     String            @map("created_by") @db.Uuid
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// D63: a composite FK — the row of the same tenant, RESTRICT; banking's deleteImport drops the proposals first
+  bankTransaction BankTransaction @relation(fields: [tenantId, targetId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([tenantId, targetType, targetId, kind, runId], map: "proposals_target_kind_run_key")
+  @@index([tenantId, targetId, kind, createdAt(sort: Desc)], map: "idx_proposals_target")
+  @@map("proposals")
+}

@@ -105,6 +105,10 @@ CRUD on Settings → Bank accounts ([[bank-accounts]]) — the **statement accou
 
 `transactionHistory(tx, id)` reads two audit trails through `kernel/audit` `getAuditLog` and maps them (`toHistoryEvents`, pure): the row's own `create` = **Imported** and its `update`s (a categorisation, F113 — the updates written on journal entries before were appended onto the row's trail by the migration) = **Categorised 657** / *Category removed* / *Partner changed* / *Marked no document needed* / *Document needed again*, each with who decided it (rule, by hand, partner default); each live link's `create` = **Linked: Supplier invoice (justifies)** (the other end's type, the kind). An update that changes nothing the owner sees (a note) is dropped. A **removed** link is not shown: its row is gone and the kernel reads a trail by entity id only ([[lessons]], F71 banking History).
 
+## Proposal inputs — `proposal-inputs.ts` (F98)
+
+Banking serves what stage 1 of the proposals reads ([[linking]] *Proposals*), read only: `proposalRowIds(tx, { importId } | { transactionIds } | { all })` — the rows not categorised by hand and missing a category or a partner; `proposalInputs(tx, ids)` — each with the first active rule that would set a fact (a partner-only rule brings the partner's default), the partner's default category, and `categoryMemory` — what the owner set **by hand** on the same counterparty key's other rows, counted. `importCsvAction` enqueues `linking.propose-for-rows` once the import has committed; `deleteImport` drops the rows' proposals first (`linking.dropProposalsFor`). The list's derived `proposedBasCode` · `proposedSource` · `proposedConfidence` come from `linking.currentForRows`.
+
 ## Read API for other modules (lessons audit 23)
 
 Expenses and supplier invoices read `bank_transactions` themselves today; these replace those reads (the callers move in their own lanes):

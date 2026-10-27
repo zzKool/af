@@ -35,6 +35,7 @@ const PAGES: Record<string, string> = {
   "settings-bank-accounts": "/settings/bank-accounts",
   "settings-traktamente": "/settings/traktamente",
   "settings-rates": "/settings/rates",
+  "settings-ai": "/settings/ai",
   "settings-my-preferences": "/settings/my-preferences",
 };
 

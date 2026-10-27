@@ -90,6 +90,24 @@ The row is the fact, the document its evidence (review 2026-10-26 §1.1): one pa
 
 Which bank row pays this entity: the scored rows first (`suggestionsForEntityAction` — confidence, reasons, one *Pick*), then a search over the rows the host loaded (`searchRows`, pure: a date prefix `2026-07`, an amount within ± 1 % with the sign and separators ignored, else the text over the description and the account), eight hits shown. A selection component: the host hands it its rows (`PickableRow`: id, date, signed amount, currency, description, account, what is left) and gets the chosen id back; the payment itself stays the module's own action (D37, F58). Replaced the `<Select>` of every open row on the supplier-invoice panel (*Link payment*) and the expense panel (*Attach bank row*); `payableTransactions` / the payer's rows are the search pool now, not a list to scroll. `payment-picker.pure.test.ts` holds the search; the supplier-invoices e2e links through it.
 
+## Proposals — `proposals/`, the *Proposed* line (F98, `specs/ai`, [[local-ai]])
+
+What the rules, the partner's default and the owner's own history (and, with F98 PR 2, the local model) propose for a bank row's **category** or **partner**. Linking owns the `proposals` table; it writes proposals and the owner's decisions, **never a row's facts** — accepting goes through banking's `categorise` (`by: manual`: the owner's key is the categorisation).
+
+```
+proposals  run_id · target (bank_transaction, composite FK RESTRICT — D63) · kind ∈ bas | partner
+           payload (Zod per kind, parsed on read) · source ∈ rule | partner_default | memory | model
+           confidence 0–1 · reason · model? · prompt_version? · facts_hash · decision? · decided_at? · decided_by?
+           current = the newest per (row, kind) · open = current ∧ undecided ∧ the row still lacks that fact — derived
+```
+
+- **Stage 1** (`stage1.ts`, pure, inputs from banking's `proposalInputs`): the first active rule that would set the fact (1.00 — rules already run at import, so this is the rows imported before the rule), the partner's default category (0.95), the **history** — the same counterparty key's rows the owner set by hand, ≥ 2 rows agreeing ≥ 70 % → 0.6 + 0.1 · N (max 0.95). Two sources that disagree: the first wins, capped at 0.79 (never HIGH), the other an alternative.
+- **Policy** (`policy.ts`): HIGH ≥ 0.80 (pre-filled while `PREFILL_HIGH` — the owner's answer of 2026-10-27, one constant), MEDIUM ≥ 0.55, LOW not shown. The source is shown as a word: *rule* · *partner default* · *remembered* · *proposed* (the model).
+- **Runs** (`jobs/propose.ts`): `linking.propose-for-rows` after an import commits (banking's import action enqueues it), `linking.propose-nightly` at 03:30 Stockholm for every tenant's open rows (as its owner — `kernel/auth` `tenantOwners`), *Run now* on Settings → AI. A run writes nothing for a proposal still current and identical; a kind the owner **rejected** is skipped while the row's facts hash (category, partner, counterparty key, amount) is unchanged.
+- **Accept** (`acceptProposals`, one transaction): the facts of the chosen proposals (or an alternative's code) through `banking.categorise`, the proposals `accepted` + one audit row each, and `proposeRule` when no active rule fits the row (the panel's toast offers *Create rule*). A proposal no longer current is refused. **Reject** records the decision + audit. The accountant reads, never decides.
+- **Delete**: banking's `deleteImport` calls `dropProposalsFor` before deleting its rows (RESTRICT; D63 forbids the cascade).
+- **UI**: `ProposalLine` above the category form in the panel and the inbox's right pane (Accept · Reject · the alternatives; the inbox's `a` / `r`), the form's pre-fill (dashed, *Proposed — not saved yet*), the transactions list's *Proposed* column (`ProposedCode`, filterable, sortable by confidence), Settings → AI (`AiSettings`: the endpoint's state, acceptance per source over 30 / 90 days, *Run now*).
+
 ## The graph — `graph.ts`, `graph-layout.ts`, `/links/[type]/[id]` (constitution §1.2, D18)
 
 The read model (nothing stored): `neighbourhood(tx, root, {depth = 2, maxNodes = 80})` walks the `links` table breadth-first from one entity — one `linksTouching` per type on the frontier per hop — and labels every node through its module's linkable (`summary`: label, amount, currency). Each node carries `depth` and `parent` (the first node it was reached from — the tree the picture is drawn along); edges carry the kind and the allocation; an edge whose far end the node cap cut is dropped, so the picture only shows what it names. `truncated` is true when the depth or the cap stopped the walk and more exists beyond the last ring. Depth is clamped to `GRAPH_MAX_DEPTH = 3` (`?depth=`), so a busy partner never returns the whole company. Null when the root does not exist in the caller's tenant (RLS).

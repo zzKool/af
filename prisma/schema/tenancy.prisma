@@ -42,6 +42,7 @@ model Tenant {
   subscriptionPauses   SubscriptionPause[]
   documents            Document[]
   links                Link[]
+  proposals            Proposal[]
   packageBuilds        PackageBuild[]
   swissVatDeclarations SwissVatDeclaration[]
   numberSeries         NumberSeries[]

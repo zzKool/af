@@ -50,6 +50,7 @@ const KEYS: [string, string][] = [
   ["x", "linking.inbox.help.lost"],
   ["l", "linking.inbox.help.linkTo"],
   ["c", "linking.inbox.help.categorise"],
+  ["a · r", "linking.inbox.help.proposals"],
   ["u", "linking.inbox.help.undo"],
   ["?", "linking.inbox.help.help"],
 ];
@@ -101,6 +102,9 @@ export function InboxWorkbench({
   const [proofKey, setProofKey] = useState(0);
   const [noProofKey, setNoProofKey] = useState(0);
   const [lostKey, setLostKey] = useState(0);
+  // the proposals' keys (F98): a accepts the row's proposals, r rejects them
+  const [acceptKey, setAcceptKey] = useState(0);
+  const [rejectKey, setRejectKey] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [report, setReport] = useState<BulkApplyResult | null>(null);
   const undo = useRef<string[]>([]);
@@ -223,6 +227,12 @@ export function InboxWorkbench({
       } else if (e.key === "u") {
         e.preventDefault();
         void undoLast();
+      } else if (e.key === "a" && selected) {
+        e.preventDefault();
+        setAcceptKey((k) => k + 1);
+      } else if (e.key === "r" && selected) {
+        e.preventDefault();
+        setRejectKey((k) => k + 1);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -399,6 +409,8 @@ export function InboxWorkbench({
                 proofKey={proofKey}
                 noProofKey={noProofKey}
                 lostKey={lostKey}
+                acceptKey={acceptKey}
+                rejectKey={rejectKey}
                 header={(title, description) => (
                   <div>
                     <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">

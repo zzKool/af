@@ -27,7 +27,7 @@ import type {
   TransactionListRow,
   TransactionState,
 } from "@/modules/banking/types";
-import type { JustifyOptions } from "@/modules/linking/ui";
+import { type JustifyOptions, ProposedCode } from "@/modules/linking/ui";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 import type { AccountOption } from "./import-dialog";
 import { MonthsPanel } from "./months-panel";
@@ -55,6 +55,9 @@ const COLUMN_KEYS = [
   "basLabel",
   "partnerId",
   "partnerName",
+  "proposedBasCode",
+  "proposedSource",
+  "proposedConfidence",
   "note",
   "noDocumentNeeded",
   "categorisedBy",
@@ -242,6 +245,33 @@ export function TransactionTable({
         key: "partnerId",
         header: `${t("banking.col.partner")} (id)`,
         type: "enum",
+        defaultHidden: true,
+      },
+      // F98 (the owner's answer 3): the current category proposal — code + its family, filterable, sortable
+      {
+        key: "proposedBasCode",
+        header: t("banking.col.proposed"),
+        type: "enum",
+        width: "7.5rem",
+        cell: (row) =>
+          row.proposedBasCode && row.proposedConfidence !== null ? (
+            <ProposedCode
+              code={row.proposedBasCode}
+              confidence={row.proposedConfidence}
+              source={row.proposedSource}
+            />
+          ) : null,
+      },
+      {
+        key: "proposedSource",
+        header: `${t("banking.col.proposed")} (${t("banking.col.proposedSource")})`,
+        type: "enum",
+        defaultHidden: true,
+      },
+      {
+        key: "proposedConfidence",
+        header: `${t("banking.col.proposed")} (${t("banking.col.proposedConfidence")})`,
+        type: "number",
         defaultHidden: true,
       },
       {

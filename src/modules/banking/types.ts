@@ -270,6 +270,10 @@ export type TransactionListRow = {
   basLabel: string | null;
   partnerId: string | null;
   partnerName: string | null;
+  /** F98: the current category proposal (derived): code, source word, confidence 0–1 */
+  proposedBasCode: string | null;
+  proposedSource: "rule" | "partner_default" | "memory" | "model" | null;
+  proposedConfidence: number | null;
   note: string | null;
   noDocumentNeeded: boolean;
   categorisedBy: CategorisedBy | null;

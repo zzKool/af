@@ -14,6 +14,11 @@ Every difference between a laptop, the homelab and Azure is an env var (constitu
 | `AZURE_STORAGE_CONNECTION_STRING` | with `blob` | `kernel/storage` | Azurite (dev) or the storage account (Azure); on a box moving off Azurite, kept for one deploy so the migrate container can copy the documents |
 | `AZURE_STORAGE_CONTAINER` | yes | `kernel/storage`, `extractBlobPath` | `documents` — the URL's container segment for both drivers |
 | `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | OCR | `kernel/ocr` | Document Intelligence; unset = the mock OCR (a warning at start) |
+| `AI_PROVIDER` | no | `kernel/ai` | `openai-compatible` (an OpenAI-compatible server on the LAN — llama-server, Ollama) · `mock` (dev and tests, fixed invented answers) · unset = **AI off**: stage-1 proposals still run, nothing calls a model (F98, [[local-ai]]) |
+| `AI_BASE_URL` | with `openai-compatible` | `kernel/ai` | the endpoint's `/v1` base, e.g. `http://<model-host>:8080/v1` |
+| `AI_API_KEY` | no | `kernel/ai` | the server's API key (sent as a bearer token) |
+| `AI_MODEL` | with `openai-compatible` | `kernel/ai` | the model name the server reports — logged with every call |
+| `AI_TIMEOUT_MS`, `AI_CONCURRENCY` | no | `kernel/ai` | `60000` per call, `1` request at a time (a CPU box serves one) |
 | `CHROMIUM_PATH` | PDFs | `kernel/pdf` | set by the Dockerfile (`/usr/bin/chromium-browser`); locally playwright-core's Chromium |
 | `INTERNAL_BASE_URL` | no | `kernel/pdf` | where the renderer reaches the app's print routes (default `http://127.0.0.1:$PORT`) |
 | `PORT`, `HOSTNAME` | no | Next.js | `3000`, `0.0.0.0` in the image |
