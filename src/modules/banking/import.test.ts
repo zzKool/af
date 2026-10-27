@@ -293,7 +293,7 @@ describe("US1 — import a month of Nordea rows", () => {
     await run(caller, async (tx) => expect(await tx.bankImport.count()).toBe(0));
   });
 
-  it("scenario 7: a bad row is reported and the others imported", async () => {
+  it("scenario 7 (F109): a bad row refuses the whole file — every bad row named, nothing imported", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { sek } = await accounts(caller);
     const bytes = Buffer.from(
@@ -301,16 +301,23 @@ describe("US1 — import a month of Nordea rows", () => {
         "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;",
         "2026/07/08;-1 500,00;;;Something AB;;;;;SEK;",
         "2026/07/09;abc;;;Broken;;;;;SEK;",
+        "2026/13/40;10,00;;;Bad date;;;;;SEK;",
       ].join("\n"),
       "latin1",
     );
     const r = await run(caller, (tx) => importFile(tx, caller, sek, "x.csv", bytes));
-    expect(r.data?.importedCount).toBe(1);
-    expect(r.data?.errorCount).toBe(1);
-    expect(r.data?.errors).toEqual(['Row 2: invalid amount "abc"']);
+    expect(r.error?.code).toBe("VALIDATION_ERROR");
+    expect(r.error?.message).toBe(
+      '2 rows could not be read — Row 2: invalid amount "abc"; Row 3: invalid date "2026/13/40" — nothing was imported',
+    );
+    expect(r.error?.details).toEqual({
+      errors: 'Row 2: invalid amount "abc"\nRow 3: invalid date "2026/13/40"',
+      rows: 2,
+    });
     await run(caller, async (tx) => {
-      const t = await tx.bankTransaction.findFirstOrThrow();
-      expect(t.amount.toFixed(2)).toBe("-1500.00");
+      expect(await tx.bankTransaction.count()).toBe(0);
+      expect(await tx.bankImport.count()).toBe(0);
+      expect(await tx.document.count()).toBe(0); // the statement is not stored either
     });
   });
 

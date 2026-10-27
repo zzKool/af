@@ -82,6 +82,11 @@ export interface ParsedRow {
   rawFields: Record<string, string>;
 }
 
+/**
+ * The rows that parsed and, row by row, the ones that did not. A file with any error is **not importable**
+ * (F109 — audit 2026-10-27 B5): the import refuses it whole and names every bad row, so the owner fixes the
+ * export or the format once; a silently missing row would be the worst outcome for proof-per-transaction books.
+ */
 export interface ParseResult {
   rows: ParsedRow[];
   errors: string[];
@@ -90,21 +95,6 @@ export interface ParseResult {
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-}
-
-/**
- * CSV formula injection sanitization.
- * Values starting with =, +, -, @ could be interpreted as formulas
- * by spreadsheet software. We flag these but don't modify the data
- * since we're parsing (not displaying in spreadsheet context).
- */
-function isSuspiciousValue(value: string): boolean {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return false;
-  const firstChar = trimmed[0];
-  // Allow negative numbers (start with - followed by digit or comma-decimal)
-  if (firstChar === "-" && /^-[\d,.]/.test(trimmed)) return false;
-  return ["=", "+", "-", "@"].includes(firstChar);
 }
 
 /** a real calendar date in ISO form, or null */
@@ -289,18 +279,10 @@ export function parse(file: Buffer, config: BankFormatConfig): ParseResult {
       row = row.slice(0, -1);
     }
 
-    // Build raw fields from column mapping
+    // Build raw fields from column mapping (the text is stored as the bank wrote it — nothing here is a spreadsheet)
     const rawFields: Record<string, string> = {};
     for (const col of columns) {
-      const value = row[col.index] ?? "";
-      rawFields[col.field] = value;
-
-      // Check for suspicious values (formula injection)
-      if (isSuspiciousValue(value)) {
-        errors.push(
-          `Row ${i + 1}, column "${col.field}": suspicious value starting with formula character`,
-        );
-      }
+      rawFields[col.field] = row[col.index] ?? "";
     }
 
     // Extract key fields
