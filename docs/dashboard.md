@@ -114,5 +114,5 @@ dashboardOverview                  452 ms  →  281 ms   −38 %
 ## Related
 
 - [[server-actions]] — Middleware chain and RBAC patterns
-- [[hexagonal-architecture]] — Import boundary rules
+- [[constitution]] — Import boundary rules
 - [[observability]] — Request-scoped logging
