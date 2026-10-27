@@ -63,7 +63,7 @@ docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 
 `scripts/restore.sh` stops the app, restores the dump into a fresh database and swaps it in, replaces the blob volume's data, starts the app (migrations run first) and calls the health endpoint.
 
-**Monitoring**: the container's `HEALTHCHECK` is `/api/health` (database round trip, jobs state, version, uptime); `restart: unless-stopped` brings the app back after a reboot; Sentry stays **off** on the owner's box (D51 — `NEXT_PUBLIC_SENTRY_DSN` empty); the logs are JSON on stdout (`docker compose logs -f app`, `LOG_LEVEL`).
+**Monitoring**: the container's `HEALTHCHECK` is `/api/health` (database round trip, jobs state, version, uptime); `restart: unless-stopped` brings the app back after a reboot; no error-tracking service (Sentry left with F111 — D51): an unexpected error is one JSON log line with the reference the user saw (`docker compose logs app | grep <reference>`); the logs are JSON on stdout (`docker compose logs -f app`, `LOG_LEVEL`); `failedJobs` on `/api/health` says when a job died (F110).
 
 **Azure Document Intelligence** is the one cloud dependency of the homelab stack (OCR): `AZURE_DI_ENDPOINT` / `AZURE_DI_KEY` (F0 free tier, 500 pages a month). Without them every upload's OCR fails with the reason (*OCR is not configured*) — never a mock on the box (F108); the mock is `OCR_PROVIDER=mock`, for dev and tests.
 

@@ -105,10 +105,12 @@ Errors follow two paths:
 
 ```
 Middleware throws ActionError → handleServerError → serverError (AppError)
-Handler returns { error }    → data.error (AppError)
-Unhandled crash              → handleServerError → INTERNAL_ERROR
+Handler returns { error }    → data.error (AppError)  — and the transaction is ROLLED BACK (F111)
+Unhandled crash              → handleServerError → INTERNAL_ERROR (+ a reference in the log)
 Zod validation fails         → validationErrors
 ```
+
+**A returned error means nothing happened** (F111, audit 2026-10-27 D12). The tenant middleware rolls the transaction back whenever the handler's result carries an error (`returnedError` in `kernel/actions/tenant.ts`: `success: false`, or `data.error` set) and hands that same result to the client, so the shape is unchanged and no `onCommit` side effect runs. Before, a service that returned an error *after* a write committed the write unless it remembered to `throw new RollbackError(…)` — atomicity by convention at 19 sites. `RollbackError` still works (thrown → `handleServerError` → the same AppError) and stays the right tool deep inside a service; it is no longer the only guard. The transaction's timeout is explicit: `TENANT_TRANSACTION_TIMEOUT_MS` (60 s — a CSV import of years or a package build runs inside one; Prisma's default was 5 s), `maxWait` 5 s, in `kernel/db/tenant-client.ts`; jobs' `withJobContext` uses the same.
 
 ## Client Consumption Pattern
 

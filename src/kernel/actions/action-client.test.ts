@@ -12,12 +12,12 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(async () => mockHeaders),
 }));
 
-// Mock Sentry — returns a fake event ID
-const { mockCaptureException } = vi.hoisted(() => ({
-  mockCaptureException: vi.fn(() => "fake-sentry-event-id"),
+// Mock the error report — returns a fake reference (F111: a log line, no Sentry)
+const { mockReportError } = vi.hoisted(() => ({
+  mockReportError: vi.fn(() => "fake-sentry-event-id"),
 }));
-vi.mock("@sentry/nextjs", () => ({
-  captureException: mockCaptureException,
+vi.mock("@/kernel/errors/report-error", () => ({
+  reportError: mockReportError,
 }));
 
 // Spy on logger.error to verify error handler logging (the request-scoped child logs the crash once
@@ -52,7 +52,7 @@ beforeEach(async () => {
   resetRateLimit();
   mockHeaders = new Headers();
   mockLoggerError.mockClear();
-  mockCaptureException.mockClear();
+  mockReportError.mockClear();
 });
 
 afterAll(async () => {
@@ -192,7 +192,7 @@ describe("action-client integration", () => {
 
     await crashingAction({});
     expect(mockLoggerError).toHaveBeenCalledWith(
-      { err: expect.any(Error), sentryEventId: "fake-sentry-event-id", action: "crashingTest" },
+      { err: expect.any(Error), reference: "fake-sentry-event-id", action: "crashingTest" },
       "Unhandled Server Action error",
     );
   });
@@ -202,14 +202,12 @@ describe("action-client integration", () => {
     mockHeaders = owner.headers;
 
     const result = await crashingAction({});
-    expect(mockCaptureException).toHaveBeenCalledTimes(1);
-    expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error), {
-      user: { id: owner.callerIdentity.userId },
-      tags: {
-        tenantId: owner.callerIdentity.tenantId,
-        requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
-        action: "crashingTest",
-      },
+    expect(mockReportError).toHaveBeenCalledTimes(1);
+    expect(mockReportError).toHaveBeenCalledWith(expect.any(Error), {
+      userId: owner.callerIdentity.userId,
+      tenantId: owner.callerIdentity.tenantId,
+      requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      action: "crashingTest",
     });
     expect(result?.serverError?.message).toBe(
       "An unexpected error occurred. Reference: fake-sentry-event-id",
@@ -223,24 +221,24 @@ describe("action-client integration", () => {
     vi.mocked(headers).mockResolvedValueOnce(a.headers).mockResolvedValueOnce(b.headers);
     await Promise.all([crashingAction({}), crashingAction({})]);
 
-    const reported = mockCaptureException.mock.calls.map(
+    const reported = mockReportError.mock.calls.map(
       (call) =>
-        (call as unknown as [unknown, { user: { id: string }; tags: Record<string, string> }])[1],
+        (call as unknown as [unknown, { userId: string; tenantId: string; requestId: string }])[1],
     );
-    expect(reported.map((r) => [r.user.id, r.tags.tenantId]).sort()).toEqual(
+    expect(reported.map((r) => [r.userId, r.tenantId]).sort()).toEqual(
       [
         [a.callerIdentity.userId, a.callerIdentity.tenantId],
         [b.callerIdentity.userId, b.callerIdentity.tenantId],
       ].sort(),
     );
-    expect(new Set(reported.map((r) => r.tags.requestId)).size).toBe(2);
+    expect(new Set(reported.map((r) => r.requestId)).size).toBe(2);
   });
 
-  it("handleServerError does NOT call logger.error or Sentry for ActionError (business errors)", async () => {
+  it("handleServerError does NOT call logger.error or reportError for ActionError (business errors)", async () => {
     mockHeaders = new Headers(); // No cookies → UNAUTHORIZED ActionError
 
     await authedTestAction({});
     expect(mockLoggerError).not.toHaveBeenCalled();
-    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockReportError).not.toHaveBeenCalled();
   });
 });

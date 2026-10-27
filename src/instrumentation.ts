@@ -2,8 +2,6 @@
 // Composition root of the in-process job worker (D17): every module's jobs and schedules are listed here.
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("../sentry.server.config");
-
     if (process.env.NEXT_PHASE !== "phase-production-build") {
       const [
         { startJobs },
@@ -52,10 +50,16 @@ export async function register() {
       );
     }
   }
-
-  if (process.env.NEXT_RUNTIME === "edge") {
-    await import("../sentry.edge.config");
-  }
 }
 
-export const onRequestError = (await import("@sentry/nextjs")).captureRequestError;
+/** Next.js calls this for an error a route or a page threw outside a Server Action: the same log line + reference (F111). */
+export async function onRequestError(
+  error: unknown,
+  request: { path: string; method: string },
+  context: { routerKind: string; routePath: string; routeType: string },
+) {
+  // the edge runtime (the proxy) has no pino; a route error there is Next's own log line
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { reportError } = await import("@/kernel/errors/report-error");
+  reportError(error, { action: `${request.method} ${context.routePath || request.path}` });
+}

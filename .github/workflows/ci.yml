@@ -15,7 +15,6 @@ env:
   NODE_VERSION: "22"
   AUTH_SECRET: "ci-test-secret-not-for-production"
   AUTH_URL: "http://localhost:3000"
-  NEXT_PUBLIC_SENTRY_DSN: ""
 
 jobs:
   # Pull requests only: docs-only → the heavy jobs are skipped. Push to main and workflow_dispatch → always full.

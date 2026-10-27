@@ -47,7 +47,9 @@ export default defineConfig({
         url: "http://localhost:3000",
         reuseExistingServer: true,
         env: {
-          DATABASE_URL: "postgresql://af:test@localhost:5433/af_test",
+          // F111 (audit D14): the RLS-enforced role, as CI and the box — a local green proves what CI's does
+          DATABASE_URL: "postgresql://af_app:app@localhost:5433/af_test",
+          DATABASE_MIGRATION_URL: "postgresql://af:test@localhost:5433/af_test",
           // F108: the e2e upload flows wait for the mock's readings; the mock runs only when named
           OCR_PROVIDER: "mock",
         },
