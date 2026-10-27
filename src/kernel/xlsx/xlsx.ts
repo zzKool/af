@@ -27,14 +27,19 @@ export interface XlsxWorkbook {
 export const MONEY_FORMAT = "#,##0.00";
 const MONEY_STYLE = 1; // cellXfs index in styles.xml below
 
+// XML 1.0 forbids most control characters; a tab / newline / CR in a cell is kept
+const allowed = (ch: string) => {
+  const c = ch.charCodeAt(0);
+  return c >= 0x20 || c === 0x09 || c === 0x0a || c === 0x0d;
+};
 const esc = (s: string) =>
-  s
+  Array.from(s)
+    .filter(allowed)
+    .join("")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    // XML 1.0 forbids most control characters; a tab / newline / CR in a cell is kept
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+    .replace(/"/g, "&quot;");
 
 /** 0 → A, 25 → Z, 26 → AA */
 export function columnLetter(index: number): string {
