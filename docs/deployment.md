@@ -28,7 +28,14 @@ docker compose -f docker-compose.prod.yml up -d          # db → migrate (exits
 curl -s localhost:3000/api/health                        # {"status":"ok","db":"ok","jobs":"enabled","failedJobs":0,"version":"sha-…"}
 ```
 
-Then the first user: with `AUTH_SIGNUP` unset, register on `/register` (the first account becomes the owner of its tenant). **Then close the box**: `AUTH_SIGNUP=closed` in `.env.prod` and `docker compose -f docker-compose.prod.yml up -d app` — from then on `/register` is a 404, Better Auth refuses sign-ups and new organisations, and the login page shows no *create an account* (D61, F105). A second user (the accountant, F03) is added by the admin CLI when it exists (F112), never by reopening sign-up. Seed data (`prisma/seed.ts`) is for development only — never run it against production.
+Then the first user: with `AUTH_SIGNUP` unset, register on `/register` (the first account becomes the owner of its tenant). **Then close the box**: `AUTH_SIGNUP=closed` in `.env.prod` and `docker compose -f docker-compose.prod.yml up -d app` — from then on `/register` is a 404, Better Auth refuses sign-ups and new organisations, and the login page shows no *create an account* (D61, F105). A second user (the accountant, F03), a forgotten password, a role change: the admin CLI (F112), never by reopening sign-up — from a checkout on the box with `DATABASE_URL` pointing at the database (the compose does not publish the port: `docker compose -f docker-compose.prod.yml exec db …` or a temporary `ports:` line), `AUTH_SECRET` and `AUTH_URL` as in `.env.prod`:
+
+```bash
+npm run user -- create accountant@example.com "The accountant"     # prompts for the password
+npm run user -- add-member accountant@example.com member            # member = the accountant role; owner · editor
+npm run user -- set-password owner@example.com                      # signs every session of that user out
+npm run user -- list
+``` Seed data (`prisma/seed.ts`) is for development only — never run it against production.
 
 The app role's password: the migrations create `af_app` with the password `app`; the migrate container then runs `scripts/set-app-password.mjs`, which sets it to `AF_APP_PASSWORD` from `.env.prod` — so `DATABASE_URL` must carry the same value. Changing it is editing both lines and `up -d` (migrate runs again, the app restarts with the new URL).
 
