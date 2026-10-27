@@ -24,6 +24,7 @@ import {
   subscriptionDateHierarchy,
 } from "./queries";
 import * as service from "./subscriptions";
+import { toRule } from "./to-rule";
 import type { SubscriptionDetailWire } from "./types";
 
 const clock = createClock();
@@ -149,6 +150,14 @@ export const updateSubscriptionAction = ownerAction
       parsedInput.id,
       parsedInput.patch,
     ),
+  );
+
+/** *Make it a rule* (F116 PR C2): the subscription's text, account, price and cadence as one categorisation rule. */
+export const subscriptionToRuleAction = ownerAction
+  .schema(z.object({ id: uuid }))
+  .metadata({ name: "subscriptionToRule" })
+  .action(async ({ ctx, parsedInput }) =>
+    toRule(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id, clock.today()),
   );
 
 export const deleteSubscriptionAction = ownerAction

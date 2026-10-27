@@ -1,14 +1,18 @@
 // Which bank row or receipt / bill fills which period (F94 FR-007, US3-1…3, US3-7, US4-1) — pure. A match is an
 // offer, never a write: ambiguity is shown, never resolved here (nothing happens without the owner's click, D57).
 import { Prisma } from "@/generated/prisma/browser";
+import { MATCH_TOLERANCE_PCT } from "@/kernel/money/settlement";
 import { rankPartnerMatches } from "@/modules/partners";
 import type { DocumentMatch, Period, RowMatch } from "./types";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
-/** Same currency, within this many percent, found by the text: eligible for *Confirm all exact* (US3-8). */
-export const EXACT_PCT = "0.5";
+/**
+ * Same currency, within this many percent, found by the text: eligible for *Confirm all exact* (US3-8) — the one
+ * match tolerance a rule defaults to as well (F116 FR-008).
+ */
+export const EXACT_PCT = MATCH_TOLERANCE_PCT;
 /** A vendor name scoring this much (the partners' scale: contains 60, exact 80) is the subscription's vendor. */
 export const VENDOR_NAME_SCORE = 60;
 

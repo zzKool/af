@@ -42,5 +42,6 @@ export {
   updateSubscriptionSchema,
 } from "./subscriptions";
 export * from "./subscriptions.actions";
+export { ruleFromSubscription, toRule } from "./to-rule";
 export type * from "./types";
 export { ATTENTION_MARKS, BECOMES, CADENCES, PERIOD_STATES } from "./types";

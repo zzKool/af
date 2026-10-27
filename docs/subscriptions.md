@@ -32,7 +32,9 @@ links.occurrence_of    expense / supplier_invoice → subscription — one subsc
 
 ## Rules vs subscriptions
 
-They never write the same thing: a banking rule writes the bank row's **journal entry** (category, partner, *no document needed*); a subscription creates the **expense / supplier invoice** through its module. The subscriptions module never writes the journal (SC-006, tested byte for byte). Salary and Skatteverket stay rules — no document, no entity.
+They never write the same thing: a banking rule writes the bank row's facts (category, partner, *no document needed* — on the row since F113); a subscription creates the **expense / supplier invoice** through its module. The subscriptions module never writes the journal (SC-006, tested byte for byte). Salary and Skatteverket stay rules — no document, no entity.
+
+**A subscription as a rule** (F116 PR C2, D67 — the rule shape now, the module's fate at F104 on 2026-11-30): *Make it a rule* on the panel (`subscriptionToRuleAction` → `toRule`, `to-rule.ts`) writes one banking rule from the subscription — its match text (contains, every text field), partner, category, paying account, *money out*, today's price ± its tolerance (capped at 50 %; no amount condition when the price is in another currency than the account's) and its cadence (a flag, never a condition). Refused without a match text or for a privately paid one (a private instrument has no rows). The subscription stays and keeps its periods; the rule categorises its rows on every import, and the rules page's *Needs a look* shows the off-price ones. One tolerance: the matcher's *exact* (`EXACT_PCT`) and a rule's default are the kernel's `MATCH_TOLERANCE_PCT` (0.5 %); the matcher keeps its own period windows and cross-currency comparison — the part a rule does not do.
 
 ## The confirm — `confirm.ts`
 

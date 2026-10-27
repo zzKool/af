@@ -28,6 +28,7 @@ import {
   deleteSubscriptionAction,
   detachOccurrenceAction,
   getSubscriptionAction,
+  subscriptionToRuleAction,
   updateSubscriptionAction,
 } from "../subscriptions.actions";
 import type { SubscriptionDetailWire } from "../types";
@@ -60,6 +61,7 @@ export function SubscriptionPanel({
   const { executeAsync: load } = useAction(getSubscriptionAction);
   const { executeAsync: update } = useAction(updateSubscriptionAction);
   const { executeAsync: remove } = useAction(deleteSubscriptionAction);
+  const { executeAsync: toRule, isPending: makingRule } = useAction(subscriptionToRuleAction);
   const { executeAsync: detach } = useAction(detachOccurrenceAction);
   const deleteDialog = useConfirmDialog({
     title: t("subscriptions.panel.delete"),
@@ -218,6 +220,30 @@ export function SubscriptionPanel({
                     {t("subscriptions.panel.end")}
                   </Button>
                 )}
+                {/* F116 PR C2: the subscription as one categorisation rule — the one engine takes its rows */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={makingRule}
+                  data-testid="subscription-to-rule"
+                  onClick={async () => {
+                    const r = await toRule({ id: s.id });
+                    const error = extractError(r);
+                    if (error) {
+                      toast.error(error);
+                      return;
+                    }
+                    const made = r?.data && "data" in r.data ? r.data.data : null;
+                    toast.success(t("subscriptions.panel.ruleMade", { name: made?.name ?? "" }), {
+                      action: {
+                        label: t("subscriptions.panel.openRules"),
+                        onClick: () => router.push("/banking/rules"),
+                      },
+                    });
+                  }}
+                >
+                  {t("subscriptions.panel.makeRule")}
+                </Button>
                 <Button
                   size="sm"
                   variant="destructive"

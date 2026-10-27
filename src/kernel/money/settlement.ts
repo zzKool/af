@@ -138,3 +138,9 @@ export function sliceBase(
   if (rowAmount.isZero()) return new Prisma.Decimal(0);
   return rowBase.mul(slice).div(rowAmount).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 }
+
+/**
+ * The one tolerance for "this amount is the expected one" (F116 FR-008, D67): a rule's default `tolerance_pct` and
+ * the subscriptions matcher's *exact* share it — percent of the expected amount.
+ */
+export const MATCH_TOLERANCE_PCT = "0.5";

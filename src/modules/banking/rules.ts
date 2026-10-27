@@ -11,6 +11,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { MATCH_TOLERANCE_PCT } from "@/kernel/money/settlement";
 import { basCode, uuid } from "@/kernel/validation/scalars";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
@@ -157,7 +158,9 @@ export function conditionMiss(
     if (rule.sign === "out" && amount.gte(0)) return "sign";
     if (rule.expectedAmount != null && String(rule.expectedAmount) !== "") {
       const expected = new D(String(rule.expectedAmount));
-      const tolerance = expected.mul(new D(String(rule.tolerancePct ?? "0.5"))).div(100);
+      const tolerance = expected
+        .mul(new D(String(rule.tolerancePct ?? MATCH_TOLERANCE_PCT)))
+        .div(100);
       if (amount.abs().minus(expected).abs().gt(tolerance)) return "amount";
     }
   }
@@ -252,7 +255,7 @@ export const ruleInputSchema = z
       .trim()
       .regex(/^\d+(\.\d{1,2})?$/, "A percentage like 0.5")
       .refine((v) => Number(v) <= 50, "At most 50 %")
-      .default("0.5"),
+      .default(MATCH_TOLERANCE_PCT),
     cadence: z.enum(RULE_CADENCES as [RuleCadence, ...RuleCadence[]]).default("none"),
     priority: z.number().int().min(0).max(999).default(100),
     isActive: z.boolean().default(true),
