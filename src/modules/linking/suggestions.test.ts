@@ -191,7 +191,7 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
     ]);
   });
 
-  it("an SEK row for a CHF invoice is a cross-currency lead with no allocation; it is never applied", async () => {
+  it("an SEK row for a CHF invoice applies on a click (F116 FR-005, D60): the CHF allocation, the row's SEK on the link; Apply HIGH leaves it to the owner", async () => {
     const { invoice } = await issuedInvoice(owner.caller);
     const [sekRow] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
@@ -208,17 +208,127 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
     expect(s).toMatchObject({ crossCurrency: true, allocation: null, reference: true });
     expect(s?.reasons).toContain("Cross-currency match (CHF→SEK at ECB)");
     expect(s?.reasons).toContain("Currency differs but reference matches");
+    // the one-key bulk apply never decides a currency: a click does
+    const bulk = await run(owner.caller, (tx) =>
+      bulkApplyHigh(tx, owner.caller, noopAudit, [sekRow as string]),
+    );
+    expect(bulk.skipped[0]?.reason).toBe("CURRENCY_MISMATCH");
     const apply = await run(owner.caller, (tx) =>
       applySuggestion(tx, owner.caller, realAudit(tx, owner.caller), {
         bankTransactionId: sekRow as string,
         to: { type: "invoice", id: invoice.id },
       }),
     );
-    expect(apply.error?.message).toMatch(/paid in its own currency/);
-    const bulk = await run(owner.caller, (tx) =>
-      bulkApplyHigh(tx, owner.caller, noopAudit, [sekRow as string]),
+    expect(apply.error).toBeUndefined();
+    expect(apply.data).toMatchObject({
+      allocatedAmount: "25000.00",
+      currency: "CHF",
+      allocatedBase: "268750.00",
+    });
+  });
+
+  it("a EUR receipt on the SEK card: a base from the ECB for the comparison, applied with the row's SEK (audit B6)", async () => {
+    const documentId = await run(owner.caller, async (tx) => {
+      const doc = await tx.document.create({
+        data: {
+          tenantId: owner.caller.tenantId,
+          businessKey: "Up26-03-0009",
+          fileName: "tabular-receipt.pdf",
+          blobUrl: "https://blob.test/t",
+          mimeType: "application/pdf",
+          fileSize: 10,
+          prefixType: "expense",
+          documentType: "financial",
+          status: "extracted",
+          ocrData: {
+            extractedData: {
+              vendorName: "Tabular Editor ApS",
+              invoiceTotal: 11.2,
+              currency: "EUR",
+              invoiceDate: "2026-03-12",
+              confidence: 0.9,
+              modelUsed: "test",
+              pageCount: 1,
+              processingTimeMs: 1,
+            },
+          },
+          createdBy: owner.caller.userId,
+        },
+      });
+      return doc.id;
+    });
+    const [card] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-12", amount: "-120.00", details: "Kortköp 260311 TABULAR EDITOR APS" },
+      ]),
     );
-    expect(bulk.skipped[0]?.reason).toBe("CURRENCY_MISMATCH");
+    const r = await run(owner.caller, (tx) => suggestionsForTransaction(tx, card as string));
+    const top = r.data?.suggestions[0];
+    // 11.20 EUR at 10.75 = 120.40 SEK against the row's 120.00: very close, by the name token
+    expect(top).toMatchObject({
+      candidate: { type: "document", id: documentId },
+      crossCurrency: true,
+    });
+    expect(top?.reasons).toEqual([
+      "Partner name match",
+      "Very close amount match",
+      "Cross-currency match (EUR→SEK at ECB)",
+      "Same date",
+      "Currency differs but reference matches",
+    ]);
+    const link = await run(owner.caller, (tx) =>
+      applySuggestion(tx, owner.caller, noopAudit, {
+        bankTransactionId: card as string,
+        to: { type: "document", id: documentId },
+      }),
+    );
+    expect(link.data).toMatchObject({
+      allocatedAmount: "11.20",
+      currency: "EUR",
+      allocatedBase: "120.00",
+    });
+  });
+
+  it("an incoming refund finds the vendor's credit note (F116 FR-006)", async () => {
+    const documentId = await run(owner.caller, async (tx) => {
+      const doc = await tx.document.create({
+        data: {
+          tenantId: owner.caller.tenantId,
+          businessKey: "Up26-03-0010",
+          fileName: "byteform-credit-note.pdf",
+          blobUrl: "https://blob.test/c",
+          mimeType: "application/pdf",
+          fileSize: 10,
+          prefixType: "expense",
+          documentType: "financial",
+          status: "extracted",
+          ocrData: {
+            extractedData: {
+              vendorName: "Byteform AB",
+              invoiceTotal: -250,
+              currency: "SEK",
+              invoiceDate: "2026-03-12",
+              confidence: 0.9,
+              modelUsed: "test",
+              pageCount: 1,
+              processingTimeMs: 1,
+            },
+          },
+          createdBy: owner.caller.userId,
+        },
+      });
+      return doc.id;
+    });
+    const [refund] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-13", amount: "250.00", name: "BYTEFORM AB", message: "refund" },
+      ]),
+    );
+    const r = await run(owner.caller, (tx) => suggestionsForTransaction(tx, refund as string));
+    expect(r.data?.suggestions[0]).toMatchObject({
+      candidate: { type: "document", id: documentId, direction: "incoming", amount: "250.00" },
+      allocation: "250.00",
+    });
   });
 
   it("an outgoing row finds the company-paid expense and the receipt document, not the client invoice", async () => {
@@ -310,6 +420,7 @@ describe("a receipt whose currency was not read (F61-b)", () => {
             extractedData: {
               merchantName: "Migros",
               invoiceTotal: 45.9,
+              invoiceNumber: "R-88213",
               transactionDate: "2026-03-12",
               confidence: 0.9,
               modelUsed: "prebuilt-receipt",
@@ -361,7 +472,8 @@ describe("a receipt whose currency was not read (F61-b)", () => {
     const [row, other] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
         { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS NEUCHATEL" },
-        { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS NEUCHATEL" },
+        // its receipt number in the text: HIGH on true claims (number, name, date) — still not bulk-applied
+        { date: "2026-03-12", amount: "-45.90", details: "Kortköp 260311 MIGROS R-88213" },
       ]),
     );
     const bulk = await run(owner.caller, (tx) =>

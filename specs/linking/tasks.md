@@ -42,8 +42,8 @@
 ## Part 7 — one engine with memory (F116, `specs/linking/one-engine.md`)
 
 - [x] T020 The spec: the five-line rule, the seven cases, US1–US6, FR-001–FR-010, SC-001–005, the owner's four questions (docs PR, 2026-10-27).
-- [ ] T021 PR A `feat/linking-engine-window` — FR-001–FR-004, FR-009 (scorer, finder, memory), FR-010. Answered (D67) — in progress.
-- [ ] T022 PR B `feat/linking-engine-fx` — FR-005, FR-006. After F114 PR 1 merges.
+- [x] T021 PR A `feat/linking-engine-window` #326 (merged 2026-10-27) — FR-001–FR-004, FR-009 (scorer, finder, inbox, memory, `window.pure.test.ts`, the DB cases in `suggestions.test.ts`), FR-010 (`docs/linking.md`); the Justify panel proposes the remembered partner (`counterpartyMemoryAction`).
+- [x] T022 PR B `feat/linking-engine-fx` #327 (merged 2026-10-27) — FR-005 (`crossAllocation`, `withForeignBases`; Apply HIGH still leaves a currency to a click), FR-006 (negative-total documents are incoming proofs); `cross-allocation.pure.test.ts`, the cross / EUR-receipt / refund cases in `suggestions.test.ts`.
 - [x] T023 PR C1 `feat/banking-rules-engine` (built 2026-10-28) — FR-007: the migration (`20261028090000_rule_conditions`), `conditionMiss` / `firstNearMiss` / `offCadence` / `ruleNearMisses`, the dialog's *Only when…*, the rules page's *Needs a look*; `rule-conditions.pure.test.ts`, the DB case in `rules.test.ts`.
 - [ ] T024 PR C2 `feat/subscriptions-as-rules` — FR-008: `subscriptions.toRule`, the matcher on `banking.conditionMiss` (one tolerance), *Make it a rule*.
 

@@ -52,7 +52,10 @@ function resolved(r: Row): Partial<OcrExtractedData> {
 export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
   const d = resolved(r);
   const total = amountText(d.invoiceTotal);
-  const amount = total !== null && Number(total) > 0 ? total : "0.00";
+  // a negative total is a credit note — money coming back: an incoming row's proof (F116 FR-006, D67)
+  const credit = total !== null && Number(total) < 0;
+  const amount =
+    total !== null && Number(total) !== 0 ? (credit ? total.replace(/^-/, "") : total) : "0.00";
   const currency = knownCurrency(d.currency);
   const vendor = d.vendorName || d.merchantName || null;
   return {
@@ -67,7 +70,7 @@ export function documentFacts(r: Row): Omit<EntityFacts, "remaining"> {
     partnerName: vendor,
     texts: [r.businessKey, r.fileName, vendor ?? "", d.invoiceNumber ?? ""],
     keywords: (vendor ?? "").split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4),
-    direction: "outgoing",
+    direction: credit ? "incoming" : "outgoing",
   };
 }
 
@@ -128,7 +131,6 @@ export const documentLinkable: Linkable = {
   },
   /** Financial uploads with an OCR amount, dated inside the window, that became nothing and justify nothing. */
   async candidates(tx: TransactionClient, q: CandidateQuery) {
-    if (q.direction !== "outgoing") return [];
     const rows = await tx.document.findMany({
       where: { documentType: "financial", status: { notIn: ["generated", "processing"] } },
       select: ROW_SELECT,
@@ -142,7 +144,13 @@ export const documentLinkable: Linkable = {
     return rows
       .filter((r) => free.has(r.id))
       .map(documentFacts)
-      .filter((f) => f.amount !== "0.00" && f.date >= q.dateFrom && f.date <= q.dateTo)
+      .filter(
+        (f) =>
+          f.direction === q.direction &&
+          f.amount !== "0.00" &&
+          f.date >= q.dateFrom &&
+          f.date <= q.dateTo,
+      )
       .slice(0, q.limit);
   },
   async search(tx: TransactionClient, q: string, limit: number) {

@@ -287,9 +287,11 @@ export function scoreMatch(
 
   // 2b. a word of the entity's own description in the row's text (`OPENAI *CHATGPT` ↔ "OpenAI subscription") —
   //     a hint, never a reference
+  // a word of the partner's name already counted as the name is not counted again as a keyword (one fact, one claim)
+  const nameWords = nameHit ? new Set(words(entity.partnerName ?? "")) : new Set<string>();
   const keywords = (entity.keywords ?? [])
     .map(normalise)
-    .filter((k) => k.length >= 4 && !GENERIC_WORDS.has(k));
+    .filter((k) => k.length >= 4 && !GENERIC_WORDS.has(k) && !nameWords.has(k));
   if (keywords.some((k) => haystack.includes(k))) {
     score += WEIGHTS.keyword;
     reasons.push("Description keyword match");

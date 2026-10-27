@@ -8,6 +8,7 @@ import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { settlementTolerance } from "@/kernel/money/settlement";
+import * as rates from "@/modules/rates";
 import { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 import { getLinkable, listLinkableTypes } from "./linkable";
 import { createLink } from "./linking";
@@ -15,6 +16,7 @@ import { memoryForKeys, rememberedPartners } from "./memory";
 import { rowRemaining, rowUsage } from "./queries";
 import {
   AMBIGUITY_GAP,
+  CROSS_CURRENCY_TOLERANCE,
   type Memory,
   proposedAllocation,
   type RowFacts,
@@ -39,7 +41,8 @@ type Dec = InstanceType<typeof Prisma.Decimal>;
 
 /** Entity types a bank row of each direction can justify (the kinds matrix narrows it further). */
 export const JUSTIFIABLE: Record<FlowDirection, readonly LinkableType[]> = {
-  incoming: ["invoice"],
+  // an incoming row: a client paying an invoice, or a vendor refunding — its credit note is the proof (F116 FR-006)
+  incoming: ["invoice", "document"],
   outgoing: ["supplier_invoice", "expense", "invoice", "document"],
 };
 export const CANDIDATES_PER_TYPE = 50;
@@ -75,6 +78,41 @@ async function allocatedOnto(
   });
   for (const r of rows) {
     out.set(r.toId, (out.get(r.toId) ?? new D(0)).plus(r.allocatedAmount as Dec));
+  }
+  return out;
+}
+
+/**
+ * A candidate in another currency that carries no base (a receipt — OCR read an amount and a currency, nothing
+ * converted it) gets one for the comparison (F116, audit B6): its amount at the ECB rate of its date into the row's
+ * currency, then at the row's own rate into base. Nothing is stored; no base-currency code is needed.
+ */
+export async function withForeignBases<T extends Omit<EntityFacts, "remaining">>(
+  tx: TransactionClient,
+  row: { amount: string; currency: string | null; amountBase: string | null },
+  candidates: readonly T[],
+): Promise<T[]> {
+  if (!row.currency || !row.amountBase || new D(row.amount).isZero()) return [...candidates];
+  const rowRate = new D(row.amountBase).abs().div(new D(row.amount).abs());
+  const cache = new Map<string, Dec | null>();
+  const out: T[] = [];
+  for (const c of candidates) {
+    if (
+      c.amountBase !== null ||
+      !c.currency ||
+      c.currency === row.currency ||
+      new D(c.amount).lte(0)
+    ) {
+      out.push(c);
+      continue;
+    }
+    const k = `${c.date}|${c.currency}|${row.currency}`;
+    if (!cache.has(k)) {
+      const r = await rates.rateToBase(tx, c.date, c.currency, row.currency);
+      cache.set(k, r ? new D(r.rate) : null);
+    }
+    const rate = cache.get(k);
+    out.push(rate ? { ...c, amountBase: new D(c.amount).mul(rate).mul(rowRate).toFixed(2) } : c);
   }
   return out;
 }
@@ -219,9 +257,9 @@ export async function suggestionsForTransaction(
     if (!linkable?.candidates || !isKindAllowed("justifies", "bank_transaction", type)) continue;
     raw.push(...(await linkable.candidates(tx, query)));
   }
-  const candidates = (await withRemaining(tx, "to", dedupe(raw))).filter((c) =>
-    belongs(rowEntity.date, tokens, memory, c),
-  );
+  const candidates = (
+    await withRemaining(tx, "to", await withForeignBases(tx, rowEntity, dedupe(raw)))
+  ).filter((c) => belongs(rowEntity.date, tokens, memory, c));
   const scored = candidates
     .map((c) => toSuggestion(row, rowEntity.remaining, c, memory))
     .filter((s): s is Suggestion => s !== null);
@@ -305,9 +343,9 @@ export type ApplyInput = {
 };
 
 /**
- * Apply one suggestion (FR-004): the `justifies` link with the allocation in the target's currency. Supplier
- * invoices and expenses are refused by `createLink` in any currency — their own panel writes the payment with its
- * paid amount and base (D37, F58; D-g / D26); a client invoice is never paid in another currency (B9).
+ * Apply one suggestion (FR-004): the `justifies` link with the allocation in the target's currency — in another
+ * currency too (F116 FR-005, D60: `crossAllocation`, the row's base on the link). Supplier invoices and expenses are
+ * refused by `createLink` in any currency — their own panel writes the payment (D37, F58).
  */
 export async function applySuggestion(
   tx: TransactionClient,
@@ -334,15 +372,20 @@ export async function applySuggestion(
     });
   }
   if (target.currency !== facts.currency) {
-    return {
-      error: violation(
-        `${target.label} is in ${target.currency}, the bank row in ${facts.currency} — ${
-          input.to.type === "invoice"
-            ? "a client invoice is paid in its own currency"
-            : "attach the bank row from the entity's panel instead"
-        }`,
-      ),
-    };
+    // F116 FR-005, D60: a cross-currency pair applies like any other — the allocation in the entity's currency,
+    // what the row gave in base on the link, the FX difference derived
+    const [based] = await withForeignBases(tx, facts, [target]);
+    const cross = crossAllocation(facts, based ?? target, input.allocatedAmount ?? null);
+    if ("error" in cross) return { error: violation(cross.error) };
+    return createLink(tx, caller, audit, {
+      from: { type: "bank_transaction", id: input.bankTransactionId },
+      to: input.to,
+      kind: "justifies",
+      allocatedAmount: cross.amount,
+      currency: target.currency,
+      allocatedBase: cross.base,
+      note: input.note ?? null,
+    });
   }
   const proposed = D.min(new D(facts.remaining), new D(target.remaining));
   const allocation = input.allocatedAmount ? new D(input.allocatedAmount) : proposed;
@@ -363,6 +406,50 @@ export async function applySuggestion(
     currency: target.currency,
     note: input.note ?? null,
   });
+}
+
+/** Within this share of the entity's open base, the row pays it whole (the card's FX margin, D67's 6 %). */
+const CROSS_WHOLE = new D(CROSS_CURRENCY_TOLERANCE);
+
+/**
+ * What a row in one currency allocates onto an entity in another (pure): the entity's open amount when the row's
+ * remaining base covers its open base within 6 % — the row's whole remaining base on the link, or only the entity's
+ * open base when the row is larger still (it pays something else too); else the share the row's base buys, and the
+ * row's base all of it. A typed amount is taken as is; the base then follows the share.
+ */
+export function crossAllocation(
+  row: Pick<EntityFacts, "amount" | "amountBase" | "remaining" | "label">,
+  entity: Pick<EntityFacts, "amount" | "amountBase" | "remaining" | "label" | "currency">,
+  typed: string | null,
+): { amount: string; base: string } | { error: string } {
+  if (!row.amountBase || !entity.amountBase || new D(entity.amount).lte(0)) {
+    return { error: `${entity.label}: no rate to compare ${entity.currency} with the bank row` };
+  }
+  const rowBase = new D(row.amountBase)
+    .abs()
+    .mul(new D(row.remaining))
+    .div(new D(row.amount).abs());
+  const openBase = new D(entity.amountBase)
+    .abs()
+    .mul(new D(entity.remaining))
+    .div(new D(entity.amount));
+  const open = new D(entity.remaining);
+  if (rowBase.lte(0)) return { error: `${row.label} has nothing left to allocate` };
+  if (open.lte(0) || openBase.lte(0)) return { error: `${entity.label} has nothing left open` };
+  if (typed) {
+    const amount = new D(typed);
+    const base = D.min(rowBase, openBase.mul(amount).div(open));
+    return { amount: amount.toFixed(2), base: base.toFixed(2) };
+  }
+  const share = rowBase.div(openBase);
+  if (share.gte(new D(1).minus(CROSS_WHOLE))) {
+    const base = share.gt(new D(1).plus(CROSS_WHOLE)) ? openBase : rowBase;
+    return { amount: open.toFixed(2), base: base.toFixed(2) };
+  }
+  return {
+    amount: open.mul(share).toDecimalPlaces(2, D.ROUND_HALF_UP).toFixed(2),
+    base: rowBase.toFixed(2),
+  };
 }
 
 /** Apply the top HIGH candidate of each row, with the skip reasons of harvest R18 (US3). */
