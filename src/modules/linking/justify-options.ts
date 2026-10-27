@@ -1,5 +1,5 @@
 // The option lists the Justify panel's card needs (F97): the expense groups, the expense categories (the ones with
-// a short code — a key needs one), the payment sources and the partners — read through the owning modules'
+// a short code — a key needs one) and the partners — read through the owning modules'
 // indices, composed here for the pages (`justifyOptions`). Server-only.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
@@ -16,9 +16,6 @@ export async function justifyOptions(tx: TransactionClient, caller: CallerIdenti
   return {
     groups: page.groups.map((g) => ({ id: g.id, label: `${g.number} — ${g.description}` })),
     categories: page.categories,
-    sources: page.sources
-      .filter((s) => s.isActive)
-      .map((s) => ({ id: s.id, label: s.label, kind: s.kind, bankAccountId: s.bankAccountId })),
     partners,
   };
 }

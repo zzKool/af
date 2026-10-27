@@ -11,8 +11,8 @@ const MATRIX: Record<LinkKind, Pair> = {
   },
   // two own-account transactions justify each other (CHANGE CHFSEK)
   transfer: { from: ["bank_transaction"], to: ["bank_transaction"] },
-  // a refund transaction settles an owner reimbursement
-  settles: { from: ["bank_transaction"], to: ["settlement"] },
+  // a refund transaction reimburses a private expense of the owner (F114: the settlement is the statement over these)
+  settles: { from: ["bank_transaction"], to: ["expense"] },
   // a document belongs to a partner or a contract (NDA, contract PDF, supplier invoice scan …)
   belongs_to: {
     from: ["document", "invoice", "supplier_invoice", "expense"],

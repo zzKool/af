@@ -181,24 +181,25 @@ describe("justifyRow (US1)", () => {
           basCode: "580",
           amount: "45.00",
           currency: "CHF",
-          paymentSourceId: owner.sources.afSek.id,
         },
       }),
     );
     expect(r.error).toBeUndefined();
     await run(caller, async (tx) => {
       const e = await expenses.getExpenseDetail(tx, r.data?.entity.id as string);
+      // F114: the receipt keeps its own base; the row's SEK sits on the link; the payer is the row's account
       expect(e.data?.expense).toMatchObject({
-        paidAmount: "523.17",
-        paidCurrency: "SEK",
-        amountBase: "523.17",
-        rateSource: "bank",
+        amount: "45.00",
+        currency: "CHF",
         documentMissing: false,
+        paidFromAccountId: owner.accounts.sek,
       });
+      expect(e.data?.expense.rateSource).not.toBe("bank");
+      expect(e.data).toMatchObject({ status: "paid", allocated: "45.00", allocatedBase: "523.17" });
       const links = await getLinksFor(tx, { type: "bank_transaction", id: cardRow as string });
-      expect(links.data?.map((l) => [l.kind, l.allocatedAmount, l.currency])).toEqual([
-        ["justifies", "523.17", "SEK"],
-      ]);
+      expect(
+        links.data?.map((l) => [l.kind, l.allocatedAmount, l.currency, l.allocatedBase]),
+      ).toEqual([["justifies", "45.00", "CHF", "523.17"]]);
     });
 
     // the receipt lost: no document, the flag on the entity
@@ -213,7 +214,6 @@ describe("justifyRow (US1)", () => {
           basCode: "580",
           amount: "1297.20",
           currency: "SEK",
-          paymentSourceId: owner.sources.afSek.id,
         },
       }),
     );
@@ -298,7 +298,6 @@ describe("justifyRow (US1)", () => {
           basCode: "580",
           amount: "1.00",
           currency: "SEK",
-          paymentSourceId: owner.sources.afSek.id,
         },
       }),
     );

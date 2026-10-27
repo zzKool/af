@@ -68,7 +68,7 @@ export async function resolveSheetContext(
     },
     bank: bank
       ? {
-          bankName: bank.bankFormat.bankName,
+          bankName: bank.bankFormat?.bankName ?? "",
           accountHolder: profile.data?.name ?? null,
           iban: bank.iban,
           bic: bank.bic,

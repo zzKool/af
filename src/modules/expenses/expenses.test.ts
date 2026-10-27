@@ -13,6 +13,7 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { ListQuery } from "@/kernel/list-query/types";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as linking from "@/modules/linking";
 import {
@@ -27,15 +28,14 @@ import {
 } from "./__fixtures__/harness";
 import { findExpenseDuplicates } from "./duplicates";
 import {
-  attachBankTransaction,
   createExpense,
   deleteExpense,
-  detachBankTransaction,
   isExpenseOpen,
+  payExpense,
+  unpayExpense,
   updateExpense,
 } from "./expenses";
 import { createGroup, deleteGroup } from "./groups";
-import { createPaymentSource, setPaymentSourceActive } from "./payment-sources";
 import {
   candidateDocuments,
   distinctExpenseValues,
@@ -96,54 +96,48 @@ const fixtureInput = (groupId: string, e: Fx) => ({
   basCode: e.alias === "Tr" ? "580" : "583",
   amount: e.amount.toFixed(2),
   currency: e.currency as "CHF",
-  paymentSourceId: owner.sources.privateCh.id,
+  paidFromAccountId: owner.sources.privateCh.id,
 });
 
-describe("US2 — the four ways to pay", () => {
-  it("the defaults: AF SEK / AF CHF on the main accounts, Private SE / Private CH", () => {
+describe("US2 — the four ways to pay (F114: bank accounts, main or owner_private)", () => {
+  it("the payers: the two main accounts and Private SE / Private CH; never a savings account", async () => {
     expect(owner.sources.afSek).toMatchObject({
       kind: "bank_account",
       currency: "SEK",
-      bankAccountId: owner.accounts.sek,
+      id: owner.accounts.sek,
     });
     expect(owner.sources.afChf).toMatchObject({ kind: "bank_account", currency: "CHF" });
-    expect(owner.sources.privateSe).toMatchObject({
-      kind: "private",
-      currency: "SEK",
-      bankAccountId: null,
-    });
+    expect(owner.sources.privateSe).toMatchObject({ kind: "private", currency: "SEK" });
     expect(owner.sources.privateCh).toMatchObject({ kind: "private", currency: "CHF" });
+    await run(owner.caller, async (tx) => {
+      expect((await banking.payerAccounts(tx)).map((p) => p.label).sort()).toEqual(
+        ["Plusgirokonto CHF", "Plusgirokonto SEK", "Private CH", "Private SE"].sort(),
+      );
+      expect(await banking.payerAccount(tx, owner.accounts.sav)).toBeNull();
+    });
   });
 
-  it("a source is validated (account currency, unique label) and deactivated, never deleted", async () => {
+  it("a private instrument is unique per name and currency; a savings account never pays", async () => {
     await run(owner.caller, async (tx) => {
-      const wrong = await createPaymentSource(tx, owner.caller, noopAudit, {
-        label: "AF EUR",
-        kind: "bank_account",
-        bankAccountId: owner.accounts.sek,
-        currency: "EUR",
-      });
-      expect(wrong.error?.message).toMatch(/is in SEK, not EUR/);
-      const dup = await createPaymentSource(tx, owner.caller, noopAudit, {
-        label: "Private SE",
-        kind: "private",
+      const dup = await banking.createPrivateAccount(tx, owner.caller, noopAudit, {
+        alias: "Private SE",
         currency: "SEK",
       });
       expect(dup.error?.code).toBe("DUPLICATE_ENTRY");
-      const off = await setPaymentSourceActive(
-        tx,
-        owner.caller,
-        noopAudit,
-        owner.sources.privateCh.id,
-        false,
-      );
-      expect(off.data?.isActive).toBe(false);
+      const eur = await banking.createPrivateAccount(tx, owner.caller, noopAudit, {
+        alias: "Private EUR",
+        currency: "EUR",
+      });
+      expect(eur.data).toMatchObject({ kind: "private", currency: "EUR", label: "Private EUR" });
     });
     const g = await group213();
     const r = await run(owner.caller, (tx) =>
-      createExpense(tx, owner.caller, noopAudit, fixtureInput(g.id, FIXTURE.expenses[0])),
+      createExpense(tx, owner.caller, noopAudit, {
+        ...fixtureInput(g.id, FIXTURE.expenses[0]),
+        paidFromAccountId: owner.accounts.sav,
+      }),
     );
-    expect(r.error?.message).toMatch(/Private CH is inactive/);
+    expect(r.error?.message).toMatch(/Payer account/);
   });
 });
 
@@ -171,7 +165,6 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       expect(e.rate).toBe(String(fx.rate));
       expect(e.rateSource).toBe("ecb_daily");
       expect(e.rateDate).toBe(fx.date);
-      expect(e.baseProvisional).toBe(false);
       expect(e.kind).toBe("receipt");
     }
     await assertAuditLogged(adminPool, owner.caller.tenantId, "create", "expense", created[0].id);
@@ -208,7 +201,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         ...fixtureInput(g.id, FIXTURE.expenses[0]),
         currency: "SEK",
         amount: "123.45",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       });
       expect(sek.data).toMatchObject({
         rate: "1",
@@ -256,44 +249,46 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
-    expect(e.data).toMatchObject({
-      baseProvisional: true,
-      amountBase: "483.75",
-      rateSource: "ecb_daily",
-    });
+    expect(e.data).toMatchObject({ amountBase: "483.75", rateSource: "ecb_daily" });
 
-    // the SEK card row: -523.17 SEK on 2026-03-12 (a 45 CHF receipt at the card's rate)
+    // the SEK card row: -523.17 SEK on 2026-03-12 (a 45 CHF receipt at the card's rate). F114: the receipt keeps
+    // its ECB base; the link says 45.00 CHF · base 523.17; the difference (the card's margin) is derived
     const [rowId] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
         { date: "2026-03-12", amount: "-523.17", details: "Kortköp 260310 OPENAI *CHATGPT SUBS" },
       ]),
     );
     const attached = await run(owner.caller, (tx) =>
-      attachBankTransaction(tx, owner.caller, realAudit(tx, owner.caller), {
+      payExpense(tx, owner.caller, realAudit(tx, owner.caller), {
         expenseId: e.data!.id,
         bankTransactionId: rowId,
       }),
     );
     expect(attached.error).toBeUndefined();
     expect(attached.data).toMatchObject({
-      paidAmount: "523.17",
-      paidCurrency: "SEK",
-      amountBase: "523.17",
-      rate: "1",
-      rateSource: "bank",
-      baseProvisional: false,
+      amountBase: "483.75",
+      rateSource: "ecb_daily",
       amount: "45.00",
       currency: "CHF",
+      allocated: "45.00",
+      allocatedBase: "523.17",
     });
     await run(owner.caller, async (tx) => {
       const detail = await getExpenseDetail(tx, e.data!.id);
       expect(detail.data?.status).toBe("paid");
-      expect(detail.data?.links.map((l) => [l.kind, l.allocatedAmount, l.currency])).toEqual([
-        ["justifies", "523.17", "SEK"],
-      ]);
+      expect(
+        detail.data?.links.map((l) => [l.kind, l.allocatedAmount, l.currency, l.allocatedBase]),
+      ).toEqual([["justifies", "45.00", "CHF", "523.17"]]);
+      expect(detail.data).toMatchObject({
+        allocated: "45.00",
+        open: "0.00",
+        allocatedBase: "523.17",
+        fxDifference: "39.42",
+      });
+      expect(detail.data?.payments).toHaveLength(1);
       // what the panel's action returns: the same detail, its timestamps as ISO strings (lessons audit 29)
       if (detail.data) {
         const view = toExpenseDetailView(detail.data);
@@ -317,22 +312,20 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "583",
       });
       expect(facts.data?.note).toBe("ok");
-      const again = await attachBankTransaction(tx, owner.caller, noopAudit, {
+      const again = await payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
         bankTransactionId: rowId,
       });
-      expect(again.error?.message).toMatch(/already has its bank row/);
+      expect(again.error?.message).toMatch(/already paid in full/);
     });
-    // detach restores the estimate
+    // the payment removed: the link goes, nothing on the expense moved
     const detached = await run(owner.caller, (tx) =>
-      detachBankTransaction(tx, owner.caller, noopAudit, e.data!.id),
+      unpayExpense(tx, owner.caller, noopAudit, {
+        expenseId: e.data!.id,
+        linkId: attached.data!.linkId,
+      }),
     );
-    expect(detached.data).toMatchObject({
-      paidAmount: null,
-      amountBase: "483.75",
-      baseProvisional: true,
-      rateSource: "ecb_daily",
-    });
+    expect(detached.data).toMatchObject({ amountBase: "483.75", rateSource: "ecb_daily" });
     await run(owner.caller, async (tx) => {
       expect((await getExpenseDetail(tx, e.data!.id)).data?.status).toBe("awaiting_link");
       // refusals: a private expense, an incoming row, a row on another account
@@ -342,7 +335,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         noopAudit,
         fixtureInput(g.id, FIXTURE.expenses[0]),
       );
-      const wrong = await attachBankTransaction(tx, owner.caller, noopAudit, {
+      const wrong = await payExpense(tx, owner.caller, noopAudit, {
         expenseId: priv.data!.id,
         bankTransactionId: rowId,
       });
@@ -350,7 +343,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       const [inRow] = await importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
         { date: "2026-03-12", amount: "100.00", name: "Client" },
       ]);
-      const incoming = await attachBankTransaction(tx, owner.caller, noopAudit, {
+      const incoming = await payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
         bankTransactionId: inRow,
       });
@@ -358,11 +351,101 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       const [chfRow] = await importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
         { date: "2026-03-12", amount: "-45.00", name: "OpenAI" },
       ]);
-      const other = await attachBankTransaction(tx, owner.caller, noopAudit, {
+      const other = await payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
         bankTransactionId: chfRow,
       });
-      expect(other.error?.message).toMatch(/paid from AF SEK, the row is on Plusgirokonto CHF/);
+      expect(other.error?.message).toMatch(
+        /paid from Plusgirokonto SEK, the row is on Plusgirokonto CHF/,
+      );
+    });
+  });
+
+  it("a deposit and a balance, two receipts on one card row (F114, D60) — Σ links, one tolerance", async () => {
+    const g = await group213();
+    const make = (description: string, amount: string) =>
+      run(owner.caller, (tx) =>
+        createExpense(tx, owner.caller, noopAudit, {
+          groupId: g.id,
+          date: "2026-03-10",
+          description,
+          basCode: "580",
+          amount,
+          currency: "SEK",
+          paidFromAccountId: owner.sources.afSek.id,
+        }),
+      );
+    const big = await make("Conference ticket", "12000.00");
+    const [deposit, balance, card] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-10", amount: "-4000.00", name: "CONFERENCE DEPOSIT" },
+        { date: "2026-03-20", amount: "-8000.00", name: "CONFERENCE BALANCE" },
+        { date: "2026-03-21", amount: "-200.00", details: "Kortköp 260321 SHOP" },
+      ]),
+    );
+    await run(owner.caller, async (tx) => {
+      const first = await payExpense(tx, owner.caller, noopAudit, {
+        expenseId: big.data!.id,
+        bankTransactionId: deposit,
+      });
+      expect(first.error).toBeUndefined();
+      expect(first.data).toMatchObject({ allocated: "4000.00", allocatedBase: "4000.00" });
+      expect((await getExpenseDetail(tx, big.data!.id)).data).toMatchObject({
+        status: "awaiting_link",
+        allocated: "4000.00",
+        open: "8000.00",
+      });
+      const second = await payExpense(tx, owner.caller, noopAudit, {
+        expenseId: big.data!.id,
+        bankTransactionId: balance,
+      });
+      expect(second.error).toBeUndefined();
+      expect((await getExpenseDetail(tx, big.data!.id)).data).toMatchObject({
+        status: "paid",
+        allocated: "12000.00",
+        open: "0.00",
+        allocatedBase: "12000.00",
+        fxDifference: "0.00",
+      });
+    });
+    // two receipts on one card row: the second takes what the row has left; a third finds nothing
+    const a = await make("Coffee", "120.00");
+    const b = await make("Pens", "80.00");
+    const c = await make("Stamps", "1.00");
+    await run(owner.caller, async (tx) => {
+      expect(
+        (
+          await payExpense(tx, owner.caller, noopAudit, {
+            expenseId: a.data!.id,
+            bankTransactionId: card,
+          })
+        ).data,
+      ).toMatchObject({ allocated: "120.00", allocatedBase: "120.00" });
+      expect(
+        (
+          await payExpense(tx, owner.caller, noopAudit, {
+            expenseId: b.data!.id,
+            bankTransactionId: card,
+          })
+        ).data,
+      ).toMatchObject({ allocated: "80.00", allocatedBase: "80.00" });
+      const third = await payExpense(tx, owner.caller, noopAudit, {
+        expenseId: c.data!.id,
+        bankTransactionId: card,
+      });
+      expect(third.error?.message).toMatch(/nothing left to allocate/);
+      // the row side: fully used, to the öre
+      const row = await linking.getAllocationStatus(tx, { type: "bank_transaction", id: card });
+      expect(row.data).toMatchObject({
+        allocated: "200.00",
+        remaining: "0.00",
+        allocatedBase: "200.00",
+      });
+      // the trigger says the same as the service: a raw link over the row's base is refused
+      await expect(
+        tx.$executeRaw`INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, allocated_amount, currency, allocated_base, created_by)
+          VALUES (${owner.caller.tenantId}::uuid, 'bank_transaction', ${card}::uuid, 'expense', ${c.data!.id}::uuid, 'justifies', 1, 'SEK', 1, ${owner.caller.userId}::uuid)`,
+      ).rejects.toThrow(/link_allocation_exceeded/);
     });
   });
 
@@ -376,7 +459,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "120.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     const [rowId] = await run(owner.caller, (tx) =>
@@ -390,7 +473,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         const d = (await getExpenseDetail(tx, e.data!.id)).data!;
         return {
           status: d.status,
-          paidAmount: d.expense.paidAmount,
+          allocated: d.allocated,
           justifies: d.links.filter((l) => l.kind === "justifies").length,
         };
       });
@@ -414,19 +497,19 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     });
     expect(await statusAndPaid()).toEqual({
       status: "awaiting_link",
-      paidAmount: null,
+      allocated: "0.00",
       justifies: 0,
     });
 
-    // what the inbox opens: attach → paid
+    // what the inbox opens: pay → paid
     const attached = await run(owner.caller, (tx) =>
-      attachBankTransaction(tx, owner.caller, noopAudit, {
+      payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
         bankTransactionId: rowId,
       }),
     );
     expect(attached.error).toBeUndefined();
-    expect(await statusAndPaid()).toEqual({ status: "paid", paidAmount: "120.00", justifies: 1 });
+    expect(await statusAndPaid()).toEqual({ status: "paid", allocated: "120.00", justifies: 1 });
 
     // the generic *Unlink* is refused — it would leave the paid amount and the bank base behind
     await run(owner.caller, async (tx) => {
@@ -436,16 +519,19 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       const removed = await linking.removeLink(tx, owner.caller, noopAudit, link!.id);
       expect(removed.error?.message).toMatch(/expense's own panel/);
     });
-    expect(await statusAndPaid()).toEqual({ status: "paid", paidAmount: "120.00", justifies: 1 });
+    expect(await statusAndPaid()).toEqual({ status: "paid", allocated: "120.00", justifies: 1 });
 
-    // detach removes the link and the paid amount together → awaiting link again
+    // the expense's own unpay removes the link → awaiting link again
     const detached = await run(owner.caller, (tx) =>
-      detachBankTransaction(tx, owner.caller, noopAudit, e.data!.id),
+      unpayExpense(tx, owner.caller, noopAudit, {
+        expenseId: e.data!.id,
+        linkId: attached.data!.linkId,
+      }),
     );
     expect(detached.error).toBeUndefined();
     expect(await statusAndPaid()).toEqual({
       status: "awaiting_link",
-      paidAmount: null,
+      allocated: "0.00",
       justifies: 0,
     });
   });
@@ -592,7 +678,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
         documentId: doc.id,
       }),
     );
@@ -603,13 +689,13 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       ]),
     );
     await run(owner.caller, async (tx) => {
-      const attached = await attachBankTransaction(tx, owner.caller, noopAudit, {
+      const attached = await payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
         bankTransactionId: rowId,
       });
       expect(attached.error).toBeUndefined();
       const del = await deleteExpense(tx, owner.caller, noopAudit, e.data!.id);
-      expect(del.error?.message).toMatch(/settled or paid/);
+      expect(del.error?.message).toMatch(/paid or refunded/);
       const left = await linking.linksTouching(tx, "document", [doc.id]);
       expect(left.map((l) => l.kind)).toEqual(["created_from"]);
     });
@@ -677,29 +763,31 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     await expect(
       adminPool.query(`UPDATE expenses SET key = 'Ex213-Tr-09' WHERE id = $1`, [e.data!.id]),
     ).rejects.toThrow(/expense_locked/);
-    // a settlement line on it → money locked even for the superuser
+    // a `settles` link onto it (F114) → money locked even for the superuser, the payer too (A2, A13)
     const [rowId] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
         { date: "2026-03-31", amount: "-100.00", name: "Zikrija" },
       ]),
     );
     await adminPool.query(
-      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
-       VALUES ($1, 'ST26-001', $2, $3, -100, 'SEK', 100, 100, now(), $4)`,
-      [owner.caller.tenantId, rowId, owner.sources.privateCh.id, owner.caller.userId],
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, allocated_amount, currency, allocated_base, created_by)
+       VALUES ($1, 'bank_transaction', $2, 'expense', $3, 'settles', 10, 'CHF', 100, $4)`,
+      [owner.caller.tenantId, rowId, e.data!.id, owner.caller.userId],
     );
-    await adminPool.query(
-      `INSERT INTO settlement_lines (tenant_id, settlement_id, expense_id, allocated_base, created_by)
-       SELECT $1, id, $2, 100, $3 FROM settlements WHERE number = 'ST26-001'`,
-      [owner.caller.tenantId, e.data!.id, owner.caller.userId],
-    );
-    await expect(
-      adminPool.query(`UPDATE expenses SET amount = 601 WHERE id = $1`, [e.data!.id]),
-    ).rejects.toThrow(/expense_locked/);
+    for (const change of [
+      "amount = 601",
+      "vat_amount = 1",
+      `paid_from_account_id = '${owner.sources.privateSe.id}'`,
+      "date = '2026-01-01'",
+    ]) {
+      await expect(
+        adminPool.query(`UPDATE expenses SET ${change} WHERE id = $1`, [e.data!.id]),
+      ).rejects.toThrow(/expense_locked/);
+    }
     await adminPool.query(`UPDATE expenses SET note = 'fine' WHERE id = $1`, [e.data!.id]);
     await expect(
       adminPool.query(`DELETE FROM expenses WHERE id = $1`, [e.data!.id]),
-    ).rejects.toThrow(/settlement_lines/);
+    ).rejects.toThrow(/link/);
   });
 
   it("the lock trigger matches isOpen (D37, F62): a paid (linked) expense's money is locked in the DB; detach reopens it", async () => {
@@ -712,7 +800,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     const id = e.data!.id;
@@ -722,7 +810,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       ]),
     );
     const attached = await run(owner.caller, (tx) =>
-      attachBankTransaction(tx, owner.caller, noopAudit, {
+      payExpense(tx, owner.caller, noopAudit, {
         expenseId: id,
         bankTransactionId: rowId,
       }),
@@ -736,18 +824,15 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     await expect(
       adminPool.query(`UPDATE expenses SET amount_base = 1 WHERE id = $1`, [id]),
     ).rejects.toThrow(/expense_locked/);
-    await expect(
-      adminPool.query(`UPDATE expenses SET paid_amount = 1 WHERE id = $1`, [id]),
-    ).rejects.toThrow(/expense_locked/);
     await adminPool.query(`UPDATE expenses SET note = 'fine' WHERE id = $1`, [id]);
     // the service says why, and refuses the delete for the same reason
     await run(owner.caller, async (tx) => {
       const del = await deleteExpense(tx, owner.caller, noopAudit, id);
-      expect(del.error?.message).toMatch(/settled or paid/);
+      expect(del.error?.message).toMatch(/paid or refunded/);
     });
-    // detach takes the link off first, then rewrites the money: open again, in the DB too
+    // the payment removed: open again, in the DB too — nothing on the expense was rewritten
     const detached = await run(owner.caller, (tx) =>
-      detachBankTransaction(tx, owner.caller, noopAudit, id),
+      unpayExpense(tx, owner.caller, noopAudit, { expenseId: id, linkId: attached.data!.linkId }),
     );
     expect(detached.error).toBeUndefined();
     expect(await run(owner.caller, (tx) => isExpenseOpen(tx, id))).toBe(true);
@@ -850,7 +935,7 @@ describe("US5 — the list, the groups, the ledger", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
     });
     await run(owner.caller, async (tx) => {
@@ -871,7 +956,7 @@ describe("US5 — the list, the groups, the ledger", () => {
       });
       expect(open.total).toBe(3);
       expect(open.sums?.openBase).toBe("10765.00");
-      const payers = await distinctExpenseValues(tx, "paymentSourceLabel", {
+      const payers = await distinctExpenseValues(tx, "payerLabel", {
         ...Q,
         filters: { status: { kind: "in", values: ["to_refund"] } },
       });

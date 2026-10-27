@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import type { LinkDto } from "@/modules/linking";
 import type { Completeness } from "./completeness";
-import { addMonths, assembleMonths, linkFactsOf, monthRange, needsProof } from "./months";
+import { linkFactsOf } from "./link-facts";
+import { addMonths, assembleMonths, monthRange, needsProof } from "./months";
 
 const A = { id: "a", label: "SEK", role: "main" as const, currency: "SEK" };
 const B = { id: "b", label: "Sparkonto", role: "savings" as const, currency: "SEK" };
@@ -134,6 +135,7 @@ describe("linkFactsOf", () => {
     kind: "justifies",
     allocatedAmount: null,
     currency: null,
+    allocatedBase: null,
     note: null,
     createdAt: new Date(0),
     createdBy: "u",
@@ -141,25 +143,54 @@ describe("linkFactsOf", () => {
     ...over,
   });
 
+  const rows = [
+    { id: "r1", amount: "-500.00", currency: "SEK", amountBase: "-500.00" },
+    { id: "r2", amount: "-10.00", currency: "SEK", amountBase: "-10.00" },
+    { id: "r3", amount: "10.00", currency: "SEK", amountBase: "10.00" },
+  ];
+
   it("sums allocations from a row over the allocating kinds and marks both legs of a transfer", () => {
-    const f = linkFactsOf([
-      link({ allocatedAmount: "100.10" }),
-      link({ allocatedAmount: "0.25", kind: "settles", to: { type: "settlement", id: "s" } }),
-      link({
-        kind: "transfer",
-        from: { type: "bank_transaction", id: "r2" },
-        to: { type: "bank_transaction", id: "r3" },
-      }),
-      // another source's allocation is not a bank row's
-      link({
-        allocatedAmount: "9.00",
-        from: { type: "expense", id: "x" },
-        to: { type: "document", id: "d" },
-      }),
-    ]);
+    const f = linkFactsOf(
+      [
+        link({ allocatedAmount: "100.10", currency: "SEK" }),
+        link({
+          allocatedAmount: "0.25",
+          currency: "SEK",
+          kind: "settles",
+          to: { type: "expense", id: "s" },
+        }),
+        link({
+          kind: "transfer",
+          from: { type: "bank_transaction", id: "r2" },
+          to: { type: "bank_transaction", id: "r3" },
+        }),
+        // another source's allocation is not a bank row's
+        link({
+          allocatedAmount: "9.00",
+          from: { type: "expense", id: "x" },
+          to: { type: "document", id: "d" },
+        }),
+      ],
+      rows,
+    );
     expect(f.allocated.get("r1")).toBe("100.35");
     expect(f.allocated.get("r2")).toBeUndefined();
     expect(f.allocated.has("j")).toBe(false);
     expect([...f.transfer].sort()).toEqual(["r2", "r3"]);
+  });
+
+  it("a cross-currency link counts by the share of the row's base it took (F114) — the list's rule", () => {
+    // a SEK row of −500.00 paid a CHF 45.00 invoice: the link carries the 500.00 SEK the row gave → justified
+    const f = linkFactsOf(
+      [link({ allocatedAmount: "45.00", currency: "CHF", allocatedBase: "500.00" })],
+      rows,
+    );
+    expect(f.allocated.get("r1")).toBe("500.00");
+    // half the row's base → half the row
+    const half = linkFactsOf(
+      [link({ allocatedAmount: "22.50", currency: "CHF", allocatedBase: "250.00" })],
+      rows,
+    );
+    expect(half.allocated.get("r1")).toBe("250.00");
   });
 });

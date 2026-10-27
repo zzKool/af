@@ -1,8 +1,10 @@
 // Read API of the linking module.
+import { Prisma } from "@/generated/prisma/client";
 import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import { ALLOCATING_KINDS } from "./kinds";
 import { getLinkable } from "./linkable";
 import { getLinksFor, toLinkDto } from "./linking";
+import { type RowUsage, rowRemaining } from "./row-usage";
 import type { LinkableType, LinkDto, LinkEndpoint, LinkKind } from "./types";
 
 export { getAllocationStatus, getLinksFor, isLinked } from "./linking";
@@ -69,28 +71,38 @@ export async function linksTouching(
 }
 
 /**
- * Σ of the allocations FROM each of `ids` (allocating kinds only — `justifies`, `settles`), in one grouped query;
- * ids with no allocation are absent. What "how much of this movement is proven" reads (audit 22).
+ * The usage of each bank row in `ids` (allocating kinds only — `justifies`, `settles`), in one query; rows with
+ * no allocation are absent. What "how much of this movement is proven" reads (audit 22) — through `rowRemaining`,
+ * since a cross-currency link consumes the row by its base, not by an amount in another currency.
  */
-export async function allocatedFrom(
+export async function rowUsage(
   tx: TransactionClient,
-  type: LinkableType,
   ids: readonly string[],
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+): Promise<Map<string, RowUsage>> {
+  const out = new Map<string, RowUsage>();
   if (ids.length === 0) return out;
-  const sums = await tx.link.groupBy({
-    by: ["fromId"],
+  const rows = await tx.link.findMany({
     where: {
-      fromType: type,
+      fromType: "bank_transaction",
       fromId: { in: [...ids] },
       kind: { in: [...ALLOCATING_KINDS] },
       allocatedAmount: { not: null },
     },
-    _sum: { allocatedAmount: true },
+    select: { fromId: true, allocatedAmount: true, allocatedBase: true, currency: true },
   });
-  for (const s of sums)
-    if (s._sum.allocatedAmount) out.set(s.fromId, s._sum.allocatedAmount.toFixed(2));
+  for (const r of rows) {
+    const usage = out.get(r.fromId) ?? { byCurrency: new Map(), base: new Prisma.Decimal(0) };
+    const ccy = r.currency ?? "";
+    const slot = usage.byCurrency.get(ccy) ?? {
+      amount: new Prisma.Decimal(0),
+      base: new Prisma.Decimal(0),
+    };
+    slot.amount = slot.amount.plus(r.allocatedAmount as Prisma.Decimal);
+    slot.base = slot.base.plus(r.allocatedBase ?? 0);
+    usage.byCurrency.set(ccy, slot);
+    usage.base = usage.base.plus(r.allocatedBase ?? 0);
+    out.set(r.fromId, usage);
+  }
   return out;
 }
 
@@ -119,6 +131,44 @@ export async function allocatedSums(
   });
   for (const s of sums)
     if (s._sum.allocatedAmount) out.set(s.toId, s._sum.allocatedAmount.toFixed(2));
+  return out;
+}
+
+/** One allocating link onto an entity, as the FX derivation reads it (F114): the amount it pays and the base it gave. */
+export type AllocationOnto = { linkId: string; amount: string; base: string; currency: string };
+
+/**
+ * The allocating links ONTO each of `ids` — amount in the target's currency, the base the row gave — in one query;
+ * ids with none are absent. `kernel/money` `fxDifference` reads this.
+ */
+export async function allocationsOnto(
+  tx: TransactionClient,
+  type: LinkableType,
+  ids: readonly string[],
+): Promise<Map<string, AllocationOnto[]>> {
+  const out = new Map<string, AllocationOnto[]>();
+  if (ids.length === 0) return out;
+  const rows = await tx.link.findMany({
+    where: {
+      toType: type,
+      toId: { in: [...ids] },
+      kind: { in: [...ALLOCATING_KINDS] },
+      allocatedAmount: { not: null },
+    },
+    select: { id: true, toId: true, allocatedAmount: true, allocatedBase: true, currency: true },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  for (const r of rows) {
+    out.set(r.toId, [
+      ...(out.get(r.toId) ?? []),
+      {
+        linkId: r.id,
+        amount: (r.allocatedAmount as Prisma.Decimal).toFixed(2),
+        base: (r.allocatedBase ?? new Prisma.Decimal(0)).toFixed(2),
+        currency: r.currency ?? "",
+      },
+    ]);
+  }
   return out;
 }
 
@@ -155,3 +205,5 @@ export async function createdFromTargets(
   }
   return out;
 }
+
+export { type RowUsage, rowRemaining } from "./row-usage";

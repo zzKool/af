@@ -1,31 +1,33 @@
-// Settlements (FR-007, FR-008; US3, US4, D26): one refund transaction settles a chosen set of the owner's private
-// expenses, in SEK base. Propose = FIFO (fifo.ts); confirm = validate → number `ST26-001` → row + lines → the
-// `settles` link from the bank row → audit (the statement job is enqueued by the action on commit); cancel keeps
-// the row and its number, removes the link, reopens the balances. MUST NOT import from next/* or src/components/*.
+// Settlements (FR-007, FR-008; US3, US4, D26, F114 / D60): one refund row reimburses a chosen set of the owner's
+// private expenses — each reimbursement is a `settles` link from the row to the expense, carrying what it refunds
+// of the expense (its currency) and the base the row gave for it. The settlement is the numbered statement over
+// those links (`ST26-001`, its PDF, cancel with the number kept): Σ base, the rounding and the FX difference are
+// derived, never stored. Propose = FIFO in base (fifo.ts); confirm = validate → number → row + links → audit (the
+// statement job is enqueued by the action on commit); cancel removes the links, the balances reopen.
+// MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
 import { Prisma } from "@/generated/prisma/browser";
-import type { Settlement, SettlementLine } from "@/generated/prisma/client";
+import type { Settlement } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
+import { expectedBases, isSettled } from "@/kernel/money/settlement";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { money, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as linking from "@/modules/linking";
 import { nextInSeries, settlementNumber, settlementSeries } from "@/modules/numbering";
-import * as settings from "@/modules/settings";
 import { invalid, notFound, violation } from "./errors";
+import { type FifoLine, fifoAllocate, fifoOrder, type OpenExpense, residualOpen } from "./fifo";
 import {
-  type FifoLine,
-  fifoAllocate,
-  fifoOrder,
-  type OpenExpense,
-  residualOpen,
-  settlementDifference,
-} from "./fifo";
-import { owedBase } from "./status";
+  amountForBase,
+  differenceBasCode,
+  expectedBaseFor,
+  settlementTotals,
+} from "./settlement-math";
+import { openBase, openOn } from "./status";
 import type {
   SettlementDto,
   SettlementLineDto,
@@ -40,22 +42,30 @@ const positiveAllocation = money.refine((v) => Number(v) > 0, "The allocation mu
 
 export const proposeSchema = z.object({
   bankTransactionId: uuid,
-  paymentSourceId: uuid.optional(),
-  /** the owner's ticks: only these expenses, in FIFO order (empty = every open expense of the source) */
+  /** narrow the open expenses to one private instrument (optional — the owner is the owner, whatever the card) */
+  paidFromAccountId: uuid.optional(),
+  /** the owner's ticks: only these expenses, in FIFO order (empty = every open private expense) */
   expenseIds: z.array(uuid).optional(),
 });
 export type ProposeInput = z.input<typeof proposeSchema>;
 
 export const confirmSchema = z.object({
   bankTransactionId: uuid,
-  paymentSourceId: uuid,
-  lines: z.array(z.object({ expenseId: uuid, allocatedBase: positiveAllocation })).min(1),
-  confirmExchangeDifference: z.boolean().optional(),
-  exchangeDifferenceBasCode: z
-    .string()
-    .regex(/^\d{3,4}$/)
-    .nullable()
-    .optional(),
+  lines: z
+    .array(
+      z.object({
+        expenseId: uuid,
+        /** the base the refund row gives for this expense */
+        allocatedBase: positiveAllocation,
+        /**
+         * what it refunds of the expense, in the expense's currency; omitted = the share the base covers of what
+         * is open (the whole of it when the base covers the claim within the tolerance). The owner states the
+         * full amount when he accepted less base than the claim (a cross-currency refund — the difference shows).
+         */
+        allocatedAmount: positiveAllocation.optional(),
+      }),
+    )
+    .min(1),
   note: z.string().trim().max(2000).nullable().optional(),
 });
 export type ConfirmInput = z.input<typeof confirmSchema>;
@@ -70,20 +80,37 @@ export function isStatementSuperseded(row: {
   return row.status === "cancelled" && row.statementDocumentId !== null;
 }
 
-export function toSettlementDto(row: Settlement & { lines: SettlementLine[] }): SettlementDto {
+type Refund = {
+  id: string;
+  bookingDate: string;
+  amount: Dec;
+  currency: string;
+  base: Dec;
+};
+
+type LineFacts = SettlementLineDto;
+
+function toDto(
+  row: Settlement,
+  refund: { bookingDate: string; amount: string; currency: string; base: string },
+  lines: LineFacts[],
+): SettlementDto {
+  const totals = settlementTotals(lines, refund.base);
   return {
     id: row.id,
     tenantId: row.tenantId,
     number: row.number,
     bankTransactionId: row.bankTransactionId,
-    paymentSourceId: row.paymentSourceId,
-    refundAmount: row.refundAmount.toFixed(2),
-    refundCurrency: row.refundCurrency,
-    refundBase: row.refundBase.toFixed(2),
-    allocatedBase: row.allocatedBase.toFixed(2),
-    exchangeDifferenceBase: row.exchangeDifferenceBase.toFixed(2),
-    roundingBase: row.roundingBase.toFixed(2),
-    exchangeDifferenceBasCode: row.exchangeDifferenceBasCode,
+    refundAmount: refund.amount,
+    refundCurrency: refund.currency,
+    refundBase: refund.base,
+    bookingDate: refund.bookingDate,
+    allocatedBase: totals.allocatedBase.toFixed(2),
+    expectedBase: totals.expectedBase.toFixed(2),
+    differenceBase: totals.differenceBase.toFixed(2),
+    rounding: totals.rounding,
+    differenceBasCode: differenceBasCode(totals.differenceBase, totals.rounding),
+    unallocatedBase: totals.unallocatedBase.toFixed(2),
     note: row.note,
     status: row.status as SettlementStatus,
     cancelledAt: row.cancelledAt,
@@ -93,29 +120,106 @@ export function toSettlementDto(row: Settlement & { lines: SettlementLine[] }): 
     updatedAt: row.updatedAt,
     createdBy: row.createdBy,
     source: row.source,
-    lines: row.lines.map(toLineDto),
+    lines,
   };
 }
 
-function toLineDto(l: SettlementLine): SettlementLineDto {
-  return {
-    id: l.id,
-    settlementId: l.settlementId,
-    expenseId: l.expenseId,
-    allocatedBase: l.allocatedBase.toFixed(2),
-    note: l.note,
-  };
+/**
+ * The lines of ACTIVE settlements: the `settles` links from each settlement's row, with the expense's facts and the
+ * base the books carried for the refunded share. A cancelled settlement has none left (cancel removed them).
+ */
+async function linesFor(
+  tx: TransactionClient,
+  rows: readonly Settlement[],
+): Promise<Map<string, LineFacts[]>> {
+  const out = new Map<string, LineFacts[]>();
+  const active = rows.filter((r) => r.status === "active");
+  if (active.length === 0) return out;
+  const links = (
+    await linking.linksTouching(
+      tx,
+      "bank_transaction",
+      active.map((r) => r.bankTransactionId),
+      { kinds: ["settles"] },
+    )
+  ).filter(
+    (l) => l.from.type === "bank_transaction" && l.to.type === "expense" && l.allocatedAmount,
+  );
+  const expenses = await tx.expense.findMany({
+    where: { id: { in: [...new Set(links.map((l) => l.to.id))] } },
+    select: {
+      id: true,
+      key: true,
+      date: true,
+      description: true,
+      amount: true,
+      currency: true,
+      amountBase: true,
+    },
+  });
+  const byId = new Map(expenses.map((e) => [e.id, e]));
+  // the base the books carried for each link: the kernel's rule over EVERY allocation onto the expense, in order
+  const history = await linking.allocationsOnto(tx, "expense", [...byId.keys()]);
+  const expectedByLink = new Map<string, Dec>();
+  for (const [expenseId, own] of history) {
+    const e = byId.get(expenseId);
+    if (!e) continue;
+    const expected = expectedBases(e.amount, e.amountBase, own);
+    own.forEach((a, i) => {
+      expectedByLink.set(a.linkId, expected[i] ?? new D(0));
+    });
+  }
+  for (const s of active) {
+    const own = links.filter((l) => l.from.id === s.bankTransactionId);
+    const lines: LineFacts[] = [];
+    for (const l of own) {
+      const e = byId.get(l.to.id);
+      if (!e) continue;
+      lines.push({
+        linkId: l.id,
+        expenseId: e.id,
+        key: e.key,
+        date: e.date.toISOString().slice(0, 10),
+        description: e.description,
+        allocatedAmount: l.allocatedAmount ?? "0.00",
+        currency: l.currency ?? e.currency,
+        allocatedBase: l.allocatedBase ?? "0.00",
+        expectedBase: (expectedByLink.get(l.id) ?? new D(0)).toFixed(2),
+        note: l.note,
+      });
+    }
+    out.set(s.id, fifoOrder(lines));
+  }
+  return out;
+}
+
+/** The settlements as DTOs — their row's facts and their lines read once for the set. */
+export async function settlementDtos(
+  tx: TransactionClient,
+  rows: readonly Settlement[],
+): Promise<SettlementDto[]> {
+  if (rows.length === 0) return [];
+  const facts = await banking.transactionFacts(
+    tx,
+    rows.map((r) => r.bankTransactionId),
+  );
+  const lines = await linesFor(tx, rows);
+  return rows.map((r) => {
+    const t = facts.get(r.bankTransactionId);
+    return toDto(
+      r,
+      {
+        bookingDate: t?.bookingDate ?? "",
+        amount: t?.amount ?? "0.00",
+        currency: t?.currency ?? BASE_CURRENCY,
+        base: t ? new D(t.amountBase).abs().toFixed(2) : "0.00",
+      },
+      lines.get(r.id) ?? [],
+    );
+  });
 }
 
 // --- reads the proposal and the confirmation share ---
-
-type Refund = {
-  id: string;
-  bookingDate: string;
-  amount: Dec;
-  currency: string;
-  base: Dec;
-};
 
 /** The refund: an outgoing row on an own main account, not already settling (US4-5). */
 async function resolveRefund(tx: TransactionClient, id: string): Promise<ServiceResult<Refund>> {
@@ -155,26 +259,6 @@ async function resolveRefund(tx: TransactionClient, id: string): Promise<Service
 }
 
 /**
- * Σ of the ACTIVE settlement lines per expense, SEK — the one sum the list, the groups, the ledger, the open
- * expenses and the statement read (F62). A cancelled settlement's lines count for nothing.
- */
-export async function allocatedByExpense(
-  tx: TransactionClient,
-  expenseIds: readonly string[],
-): Promise<Map<string, Dec>> {
-  const out = new Map<string, Dec>();
-  if (expenseIds.length === 0) return out;
-  const lines = await tx.settlementLine.findMany({
-    where: { expenseId: { in: [...expenseIds] }, settlement: { status: "active" } },
-    select: { expenseId: true, allocatedBase: true },
-  });
-  for (const l of lines) {
-    out.set(l.expenseId, (out.get(l.expenseId) ?? new D(0)).plus(l.allocatedBase));
-  }
-  return out;
-}
-
-/**
  * The bank rows an ACTIVE settlement refunds through (lessons audit 23) — the rows the settle and payment pickers
  * leave out. `among` narrows the read to those rows; a cancelled settlement frees its row.
  */
@@ -190,35 +274,50 @@ export async function activeSettlementTransactionIds(
   return new Set(rows.map((r) => r.bankTransactionId));
 }
 
-/** Private expenses of one source (or all private sources) the company still owes something on (`owedBase` > 0). */
+export type OpenPrivateExpense = OpenExpense & {
+  paidFromAccountId: string;
+  currency: string;
+  amount: string;
+  /** what is still open of the amount, the expense's currency */
+  openAmount: string;
+};
+
+/** Private expenses (of one instrument, or all) the company still owes something on — the claim in base. */
 export async function openPrivateExpenses(
   tx: TransactionClient,
-  paymentSourceId?: string,
-): Promise<(OpenExpense & { paymentSourceId: string; currency: string; amount: string })[]> {
+  paidFromAccountId?: string,
+): Promise<OpenPrivateExpense[]> {
   const rows = await tx.expense.findMany({
     where: {
-      paymentSource: { kind: "private", ...(paymentSourceId ? { id: paymentSourceId } : {}) },
+      paidFromAccount: {
+        role: "owner_private",
+        ...(paidFromAccountId ? { id: paidFromAccountId } : {}),
+      },
     },
     orderBy: [{ date: "asc" }, { key: "asc" }],
   });
-  const allocated = await allocatedByExpense(
+  const allocations = await linking.allocationsOnto(
     tx,
+    "expense",
     rows.map((r) => r.id),
   );
-  const out = [];
+  const out: OpenPrivateExpense[] = [];
   for (const r of rows) {
-    const owed = owedBase(r.amountBase, allocated.get(r.id) ?? new D(0));
-    if (owed.isZero()) continue;
+    const own = allocations.get(r.id) ?? [];
+    const claim = openBase(r.amount, r.amountBase, own);
+    if (claim.isZero()) continue;
+    const allocated = own.reduce((acc, a) => acc.plus(a.amount), new D(0));
     out.push({
       expenseId: r.id,
       key: r.key,
       date: r.date.toISOString().slice(0, 10),
       description: r.description,
       amountBase: r.amountBase.toFixed(2),
-      openBase: owed.toFixed(2),
-      paymentSourceId: r.paymentSourceId,
+      openBase: claim.toFixed(2),
+      paidFromAccountId: r.paidFromAccountId,
       currency: r.currency,
       amount: r.amount.toFixed(2),
+      openAmount: openOn(r.amount, allocated).toFixed(2),
     });
   }
   return out;
@@ -227,35 +326,45 @@ export async function openPrivateExpenses(
 function toProposal(
   refund: Refund,
   sourceId: string | null,
-  lines: FifoLine[],
+  lines: (FifoLine & { amount: string; currency: string; openAmount: string })[],
 ): SettlementProposal {
-  const diff = settlementDifference(lines, refund.base);
+  const facts = lines.map((l) => {
+    const amount = amountForBase(l, l.allocatedBase);
+    return {
+      ...l,
+      allocatedAmount: amount.toFixed(2),
+      expectedBase: expectedBaseFor(l, amount, l.allocatedBase).toFixed(2),
+    };
+  });
+  const totals = settlementTotals(facts, refund.base);
   return {
     bankTransactionId: refund.id,
     bookingDate: refund.bookingDate,
     refundAmount: refund.amount.toFixed(2),
     refundCurrency: refund.currency,
     refundBase: refund.base.toFixed(2),
-    paymentSourceId: sourceId,
-    lines: lines.map((l) => ({
+    paidFromAccountId: sourceId,
+    lines: facts.map((l) => ({
       expenseId: l.expenseId,
       key: l.key,
       date: l.date,
       description: l.description,
+      amount: l.amount,
+      currency: l.currency,
       amountBase: l.amountBase,
       openBase: l.openBase,
       allocatedBase: l.allocatedBase,
       remainingOpen: l.remainingOpen,
     })),
-    allocatedBase: diff.allocatedBase,
-    exchangeDifferenceBase: diff.exchangeDifferenceBase,
-    roundingBase: diff.roundingBase,
+    allocatedBase: totals.allocatedBase.toFixed(2),
+    differenceBase: totals.rounding ? "0.00" : totals.differenceBase.toFixed(2),
+    roundingBase: totals.rounding ? totals.differenceBase.toFixed(2) : "0.00",
     residualOpen: residualOpen(lines),
-    unallocatedOnTransaction: diff.unallocatedOnTransaction,
+    unallocatedOnTransaction: totals.unallocatedBase.toFixed(2),
   };
 }
 
-/** FIFO over the open private expenses (of the source, of the ticked ids) — nothing written. */
+/** FIFO over the open private expenses (of the instrument, of the ticked ids) — nothing written. */
 export async function proposeSettlement(
   tx: TransactionClient,
   input: ProposeInput,
@@ -265,14 +374,18 @@ export async function proposeSettlement(
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
   const refund = await resolveRefund(tx, parsed.data.bankTransactionId);
   if (refund.error) return { error: refund.error };
-  let open = await openPrivateExpenses(tx, parsed.data.paymentSourceId);
+  let open = await openPrivateExpenses(tx, parsed.data.paidFromAccountId);
   if (parsed.data.expenseIds?.length) {
     const wanted = new Set(parsed.data.expenseIds);
     open = open.filter((e) => wanted.has(e.expenseId));
   }
-  const sources = new Set(open.map((e) => e.paymentSourceId));
-  const sourceId = parsed.data.paymentSourceId ?? (sources.size === 1 ? [...sources][0] : null);
-  const lines = fifoAllocate(open, refund.data.base);
+  const sources = new Set(open.map((e) => e.paidFromAccountId));
+  const sourceId = parsed.data.paidFromAccountId ?? (sources.size === 1 ? [...sources][0] : null);
+  const byId = new Map(open.map((e) => [e.expenseId, e]));
+  const lines = fifoAllocate(open, refund.data.base).map((l) => {
+    const e = byId.get(l.expenseId) as OpenPrivateExpense;
+    return { ...l, amount: e.amount, currency: e.currency, openAmount: e.openAmount };
+  });
   return { data: toProposal(refund.data, sourceId, lines) };
 }
 
@@ -289,25 +402,15 @@ export async function confirmSettlement(
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
   const v = parsed.data;
 
-  // 1. the refund and the source
+  // 1. the refund
   const refund = await resolveRefund(tx, v.bankTransactionId);
   if (refund.error) return { error: refund.error };
-  const source = await tx.paymentSource.findUnique({ where: { id: v.paymentSourceId } });
-  if (!source) return { error: notFound("Payment source", v.paymentSourceId) };
-  if (source.kind !== "private") {
-    return {
-      error: violation(`${source.label} is a company account — only private expenses are settled`),
-    };
-  }
-  if (v.exchangeDifferenceBasCode) {
-    const cat = await settings.getBasCategory(tx, v.exchangeDifferenceBasCode);
-    if (!cat) return { error: notFound("BAS category", v.exchangeDifferenceBasCode) };
-  }
 
-  // 2. every line against what is open (US4-5)
-  const open = new Map((await openPrivateExpenses(tx, source.id)).map((e) => [e.expenseId, e]));
+  // 2. every line against what is open (US4-5); the bases against the row
+  const open = new Map((await openPrivateExpenses(tx)).map((e) => [e.expenseId, e]));
   const seen = new Set<string>();
-  const lines: FifoLine[] = [];
+  const lines: (OpenPrivateExpense & { allocatedBase: string; allocatedAmount: string })[] = [];
+  let givenBase = new D(0);
   for (const l of v.lines) {
     if (seen.has(l.expenseId)) return { error: invalid("An expense appears twice in the lines") };
     seen.add(l.expenseId);
@@ -315,81 +418,57 @@ export async function confirmSettlement(
     if (!e) {
       const row = await tx.expense.findUnique({
         where: { id: l.expenseId },
-        include: { paymentSource: true },
+        include: {
+          paidFromAccount: {
+            select: { role: true, accountAlias: true, accountNumber: true, currency: true },
+          },
+        },
       });
       if (!row) return { error: notFound("Expense", l.expenseId) };
-      if (row.paymentSource.kind !== "private") {
+      if (banking.payerKindOf(row.paidFromAccount.role) !== "private") {
         return {
           error: violation(
-            `${row.key} was paid from ${row.paymentSource.label} — a company-paid expense is never settled`,
+            `${row.key} was paid from ${banking.accountLabel(row.paidFromAccount)} — a company-paid expense is never settled`,
           ),
-        };
-      }
-      if (row.paymentSourceId !== source.id) {
-        return {
-          error: violation(`${row.key} belongs to ${row.paymentSource.label}, not ${source.label}`),
         };
       }
       return { error: violation(`${row.key} has nothing open`) };
     }
-    const take = new D(l.allocatedBase);
-    if (take.gt(new D(e.openBase))) {
+    const base = new D(l.allocatedBase);
+    const amount = l.allocatedAmount ? new D(l.allocatedAmount) : amountForBase(e, base);
+    if (amount.gt(new D(e.openAmount))) {
       return {
         error: violation(
-          `${e.key}: ${take.toFixed(2)} exceeds its open ${e.openBase} ${BASE_CURRENCY}`,
+          `${e.key}: ${amount.toFixed(2)} ${e.currency} exceeds what is open on it (${e.openAmount})`,
         ),
       };
     }
-    lines.push({
-      ...e,
-      allocatedBase: take.toFixed(2),
-      remainingOpen: new D(e.openBase).minus(take).toFixed(2),
-    });
+    givenBase = givenBase.plus(base);
+    lines.push({ ...e, allocatedBase: base.toFixed(2), allocatedAmount: amount.toFixed(2) });
   }
-  const ordered = fifoOrder(lines);
-  const diff = settlementDifference(ordered, refund.data.base);
-  if (new D(diff.exchangeDifferenceBase).gt(0) && !v.confirmExchangeDifference) {
+  if (givenBase.gt(refund.data.base)) {
     return {
       error: violation(
-        `Allocations exceed the refund by ${diff.exchangeDifferenceBase} ${BASE_CURRENCY} — confirm the exchange difference`,
-        { exchangeDifferenceBase: diff.exchangeDifferenceBase },
+        `The lines give ${givenBase.toFixed(2)} ${BASE_CURRENCY} — the refund row carries ${refund.data.base.toFixed(2)}`,
       ),
     };
   }
+  const ordered = fifoOrder(lines);
 
   // 3. the number — after validation, in this transaction
   const seq = await nextInSeries(tx, caller, settlementSeries(refund.data.bookingDate));
   const number = settlementNumber(refund.data.bookingDate, seq);
 
-  // 4. the row, its lines (the rounding note on the last line), the link
+  // 4. the row, then one `settles` link per line
   const row = await tx.settlement.create({
     data: {
       tenantId: caller.tenantId,
       number,
       bankTransactionId: refund.data.id,
-      paymentSourceId: source.id,
-      refundAmount: refund.data.amount,
-      refundCurrency: refund.data.currency,
-      refundBase: refund.data.base,
-      allocatedBase: new D(diff.allocatedBase),
-      exchangeDifferenceBase: new D(diff.exchangeDifferenceBase),
-      roundingBase: new D(diff.roundingBase),
-      exchangeDifferenceBasCode: v.exchangeDifferenceBasCode ?? null,
       note: v.note ?? null,
       createdBy: caller.userId,
       source: caller.source,
-      lines: {
-        create: ordered.map((l, i) => ({
-          tenantId: caller.tenantId,
-          expenseId: l.expenseId,
-          allocatedBase: new D(l.allocatedBase),
-          note: i === ordered.length - 1 ? diff.roundingNote : null,
-          createdBy: caller.userId,
-          source: caller.source,
-        })),
-      },
     },
-    include: { lines: true },
   });
   await audit.log({
     action: "create",
@@ -400,34 +479,44 @@ export async function confirmSettlement(
       lines: ordered.map((l) => ({
         expenseId: l.expenseId,
         key: l.key,
+        allocatedAmount: l.allocatedAmount,
+        currency: l.currency,
         allocatedBase: l.allocatedBase,
       })),
     },
   });
-  const link = await linking.createLink(tx, caller, audit, {
-    from: { type: "bank_transaction", id: refund.data.id },
-    to: { type: "settlement", id: row.id },
-    kind: "settles",
-    allocatedAmount: refund.data.amount.abs().toFixed(2),
-    currency: refund.data.currency,
-  });
-  if (link.error) throw new RollbackError(link.error);
-  return { data: toSettlementDto(row) };
+  for (const l of ordered) {
+    const link = await linking.createLink(tx, caller, audit, {
+      from: { type: "bank_transaction", id: refund.data.id },
+      to: { type: "expense", id: l.expenseId },
+      kind: "settles",
+      allocatedAmount: l.allocatedAmount,
+      currency: l.currency,
+      allocatedBase: l.allocatedBase,
+      note: `Settlement ${number}`,
+    });
+    if (link.error) throw new RollbackError(link.error);
+  }
+  const [dto] = await settlementDtos(tx, [row]);
+  return { data: dto as SettlementDto };
 }
 
-/** Cancel (US4-6): status, the link goes, the balances reopen; number and statement stay (read as superseded). */
+/** Cancel (US4-6): status, the links go, the balances reopen; number and statement stay (read as superseded). */
 export async function cancelSettlement(
   tx: TransactionClient,
   caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
 ): Promise<ServiceResult<SettlementDto>> {
-  const row = await tx.settlement.findUnique({ where: { id }, include: { lines: true } });
+  const row = await tx.settlement.findUnique({ where: { id } });
   if (!row) return { error: notFound("Settlement", id) };
   if (row.status === "cancelled") return { error: violation(`${row.number} is already cancelled`) };
+  const [before] = await settlementDtos(tx, [row]);
   const links = (
-    await linking.linksTouching(tx, "settlement", [id], { kinds: ["settles"] })
-  ).filter((l) => l.to.type === "settlement" && l.to.id === id);
+    await linking.linksTouching(tx, "bank_transaction", [row.bankTransactionId], {
+      kinds: ["settles"],
+    })
+  ).filter((l) => l.from.id === row.bankTransactionId && l.to.type === "expense");
   for (const l of links) {
     const removed = await linking.removeLink(tx, caller, audit, l.id);
     if (removed.error) return { error: removed.error };
@@ -435,23 +524,45 @@ export async function cancelSettlement(
   const updated = await tx.settlement.update({
     where: { id },
     data: { status: "cancelled", cancelledAt: new Date() },
-    include: { lines: true },
   });
   await audit.log({
     action: "update",
     entityType: "settlement",
     entityId: id,
-    oldData: { status: "active" },
+    oldData: {
+      status: "active",
+      lines: (before?.lines ?? []).map((l) => ({
+        expenseId: l.expenseId,
+        key: l.key,
+        allocatedAmount: l.allocatedAmount,
+        currency: l.currency,
+        allocatedBase: l.allocatedBase,
+      })),
+    },
     newData: { status: "cancelled", statementSuperseded: isStatementSuperseded(updated) },
   });
-  return { data: toSettlementDto(updated) };
+  const [dto] = await settlementDtos(tx, [updated]);
+  return { data: dto as SettlementDto };
 }
 
 export async function getSettlement(
   tx: TransactionClient,
   id: string,
 ): Promise<ServiceResult<SettlementDto>> {
-  const row = await tx.settlement.findUnique({ where: { id }, include: { lines: true } });
+  const row = await tx.settlement.findUnique({ where: { id } });
   if (!row) return { error: notFound("Settlement", id) };
-  return { data: toSettlementDto(row) };
+  const [dto] = await settlementDtos(tx, [row]);
+  return { data: dto as SettlementDto };
 }
+
+/** True when the expense's claim is covered within the tolerance — the statement's "settled" word. */
+export function claimSettled(openBaseBefore: string, allocatedBase: string): boolean {
+  return isSettled(openBaseBefore, [allocatedBase]);
+}
+
+export {
+  amountForBase,
+  differenceBasCode,
+  expectedBaseFor,
+  settlementTotals,
+} from "./settlement-math";

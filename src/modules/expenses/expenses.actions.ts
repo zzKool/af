@@ -11,7 +11,6 @@ import * as expenseService from "@/modules/expenses/expenses";
 import * as groups from "@/modules/expenses/groups";
 import { renderStatementJob } from "@/modules/expenses/jobs/render-statement";
 import { vendorOptions } from "@/modules/expenses/page-data";
-import * as paymentSources from "@/modules/expenses/payment-sources";
 import {
   candidateDocuments,
   distinctExpenseValues,
@@ -98,14 +97,6 @@ export const getExpenseGroupAction = authedAction
     return getGroupDetail(ctx.tx, parsedInput.id);
   });
 
-export const listPaymentSourcesAction = authedAction
-  .schema(z.object({}))
-  .metadata({ name: "listPaymentSources" })
-  .action(async ({ ctx }) => {
-    if (!can(ctx.callerIdentity, "read", "expense")) return forbidden;
-    return { data: await paymentSources.listPaymentSources(ctx.tx) };
-  });
-
 export const ledgerSnapshotAction = authedAction
   .schema(z.object({}))
   .metadata({ name: "expenseLedger" })
@@ -131,11 +122,11 @@ export const getSettlementAction = authedAction
   });
 
 export const openPrivateExpensesAction = authedAction
-  .schema(z.object({ paymentSourceId: uuid.optional() }))
+  .schema(z.object({ paidFromAccountId: uuid.optional() }))
   .metadata({ name: "openPrivateExpenses" })
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "expense")) return forbidden;
-    return { data: await openPrivateExpenses(ctx.tx, parsedInput.paymentSourceId) };
+    return { data: await openPrivateExpenses(ctx.tx, parsedInput.paidFromAccountId) };
   });
 
 export const settleableTransactionsAction = authedAction
@@ -203,34 +194,6 @@ export const deleteExpenseGroupAction = ownerAction
     groups.deleteGroup(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id),
   );
 
-/** The four sources on first use (FR-002), then the list. */
-export const ensurePaymentSourcesAction = ownerAction
-  .schema(z.object({}))
-  .metadata({ name: "ensurePaymentSources" })
-  .action(async ({ ctx }) => ({
-    data: await paymentSources.ensureDefaultSources(ctx.tx, ctx.callerIdentity, ctx.audit),
-  }));
-
-export const createPaymentSourceAction = ownerAction
-  .schema(paymentSources.paymentSourceInputSchema)
-  .metadata({ name: "createPaymentSource" })
-  .action(async ({ ctx, parsedInput }) =>
-    paymentSources.createPaymentSource(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
-  );
-
-export const setPaymentSourceActiveAction = ownerAction
-  .schema(z.object({ id: uuid, isActive: z.boolean() }))
-  .metadata({ name: "setPaymentSourceActive" })
-  .action(async ({ ctx, parsedInput }) =>
-    paymentSources.setPaymentSourceActive(
-      ctx.tx,
-      ctx.callerIdentity,
-      ctx.audit,
-      parsedInput.id,
-      parsedInput.isActive,
-    ),
-  );
-
 export const createExpenseAction = ownerAction
   .schema(expenseService.expenseInputSchema)
   .metadata({ name: "createExpense" })
@@ -258,23 +221,19 @@ export const deleteExpenseAction = ownerAction
     expenseService.deleteExpense(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id),
   );
 
-export const attachBankTransactionAction = ownerAction
-  .schema(expenseService.attachSchema)
-  .metadata({ name: "attachExpenseBankTransaction" })
+/** A bank row pays the expense — one `justifies` link with its amount and base (F114). */
+export const payExpenseAction = ownerAction
+  .schema(expenseService.paySchema)
+  .metadata({ name: "payExpense" })
   .action(async ({ ctx, parsedInput }) =>
-    expenseService.attachBankTransaction(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+    expenseService.payExpense(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
 
-export const detachBankTransactionAction = ownerAction
-  .schema(z.object({ expenseId: uuid }))
-  .metadata({ name: "detachExpenseBankTransaction" })
+export const unpayExpenseAction = ownerAction
+  .schema(expenseService.unpaySchema)
+  .metadata({ name: "unpayExpense" })
   .action(async ({ ctx, parsedInput }) =>
-    expenseService.detachBankTransaction(
-      ctx.tx,
-      ctx.callerIdentity,
-      ctx.audit,
-      parsedInput.expenseId,
-    ),
+    expenseService.unpayExpense(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
 
 /** The receipts an expense may still take (the inbox's expense documents) — the panel's *Attach receipt* picker. */

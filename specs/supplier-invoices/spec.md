@@ -6,6 +6,9 @@
 
 **Status**: Ready for planning (D8, D28, D-g; harvest `specs/supplier-invoices/harvest.md`)
 
+> **Superseded in part by F114 / D60** (2026-10-27, `specs/linking/payment-record.md`): the link is the only payment record — `paid_amount` / `paid_currency` are gone, there is no attach / detach; one `recordPayment` in any row currency puts what the row gave in base on the link, the FX difference is derived. Where this spec and that one differ, that one holds.
+
+
 **Input**: "An invoice a supplier sends to AnalyticsFab — the accountant's monthly fee (`Factura 9160`), a SaaS invoice, the Swiss fiduciary: a reviewed document, the partner, the supplier's number, the dates and a due date, the amount with VAT, and the bank row that paid it. It is unpaid until a bank transaction is linked; overdue when the due date passed; its VAT feeds the declarations; its PDF goes to the month's package under `supplier-invoices/`. Key `SI213-Acc-01` in the group, file `SI213-Acc-01_2026-07-24_Skattepunkten_Office_Services_AB.pdf`."
 
 ## User Scenarios & Testing *(mandatory)*

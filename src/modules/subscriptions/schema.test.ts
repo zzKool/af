@@ -13,6 +13,7 @@ let admin: Pool;
 let app: Pool;
 let tenantId: string;
 let groupId: string;
+let payerId: string;
 const user = randomUUID();
 
 async function insertSubscription(overrides: Record<string, unknown> = {}): Promise<string> {
@@ -24,7 +25,7 @@ async function insertSubscription(overrides: Record<string, unknown> = {}): Prom
     becomes: "expense",
     bas_code: "6540",
     group_id: groupId,
-    payment_source_id: randomUUID(),
+    paid_from_account_id: payerId,
     cadence: "monthly",
     start_date: "2026-01-14",
     created_by: user,
@@ -63,6 +64,13 @@ afterAll(async () => {
 beforeEach(async () => {
   await cleanupTestData(admin);
   tenantId = (await createTestTenant(admin)).id;
+  // the payer: a private instrument of the owner (F114: a bank account with role owner_private, no format)
+  payerId = randomUUID();
+  await admin.query(
+    `INSERT INTO bank_accounts (id, tenant_id, account_alias, account_number, currency, bank_format_id, role, created_by)
+     VALUES ($1, $2, 'Private SE', 'Private SE', 'SEK', NULL, 'owner_private', $3)`,
+    [payerId, tenantId, user],
+  );
   groupId = randomUUID();
   await admin.query(
     `INSERT INTO expense_groups (id, tenant_id, number, description, kind, created_by, updated_at)

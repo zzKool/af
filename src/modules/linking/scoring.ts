@@ -42,7 +42,6 @@ const REFERENCE_LABEL: Record<LinkableType, string> = {
   supplier_invoice: "Invoice number in message",
   expense: "Expense key in message",
   document: "Document key in message",
-  settlement: "Settlement number in message",
   bank_transaction: "Reference in message",
   partner: "Name in message",
   contract: "Reference in message",

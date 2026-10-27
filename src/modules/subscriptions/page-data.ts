@@ -2,6 +2,7 @@
 // Server-only; the page imports it through index.ts.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
+import * as banking from "@/modules/banking";
 import * as expenses from "@/modules/expenses";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
@@ -27,7 +28,7 @@ export async function subscriptionPageOptions(
   const vendors = await partners.getPartners(tx, { types: ["vendor"] });
   const categories = await expenses.expenseCategoryOptions(tx, caller);
   const groups = await expenses.listGroups(tx);
-  const sources = await expenses.listPaymentSources(tx);
+  const sources = await banking.payerAccounts(tx);
   const regs = await settings.getVatRegistrations(tx, caller);
   return {
     vendors: (vendors.data ?? []).map((p) => ({
@@ -38,9 +39,7 @@ export async function subscriptionPageOptions(
     })),
     categories,
     groups: groups.map((g) => ({ id: g.id, label: expenses.groupLabel(g) })),
-    sources: sources
-      .filter((s) => s.isActive)
-      .map((s) => ({ id: s.id, label: s.label, kind: s.kind, currency: s.currency })),
+    sources: sources.map((s) => ({ id: s.id, label: s.label, kind: s.kind, currency: s.currency })),
     registrations: (regs.data ?? []).map((r) => ({
       id: r.id,
       label: `${r.country} ${r.vatNumber}`,

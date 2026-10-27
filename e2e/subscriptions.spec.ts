@@ -29,7 +29,7 @@ test.describe("Subscriptions", () => {
       await page.getByRole("button", { name: "Create", exact: true }).click();
       await expect(page.getByText("Partner created")).toBeVisible();
 
-      // 2. the subscription: + New group named after it, paid from AF SEK, monthly from yesterday
+      // 2. the subscription: + New group named after it, paid from Plusgirokonto SEK, monthly from yesterday
       await page.goto("/subscriptions?new=1");
       const form = page.getByTestId("subscription-form");
       await expect(form).toBeVisible();
@@ -40,7 +40,7 @@ test.describe("Subscriptions", () => {
       await pick("sub-vendor", vendor);
       await expect(form.getByTestId("sub-name")).toHaveValue(vendor);
       await expect(form.getByTestId("sub-group")).toContainText(`New group: ${vendor}`);
-      await pick("sub-payer", "AF SEK");
+      await pick("sub-payer", "Plusgirokonto SEK");
       await pick("sub-category", /\(IT\)/);
       await form.getByTestId("sub-start").fill(iso(-1));
       await form.getByTestId("sub-amount").fill("199.00");

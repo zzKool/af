@@ -64,7 +64,14 @@ export const bankTransactionLinkable: Linkable = {
   async summary(tx: TransactionClient, id: string) {
     const t = await tx.bankTransaction.findUnique({
       where: { id },
-      select: { id: true, bookingDate: true, amount: true, currency: true, description: true },
+      select: {
+        id: true,
+        bookingDate: true,
+        amount: true,
+        currency: true,
+        amountBase: true,
+        description: true,
+      },
     });
     if (!t) return null;
     return {
@@ -73,6 +80,8 @@ export const bankTransactionLinkable: Linkable = {
       label: `${t.bookingDate.toISOString().slice(0, 10)} · ${t.amount.toFixed(2)} ${t.currency} · ${t.description}`,
       amount: t.amount.abs().toFixed(2),
       currency: t.currency,
+      // the base the row gives its allocations (F114): the capacity linking checks Σ allocated_base against
+      amountBase: t.amountBase.abs().toFixed(2),
     };
   },
   async facts(tx: TransactionClient, id: string) {

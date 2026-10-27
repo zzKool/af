@@ -99,11 +99,15 @@ export async function importCsv(
   });
   if (!account) return { error: notFound("Bank account", parsed.data.bankAccountId) };
   const label = accountLabel(account);
+  if (!account.bankFormat) {
+    return { error: invalid(`${label} is a private instrument — it has no statement to import`) };
+  }
   const config = formatConfig(account.bankFormat);
+  const format = account.bankFormat;
   if (!config)
     return {
-      error: invalid(`The ${account.bankFormat.name} format's column mapping is not readable`, {
-        bankFormat: account.bankFormat.name,
+      error: invalid(`The ${format.name} format's column mapping is not readable`, {
+        bankFormat: format.name,
       }),
     };
 
@@ -113,8 +117,8 @@ export async function importCsv(
     const first = result.errors[0] ?? "No data rows found";
     return {
       error: first.startsWith("Unexpected columns")
-        ? invalid(`Not a ${account.bankFormat.bankName} export — ${first}`, {
-            bankName: account.bankFormat.bankName,
+        ? invalid(`Not a ${format.bankName} export — ${first}`, {
+            bankName: format.bankName,
           })
         : invalid(first),
     };

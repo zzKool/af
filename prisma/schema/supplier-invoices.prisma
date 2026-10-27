@@ -35,9 +35,6 @@ model SupplierInvoice {
   /// the RateSource enum (journal.prisma)
   rateSource        RateSource @map("rate_source")
   rateDate          DateTime? @map("rate_date") @db.Date
-  /// what the bank row paid when the payment is in another currency (D-g = D26), once attached
-  paidAmount        Decimal? @map("paid_amount") @db.Decimal(15, 2)
-  paidCurrency      String?  @map("paid_currency") @db.Char(3)
   /// 3-digit BAS group, validated at write
   basCode           String   @map("bas_code") @db.VarChar(4)
   /// the SE or CH registration this VAT is deductible under (validated UUID)

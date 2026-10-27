@@ -28,7 +28,7 @@ export async function deleteSupplierInvoice(
   const row = await tx.supplierInvoice.findUnique({ where: { id } });
   if (!row) return { error: notFound("Supplier invoice", id) };
   const links = await linking.linksTouching(tx, "supplier_invoice", [id]);
-  if (row.paidAmount || links.some((l) => !DELETE_WITH_ENTITY.has(l.kind))) {
+  if (links.some((l) => !DELETE_WITH_ENTITY.has(l.kind))) {
     return {
       error: violation(`${row.key} is linked (a payment or another link) — cancel it instead`),
     };

@@ -36,7 +36,11 @@ import { ExpenseDocumentLine, ExpenseFactsSection } from "./expense-panel-facts"
 import { ExpenseHistoryList } from "./expense-panel-history";
 import { ExpenseLinksList } from "./expense-panel-links";
 import { ExpenseMoneySection } from "./expense-panel-money";
-import { ExpenseAttachRow, ExpenseSettlementsList } from "./expense-panel-payments";
+import {
+  ExpensePaymentsList,
+  ExpensePayRow,
+  ExpenseSettlementsList,
+} from "./expense-panel-payments";
 import { type ExpensePanelDetail, type ExpensePatch, money } from "./expense-panel-shared";
 import { ExpenseStateLabel } from "./expense-state";
 
@@ -146,9 +150,9 @@ export function ExpensePanel({
                 <div className="flex flex-col gap-3">
                   <ExpenseDocumentLine detail={detail} />
                   <ExpenseDocumentAttach detail={detail} canWrite={canWrite} onChanged={changed} />
-                  <ExpenseAttachRow
+                  <ExpensePaymentsList detail={detail} canWrite={canWrite} onChanged={changed} />
+                  <ExpensePayRow
                     detail={detail}
-                    sources={sources}
                     transactions={transactions}
                     canWrite={canWrite}
                     onChanged={changed}
@@ -246,10 +250,7 @@ type T = ReturnType<typeof useT>;
 /** About this expense: where it sits, who paid, and its money facts as written (the base, the rate, the bank). */
 function aboutRows(detail: ExpensePanelDetail, t: T): [ReactNode, ReactNode][] {
   const e = detail.expense;
-  const rateSource =
-    e.rateSource === "bank"
-      ? t("expenses.rateSource.bank")
-      : t(`banking.rateSource.${e.rateSource}`);
+  const rateSource = t(`banking.rateSource.${e.rateSource}`);
   const rows: [ReactNode, ReactNode][] = [
     [
       t("expenses.col.group"),
@@ -290,7 +291,7 @@ function aboutRows(detail: ExpensePanelDetail, t: T): [ReactNode, ReactNode][] {
         </span>
       ),
     ],
-    [t("expenses.form.paidBy"), <Tag key="payer">{detail.paymentSource.label}</Tag>],
+    [t("expenses.form.paidBy"), <Tag key="payer">{detail.payer.label}</Tag>],
     [
       t("expenses.col.amountBase"),
       <span key="base" className="tabular-nums" data-testid="panel-base">
@@ -299,18 +300,20 @@ function aboutRows(detail: ExpensePanelDetail, t: T): [ReactNode, ReactNode][] {
           rate: e.rate,
           source: rateSource,
         })}
-        {e.baseProvisional ? ` · ${t("expenses.panel.provisional")}` : ""}
       </span>,
     ],
   ];
-  if (e.paidAmount)
+  if (Number(detail.allocated) > 0)
     rows.push([
       t("expenses.col.paid"),
-      <span key="paid" className="tabular-nums">
-        {money(e.paidAmount, e.paidCurrency ?? "SEK")}
+      <span key="paid" className="tabular-nums" data-testid="panel-paid">
+        {t("expenses.panel.paid", {
+          amount: money(detail.allocated, e.currency),
+          base: formatMoney(detail.allocatedBase, "SEK", { bare: true }),
+        })}
       </span>,
     ]);
-  if (detail.paymentSource.kind === "private")
+  if (detail.payer.kind === "private")
     rows.push(
       [
         t("expenses.col.allocated"),

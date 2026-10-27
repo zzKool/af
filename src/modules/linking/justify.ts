@@ -81,7 +81,6 @@ export const justifyExpenseSchema = z.object({
   amount: positiveMoney,
   currency: z.enum(CURRENCIES),
   vatAmount: signed.nullable().optional(),
-  paymentSourceId: uuid,
   partnerId: uuid.nullable().optional(),
   note: z.string().trim().max(2000).nullable().optional(),
 });
@@ -125,7 +124,7 @@ function step<T>(name: "entity" | "payment" | "row", r: ServiceResult<T>): Servi
 async function openRow(
   tx: TransactionClient,
   id: string,
-): Promise<ServiceResult<{ currency: string; amount: string }>> {
+): Promise<ServiceResult<{ currency: string; amount: string; bankAccountId: string }>> {
   const row = await banking.getBankTransaction(tx, id);
   if (!row)
     return {
@@ -146,7 +145,7 @@ async function openRow(
   const state = (await banking.transactionStates(tx, [id])).get(id);
   if (state && (state.state === "linked" || state.state === "no_document"))
     return { error: violation("This row is justified already") };
-  return { data: { currency: row.currency, amount: row.amount } };
+  return { data: { currency: row.currency, amount: row.amount, bankAccountId: row.bankAccountId } };
 }
 
 /**
@@ -179,15 +178,10 @@ export async function justifyRow(
     if (created.error) return { error: created.error };
     const paid = step(
       "payment",
-      created.data.currency === row.data.currency
-        ? await supplierInvoices.recordPayment(tx, caller, audit, {
-            invoiceId: created.data.id,
-            bankTransactionId: v.transactionId,
-          })
-        : await supplierInvoices.attachPayment(tx, caller, audit, {
-            invoiceId: created.data.id,
-            bankTransactionId: v.transactionId,
-          }),
+      await supplierInvoices.recordPayment(tx, caller, audit, {
+        invoiceId: created.data.id,
+        bankTransactionId: v.transactionId,
+      }),
     );
     if (paid.error) return { error: paid.error };
     const facts = step(
@@ -207,17 +201,19 @@ export async function justifyRow(
   }
 
   const e = v.expense as z.output<typeof justifyExpenseSchema>;
+  // the payer is the row's account — the row pays it (F114 FR-008)
   const created = step(
     "entity",
     await expenses.createExpense(tx, caller, audit, {
       ...e,
+      paidFromAccountId: row.data.bankAccountId,
       ...(v.documentId ? { documentId: v.documentId } : { documentMissing: true }),
     }),
   );
   if (created.error) return { error: created.error };
   const paid = step(
     "payment",
-    await expenses.attachBankTransaction(tx, caller, audit, {
+    await expenses.payExpense(tx, caller, audit, {
       expenseId: created.data.id,
       bankTransactionId: v.transactionId,
     }),

@@ -6,7 +6,7 @@ const base = {
   description: "Hotel",
   basCode: "5831",
   currency: "SEK",
-  paymentSourceId: "src-1",
+  paidFromAccountId: "src-1",
   documentMissing: false,
   note: null,
   updatedAt: "2025-03-10T10:00:00.000Z",
@@ -65,7 +65,7 @@ describe("expense history", () => {
       "description",
       "basCode",
       "currency",
-      "paymentSourceId",
+      "paidFromAccountId",
       "documentMissing",
       "note",
     ]);

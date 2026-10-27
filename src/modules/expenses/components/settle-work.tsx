@@ -1,8 +1,9 @@
 "use client";
 
-// The settle page (US4, US5): open private expenses left (FIFO order, ticks, editable allocations), the refund
-// transaction right (picker with the coverage hint), the summary, the confirm dialog with its three states. The
-// difference and the tolerance are the server's (`settlementDifference`, `owedBase`), in Decimal — never Number.
+// The settle page (US4, US5, F114): open private expenses left (FIFO order, ticks, editable base allocations, a
+// *full* tick when the owner accepted less base than the claim — a cross-currency refund), the refund transaction
+// right (picker with the coverage hint), the summary with the derived difference, the confirm dialog. The arithmetic
+// is the server's (`settlement-math.ts`, the one tolerance), in Decimal — never Number. Σ base never exceeds the row.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -36,11 +37,20 @@ import {
   confirmSettlementAction,
   proposeSettlementAction,
 } from "@/modules/expenses/expenses.actions";
-import { type OpenExpense, settlementDifference } from "@/modules/expenses/fifo";
-import { owedBase } from "@/modules/expenses/status";
+import type { OpenExpense } from "@/modules/expenses/fifo";
+import {
+  amountForBase,
+  expectedBaseFor,
+  settlementTotals,
+} from "@/modules/expenses/settlement-math";
 import type { SourceOption, TransactionOption } from "@/modules/expenses/types";
 
-export type OpenRow = OpenExpense & { paymentSourceId: string; currency: string; amount: string };
+export type OpenRow = OpenExpense & {
+  paidFromAccountId: string;
+  currency: string;
+  amount: string;
+  openAmount: string;
+};
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -77,12 +87,15 @@ export function SettleWork({
   const router = useRouter();
   const [txId, setTxId] = useState(NONE);
   const [sourceId, setSourceId] = useState(
-    [...new Set(open.map((e) => e.paymentSourceId))].length === 1 ? open[0]?.paymentSourceId : NONE,
+    [...new Set(open.map((e) => e.paidFromAccountId))].length === 1
+      ? open[0]?.paidFromAccountId
+      : NONE,
   );
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [alloc, setAlloc] = useState<Record<string, string>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmExchange, setConfirmExchange] = useState(false);
+  /** the owner's word that a line is refunded in full although the base falls short of the claim (the difference shows) */
+  const [full, setFull] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState("");
   const [tick, setTick] = useState(0);
   const { executeAsync: propose, isPending: proposing } = useAction(proposeSettlementAction);
@@ -90,22 +103,31 @@ export function SettleWork({
 
   const tx = transactions.find((x) => x.id === txId) ?? null;
   const rows = useMemo(
-    () => open.filter((e) => sourceId === NONE || e.paymentSourceId === sourceId),
+    () => open.filter((e) => sourceId === NONE || e.paidFromAccountId === sourceId),
     [open, sourceId],
   );
   const selected = rows.filter((e) => ticked.has(e.expenseId));
   const allocationOf = (e: OpenRow) => dec(alloc[e.expenseId] ?? e.openBase);
-  const lines = selected.map((e) => ({ allocatedBase: fix(allocationOf(e)) }));
+  /** what the line refunds of the expense: the share the base covers, or the whole open amount on the owner's word */
+  const amountOf = (e: OpenRow) =>
+    full[e.expenseId] ? new D(e.openAmount) : amountForBase(e, allocationOf(e));
+  const partialByBase = (e: OpenRow) => amountForBase(e, allocationOf(e)).lt(new D(e.openAmount));
+  const lines = selected.map((e) => ({
+    allocatedBase: fix(allocationOf(e)),
+    expectedBase: fix(expectedBaseFor(e, amountOf(e), allocationOf(e))),
+  }));
   const refundBase = tx?.amountBase ? new D(tx.amountBase).abs() : null;
-  // the server's own arithmetic (fifo.ts / status.ts), in Decimal — the same one propose and confirm run (F62)
-  const difference = settlementDifference(lines, refundBase ?? "0");
-  const allocated = new D(difference.allocatedBase);
-  const over = refundBase !== null && new D(difference.exchangeDifferenceBase).gt(0);
-  const rounding = refundBase !== null && new D(difference.roundingBase).gt(0);
-  const unallocated = refundBase === null ? new D(0) : new D(difference.unallocatedOnTransaction);
-  // what stays owed on the ledger after these lines: `owedBase` of each, the ledger's own rule
+  // the server's own arithmetic (settlement-math.ts), in Decimal — the same one propose and confirm run (F62)
+  const totals = settlementTotals(lines, refundBase ?? "0");
+  const allocated = totals.allocatedBase;
+  const over = refundBase !== null && allocated.gt(refundBase);
+  const rounding = refundBase !== null && totals.rounding;
+  const difference = refundBase !== null && !totals.rounding ? totals.differenceBase : new D(0);
+  const unallocated = refundBase === null ? new D(0) : totals.unallocatedBase;
+  // what stays owed on the ledger after these lines: the claim the lines do not reach, in base
   const residual = selected.reduce<Dec>(
-    (acc, e) => acc.plus(owedBase(e.openBase, allocationOf(e))),
+    (acc, e) =>
+      acc.plus(D.max(new D(e.openBase).minus(expectedBaseFor(e, amountOf(e), allocationOf(e))), 0)),
     new D(0),
   );
 
@@ -116,7 +138,7 @@ export function SettleWork({
     (async () => {
       const r = await propose({
         bankTransactionId: txId,
-        paymentSourceId: sourceId === NONE ? undefined : sourceId,
+        paidFromAccountId: sourceId === NONE ? undefined : sourceId,
       });
       if (cancelled) return;
       const error = extractError(r);
@@ -128,7 +150,7 @@ export function SettleWork({
       if (!p) return;
       setTicked(new Set(p.lines.map((l) => l.expenseId)));
       setAlloc(Object.fromEntries(p.lines.map((l) => [l.expenseId, l.allocatedBase])));
-      if (p.paymentSourceId && sourceId === NONE) setSourceId(p.paymentSourceId);
+      if (p.paidFromAccountId && sourceId === NONE) setSourceId(p.paidFromAccountId);
     })();
     return () => {
       cancelled = true;
@@ -148,12 +170,11 @@ export function SettleWork({
     if (!tx || sourceId === NONE) return;
     const r = await confirm({
       bankTransactionId: tx.id,
-      paymentSourceId: sourceId,
       lines: selected.map((e) => ({
         expenseId: e.expenseId,
         allocatedBase: fix(allocationOf(e)),
+        ...(full[e.expenseId] ? { allocatedAmount: e.openAmount } : {}),
       })),
-      confirmExchangeDifference: confirmExchange,
       note: note.trim() || null,
     });
     const error = extractError(r);
@@ -170,12 +191,7 @@ export function SettleWork({
     router.refresh();
   }
 
-  const canConfirm =
-    !!tx &&
-    sourceId !== NONE &&
-    selected.length > 0 &&
-    allocated.gt(0) &&
-    (!over || confirmExchange);
+  const canConfirm = !!tx && sourceId !== NONE && selected.length > 0 && allocated.gt(0) && !over;
 
   const left = (
     <div className="flex flex-col gap-2 p-3" data-testid="settle-open">
@@ -232,6 +248,20 @@ export function SettleWork({
                   disabled={!on}
                   onChange={(ev) => setAlloc((a) => ({ ...a, [e.expenseId]: ev.target.value }))}
                 />
+                {on && partialByBase(e) && (
+                  <label
+                    className="flex items-center gap-1 text-xs"
+                    title={t("expenses.settle.fullHint")}
+                  >
+                    <Checkbox
+                      checked={!!full[e.expenseId]}
+                      onCheckedChange={(c) => setFull((f) => ({ ...f, [e.expenseId]: c === true }))}
+                      aria-label={`${t("expenses.settle.full")} ${e.key}`}
+                      data-testid="settle-full"
+                    />
+                    {t("expenses.settle.full")}
+                  </label>
+                )}
               </li>
             );
           })}
@@ -248,9 +278,7 @@ export function SettleWork({
     : refundBase === null
       ? null
       : over
-        ? t("expenses.settle.short", {
-            amount: sek(difference.exchangeDifferenceBase),
-          })
+        ? t("expenses.settle.short", { amount: sek(fix(allocated.minus(refundBase))) })
         : unallocated.gt(0)
           ? t("expenses.settle.covers", { amount: sek(fix(unallocated)) })
           : t("expenses.settle.exact");
@@ -301,14 +329,15 @@ export function SettleWork({
           </div>
           {rounding && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {t("expenses.settle.rounding", { amount: sek(difference.roundingBase) })}
+              {t("expenses.settle.rounding", { amount: sek(fix(totals.differenceBase)) })}
             </p>
           )}
-          {over && (
-            <p className="mt-1 flex items-center gap-1.5 text-xs">
+          {!difference.isZero() && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs" data-testid="settle-difference">
               <StateIcon family="attention" />
               {t("expenses.settle.exchangeDifference", {
-                amount: sek(difference.exchangeDifferenceBase),
+                amount: sek(fix(difference)),
+                code: difference.gt(0) ? "7960" : "3960",
               })}
             </p>
           )}
@@ -325,10 +354,7 @@ export function SettleWork({
             <Button
               size="sm"
               disabled={!tx || selected.length === 0 || allocated.lte(0)}
-              onClick={() => {
-                setConfirmExchange(false);
-                setConfirmOpen(true);
-              }}
+              onClick={() => setConfirmOpen(true)}
               data-testid="open-confirm"
             >
               {t("expenses.settle.confirm")}
@@ -345,9 +371,10 @@ export function SettleWork({
               })}
             </DialogTitle>
             <DialogDescription data-testid="confirm-state">
-              {over
+              {!difference.isZero()
                 ? t("expenses.settle.confirmOver", {
-                    amount: sek(difference.exchangeDifferenceBase),
+                    amount: sek(fix(difference)),
+                    code: difference.gt(0) ? "7960" : "3960",
                   })
                 : residual.gt(0)
                   ? t("expenses.settle.confirmPartial", {
@@ -368,18 +395,6 @@ export function SettleWork({
               <span className="tabular-nums">{formatMoney(fix(allocated), "SEK")}</span>
             </li>
           </ul>
-          {over && (
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                id={`${ids}-exchange`}
-                checked={confirmExchange}
-                onCheckedChange={(c) => setConfirmExchange(c === true)}
-                data-testid="confirm-exchange"
-                aria-label={t("expenses.settle.confirmExchange")}
-              />
-              <span>{t("expenses.settle.confirmExchange")}</span>
-            </label>
-          )}
           <div>
             <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
               {t("expenses.settle.note")}

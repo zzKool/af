@@ -304,29 +304,35 @@ async function seed() {
       });
     }
 
-    // the four payment sources (specs/expenses US2): the two main accounts, the owner's private cards
-    const mainAccounts = await tx.bankAccount.findMany({
-      where: { tenantId: orgId, role: "main" },
-      select: { id: true, currency: true },
-    });
-    const sources = [
-      ...mainAccounts.map((a) => ({
-        label: `AF ${a.currency}`,
-        kind: "bank_account" as const,
-        bankAccountId: a.id,
-        currency: a.currency,
-      })),
-      { label: "Private SE", kind: "private" as const, bankAccountId: null, currency: "SEK" },
-      { label: "Private CH", kind: "private" as const, bankAccountId: null, currency: "CHF" },
+    // the owner's private instruments (F114, D60): bank accounts with role owner_private, no format — the
+    // payers of a private expense; the main accounts pay the company's
+    const privates = [
+      { accountAlias: "Private SE", currency: "SEK" },
+      { accountAlias: "Private CH", currency: "CHF" },
     ];
-    for (const src of sources) {
-      await tx.paymentSource.upsert({
-        where: { tenantId_label: { tenantId: orgId, label: src.label } },
+    for (const p of privates) {
+      await tx.bankAccount.upsert({
+        where: {
+          tenantId_accountNumber_currency: {
+            tenantId: orgId,
+            accountNumber: p.accountAlias,
+            currency: p.currency,
+          },
+        },
         update: {},
-        create: { ...src, tenantId: orgId, createdBy: ownerUserId, source: "seed" },
+        create: {
+          tenantId: orgId,
+          accountAlias: p.accountAlias,
+          accountNumber: p.accountAlias,
+          currency: p.currency,
+          bankFormatId: null,
+          role: "owner_private",
+          createdBy: ownerUserId,
+          source: "seed",
+        },
       });
     }
-    console.log(`  ✓ Payment sources seeded (${sources.length})`);
+    console.log(`  ✓ Private instruments seeded (${privates.length})`);
 
     // Skatteverket's normalbelopp — the 2025 subset v1 carried (specs/traktamente/fixtures/normalbelopp.csv),
     // flagged v1-seed: the owner verifies and pastes the current year's CSV

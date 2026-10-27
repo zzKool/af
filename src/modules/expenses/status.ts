@@ -1,49 +1,52 @@
-// Derived status of an expense (FR-005) — pure, never stored. Decimal strings in, a status out.
-//   company-paid → `paid` once a `justifies` link allocates the paid amount (within the paid currency's tolerance),
-//                  else `awaiting_link`
-//   private      → `refunded` when nothing is owed (`owedBase` = 0: what is open is ≤ 0.50 SEK, D25/D26 rounding),
-//                  `partially_refunded` when some of the base is allocated, else `to_refund`
-// `owedBase` is THE "still owed" rule (F62): the list, the groups, the ledger, the open expenses a settlement
-// proposes and the status all read it — one tolerance, no copy.
+// Derived status of an expense (FR-005, F114 / D60) — pure, never stored. Amounts in the expense's currency:
+//   company-paid → `paid` once its `justifies` links cover the amount (the one tolerance, D25), else `awaiting_link`
+//   private      → `refunded` when its `settles` links cover the amount, `partially_refunded` when some of it is
+//                  allocated, else `to_refund`
+// What is still open — in the expense's currency and, for the owner's claim, in base — is derived here too: the
+// list, the groups, the ledger, the settlement proposal and the status all read it; one tolerance, no copy.
 import { Prisma } from "@/generated/prisma/browser";
-import { isSettled } from "@/kernel/money/settlement";
+import { type Allocation, fxDifference, isSettled, openAmount } from "@/kernel/money/settlement";
 import type { ExpenseStatus } from "./types";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
 
-/** Below this, what is left of a private expense's SEK base is rounding, not a debt (Swedish 50-öre tolerance). */
-export const OPEN_BASE_TOLERANCE_SEK = new D("0.50");
-
-/** The arithmetic remainder: base − Σ active settlement lines, never negative. */
-export function openBase(amountBase: Dec | string, allocatedBase: Dec | string): Dec {
-  const open = new D(amountBase).minus(new D(allocatedBase));
-  return open.lt(0) ? new D(0) : open;
-}
-
-/** What the company still owes the owner on a private expense: the remainder, or 0 when it is within the tolerance. */
-export function owedBase(amountBase: Dec | string, allocatedBase: Dec | string): Dec {
-  const open = openBase(amountBase, allocatedBase);
-  return open.gt(OPEN_BASE_TOLERANCE_SEK) ? open : new D(0);
-}
-
 export function deriveExpenseStatus(input: {
   paidByPrivate: boolean;
-  amountBase: string;
-  /** Σ active settlement lines, SEK */
-  allocatedBase: string;
-  /** the bank row's amount once attached (company-paid), else null */
-  paidAmount: string | null;
-  /** Σ `justifies` allocations onto the expense, in the paid currency */
-  justifiedAmount: string;
+  /** the expense's amount, its currency */
+  amount: string;
+  /** Σ allocating links onto it, the same currency */
+  allocated: string;
 }): ExpenseStatus {
-  if (!input.paidByPrivate) {
-    if (!input.paidAmount) return "awaiting_link";
-    return isSettled(new D(input.paidAmount).abs(), [input.justifiedAmount])
-      ? "paid"
-      : "awaiting_link";
-  }
-  if (owedBase(input.amountBase, input.allocatedBase).isZero()) return "refunded";
-  if (new D(input.allocatedBase).gt(0)) return "partially_refunded";
+  const allocated = new D(input.allocated);
+  const settled = allocated.gt(0) && isSettled(input.amount, [allocated]);
+  if (!input.paidByPrivate) return settled ? "paid" : "awaiting_link";
+  if (settled) return "refunded";
+  if (allocated.gt(0)) return "partially_refunded";
   return "to_refund";
+}
+
+/** What is still open on the expense, its currency — 0 when within the tolerance (then it counts as paid / refunded). */
+export function openOn(amount: Dec | string, allocated: Dec | string): Dec {
+  const open = openAmount(amount, allocated);
+  return isSettled(amount, [allocated]) ? new D(0) : open;
+}
+
+/**
+ * The owner's claim still open on a private expense, in base: the expense's base for the share that is not yet
+ * refunded (D26 — the owner is owed the value at the receipt's date), 0 when within the tolerance.
+ */
+export function openBase(
+  amount: Dec | string,
+  amountBase: Dec | string,
+  allocations: readonly Allocation[],
+): Dec {
+  const open = openOn(
+    amount,
+    allocations.reduce((acc, a) => acc.plus(new D(a.amount)), new D(0)),
+  );
+  if (open.isZero()) return new D(0);
+  const { expectedBase } = fxDifference(amount, amountBase, allocations);
+  const left = new D(amountBase).abs().minus(expectedBase);
+  return left.lt(0) ? new D(0) : left;
 }

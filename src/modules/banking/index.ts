@@ -34,7 +34,14 @@ export type {
 } from "./csv-parser";
 export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
 export type { CategoriseOptions, RowRate } from "./facts";
-export { baseAmount, categorise, categoriseSchema, resolveRate, transactionFacts } from "./facts";
+export {
+  baseAmount,
+  categorise,
+  categoriseSchema,
+  resolveRate,
+  transactionFacts,
+  transactionIdsByAmount,
+} from "./facts";
 export { transactionHistory } from "./history";
 export { impliedRate, withImplicitRates } from "./implicit-rate";
 export {
@@ -45,19 +52,27 @@ export {
   importCsvSchema,
   planImport,
 } from "./import";
+export { linkFactsOf, type RowForFacts } from "./link-facts";
 export { bankTransactionLinkable } from "./linkable";
 export type { MonthsInput } from "./months";
 export {
   addMonths,
   assembleMonths,
   bankMonths,
-  linkFactsOf,
   MONTHS_WINDOW,
   monthRange,
   needsProof,
 } from "./months";
 export { rowsToJustifyCount } from "./open-work";
 export { categoryOptions, partnerOptions } from "./options";
+export {
+  createPrivateAccount,
+  type PayerAccount,
+  type PrivateAccountInput,
+  payerAccount,
+  payerAccounts,
+  privateAccountSchema,
+} from "./payers";
 export * from "./queries";
 export type { RuleInput, RuleLike, RuleTarget, UpdateRuleInput } from "./rules";
 export {
@@ -91,8 +106,10 @@ export {
 export type * from "./types";
 export {
   BANK_ACCOUNT_ROLES,
+  payerKindOf,
   RATE_SOURCES,
   RULE_MATCH_FIELDS,
   RULE_MATCH_TYPES,
+  STATEMENT_ROLES,
   TRANSACTION_STATES,
 } from "./types";

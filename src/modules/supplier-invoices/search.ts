@@ -33,7 +33,7 @@ export async function searchSupplierInvoiceHits(
         { key: contains },
         { invoiceNumber: contains },
         { note: contains },
-        ...(q.amount ? [{ amountTotal: q.amount }, { paidAmount: q.amount }] : []),
+        ...(q.amount ? [{ amountTotal: q.amount }] : []),
       ],
     },
     select: {
@@ -44,7 +44,6 @@ export async function searchSupplierInvoiceHits(
       invoiceDate: true,
       note: true,
       amountTotal: true,
-      paidAmount: true,
       currency: true,
     },
     orderBy: [{ invoiceDate: "desc" }],
@@ -56,7 +55,7 @@ export async function searchSupplierInvoiceHits(
     const rank = rankOf(q, {
       keys: [r.key, r.invoiceNumber],
       texts: [r.note],
-      amounts: [amount, r.paidAmount?.toFixed(2)],
+      amounts: [amount],
     });
     return rank === null ? [] : [{ r, amount, rank }];
   });

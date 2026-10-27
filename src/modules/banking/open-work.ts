@@ -5,7 +5,7 @@
 // `deriveTransactionState`.
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as linking from "@/modules/linking";
-import { linkFactsOf } from "./months";
+import { linkFactsOf } from "./link-facts";
 import { deriveTransactionState, listMainAccountIds } from "./queries";
 
 export async function rowsToJustifyCount(tx: TransactionClient): Promise<number> {
@@ -13,7 +13,7 @@ export async function rowsToJustifyCount(tx: TransactionClient): Promise<number>
   if (mainIds.length === 0) return 0;
   const rows = await tx.bankTransaction.findMany({
     where: { bankAccountId: { in: mainIds }, noDocumentNeeded: false },
-    select: { id: true, amount: true },
+    select: { id: true, amount: true, currency: true, amountBase: true },
   });
   if (rows.length === 0) return 0;
   const facts = linkFactsOf(
@@ -22,6 +22,7 @@ export async function rowsToJustifyCount(tx: TransactionClient): Promise<number>
       "bank_transaction",
       rows.map((r) => r.id),
     ),
+    rows,
   );
   return rows.filter((r) => {
     const state = deriveTransactionState({

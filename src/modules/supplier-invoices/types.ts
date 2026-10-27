@@ -1,10 +1,10 @@
 // DTOs of the supplier-invoices module (specs/supplier-invoices/spec.md). Prisma types never leave the module.
 
+/** the base is written once at the invoice date — never the bank's (F114, CHECK `rate_source <> 'bank'`) */
 export const SUPPLIER_INVOICE_RATE_SOURCES = [
   "same_currency",
   "ecb_daily",
   "ecb_nearest",
-  "bank",
   "manual",
 ] as const;
 export type SupplierInvoiceRateSource = (typeof SUPPLIER_INVOICE_RATE_SOURCES)[number];
@@ -49,8 +49,6 @@ export type SupplierInvoiceDto = {
   rate: string;
   rateSource: SupplierInvoiceRateSource;
   rateDate: string | null;
-  paidAmount: string | null;
-  paidCurrency: string | null;
   basCode: string;
   vatRegistrationId: string | null;
   documentMissing: boolean;
@@ -85,16 +83,17 @@ export type SupplierInvoiceListRow = {
   amountTotal: string;
   amountBase: string;
   rateSource: SupplierInvoiceRateSource;
-  paidAmount: string | null;
-  paidCurrency: string | null;
   basCode: string;
   basLabel: string;
   alias: string;
   vatRegistrationId: string | null;
   status: SupplierInvoiceStatus;
-  /** Σ justifies allocations, in the linkable's currency */
+  /** Σ justifies allocations, the invoice's currency, and what is still open */
   allocated: string;
   open: string;
+  /** Σ base the rows gave; Σ base − the invoice's base for the paid share, signed (F114); "0.00" while unpaid */
+  allocatedBase: string;
+  fxDifference: string;
   documentMissing: boolean;
   hasDocument: boolean;
   /** made from a document that says the buyer pays the VAT (D54, F91) */

@@ -23,7 +23,7 @@ export function ExpenseHistoryList({ detail }: { detail: ExpensePanelDetail }) {
     amount: t("expenses.form.amount"),
     currency: t("expenses.form.currency"),
     vatAmount: t("expenses.col.vat"),
-    paymentSourceId: t("expenses.form.paidBy"),
+    paidFromAccountId: t("expenses.form.paidBy"),
     paidAmount: t("expenses.col.paid"),
     documentMissing: t("expenses.form.documentMissing"),
     partnerId: t("expenses.partner"),

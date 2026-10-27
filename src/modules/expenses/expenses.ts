@@ -1,7 +1,9 @@
 // Expenses (FR-003, FR-004; US1, US2): one cost the company bears, in a group, with a key that is the receipt's
-// file name, an SEK base and who paid. Private → the base is the ECB rate of the date; company-paid → provisional
-// until the bank row is attached (then the bank's SEK, `rate_source = bank`, a `justifies` link). The money facts
-// change only while the expense is open; the key never changes. MUST NOT import from next/* or src/components/*.
+// file name, a base at its date and who paid (a bank account: the company's, or a private instrument of the owner).
+// The payment is a link and only a link (F114, D60): a `justifies` link from the paying bank row (company-paid), a
+// `settles` link from the refund row (private) — each with the amount it pays in the expense's currency and the base
+// the row gave; paid / open and the FX difference are derived from them. The money facts change only while the
+// expense is open (no allocating link); the key never changes. MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
 import { Prisma } from "@/generated/prisma/browser";
 import type { Expense } from "@/generated/prisma/client";
@@ -27,13 +29,7 @@ import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import { invalid, notFound, violation } from "./errors";
-import {
-  EXPENSE_KINDS,
-  type ExpenseDto,
-  type ExpenseKind,
-  type ExpenseRateSource,
-  type PaymentSourceDto,
-} from "./types";
+import { EXPENSE_KINDS, type ExpenseDto, type ExpenseKind, type ExpenseRateSource } from "./types";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -65,7 +61,7 @@ export const expenseInputSchema = z.object({
   currency: z.enum(CURRENCIES),
   vatAmount: money.nullable().optional(),
   vatRegistrationId: uuid.nullable().optional(),
-  paymentSourceId: uuid,
+  paidFromAccountId: uuid,
   /** typed by hand → rate_source = manual; omitted → ECB of the date */
   rate: positiveRate.optional(),
   documentMissing: z.boolean().optional(),
@@ -84,8 +80,17 @@ export const updateExpenseSchema = expenseInputSchema
   .partial();
 export type UpdateExpenseInput = z.input<typeof updateExpenseSchema>;
 
-export const attachSchema = z.object({ expenseId: uuid, bankTransactionId: uuid });
-export type AttachInput = z.input<typeof attachSchema>;
+export const paySchema = z.object({
+  expenseId: uuid,
+  bankTransactionId: uuid,
+  /** in the expense's currency; omitted = what is open on it (same currency: no more than the row has left) */
+  amount: positiveMoney.optional(),
+  /** the base the row gives for it; omitted = pro rata of the row's base (same currency) or the row's remaining base */
+  amountBase: positiveMoney.optional(),
+});
+export type PayInput = z.input<typeof paySchema>;
+export const unpaySchema = z.object({ expenseId: uuid, linkId: uuid });
+export type UnpayInput = z.input<typeof unpaySchema>;
 
 // --- DTO mapping ---
 
@@ -109,12 +114,9 @@ export function toExpenseDto(row: Expense): ExpenseDto {
     vatRegistrationId: row.vatRegistrationId,
     amountBase: row.amountBase.toFixed(2),
     rate: row.rate.toString(),
-    rateSource: row.rateSource,
+    rateSource: row.rateSource as ExpenseRateSource,
     rateDate: iso(row.rateDate),
-    baseProvisional: row.baseProvisional,
-    paidAmount: row.paidAmount ? row.paidAmount.toFixed(2) : null,
-    paidCurrency: row.paidCurrency,
-    paymentSourceId: row.paymentSourceId,
+    paidFromAccountId: row.paidFromAccountId,
     documentMissing: row.documentMissing,
     partnerId: row.partnerId,
     note: row.note,
@@ -171,12 +173,6 @@ async function baseFor(
   };
 }
 
-/** Company-paid and the money will arrive in another currency than the receipt's SEK: the ECB base is an estimate. */
-function isProvisional(source: PaymentSourceDto, currency: string): boolean {
-  if (source.kind !== "bank_account") return false;
-  return currency !== BASE_CURRENCY || source.currency !== BASE_CURRENCY;
-}
-
 // --- validation of the owner's facts ---
 
 async function resolveAlias(tx: TransactionClient, code: string): Promise<ServiceResult<string>> {
@@ -202,30 +198,14 @@ async function resolveAlias(tx: TransactionClient, code: string): Promise<Servic
   return { data: alias };
 }
 
-async function resolveSource(
+/** The payer: a main bank account (the company) or a private instrument of the owner — never savings (F114). */
+async function resolvePayer(
   tx: TransactionClient,
   id: string,
-  mustBeActive: boolean,
-): Promise<ServiceResult<PaymentSourceDto>> {
-  const row = await tx.paymentSource.findUnique({ where: { id } });
-  if (!row) return { error: notFound("Payment source", id) };
-  if (mustBeActive && !row.isActive) {
-    return { error: violation(`Payment source ${row.label} is inactive`) };
-  }
-  return {
-    data: {
-      id: row.id,
-      tenantId: row.tenantId,
-      label: row.label,
-      kind: row.kind,
-      bankAccountId: row.bankAccountId,
-      currency: row.currency,
-      isActive: row.isActive,
-      ownerUserId: row.ownerUserId,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    },
-  };
+): Promise<ServiceResult<banking.PayerAccount>> {
+  const payer = await banking.payerAccount(tx, id);
+  if (!payer) return { error: notFound("Payer account", id) };
+  return { data: payer };
 }
 
 async function checkVatRegistration(
@@ -265,16 +245,15 @@ async function checkPartner(
 }
 
 /**
- * THE "open" rule (D37, F62): an expense is a draft — its money facts may change — until its first payment, i.e.
- * a settlement line (any, a cancelled settlement's too: "from then on") or a `justifies` link onto it (the paying
- * bank row; linking lets only *attach* write it, F58). The lock trigger `expenses_lock_when_settled` tests the same
- * two facts, so the database refuses what this refuses. *Detach* removes the link before it rewrites the money.
+ * THE "open" rule (D37, F62, F114): an expense is a draft — its money facts may change — until its first payment,
+ * i.e. an allocating link onto it (`justifies` from the paying bank row, `settles` from the refund row). The lock
+ * trigger `expenses_lock_money_when_linked` tests the same fact, so the database refuses what this refuses.
  */
 async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
-  const lines = await tx.settlementLine.count({ where: { expenseId: id } });
-  const links = await linking.linksTouching(tx, "expense", [id], { kinds: ["justifies"] });
-  const payments = links.filter((l) => l.to.type === "expense" && l.to.id === id);
-  return lines === 0 && payments.length === 0;
+  const links = await linking.linksTouching(tx, "expense", [id], {
+    kinds: [...linking.ALLOCATING_KINDS],
+  });
+  return !links.some((l) => l.to.type === "expense" && l.to.id === id && l.allocatedAmount);
 }
 
 // --- writes ---
@@ -295,8 +274,8 @@ export async function createExpense(
   if (!group) return { error: notFound("Expense group", v.groupId) };
   const alias = await resolveAlias(tx, v.basCode);
   if (alias.error) return { error: alias.error };
-  const source = await resolveSource(tx, v.paymentSourceId, true);
-  if (source.error) return { error: source.error };
+  const payer = await resolvePayer(tx, v.paidFromAccountId);
+  if (payer.error) return { error: payer.error };
   const vatError = await checkVatRegistration(tx, caller, v.vatRegistrationId);
   if (vatError) return { error: vatError };
   const partnerError = await checkPartner(tx, v.partnerId, v.kind ?? "receipt");
@@ -344,8 +323,7 @@ export async function createExpense(
       rate: base.data.rate,
       rateSource: base.data.rateSource,
       rateDate: base.data.rateDate ? new Date(base.data.rateDate) : null,
-      baseProvisional: isProvisional(source.data, v.currency),
-      paymentSourceId: source.data.id,
+      paidFromAccountId: payer.data.id,
       documentMissing: v.documentMissing ?? false,
       partnerId: v.partnerId ?? null,
       note: noteWithAck(v.note, v.duplicateAck),
@@ -380,7 +358,7 @@ export async function createExpense(
   return { data: toExpenseDto(row) };
 }
 
-const MONEY_FIELDS = ["amount", "currency", "date", "paymentSourceId", "rate"] as const;
+const MONEY_FIELDS = ["amount", "currency", "date", "paidFromAccountId", "rate"] as const;
 
 export async function updateExpense(
   tx: TransactionClient,
@@ -411,7 +389,7 @@ export async function updateExpense(
   }
 
   const moneyChange = MONEY_FIELDS.some((f) => v[f] !== undefined);
-  const data: Prisma.ExpenseUpdateInput = {
+  const data: Prisma.ExpenseUncheckedUpdateInput = {
     ...(v.description !== undefined ? { description: v.description } : {}),
     ...(v.basCode !== undefined ? { basCode: v.basCode } : {}),
     ...(v.vatAmount !== undefined ? { vatAmount: v.vatAmount ? new D(v.vatAmount) : null } : {}),
@@ -431,21 +409,20 @@ export async function updateExpense(
     const currency = v.currency ?? row.currency;
     const date = v.date ?? (iso(row.date) as string);
     const amount = v.amount ? new D(v.amount) : row.amount;
-    const sourceId = v.paymentSourceId ?? row.paymentSourceId;
-    const source = await resolveSource(tx, sourceId, v.paymentSourceId !== undefined);
-    if (source.error) return { error: source.error };
+    const payerId = v.paidFromAccountId ?? row.paidFromAccountId;
+    const payer = await resolvePayer(tx, payerId);
+    if (payer.error) return { error: payer.error };
     const base = await baseFor(tx, date, amount, currency, v.rate);
     if (base.error) return { error: base.error };
     Object.assign(data, {
       amount,
       currency,
       date: new Date(date),
-      paymentSource: { connect: { id: sourceId } },
+      paidFromAccountId: payer.data.id,
       amountBase: base.data.amountBase,
       rate: base.data.rate,
       rateSource: base.data.rateSource,
       rateDate: base.data.rateDate ? new Date(base.data.rateDate) : null,
-      baseProvisional: isProvisional(source.data, currency),
     });
   }
   const updated = await tx.expense.update({ where: { id }, data });
@@ -479,7 +456,7 @@ export async function deleteExpense(
   const row = await tx.expense.findUnique({ where: { id } });
   if (!row) return { error: notFound("Expense", id) };
   if (!(await isOpen(tx, id))) {
-    return { error: violation(`${row.key} is settled or paid and cannot be deleted`) };
+    return { error: violation(`${row.key} is paid or refunded and cannot be deleted`) };
   }
   const links = await linking.linksTouching(tx, "expense", [id]);
   if (links.some((l) => !DELETE_WITH_ENTITY.has(l.kind)))
@@ -573,32 +550,33 @@ export async function detachDocument(
 }
 
 /**
- * A company-paid expense meets its bank row (FR-004, D26): what the bank paid becomes `paid_amount / paid_currency`,
- * the row's base becomes the expense's base (`rate_source = bank`), and the row justifies the expense with
- * an allocation of the paid amount. A 45.00 CHF receipt on the SEK card → paid 523.17 SEK, base 523.17.
+ * A company-paid expense is paid by a bank row (FR-004, F114): one `justifies` link carrying the amount it pays in
+ * the expense's currency and the base the row gave — nothing on the expense moves. A 45.00 CHF receipt on the SEK
+ * card: the link says 45.00 CHF · base 531.40; the receipt keeps its ECB base; the difference is derived. Several
+ * rows may pay one expense (a deposit and a balance) and one row several expenses (two receipts on one card row).
  */
-export async function attachBankTransaction(
+export async function payExpense(
   tx: TransactionClient,
   caller: CallerIdentity,
   audit: AuditLogger,
-  input: { expenseId: string; bankTransactionId: string },
-): Promise<ServiceResult<ExpenseDto>> {
-  const parsed = attachSchema.safeParse(input);
+  input: PayInput,
+): Promise<
+  ServiceResult<ExpenseDto & { linkId: string; allocated: string; allocatedBase: string }>
+> {
+  const parsed = paySchema.safeParse(input);
   if (!parsed.success)
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
   const row = await tx.expense.findUnique({ where: { id: parsed.data.expenseId } });
   if (!row) return { error: notFound("Expense", parsed.data.expenseId) };
-  const source = await resolveSource(tx, row.paymentSourceId, false);
-  if (source.error) return { error: source.error };
-  if (source.data.kind !== "bank_account") {
+  const payer = await resolvePayer(tx, row.paidFromAccountId);
+  if (payer.error) return { error: payer.error };
+  if (payer.data.kind !== "bank_account") {
     return {
       error: violation(
-        `${row.key} was paid privately (${source.data.label}) — it is refunded through a settlement, not a bank row`,
+        `${row.key} was paid privately (${payer.data.label}) — it is refunded through a settlement, not a bank row`,
       ),
     };
   }
-  if (row.paidAmount)
-    return { error: violation(`${row.key} already has its bank row — detach it first`) };
   const t = await banking.getBankTransaction(tx, parsed.data.bankTransactionId);
   if (!t) return { error: notFound("Bank transaction", parsed.data.bankTransactionId) };
   if (new D(t.amount).gte(0)) {
@@ -608,47 +586,36 @@ export async function attachBankTransaction(
       ),
     };
   }
-  if (source.data.bankAccountId !== t.bankAccountId) {
+  if (payer.data.id !== t.bankAccountId) {
     return {
       error: violation(
-        `${row.key} is paid from ${source.data.label}, the row is on ${t.accountLabel} — change the payer while the expense is open`,
+        `${row.key} is paid from ${payer.data.label}, the row is on ${t.accountLabel} — change the payer while the expense is open`,
       ),
     };
   }
-  const entries = await banking.transactionFacts(tx, [t.id]);
-  const entry = entries.get(t.id);
-  if (!entry) return { error: violation(`Bank transaction ${t.id} not found`) };
-
-  const paid = new D(t.amount).abs();
-  const updated = await tx.expense.update({
-    where: { id: row.id },
-    data: {
-      paidAmount: paid,
-      paidCurrency: t.currency,
-      amountBase: new D(entry.amountBase).abs(),
-      rate: new D(entry.rate),
-      rateSource: "bank",
-      rateDate: entry.rateDate ? new Date(entry.rateDate) : null,
-      baseProvisional: false,
-    },
-  });
-  await audit.log({
-    action: "update",
-    entityType: "expense",
-    entityId: row.id,
-    oldData: {
-      amountBase: row.amountBase.toFixed(2),
-      rateSource: row.rateSource,
-      paidAmount: null,
-    },
-    newData: {
-      bankTransactionId: t.id,
-      paidAmount: paid.toFixed(2),
-      paidCurrency: t.currency,
-      amountBase: updated.amountBase.toFixed(2),
-      rateSource: "bank",
-    },
-  });
+  const status = await linking.getAllocationStatus(tx, { type: "expense", id: row.id });
+  if (status.error) return { error: status.error };
+  const open = new D(status.data?.remaining ?? row.amount.toFixed(2));
+  if (open.lte(0)) return { error: violation(`${row.key} is already paid in full`) };
+  let amount = parsed.data.amount ? new D(parsed.data.amount) : open;
+  if (!parsed.data.amount && t.currency === row.currency) {
+    const rowStatus = await linking.getAllocationStatus(tx, { type: "bank_transaction", id: t.id });
+    if (rowStatus.error) return { error: rowStatus.error };
+    const rowLeft = new D(rowStatus.data?.remaining ?? new D(t.amount).abs().toFixed(2));
+    if (rowLeft.lte(0)) {
+      return {
+        error: violation(`${t.bookingDate} ${t.amount} ${t.currency} has nothing left to allocate`),
+      };
+    }
+    amount = D.min(open, rowLeft);
+  }
+  if (amount.gt(open)) {
+    return {
+      error: violation(
+        `${amount.toFixed(2)} ${row.currency} exceeds what is open on ${row.key} (${open.toFixed(2)})`,
+      ),
+    };
+  }
   const link = await linking.createLink(
     tx,
     caller,
@@ -657,62 +624,71 @@ export async function attachBankTransaction(
       from: { type: "bank_transaction", id: t.id },
       to: { type: "expense", id: row.id },
       kind: "justifies",
-      allocatedAmount: paid.toFixed(2),
-      currency: t.currency,
+      allocatedAmount: amount.toFixed(2),
+      currency: row.currency,
+      allocatedBase: parsed.data.amountBase ?? null,
     },
     { owner: "expense" },
   );
-  if (link.error) throw new RollbackError(link.error);
-  return { data: toExpenseDto(updated) };
-}
-
-/** The reverse: the `justifies` links from bank rows go, the base returns to the ECB estimate. */
-export async function detachBankTransaction(
-  tx: TransactionClient,
-  caller: CallerIdentity,
-  audit: AuditLogger,
-  expenseId: string,
-): Promise<ServiceResult<ExpenseDto>> {
-  const row = await tx.expense.findUnique({ where: { id: expenseId } });
-  if (!row) return { error: notFound("Expense", expenseId) };
-  if (!row.paidAmount) return { error: violation(`${row.key} has no bank row attached`) };
-  const links = (
-    await linking.linksTouching(tx, "expense", [expenseId], { kinds: ["justifies"] })
-  ).filter(
-    (l) => l.from.type === "bank_transaction" && l.to.type === "expense" && l.to.id === expenseId,
-  );
-  for (const l of links) {
-    const removed = await linking.removeLink(tx, caller, audit, l.id, { owner: "expense" });
-    if (removed.error) return { error: removed.error };
-  }
-  const source = await resolveSource(tx, row.paymentSourceId, false);
-  if (source.error) return { error: source.error };
-  const base = await baseFor(tx, iso(row.date) as string, row.amount, row.currency, undefined);
-  if (base.error) throw new RollbackError(base.error);
-  const updated = await tx.expense.update({
-    where: { id: expenseId },
-    data: {
-      paidAmount: null,
-      paidCurrency: null,
-      amountBase: base.data.amountBase,
-      rate: base.data.rate,
-      rateSource: base.data.rateSource,
-      rateDate: base.data.rateDate ? new Date(base.data.rateDate) : null,
-      baseProvisional: isProvisional(source.data, row.currency),
-    },
-  });
+  if (link.error) return { error: link.error };
   await audit.log({
     action: "update",
     entityType: "expense",
-    entityId: expenseId,
-    oldData: { paidAmount: row.paidAmount.toFixed(2), paidCurrency: row.paidCurrency },
+    entityId: row.id,
+    oldData: {},
     newData: {
-      paidAmount: null,
-      amountBase: updated.amountBase.toFixed(2),
-      rateSource: updated.rateSource,
+      paymentLinkId: link.data.id,
+      bankTransactionId: t.id,
+      allocatedAmount: link.data.allocatedAmount,
+      allocatedBase: link.data.allocatedBase,
     },
   });
-  return { data: toExpenseDto(updated) };
+  return {
+    data: {
+      ...toExpenseDto(row),
+      linkId: link.data.id,
+      allocated: link.data.allocatedAmount ?? amount.toFixed(2),
+      allocatedBase: link.data.allocatedBase ?? "0.00",
+    },
+  };
+}
+
+/** The reverse: one payment link goes; the expense's money never moved, so nothing is restored. */
+export async function unpayExpense(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  input: UnpayInput,
+): Promise<ServiceResult<ExpenseDto>> {
+  const parsed = unpaySchema.safeParse(input);
+  if (!parsed.success)
+    return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
+  const row = await tx.expense.findUnique({ where: { id: parsed.data.expenseId } });
+  if (!row) return { error: notFound("Expense", parsed.data.expenseId) };
+  const links = await linking.linksTouching(tx, "expense", [row.id], { kinds: ["justifies"] });
+  const link = links.find(
+    (l) =>
+      l.id === parsed.data.linkId &&
+      l.from.type === "bank_transaction" &&
+      l.to.type === "expense" &&
+      l.to.id === row.id,
+  );
+  if (!link) return { error: violation(`${row.key} has no such payment`) };
+  const removed = await linking.removeLink(tx, caller, audit, link.id, { owner: "expense" });
+  if (removed.error) return { error: removed.error };
+  await audit.log({
+    action: "update",
+    entityType: "expense",
+    entityId: row.id,
+    oldData: {
+      paymentLinkId: link.id,
+      bankTransactionId: link.from.id,
+      allocatedAmount: link.allocatedAmount,
+      allocatedBase: link.allocatedBase,
+    },
+    newData: {},
+  });
+  return { data: toExpenseDto(row) };
 }
 
 // --- the per-diem expense (traktamente writes through here) ---
@@ -727,17 +703,20 @@ export const perDiemInputSchema = z.object({
 });
 export type PerDiemInput = z.input<typeof perDiemInputSchema>;
 
-/** The owner's private SEK source — the per-diem is a liability to the owner in SEK (D29). */
-async function privateSekSource(tx: TransactionClient): Promise<ServiceResult<PaymentSourceDto>> {
-  const row = await tx.paymentSource.findFirst({
-    where: { kind: "private", currency: BASE_CURRENCY, isActive: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (!row)
+/** The owner's private instrument in the base currency — the per-diem is a liability to the owner in SEK (D29). */
+async function privateSekPayer(
+  tx: TransactionClient,
+): Promise<ServiceResult<banking.PayerAccount>> {
+  const payer = (await banking.payerAccounts(tx)).find(
+    (p) => p.kind === "private" && p.currency === BASE_CURRENCY,
+  );
+  if (!payer)
     return {
-      error: violation(`No active private ${BASE_CURRENCY} payment source — create "Private SE"`),
+      error: violation(
+        `No private ${BASE_CURRENCY} instrument — add one under Banking → Accounts (e.g. "Private SE")`,
+      ),
     };
-  return resolveSource(tx, row.id, true);
+  return { data: payer };
 }
 
 export async function createPerDiemExpense(
@@ -749,8 +728,8 @@ export async function createPerDiemExpense(
   const parsed = perDiemInputSchema.safeParse(input);
   if (!parsed.success)
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
-  const source = await privateSekSource(tx);
-  if (source.error) return { error: source.error };
+  const payer = await privateSekPayer(tx);
+  if (payer.error) return { error: payer.error };
   return createExpense(tx, caller, audit, {
     groupId: parsed.data.groupId,
     kind: "per_diem",
@@ -759,7 +738,7 @@ export async function createPerDiemExpense(
     basCode: parsed.data.basCode,
     amount: parsed.data.amount,
     currency: BASE_CURRENCY,
-    paymentSourceId: source.data.id,
+    paidFromAccountId: payer.data.id,
     documentMissing: false,
     note: parsed.data.note ?? null,
   });
@@ -792,5 +771,5 @@ export async function getExpense(tx: TransactionClient, id: string): Promise<Exp
   return row ? toExpenseDto(row) : null;
 }
 
-/** Whether the expense can still change its money facts (no settlement line, no payment link) — D37. */
+/** Whether the expense can still change its money facts (no allocating link onto it) — D37, F114. */
 export { isOpen as isExpenseOpen };

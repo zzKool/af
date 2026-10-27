@@ -35,3 +35,106 @@ export function openAmount(
   const open = new Prisma.Decimal(total).minus(new Prisma.Decimal(allocated)).minus(credited);
   return open.isNegative() ? new Prisma.Decimal(0) : open;
 }
+
+// --- the link as the payment record (F114, D60) ---
+
+/** One allocating link onto an entity: what part of the entity it pays (its currency) and the base the row gave. */
+export type Allocation = { amount: Dec | string; base: Dec | string };
+
+/** The share of an entity's amount its allocations cover, 0 … 1 (an overpayment counts as 1). */
+export function paidShare(amount: Dec | string, allocated: Dec | string): Dec {
+  const total = new Prisma.Decimal(amount).abs();
+  if (total.isZero()) return new Prisma.Decimal(1);
+  const share = new Prisma.Decimal(allocated).abs().div(total);
+  return share.gt(1) ? new Prisma.Decimal(1) : share;
+}
+
+export type FxDifference = {
+  /** Σ allocated amounts, the entity's currency */
+  allocated: Dec;
+  /** Σ what the rows gave, in base */
+  allocatedBase: Dec;
+  /** the base the books carry for the paid share (`expectedBases`, summed) */
+  expectedBase: Dec;
+  /** `allocatedBase − expectedBase`, signed: on a payable or a reimbursement > 0 is a loss (7960), < 0 a gain (3960); on a receivable the reverse */
+  difference: Dec;
+  /** |difference| within the tolerance of the expected base — rounding, not a gain or a loss */
+  rounding: boolean;
+};
+
+/**
+ * The base the books carry for each allocation onto an entity, in the order the links were made (FR-003): the
+ * entity's base pro rata of the cumulative amount, the exact whole once the amount is covered within the
+ * tolerance (so the slices of a paid entity sum to its base to the cent). A partial slice whose base is within the
+ * tolerance of its pro-rata value IS that value — a same-currency refund settles exactly what it gives, and the
+ * cent the pro-rata rounding would invent is not a difference.
+ */
+export function expectedBases(
+  amount: Dec | string,
+  amountBase: Dec | string,
+  allocations: readonly Allocation[],
+): Dec[] {
+  const total = new Prisma.Decimal(amount).abs();
+  const base = new Prisma.Decimal(amountBase).abs();
+  let cumAmount = new Prisma.Decimal(0);
+  let cumExpected = new Prisma.Decimal(0);
+  const out: Dec[] = [];
+  for (const a of allocations) {
+    cumAmount = cumAmount.plus(new Prisma.Decimal(a.amount));
+    const settled = total.isZero() || isSettled(total, [cumAmount]);
+    const target = settled
+      ? base
+      : base.mul(cumAmount).div(total).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    let expected = target.minus(cumExpected);
+    const given = new Prisma.Decimal(a.base);
+    if (!settled && given.minus(expected).abs().lte(settlementTolerance(expected)))
+      expected = given;
+    cumExpected = cumExpected.plus(expected);
+    out.push(expected);
+  }
+  return out;
+}
+
+/**
+ * The FX difference of an entity from its links: what the rows gave in base against the base the entity carries
+ * for the paid share (FR-003). Pure; nothing of it is stored.
+ */
+export function fxDifference(
+  amount: Dec | string,
+  amountBase: Dec | string,
+  allocations: readonly Allocation[],
+): FxDifference {
+  const zero = new Prisma.Decimal(0);
+  const allocated = allocations.reduce((acc, a) => acc.plus(new Prisma.Decimal(a.amount)), zero);
+  const allocatedBase = allocations.reduce((acc, a) => acc.plus(new Prisma.Decimal(a.base)), zero);
+  const expectedBase = expectedBases(amount, amountBase, allocations).reduce(
+    (acc, e) => acc.plus(e),
+    zero,
+  );
+  const difference = allocatedBase.minus(expectedBase);
+  return {
+    allocated,
+    allocatedBase,
+    expectedBase,
+    difference,
+    rounding: !difference.isZero() && difference.abs().lte(settlementTolerance(expectedBase)),
+  };
+}
+
+/**
+ * The base a same-currency allocation takes from its row: the row's base pro rata of the amount, 2 dp — and the
+ * exact remainder when the allocation exhausts the row, so Σ base of a fully used row equals its base to the cent.
+ */
+export function sliceBase(
+  row: { amount: Dec | string; amountBase: Dec | string },
+  alreadyAllocated: { amount: Dec | string; base: Dec | string },
+  amount: Dec | string,
+): Dec {
+  const rowAmount = new Prisma.Decimal(row.amount).abs();
+  const rowBase = new Prisma.Decimal(row.amountBase).abs();
+  const slice = new Prisma.Decimal(amount);
+  const after = new Prisma.Decimal(alreadyAllocated.amount).plus(slice);
+  if (after.gte(rowAmount)) return rowBase.minus(alreadyAllocated.base);
+  if (rowAmount.isZero()) return new Prisma.Decimal(0);
+  return rowBase.mul(slice).div(rowAmount).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}

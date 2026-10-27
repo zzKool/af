@@ -88,6 +88,7 @@ describe("own payment flow (F58)", () => {
       tenantId: "t",
       allocatedAmount: "120.00",
       currency: "SEK",
+      allocatedBase: "120.00",
       note: null,
       createdAt: "2026-03-10T00:00:00Z",
       createdBy: "u",

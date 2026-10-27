@@ -11,6 +11,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { basCode, isoDate, positiveMoney, uuid } from "@/kernel/validation/scalars";
+import * as banking from "@/modules/banking";
 import * as expenses from "@/modules/expenses";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
@@ -35,7 +36,7 @@ export function toSubscriptionDto(r: Subscription): SubscriptionDto {
     becomes: r.becomes,
     basCode: r.basCode,
     groupId: r.groupId,
-    paymentSourceId: r.paymentSourceId,
+    paidFromAccountId: r.paidFromAccountId,
     vatRegistrationId: r.vatRegistrationId,
     cadence: r.cadence,
     startDate: day(r.startDate),
@@ -81,7 +82,7 @@ export const subscriptionInputSchema = z
     groupId: uuid.optional(),
     /** … or a new batch group created with the subscription (Q2 B: one group per subscription by default) */
     newGroup: z.object({ description: z.string().trim().min(1).max(200) }).optional(),
-    paymentSourceId: uuid,
+    paidFromAccountId: uuid,
     vatRegistrationId: uuid.nullable().optional(),
     cadence: z.enum(["monthly", "yearly"]),
     startDate: isoDate,
@@ -108,7 +109,7 @@ export const updateSubscriptionSchema = z.object({
   partnerId: uuid.optional(),
   basCode: basCode.optional(),
   groupId: uuid.optional(),
-  paymentSourceId: uuid.optional(),
+  paidFromAccountId: uuid.optional(),
   vatRegistrationId: uuid.nullable().optional(),
   endDate: isoDate.nullable().optional(),
   matchText: optionalText(100),
@@ -142,7 +143,7 @@ type Refs = {
   becomes: "expense" | "supplier_invoice";
   basCode: string;
   groupId?: string;
-  paymentSourceId: string;
+  paidFromAccountId: string;
   vatRegistrationId?: string | null;
 };
 
@@ -161,9 +162,9 @@ async function checkRefs(tx: TransactionClient, v: Refs): Promise<AppError | nul
     const group = await expenses.getGroup(tx, v.groupId);
     if (group.error) return notFound("Expense group", v.groupId);
   }
-  const source = await expenses.getPaymentSource(tx, v.paymentSourceId);
-  if (!source || !source.isActive) return violation("Unknown or inactive payment source");
-  if (v.becomes === "supplier_invoice" && source.kind !== "bank_account")
+  const payer = await banking.payerAccount(tx, v.paidFromAccountId);
+  if (!payer) return violation("Unknown payer — a main account or a private instrument");
+  if (v.becomes === "supplier_invoice" && payer.kind !== "bank_account")
     return violation("A supplier invoice is paid from a company account");
   if (v.vatRegistrationId) {
     const reg = await settings.getVatRegistration(tx, v.vatRegistrationId);
@@ -217,7 +218,7 @@ export async function createSubscription(
       becomes: v.becomes,
       basCode: v.basCode,
       groupId: groupId as string,
-      paymentSourceId: v.paymentSourceId,
+      paidFromAccountId: v.paidFromAccountId,
       vatRegistrationId: v.vatRegistrationId ?? null,
       cadence: v.cadence,
       startDate: at(v.startDate),
@@ -267,7 +268,7 @@ export async function updateSubscription(
     becomes: row.becomes,
     basCode: v.basCode ?? row.basCode,
     groupId: v.groupId ?? row.groupId,
-    paymentSourceId: v.paymentSourceId ?? row.paymentSourceId,
+    paidFromAccountId: v.paidFromAccountId ?? row.paidFromAccountId,
     vatRegistrationId:
       v.vatRegistrationId === undefined ? row.vatRegistrationId : v.vatRegistrationId,
   };
@@ -285,7 +286,7 @@ export async function updateSubscription(
       partnerId: next.partnerId,
       basCode: next.basCode,
       groupId: next.groupId,
-      paymentSourceId: next.paymentSourceId,
+      paidFromAccountId: next.paidFromAccountId,
       vatRegistrationId: next.vatRegistrationId,
       endDate,
       ...(v.matchText !== undefined ? { matchText: v.matchText || null } : {}),

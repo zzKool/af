@@ -83,7 +83,8 @@ export async function rebase(
     data: {
       amountBase: baseAmount(next.total, row.rate),
       rate: row.rate,
-      rateSource: row.rateSource,
+      // never `bank` on an entity (F114, CHECK)
+      rateSource: row.rateSource as SupplierInvoiceRateSource,
       rateDate: iso(row.rateDate),
     },
   };

@@ -24,7 +24,7 @@ import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { findSupplierInvoiceDuplicates } from "./duplicates";
-import { attachPayment, detachPayment, recordPayment, removePayment } from "./payments";
+import { recordPayment, removePayment } from "./payments";
 import {
   candidateDocuments,
   getSupplierInvoiceDetail,
@@ -193,7 +193,7 @@ describe("US1 — record a supplier invoice", () => {
         basCode: "653",
         amount: "100.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
       expect(e.data?.key).toBe("Ex213-Acc-02");
     });
@@ -396,7 +396,7 @@ describe("US1 — record a supplier invoice", () => {
     expect(r.error).toBeUndefined();
     const subscriptionId = randomUUID();
     await adminPool.query(
-      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, payment_source_id,
+      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, paid_from_account_id,
          cadence, start_date, created_by, updated_at)
        VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '657', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
       [
@@ -404,7 +404,7 @@ describe("US1 — record a supplier invoice", () => {
         owner.caller.tenantId,
         r.data!.partnerId,
         r.data!.groupId,
-        randomUUID(),
+        owner.sources.afSek.id,
         owner.caller.userId,
       ],
     );
@@ -857,9 +857,9 @@ describe("US2 — paid by a link", () => {
       run(owner.caller, async (tx) => (await payableTransactions(tx, "CHF")).map((t) => t.id));
     expect(await ids()).toEqual(expect.arrayContaining([refund, free]));
     await adminPool.query(
-      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
-       VALUES ($1, 'ST26-009', $2, $3, -400, 'CHF', 4300, 4300, now(), $4)`,
-      [owner.caller.tenantId, refund, owner.sources.privateCh.id, owner.caller.userId],
+      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, updated_at, created_by)
+       VALUES ($1, 'ST26-009', $2, now(), $3)`,
+      [owner.caller.tenantId, refund, owner.caller.userId],
     );
     expect(await ids()).not.toContain(refund);
     expect(await ids()).toContain(free);
@@ -882,70 +882,71 @@ describe("US2 — paid by a link", () => {
     expect(d.payments[0].note).toMatch(/Rounding adjustment: CHF 0.05/);
   });
 
-  it("cross-currency (D-g): attach the SEK row — the bank's base, rate_source bank, one link; detach restores the ECB base", async () => {
+  it("cross-currency (F114, D60): the SEK row pays the CHF invoice — the link carries 1 297.20 CHF and the row's base; the invoice keeps its ECB base; the FX difference is derived", async () => {
     const r = await create(julyInvoice());
     const [sekRow] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
         { date: "2026-03-31", amount: "-14000.00", name: "Skattepunkten" },
       ]),
     );
-    const asPayment = await run(owner.caller, (tx) =>
-      recordPayment(tx, owner.caller, noopAudit, {
+    const paid = await run(owner.caller, (tx) =>
+      recordPayment(tx, owner.caller, realAudit(tx, owner.caller), {
         invoiceId: r.data!.id,
         bankTransactionId: sekRow,
       }),
     );
-    expect(asPayment.error?.message).toMatch(/row is in SEK, the invoice in CHF — attach/);
-    const attached = await run(owner.caller, (tx) =>
-      attachPayment(tx, owner.caller, realAudit(tx, owner.caller), {
-        invoiceId: r.data!.id,
-        bankTransactionId: sekRow,
-      }),
-    );
-    expect(attached.data).toMatchObject({
-      paidAmount: "14000.00",
-      paidCurrency: "SEK",
-      amountBase: "14000.00",
-      rateSource: "bank",
+    expect(paid.error).toBeUndefined();
+    expect(paid.data).toMatchObject({
+      amountBase: "13957.87",
+      rateSource: "ecb_nearest",
       amountTotal: "1297.20",
       currency: "CHF",
+      allocated: "1297.20",
+      allocatedBase: "14000.00",
     });
     let d = await detail(r.data!.id);
     expect(d).toMatchObject({
       status: "paid",
-      allocated: "14000.00",
+      allocated: "1297.20",
       open: "0.00",
-      linkCurrency: "SEK",
+      linkCurrency: "CHF",
+      allocatedBase: "14000.00",
+      fxDifference: "42.13",
     });
-    expect(d.payments[0]).toMatchObject({ allocated: "14000.00", currency: "SEK" });
+    expect(d.payments[0]).toMatchObject({
+      allocated: "1297.20",
+      currency: "CHF",
+      allocatedBase: "14000.00",
+    });
     await run(owner.caller, async (tx) => {
-      const again = await attachPayment(tx, owner.caller, noopAudit, {
+      const again = await recordPayment(tx, owner.caller, noopAudit, {
         invoiceId: r.data!.id,
         bankTransactionId: sekRow,
       });
-      expect(again.error?.message).toMatch(/already has its bank row/);
-      const remove = await removePayment(tx, owner.caller, noopAudit, {
-        invoiceId: r.data!.id,
-        linkId: d.payments[0].linkId,
-      });
-      expect(remove.error?.message).toMatch(/detach it instead/);
+      expect(again.error?.message).toMatch(/has nothing open/);
       const cancel = await cancelSupplierInvoice(tx, owner.caller, noopAudit, r.data!.id, "x");
       expect(cancel.error?.message).toMatch(/has a payment/);
       const status = await linking.getAllocationStatus(tx, {
         type: "supplier_invoice",
         id: r.data!.id,
       });
-      expect(status.data).toMatchObject({ amount: "14000.00", currency: "SEK", remaining: "0.00" });
+      expect(status.data).toMatchObject({
+        amount: "1297.20",
+        currency: "CHF",
+        remaining: "0.00",
+        allocatedBase: "14000.00",
+      });
+      // the row gave its whole base: nothing left on it, in its own currency
+      const row = await linking.getAllocationStatus(tx, { type: "bank_transaction", id: sekRow });
+      expect(row.data).toMatchObject({ remaining: "0.00", allocatedBase: "14000.00" });
     });
-    const detached = await run(owner.caller, (tx) =>
-      detachPayment(tx, owner.caller, noopAudit, r.data!.id),
+    const removed = await run(owner.caller, (tx) =>
+      removePayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        linkId: d.payments[0].linkId,
+      }),
     );
-    expect(detached.data).toMatchObject({
-      paidAmount: null,
-      paidCurrency: null,
-      amountBase: "13957.87",
-      rateSource: "ecb_nearest",
-    });
+    expect(removed.data).toMatchObject({ amountBase: "13957.87", rateSource: "ecb_nearest" });
     d = await detail(r.data!.id);
     expect(d).toMatchObject({ status: "unpaid", open: "1297.20", linkCurrency: "CHF" });
     expect(d.payments).toEqual([]);
@@ -962,7 +963,7 @@ describe("US2 — paid by a link", () => {
     );
     const paidState = async () => {
       const d = await detail(r.data!.id);
-      return { status: d.status, paidAmount: d.invoice.paidAmount, payments: d.payments.length };
+      return { status: d.status, allocatedBase: d.allocatedBase, payments: d.payments.length };
     };
 
     // the inbox's apply and a generic link write nothing
@@ -982,44 +983,49 @@ describe("US2 — paid by a link", () => {
       });
       expect(generic.error?.code).toBe("BUSINESS_RULE_VIOLATION");
     });
-    expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
+    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
 
     // same currency: the panel's payment → paid; a generic unlink refused; the panel's remove → unpaid
     await run(owner.caller, (tx) =>
       recordPayment(tx, owner.caller, noopAudit, { invoiceId: r.data!.id, bankTransactionId: row }),
     );
-    expect(await paidState()).toEqual({ status: "paid", paidAmount: null, payments: 1 });
+    // the CHF row's base at ITS date (10.70), not the invoice's (ecb_nearest at 10.76): the difference is derived
+    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "13880.04", payments: 1 });
     const [payment] = (await detail(r.data!.id)).payments;
     await run(owner.caller, async (tx) => {
       const removed = await linking.removeLink(tx, owner.caller, noopAudit, payment!.linkId);
       expect(removed.error?.message).toMatch(/invoice's own panel/);
     });
-    expect(await paidState()).toEqual({ status: "paid", paidAmount: null, payments: 1 });
+    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "13880.04", payments: 1 });
     await run(owner.caller, (tx) =>
       removePayment(tx, owner.caller, noopAudit, {
         invoiceId: r.data!.id,
         linkId: payment!.linkId,
       }),
     );
-    expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
+    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
 
-    // another currency: attach → paid with the paid amount; a generic unlink would leave it behind — refused;
-    // detach takes the link and the paid amount together
+    // another currency: the same payment, the row's base on the link; a generic unlink still refused
     await run(owner.caller, (tx) =>
-      attachPayment(tx, owner.caller, noopAudit, {
+      recordPayment(tx, owner.caller, noopAudit, {
         invoiceId: r.data!.id,
         bankTransactionId: sekRow,
       }),
     );
-    expect(await paidState()).toEqual({ status: "paid", paidAmount: "14000.00", payments: 1 });
-    const [attachedLink] = (await detail(r.data!.id)).payments;
+    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "14000.00", payments: 1 });
+    const [sekLink] = (await detail(r.data!.id)).payments;
     await run(owner.caller, async (tx) => {
-      const removed = await linking.removeLink(tx, owner.caller, noopAudit, attachedLink!.linkId);
+      const removed = await linking.removeLink(tx, owner.caller, noopAudit, sekLink!.linkId);
       expect(removed.error?.code).toBe("BUSINESS_RULE_VIOLATION");
     });
-    expect(await paidState()).toEqual({ status: "paid", paidAmount: "14000.00", payments: 1 });
-    await run(owner.caller, (tx) => detachPayment(tx, owner.caller, noopAudit, r.data!.id));
-    expect(await paidState()).toEqual({ status: "unpaid", paidAmount: null, payments: 0 });
+    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "14000.00", payments: 1 });
+    await run(owner.caller, (tx) =>
+      removePayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        linkId: sekLink!.linkId,
+      }),
+    );
+    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
   });
 
   it("the panel's History (F71): the invoice's audit entries, newest first, named by what happened", async () => {

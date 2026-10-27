@@ -53,7 +53,7 @@ export default async function SubscriptionsPage({
           becomes: "expense",
           basCode: e.basCode,
           groupId: e.groupId,
-          paymentSourceId: e.paymentSourceId,
+          paidFromAccountId: e.paidFromAccountId,
           startDate: e.date,
           amount: e.amount,
           currency: e.currency,

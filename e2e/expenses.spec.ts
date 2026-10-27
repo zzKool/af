@@ -129,7 +129,8 @@ test.describe("Expenses", () => {
       for (const row of await page.getByTestId("settle-row").all()) {
         const key = (await row.innerText()).match(/Ex\d+-\w+-\d+/)?.[0] ?? "";
         const mine = key.startsWith(groupPrefix) && !key.endsWith("Tr-03");
-        const box = row.getByRole("checkbox");
+        // the row's own tick (a partly allocated row shows a second one, *in full*, F114)
+        const box = row.getByRole("checkbox", { name: key, exact: true });
         if ((await box.isChecked()) !== mine) await box.click();
         if (mine && key.endsWith("Rep-01")) await row.getByRole("textbox").fill("1630.00");
       }

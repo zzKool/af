@@ -29,8 +29,9 @@ model Subscription {
   basCode           String              @map("bas_code") @db.VarChar(4)
   /// the shared reference expense_groups (D38): by default the subscription's own batch group (Q2 B)
   groupId           String              @map("group_id") @db.Uuid
-  /// validated UUID through expenses (a supplier-invoice subscription: a bank-account source only)
-  paymentSourceId   String              @map("payment_source_id") @db.Uuid
+  /// the expected payer (F114): a main or owner_private bank account — composite FK, RESTRICT (D63); a supplier-invoice
+  /// subscription names a main account only
+  paidFromAccountId String              @map("paid_from_account_id") @db.Uuid
   /// validated UUID through settings (supplier invoices)
   vatRegistrationId String?             @map("vat_registration_id") @db.Uuid
   cadence           SubscriptionCadence
@@ -47,13 +48,15 @@ model Subscription {
   createdBy         String              @map("created_by") @db.Uuid
   source            String              @default("web") @db.VarChar(20)
 
-  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paidFromAccount BankAccount @relation(fields: [tenantId, paidFromAccountId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
   group  ExpenseGroup        @relation(fields: [groupId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   prices SubscriptionPrice[]
   pauses SubscriptionPause[]
 
   @@unique([tenantId, name], map: "subscriptions_tenant_name_key")
   @@index([tenantId, partnerId])
+  @@index([tenantId, paidFromAccountId])
   @@map("subscriptions")
 }
 

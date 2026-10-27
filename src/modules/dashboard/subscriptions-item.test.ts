@@ -59,7 +59,7 @@ async function sub(name: string, startDate: string) {
         becomes: "expense",
         basCode: "580",
         newGroup: { description: name },
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
         cadence: "monthly",
         startDate,
         matchText: name.toUpperCase(),

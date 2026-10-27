@@ -1,15 +1,16 @@
 // The reimbursement statement (US4-7, FR-009): what the print route renders and the job stores — the settlement,
-// its lines with their expenses, the refund row, the company, the totals and the residual left open.
+// its lines (the `settles` links of its row, F114) with their expenses, the refund row, the company, the totals —
+// Σ base, the signed FX difference or the rounding, derived — and the residual left open.
 // MUST NOT import from next/* or src/components/*.
 import { Prisma } from "@/generated/prisma/browser";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
+import * as linking from "@/modules/linking";
 import * as settings from "@/modules/settings";
-import { fifoOrder } from "./fifo";
 import { groupLabel } from "./groups";
-import { allocatedByExpense, isStatementSuperseded } from "./settlements";
-import { owedBase } from "./status";
+import { settlementDtos } from "./settlements";
+import { openBase } from "./status";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -23,7 +24,12 @@ export type StatementLine = {
   amount: string;
   currency: string;
   amountBase: string;
+  /** what this settlement refunds of the expense, its currency */
+  allocatedAmount: string;
+  /** what the row gave for it, in base */
   allocatedBase: string;
+  /** the base the books carried for that share */
+  expectedBase: string;
   remainingOpen: string;
   note: string | null;
 };
@@ -38,9 +44,12 @@ export type StatementData = {
   lines: StatementLine[];
   totals: {
     allocatedBase: string;
-    exchangeDifferenceBase: string;
+    expectedBase: string;
+    /** signed: > 0 the company paid more base than the claim (7960), < 0 less (3960); "0.00" when rounding */
+    differenceBase: string;
+    /** the same difference when it is within the tolerance */
     roundingBase: string;
-    exchangeDifferenceBasCode: string | null;
+    differenceBasCode: string | null;
     residualOpen: string;
   };
   note: string | null;
@@ -52,63 +61,75 @@ export async function resolveStatement(
   caller: CallerIdentity,
   id: string,
 ): Promise<StatementData | null> {
-  const s = await tx.settlement.findUnique({
-    where: { id },
-    include: {
-      paymentSource: true,
-      lines: { include: { expense: { include: { group: true } } }, orderBy: { createdAt: "asc" } },
-    },
-  });
+  const row = await tx.settlement.findUnique({ where: { id } });
+  if (!row) return null;
+  const [s] = await settlementDtos(tx, [row]);
   if (!s) return null;
   const profile = await settings.getTenantProfile(tx, caller);
   const t = await banking.getBankTransaction(tx, s.bankTransactionId);
-  // what each expense still owes AFTER this settlement, over every active settlement (this one included) —
-  // `owedBase`, the list's and the ledger's rule: a remainder under the tolerance prints 0.00 (F88, D47)
-  const allocated = await allocatedByExpense(
+  const expenses = await tx.expense.findMany({
+    where: { id: { in: s.lines.map((l) => l.expenseId) } },
+    include: {
+      group: true,
+      paidFromAccount: { select: { accountAlias: true, accountNumber: true, currency: true } },
+    },
+  });
+  const byId = new Map(expenses.map((e) => [e.id, e]));
+  // what each expense still owes AFTER this settlement, over every allocation onto it (this one included) —
+  // `openBase`, the list's and the ledger's rule: a remainder under the tolerance prints 0.00 (F88, D47)
+  const allocations = await linking.allocationsOnto(
     tx,
+    "expense",
     s.lines.map((l) => l.expenseId),
   );
-  const lines: StatementLine[] = fifoOrder(
-    s.lines.map((l) => ({
-      key: l.expense.key,
-      date: l.expense.date.toISOString().slice(0, 10),
-      description: l.expense.description,
-      group: groupLabel(l.expense.group),
-      basCode: l.expense.basCode,
-      amount: l.expense.amount.toFixed(2),
-      currency: l.expense.currency,
-      amountBase: l.expense.amountBase.toFixed(2),
-      allocatedBase: l.allocatedBase.toFixed(2),
-      remainingOpen: owedBase(l.expense.amountBase, allocated.get(l.expenseId) ?? new D(0)).toFixed(
-        2,
-      ),
-      note: l.note,
-    })),
-  );
+  const lines: StatementLine[] = s.lines.flatMap((l) => {
+    const e = byId.get(l.expenseId);
+    if (!e) return [];
+    return [
+      {
+        key: e.key,
+        date: l.date,
+        description: e.description,
+        group: groupLabel(e.group),
+        basCode: e.basCode,
+        amount: e.amount.toFixed(2),
+        currency: e.currency,
+        amountBase: e.amountBase.toFixed(2),
+        allocatedAmount: l.allocatedAmount,
+        allocatedBase: l.allocatedBase,
+        expectedBase: l.expectedBase,
+        remainingOpen: openBase(e.amount, e.amountBase, allocations.get(e.id) ?? []).toFixed(2),
+        // the link's marker note names this statement — not a line note on it
+        note: l.note === `Settlement ${s.number}` ? null : l.note,
+      },
+    ];
+  });
   const residual = lines.reduce<Dec>((acc, l) => acc.plus(new D(l.remainingOpen)), new D(0));
+  const payees = [...new Set(expenses.map((e) => banking.accountLabel(e.paidFromAccount)))].sort();
   return {
     number: s.number,
     status: s.status,
-    statementSuperseded: isStatementSuperseded(s),
+    statementSuperseded: s.statementSuperseded,
     company: {
       name: profile.data?.name ?? "",
       orgNumber: profile.data?.orgNumber ?? null,
       address: profile.data?.address ?? null,
     },
-    payee: s.paymentSource.label,
+    payee: payees.join(", "),
     refund: {
-      bookingDate: t?.bookingDate ?? "",
-      amount: s.refundAmount.toFixed(2),
+      bookingDate: s.bookingDate,
+      amount: s.refundAmount,
       currency: s.refundCurrency,
-      base: s.refundBase.toFixed(2),
+      base: s.refundBase,
       account: t?.accountLabel ?? "",
     },
     lines,
     totals: {
-      allocatedBase: s.allocatedBase.toFixed(2),
-      exchangeDifferenceBase: s.exchangeDifferenceBase.toFixed(2),
-      roundingBase: s.roundingBase.toFixed(2),
-      exchangeDifferenceBasCode: s.exchangeDifferenceBasCode,
+      allocatedBase: s.allocatedBase,
+      expectedBase: s.expectedBase,
+      differenceBase: s.rounding ? "0.00" : s.differenceBase,
+      roundingBase: s.rounding ? s.differenceBase : "0.00",
+      differenceBasCode: s.differenceBasCode,
       residualOpen: residual.toFixed(2),
     },
     note: s.note,

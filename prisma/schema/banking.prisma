@@ -25,10 +25,13 @@ model BankFormat {
   @@map("bank_formats")
 }
 
-/// main = the two Plusgiro accounts (monthly package); savings = Sparkonto (its CSV goes yearly, D13/D31)
+/// main = the two Plusgiro accounts (monthly package); savings = Sparkonto (its CSV goes yearly, D13/D31);
+/// owner_private = a private instrument of the owner (`Private SE`, `Private CH` — F114, D60): no CSV format, no
+/// rows, never imported; the payer of a private expense, refunded through a settlement
 enum BankAccountRole {
   main
   savings
+  owner_private
 
   @@map("bank_account_role")
 }
@@ -39,7 +42,8 @@ model BankAccount {
   accountAlias  String?         @map("account_alias") @db.VarChar(100) // Optional friendly name
   accountNumber String          @map("account_number") @db.VarChar(50) // "211 53 13-5"
   currency      String          @default("SEK") @db.VarChar(3) // "SEK", "CHF", etc.
-  bankFormatId  String          @map("bank_format_id") @db.Uuid
+  /// null for an owner_private account only (CHECK in the migration)
+  bankFormatId  String?         @map("bank_format_id") @db.Uuid
   role          BankAccountRole @default(main)
   /// printed in the invoice's payment box (the account of the invoice currency)
   iban          String?         @db.VarChar(34)
@@ -50,11 +54,15 @@ model BankAccount {
   source        String          @default("web") @db.VarChar(20)
 
   tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bankFormat   BankFormat        @relation(fields: [bankFormatId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bankFormat   BankFormat?       @relation(fields: [bankFormatId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   imports      BankImport[]
   transactions BankTransaction[]
+  /// D63 composite FKs from the payers' side (F114): what an expense / a subscription is paid from
+  paidExpenses      Expense[]
+  paidSubscriptions Subscription[]
 
   @@unique([tenantId, accountNumber, currency], map: "bank_accounts_tenant_account_currency_unique")
+  @@unique([tenantId, id], map: "bank_accounts_tenant_id_id_key")
   @@index([tenantId])
   @@index([bankFormatId])
   @@map("bank_accounts")
@@ -146,8 +154,11 @@ model BankTransaction {
   bankImport  BankImport  @relation(fields: [bankImportId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   /// D63: a composite FK — the partner of the same tenant, RESTRICT (a partner with categorised rows stays)
   partner     Partner?    @relation(fields: [tenantId, partnerId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  /// the settlements this row refunds (F114: a composite FK from settlements, RESTRICT)
+  settlements Settlement[]
 
   @@unique([bankAccountId, dedupHash, occurrence], map: "bank_transactions_account_hash_occurrence_key")
+  @@unique([tenantId, id], map: "bank_transactions_tenant_id_id_key")
   @@index([tenantId, bookingDate(sort: Desc)])
   @@index([tenantId, bankAccountId, bookingDate])
   @@index([tenantId, counterpartyKey])

@@ -156,7 +156,7 @@ describe("Scenario 1: Prisma include across RLS tables", () => {
     });
     expect(accountsA).toHaveLength(1);
     expect(accountsA[0].bankFormat).toBeDefined();
-    expect(accountsA[0].bankFormat.bankName).toBeDefined();
+    expect(accountsA[0].bankFormat?.bankName).toBeDefined();
 
     // Tenant B should see no bank accounts
     const accountsB = await withTenantTransaction(prisma, tenantB.id, async (tx) => {

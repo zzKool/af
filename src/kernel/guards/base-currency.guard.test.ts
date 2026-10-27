@@ -25,7 +25,6 @@ const ALLOWED: Record<string, readonly [number, number]> = {
   "src/modules/traktamente/components/per-diem-sheet.tsx": [0, 3],
   "src/modules/traktamente/components/rate-table.tsx": [0, 3],
   "src/modules/traktamente/components/trip-panel.tsx": [0, 1],
-  "src/modules/expenses/payment-sources.ts": [0, 1],
   "src/modules/banking/csv-parser.ts": [0, 1],
   "src/modules/banking/facts.ts": [2, 0],
   "src/modules/banking/implicit-rate.ts": [4, 0],

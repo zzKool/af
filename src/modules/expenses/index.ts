@@ -13,29 +13,36 @@ export {
   foldName,
   isNear,
 } from "./duplicates";
-export type { AttachInput, ExpenseInput, PerDiemInput, UpdateExpenseInput } from "./expenses";
+export type {
+  ExpenseInput,
+  PayInput,
+  PerDiemInput,
+  UnpayInput,
+  UpdateExpenseInput,
+} from "./expenses";
 export {
-  attachBankTransaction,
   attachDocument,
-  attachSchema,
   baseAmount,
   createExpense,
   createPerDiemExpense,
   deleteExpense,
-  detachBankTransaction,
   detachDocument,
   duplicateAckSchema,
   expenseInputSchema,
   isExpenseOpen,
   noteWithAck,
+  payExpense,
+  paySchema,
   perDiemInputSchema,
   replacePerDiemExpense,
+  unpayExpense,
+  unpaySchema,
   updateExpense,
   updateExpenseSchema,
 } from "./expenses";
 export * from "./expenses.actions";
-export type { Difference, FifoLine, OpenExpense } from "./fifo";
-export { fifoAllocate, fifoOrder, residualOpen, roundingNote, settlementDifference } from "./fifo";
+export type { FifoLine, OpenExpense } from "./fifo";
+export { fifoAllocate, fifoOrder, residualOpen } from "./fifo";
 export type { GroupInput, UpdateGroupInput } from "./groups";
 export {
   createGroup,
@@ -52,35 +59,32 @@ export {
   renderStatementJob,
   statementPrintPath,
 } from "./jobs/render-statement";
-export { expenseLinkable, settlementLinkable } from "./linkable";
+export { expenseLinkable } from "./linkable";
 export type { ExpensePageOptions } from "./page-data";
 export { expenseCategoryOptions, expensePageOptions, vendorOptions } from "./page-data";
-export type { PaymentSourceInput } from "./payment-sources";
-export {
-  createPaymentSource,
-  ensureDefaultSources,
-  paymentSourceInputSchema,
-  setPaymentSourceActive,
-} from "./payment-sources";
 export * from "./queries";
 // global search (F93): the module's palette hits
 export { searchExpenseHits, searchSettlementHits } from "./search";
 export type { ConfirmInput, ProposeInput } from "./settlements";
 export {
   activeSettlementTransactionIds,
+  amountForBase,
   cancelSettlement,
   confirmSchema,
   confirmSettlement,
+  differenceBasCode,
+  expectedBaseFor,
   proposeSchema,
+  settlementTotals,
 } from "./settlements";
 export type { StatementData, StatementLine } from "./statement";
-export { deriveExpenseStatus, OPEN_BASE_TOLERANCE_SEK, openBase, owedBase } from "./status";
+export { deriveExpenseStatus, openBase, openOn } from "./status";
 export type * from "./types";
 export {
   EXPENSE_GROUP_KINDS,
   EXPENSE_KINDS,
   EXPENSE_RATE_SOURCES,
   EXPENSE_STATUSES,
-  PAYMENT_SOURCE_KINDS,
+  PAYER_KINDS,
   SETTLEMENT_STATUSES,
 } from "./types";

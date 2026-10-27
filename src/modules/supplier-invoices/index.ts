@@ -15,9 +15,6 @@ export type { SupplierInvoicePageOptions } from "./page-data";
 export { supplierInvoicePageOptions } from "./page-data";
 export type { RecordPaymentInput } from "./payments";
 export {
-  attachPayment,
-  attachPaymentSchema,
-  detachPayment,
   recordPayment,
   recordPaymentSchema,
   removePayment,

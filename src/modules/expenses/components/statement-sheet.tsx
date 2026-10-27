@@ -106,16 +106,14 @@ export function StatementSheet({
         <dd className="text-right font-semibold tabular-nums" data-testid="statement-total">
           {sek(data.totals.allocatedBase)} SEK
         </dd>
-        {data.totals.exchangeDifferenceBase !== "0.00" && (
+        {data.totals.differenceBase !== "0.00" && (
           <>
             <dt className="text-neutral-600">
               {t("expenses.statement.exchange")}
-              {data.totals.exchangeDifferenceBasCode
-                ? ` (BAS ${data.totals.exchangeDifferenceBasCode})`
-                : ""}
+              {data.totals.differenceBasCode ? ` (BAS ${data.totals.differenceBasCode})` : ""}
             </dt>
-            <dd className="text-right tabular-nums">
-              {sek(data.totals.exchangeDifferenceBase)} SEK
+            <dd className="text-right tabular-nums" data-testid="statement-difference">
+              {sek(data.totals.differenceBase)} SEK
             </dd>
           </>
         )}

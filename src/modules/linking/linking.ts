@@ -1,12 +1,15 @@
 // Linking service — the only writer of the `links` table (constitution §2, D18).
 // Invariants enforced here (and in the database where it can): endpoints exist in the caller's tenant,
-// the kind accepts the pair, allocations never exceed the target's amount, every change is audited.
+// the kind accepts the pair, allocations never exceed the target's amount nor the row's base, every change is
+// audited. F114 (D60): an allocating link IS the payment record — `allocated_amount` in the target's currency,
+// `allocated_base` what the bank row gave; the trigger `links_check_allocation` keeps both sums as the service does.
 import type { Link } from "@/generated/prisma/client";
 import { Prisma } from "@/generated/prisma/client";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
+import { sliceBase } from "@/kernel/money/settlement";
 import { canAllocate, remaining, sumAllocations } from "./allocation";
 import {
   ALLOCATING_KINDS,
@@ -16,6 +19,7 @@ import {
   needsOwnFlow,
 } from "./kinds";
 import { getLinkable } from "./linkable";
+import { type RowUsage, rowRemaining } from "./row-usage";
 import type {
   AllocationStatus,
   CreateLinkInput,
@@ -36,6 +40,7 @@ export function toLinkDto(row: Link): LinkDto {
     kind: row.kind as LinkKind,
     allocatedAmount: row.allocatedAmount ? row.allocatedAmount.toFixed(2) : null,
     currency: row.currency,
+    allocatedBase: row.allocatedBase ? row.allocatedBase.toFixed(2) : null,
     note: row.note,
     createdAt: row.createdAt,
     createdBy: row.createdBy,
@@ -112,11 +117,50 @@ export async function getAllocationStatus(
     };
   }
   if (summary.amount === null || summary.currency === null) return { data: null };
+  // a bank row allocates FROM itself; everything else is allocated TO
+  const side =
+    endpoint.type === "bank_transaction"
+      ? { fromType: endpoint.type, fromId: endpoint.id }
+      : { toType: endpoint.type, toId: endpoint.id };
   const rows = await tx.link.findMany({
-    where: { toType: endpoint.type, toId: endpoint.id, allocatedAmount: { not: null } },
-    select: { allocatedAmount: true },
+    where: { ...side, allocatedAmount: { not: null } },
+    select: { allocatedAmount: true, allocatedBase: true, currency: true },
   });
-  const allocations = rows.map((r) => r.allocatedAmount as Prisma.Decimal);
+  const bases = rows.map((r) => r.allocatedBase ?? new Prisma.Decimal(0));
+  if (endpoint.type === "bank_transaction") {
+    // a row's capacity in its own currency: its cross-currency links count by the share of its base they took
+    const usage: RowUsage = { byCurrency: new Map(), base: sumAllocations(bases) };
+    for (const r of rows) {
+      const slot = usage.byCurrency.get(r.currency ?? "") ?? {
+        amount: new Prisma.Decimal(0),
+        base: new Prisma.Decimal(0),
+      };
+      slot.amount = slot.amount.plus(r.allocatedAmount as Prisma.Decimal);
+      slot.base = slot.base.plus(r.allocatedBase ?? 0);
+      usage.byCurrency.set(r.currency ?? "", slot);
+    }
+    const left = rowRemaining(
+      {
+        amount: summary.amount,
+        currency: summary.currency,
+        amountBase: summary.amountBase ?? null,
+      },
+      usage,
+    );
+    return {
+      data: {
+        endpoint,
+        amount: summary.amount,
+        currency: summary.currency,
+        allocated: new Prisma.Decimal(summary.amount).minus(left).toFixed(2),
+        remaining: left.toFixed(2),
+        allocatedBase: usage.base.toFixed(2),
+      },
+    };
+  }
+  const allocations = rows
+    .filter((r) => r.currency === summary.currency)
+    .map((r) => r.allocatedAmount as Prisma.Decimal);
   return {
     data: {
       endpoint,
@@ -124,6 +168,7 @@ export async function getAllocationStatus(
       currency: summary.currency,
       allocated: sumAllocations(allocations).toFixed(2),
       remaining: remaining(summary.amount, allocations).toFixed(2),
+      allocatedBase: sumAllocations(bases).toFixed(2),
     },
   };
 }
@@ -200,9 +245,12 @@ export async function createLink(
     };
   }
 
-  // Allocation rules: only allocating kinds may carry an amount; it must fit the target's remaining amount.
+  // Allocation rules (F114, D60): only allocating kinds carry an amount; the amount is in the target's currency and
+  // fits what is still open on it; the base the row gives — pro rata of the row's base, the whole remaining base
+  // when the currencies differ, or as stated — fits what is left of the row's base. The trigger says the same.
   let allocatedAmount: Prisma.Decimal | null = null;
   let currency: string | null = null;
+  let allocatedBase: Prisma.Decimal | null = null;
   if (input.allocatedAmount != null) {
     if (!ALLOCATING_KINDS.includes(kind)) {
       return { error: violation(`Link kind '${kind}' does not carry an allocation`) };
@@ -230,31 +278,58 @@ export async function createLink(
         ),
       };
     }
-    // The source side (R19): a bank transaction carries an amount too, and the
-    // allocations FROM it never exceed |amount| — in its own currency (a CHF transaction allocates CHF).
+    allocatedAmount = new Prisma.Decimal(input.allocatedAmount);
+    // The source side: a bank row gives base. Its links so far, whatever their currency, say what is left of it.
     const fromSummary = await fromLinkable.summary(tx, from.id);
-    if (fromSummary?.amount !== null && fromSummary?.amount !== undefined && fromSummary.currency) {
-      if (currency !== fromSummary.currency) {
-        return {
-          error: violation(
-            `Allocation currency ${currency} differs from ${from.type} currency ${fromSummary.currency}`,
-          ),
-        };
-      }
+    if (
+      fromSummary?.amount !== null &&
+      fromSummary?.amount !== undefined &&
+      fromSummary.currency &&
+      fromSummary.amountBase != null
+    ) {
       const fromExisting = await tx.link.findMany({
         where: { fromType: from.type, fromId: from.id, allocatedAmount: { not: null } },
-        select: { allocatedAmount: true },
+        select: { allocatedAmount: true, allocatedBase: true, currency: true },
       });
-      const fromAllocations = fromExisting.map((r) => r.allocatedAmount as Prisma.Decimal);
-      if (!canAllocate(fromSummary.amount, fromAllocations, input.allocatedAmount)) {
+      const givenBase = sumAllocations(
+        fromExisting.map((r) => r.allocatedBase ?? new Prisma.Decimal(0)),
+      );
+      const remainingBase = new Prisma.Decimal(fromSummary.amountBase).abs().minus(givenBase);
+      const sameCurrency = currency === fromSummary.currency;
+      if (input.allocatedBase != null) {
+        allocatedBase = new Prisma.Decimal(input.allocatedBase);
+      } else if (sameCurrency) {
+        const givenAmount = sumAllocations(
+          fromExisting
+            .filter((r) => r.currency === fromSummary.currency)
+            .map((r) => r.allocatedAmount as Prisma.Decimal),
+        );
+        if (!canAllocate(fromSummary.amount, [givenAmount], allocatedAmount)) {
+          return {
+            error: violation(
+              `Allocations from ${from.type} ${from.id} (${givenAmount.toFixed(2)} of ${fromSummary.amount} ${fromSummary.currency}) would exceed its amount`,
+            ),
+          };
+        }
+        allocatedBase = sliceBase(
+          { amount: fromSummary.amount, amountBase: fromSummary.amountBase },
+          { amount: givenAmount, base: givenBase },
+          allocatedAmount,
+        );
+      } else {
+        allocatedBase = remainingBase;
+      }
+      if (allocatedBase.lte(0) || allocatedBase.gt(remainingBase)) {
         return {
           error: violation(
-            `Allocations from ${from.type} ${from.id} (${sumAllocations(fromAllocations).toFixed(2)} of ${fromSummary.amount} ${fromSummary.currency}) would exceed its amount`,
+            `The base ${allocatedBase.toFixed(2)} exceeds what is left of ${from.type} ${from.id}'s base (${remainingBase.toFixed(2)})`,
           ),
         };
       }
+    } else {
+      // a source that carries no amount (never a real bank row) gives the amount at par, or what was stated
+      allocatedBase = new Prisma.Decimal(input.allocatedBase ?? allocatedAmount);
     }
-    allocatedAmount = new Prisma.Decimal(input.allocatedAmount);
   }
 
   try {
@@ -268,6 +343,7 @@ export async function createLink(
         kind,
         allocatedAmount,
         currency,
+        allocatedBase,
         note: input.note ?? null,
         createdBy: caller.userId,
         source: caller.source,
@@ -287,8 +363,21 @@ export async function createLink(
         error: { code: "DUPLICATE_ENTRY", message: "This link already exists", retryable: false },
       };
     }
+    const detail = triggerDetail(error, "link_allocation_exceeded");
+    if (detail) return { error: violation(detail) };
     throw error;
   }
+}
+
+/** The DETAIL of a Postgres trigger refusal (`RAISE EXCEPTION '<name>' USING DETAIL`), or null for any other error. */
+export function triggerDetail(error: unknown, name: string): string | null {
+  if (!error || typeof error !== "object") return null;
+  const text = String((error as { message?: unknown }).message ?? "");
+  if (!text.includes(name)) return null;
+  const meta = (error as { meta?: { message?: unknown } }).meta?.message;
+  const metaText = typeof meta === "string" ? meta : text;
+  const m = metaText.match(/DETAIL:\s*([^\n]+)/);
+  return m ? m[1].trim() : name;
 }
 
 export async function removeLink(
@@ -323,6 +412,7 @@ function linkAuditData(dto: LinkDto): Record<string, unknown> {
     kind: dto.kind,
     allocatedAmount: dto.allocatedAmount,
     currency: dto.currency,
+    allocatedBase: dto.allocatedBase,
     note: dto.note,
   };
 }

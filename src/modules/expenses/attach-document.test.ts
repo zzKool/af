@@ -18,11 +18,11 @@ import {
   setupOwner,
 } from "./__fixtures__/harness";
 import {
-  attachBankTransaction,
   attachDocument,
   createExpense,
   deleteExpense,
   detachDocument,
+  payExpense,
 } from "./expenses";
 import { createGroup } from "./groups";
 import { getExpenseDetail } from "./queries";
@@ -67,7 +67,7 @@ async function sekExpense() {
       basCode: "580",
       amount: "199.00",
       currency: "SEK",
-      paymentSourceId: owner.sources.afSek.id,
+      paidFromAccountId: owner.sources.afSek.id,
       documentMissing: true,
     }),
   );
@@ -116,14 +116,14 @@ describe("attachDocument — the receipt after the expense (FR-012)", () => {
       ]),
     );
     const paid = await run(owner.caller, (tx) =>
-      attachBankTransaction(tx, owner.caller, noopAudit, {
+      payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.id,
         bankTransactionId: rowId!,
       }),
     );
     expect(paid.error).toBeUndefined();
     const before = await adminPool.query(
-      "SELECT amount, currency, date, amount_base, rate, rate_source, paid_amount FROM expenses WHERE id = $1",
+      "SELECT amount, currency, date, amount_base, rate, rate_source FROM expenses WHERE id = $1",
       [e.id],
     );
     const doc = await receipt("1");
@@ -132,7 +132,7 @@ describe("attachDocument — the receipt after the expense (FR-012)", () => {
     );
     expect(r.error).toBeUndefined();
     const after = await adminPool.query(
-      "SELECT amount, currency, date, amount_base, rate, rate_source, paid_amount FROM expenses WHERE id = $1",
+      "SELECT amount, currency, date, amount_base, rate, rate_source FROM expenses WHERE id = $1",
       [e.id],
     );
     expect(after.rows[0]).toEqual(before.rows[0]);
@@ -172,7 +172,7 @@ describe("attachDocument — the receipt after the expense (FR-012)", () => {
         basCode: "580",
         amount: "10.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       });
     });
     const taken = await run(owner.caller, (tx) =>
@@ -219,7 +219,7 @@ describe("deleteExpense — occurrence_of goes with the expense (F94)", () => {
     const e = await sekExpense();
     const subscriptionId = randomUUID();
     await adminPool.query(
-      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, payment_source_id,
+      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, paid_from_account_id,
          cadence, start_date, created_by, updated_at)
        VALUES ($1, $2, 'Byteform', $3, 'expense', '580', $4, $5, 'monthly', '2026-01-16', $6, NOW())`,
       [

@@ -24,12 +24,17 @@ describe("supplier invoice history", () => {
     ).toBe("reinstated");
   });
 
-  it("a same-currency payment, a cross-currency attach and its detach (payments.ts)", () => {
+  it("a payment linked, a payment removed (payments.ts); the attach / detach entries written before F114", () => {
     expect(
       historyEvent(
         update(null, { payment: { bankTransactionId: "b", amount: "100.00", currency: "SEK" } }),
       ),
     ).toBe("paymentLinked");
+    expect(
+      historyEvent(
+        update({ payment: { bankTransactionId: "b", amount: "100.00", currency: "SEK" } }, {}),
+      ),
+    ).toBe("paymentRemoved");
     expect(
       historyEvent(
         update(

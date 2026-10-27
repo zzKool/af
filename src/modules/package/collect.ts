@@ -90,6 +90,7 @@ export type PeriodRows = {
   rowStates: Awaited<ReturnType<typeof banking.transactionStates>>;
   /** type → ids justified by a period row */
   justified: Map<string, Set<string>>;
+  /** the expenses a period row reimbursed (`settles` links, F114) */
   settledIds: Set<string>;
   transferPairs: [string, string][];
 };
@@ -156,7 +157,7 @@ export type PeriodEntities = {
 export function selectEntities(
   period: PackagePeriod,
   lists: PeriodLists,
-  pr: Pick<PeriodRows, "justified" | "settledIds">,
+  pr: Pick<PeriodRows, "justified" | "settledIds" | "rowById">,
 ): PeriodEntities {
   const justifiedOf = (type: string): Set<string> => pr.justified.get(type) ?? new Set();
   const invoiceRows = lists.invoices.filter(
@@ -175,7 +176,8 @@ export function selectEntities(
     (e) => inPeriod(e.date, period) || justifiedOf("expense").has(e.id),
   );
   const activeSettlements = lists.settlements.filter((s) => s.status === "active");
-  const settlementRows = activeSettlements.filter((s) => pr.settledIds.has(s.id));
+  // a settlement is the statement over its refund row's `settles` links (F114): the period's are those of its rows
+  const settlementRows = activeSettlements.filter((s) => pr.rowById.has(s.bankTransactionId));
   // deterministic order (R6): by key / number, then id
   invoiceRows.sort(
     (a, b) => (a.number ?? "").localeCompare(b.number ?? "") || a.id.localeCompare(b.id),
@@ -407,6 +409,7 @@ export async function collectPeriod(
     }
   }
   const flags: PackageFlag[] = [];
+  const settlementOfRow = new Map(activeSettlements.map((s) => [s.bankTransactionId, s.number]));
   const bank: BankSheetRow[] = rows.map((r) => {
     const own = linksFrom.get(r.id) ?? [];
     const related: string[] = [];
@@ -414,8 +417,13 @@ export async function collectPeriod(
       const other = l.from.type === "bank_transaction" && l.from.id === r.id ? l.to : l.from;
       const key = keys.get(endpointKey(other)) ?? UNKNOWN_LABEL;
       if (l.kind === "transfer") related.push(`transfer ↔ ${key}`);
-      else if (l.kind === "settles") related.push(`settles ${key}`);
-      else related.push(key);
+      // the refund's `settles` links (one per expense, F114) read as the settlement they belong to, once —
+      // its sheet lists the expenses
+      else if (l.kind === "settles") {
+        const number = settlementOfRow.get(r.id);
+        const label = `settles ${number ?? key}`;
+        if (!related.includes(label)) related.push(label);
+      } else related.push(key);
     }
     const { status, allocated, delta, flag } = bankRowFacts(r, rowStates.get(r.id));
     const rowFlags: string[] = [];
@@ -426,7 +434,8 @@ export async function collectPeriod(
     return {
       id: r.id,
       account: r.accountLabel,
-      accountRole: r.accountRole,
+      // a private instrument has no rows (F114) — a row is always on a statement account
+      accountRole: r.accountRole as "main" | "savings",
       bookingDate: r.bookingDate,
       amount: r.amount,
       currency: r.currency,
@@ -567,7 +576,7 @@ export async function collectPeriod(
       currency: e.currency,
       rateSource: e.rateSource,
       amountBase: e.amountBase,
-      paidBy: e.paymentSourceLabel,
+      paidBy: e.payerLabel,
       status: e.status,
       refundDate: settlement?.bookingDate ?? null,
       settlement: settlement?.number ?? null,
@@ -586,13 +595,14 @@ export async function collectPeriod(
       id: s.id,
       number: s.number,
       bookingDate: s.bookingDate,
-      paidBy: s.paymentSourceLabel,
+      paidBy: s.payerLabel,
       refundAmount: s.refundAmount,
       currency: s.refundCurrency,
       refundBase: s.refundBase,
       allocatedBase: s.allocatedBase,
-      exchangeDifferenceBase: s.exchangeDifferenceBase,
-      roundingBase: s.roundingBase,
+      // derived from the links (F114): the signed difference, or the rounding when within the tolerance
+      exchangeDifferenceBase: s.rounding ? "0.00" : s.differenceBase,
+      roundingBase: s.rounding ? s.differenceBase : "0.00",
       expenses: s.lines.map((l) => expenseKey.get(l.expenseId) ?? UNKNOWN_LABEL).sort(),
       statementKey: doc?.businessKey ?? null,
       flags: rowFlags,

@@ -101,9 +101,9 @@ describe("outgoingRowsInWindow", () => {
         basCode: "580",
         amount: "199.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
-      await expenses.attachBankTransaction(tx, owner.caller, noopAudit, {
+      await expenses.payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
         bankTransactionId: rowId!,
       });

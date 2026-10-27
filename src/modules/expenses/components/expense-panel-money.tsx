@@ -42,7 +42,7 @@ export function ExpenseMoneySection({
     amount: e.amount,
     currency: e.currency as string,
     date: e.date,
-    sourceId: e.paymentSourceId,
+    sourceId: e.paidFromAccountId,
   });
   const [form, setForm] = useState(fromDetail);
   const [loaded, setLoaded] = useState(detail);
@@ -64,7 +64,7 @@ export function ExpenseMoneySection({
               amount: form.amount.trim(),
               currency: form.currency as (typeof CURRENCIES)[number],
               date: form.date,
-              paymentSourceId: form.sourceId,
+              paidFromAccountId: form.sourceId,
             });
           }}
         >
@@ -117,11 +117,7 @@ export function ExpenseMoneySection({
               </SelectTrigger>
               <SelectContent>
                 {sources.map((s) => (
-                  <SelectItem
-                    key={s.id}
-                    value={s.id}
-                    disabled={!s.isActive && s.id !== form.sourceId}
-                  >
+                  <SelectItem key={s.id} value={s.id}>
                     {s.label}
                   </SelectItem>
                 ))}

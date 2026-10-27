@@ -23,10 +23,10 @@ import {
 } from "./__fixtures__/harness";
 import { findExpenseDuplicates } from "./duplicates";
 import {
-  attachBankTransaction,
   createExpense,
   createPerDiemExpense,
   type ExpenseInput,
+  payExpense,
   updateExpense,
 } from "./expenses";
 import { createGroup } from "./groups";
@@ -102,7 +102,7 @@ const dinner = (groupId: string, extra: Partial<ExpenseInput> = {}): ExpenseInpu
   basCode: "583",
   amount: "120.00",
   currency: "CHF",
-  paymentSourceId: owner.sources.privateCh.id,
+  paidFromAccountId: owner.sources.privateCh.id,
   ...extra,
 });
 
@@ -158,7 +158,7 @@ describe("FR-001 — who can be an expense's partner", () => {
         ...dinner(g, { partnerId: cerf }),
         kind: "per_diem",
         currency: "SEK",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       }),
     );
     expect(refused.error?.message).toMatch(/per-diem has no partner/);
@@ -204,14 +204,7 @@ describe("FR-010 / SC-001 — nothing else changes with a partner", () => {
     );
     expect(without.data?.key).toBe("Ex213-Rep-01");
     expect(withP.data?.key).toBe("Ex214-Rep-01");
-    for (const f of [
-      "alias",
-      "seq",
-      "amountBase",
-      "rate",
-      "rateSource",
-      "baseProvisional",
-    ] as const) {
+    for (const f of ["alias", "seq", "amountBase", "rate", "rateSource"] as const) {
       expect(withP.data?.[f]).toEqual(without.data?.[f]);
     }
     // the check compares the description (the merchant), not the partner: both rows match the same query
@@ -243,7 +236,7 @@ describe("FR-002 / SC-003 — the partner is a fact: changed in every state, aud
     const paid = await run(owner.caller, (tx) =>
       createExpense(tx, owner.caller, noopAudit, {
         ...dinner(g, { amount: "45.00", description: "Flight" }),
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     const [rowId] = await run(owner.caller, (tx) =>
@@ -252,7 +245,7 @@ describe("FR-002 / SC-003 — the partner is a fact: changed in every state, aud
       ]),
     );
     await run(owner.caller, (tx) =>
-      attachBankTransaction(tx, owner.caller, noopAudit, {
+      payExpense(tx, owner.caller, noopAudit, {
         expenseId: paid.data!.id,
         bankTransactionId: rowId,
       }),
@@ -276,20 +269,22 @@ describe("FR-002 / SC-003 — the partner is a fact: changed in every state, aud
     );
     const [refundRow] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
-        { date: "2026-03-31", amount: "-400.00", name: "Zikrija" },
+        { date: "2026-03-31", amount: "-600.00", name: "Zikrija" },
       ]),
     );
+    // the refund row settles the taxi by half and the hotel in full (F114: `settles` links, the statement row)
     await adminPool.query(
-      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
-       VALUES ($1, 'ST26-001', $2, $3, -400, 'SEK', 400, 400, now(), $4)`,
-      [owner.caller.tenantId, refundRow, owner.sources.privateCh.id, owner.caller.userId],
+      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, updated_at, created_by)
+       VALUES ($1, 'ST26-001', $2, now(), $3)`,
+      [owner.caller.tenantId, refundRow, owner.caller.userId],
     );
     await adminPool.query(
-      `INSERT INTO settlement_lines (tenant_id, settlement_id, expense_id, allocated_base, created_by)
-       SELECT $1::uuid, id, $2::uuid, 100, $4::uuid FROM settlements WHERE number = 'ST26-001'
-       UNION ALL SELECT $1::uuid, id, $3::uuid, $5::numeric, $4::uuid FROM settlements WHERE number = 'ST26-001'`,
+      `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, allocated_amount, currency, allocated_base, created_by)
+       VALUES ($1, 'bank_transaction', $2, 'expense', $3, 'settles', 10, 'CHF', 100, $5),
+              ($1, 'bank_transaction', $2, 'expense', $4, 'settles', 30, 'CHF', $6, $5)`,
       [
         owner.caller.tenantId,
+        refundRow,
         partial.data!.id,
         full.data!.id,
         owner.caller.userId,
@@ -370,7 +365,7 @@ describe("US3 / SC-002 — spend per partner", () => {
       amount: "1500.00",
       currency: "SEK",
       description: "SAS baggage",
-      paymentSourceId: owner.sources.afChf.id,
+      paidFromAccountId: owner.sources.afChf.id,
       date: "2026-03-11",
     });
     await mk({
@@ -378,7 +373,7 @@ describe("US3 / SC-002 — spend per partner", () => {
       amount: "250.00",
       currency: "SEK",
       description: "SAS lounge",
-      paymentSourceId: owner.sources.privateSe.id,
+      paidFromAccountId: owner.sources.privateSe.id,
       date: "2026-03-12",
     });
     await mk({ partnerId: q, amount: "80.00", description: "Dinner" });
@@ -401,10 +396,8 @@ describe("US3 / SC-002 — spend per partner", () => {
       const page = await expensesForPartner(tx, p);
       expect(page.count).toBe(3);
       expect(Math.round(Number(page.totalBase) * 100)).toBe(sum);
-      expect(page.anyProvisional).toBe(true);
       expect(page.rows.map((r) => r.date)).toEqual(["2026-03-12", "2026-03-11", "2026-03-10"]);
       expect(page.rows[0]?.stateFamily).toBe("attention");
-      expect((await expensesForPartner(tx, q)).anyProvisional).toBe(false);
 
       const values = await distinctExpenseValues(tx, "partnerName", Q);
       expect(values.map((v) => [v.value, v.count])).toEqual(
