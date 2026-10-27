@@ -38,3 +38,11 @@
 - [x] T017 The spec: the four-line rule, the seven cases, FR-001–FR-011, the migration plan, the owner's three questions (docs PR, 2026-10-27).
 - [ ] T018 PR 1 `feat/linking-payment-record` — FR-001–FR-008, FR-010, FR-011: the enum value migration, the data migration of the plan's steps 2–8 with its guard and counts, the Prisma models (`Link.allocatedBase`, `Expense.paidFromAccountId`, `Subscription.paidFromAccountId`, `Settlement` reduced, `PaymentSource` / `SettlementLine` gone, `BankAccount.bankFormatId?`), the two triggers; linking's `createLink` with the base, `kernel/money` `fxDifference` / `paidShare` + the one tolerance, expenses (`payExpense` / `unpay`, status on amounts, settlements on links, statement from links, payment-sources deleted), supplier invoices (one `recordPayment` / `removePayment`), banking's `payerAccounts` / `createPrivateAccount` + the Accounts page section, subscriptions' payer, the panels' payment sections with the FX line, the Justify panel's payer from the row; `linking/payment-record-migration.test.ts` replaying the migrations on the seven-case fixture (the F113 test's harness); the trigger tests; the services' tests on links; the e2e steps; the docs. **Merges after the owner's read of the spec** (the migration drops columns).
 - [ ] T019 PR 2 `feat/package-payment-columns` — FR-009: Base · Paid base · FX difference on the three sheets, settlements from links, the goldens captured once.
+
+## Part 7 — one engine with memory (F116, `specs/linking/one-engine.md`)
+
+- [x] T020 The spec: the five-line rule, the seven cases, US1–US6, FR-001–FR-010, SC-001–005, the owner's four questions (docs PR, 2026-10-27).
+- [ ] T021 PR A `feat/linking-engine-window` — FR-001–FR-004, FR-009 (scorer, finder, memory), FR-010. After the owner's read.
+- [ ] T022 PR B `feat/linking-engine-fx` — FR-005, FR-006. After F114 PR 1 merges.
+- [ ] T023 PR C `feat/banking-rules-engine` — FR-007, FR-008. After the answer to question 3.
+
