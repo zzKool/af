@@ -276,6 +276,7 @@ export function TransactionDetailView({
                     description: tx.description,
                     counterpartyKey: tx.counterpartyKey,
                     bankAccountId: tx.bankAccountId,
+                    accountLabel: detail.accountLabel,
                   }}
                   canWrite={canWrite}
                   options={justifyOptions}

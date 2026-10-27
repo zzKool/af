@@ -96,7 +96,7 @@ const fixtureInput = (groupId: string, e: Fx) => ({
   basCode: e.alias === "Tr" ? "580" : "583",
   amount: e.amount.toFixed(2),
   currency: e.currency as "CHF",
-  paymentSourceId: owner.sources.privateCh.id,
+  paidFromAccountId: owner.sources.privateCh.id,
 });
 
 describe("US2 — the four ways to pay", () => {
@@ -208,7 +208,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         ...fixtureInput(g.id, FIXTURE.expenses[0]),
         currency: "SEK",
         amount: "123.45",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       });
       expect(sek.data).toMatchObject({
         rate: "1",
@@ -256,7 +256,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     expect(e.data).toMatchObject({
@@ -376,7 +376,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "120.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     const [rowId] = await run(owner.caller, (tx) =>
@@ -592,7 +592,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
         documentId: doc.id,
       }),
     );
@@ -684,7 +684,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       ]),
     );
     await adminPool.query(
-      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
+      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, paid_from_account_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
        VALUES ($1, 'ST26-001', $2, $3, -100, 'SEK', 100, 100, now(), $4)`,
       [owner.caller.tenantId, rowId, owner.sources.privateCh.id, owner.caller.userId],
     );
@@ -712,7 +712,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     const id = e.data!.id;
@@ -850,7 +850,7 @@ describe("US5 — the list, the groups, the ledger", () => {
         basCode: "580",
         amount: "45.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
     });
     await run(owner.caller, async (tx) => {
@@ -871,7 +871,7 @@ describe("US5 — the list, the groups, the ledger", () => {
       });
       expect(open.total).toBe(3);
       expect(open.sums?.openBase).toBe("10765.00");
-      const payers = await distinctExpenseValues(tx, "paymentSourceLabel", {
+      const payers = await distinctExpenseValues(tx, "payerLabel", {
         ...Q,
         filters: { status: { kind: "in", values: ["to_refund"] } },
       });

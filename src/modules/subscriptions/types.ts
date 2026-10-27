@@ -24,7 +24,7 @@ export type SubscriptionDto = {
   becomes: Becomes;
   basCode: string;
   groupId: string;
-  paymentSourceId: string;
+  paidFromAccountId: string;
   vatRegistrationId: string | null;
   cadence: Cadence;
   startDate: string;
@@ -154,7 +154,7 @@ export type SubscriptionListRow = {
   basCode: string;
   groupId: string;
   groupLabel: string;
-  paymentSourceLabel: string;
+  payerLabel: string;
   startDate: string;
   endDate: string | null;
   active: boolean;
@@ -172,7 +172,7 @@ export type SubscriptionDetail = {
   subscription: SubscriptionDto;
   partnerName: string | null;
   groupLabel: string;
-  paymentSourceLabel: string;
+  payerLabel: string;
   prices: PriceDto[];
   pauses: PauseDto[];
   /** newest first; the next upcoming one on top */

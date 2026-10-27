@@ -193,7 +193,7 @@ describe("US1 — record a supplier invoice", () => {
         basCode: "653",
         amount: "100.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
       expect(e.data?.key).toBe("Ex213-Acc-02");
     });
@@ -396,7 +396,7 @@ describe("US1 — record a supplier invoice", () => {
     expect(r.error).toBeUndefined();
     const subscriptionId = randomUUID();
     await adminPool.query(
-      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, payment_source_id,
+      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, paid_from_account_id,
          cadence, start_date, created_by, updated_at)
        VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '657', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
       [
@@ -857,7 +857,7 @@ describe("US2 — paid by a link", () => {
       run(owner.caller, async (tx) => (await payableTransactions(tx, "CHF")).map((t) => t.id));
     expect(await ids()).toEqual(expect.arrayContaining([refund, free]));
     await adminPool.query(
-      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
+      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, paid_from_account_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
        VALUES ($1, 'ST26-009', $2, $3, -400, 'CHF', 4300, 4300, now(), $4)`,
       [owner.caller.tenantId, refund, owner.sources.privateCh.id, owner.caller.userId],
     );

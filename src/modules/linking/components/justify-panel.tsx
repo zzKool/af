@@ -51,12 +51,6 @@ export type JustifyOptions = {
   groups: { id: string; label: string }[];
   /** the expense categories (a short code each — the keys need one) */
   categories: { code: string; label: string }[];
-  sources: {
-    id: string;
-    label: string;
-    kind: "bank_account" | "private";
-    bankAccountId: string | null;
-  }[];
   partners: { id: string; name: string; defaultBasCode: string | null }[];
 };
 
@@ -394,7 +388,6 @@ function CompareCardForm({
   );
   const [basCode, setBasCode] = useState<string>(NONE);
   const [groupId, setGroupId] = useState<string>(options.groups[0]?.id ?? NONE);
-  const source = options.sources.find((s) => s.bankAccountId === row.bankAccountId) ?? null;
   const partners = [...extraPartners, ...options.partners];
 
   // the partner's default category fills an empty one (journal T002, on the row)
@@ -438,7 +431,6 @@ function CompareCardForm({
               amount: Number(amount).toFixed(2),
               currency: currency as (typeof CURRENCIES)[number],
               ...(vat && Number(vat) > 0 ? { vatAmount: Number(vat).toFixed(2) } : {}),
-              paymentSourceId: source?.id ?? "",
               partnerId: partnerId === NONE ? null : partnerId,
             },
           });
@@ -632,7 +624,7 @@ function CompareCardForm({
         </Field>
         {kind === "expense" && (
           <Field id={`${ids}-payer`} label={t("linking.justify.field.payer")}>
-            <Input id={`${ids}-payer`} value={source?.label ?? "—"} readOnly />
+            <Input id={`${ids}-payer`} value={row.accountLabel} readOnly />
           </Field>
         )}
       </div>

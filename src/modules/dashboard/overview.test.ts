@@ -161,7 +161,7 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       basCode: "580",
       amount: "120.00",
       currency: "CHF",
-      paymentSourceId: owner.sources.privateCh.id,
+      paidFromAccountId: owner.sources.privateCh.id,
     });
     if (e.error) throw new Error(e.error.message);
     return { registrationId: reg.data?.id as string, partnerId, contractId };
@@ -212,7 +212,7 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       basCode: "580",
       amount: "150.00",
       currency: "SEK",
-      paymentSourceId: owner.sources.afSek.id,
+      paidFromAccountId: owner.sources.afSek.id,
     });
     if (card.error) throw new Error(card.error.message);
   });

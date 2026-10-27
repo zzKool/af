@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { uuid } from "@/kernel/validation/scalars";
 import * as bankService from "@/modules/banking/bank-accounts";
+import * as payers from "@/modules/banking/payers";
 
 /**
  * Get all bank CSV formats (app-level reference data).
@@ -77,3 +78,11 @@ export const deleteBankAccountAction = ownerAction
   .action(async ({ ctx, parsedInput }) => {
     return bankService.deleteBankAccount(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id);
   });
+
+/** A private instrument of the owner (F114, D60): alias + currency, no format — the payer of a private expense. */
+export const createPrivateAccountAction = ownerAction
+  .schema(payers.privateAccountSchema)
+  .metadata({ name: "createPrivateAccount" })
+  .action(async ({ ctx, parsedInput }) =>
+    payers.createPrivateAccount(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );

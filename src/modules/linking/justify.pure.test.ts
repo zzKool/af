@@ -19,6 +19,7 @@ const row = (over: Partial<RowForJustify> = {}): RowForJustify => ({
   description: "SKATTEPUNKTEN OFFICE",
   counterpartyKey: "SKATTEPUNKTEN OFFICE",
   bankAccountId: "acc",
+  accountLabel: "Plusgirokonto SEK",
   ...over,
 });
 

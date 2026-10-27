@@ -4,6 +4,10 @@
 // `kind` is constrained by a CHECK in the migration: justifies | transfer | settles | belongs_to | created_from
 // (created_from is exclusive on both ends — partial unique indexes, 20261020190000).
 // Links are immutable (no updated_at): an allocation change is remove + create, both audited.
+// F114 (D60): a `justifies` / `settles` link IS the payment record — `allocated_amount` in the target entity's
+// currency (what part of it this row pays), `allocated_base` what the bank row gave for it in the tenant's base;
+// the two are null together (CHECK). Σ amount onto an entity ≤ its amount and Σ base from a bank row ≤ |its base|
+// are checked by the trigger `links_check_allocation` (migration 20261027200100) as well as by the service.
 
 model Link {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -15,6 +19,7 @@ model Link {
   kind            String   @db.VarChar(20)
   allocatedAmount Decimal? @map("allocated_amount") @db.Decimal(15, 2)
   currency        String?  @db.VarChar(3)
+  allocatedBase   Decimal? @map("allocated_base") @db.Decimal(15, 2)
   note            String?
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   createdBy       String   @map("created_by") @db.Uuid

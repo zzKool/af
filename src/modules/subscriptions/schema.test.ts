@@ -24,7 +24,7 @@ async function insertSubscription(overrides: Record<string, unknown> = {}): Prom
     becomes: "expense",
     bas_code: "6540",
     group_id: groupId,
-    payment_source_id: randomUUID(),
+    paid_from_account_id: randomUUID(),
     cadence: "monthly",
     start_date: "2026-01-14",
     created_by: user,

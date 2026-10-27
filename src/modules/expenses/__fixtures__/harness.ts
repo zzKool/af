@@ -15,8 +15,6 @@ import { createAuthenticatedContext } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import * as banking from "@/modules/banking";
 import * as settings from "@/modules/settings";
-import { ensureDefaultSources } from "../payment-sources";
-import type { PaymentSourceDto } from "../types";
 
 export const FIXTURE = JSON.parse(
   readFileSync(
@@ -73,15 +71,16 @@ export async function seedRates(adminPool: Pool): Promise<void> {
 export type Owner = {
   caller: CallerIdentity;
   accounts: { sek: string; chf: string; sav: string };
+  /** the payers (F114): the two main accounts and the owner's two private instruments, as `PayerAccount`s */
   sources: {
-    afSek: PaymentSourceDto;
-    afChf: PaymentSourceDto;
-    privateSe: PaymentSourceDto;
-    privateCh: PaymentSourceDto;
+    afSek: banking.PayerAccount;
+    afChf: banking.PayerAccount;
+    privateSe: banking.PayerAccount;
+    privateCh: banking.PayerAccount;
   };
 };
 
-/** An owner with the three accounts, `Tr` (580) and `Rep` (583) aliases and the four payment sources. */
+/** An owner with the three accounts, `Tr` (580) and `Rep` (583) aliases and the four payers. */
 export async function setupOwner(adminPool: Pool, nordeaFormatId: string): Promise<Owner> {
   const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
   const accounts = await run(caller, async (tx) => {
@@ -114,18 +113,27 @@ export async function setupOwner(adminPool: Pool, nordeaFormatId: string): Promi
     `INSERT INTO number_series (tenant_id, series, next_value) VALUES ($1, 'expense_group', 213)`,
     [caller.tenantId],
   );
-  const list = await run(caller, (tx) => ensureDefaultSources(tx, caller, noopAudit));
+  const list = await run(caller, async (tx) => {
+    for (const p of [
+      { alias: "Private SE", currency: "SEK" as const },
+      { alias: "Private CH", currency: "CHF" as const },
+    ]) {
+      const r = await banking.createPrivateAccount(tx, caller, noopAudit, p);
+      if (r.error) throw new Error(r.error.message);
+    }
+    return banking.payerAccounts(tx);
+  });
   const byLabel = (label: string) => {
     const s = list.find((x) => x.label === label);
-    if (!s) throw new Error(`no payment source ${label}`);
+    if (!s) throw new Error(`no payer ${label}`);
     return s;
   };
   return {
     caller,
     accounts,
     sources: {
-      afSek: byLabel("AF SEK"),
-      afChf: byLabel("AF CHF"),
+      afSek: byLabel("Plusgirokonto SEK"),
+      afChf: byLabel("Plusgirokonto CHF"),
       privateSe: byLabel("Private SE"),
       privateCh: byLabel("Private CH"),
     },

@@ -81,7 +81,7 @@ beforeEach(async () => {
         basCode: e.alias === "Tr" ? "580" : "583",
         amount: e.amount.toFixed(2),
         currency: "CHF",
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
       });
       if (r.error) throw new Error(r.error.message);
       ids[r.data.key] = r.data.id;
@@ -154,7 +154,7 @@ describe("F62 — one owed rule, one Σ of active lines", () => {
     const s = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: p.paymentSourceId!,
+        paidFromAccountId: p.paidFromAccountId!,
         lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       }),
     );
@@ -195,7 +195,7 @@ describe("F62 — one owed rule, one Σ of active lines", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paymentSourceId: p.paymentSourceId!,
+          paidFromAccountId: p.paidFromAccountId!,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )
@@ -228,7 +228,7 @@ describe("US4 — settle a refund", () => {
       refundAmount: "-9700.00",
       refundCurrency: "SEK",
       refundBase: "9700.00",
-      paymentSourceId: owner.sources.privateCh.id,
+      paidFromAccountId: owner.sources.privateCh.id,
       allocatedBase: "9700.00",
       exchangeDifferenceBase: "0.00",
       roundingBase: "0.00",
@@ -248,7 +248,7 @@ describe("US4 — settle a refund", () => {
     const confirmed = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, realAudit(tx, owner.caller), {
         bankTransactionId: rowId,
-        paymentSourceId: p.paymentSourceId!,
+        paidFromAccountId: p.paidFromAccountId!,
         lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       }),
     );
@@ -287,7 +287,7 @@ describe("US4 — settle a refund", () => {
       const list = await listSettlements(tx);
       expect(list[0]).toMatchObject({
         number: "ST26-001",
-        paymentSourceLabel: "Private CH",
+        payerLabel: "Private CH",
         bookingDate: "2026-03-31",
         lineCount: 3,
       });
@@ -316,7 +316,7 @@ describe("US4 — settle a refund", () => {
     const refused = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines,
       }),
     );
@@ -326,7 +326,7 @@ describe("US4 — settle a refund", () => {
     const ok = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines,
         confirmExchangeDifference: true,
         exchangeDifferenceBasCode: "657",
@@ -361,7 +361,7 @@ describe("US4 — settle a refund", () => {
     const ok = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines,
       }),
     );
@@ -388,13 +388,13 @@ describe("US4 — settle a refund", () => {
     await run(owner.caller, async (tx) => {
       const over = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "1620.01" }],
       });
       expect(over.error?.message).toMatch(/Ex213-Tr-02: 1620.01 exceeds its open 1620.00 SEK/);
       const dup = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines: [
           { expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" },
           { expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" },
@@ -409,11 +409,11 @@ describe("US4 — settle a refund", () => {
         basCode: "580",
         amount: "10.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
       const companyPaid = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines: [{ expenseId: company.data!.id, allocatedBase: "10.00" }],
       });
       expect(companyPaid.error?.message).toMatch(
@@ -421,7 +421,7 @@ describe("US4 — settle a refund", () => {
       );
       const sourceMismatch = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
         lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" }],
       });
       expect(sourceMismatch.error?.message).toMatch(/belongs to Private CH, not Private SE/);
@@ -437,7 +437,7 @@ describe("US4 — settle a refund", () => {
       expect(sav.error?.message).toMatch(/savings account/);
       const companySource = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
         lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" }],
       });
       expect(companySource.error?.message).toMatch(/is a company account/);
@@ -446,7 +446,7 @@ describe("US4 — settle a refund", () => {
     const ok = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateCh.id,
+        paidFromAccountId: owner.sources.privateCh.id,
         lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "1620.00" }],
       }),
     );
@@ -461,7 +461,7 @@ describe("US4 — settle a refund", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paymentSourceId: p.paymentSourceId!,
+          paidFromAccountId: p.paidFromAccountId!,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )
@@ -500,7 +500,7 @@ describe("US4 — settle a refund", () => {
       // a new settlement on the same row gets the next number
       const next = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: p.paymentSourceId!,
+        paidFromAccountId: p.paidFromAccountId!,
         lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       });
       expect(next.data?.number).toBe("ST26-002");
@@ -522,7 +522,7 @@ describe("US4 — settle a refund", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paymentSourceId: p.paymentSourceId!,
+          paidFromAccountId: p.paidFromAccountId!,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )
@@ -589,7 +589,7 @@ describe("US4 — settle a refund", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paymentSourceId: owner.sources.privateCh.id,
+          paidFromAccountId: owner.sources.privateCh.id,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )

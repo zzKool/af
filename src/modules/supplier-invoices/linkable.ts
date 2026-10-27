@@ -12,8 +12,6 @@ type Row = {
   amountTotal: { toFixed(n: number): string };
   amountBase: { toFixed(n: number): string };
   currency: string;
-  paidAmount: { toFixed(n: number): string } | null;
-  paidCurrency: string | null;
   note: string | null;
   cancelled: boolean;
 };
@@ -28,8 +26,6 @@ const ROW_SELECT = {
   amountTotal: true,
   amountBase: true,
   currency: true,
-  paidAmount: true,
-  paidCurrency: true,
   note: true,
   cancelled: true,
 } as const;
@@ -46,8 +42,8 @@ async function toFacts(
       type: "supplier_invoice" as const,
       id: si.id,
       label: `${si.key} · ${partner ?? "?"} · ${si.invoiceNumber} · ${si.amountTotal.toFixed(2)} ${si.currency}${si.cancelled ? " · cancelled" : ""}`,
-      amount: (si.paidAmount ?? si.amountTotal).toFixed(2),
-      currency: si.paidCurrency ?? si.currency,
+      amount: si.amountTotal.toFixed(2),
+      currency: si.currency,
       amountBase: si.amountBase.toFixed(2),
       date: si.invoiceDate.toISOString().slice(0, 10),
       reference: si.invoiceNumber,
@@ -77,22 +73,20 @@ export const supplierInvoiceLinkable: Linkable = {
         partnerId: true,
         invoiceNumber: true,
         amountTotal: true,
+        amountBase: true,
         currency: true,
-        paidAmount: true,
-        paidCurrency: true,
         cancelled: true,
       },
     });
     if (!si) return null;
     const names = await partners.partnerNames(tx, [si.partnerId]);
-    const amount = si.paidAmount ?? si.amountTotal;
-    const currency = si.paidCurrency ?? si.currency;
     return {
       type: "supplier_invoice",
       id: si.id,
       label: `${si.key} · ${names.get(si.partnerId) ?? "?"} · ${si.invoiceNumber} · ${si.amountTotal.toFixed(2)} ${si.currency}${si.cancelled ? " · cancelled" : ""}`,
-      amount: amount.toFixed(2),
-      currency,
+      amount: si.amountTotal.toFixed(2),
+      currency: si.currency,
+      amountBase: si.amountBase.toFixed(2),
     };
   },
   async facts(tx: TransactionClient, id: string) {

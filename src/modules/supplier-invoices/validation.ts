@@ -138,10 +138,10 @@ export async function checkDuplicateNumber(
   return null;
 }
 
-/** Links or a cross-currency payment: once either exists the money facts are written (US1-8). */
+/** A payment link: once one exists the money facts are written (US1-8, F114 — the trigger says the same). */
 export async function isOpen(tx: TransactionClient, id: string): Promise<boolean> {
-  const row = await tx.supplierInvoice.findUnique({ where: { id }, select: { paidAmount: true } });
-  if (!row || row.paidAmount) return false;
   const links = await linking.linksTouching(tx, "supplier_invoice", [id], { kinds: ["justifies"] });
-  return !links.some((l) => l.to.type === "supplier_invoice" && l.to.id === id);
+  return !links.some(
+    (l) => l.to.type === "supplier_invoice" && l.to.id === id && l.allocatedAmount,
+  );
 }

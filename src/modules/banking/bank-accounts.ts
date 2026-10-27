@@ -6,10 +6,10 @@ import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { parseColumnMapping } from "./csv-parser";
 import {
-  BANK_ACCOUNT_ROLES,
   type BankAccountDto,
   type BankAccountRole,
   type BankFormatDto,
+  STATEMENT_ROLES,
 } from "./types";
 
 // MUST NOT import from next/* or src/components/*
@@ -74,7 +74,7 @@ export async function getBankAccounts(
       iban: a.iban,
       bic: a.bic,
       imports: a._count.imports,
-      bankFormat: toBankFormatDto(a.bankFormat),
+      bankFormat: a.bankFormat ? toBankFormatDto(a.bankFormat) : null,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
     })),
@@ -90,13 +90,13 @@ export function accountLabel(a: {
   return a.accountAlias?.trim() || `${a.accountNumber} ${a.currency}`;
 }
 
-/** the account's role (main / savings) — an account attribute, nothing to do with user roles */
+/** the account's role (main / savings) — an account attribute, nothing to do with user roles; a private instrument is created by `createPrivateAccount` (payers.ts) */
 function checkRole(input: { role?: BankAccountRole }): AppError | null {
   const value = input.role;
-  if (value === undefined || BANK_ACCOUNT_ROLES.includes(value)) return null;
+  if (value === undefined || STATEMENT_ROLES.includes(value)) return null;
   return {
     code: "VALIDATION_ERROR",
-    message: `Invalid account role: ${value}. Must be one of: ${BANK_ACCOUNT_ROLES.join(", ")}`,
+    message: `Invalid account role: ${value}. Must be one of: ${STATEMENT_ROLES.join(", ")}`,
     retryable: false,
   };
 }

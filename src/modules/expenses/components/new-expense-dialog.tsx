@@ -106,7 +106,7 @@ export function NewExpenseDialog({
   const { vendors, add: addVendor } = useVendors(open);
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<string>("SEK");
-  const [sourceId, setSourceId] = useState(sources.find((s) => s.isActive)?.id ?? "");
+  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [documentId, setDocumentId] = useState(NONE);
   const [documentMissing, setDocumentMissing] = useState(false);
   const [vatAmount, setVatAmount] = useState("");
@@ -205,7 +205,7 @@ export function NewExpenseDialog({
       basCode,
       amount: amount.trim(),
       currency: currency as (typeof CURRENCIES)[number],
-      paymentSourceId: sourceId,
+      paidFromAccountId: sourceId,
       documentId: documentId === NONE ? undefined : documentId,
       documentMissing,
       partnerId,
@@ -356,13 +356,11 @@ export function NewExpenseDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {sources
-                  .filter((s) => s.isActive)
-                  .map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
+                {sources.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

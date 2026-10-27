@@ -3,17 +3,18 @@
 export const EXPENSE_GROUP_KINDS = ["trip", "batch"] as const;
 export type ExpenseGroupKind = (typeof EXPENSE_GROUP_KINDS)[number];
 
-export const PAYMENT_SOURCE_KINDS = ["bank_account", "private"] as const;
-export type PaymentSourceKind = (typeof PAYMENT_SOURCE_KINDS)[number];
+/** who paid (F114): a main bank account of the company, or a private instrument of the owner (`bank_accounts.role = owner_private`) */
+export const PAYER_KINDS = ["bank_account", "private"] as const;
+export type PayerKind = (typeof PAYER_KINDS)[number];
 
 export const EXPENSE_KINDS = ["receipt", "per_diem", "vat_payment"] as const;
 export type ExpenseKind = (typeof EXPENSE_KINDS)[number];
 
+/** the base is written once at the receipt's date — never the bank's (F114, CHECK `rate_source <> 'bank'`) */
 export const EXPENSE_RATE_SOURCES = [
   "same_currency",
   "ecb_daily",
   "ecb_nearest",
-  "bank",
   "manual",
 ] as const;
 export type ExpenseRateSource = (typeof EXPENSE_RATE_SOURCES)[number];
@@ -43,19 +44,6 @@ export type ExpenseGroupDto = {
   source: string;
 };
 
-export type PaymentSourceDto = {
-  id: string;
-  tenantId: string;
-  label: string;
-  kind: PaymentSourceKind;
-  bankAccountId: string | null;
-  currency: string;
-  isActive: boolean;
-  ownerUserId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
 export type ExpenseDto = {
   id: string;
   tenantId: string;
@@ -75,10 +63,8 @@ export type ExpenseDto = {
   rate: string;
   rateSource: ExpenseRateSource;
   rateDate: string | null;
-  baseProvisional: boolean;
-  paidAmount: string | null;
-  paidCurrency: string | null;
-  paymentSourceId: string;
+  /** the payer: a bank account (main = the company, owner_private = the owner) */
+  paidFromAccountId: string;
   documentMissing: boolean;
   /** the merchant as a partner (F87) — a vendor, validated through partners; never on a per-diem */
   partnerId: string | null;
@@ -89,27 +75,48 @@ export type ExpenseDto = {
   source: string;
 };
 
+/** One `settles` link of a settlement, as the statement and the panel list it (F114: derived from the links). */
 export type SettlementLineDto = {
-  id: string;
-  settlementId: string;
+  linkId: string;
   expenseId: string;
+  key: string;
+  date: string;
+  description: string;
+  /** what the link refunds of the expense, in its currency */
+  allocatedAmount: string;
+  currency: string;
+  /** what the refund row gave for it, in base */
   allocatedBase: string;
+  /** the expense's base for the refunded share — what the books carried */
+  expectedBase: string;
   note: string | null;
 };
 
+/**
+ * A settlement: the numbered statement over the `settles` links of one refund row (F114, D60). The refund's
+ * amount and base are the row's; Σ base, the rounding and the FX difference are derived from the links — signed:
+ * > 0 the company paid the owner more base than the claim (7960, a loss), < 0 less (3960, a gain).
+ */
 export type SettlementDto = {
   id: string;
   tenantId: string;
   number: string;
   bankTransactionId: string;
-  paymentSourceId: string;
   refundAmount: string;
   refundCurrency: string;
   refundBase: string;
+  bookingDate: string;
   allocatedBase: string;
-  exchangeDifferenceBase: string;
-  roundingBase: string;
-  exchangeDifferenceBasCode: string | null;
+  /** Σ expected bases of the lines — the claim the links settle, in base */
+  expectedBase: string;
+  /** `allocatedBase − expectedBase`, signed */
+  differenceBase: string;
+  /** the difference is within the tolerance — rounding, not a gain or a loss */
+  rounding: boolean;
+  /** 3960 / 7960 by the sign of the difference; null when there is none or it is rounding */
+  differenceBasCode: string | null;
+  /** refund base the lines do not cover — what stays open on the row */
+  unallocatedBase: string;
   note: string | null;
   status: SettlementStatus;
   cancelledAt: Date | null;
@@ -122,13 +129,16 @@ export type SettlementDto = {
   lines: SettlementLineDto[];
 };
 
-/** What the FIFO proposal (or the owner's adjustment) allocates to one expense. */
+/** What the FIFO proposal (or the owner's adjustment) allocates to one expense — in base, the claim's currency. */
 export type SettlementAllocation = {
   expenseId: string;
   key: string;
   date: string;
   description: string;
+  amount: string;
+  currency: string;
   amountBase: string;
+  /** the owner's claim still open, in base */
   openBase: string;
   allocatedBase: string;
   remainingOpen: string;
@@ -140,12 +150,12 @@ export type SettlementProposal = {
   refundAmount: string;
   refundCurrency: string;
   refundBase: string;
-  paymentSourceId: string | null;
+  paidFromAccountId: string | null;
   lines: SettlementAllocation[];
   allocatedBase: string;
-  /** Σ lines − refund base when outside the tolerance (needs confirmation); "0.00" otherwise */
-  exchangeDifferenceBase: string;
-  /** Σ lines − refund base when within the 0.50 SEK tolerance */
+  /** Σ lines − refund base, signed — the FX difference the statement will show; "0.00" when within the tolerance */
+  differenceBase: string;
+  /** the same difference when it is within the tolerance — rounding */
   roundingBase: string;
   /** what the ticked expenses still leave open after this settlement */
   residualOpen: string;
@@ -154,7 +164,7 @@ export type SettlementProposal = {
 };
 
 export type LedgerSource = {
-  paymentSourceId: string;
+  paidFromAccountId: string;
   label: string;
   currency: string;
   openBase: string;
@@ -188,16 +198,19 @@ export type ExpenseListRow = {
   amount: string;
   currency: string;
   amountBase: string;
-  baseProvisional: boolean;
   rateSource: ExpenseRateSource;
-  paidAmount: string | null;
-  paidCurrency: string | null;
-  paymentSourceId: string;
-  paymentSourceLabel: string;
-  paymentSourceKind: PaymentSourceKind;
+  paidFromAccountId: string;
+  payerLabel: string;
+  payerKind: PayerKind;
   status: ExpenseStatus;
+  /** Σ allocating links onto it, the expense's currency, and what is still open */
+  allocated: string;
+  open: string;
+  /** Σ base the rows gave; the owner's claim still open in base (private) */
   allocatedBase: string;
   openBase: string;
+  /** Σ base − the expense's base for the paid share, signed (F114); "0.00" while nothing is paid */
+  fxDifference: string;
   documentMissing: boolean;
   hasDocument: boolean;
   /** made from a document that says the buyer pays the VAT (D54, F91) */
@@ -215,13 +228,12 @@ export type GroupOption = {
   description: string;
   kind: "trip" | "batch";
 };
+/** A payer the pickers offer (F114): a bank account — `kind` says whether a bank row pays it or a settlement refunds it. */
 export type SourceOption = {
   id: string;
   label: string;
-  kind: "bank_account" | "private";
-  bankAccountId: string | null;
+  kind: PayerKind;
   currency: string;
-  isActive: boolean;
 };
 export type CategoryOption = { code: string; label: string };
 /** A vendor the expense's partner picker offers (F87): active vendors only. */

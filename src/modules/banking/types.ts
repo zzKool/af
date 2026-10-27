@@ -29,8 +29,11 @@ export type CategoriseInput = {
   noDocumentNeeded?: boolean;
 };
 
-export type BankAccountRole = "main" | "savings";
-export const BANK_ACCOUNT_ROLES: readonly BankAccountRole[] = ["main", "savings"];
+/** main / savings import statements; owner_private is a private instrument of the owner (F114, D60): no format, no rows */
+export type BankAccountRole = "main" | "savings" | "owner_private";
+export const BANK_ACCOUNT_ROLES: readonly BankAccountRole[] = ["main", "savings", "owner_private"];
+/** the roles that import statements — every read of "the accounts" that means statements filters on these */
+export const STATEMENT_ROLES: readonly BankAccountRole[] = ["main", "savings"];
 
 /** A bank CSV format — app-level reference data (no tenant): its conventions and the parsed column mapping. */
 export type BankFormatDto = {
@@ -51,13 +54,14 @@ export type BankAccountDto = {
   accountAlias: string | null;
   accountNumber: string;
   currency: string;
-  bankFormatId: string;
+  /** null for an owner_private account — nothing to import */
+  bankFormatId: string | null;
   role: BankAccountRole;
   iban: string | null;
   bic: string | null;
   /** CSV imports into this account — number and currency are locked when > 0 (F65) */
   imports: number;
-  bankFormat: BankFormatDto;
+  bankFormat: BankFormatDto | null;
   createdAt: Date;
   updatedAt: Date;
 };

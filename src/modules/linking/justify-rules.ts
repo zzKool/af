@@ -20,6 +20,8 @@ export type RowForJustify = {
   description: string;
   counterpartyKey: string;
   bankAccountId: string;
+  /** the row's account — the payer of an expense made from it (F114) */
+  accountLabel: string;
 };
 
 /** The OCR reading as corrected (`DocumentReviewData.resolvedData`); empty when the OCR failed or nothing was uploaded. */

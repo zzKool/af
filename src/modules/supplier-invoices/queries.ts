@@ -18,7 +18,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
-import { openAmount } from "@/kernel/money/settlement";
+import { fxDifference, openAmount } from "@/kernel/money/settlement";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
@@ -63,14 +63,14 @@ export const SUPPLIER_INVOICE_COLUMNS = {
   amountTotal: { type: "money", sum: true },
   amountBase: { type: "money", sum: true },
   rateSource: { type: "enum" },
-  paidAmount: { type: "money" },
-  paidCurrency: { type: "enum" },
   basCode: { type: "enum" },
   basLabel: { type: "text" },
   alias: { type: "enum" },
   vatRegistrationId: { type: "enum" },
   status: { type: "enum" },
   allocated: { type: "money" },
+  allocatedBase: { type: "money", sum: true },
+  fxDifference: { type: "money", sum: true },
   open: { type: "money", sum: true },
   documentMissing: { type: "boolean" },
   hasDocument: { type: "boolean" },
@@ -98,6 +98,8 @@ const DERIVED: ReadonlySet<string> = new Set([
   "status",
   "allocated",
   "open",
+  "allocatedBase",
+  "fxDifference",
   "hasDocument",
   "reverseCharge",
 ]);
@@ -107,8 +109,10 @@ const STORED_COLUMNS: ColumnMap = Object.fromEntries(
 const ROW_CAP = 20_000;
 
 type Facts = {
-  /** Σ allocations per invoice — the one rule of `./allocated` (bank rows and journal entries alike) */
+  /** Σ allocations per invoice — the one rule of `./allocated`, in the invoice's currency */
   allocated: Map<string, Dec>;
+  /** the allocating links onto each invoice with the base the rows gave (F114) */
+  allocations: Map<string, linking.AllocationOnto[]>;
   /** the paying bank rows per invoice (their booking dates date a payment) */
   payers: Map<string, string[]>;
   /** invoices with a created_from document, or any document justifying them */
@@ -120,6 +124,7 @@ type Facts = {
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
   const f: Facts = {
     allocated: new Map(),
+    allocations: new Map(),
     payers: new Map(),
     hasDocument: new Set(),
     reverseCharge: new Set(),
@@ -130,6 +135,7 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
     kinds: ["justifies", "created_from"],
   });
   f.allocated = allocated;
+  f.allocations = await linking.allocationsOnto(tx, "supplier_invoice", ids);
   const origin = new Map<string, string>(); // invoice → the document it was made from
   for (const l of links) {
     if (l.kind === "created_from" && l.from.type === "supplier_invoice") {
@@ -149,13 +155,20 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
 }
 
 export function statusOf(
-  si: Pick<SupplierInvoiceDto, "cancelled" | "amountTotal" | "paidAmount" | "dueDate">,
+  si: Pick<SupplierInvoiceDto, "cancelled" | "amountTotal" | "amountBase" | "dueDate">,
   f: Facts,
   id: string,
   today: string,
-): { status: SupplierInvoiceStatus; daysOverdue: number; allocated: string; open: string } {
+): {
+  status: SupplierInvoiceStatus;
+  daysOverdue: number;
+  allocated: string;
+  open: string;
+  allocatedBase: string;
+  fxDifference: string;
+} {
   const allocated = f.allocated.get(id) ?? new D(0);
-  const total = si.paidAmount ?? si.amountTotal;
+  const total = si.amountTotal;
   const derived = deriveSupplierInvoiceStatus({
     cancelled: si.cancelled,
     total,
@@ -163,10 +176,13 @@ export function statusOf(
     dueDate: si.dueDate,
     today,
   });
+  const fx = fxDifference(total, si.amountBase, f.allocations.get(id) ?? []);
   return {
     ...derived,
     allocated: allocated.toFixed(2),
     open: si.cancelled ? "0.00" : openAmount(total, allocated).toFixed(2),
+    allocatedBase: fx.allocatedBase.toFixed(2),
+    fxDifference: fx.allocated.gt(0) ? fx.difference.toFixed(2) : "0.00",
   };
 }
 
@@ -232,8 +248,6 @@ async function loadRows(
       amountTotal: dto.amountTotal,
       amountBase: dto.amountBase,
       rateSource: dto.rateSource,
-      paidAmount: dto.paidAmount,
-      paidCurrency: dto.paidCurrency,
       basCode: dto.basCode,
       basLabel: labels.get(dto.basCode) ?? dto.basCode,
       alias: dto.alias,
@@ -340,6 +354,8 @@ export type SupplierInvoicePayment = {
   rowCurrency: string | null;
   allocated: string;
   currency: string;
+  /** the base the row gave for this allocation (F114) */
+  allocatedBase: string;
   note: string | null;
 };
 
@@ -353,7 +369,9 @@ export type SupplierInvoiceDetail = {
   daysOverdue: number;
   allocated: string;
   open: string;
-  /** the currency the allocations are in (the paid currency once attached) */
+  allocatedBase: string;
+  fxDifference: string;
+  /** the currency the allocations are in — the invoice's (F114) */
   linkCurrency: string;
   /** the document it was made from; `reverseCharge` — it says the buyer pays the VAT (D54, F91) */
   document: { id: string; businessKey: string; fileName: string; reverseCharge: boolean } | null;
@@ -422,7 +440,8 @@ export async function getSupplierInvoiceDetail(
       rowAmount: t?.amount ?? null,
       rowCurrency: t?.currency ?? null,
       allocated: new D(l.allocatedAmount).toFixed(2),
-      currency: l.currency ?? dto.paidCurrency ?? dto.currency,
+      currency: l.currency ?? dto.currency,
+      allocatedBase: l.allocatedBase ?? "0.00",
       note: l.note,
     });
   }
@@ -436,11 +455,11 @@ export async function getSupplierInvoiceDetail(
       basLabel: labels.get(row.basCode) ?? row.basCode,
       vatRegistrationLabel: reg ? `${reg.country} ${reg.vatNumber}` : null,
       ...derived,
-      linkCurrency: dto.paidCurrency ?? dto.currency,
+      linkCurrency: dto.currency,
       document,
       payments,
       links: withLabels,
-      editable: !row.cancelled && !row.paidAmount && payments.length === 0,
+      editable: !row.cancelled && payments.length === 0,
       history,
     },
   };
@@ -482,7 +501,7 @@ export async function overdueSupplierInvoiceCount(
 ): Promise<number> {
   const rows = await tx.supplierInvoice.findMany({
     where: { cancelled: false, dueDate: { lt: new Date(`${today}T00:00:00Z`) } },
-    select: { id: true, amountTotal: true, paidAmount: true, dueDate: true },
+    select: { id: true, amountTotal: true, dueDate: true },
   });
   if (rows.length === 0) return 0;
   const allocated = await allocatedSums(
@@ -493,7 +512,7 @@ export async function overdueSupplierInvoiceCount(
     (r) =>
       deriveSupplierInvoiceStatus({
         cancelled: false,
-        total: (r.paidAmount ?? r.amountTotal).toFixed(2),
+        total: r.amountTotal.toFixed(2),
         allocated: (allocated.get(r.id) ?? new D(0)).toFixed(2),
         dueDate: r.dueDate.toISOString().slice(0, 10),
         today,
@@ -511,7 +530,6 @@ export async function kpis(
       id: true,
       amountTotal: true,
       amountBase: true,
-      paidAmount: true,
       dueDate: true,
       cancelled: true,
     },
@@ -539,7 +557,7 @@ export async function kpis(
   const paidIds: string[] = [];
   for (const r of rows) {
     const dueDate = r.dueDate.toISOString().slice(0, 10);
-    const total = (r.paidAmount ?? r.amountTotal).toFixed(2);
+    const total = r.amountTotal.toFixed(2);
     const { status } = deriveSupplierInvoiceStatus({
       cancelled: false,
       total,
@@ -616,17 +634,11 @@ export async function payableTransactions(
   const rows = await banking.outgoingMainRows(tx, limit * 2);
   const ids = rows.map((r) => r.id);
   // a row an active settlement refunds through pays the owner, not a supplier — expenses owns that fact
-  const used = await linking.allocatedFrom(tx, "bank_transaction", ids);
+  const usage = await linking.rowUsage(tx, ids);
   const taken = await expenses.activeSettlementTransactionIds(tx, ids);
   const out = rows
     .filter((r) => !taken.has(r.id))
-    .map((r) => ({
-      ...r,
-      remaining: new D(r.amount)
-        .abs()
-        .minus(used.get(r.id) ?? "0")
-        .toFixed(2),
-    }))
+    .map((r) => ({ ...r, remaining: linking.rowRemaining(r, usage.get(r.id)).toFixed(2) }))
     .filter((r) => new D(r.remaining).gt(0));
   if (currency) {
     out.sort((a, b) => Number(b.currency === currency) - Number(a.currency === currency));

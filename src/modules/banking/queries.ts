@@ -45,6 +45,7 @@ export { listRules } from "./rules";
 export { proposeTransfers } from "./transfer-pairs";
 
 const D = Prisma.Decimal;
+type Dec = InstanceType<typeof Prisma.Decimal>;
 
 export const TRANSACTION_COLUMNS = {
   bookingDate: { type: "date" },
@@ -97,14 +98,23 @@ const ROW_CAP = 20_000;
 // --- the derived state ---
 
 type LinkFacts = { allocated: Map<string, string>; transfer: Set<string> };
+type RowForFacts = { id: string; amount: Dec; currency: string; amountBase: Dec };
 
 /**
- * Σ allocations FROM each transaction (allocating kinds — `justifies`, `settles`) and which ones sit in a transfer
+ * What each transaction has allocated FROM it, in its own currency (allocating kinds — `justifies`, `settles`;
+ * a cross-currency link counts by the share of the row's base it took, F114), and which ones sit in a transfer
  * link — two queries through linking's read API (lessons audit 22).
  */
-async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise<LinkFacts> {
-  if (ids.length === 0) return { allocated: new Map(), transfer: new Set() };
-  const allocated = await linking.allocatedFrom(tx, "bank_transaction", ids);
+async function linkFacts(tx: TransactionClient, rows: readonly RowForFacts[]): Promise<LinkFacts> {
+  if (rows.length === 0) return { allocated: new Map(), transfer: new Set() };
+  const ids = rows.map((r) => r.id);
+  const usage = await linking.rowUsage(tx, ids);
+  const allocated = new Map<string, string>();
+  for (const r of rows) {
+    const u = usage.get(r.id);
+    if (!u) continue;
+    allocated.set(r.id, r.amount.abs().minus(linking.rowRemaining(r, u)).toFixed(2));
+  }
   const transfers = await linking.linksTouching(tx, "bank_transaction", ids, {
     kinds: ["transfer"],
   });
@@ -169,9 +179,8 @@ async function loadRows(
       bankAccount: { select: { accountAlias: true, accountNumber: true, currency: true } },
     },
   });
-  const ids = rows.map((r) => r.id);
   const dtos = await withImplicitRates(tx, rows.map(toTransactionDto));
-  const facts = await linkFacts(tx, ids);
+  const facts = await linkFacts(tx, rows);
   const partnerIds = [...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : [])))];
   const codes = rows.flatMap((r) => (r.basCode ? [r.basCode] : []));
   const names = await partners.partnerNames(tx, partnerIds);
@@ -374,9 +383,9 @@ export async function transactionStates(
   if (unique.length === 0) return new Map();
   const rows = await tx.bankTransaction.findMany({
     where: { id: { in: unique } },
-    select: { id: true, amount: true, noDocumentNeeded: true },
+    select: { id: true, amount: true, currency: true, amountBase: true, noDocumentNeeded: true },
   });
-  const facts = await linkFacts(tx, unique);
+  const facts = await linkFacts(tx, rows);
   return new Map(
     rows.map((r) => {
       const allocated = facts.allocated.get(r.id) ?? "0.00";
@@ -444,7 +453,7 @@ export async function getTransaction(
       error: { code: "NOT_FOUND", message: `Bank transaction not found: ${id}`, retryable: false },
     };
   const [transaction] = await withImplicitRates(tx, [toTransactionDto(row)]);
-  const facts = await linkFacts(tx, [id]);
+  const facts = await linkFacts(tx, [row]);
   const links = await linking.getLinksFor(tx, { type: "bank_transaction", id });
   const transfers = await proposeTransfers(tx, id);
   const allocated = facts.allocated.get(id) ?? "0.00";
@@ -698,7 +707,8 @@ export async function rawRowsForPeriod(
     accountRole: r.bankAccount.role as BankAccountRole,
     accountCurrency: r.bankAccount.currency,
     importFileName: r.bankImport.fileName,
-    delimiter: r.bankAccount.bankFormat.delimiter,
-    decimalSeparator: r.bankAccount.bankFormat.decimalSeparator,
+    // a row is always on a statement account — a private instrument has no rows (CHECK + no format)
+    delimiter: r.bankAccount.bankFormat?.delimiter ?? ";",
+    decimalSeparator: r.bankAccount.bankFormat?.decimalSeparator ?? ",",
   }));
 }

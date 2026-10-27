@@ -225,7 +225,7 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
         basCode: "580",
         amount: "132.52",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
       if (e.error) throw new Error(e.error.message);
       // a reviewed receipt with an OCR total, not yet anything

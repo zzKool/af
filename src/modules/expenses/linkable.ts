@@ -9,10 +9,7 @@ type ExpenseRow = {
   amount: { toFixed(n: number): string };
   currency: string;
   amountBase: { toFixed(n: number): string };
-  paidAmount: { toFixed(n: number): string } | null;
-  paidCurrency: string | null;
   note: string | null;
-  paymentSource: { kind: string; label: string };
   group: { number: number; description: string };
 };
 
@@ -24,23 +21,18 @@ const EXPENSE_SELECT = {
   amount: true,
   currency: true,
   amountBase: true,
-  paidAmount: true,
-  paidCurrency: true,
   note: true,
-  paymentSource: { select: { kind: true, label: true } },
   group: { select: { number: true, description: true } },
 } as const;
 
-/** The matcher's view: what the company paid (or will pay) for it, keyed `Ex213-Tr-01`, dated the receipt's day. */
+/** The matcher's view: the receipt's amount in its currency, keyed `Ex213-Tr-01`, dated the receipt's day. */
 function expenseFacts(e: ExpenseRow): Omit<EntityFacts, "remaining"> {
-  const amount = e.paidAmount ?? e.amount;
-  const currency = e.paidCurrency ?? e.currency;
   return {
     type: "expense",
     id: e.id,
     label: `${e.key} · ${e.date.toISOString().slice(0, 10)} · ${e.amount.toFixed(2)} ${e.currency} · ${e.description}`,
-    amount: amount.toFixed(2),
-    currency,
+    amount: e.amount.toFixed(2),
+    currency: e.currency,
     amountBase: e.amountBase.toFixed(2),
     date: e.date.toISOString().slice(0, 10),
     reference: e.key,
@@ -52,9 +44,9 @@ function expenseFacts(e: ExpenseRow): Omit<EntityFacts, "remaining"> {
 }
 
 /**
- * An expense carries what the company paid for it: the bank row's amount once attached (company-paid), else the
- * receipt's amount in its currency. A bank row justifies it (allocation = the paid amount); a document is what it
- * was created from. Private expenses are refunded through settlements, not links.
+ * An expense carries its own amount in its own currency, always (F114, D60): a bank row justifies it with an
+ * allocation in that currency and the base the row gave; a refund row settles a private one the same way; a
+ * document is what it was created from. The matcher proposes company-paid expenses still open.
  */
 export const expenseLinkable: Linkable = {
   type: "expense",
@@ -71,32 +63,29 @@ export const expenseLinkable: Linkable = {
         description: true,
         amount: true,
         currency: true,
-        paidAmount: true,
-        paidCurrency: true,
+        amountBase: true,
       },
     });
     if (!e) return null;
-    const amount = e.paidAmount ?? e.amount;
-    const currency = e.paidCurrency ?? e.currency;
     return {
       type: "expense",
       id: e.id,
       label: `${e.key} · ${e.date.toISOString().slice(0, 10)} · ${e.amount.toFixed(2)} ${e.currency} · ${e.description}`,
-      amount: amount.toFixed(2),
-      currency,
+      amount: e.amount.toFixed(2),
+      currency: e.currency,
+      amountBase: e.amountBase.toFixed(2),
     };
   },
   async facts(tx: TransactionClient, id: string) {
     const e = await tx.expense.findUnique({ where: { id }, select: EXPENSE_SELECT });
     return e ? expenseFacts(e) : null;
   },
-  /** Company-paid expenses still without their bank row, dated inside the (wider) window. */
+  /** Company-paid expenses dated inside the (wider) window; linking drops the ones with nothing left open. */
   async candidates(tx: TransactionClient, q: CandidateQuery) {
     if (q.direction !== "outgoing") return [];
     const rows = await tx.expense.findMany({
       where: {
-        paymentSource: { kind: "bank_account" },
-        paidAmount: null,
+        paidFromAccount: { role: "main" },
         date: { gte: new Date(q.dateFrom), lte: new Date(q.dateTo) },
       },
       select: EXPENSE_SELECT,
@@ -108,7 +97,7 @@ export const expenseLinkable: Linkable = {
   async search(tx: TransactionClient, q: string, limit: number) {
     const rows = await tx.expense.findMany({
       where: {
-        paymentSource: { kind: "bank_account" },
+        paidFromAccount: { role: "main" },
         OR: [
           { key: { contains: q, mode: "insensitive" } },
           { description: { contains: q, mode: "insensitive" } },
@@ -119,34 +108,5 @@ export const expenseLinkable: Linkable = {
       take: limit,
     });
     return rows.map(expenseFacts);
-  },
-};
-
-/** A settlement carries |the refund amount| in the refund currency; the refund's bank row `settles` it. */
-export const settlementLinkable: Linkable = {
-  type: "settlement",
-  async exists(tx: TransactionClient, id: string) {
-    return (await tx.settlement.count({ where: { id } })) > 0;
-  },
-  async summary(tx: TransactionClient, id: string) {
-    const s = await tx.settlement.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        number: true,
-        refundAmount: true,
-        refundCurrency: true,
-        allocatedBase: true,
-        status: true,
-      },
-    });
-    if (!s) return null;
-    return {
-      type: "settlement",
-      id: s.id,
-      label: `${s.number} · ${s.refundAmount.abs().toFixed(2)} ${s.refundCurrency} · ${s.allocatedBase.toFixed(2)} SEK settled${s.status === "cancelled" ? " · cancelled" : ""}`,
-      amount: s.refundAmount.abs().toFixed(2),
-      currency: s.refundCurrency,
-    };
   },
 };

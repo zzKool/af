@@ -64,6 +64,7 @@ export async function neighbourhood(
         to: nodeKey(l.to),
         kind: l.kind,
         allocatedAmount: l.allocatedAmount,
+        allocatedBase: l.allocatedBase,
         currency: l.currency,
         createdAt: l.createdAt,
       });

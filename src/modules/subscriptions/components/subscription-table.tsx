@@ -33,7 +33,7 @@ const COLUMN_KEYS = [
   "cadence",
   "basCode",
   "groupLabel",
-  "paymentSourceLabel",
+  "payerLabel",
   "startDate",
   "endDate",
   "active",
@@ -170,7 +170,7 @@ export function SubscriptionTable({
         defaultHidden: true,
       },
       {
-        key: "paymentSourceLabel",
+        key: "payerLabel",
         header: t("subscriptions.col.payer"),
         type: "enum",
         width: "8rem",

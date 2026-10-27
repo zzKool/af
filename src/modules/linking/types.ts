@@ -29,7 +29,6 @@ export type LinkableType =
   | "invoice"
   | "supplier_invoice"
   | "expense"
-  | "settlement"
   | "subscription";
 
 export type LinkEndpoint = { type: LinkableType; id: string };
@@ -40,9 +39,11 @@ export type LinkDto = {
   from: LinkEndpoint;
   to: LinkEndpoint;
   kind: LinkKind;
-  /** Decimal as string ("1200.00"); null when the link carries no allocation. */
+  /** Decimal as string ("1200.00"), in the TARGET entity's currency — what part of it this link pays; null when the link carries no allocation. */
   allocatedAmount: string | null;
   currency: string | null;
+  /** what the bank row gave for it, in the tenant's base (F114, D60); null together with `allocatedAmount` */
+  allocatedBase: string | null;
   note: string | null;
   createdAt: Date;
   createdBy: string;
@@ -53,8 +54,14 @@ export type CreateLinkInput = {
   from: LinkEndpoint;
   to: LinkEndpoint;
   kind: LinkKind;
+  /** in the target's currency (the default); the row's own currency when it differs is a cross-currency payment */
   allocatedAmount?: string | null;
   currency?: string | null;
+  /**
+   * the base the row gives for this allocation; omitted = the row's base pro rata (same currency; the link that
+   * exhausts the row takes the exact remainder) or the row's whole remaining base (cross-currency)
+   */
+  allocatedBase?: string | null;
   note?: string | null;
 };
 
@@ -66,6 +73,8 @@ export type LinkableSummary = {
   /** Decimal as string; present only for entities that carry an amount (invoices, transactions, expenses …). */
   amount: string | null;
   currency: string | null;
+  /** the base the entity carries (absolute); a bank row's is the capacity its allocations' bases are checked against */
+  amountBase?: string | null;
 };
 
 export type AllocationStatus = {
@@ -74,6 +83,8 @@ export type AllocationStatus = {
   currency: string;
   allocated: string;
   remaining: string;
+  /** Σ `allocated_base` of the links onto (or from) the endpoint */
+  allocatedBase: string;
 };
 
 // --- suggestions (specs/linking/spec.md FR-001–FR-004) ---
@@ -174,6 +185,7 @@ export type GraphEdge = {
   kind: LinkKind;
   allocatedAmount: string | null;
   currency: string | null;
+  allocatedBase: string | null;
 };
 
 export type Graph = {

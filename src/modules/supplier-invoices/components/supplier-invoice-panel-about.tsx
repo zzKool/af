@@ -67,17 +67,19 @@ export function SupplierInvoiceAbout({
       {t("supplierInvoices.panel.base", {
         base: formatMoney(si.amountBase, null, { bare: true }),
         rate: si.rate,
-        source:
-          si.rateSource === "bank"
-            ? t("expenses.rateSource.bank")
-            : t(`banking.rateSource.${si.rateSource}`),
+        source: t(`banking.rateSource.${si.rateSource}`),
       })}
     </span>,
   ]);
-  if (si.paidAmount)
+  if (Number(detail.allocated) > 0)
     rows.push([
       t("supplierInvoices.col.paid"),
-      amount("paid", si.paidAmount, si.paidCurrency ?? si.currency),
+      <span key="paid" className="tabular-nums" data-testid="panel-paid">
+        {t("supplierInvoices.panel.paid", {
+          amount: formatMoney(detail.allocated, si.currency),
+          base: formatMoney(detail.allocatedBase, null, { bare: true }),
+        })}
+      </span>,
     ]);
   if (!si.cancelled)
     rows.push([t("supplierInvoices.col.open"), amount("open", detail.open, detail.linkCurrency)]);

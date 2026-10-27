@@ -1,8 +1,9 @@
 "use client";
 
-// The payments section of the supplier-invoice panel: the linked payments (remove), and *Link payment* — the
-// scored rows first, a search over the rest (the `PaymentPicker`, F97 US2), an optional allocation; a row in
-// another currency attaches the D-g way. The linking inbox sends the owner here for a payment (D37, F58):
+// The payments section of the supplier-invoice panel (F114, D60): the payments ARE the links — each the row, what it
+// pays in the invoice's currency, the base it gave; the FX difference derived beside them — and *Link payment*: the
+// scored rows first, a search over the rest (the `PaymentPicker`, F97 US2), an optional allocation in the invoice's
+// currency whatever the row's. The linking inbox sends the owner here for a payment (D37, F58):
 // `?open=<invoice>&attach=<bank row>` preselects it.
 import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -12,11 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { formatMoney } from "@/kernel/money/format-money";
 import { PaymentPicker } from "@/modules/linking/ui";
 import type { PayableTransaction } from "@/modules/supplier-invoices/queries";
 import {
-  attachSupplierPaymentAction,
-  detachSupplierPaymentAction,
   recordSupplierPaymentAction,
   removeSupplierPaymentAction,
 } from "@/modules/supplier-invoices/supplier-invoices.actions";
@@ -43,9 +43,7 @@ export function SupplierInvoicePaymentsSection({
   });
   const [payAmount, setPayAmount] = useState("");
   const { executeAsync: record, isPending: recording } = useAction(recordSupplierPaymentAction);
-  const { executeAsync: attach, isPending: attaching } = useAction(attachSupplierPaymentAction);
-  const { executeAsync: removePay } = useAction(removeSupplierPaymentAction);
-  const { executeAsync: detach, isPending: detaching } = useAction(detachSupplierPaymentAction);
+  const { executeAsync: removePay, isPending: removing } = useAction(removeSupplierPaymentAction);
 
   const si = detail.invoice;
   const selectedRow = payable.find((p) => p.id === payId);
@@ -53,16 +51,11 @@ export function SupplierInvoicePaymentsSection({
 
   async function linkPayment() {
     if (payId === NONE) return;
-    const row = payable.find((p) => p.id === payId);
-    if (!row) return;
-    const r =
-      row.currency === detail.linkCurrency
-        ? await record({
-            invoiceId: si.id,
-            bankTransactionId: payId,
-            amount: payAmount.trim() || undefined,
-          })
-        : await attach({ invoiceId: si.id, bankTransactionId: payId });
+    const r = await record({
+      invoiceId: si.id,
+      bankTransactionId: payId,
+      amount: payAmount.trim() || undefined,
+    });
     const error = extractError(r);
     if (error) {
       toast.error(error);
@@ -75,9 +68,7 @@ export function SupplierInvoicePaymentsSection({
   }
 
   async function unlinkPayment(linkId: string) {
-    const r = si.paidAmount
-      ? await detach({ invoiceId: si.id })
-      : await removePay({ invoiceId: si.id, linkId });
+    const r = await removePay({ invoiceId: si.id, linkId });
     const error = extractError(r);
     if (error) {
       toast.error(error);
@@ -117,12 +108,17 @@ export function SupplierInvoicePaymentsSection({
                 <span className="tabular-nums" data-amount>
                   {money(p.allocated, p.currency)}
                 </span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {t("supplierInvoices.panel.paymentBase", {
+                    base: formatMoney(p.allocatedBase, null),
+                  })}
+                </span>
                 {canWrite && (
                   <Button
                     size="sm"
                     variant="link"
                     onClick={() => void unlinkPayment(p.linkId)}
-                    disabled={detaching}
+                    disabled={removing}
                     data-testid="remove-payment"
                   >
                     {t("supplierInvoices.panel.removePayment")}
@@ -133,7 +129,15 @@ export function SupplierInvoicePaymentsSection({
           ))}
         </ul>
       )}
-      {canWrite && !si.cancelled && detail.open !== "0.00" && !si.paidAmount && (
+      {Number(detail.fxDifference) !== 0 && (
+        <p className="text-xs text-muted-foreground tabular-nums" data-testid="fx-difference">
+          {t("supplierInvoices.panel.fxDifference", {
+            amount: formatMoney(detail.fxDifference, null),
+            code: Number(detail.fxDifference) > 0 ? "7960" : "3960",
+          })}
+        </p>
+      )}
+      {canWrite && !si.cancelled && detail.open !== "0.00" && (
         <div className="mt-2 grid gap-2" data-testid="link-payment">
           <div>
             <span className="mb-1 block text-xs font-medium">
@@ -147,7 +151,7 @@ export function SupplierInvoicePaymentsSection({
               refreshKey={detail.payments.length}
             />
           </div>
-          {selectedRow && !crossCurrency && (
+          {selectedRow && (
             <div>
               <label htmlFor={`${ids}-payamt`} className="mb-1 block text-xs font-medium">
                 {t("supplierInvoices.panel.allocation", { currency: detail.linkCurrency })}
@@ -173,12 +177,10 @@ export function SupplierInvoicePaymentsSection({
             <Button
               size="sm"
               onClick={() => void linkPayment()}
-              disabled={recording || attaching || payId === NONE}
+              disabled={recording || payId === NONE}
               data-testid="link-payment-run"
             >
-              {crossCurrency
-                ? t("supplierInvoices.panel.attachRow")
-                : t("supplierInvoices.panel.linkPayment")}
+              {t("supplierInvoices.panel.linkPayment")}
             </Button>
           </div>
         </div>

@@ -21,7 +21,6 @@ const endpointSchema = z.object({
     "invoice",
     "supplier_invoice",
     "expense",
-    "settlement",
     "subscription",
   ]),
   id: uuid,

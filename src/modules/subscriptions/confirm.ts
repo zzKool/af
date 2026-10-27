@@ -263,7 +263,7 @@ export async function confirm(
       attachedDocument = true;
     }
     if (row && entity.needsPayment && !entity.paid) {
-      const r = await expenses.attachBankTransaction(tx, caller, audit, {
+      const r = await expenses.payExpense(tx, caller, audit, {
         expenseId: entity.id,
         bankTransactionId: row.id,
       });
@@ -328,7 +328,7 @@ export async function confirm(
       currency: facts.currency,
       vatAmount: facts.vatAmount ?? null,
       vatRegistrationId: s.vatRegistrationId,
-      paymentSourceId: s.paymentSourceId,
+      paidFromAccountId: s.paidFromAccountId,
       partnerId: s.partnerId,
       documentId: doc?.id,
       documentMissing: false,
@@ -337,7 +337,7 @@ export async function confirm(
     if (e.error) return { error: e.error };
     created = { type: "expense", id: e.data.id, key: e.data.key };
     if (row) {
-      const a = await expenses.attachBankTransaction(tx, caller, audit, {
+      const a = await expenses.payExpense(tx, caller, audit, {
         expenseId: e.data.id,
         bankTransactionId: row.id,
       });

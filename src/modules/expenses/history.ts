@@ -22,7 +22,7 @@ export const HISTORY_FIELDS = [
   "amount",
   "currency",
   "vatAmount",
-  "paymentSourceId",
+  "paidFromAccountId",
   "paidAmount",
   "documentMissing",
   "partnerId",

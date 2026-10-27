@@ -35,11 +35,9 @@ export type SettlementRow = Omit<SettlementListRow, "createdAt" | "updatedAt" | 
   cancelledAt: string | null;
 };
 
-/** exchange difference + rounding, to the öre — Decimal, never Number (display boundary only) */
-export function settlementDifferenceBase(
-  s: Pick<SettlementRow, "exchangeDifferenceBase" | "roundingBase">,
-): string {
-  return new Prisma.Decimal(s.exchangeDifferenceBase).plus(s.roundingBase).toFixed(2);
+/** the derived difference (F114): the FX difference or the rounding, signed, to the öre — Decimal, never Number */
+export function settlementDifferenceBase(s: Pick<SettlementRow, "differenceBase">): string {
+  return new Prisma.Decimal(s.differenceBase).toFixed(2);
 }
 
 export function SettlementsTable({ rows, canWrite }: { rows: SettlementRow[]; canWrite: boolean }) {
@@ -148,7 +146,7 @@ export function SettlementsTable({ rows, canWrite }: { rows: SettlementRow[]; ca
                       </Link>
                     </TableCell>
                     <TableCell className="tabular-nums">{s.bookingDate ?? "—"}</TableCell>
-                    <TableCell>{s.paymentSourceLabel}</TableCell>
+                    <TableCell>{s.payerLabel}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMoney(s.refundAmount, s.refundCurrency)}
                     </TableCell>

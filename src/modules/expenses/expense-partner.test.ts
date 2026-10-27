@@ -102,7 +102,7 @@ const dinner = (groupId: string, extra: Partial<ExpenseInput> = {}): ExpenseInpu
   basCode: "583",
   amount: "120.00",
   currency: "CHF",
-  paymentSourceId: owner.sources.privateCh.id,
+  paidFromAccountId: owner.sources.privateCh.id,
   ...extra,
 });
 
@@ -158,7 +158,7 @@ describe("FR-001 — who can be an expense's partner", () => {
         ...dinner(g, { partnerId: cerf }),
         kind: "per_diem",
         currency: "SEK",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       }),
     );
     expect(refused.error?.message).toMatch(/per-diem has no partner/);
@@ -243,7 +243,7 @@ describe("FR-002 / SC-003 — the partner is a fact: changed in every state, aud
     const paid = await run(owner.caller, (tx) =>
       createExpense(tx, owner.caller, noopAudit, {
         ...dinner(g, { amount: "45.00", description: "Flight" }),
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     const [rowId] = await run(owner.caller, (tx) =>
@@ -280,7 +280,7 @@ describe("FR-002 / SC-003 — the partner is a fact: changed in every state, aud
       ]),
     );
     await adminPool.query(
-      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, payment_source_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
+      `INSERT INTO settlements (tenant_id, number, bank_transaction_id, paid_from_account_id, refund_amount, refund_currency, refund_base, allocated_base, updated_at, created_by)
        VALUES ($1, 'ST26-001', $2, $3, -400, 'SEK', 400, 400, now(), $4)`,
       [owner.caller.tenantId, refundRow, owner.sources.privateCh.id, owner.caller.userId],
     );
@@ -370,7 +370,7 @@ describe("US3 / SC-002 — spend per partner", () => {
       amount: "1500.00",
       currency: "SEK",
       description: "SAS baggage",
-      paymentSourceId: owner.sources.afChf.id,
+      paidFromAccountId: owner.sources.afChf.id,
       date: "2026-03-11",
     });
     await mk({
@@ -378,7 +378,7 @@ describe("US3 / SC-002 — spend per partner", () => {
       amount: "250.00",
       currency: "SEK",
       description: "SAS lounge",
-      paymentSourceId: owner.sources.privateSe.id,
+      paidFromAccountId: owner.sources.privateSe.id,
       date: "2026-03-12",
     });
     await mk({ partnerId: q, amount: "80.00", description: "Dinner" });

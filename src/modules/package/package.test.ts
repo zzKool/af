@@ -227,7 +227,7 @@ async function juneFixture(): Promise<Fixture> {
       basCode: "580",
       amount: "120.00",
       currency: "CHF",
-      paymentSourceId: owner.sources.privateCh.id,
+      paidFromAccountId: owner.sources.privateCh.id,
     });
     const receipt = await createTestDocument(adminPool, caller.tenantId, caller.userId, {
       businessKey: "exp_20260604_001",
@@ -242,7 +242,7 @@ async function juneFixture(): Promise<Fixture> {
       basCode: "583",
       amount: "50.00",
       currency: "CHF",
-      paymentSourceId: owner.sources.privateCh.id,
+      paidFromAccountId: owner.sources.privateCh.id,
       documentId: receipt.id,
     });
     if (train.error || hotel.error) throw new Error("expense");
@@ -315,7 +315,7 @@ async function juneFixture(): Promise<Fixture> {
     if (proposal.error) throw new Error(proposal.error.message);
     const confirmed = await expenses.confirmSettlement(tx, caller, audit(tx), {
       bankTransactionId: rows.refund,
-      paymentSourceId: proposal.data.paymentSourceId as string,
+      paidFromAccountId: proposal.data.paidFromAccountId as string,
       lines: proposal.data.lines.map((l) => ({
         expenseId: l.expenseId,
         allocatedBase: l.allocatedBase,
@@ -685,7 +685,7 @@ describe("F83 — periodFlags: the flags without the package (the dashboard's it
         basCode: "580",
         amount: "150.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       });
       if (card.error) throw new Error(card.error.message);
       // the June client payment moves out: July's ten francs leave the June invoice open

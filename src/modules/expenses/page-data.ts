@@ -2,9 +2,9 @@
 // Server-only (imports the services); pages import it through index.ts.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
+import * as banking from "@/modules/banking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
-import { listPaymentSources } from "./payment-sources";
 import { candidateDocuments, listGroups, settleableTransactions } from "./queries";
 import type {
   CategoryOption,
@@ -65,7 +65,7 @@ export async function expensePageOptions(
 ): Promise<ExpensePageOptions> {
   const groups = await listGroups(tx);
   const categories = await expenseCategoryOptions(tx, caller);
-  const sources = await listPaymentSources(tx);
+  const sources = await banking.payerAccounts(tx);
   const documents = options.documents === false ? [] : await candidateDocuments(tx, caller);
   const transactions = options.transactions === false ? [] : await settleableTransactions(tx);
   return {
@@ -76,14 +76,7 @@ export async function expensePageOptions(
       kind: g.kind,
     })),
     categories,
-    sources: sources.map((s) => ({
-      id: s.id,
-      label: s.label,
-      kind: s.kind,
-      bankAccountId: s.bankAccountId,
-      currency: s.currency,
-      isActive: s.isActive,
-    })),
+    sources: sources.map((s) => ({ id: s.id, label: s.label, kind: s.kind, currency: s.currency })),
     documents,
     transactions,
   };

@@ -19,7 +19,6 @@ provideLinkables(() => [
   invoices.invoiceLinkable,
   banking.bankTransactionLinkable,
   expenses.expenseLinkable,
-  expenses.settlementLinkable,
   supplierInvoices.supplierInvoiceLinkable,
   subscriptions.subscriptionLinkable,
 ]);

@@ -58,16 +58,16 @@ const COLUMN_KEYS = [
   "amount",
   "currency",
   "amountBase",
-  "baseProvisional",
   "rateSource",
-  "paidAmount",
-  "paidCurrency",
-  "paymentSourceId",
-  "paymentSourceLabel",
-  "paymentSourceKind",
+  "paidFromAccountId",
+  "payerLabel",
+  "payerKind",
   "status",
+  "allocated",
+  "open",
   "allocatedBase",
   "openBase",
+  "fxDifference",
   "documentMissing",
   "hasDocument",
   "reverseCharge",
@@ -288,21 +288,7 @@ export function ExpenseTable({
         width: "7rem",
         // the base sits in the panel and in the footer's Σ; shown, the row is wider than the canvas (D40: no page scroll)
         defaultHidden: true,
-        cell: (row) => (
-          <span
-            className={`tabular-nums ${row.baseProvisional ? "text-muted-foreground italic" : ""}`}
-          >
-            {base(row.amountBase)}
-            {row.baseProvisional ? " *" : ""}
-          </span>
-        ),
-      },
-      {
-        key: "baseProvisional",
-        header: t("expenses.col.provisional"),
-        type: "boolean",
-        width: "5rem",
-        defaultHidden: true,
+        cell: (row) => <span className="tabular-nums">{base(row.amountBase)}</span>,
       },
       {
         key: "rateSource",
@@ -312,42 +298,56 @@ export function ExpenseTable({
         defaultHidden: true,
       },
       {
-        key: "paidAmount",
+        // F114: Σ of the payment links, the expense's currency; the base the rows gave; the FX difference
+        key: "allocated",
         header: t("expenses.col.paid"),
         type: "money",
         width: "8rem",
         defaultHidden: true,
         cell: (row) =>
-          row.paidAmount ? (
-            <span className="tabular-nums">
-              {formatMoney(row.paidAmount, row.paidCurrency ?? "SEK")}
-            </span>
+          Number(row.allocated) > 0 ? (
+            <span className="tabular-nums">{formatMoney(row.allocated, row.currency)}</span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
       },
       {
-        key: "paidCurrency",
-        header: `${t("expenses.col.paid")} (ccy)`,
-        type: "enum",
+        key: "open",
+        header: t("expenses.col.openAmount"),
+        type: "money",
+        width: "7rem",
         defaultHidden: true,
+        cell: (row) => <span className="tabular-nums">{formatMoney(row.open, row.currency)}</span>,
       },
       {
-        key: "paymentSourceLabel",
+        key: "fxDifference",
+        header: t("expenses.col.fxDifference"),
+        type: "money",
+        width: "7rem",
+        defaultHidden: true,
+        cell: (row) =>
+          Number(row.fxDifference) !== 0 ? (
+            <span className="tabular-nums">{base(row.fxDifference)}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        key: "payerLabel",
         header: t("expenses.col.paidBy"),
         type: "enum",
         width: "6rem",
         quickFilter: true,
-        cell: (row) => <Tag>{row.paymentSourceLabel}</Tag>,
+        cell: (row) => <Tag>{row.payerLabel}</Tag>,
       },
       {
-        key: "paymentSourceId",
+        key: "paidFromAccountId",
         header: `${t("expenses.col.paidBy")} (id)`,
         type: "enum",
         defaultHidden: true,
       },
       {
-        key: "paymentSourceKind",
+        key: "payerKind",
         header: `${t("expenses.col.paidBy")} (kind)`,
         type: "enum",
         defaultHidden: true,
@@ -372,7 +372,7 @@ export function ExpenseTable({
         type: "money",
         width: "7rem",
         cell: (row) =>
-          row.paymentSourceKind === "private" ? (
+          row.payerKind === "private" ? (
             <span className="tabular-nums">{base(row.openBase)}</span>
           ) : (
             <span className="text-muted-foreground">—</span>
@@ -450,11 +450,9 @@ export function ExpenseTable({
             .filter((s) => s.openCount > 0)
             .map((s) => (
               <Kpi
-                key={s.paymentSourceId}
+                key={s.paidFromAccountId}
                 label={s.label}
-                onClick={() =>
-                  state.setFilter("paymentSourceLabel", { kind: "in", values: [s.label] })
-                }
+                onClick={() => state.setFilter("payerLabel", { kind: "in", values: [s.label] })}
               >
                 {formatMoney(s.openBase, "SEK")}
               </Kpi>
@@ -487,13 +485,9 @@ export function ExpenseTable({
           if (column === "kind") return t(`expenses.kind.${value as ExpenseKind}`);
           if (column === "groupId") return groupLabels[value] ?? value;
           if (column === "basCode") return categoryLabels[value] ?? value;
-          if (column === "paymentSourceId") return sourceLabels[value] ?? value;
-          if (column === "rateSource")
-            return value === "bank"
-              ? t("expenses.rateSource.bank")
-              : t(`banking.rateSource.${value as Exclude<ExpenseRateSource, "bank">}`);
+          if (column === "paidFromAccountId") return sourceLabels[value] ?? value;
+          if (column === "rateSource") return t(`banking.rateSource.${value as ExpenseRateSource}`);
           if (
-            column === "baseProvisional" ||
             column === "hasDocument" ||
             column === "reverseCharge" ||
             column === "documentMissing"

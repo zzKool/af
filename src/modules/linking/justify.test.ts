@@ -181,7 +181,7 @@ describe("justifyRow (US1)", () => {
           basCode: "580",
           amount: "45.00",
           currency: "CHF",
-          paymentSourceId: owner.sources.afSek.id,
+          paidFromAccountId: owner.sources.afSek.id,
         },
       }),
     );
@@ -213,7 +213,7 @@ describe("justifyRow (US1)", () => {
           basCode: "580",
           amount: "1297.20",
           currency: "SEK",
-          paymentSourceId: owner.sources.afSek.id,
+          paidFromAccountId: owner.sources.afSek.id,
         },
       }),
     );
@@ -298,7 +298,7 @@ describe("justifyRow (US1)", () => {
           basCode: "580",
           amount: "1.00",
           currency: "SEK",
-          paymentSourceId: owner.sources.afSek.id,
+          paidFromAccountId: owner.sources.afSek.id,
         },
       }),
     );

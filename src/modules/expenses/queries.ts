@@ -16,6 +16,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import { fxDifference } from "@/kernel/money/settlement";
 import type { StateFamily } from "@/kernel/ui/state-label";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
@@ -26,9 +27,9 @@ import * as settings from "@/modules/settings";
 import { isExpenseOpen, toExpenseDto } from "./expenses";
 import { groupLabel, toGroupDto } from "./groups";
 import { expenseHistory, type HistoryEntry } from "./history";
-import { activeSettlementTransactionIds, allocatedByExpense, toSettlementDto } from "./settlements";
+import { activeSettlementTransactionIds, settlementDtos } from "./settlements";
 import { expenseStateFamily } from "./state-family";
-import { deriveExpenseStatus, owedBase } from "./status";
+import { deriveExpenseStatus, openBase, openOn } from "./status";
 import type {
   DocumentOption,
   ExpenseDto,
@@ -37,7 +38,7 @@ import type {
   ExpenseStatus,
   LedgerSnapshot,
   LedgerSource,
-  PaymentSourceKind,
+  PayerKind,
   SettlementDto,
 } from "./types";
 
@@ -46,7 +47,6 @@ type Dec = InstanceType<typeof Prisma.Decimal>;
 
 export { getExpense } from "./expenses";
 export { getGroup } from "./groups";
-export { getPaymentSource, listPaymentSources } from "./payment-sources";
 export { getSettlement, openPrivateExpenses, proposeSettlement } from "./settlements";
 export { resolveStatement } from "./statement";
 
@@ -69,16 +69,16 @@ export const EXPENSE_COLUMNS = {
   amount: { type: "money" },
   currency: { type: "enum" },
   amountBase: { type: "money", sum: true },
-  baseProvisional: { type: "boolean" },
   rateSource: { type: "enum" },
-  paidAmount: { type: "money" },
-  paidCurrency: { type: "enum" },
-  paymentSourceId: { type: "enum" },
-  paymentSourceLabel: { type: "enum" },
-  paymentSourceKind: { type: "enum" },
+  paidFromAccountId: { type: "enum" },
+  payerLabel: { type: "enum" },
+  payerKind: { type: "enum" },
   status: { type: "enum" },
-  allocatedBase: { type: "money" },
+  allocated: { type: "money" },
+  open: { type: "money" },
+  allocatedBase: { type: "money", sum: true },
   openBase: { type: "money", sum: true },
+  fxDifference: { type: "money", sum: true },
   documentMissing: { type: "boolean" },
   hasDocument: { type: "boolean" },
   reverseCharge: { type: "boolean" },
@@ -99,11 +99,14 @@ const DERIVED: ReadonlySet<string> = new Set([
   "groupNumber",
   "groupDescription",
   "basLabel",
-  "paymentSourceLabel",
-  "paymentSourceKind",
+  "payerLabel",
+  "payerKind",
   "status",
+  "allocated",
+  "open",
   "allocatedBase",
   "openBase",
+  "fxDifference",
   "hasDocument",
   "reverseCharge",
 ]);
@@ -113,10 +116,8 @@ const STORED_COLUMNS: ColumnMap = Object.fromEntries(
 const ROW_CAP = 20_000;
 
 type Facts = {
-  /** Σ active settlement lines per expense, SEK (`allocatedByExpense`) */
-  allocated: Map<string, Dec>;
-  /** Σ justifies allocations onto the expense (company-paid), in the paid currency */
-  justified: Map<string, Dec>;
+  /** the allocating links onto each expense — `justifies` from the paying row, `settles` from the refund row (F114) */
+  allocations: Map<string, linking.AllocationOnto[]>;
   /** expenses with a created_from document, or any document justifying them */
   hasDocument: Set<string>;
   /** expenses made from a document that says the buyer pays the VAT (D54, F91) — a tag, nothing computed */
@@ -124,18 +125,12 @@ type Facts = {
 };
 
 async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Facts> {
-  const f: Facts = {
-    allocated: new Map(),
-    justified: new Map(),
-    hasDocument: new Set(),
-    reverseCharge: new Set(),
-  };
+  const f: Facts = { allocations: new Map(), hasDocument: new Set(), reverseCharge: new Set() };
   if (ids.length === 0) return f;
-  const allocated = await allocatedByExpense(tx, ids);
+  f.allocations = await linking.allocationsOnto(tx, "expense", ids);
   const links = await linking.linksTouching(tx, "expense", ids, {
     kinds: ["created_from", "justifies"],
   });
-  f.allocated = allocated;
   const origin = new Map<string, string>(); // expense → the document it was made from
   for (const l of links) {
     if (l.kind === "created_from") {
@@ -143,11 +138,7 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
         f.hasDocument.add(l.from.id);
         origin.set(l.from.id, l.to.id);
       }
-    } else if (l.to.type !== "expense") {
-      // a justifies link FROM an expense proves something else, not this expense
-    } else if (l.from.type === "bank_transaction" && l.allocatedAmount) {
-      f.justified.set(l.to.id, (f.justified.get(l.to.id) ?? new D(0)).plus(l.allocatedAmount));
-    } else if (l.from.type === "document") f.hasDocument.add(l.to.id);
+    } else if (l.to.type === "expense" && l.from.type === "document") f.hasDocument.add(l.to.id);
   }
   const flagged = await documents.reverseChargeDocumentIds(tx, [...origin.values()]);
   for (const [expenseId, documentId] of origin) {
@@ -156,26 +147,52 @@ async function facts(tx: TransactionClient, ids: readonly string[]): Promise<Fac
   return f;
 }
 
+/** The derived money of one expense from its links (F114): status, what is allocated and open, the FX difference. */
+export type DerivedMoney = {
+  status: ExpenseStatus;
+  allocated: string;
+  open: string;
+  allocatedBase: string;
+  openBase: string;
+  fxDifference: string;
+};
+
 export function statusOf(
-  e: Pick<ExpenseDto, "amountBase" | "paidAmount">,
-  sourceKind: PaymentSourceKind,
+  e: Pick<ExpenseDto, "amount" | "amountBase">,
+  payerKind: PayerKind,
   f: Facts,
   id: string,
-): { status: ExpenseStatus; allocatedBase: string; openBase: string } {
-  const allocated = f.allocated.get(id) ?? new D(0);
+): DerivedMoney {
+  const allocations = f.allocations.get(id) ?? [];
+  const fx = fxDifference(e.amount, e.amountBase, allocations);
   const status = deriveExpenseStatus({
-    paidByPrivate: sourceKind === "private",
-    amountBase: e.amountBase,
-    allocatedBase: allocated.toFixed(2),
-    paidAmount: e.paidAmount,
-    justifiedAmount: (f.justified.get(id) ?? new D(0)).toFixed(2),
+    paidByPrivate: payerKind === "private",
+    amount: e.amount,
+    allocated: fx.allocated.toFixed(2),
   });
   return {
     status,
-    allocatedBase: allocated.toFixed(2),
-    openBase: sourceKind === "private" ? owedBase(e.amountBase, allocated).toFixed(2) : "0.00",
+    allocated: fx.allocated.toFixed(2),
+    open: openOn(e.amount, fx.allocated).toFixed(2),
+    allocatedBase: fx.allocatedBase.toFixed(2),
+    openBase:
+      payerKind === "private" ? openBase(e.amount, e.amountBase, allocations).toFixed(2) : "0.00",
+    fxDifference: fx.allocated.gt(0) ? fx.difference.toFixed(2) : "0.00",
   };
 }
+
+const PAYER_SELECT = {
+  select: { id: true, accountAlias: true, accountNumber: true, currency: true, role: true },
+} as const;
+type PayerRow = {
+  id: string;
+  accountAlias: string | null;
+  accountNumber: string;
+  currency: string;
+  role: string;
+};
+const payerKindOf = (a: PayerRow): PayerKind =>
+  a.role === "owner_private" ? "private" : "bank_account";
 
 async function loadRows(
   tx: TransactionClient,
@@ -193,7 +210,7 @@ async function loadRows(
         ...(options.ids ? [{ id: { in: [...options.ids] } }] : []),
       ],
     },
-    include: { group: true, paymentSource: true },
+    include: { group: true, paidFromAccount: PAYER_SELECT },
     orderBy: [{ date: "desc" }, { key: "desc" }],
     take: ROW_CAP,
   });
@@ -210,7 +227,7 @@ async function loadRows(
   ]);
   const list: ExpenseListRow[] = rows.map((r) => {
     const dto = toExpenseDto(r);
-    const derived = statusOf(dto, r.paymentSource.kind as PaymentSourceKind, f, r.id);
+    const derived = statusOf(dto, payerKindOf(r.paidFromAccount), f, r.id);
     return {
       id: dto.id,
       key: dto.key,
@@ -228,13 +245,10 @@ async function loadRows(
       amount: dto.amount,
       currency: dto.currency,
       amountBase: dto.amountBase,
-      baseProvisional: dto.baseProvisional,
       rateSource: dto.rateSource,
-      paidAmount: dto.paidAmount,
-      paidCurrency: dto.paidCurrency,
-      paymentSourceId: dto.paymentSourceId,
-      paymentSourceLabel: r.paymentSource.label,
-      paymentSourceKind: r.paymentSource.kind as PaymentSourceKind,
+      paidFromAccountId: dto.paidFromAccountId,
+      payerLabel: banking.accountLabel(r.paidFromAccount),
+      payerKind: payerKindOf(r.paidFromAccount),
       ...derived,
       documentMissing: dto.documentMissing,
       hasDocument: f.hasDocument.has(r.id),
@@ -316,18 +330,32 @@ export type ExpenseDetail = {
   expense: ExpenseDto;
   group: ExpenseGroupDto;
   groupLabel: string;
-  paymentSource: { id: string; label: string; kind: PaymentSourceKind; currency: string };
+  payer: { id: string; label: string; kind: PayerKind; currency: string };
   basLabel: string;
   /** the expense's partner (F87) — a deactivated one stays shown, greyed */
   partner: { id: string; name: string; isActive: boolean } | null;
   status: ExpenseStatus;
+  allocated: string;
+  open: string;
   allocatedBase: string;
   openBase: string;
+  fxDifference: string;
   /** the money facts may still change (`isExpenseOpen`, D37) — the panel reads this, never its own copy */
   isOpen: boolean;
   /** the document it was made from; `reverseCharge` — it says the buyer pays the VAT (D54, F91) */
   document: { id: string; businessKey: string; fileName: string; reverseCharge: boolean } | null;
   links: (LinkDto & { otherLabel: string | null })[];
+  /** the payments (F114): one per allocating link — the row, what it pays, the base it gave */
+  payments: {
+    linkId: string;
+    kind: "justifies" | "settles";
+    bankTransactionId: string;
+    bookingDate: string | null;
+    rowLabel: string | null;
+    allocatedAmount: string;
+    currency: string;
+    allocatedBase: string;
+  }[];
   settlements: {
     id: string;
     number: string;
@@ -371,16 +399,10 @@ export async function getExpenseDetail(
 ): Promise<ServiceResult<ExpenseDetail>> {
   const row = await tx.expense.findUnique({
     where: { id },
-    include: { group: true, paymentSource: true },
+    include: { group: true, paidFromAccount: PAYER_SELECT },
   });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Expense not found: ${id}`, retryable: false } };
-  // its own read: Prisma loads an include's relations in parallel on the tx, and a third one queues
-  // behind the client's running query — pg's "already executing" warning (F53)
-  const settlementLines = await tx.settlementLine.findMany({
-    where: { expenseId: id },
-    include: { settlement: true },
-  });
   const f = await facts(tx, [id]);
   const labels = await settings.basLabels(tx, [row.basCode]);
   const withLabels = await linking.linksWithLabels(tx, { type: "expense", id });
@@ -388,7 +410,8 @@ export async function getExpenseDetail(
   const audit = await getAuditLog(tx, { entityType: "expense", entityId: id, limit: 20 });
   const partner = row.partnerId ? await partners.getPartner(tx, row.partnerId) : null;
   const dto = toExpenseDto(row);
-  const derived = statusOf(dto, row.paymentSource.kind as PaymentSourceKind, f, id);
+  const payerKind = payerKindOf(row.paidFromAccount);
+  const derived = statusOf(dto, payerKind, f, id);
   const origin = withLabels.find((l) => l.kind === "created_from" && l.from.id === id);
   let document: ExpenseDetail["document"] = null;
   if (origin) {
@@ -402,20 +425,27 @@ export async function getExpenseDetail(
         }
       : null;
   }
-  const bookingDates = await banking.bookingDates(
-    tx,
-    settlementLines.map((l) => l.settlement.bankTransactionId),
+  // the payments: the allocating links from bank rows, with the row's date; the settlements those rows carry
+  const paymentLinks = withLabels.filter(
+    (l) =>
+      l.from.type === "bank_transaction" &&
+      l.to.id === id &&
+      l.allocatedAmount &&
+      (l.kind === "justifies" || l.kind === "settles"),
   );
+  const rowIds = paymentLinks.map((l) => l.from.id);
+  const bookingDates = await banking.bookingDates(tx, rowIds);
+  const settlements = await settlementsForRows(tx, rowIds);
   return {
     data: {
       expense: dto,
       group: toGroupDto(row.group),
       groupLabel: groupLabel(row.group),
-      paymentSource: {
-        id: row.paymentSource.id,
-        label: row.paymentSource.label,
-        kind: row.paymentSource.kind as PaymentSourceKind,
-        currency: row.paymentSource.currency,
+      payer: {
+        id: row.paidFromAccount.id,
+        label: banking.accountLabel(row.paidFromAccount),
+        kind: payerKind,
+        currency: row.paidFromAccount.currency,
       },
       basLabel: labels.get(row.basCode) ?? row.basCode,
       partner: partner?.data
@@ -425,16 +455,51 @@ export async function getExpenseDetail(
       isOpen,
       document,
       links: withLabels,
-      settlements: settlementLines.map((l) => ({
-        id: l.settlement.id,
-        number: l.settlement.number,
-        allocatedBase: l.allocatedBase.toFixed(2),
-        status: l.settlement.status,
-        bookingDate: bookingDates.get(l.settlement.bankTransactionId) ?? null,
+      payments: paymentLinks.map((l) => ({
+        linkId: l.id,
+        kind: l.kind as "justifies" | "settles",
+        bankTransactionId: l.from.id,
+        bookingDate: bookingDates.get(l.from.id) ?? null,
+        rowLabel: l.otherLabel,
+        allocatedAmount: l.allocatedAmount ?? "0.00",
+        currency: l.currency ?? dto.currency,
+        allocatedBase: l.allocatedBase ?? "0.00",
       })),
+      settlements: paymentLinks
+        .filter((l) => l.kind === "settles")
+        .flatMap((l) => {
+          const st = settlements.get(l.from.id);
+          return st
+            ? [
+                {
+                  id: st.id,
+                  number: st.number,
+                  allocatedBase: l.allocatedBase ?? "0.00",
+                  status: st.status,
+                  bookingDate: bookingDates.get(l.from.id) ?? null,
+                },
+              ]
+            : [];
+        }),
       history: expenseHistory(audit),
     },
   };
+}
+
+/** The active settlement of each refund row, by row id (one active per row — the partial unique index). */
+async function settlementsForRows(
+  tx: TransactionClient,
+  rowIds: readonly string[],
+): Promise<Map<string, { id: string; number: string; status: string }>> {
+  if (rowIds.length === 0) return new Map();
+  const rows = await tx.settlement.findMany({
+    where: { bankTransactionId: { in: [...new Set(rowIds)] } },
+    select: { id: true, number: true, status: true, bankTransactionId: true },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+  });
+  const out = new Map<string, { id: string; number: string; status: string }>();
+  for (const r of rows) if (!out.has(r.bankTransactionId)) out.set(r.bankTransactionId, r);
+  return out;
 }
 
 // --- spend per partner (F87, FR-006) — the partner page composes this read; partners never import expenses ---
@@ -451,7 +516,6 @@ export type PartnerExpenseRow = Pick<
   | "amount"
   | "currency"
   | "amountBase"
-  | "baseProvisional"
   | "status"
 > & {
   /** the D40 family of the state, so the partner page draws it without importing expenses' UI */
@@ -464,8 +528,6 @@ export type PartnerExpenses = {
   count: number;
   /** Σ amount_base of every expense of the partner — the same base the list's footer sums */
   totalBase: string;
-  /** a base in the total is the ECB estimate of a company-paid expense not yet attached (`*`) */
-  anyProvisional: boolean;
 };
 
 export const PARTNER_EXPENSE_ROWS = 25;
@@ -494,13 +556,11 @@ export async function expensesForPartner(
       amount: r.amount,
       currency: r.currency,
       amountBase: r.amountBase,
-      baseProvisional: r.baseProvisional,
       status: r.status,
       stateFamily: expenseStateFamily(r.status),
     })),
     count: all.length,
     totalBase: total.toFixed(2),
-    anyProvisional: all.some((r) => r.baseProvisional),
   };
 }
 
@@ -517,7 +577,10 @@ export type GroupListRow = ExpenseGroupDto & {
 
 export async function listGroups(tx: TransactionClient): Promise<GroupListRow[]> {
   const groups = await tx.expenseGroup.findMany({
-    include: { expenses: { include: { paymentSource: true } }, trip: { select: { id: true } } },
+    include: {
+      expenses: { include: { paidFromAccount: PAYER_SELECT } },
+      trip: { select: { id: true } },
+    },
     orderBy: { number: "desc" },
   });
   const f = await facts(
@@ -531,8 +594,8 @@ export async function listGroups(tx: TransactionClient): Promise<GroupListRow[]>
     for (const e of g.expenses) {
       perCurrency.set(e.currency, (perCurrency.get(e.currency) ?? new D(0)).plus(e.amount));
       total = total.plus(e.amountBase);
-      if (e.paymentSource.kind === "private") {
-        open = open.plus(owedBase(e.amountBase, f.allocated.get(e.id) ?? new D(0)));
+      if (payerKindOf(e.paidFromAccount) === "private") {
+        open = open.plus(openBase(e.amount, e.amountBase, f.allocations.get(e.id) ?? []));
       }
     }
     return {
@@ -565,27 +628,27 @@ export async function getGroupDetail(
 // --- settlements ---
 
 export type SettlementListRow = SettlementDto & {
-  paymentSourceLabel: string;
-  bookingDate: string | null;
+  /** the payer(s) of the refunded expenses — one label, or several joined */
+  payerLabel: string;
   lineCount: number;
 };
 
 export async function listSettlements(tx: TransactionClient): Promise<SettlementListRow[]> {
-  const rows = await tx.settlement.findMany({
-    include: { lines: true, paymentSource: true },
-    orderBy: [{ createdAt: "desc" }],
+  const rows = await tx.settlement.findMany({ orderBy: [{ createdAt: "desc" }] });
+  const dtos = await settlementDtos(tx, rows);
+  const expenseIds = [...new Set(dtos.flatMap((d) => d.lines.map((l) => l.expenseId)))];
+  const payers = await tx.expense.findMany({
+    where: { id: { in: expenseIds } },
+    select: { id: true, paidFromAccount: PAYER_SELECT },
   });
-  const out: SettlementListRow[] = [];
-  for (const r of rows) {
-    const t = await banking.getBankTransaction(tx, r.bankTransactionId);
-    out.push({
-      ...toSettlementDto(r),
-      paymentSourceLabel: r.paymentSource.label,
-      bookingDate: t?.bookingDate ?? null,
-      lineCount: r.lines.length,
-    });
-  }
-  return out;
+  const payerOf = new Map(payers.map((e) => [e.id, banking.accountLabel(e.paidFromAccount)]));
+  return dtos.map((d) => ({
+    ...d,
+    payerLabel: [...new Set(d.lines.map((l) => payerOf.get(l.expenseId) ?? ""))]
+      .filter(Boolean)
+      .join(", "),
+    lineCount: d.lines.length,
+  }));
 }
 
 export type SettleableTransaction = banking.OutgoingMainRow;
@@ -603,28 +666,28 @@ export async function settleableTransactions(
 // --- the ledger ---
 
 export async function ledgerSnapshot(tx: TransactionClient): Promise<LedgerSnapshot> {
-  const sources = await tx.paymentSource.findMany({
-    include: { expenses: { select: { id: true, amountBase: true, paidAmount: true } } },
-    orderBy: [{ kind: "asc" }, { label: "asc" }],
+  const payers = await banking.payerAccounts(tx);
+  const rows = await tx.expense.findMany({
+    select: { id: true, amount: true, amountBase: true, paidFromAccountId: true },
   });
   const f = await facts(
     tx,
-    sources.flatMap((s) => s.expenses.map((e) => e.id)),
+    rows.map((e) => e.id),
   );
   const out: LedgerSource[] = [];
   let totalOpen = new D(0);
   let totalAllocated = new D(0);
   let totalCount = 0;
   let awaitingLink = 0;
-  for (const s of sources) {
-    if (s.kind !== "private") {
-      for (const e of s.expenses) {
+  for (const p of payers) {
+    const own = rows.filter((e) => e.paidFromAccountId === p.id);
+    if (p.kind !== "private") {
+      for (const e of own) {
+        const fx = fxDifference(e.amount, e.amountBase, f.allocations.get(e.id) ?? []);
         const status = deriveExpenseStatus({
           paidByPrivate: false,
-          amountBase: e.amountBase.toFixed(2),
-          allocatedBase: "0.00",
-          paidAmount: e.paidAmount ? e.paidAmount.toFixed(2) : null,
-          justifiedAmount: (f.justified.get(e.id) ?? new D(0)).toFixed(2),
+          amount: e.amount.toFixed(2),
+          allocated: fx.allocated.toFixed(2),
         });
         if (status === "awaiting_link") awaitingLink += 1;
       }
@@ -633,19 +696,19 @@ export async function ledgerSnapshot(tx: TransactionClient): Promise<LedgerSnaps
     let open = new D(0);
     let allocated = new D(0);
     let count = 0;
-    for (const e of s.expenses) {
-      const a = f.allocated.get(e.id) ?? new D(0);
-      allocated = allocated.plus(a);
-      const o = owedBase(e.amountBase, a);
+    for (const e of own) {
+      const allocations = f.allocations.get(e.id) ?? [];
+      allocated = allocated.plus(allocations.reduce((acc, a) => acc.plus(a.base), new D(0)));
+      const o = openBase(e.amount, e.amountBase, allocations);
       if (!o.isZero()) {
         open = open.plus(o);
         count += 1;
       }
     }
     out.push({
-      paymentSourceId: s.id,
-      label: s.label,
-      currency: s.currency,
+      paidFromAccountId: p.id,
+      label: p.label,
+      currency: p.currency,
       openBase: open.toFixed(2),
       allocatedBase: allocated.toFixed(2),
       openCount: count,

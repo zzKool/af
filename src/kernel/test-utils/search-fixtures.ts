@@ -121,15 +121,16 @@ export async function seedSearchFixture(pool: Pool, stamp: string): Promise<Sear
       userId,
     ],
   );
+  // the payer: a private instrument (F114) — a bank account with role owner_private, no format
   const source = randomUUID();
   await q(
-    `INSERT INTO payment_sources (id, tenant_id, label, kind, currency, created_by, updated_at)
-     VALUES ($1, $2, 'Private card', 'private', 'SEK', $3, NOW())`,
-    [source, tenantId, userId],
+    `INSERT INTO bank_accounts (id, tenant_id, account_alias, account_number, currency, bank_format_id, role, created_by)
+     VALUES ($1, $2, 'Private card', $3, 'SEK', NULL, 'owner_private', $4)`,
+    [source, tenantId, `PRIV-${stamp}-${tenantId.slice(0, 4)}`, userId],
   );
   await q(
     `INSERT INTO expenses (id, tenant_id, group_id, key, seq, alias, date, description, bas_code, amount, currency,
-       amount_base, rate, rate_source, payment_source_id, created_by, updated_at)
+       amount_base, rate, rate_source, paid_from_account_id, created_by, updated_at)
      VALUES ($1, $2, $3, $4, 1, 'Tr', '2023-04-12', $5, '5800', 1250, 'EUR', 14000, 11.2, 'ecb_daily', $6, $7, NOW())`,
     [ids.expense, tenantId, group, keys.expense, keys.expenseDescription, source, userId],
   );
@@ -154,10 +155,9 @@ export async function seedSearchFixture(pool: Pool, stamp: string): Promise<Sear
     [ids.bankTransaction, tenantId, account, imp, keys.bankText, "a".repeat(64), userId],
   );
   await q(
-    `INSERT INTO settlements (id, tenant_id, number, bank_transaction_id, payment_source_id, refund_amount,
-       refund_currency, refund_base, allocated_base, created_by, updated_at)
-     VALUES ($1, $2, $3, $4, $5, 1250, 'SEK', 1250, 1250, $6, NOW())`,
-    [ids.settlement, tenantId, keys.settlement, ids.bankTransaction, source, userId],
+    `INSERT INTO settlements (id, tenant_id, number, bank_transaction_id, created_by, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [ids.settlement, tenantId, keys.settlement, ids.bankTransaction, userId],
   );
   await q(
     `INSERT INTO documents (id, tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type,

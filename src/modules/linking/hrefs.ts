@@ -13,8 +13,6 @@ export function entityHref(node: Pick<GraphNode, "type" | "id" | "label">): stri
       return `/documents/${node.id}`;
     case "partner":
       return `/partners/${node.id}`;
-    case "settlement":
-      return `/expenses/settlements/${node.id}`;
     case "expense":
       return `/expenses?open=${node.id}`;
     case "supplier_invoice":

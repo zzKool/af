@@ -68,14 +68,14 @@ const COLUMN_KEYS = [
   "amountTotal",
   "amountBase",
   "rateSource",
-  "paidAmount",
-  "paidCurrency",
   "basCode",
   "basLabel",
   "alias",
   "vatRegistrationId",
   "status",
   "allocated",
+  "allocatedBase",
+  "fxDifference",
   "open",
   "documentMissing",
   "hasDocument",
@@ -346,25 +346,6 @@ export function SupplierInvoiceTable({
         defaultHidden: true,
       },
       {
-        key: "paidAmount",
-        header: t("supplierInvoices.col.paid"),
-        type: "money",
-        width: "8rem",
-        defaultHidden: true,
-        cell: (row) =>
-          row.paidAmount ? (
-            money(row.paidAmount, row.paidCurrency ?? row.currency)
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-      {
-        key: "paidCurrency",
-        header: `${t("supplierInvoices.col.paid")} (ccy)`,
-        type: "enum",
-        defaultHidden: true,
-      },
-      {
         key: "vatRegistrationId",
         header: t("supplierInvoices.col.registration"),
         type: "enum",
@@ -394,7 +375,28 @@ export function SupplierInvoiceTable({
         type: "money",
         width: "7rem",
         defaultHidden: true,
-        cell: (row) => money(row.allocated, row.paidCurrency ?? row.currency),
+        cell: (row) => money(row.allocated, row.currency),
+      },
+      {
+        // F114: the base the rows gave, and Σ base − the invoice's base for the paid share, signed
+        key: "allocatedBase",
+        header: t("supplierInvoices.col.allocatedBase"),
+        type: "money",
+        width: "7rem",
+        defaultHidden: true,
+      },
+      {
+        key: "fxDifference",
+        header: t("supplierInvoices.col.fxDifference"),
+        type: "money",
+        width: "7rem",
+        defaultHidden: true,
+        cell: (row) =>
+          Number(row.fxDifference) !== 0 ? (
+            <span className="tabular-nums">{row.fxDifference}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
       },
       {
         key: "open",
@@ -405,7 +407,7 @@ export function SupplierInvoiceTable({
           row.cancelled ? (
             <span className="text-muted-foreground">—</span>
           ) : (
-            money(row.open, row.paidCurrency ?? row.currency)
+            money(row.open, row.currency)
           ),
       },
       {
@@ -504,7 +506,7 @@ export function SupplierInvoiceTable({
         ]
       : []),
     // the service refuses once anything but its document is linked (D36) — the toast says so
-    ...(canWrite && !row.cancelled && row.allocated === "0.00" && !row.paidAmount
+    ...(canWrite && !row.cancelled && row.allocated === "0.00"
       ? [
           {
             label: t("supplierInvoices.panel.delete"),

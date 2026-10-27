@@ -11,6 +11,7 @@ import { settlementTolerance } from "@/kernel/money/settlement";
 import { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 import { getLinkable, listLinkableTypes } from "./linkable";
 import { createLink } from "./linking";
+import { rowRemaining, rowUsage } from "./queries";
 import { AMBIGUITY_GAP, proposedAllocation, type RowFacts, rank, scoreMatch } from "./scoring";
 import type {
   BulkApplyResult,
@@ -47,10 +48,9 @@ const notFound = (what: string) => ({
   retryable: false,
 });
 
-/** Σ allocations per entity id on one side of the link table (allocating kinds only). */
-async function allocatedBy(
+/** Σ allocations ONTO each entity id (allocating kinds only), in the target's currency. */
+async function allocatedOnto(
   tx: TransactionClient,
-  side: "to" | "from",
   type: LinkableType,
   ids: readonly string[],
 ): Promise<Map<string, Dec>> {
@@ -60,15 +60,13 @@ async function allocatedBy(
     where: {
       kind: { in: [...ALLOCATING_KINDS] },
       allocatedAmount: { not: null },
-      ...(side === "to"
-        ? { toType: type, toId: { in: [...ids] } }
-        : { fromType: type, fromId: { in: [...ids] } }),
+      toType: type,
+      toId: { in: [...ids] },
     },
-    select: { toId: true, fromId: true, allocatedAmount: true },
+    select: { toId: true, allocatedAmount: true },
   });
   for (const r of rows) {
-    const id = side === "to" ? r.toId : r.fromId;
-    out.set(id, (out.get(id) ?? new D(0)).plus(r.allocatedAmount as Dec));
+    out.set(r.toId, (out.get(r.toId) ?? new D(0)).plus(r.allocatedAmount as Dec));
   }
   return out;
 }
@@ -84,14 +82,14 @@ export async function withRemaining(
   for (const f of facts) byType.set(f.type, [...(byType.get(f.type) ?? []), f]);
   const out: EntityFacts[] = [];
   for (const [type, list] of byType) {
-    const allocated = await allocatedBy(
-      tx,
-      side,
-      type,
-      list.map((f) => f.id),
-    );
+    const ids = list.map((f) => f.id);
+    // a bank row gives from itself (its cross-currency links count by their base share, F114); an entity receives
+    const usage = side === "from" ? await rowUsage(tx, ids) : null;
+    const allocated = side === "to" ? await allocatedOnto(tx, type, ids) : null;
     for (const f of list) {
-      const open = new D(f.amount).abs().minus(allocated.get(f.id) ?? new D(0));
+      const open = usage
+        ? rowRemaining({ ...f, currency: f.currency ?? "" }, usage.get(f.id))
+        : new D(f.amount).abs().minus(allocated?.get(f.id) ?? new D(0));
       if (!keepSettled && open.lte(settlementTolerance(f.amount))) continue;
       out.push({ ...f, remaining: open.lt(0) ? "0.00" : open.toFixed(2) });
     }

@@ -212,17 +212,3 @@ export const removeSupplierPaymentAction = ownerAction
   .action(async ({ ctx, parsedInput }) =>
     payments.removePayment(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
-
-export const attachSupplierPaymentAction = ownerAction
-  .schema(payments.attachPaymentSchema)
-  .metadata({ name: "attachSupplierPayment" })
-  .action(async ({ ctx, parsedInput }) =>
-    payments.attachPayment(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
-  );
-
-export const detachSupplierPaymentAction = ownerAction
-  .schema(z.object({ invoiceId: uuid }))
-  .metadata({ name: "detachSupplierPayment" })
-  .action(async ({ ctx, parsedInput }) =>
-    payments.detachPayment(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.invoiceId),
-  );

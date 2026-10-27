@@ -40,7 +40,7 @@ export type LoadedSubscription = {
   partnerName: string | null;
   partnerVatNumber: string | null;
   groupLabel: string;
-  paymentSourceLabel: string;
+  payerLabel: string;
   /** the payer is a private source */
   privatePaid: boolean;
   bankAccountId: string | null;
@@ -66,7 +66,7 @@ function toEntityFact(
       amount: e.amount,
       currency: e.currency,
       hasDocument: e.hasDocument,
-      needsPayment: e.paymentSourceKind === "bank_account",
+      needsPayment: e.payerKind === "bank_account",
       paid: e.status === "paid",
       overdue: false,
       status: e.status,
@@ -103,7 +103,7 @@ export async function loadSubscriptions(
   if (rows.length === 0) return [];
 
   // the references, through their owners
-  const sources = new Map((await expenses.listPaymentSources(tx)).map((s) => [s.id, s]));
+  const sources = new Map((await banking.payerAccounts(tx)).map((s) => [s.id, s]));
   const groups = new Map(
     (await expenses.listGroups(tx)).map((g) => [g.id, expenses.groupLabel(g)]),
   );
@@ -117,7 +117,7 @@ export async function loadSubscriptions(
     const subscription = toSubscriptionDto(r);
     const prices = r.prices.map(toPriceDto).sort((a, b) => a.validFrom.localeCompare(b.validFrom));
     const pauses = r.pauses.map(toPauseDto).sort((a, b) => a.fromDate.localeCompare(b.fromDate));
-    const source = sources.get(r.paymentSourceId);
+    const source = sources.get(r.paidFromAccountId);
     return {
       subscription,
       prices,
@@ -125,9 +125,9 @@ export async function loadSubscriptions(
       partnerName: partnerFacts.get(r.partnerId)?.name ?? null,
       partnerVatNumber: partnerFacts.get(r.partnerId)?.vatNumber ?? null,
       groupLabel: groups.get(r.groupId) ?? "",
-      paymentSourceLabel: source?.label ?? "",
+      payerLabel: source?.label ?? "",
       privatePaid: source?.kind === "private",
-      bankAccountId: source?.kind === "bank_account" ? source.bankAccountId : null,
+      bankAccountId: source?.kind === "bank_account" ? source.id : null,
       periods: periodsOf({ ...subscription, prices, pauses }, today),
     };
   });

@@ -66,7 +66,7 @@ const input = (o: Partial<SubscriptionInput> = {}): SubscriptionInput => ({
   becomes: "expense",
   basCode: "580",
   newGroup: { description: "Byteform" },
-  paymentSourceId: owner.sources.afSek.id,
+  paidFromAccountId: owner.sources.afSek.id,
   cadence: "monthly",
   startDate: "2026-01-15",
   price: { amount: "199.00", currency: "SEK" },
@@ -122,7 +122,7 @@ describe("US1 — describe a subscription once", () => {
     expect((await create({ basCode: "6540" })).error?.message).toMatch(/not active/);
     expect((await create({ basCode: "657" })).error?.message).toMatch(/no short code/);
     expect(
-      (await create({ becomes: "supplier_invoice", paymentSourceId: owner.sources.privateSe.id }))
+      (await create({ becomes: "supplier_invoice", paidFromAccountId: owner.sources.privateSe.id }))
         .error?.message,
     ).toMatch(/paid from a company account/);
     expect((await create({ endDate: "2026-01-14" })).error?.message).toMatch(/end date/);
@@ -144,7 +144,7 @@ describe("US1 — describe a subscription once", () => {
     expect(u.data).toMatchObject({ matchText: "BYTEFORM", tolerancePct: "10.00" });
     const bad = await run(owner.caller, (tx) =>
       updateSubscription(tx, owner.caller, noopAudit, r.data!.id, {
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       }),
     );
     expect(bad.error?.message).toMatch(/company account/);
@@ -236,7 +236,7 @@ describe("US5 — prices, pauses, the end", () => {
         basCode: "580",
         amount: "199.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     await run(owner.caller, (tx) =>
@@ -269,7 +269,7 @@ describe("US5 — prices, pauses, the end", () => {
         basCode: "580",
         amount: "199.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.afSek.id,
+        paidFromAccountId: owner.sources.afSek.id,
       }),
     );
     await run(owner.caller, (tx) =>
@@ -329,7 +329,7 @@ describe("US2 — the periods' state from real entities", () => {
           basCode: "580",
           amount: "199.00",
           currency: "SEK",
-          paymentSourceId: owner.sources.afSek.id,
+          paidFromAccountId: owner.sources.afSek.id,
         });
         const attached = await expenses.attachBankTransaction(tx, owner.caller, noopAudit, {
           expenseId: created.data!.id,
@@ -376,7 +376,7 @@ describe("US2 — the periods' state from real entities", () => {
         basCode: "580",
         amount: "199.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       }),
     );
     const r = await run(owner.caller, (tx) =>
@@ -386,7 +386,7 @@ describe("US2 — the periods' state from real entities", () => {
           newGroup: undefined,
           groupId: g.data!.id,
           startDate: "2026-10-16",
-          paymentSourceId: owner.sources.privateSe.id,
+          paidFromAccountId: owner.sources.privateSe.id,
         }),
       }),
     );

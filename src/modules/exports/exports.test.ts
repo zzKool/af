@@ -244,7 +244,7 @@ async function quarter(): Promise<Fixture> {
       currency: "CHF",
       vatAmount: "3.80",
       vatRegistrationId: regId,
-      paymentSourceId: owner.sources.privateCh.id,
+      paidFromAccountId: owner.sources.privateCh.id,
     });
     if (hotel.error) throw new Error(hotel.error.message);
     return {
@@ -471,7 +471,7 @@ describe("the declaration record (D23)", () => {
         basCode: "264",
         amount: "628.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afChf.id,
+        paidFromAccountId: owner.sources.afChf.id,
       });
       if (e.error) throw new Error(e.error.message);
       return e.data;
@@ -662,7 +662,7 @@ describe("F56 — the return says what the invoices say, and the declaration wha
         basCode: "264",
         amount: "628.00",
         currency: "CHF",
-        paymentSourceId: owner.sources.afChf.id,
+        paidFromAccountId: owner.sources.afChf.id,
       });
       if (e.error) throw new Error(e.error.message);
       return e.data;

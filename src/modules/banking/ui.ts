@@ -9,6 +9,7 @@ export * from "./components/categorise-form";
 export * from "./components/header-actions";
 export * from "./components/import-dialog";
 export * from "./components/imports-table";
+export * from "./components/private-instruments";
 export * from "./components/rule-dialog";
 export * from "./components/rules-table";
 export * from "./components/transaction-panel";

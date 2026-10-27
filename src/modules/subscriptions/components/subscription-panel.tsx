@@ -161,7 +161,7 @@ export function SubscriptionPanel({
                     [t("subscriptions.col.vendor"), detail.partnerName ?? "—"],
                     [t("subscriptions.col.category"), s.basCode],
                     [t("subscriptions.col.group"), detail.groupLabel],
-                    [t("subscriptions.col.payer"), detail.paymentSourceLabel],
+                    [t("subscriptions.col.payer"), detail.payerLabel],
                     [t("subscriptions.col.start"), s.startDate],
                     [t("subscriptions.col.end"), s.endDate ?? "—"],
                     [t("subscriptions.form.tolerance"), `${s.tolerancePct} %`],

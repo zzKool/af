@@ -41,7 +41,7 @@ export type SubscriptionFormInitial = {
   becomes?: Becomes;
   basCode?: string;
   groupId?: string;
-  paymentSourceId?: string;
+  paidFromAccountId?: string;
   startDate?: string;
   amount?: string;
   currency?: string;
@@ -96,7 +96,7 @@ export function SubscriptionFormDialog({
     setBasCode(initial?.basCode ?? NONE);
     setBasFromPartner(false);
     setGroupId(initial?.groupId ?? NEW_GROUP);
-    setSourceId(initial?.paymentSourceId ?? NONE);
+    setSourceId(initial?.paidFromAccountId ?? NONE);
     setRegistrationId(NONE);
     setCadence("monthly");
     setStartDate(initial?.startDate ?? "");
@@ -140,7 +140,7 @@ export function SubscriptionFormDialog({
       becomes,
       basCode,
       ...(groupId === NEW_GROUP ? { newGroup: { description: name.trim() } } : { groupId }),
-      paymentSourceId: sourceId,
+      paidFromAccountId: sourceId,
       vatRegistrationId: registrationId === NONE ? null : registrationId,
       cadence,
       startDate,

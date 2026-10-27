@@ -139,7 +139,7 @@ describe("US3 — the per-diem expense", () => {
       amountBase: "18506.40",
       rate: "1",
       rateSource: "same_currency",
-      paymentSourceId: owner.sources.privateSe.id,
+      paidFromAccountId: owner.sources.privateSe.id,
       documentMissing: false,
     });
     expect(written.data?.expense.note).toContain("18 lunch(es)");
@@ -204,7 +204,7 @@ describe("US3 — the per-diem expense", () => {
     const settled = await run(owner.caller, (tx) =>
       expenses.confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
         lines: [{ expenseId: first.expense.id, allocatedBase: "26357.60" }],
       }),
     );

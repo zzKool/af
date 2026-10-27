@@ -21,7 +21,6 @@ export type PartnerExpenseRow = {
   amount: string;
   currency: string;
   amountBase: string;
-  baseProvisional: boolean;
   /** the expense's derived state and its D40 family, as the expenses module maps it */
   status: ExpenseStatus;
   stateFamily: StateFamily;
@@ -31,7 +30,6 @@ export type PartnerExpenses = {
   rows: PartnerExpenseRow[];
   count: number;
   totalBase: string;
-  anyProvisional: boolean;
 };
 
 export function PartnerExpensesTab({
@@ -60,7 +58,6 @@ export function PartnerExpensesTab({
             count: expenses.count,
             total: formatMoney(expenses.totalBase, baseCurrency),
           })}
-          {expenses.anyProvisional ? " *" : ""}
         </span>
         <Link
           href={`/expenses?f.partnerId=in:${partnerId}`}
@@ -88,21 +85,14 @@ export function PartnerExpensesTab({
             </span>
             <span className="flex shrink-0 items-center gap-3 text-right tabular-nums">
               <span data-amount={r.amount}>{formatMoney(r.amount, r.currency)}</span>
-              <span
-                className={`text-xs text-muted-foreground ${r.baseProvisional ? "italic" : ""}`}
-                data-amount={r.amountBase}
-              >
+              <span className="text-xs text-muted-foreground" data-amount={r.amountBase}>
                 {formatMoney(r.amountBase, baseCurrency)}
-                {r.baseProvisional ? " *" : ""}
               </span>
               <StateLabel family={r.stateFamily} state={t(`expenses.status.${r.status}`)} />
             </span>
           </li>
         ))}
       </ul>
-      {expenses.anyProvisional && (
-        <p className="text-xs text-muted-foreground">{t("partners.expenses.provisional")}</p>
-      )}
     </div>
   );
 }

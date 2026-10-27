@@ -67,7 +67,7 @@ async function sekExpense() {
       basCode: "580",
       amount: "199.00",
       currency: "SEK",
-      paymentSourceId: owner.sources.afSek.id,
+      paidFromAccountId: owner.sources.afSek.id,
       documentMissing: true,
     }),
   );
@@ -172,7 +172,7 @@ describe("attachDocument — the receipt after the expense (FR-012)", () => {
         basCode: "580",
         amount: "10.00",
         currency: "SEK",
-        paymentSourceId: owner.sources.privateSe.id,
+        paidFromAccountId: owner.sources.privateSe.id,
       });
     });
     const taken = await run(owner.caller, (tx) =>
@@ -219,7 +219,7 @@ describe("deleteExpense — occurrence_of goes with the expense (F94)", () => {
     const e = await sekExpense();
     const subscriptionId = randomUUID();
     await adminPool.query(
-      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, payment_source_id,
+      `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, paid_from_account_id,
          cadence, start_date, created_by, updated_at)
        VALUES ($1, $2, 'Byteform', $3, 'expense', '580', $4, $5, 'monthly', '2026-01-16', $6, NOW())`,
       [

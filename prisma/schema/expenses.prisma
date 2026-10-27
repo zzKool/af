@@ -18,13 +18,6 @@ enum ExpenseGroupKind {
   @@map("expense_group_kind")
 }
 
-enum PaymentSourceKind {
-  bank_account
-  private
-
-  @@map("payment_source_kind")
-}
-
 enum ExpenseKind {
   receipt
   per_diem
@@ -62,31 +55,6 @@ model ExpenseGroup {
   @@map("expense_groups")
 }
 
-/// Who paid: a main bank account (`AF SEK`, `AF CHF` — bank_account_id is a validated UUID) or a private instrument of the owner (`Private SE`, `Private CH`).
-model PaymentSource {
-  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String            @map("tenant_id") @db.Uuid
-  label         String            @db.VarChar(60)
-  kind          PaymentSourceKind
-  /// the banking module's account (validated UUID, no FK); null for private sources
-  bankAccountId String?           @map("bank_account_id") @db.Uuid
-  currency      String            @db.Char(3)
-  isActive      Boolean           @default(true) @map("is_active")
-  /// the member whose liability a private source is (null = the owner); keeps an employee dimension possible
-  ownerUserId   String?           @map("owner_user_id") @db.Uuid
-  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz
-  createdBy     String            @map("created_by") @db.Uuid
-  source        String            @default("web") @db.VarChar(20)
-
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  expenses    Expense[]
-  settlements Settlement[]
-
-  @@unique([tenantId, label], map: "payment_sources_tenant_label_key")
-  @@map("payment_sources")
-}
-
 model Expense {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId          String        @map("tenant_id") @db.Uuid
@@ -107,18 +75,15 @@ model Expense {
   /// Swiss input VAT on the receipt, recorded for the declaration prep (exports)
   vatAmount         Decimal?      @map("vat_amount") @db.Decimal(15, 2)
   vatRegistrationId String?       @map("vat_registration_id") @db.Uuid
-  /// SEK base: ECB of the date for private expenses; the bank row's journal base once a company-paid expense is attached
+  /// base at the receipt's date (ECB / manual / same currency) — written once, never the bank's (CHECK rate_source <> 'bank', F114)
   amountBase        Decimal       @map("amount_base") @db.Decimal(15, 2)
   rate              Decimal       @db.Decimal(18, 6)
   /// the RateSource enum (journal.prisma)
   rateSource        RateSource    @map("rate_source")
   rateDate          DateTime?     @map("rate_date") @db.Date
-  /// company-paid and not yet attached to its bank row: the base is the ECB estimate
-  baseProvisional   Boolean       @default(false) @map("base_provisional")
-  /// what the bank row says the company paid (a 45.00 CHF receipt on the SEK card → 523.17 SEK), once attached
-  paidAmount        Decimal?      @map("paid_amount") @db.Decimal(15, 2)
-  paidCurrency      String?       @map("paid_currency") @db.Char(3)
-  paymentSourceId   String        @map("payment_source_id") @db.Uuid
+  /// who paid (F114, D60): a main bank account (the company; a `justifies` link from its row pays the expense) or an
+  /// owner_private one (the owner; `settles` links from the refund row reimburse it) — a composite FK, RESTRICT (D63)
+  paidFromAccountId String        @map("paid_from_account_id") @db.Uuid
   /// no receipt exists (the owner says so) — the row shows *missing* until a document is linked
   documentMissing   Boolean       @default(false) @map("document_missing")
   /// the merchant as a partner (F87, D49) — optional, a vendor of the tenant, validated UUID through partners (no FK);
@@ -132,38 +97,26 @@ model Expense {
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   group           ExpenseGroup     @relation(fields: [groupId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  paymentSource   PaymentSource    @relation(fields: [paymentSourceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  settlementLines SettlementLine[]
+  paidFromAccount BankAccount      @relation(fields: [tenantId, paidFromAccountId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([tenantId, key], map: "expenses_tenant_key_key")
   @@unique([groupId, alias, seq], map: "expenses_group_alias_seq_key")
   @@index([tenantId, date(sort: Desc)])
   @@index([tenantId, groupId])
-  @@index([tenantId, paymentSourceId])
+  @@index([tenantId, paidFromAccountId])
   @@index([tenantId, basCode])
   @@index([tenantId, partnerId])
   @@map("expenses")
 }
 
-/// One refund transaction settling a set of private expenses — `ST26-001`. Money columns written once (trigger `settlements_lock`); cancel keeps the row and its number.
+/// A numbered reimbursement statement (`ST26-001`) over the `settles` links of one refund row (F114, D60): the links
+/// carry the allocations; Σ base, rounding and the FX difference are derived from them. Cancel keeps the row and its number.
 model Settlement {
   id                        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId                  String           @map("tenant_id") @db.Uuid
   number                    String           @db.VarChar(20)
-  /// the refund's bank transaction (validated UUID through banking); one active settlement per transaction (partial unique index)
+  /// the refund's bank row — a composite FK, RESTRICT (D63); one active settlement per row (partial unique index)
   bankTransactionId         String           @map("bank_transaction_id") @db.Uuid
-  paymentSourceId           String           @map("payment_source_id") @db.Uuid
-  /// the bank row's signed amount and currency
-  refundAmount              Decimal          @map("refund_amount") @db.Decimal(15, 2)
-  refundCurrency            String           @map("refund_currency") @db.Char(3)
-  /// |the bank row's journal base| in SEK
-  refundBase                Decimal          @map("refund_base") @db.Decimal(15, 2)
-  allocatedBase             Decimal          @map("allocated_base") @db.Decimal(15, 2)
-  /// Σ lines − refund base when the owner confirmed it (cross-currency refunds): > 0 a gain (3960), < 0 a loss (7960)
-  exchangeDifferenceBase    Decimal          @default(0) @map("exchange_difference_base") @db.Decimal(15, 2)
-  /// the same difference when it is within the 0.50 SEK tolerance — rounding, no confirmation
-  roundingBase              Decimal          @default(0) @map("rounding_base") @db.Decimal(15, 2)
-  exchangeDifferenceBasCode String?          @map("exchange_difference_bas_code") @db.VarChar(4)
   note                      String?
   status                    SettlementStatus @default(active)
   cancelledAt               DateTime?        @map("cancelled_at") @db.Timestamptz
@@ -174,9 +127,8 @@ model Settlement {
   createdBy                 String           @map("created_by") @db.Uuid
   source                    String           @default("web") @db.VarChar(20)
 
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  paymentSource PaymentSource    @relation(fields: [paymentSourceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  lines         SettlementLine[]
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankTransaction BankTransaction @relation(fields: [tenantId, bankTransactionId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([tenantId, number], map: "settlements_tenant_number_key")
   /// partial: WHERE status = 'active' (migration) — declared here for the drift check
@@ -184,26 +136,4 @@ model Settlement {
   @@index([tenantId, bankTransactionId])
   @@index([tenantId, status])
   @@map("settlements")
-}
-
-/// An allocation of a settlement to one of its expenses, in SEK base. Intra-module (not a link): the settlement owns its lines.
-model SettlementLine {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId      String   @map("tenant_id") @db.Uuid
-  settlementId  String   @map("settlement_id") @db.Uuid
-  expenseId     String   @map("expense_id") @db.Uuid
-  allocatedBase Decimal  @map("allocated_base") @db.Decimal(15, 2)
-  /// `Rounding adjustment: SEK 0.30 (Swedish 50-öre rounding tolerance)`
-  note          String?
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  createdBy     String   @map("created_by") @db.Uuid
-  source        String   @default("web") @db.VarChar(20)
-
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  expense    Expense    @relation(fields: [expenseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@unique([settlementId, expenseId], map: "settlement_lines_settlement_expense_key")
-  @@index([tenantId, expenseId])
-  @@map("settlement_lines")
 }
