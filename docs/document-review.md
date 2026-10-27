@@ -125,7 +125,7 @@ A **linked** document cannot be reclassified: something became from it (`created
 - **PDF**: react-pdf v10 with local worker (`public/pdf.worker.min.mjs`), per-page rendering
 - **Images**: native `<img>` with CSS transform for zoom/rotation
 - **Controls**: zoom in/out/fit, rotation (90-degree increments), page navigation (PDF)
-- **Signed URL refresh**: auto-refreshes at 80% TTL (4 minutes) via `SIGNED_URL_REFRESH_MS`
+- **The bytes** (F106, D61 — audit 2026-10-27 D2): the preview and *Download* read `GET /api/documents/[id]/file` (`?download=1` for an attachment) — the session's caller → `documents.documentFile` (RLS + the accountant's financial-only rule, in one place) → the storage adapter streams the blob. The browser never sees a storage URL: no SAS, no CORS, no `blob-proxy` (deleted — it fetched any `localhost` URL unauthenticated), nothing to refresh. `documentFileUrl(id)` is the pure helper the review DTO (`fileUrl`), the inbox pane and `getDocumentDownloadUrl` share. The e2e uploads a real one-page PDF (`e2e/fixtures/pdf.ts`) and asserts the viewer rendered a canvas, the route's headers, and 401 without a session.
 
 ## Line Items Editing
 
@@ -144,7 +144,7 @@ A **linked** document cannot be reclassified: something became from it (`created
 
 ## Key Files
 
-- `src/modules/documents/review.ts` — service methods (getDocumentForReview, updateDocumentCorrections, classifyDocument, markDocumentReviewed, refreshSignedUrl); `ocr-payload.ts` — `parseOcrPayload` (the `ocr_data` reader) and `resolveDocumentData` (corrections over the OCR facts)
+- `src/modules/documents/review.ts` — service methods (getDocumentForReview, updateDocumentCorrections, classifyDocument, markDocumentReviewed); `file.ts` — `documentFile` / `documentFileUrl` / `contentDisposition` behind `/api/documents/[id]/file` (F106); `ocr-payload.ts` — `parseOcrPayload` (the `ocr_data` reader) and `resolveDocumentData` (corrections over the OCR facts)
 - `src/modules/documents/documents.actions.ts` — server action wrappers
 - `src/app/(app)/documents/[id]/page.tsx` — server component entry
 - `src/modules/documents/components/document-review-client.tsx` — main orchestrator

@@ -17,7 +17,6 @@ const { mockUpdateAction, mockMarkReviewedAction, mockUnarchive, mockRefresh, mo
 vi.mock("@/modules/documents/documents.actions", () => ({
   updateDocumentCorrectionsAction: mockUpdateAction,
   markDocumentReviewedAction: mockMarkReviewedAction,
-  refreshSignedUrlAction: vi.fn(),
   classifyDocumentAction: vi.fn(),
   runOcrAction: vi.fn(),
   unarchiveDocumentsAction: mockUnarchive,
@@ -108,7 +107,7 @@ function makeReviewData(overrides?: Partial<DocumentReviewData>): DocumentReview
     documentType: "expense",
     status: "extracted",
     createdAt: new Date("2026-03-15T10:00:00Z"),
-    signedUrl: "https://blob.test/receipt.pdf?sig=abc",
+    fileUrl: "/api/documents/doc-1/file",
     extractedData: {
       vendorName: "Lufthansa",
       invoiceTotal: 12500,

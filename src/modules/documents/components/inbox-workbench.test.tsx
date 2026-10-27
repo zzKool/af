@@ -10,7 +10,6 @@ const m = vi.hoisted(() => ({
   runOcr: vi.fn(),
   list: vi.fn(),
   markReviewed: vi.fn(),
-  signUrl: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() },
 }));
 
@@ -33,7 +32,6 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   runOcrAction: m.runOcr,
   listInboxAction: m.list,
   markDocumentReviewedAction: m.markReviewed,
-  refreshSignedUrlAction: m.signUrl,
 }));
 vi.mock("@/modules/expenses/ui", () => ({
   NewExpenseDialog: ({ open, initial }: { open: boolean; initial?: unknown }) =>
@@ -108,7 +106,6 @@ function renderOwner(rows = ROWS) {
 
 beforeEach(() => {
   m.list.mockResolvedValue({ data: { data: data() } });
-  m.signUrl.mockResolvedValue({ data: { data: { signedUrl: "http://x/a.pdf" } } });
   m.runOcr.mockResolvedValue({ data: { data: { id: "002", previousStatus: "uploaded" } } });
 });
 afterEach(() => {

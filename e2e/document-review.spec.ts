@@ -1,12 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, request, test } from "@playwright/test";
+import { minimalPdf } from "./fixtures/pdf";
 
 /**
  * Uploads a small PDF through the library and opens its review page — the journey owns its document, so a
  * parallel journey deleting its own upload, or an issued invoice's generated PDF landing first in the list,
  * cannot change what this one sees.
  */
-async function openOwnDocument(page: Page): Promise<void> {
+async function openOwnDocument(page: Page, real = false): Promise<void> {
   await page.goto("/documents");
   await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   // random, not the clock: parallel journeys starting in the same millisecond would upload the same bytes (a duplicate)
@@ -16,7 +17,8 @@ async function openOwnDocument(page: Page): Promise<void> {
   await page.locator('input[type="file"]').setInputFiles({
     name,
     mimeType: "application/pdf",
-    buffer: Buffer.from(`%PDF-1.4 ${name}`),
+    // `real`: a one-page PDF pdf.js renders (F106 — the preview must load); else the bytes the other journeys use
+    buffer: real ? minimalPdf(name) : Buffer.from(`%PDF-1.4 ${name}`),
   });
   await expect(page.getByRole("button", { name: "Upload another" })).toBeVisible({
     timeout: 15_000,
@@ -87,6 +89,37 @@ test.describe("Document review page — owner", () => {
     const financialHeading = page.getByText("Financial Details");
     const rawTextArea = page.locator("textarea[readonly]");
     await expect(financialHeading.or(rawTextArea).first()).toBeVisible();
+  });
+
+  // F106 (audit D2, D15): the bytes come from the authenticated route, so the preview loads — through the compose
+  // network or Azurite alike, no SAS URL in the browser — and a request without a session gets nothing.
+  test("the preview loads through /api/documents/[id]/file; no session, no file", async ({
+    page,
+    baseURL,
+  }) => {
+    await openOwnDocument(page, true);
+    const id = page.url().match(/\/documents\/([a-f0-9-]+)/)?.[1];
+    expect(id).toBeTruthy();
+
+    // the viewer rendered a page (react-pdf's canvas), not "Unable to load preview"
+    await expect(page.locator("[role='document'] canvas").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Unable to load preview")).toHaveCount(0);
+
+    // the route itself: the session's cookies → the PDF, inline; download=1 → an attachment
+    const inline = await page.request.get(`/api/documents/${id}/file`);
+    expect(inline.status()).toBe(200);
+    expect(inline.headers()["content-type"]).toBe("application/pdf");
+    expect(inline.headers()["content-disposition"]).toMatch(/^inline; filename=/);
+    expect(inline.headers()["cache-control"]).toContain("no-store");
+    expect((await inline.body()).subarray(0, 5).toString()).toBe("%PDF-");
+    const download = await page.request.get(`/api/documents/${id}/file?download=1`);
+    expect(download.headers()["content-disposition"]).toMatch(/^attachment; filename=/);
+
+    // no session: 401, no bytes
+    const anonymous = await request.newContext({ baseURL });
+    const refused = await anonymous.get(`/api/documents/${id}/file`);
+    expect(refused.status()).toBe(401);
+    await anonymous.dispose();
   });
 
   test("document detail page has back navigation", async ({ page }) => {
