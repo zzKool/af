@@ -8,8 +8,9 @@ import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as accountantPackage from "@/modules/package";
 import { accountLabel } from "./bank-accounts";
+import { type Completeness, monthComplete } from "./completeness";
 import { linkFactsOf } from "./link-facts";
-import { deriveTransactionState } from "./queries";
+import { accountCompleteness, deriveTransactionState } from "./queries";
 import type {
   BankAccountRole,
   BankMonthCell,
@@ -51,6 +52,8 @@ export type MonthsInput = {
   rows: readonly { bankAccountId: string; month: string; state: TransactionState }[];
   /** per account, the months an import covers (its period_from → period_to) */
   covered: ReadonlyMap<string, ReadonlySet<string>>;
+  /** per account, the balance chain (F115): a month is *proven* only when the chain covers it whole */
+  completeness: ReadonlyMap<string, Completeness>;
   /** months whose monthly package is built */
   built: ReadonlySet<string>;
   /** today's month — the banner never talks about the month still running */
@@ -73,11 +76,16 @@ export function assembleMonths(input: MonthsInput): BankMonthsOverview {
     for (const month of input.months) {
       const c = perCell.get(key(a.id, month)) ?? { rows: 0, toJustify: 0 };
       const imported = c.rows > 0 || (input.covered.get(a.id)?.has(month) ?? false);
+      const chain = input.completeness.get(a.id);
+      // proven = every row justified AND the balance chain says no row is missing from the month (F115);
+      // justified rows on a month the chain does not reach whole are *incomplete* — never proven on half a month
       const state: BankMonthCellState = !imported
         ? "not_imported"
         : c.toJustify > 0
           ? "open"
-          : "proven";
+          : chain && monthComplete(chain, month)
+            ? "proven"
+            : "incomplete";
       cells.push({ bankAccountId: a.id, month, state, rows: c.rows, toJustify: c.toJustify });
     }
   }
@@ -98,7 +106,14 @@ export function assembleMonths(input: MonthsInput): BankMonthsOverview {
     from: input.months[0] ?? input.thisMonth,
     to: input.months[input.months.length - 1] ?? input.thisMonth,
     months,
-    accounts: input.accounts.map((a) => ({ ...a })),
+    accounts: input.accounts.map((a) => {
+      const chain = input.completeness.get(a.id);
+      return {
+        ...a,
+        completeTo: chain?.completeTo ?? null,
+        gaps: chain?.gaps.length ?? 0,
+      };
+    }),
     cells,
     banner: pending ? { month: pending.month, withoutProof: pending.toJustify } : null,
   };
@@ -157,6 +172,7 @@ export async function bankMonths(
   const ids = rows.map((r) => r.id);
   const links = await linking.linksTouching(tx, "bank_transaction", ids);
   const facts = linkFactsOf(links, rows);
+  const completeness = await accountCompleteness(tx);
 
   const covered = new Map<string, Set<string>>();
   for (const i of imports) {
@@ -186,6 +202,7 @@ export async function bankMonths(
       }),
     })),
     covered,
+    completeness,
     built,
     thisMonth,
   });

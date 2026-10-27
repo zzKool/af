@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { formatMoney } from "@/kernel/money/format-money";
 import { detectAccountAction, importCsvAction } from "@/modules/banking/banking.actions";
 import type { ImportSummary } from "@/modules/banking/types";
 
@@ -174,6 +175,30 @@ export function ImportDialog({
                 {summary.categorised > 0 &&
                   ` · ${t("banking.import.categorised", { count: summary.categorised })}`}
               </div>
+              {/* F115: the balance chain after this import — how far the account is proven, the gaps */}
+              <div className="text-muted-foreground" data-testid="import-chain">
+                {summary.completeTo
+                  ? t("banking.import.completeTo", { date: summary.completeTo })
+                  : t("banking.import.noChain")}
+              </div>
+              {summary.balanceGaps.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 text-xs" data-testid="import-gaps">
+                  {summary.balanceGaps.slice(0, 5).map((g) => (
+                    <li key={`${g.from}-${g.to}`}>
+                      {t("banking.import.gap", {
+                        from: g.from,
+                        to: g.to,
+                        difference: formatMoney(g.difference, summary.currency, { signed: true }),
+                      })}
+                    </li>
+                  ))}
+                  {summary.balanceGaps.length > 5 && (
+                    <li>
+                      {t("banking.import.moreGaps", { count: summary.balanceGaps.length - 5 })}
+                    </li>
+                  )}
+                </ul>
+              )}
               {summary.errors.length > 0 && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-xs">{t("banking.import.errors")}</summary>
