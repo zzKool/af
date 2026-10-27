@@ -18,7 +18,6 @@ Every difference between a laptop, the homelab and Azure is an env var (constitu
 | `JOBS_DISABLED` | no | `kernel/jobs` | `1` turns the in-process worker off (scripts, a second replica without the worker) |
 | `JOBS_POOL_MAX` | no | `kernel/jobs` | pg-boss's pool size (default 2) |
 | `LOG_LEVEL` | no | `kernel/logging` | pino level (`info`) |
-| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` | no | Sentry | errors; source maps uploaded at build when the token is set |
 | `APP_VERSION` | no | `/api/health` | the build's version — the publish workflow bakes the git sha or the tag into the image |
 | `SEED_PASSWORD` | dev | `prisma/seed.ts` | the seed users' password (development only) |
 | `NEXT_OUTPUT_STANDALONE` | build | `next.config.ts` | `false` makes a non-standalone build (the CI e2e server); the image uses standalone |

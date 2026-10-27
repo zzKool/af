@@ -3,7 +3,7 @@ import { logger } from "@/kernel/logging/logger";
 import type { JobContext } from "./types";
 
 /**
- * Run one attempt of a job handler. A throw is logged and reported to Sentry with the job's context
+ * Run one attempt of a job handler. A throw is logged with a reference and the job's context
  * (queue name, job id, attempt, the tenant when the payload carries one), then rethrown so pg-boss
  * retries — a failed attempt is never swallowed.
  */
@@ -23,8 +23,8 @@ export async function runReported<TData extends object>(
       attempt: ctx.attempt,
       tenantId: typeof tenantId === "string" ? tenantId : undefined,
     };
-    const sentryEventId = reportError(error, context);
-    logger.error({ err: error, sentryEventId, ...context }, "jobs: attempt failed");
+    const reference = reportError(error, context);
+    logger.error({ err: error, reference, ...context }, "jobs: attempt failed");
     throw error;
   }
 }

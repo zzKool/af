@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { logger } from "@/kernel/logging/logger";
 
 /**
  * Who and what an unexpected error happened for. A Server Action fills user, tenant, request and
@@ -15,17 +15,19 @@ export interface ErrorContext {
 }
 
 /**
- * Report an unexpected error to Sentry with its request context attached to the event itself — not to
- * a shared scope, so two concurrent requests never lend each other their user or tenant. Returns the
- * event id (the "Reference" the user can quote). No-op when Sentry has no DSN.
+ * Report an unexpected error: one structured log line (pino JSON, D51: it stays on the box) carrying the
+ * error, its context and a fresh **reference id** — the "Reference: …" the user can quote, found with
+ * `grep` in the app log. Sentry left with F111 (audit D13): it was off on the box by D51 and 57 MB in the
+ * image. The context goes on the line itself, never on a shared scope, so two concurrent requests never
+ * lend each other their user or tenant.
  */
 export function reportError(error: unknown, context: ErrorContext): string {
-  const tags: Record<string, string> = {};
+  // Web Crypto: the same call in Node and the edge runtime (instrumentation runs in both)
+  const reference = globalThis.crypto.randomUUID().slice(0, 8);
+  const fields: Record<string, string | number> = { reference };
   for (const [key, value] of Object.entries(context)) {
-    if (key !== "userId" && value !== undefined && value !== null) tags[key] = String(value);
+    if (value !== undefined && value !== null) fields[key] = value as string | number;
   }
-  return Sentry.captureException(error, {
-    user: context.userId ? { id: context.userId } : undefined,
-    tags,
-  });
+  logger.error({ err: error, ...fields }, "unexpected error");
+  return reference;
 }

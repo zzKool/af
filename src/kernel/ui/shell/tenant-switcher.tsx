@@ -1,6 +1,5 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { ChevronsUpDown, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -23,7 +22,6 @@ export function TenantSwitcher({
   onSwitching?: (switching: boolean) => void;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [switching, setSwitching] = useState(false);
 
   // Active org ID from BA session (reactive — updates immediately on switch)
@@ -38,8 +36,7 @@ export function TenantSwitcher({
     onSwitching?.(true);
     try {
       await authClient.organization.setActive({ organizationId: tenant.id });
-      // TODO: Reset Zustand stores on tenant switch (Story 2.5+)
-      queryClient.clear();
+      // every page reads on the server per request (no client cache to clear — react-query left with F111)
       router.refresh();
     } finally {
       setSwitching(false);

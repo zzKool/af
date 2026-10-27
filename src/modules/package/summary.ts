@@ -1,33 +1,23 @@
 // `summary.xlsx` — pure (spec FR-003, harvest R5, §3): the read model as the sheets the accountant is used to —
 // Bank statement, Income, Supplier invoices, Expenses, Settlements, Links, Flags. Nothing typed by hand; money as
-// decimal strings with two decimals (numbers in the cells, two-decimal format), dates ISO. Built with SheetJS
-// (`xlsx`, already a dependency); the workbook's dates are fixed to the period's end so two builds are identical.
-import * as XLSX from "xlsx";
+// decimal strings with two decimals (numbers in the cells, two-decimal format), dates ISO. Written by
+// `kernel/xlsx` (F111 — SheetJS left); the workbook's dates are fixed to the period's end so two builds are identical.
+import { writeXlsx, type XlsxSheet } from "@/kernel/xlsx/xlsx";
 import type { PeriodData } from "./types";
 
 type Cell = string | number | null;
 type Row = Cell[];
 
-const MONEY_FORMAT = "#,##0.00";
-
 /** A decimal string becomes a number cell (the display boundary — the sheet is what the accountant reads). */
 const n = (value: string | null | undefined): number | null =>
   value === null || value === undefined || value === "" ? null : Number(value);
 
-function sheet(header: readonly string[], rows: readonly Row[], moneyColumns: readonly number[]) {
-  const ws = XLSX.utils.aoa_to_sheet([[...header], ...rows.map((r) => [...r])]);
-  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
-  for (let r = 1; r <= range.e.r; r += 1) {
-    for (const c of moneyColumns) {
-      const cell = ws[XLSX.utils.encode_cell({ r, c })];
-      if (cell && cell.t === "n") cell.z = MONEY_FORMAT;
-    }
-  }
-  ws["!cols"] = header.map((h, i) => ({
-    wch: Math.min(60, Math.max(h.length, ...rows.map((r) => String(r[i] ?? "").length)) + 2),
-  }));
-  return ws;
-}
+const sheet = (
+  name: string,
+  header: readonly string[],
+  rows: readonly Row[],
+  moneyColumns: readonly number[],
+): XlsxSheet => ({ name, header, rows, moneyColumns });
 
 export const SHEETS = {
   bank: "Bank statement",
@@ -285,32 +275,18 @@ export function summaryRows(data: PeriodData): Record<keyof typeof SHEETS, Row[]
 /** The workbook bytes. Deterministic: the document dates are the period's end, the rows are in collected order. */
 export function summaryXlsx(data: PeriodData): Buffer {
   const rows = summaryRows(data);
-  const wb = XLSX.utils.book_new();
-  const stamp = new Date(`${data.period.to}T00:00:00Z`);
-  wb.Props = {
-    Title: `Accountant package ${data.period.period}`,
-    Author: "AF",
-    CreatedDate: stamp,
-    ModifiedDate: stamp,
-  };
-  XLSX.utils.book_append_sheet(wb, sheet(BANK_HEADER, rows.bank, [2, 10, 16, 18, 19]), SHEETS.bank);
-  XLSX.utils.book_append_sheet(
-    wb,
-    sheet(INCOME_HEADER, rows.income, [7, 9, 10, 11, 12, 13]),
-    SHEETS.income,
-  );
-  XLSX.utils.book_append_sheet(
-    wb,
-    sheet(SUPPLIER_HEADER, rows.suppliers, [6, 7, 8, 9, 13, 14]),
-    SHEETS.suppliers,
-  );
-  XLSX.utils.book_append_sheet(wb, sheet(EXPENSE_HEADER, rows.expenses, [7, 10]), SHEETS.expenses);
-  XLSX.utils.book_append_sheet(
-    wb,
-    sheet(SETTLEMENT_HEADER, rows.settlements, [3, 5, 6, 7, 8]),
-    SHEETS.settlements,
-  );
-  XLSX.utils.book_append_sheet(wb, sheet(LINKS_HEADER, rows.links, [5]), SHEETS.links);
-  XLSX.utils.book_append_sheet(wb, sheet(FLAGS_HEADER, rows.flags, []), SHEETS.flags);
-  return XLSX.write(wb, { type: "buffer", bookType: "xlsx", compression: true }) as Buffer;
+  return writeXlsx({
+    title: `Accountant package ${data.period.period}`,
+    author: "AF",
+    stamp: new Date(`${data.period.to}T00:00:00Z`),
+    sheets: [
+      sheet(SHEETS.bank, BANK_HEADER, rows.bank, [2, 10, 16, 18, 19]),
+      sheet(SHEETS.income, INCOME_HEADER, rows.income, [7, 9, 10, 11, 12, 13]),
+      sheet(SHEETS.suppliers, SUPPLIER_HEADER, rows.suppliers, [6, 7, 8, 9, 13, 14]),
+      sheet(SHEETS.expenses, EXPENSE_HEADER, rows.expenses, [7, 10]),
+      sheet(SHEETS.settlements, SETTLEMENT_HEADER, rows.settlements, [3, 5, 6, 7, 8]),
+      sheet(SHEETS.links, LINKS_HEADER, rows.links, [5]),
+      sheet(SHEETS.flags, FLAGS_HEADER, rows.flags, []),
+    ],
+  });
 }

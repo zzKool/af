@@ -31,7 +31,7 @@ type RequestContext = Partial<{
  * from unexpected crashes. Both are returned as serverError to the client.
  *
  * - ActionError → pass through the AppError object (not reported)
- * - anything else → reported to Sentry with the request context (user, tenant, request id, action)
+ * - anything else → logged with a reference and the request context (user, tenant, request id, action)
  * - Prisma errors → INTERNAL_ERROR with retryable: true
  * - Other errors → INTERNAL_ERROR with retryable: false
  */
@@ -45,20 +45,20 @@ const baseClient = createSafeActionClient({
     // user + tenant after it, request id + the request-scoped logger after logging.
     const request = ctx as RequestContext;
     const action = metadata?.name ?? "unknown";
-    const sentryEventId = reportError(error, {
+    const reference = reportError(error, {
       userId: request.userId,
       tenantId: request.tenantId,
       requestId: request.requestId,
       action,
     });
     (request.log ?? logger).error(
-      { err: error, sentryEventId, action },
+      { err: error, reference, action },
       "Unhandled Server Action error",
     );
     const retryable = error instanceof PrismaClientKnownRequestError;
     return {
       code: "INTERNAL_ERROR" as const,
-      message: `An unexpected error occurred. Reference: ${sentryEventId}`,
+      message: `An unexpected error occurred. Reference: ${reference}`,
       retryable,
     };
   },

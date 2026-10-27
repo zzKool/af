@@ -6,7 +6,6 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { LocaleProvider } from "@/kernel/i18n/locale-provider";
 import { browserLocale } from "@/kernel/i18n/request-locale";
 import { TablePreferencesProvider } from "@/kernel/ui/data-table";
-import { Providers } from "@/kernel/ui/providers";
 import { AppShell } from "@/kernel/ui/shell/app-shell";
 import { parseTheme } from "@/kernel/ui/theme";
 import { ThemeSync } from "@/kernel/ui/theme-sync";
@@ -80,7 +79,7 @@ export default async function AppLayout({
   const tableLayouts = Object.fromEntries(tablePrefs.map((p) => [p.tableKey, p.preferences]));
 
   return (
-    <Providers>
+    <>
       <ThemeSync theme={parseTheme(userPref?.theme)} />
       <LocaleProvider initialLocale={userPref?.locale ?? null} browserLocale={browser}>
         <TablePreferencesProvider initial={tableLayouts} save={upsertTablePreferenceAction}>
@@ -96,6 +95,6 @@ export default async function AppLayout({
           </AppShell>
         </TablePreferencesProvider>
       </LocaleProvider>
-    </Providers>
+    </>
   );
 }

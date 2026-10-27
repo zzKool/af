@@ -23,20 +23,35 @@ type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>
  * pg queues overlapping queries anyway (no speed is lost) but warns "client.query() while already
  * executing", removed in pg@9 (F53). For a list, `mapInOrder`. The architecture guard enforces it.
  */
+/**
+ * How long one tenant transaction may run (F111, audit D12). Prisma's default is 5 s — enough for a panel,
+ * not for a 3-year CSV import or a package build with its PDFs read back, which run inside one. Named here so
+ * every caller takes the same, explicit value; `maxWait` is how long to wait for a connection from the pool.
+ */
+export const TENANT_TRANSACTION_TIMEOUT_MS = 60_000;
+export const TENANT_TRANSACTION_MAX_WAIT_MS = 5_000;
+
 export async function withTenantTransaction<T>(
   prisma: PrismaClient,
   tenantId: string,
   callback: (tx: TransactionClient) => Promise<T>,
+  options: { timeoutMs?: number } = {},
 ): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    // SET doesn't support parameterized queries in PostgreSQL.
-    // Validate UUID format to prevent SQL injection.
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)) {
-      throw new Error(`Invalid tenant ID format: ${tenantId}`);
-    }
-    await tx.$executeRawUnsafe(`SET LOCAL app.tenant_id = '${tenantId}'`);
-    return callback(tx);
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      // SET doesn't support parameterized queries in PostgreSQL.
+      // Validate UUID format to prevent SQL injection.
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)) {
+        throw new Error(`Invalid tenant ID format: ${tenantId}`);
+      }
+      await tx.$executeRawUnsafe(`SET LOCAL app.tenant_id = '${tenantId}'`);
+      return callback(tx);
+    },
+    {
+      timeout: options.timeoutMs ?? TENANT_TRANSACTION_TIMEOUT_MS,
+      maxWait: TENANT_TRANSACTION_MAX_WAIT_MS,
+    },
+  );
 }
 
 /**

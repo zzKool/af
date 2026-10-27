@@ -247,6 +247,51 @@ describe("tenantMiddleware", () => {
     expect(callbackExecuted).not.toHaveBeenCalled();
   });
 
+  // F111 (audit D12): a handler that RETURNS an error after a write — the write is rolled back, the
+  // handler's own answer reaches the client, no side effect runs.
+  it("rolls back when the handler returns an error, and hands that answer back unchanged", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const sideEffect = vi.fn();
+    const answer = {
+      success: true,
+      data: {
+        error: { code: "BUSINESS_RULE_VIOLATION", message: "after the write", retryable: false },
+      },
+    };
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      await ctx.tx.tenantConfig.create({
+        data: { tenantId, key: "f111.rollback", value: "written", createdBy: userId },
+      });
+      ctx.onCommit(async () => sideEffect());
+      return answer;
+    });
+
+    const result = await callTenantMiddleware({ userId, tenantId }, next);
+    expect(result).toBe(answer);
+    expect(sideEffect).not.toHaveBeenCalled();
+    const written = await adminPool.query(
+      `SELECT 1 FROM tenant_configs WHERE tenant_id = $1 AND key = 'f111.rollback'`,
+      [tenantId],
+    );
+    expect(written.rowCount).toBe(0);
+  });
+
+  it("commits when the handler returns data, and the write is there", async () => {
+    const { userId, tenantId } = await setupOwner();
+    const next = vi.fn().mockImplementation(async ({ ctx }) => {
+      await ctx.tx.tenantConfig.create({
+        data: { tenantId, key: "f111.commit", value: "written", createdBy: userId },
+      });
+      return { success: true, data: { data: { ok: true } } };
+    });
+    await callTenantMiddleware({ userId, tenantId }, next);
+    const written = await adminPool.query(
+      `SELECT 1 FROM tenant_configs WHERE tenant_id = $1 AND key = 'f111.commit'`,
+      [tenantId],
+    );
+    expect(written.rowCount).toBe(1);
+  });
+
   it("failed callback does not prevent other callbacks from running", async () => {
     const { userId, tenantId } = await setupOwner();
     const callbackOrder: string[] = [];
