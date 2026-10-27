@@ -99,7 +99,8 @@ export async function resolveStatement(
         allocatedBase: l.allocatedBase,
         expectedBase: l.expectedBase,
         remainingOpen: openBase(e.amount, e.amountBase, allocations.get(e.id) ?? []).toFixed(2),
-        note: l.note,
+        // the link's marker note names this statement — not a line note on it
+        note: l.note === `Settlement ${s.number}` ? null : l.note,
       },
     ];
   });
