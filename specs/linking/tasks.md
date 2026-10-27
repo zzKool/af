@@ -32,3 +32,10 @@
 - [x] T014 The ISO-day helpers from the kernel (lessons audit 27, linking's adoption line): `suggestions.ts` / `inbox.ts` `shiftDate` → `addDays`, `scoring.ts` `daysBetween` → `@/kernel/clock/calendar`'s (re-exported, `index.ts` keeps the name).
 - [x] T015 `scoring.pure.test.ts`'s property states the confidence rule itself instead of calling `confidenceOf` (lessons audit 31).
 - [x] T016 The inbox asks banking for main-account rows only, then pages (lessons audit 32: 300 rows paged first, then filtered — savings rows could crowd main ones out).
+
+## Part 6 — the link as the only payment record (F114, D60, `specs/linking/payment-record.md`)
+
+- [x] T017 The spec: the four-line rule, the seven cases, FR-001–FR-011, the migration plan, the owner's three questions (docs PR, 2026-10-27).
+- [ ] T018 PR 1 `feat/linking-payment-record` — the schema alone (FR-001): the enum value migration, the data migration of the plan's steps 2–8 with its guard and counts, the Prisma models (`Link.allocatedBase`, `Expense.paidFromAccountId`, `Subscription.paidFromAccountId`, `Settlement` reduced, `PaymentSource` / `SettlementLine` gone, `BankAccount.bankFormatId?`), the two triggers; `linking/payment-record-migration.test.ts` replaying the migrations on the seven-case fixture (the F113 test's harness); the trigger tests. **Merges after the owner's read of the spec** (the migration drops columns).
+- [ ] T019 PR 2 `feat/linking-payment-services` — FR-002–FR-008: linking's `createLink` with the base, `kernel/money` `fxDifference` / `paidShare` + the one tolerance, expenses (`payExpense` / `unpay`, status on amounts, settlements on links, statement from links, payment-sources deleted), supplier invoices (one `recordPayment` / `removePayment`), banking's `payerAccounts` / `createPrivateAccount` + the Accounts page section, subscriptions' payer, the panels' payment sections with the FX line, the Justify panel's payer from the row; tests of FR-010; docs of FR-011.
+- [ ] T020 PR 3 `feat/package-payment-columns` — FR-009: Base · Paid base · FX difference on the three sheets, settlements from links, the goldens captured once.
