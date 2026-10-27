@@ -26,7 +26,10 @@ export type {
   ValidationResult,
 } from "./csv-parser";
 export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
+export type { CategoriseOptions, RowRate } from "./facts";
+export { baseAmount, categorise, categoriseSchema, resolveRate, transactionFacts } from "./facts";
 export { transactionHistory } from "./history";
+export { impliedRate, withImplicitRates } from "./implicit-rate";
 export {
   deleteImport,
   describeHeaderError,
@@ -47,11 +50,12 @@ export {
   needsProof,
 } from "./months";
 export { rowsToJustifyCount } from "./open-work";
+export { categoryOptions, partnerOptions } from "./options";
 export * from "./queries";
-export type { EntryTarget, RuleInput, RuleLike, UpdateRuleInput } from "./rules";
+export type { RuleInput, RuleLike, RuleTarget, UpdateRuleInput } from "./rules";
 export {
   applyRules,
-  applyToEntries,
+  applyToTransactions,
   createRule,
   createRuleFromTransaction,
   DEFAULT_RULES,
@@ -80,6 +84,7 @@ export {
 export type * from "./types";
 export {
   BANK_ACCOUNT_ROLES,
+  RATE_SOURCES,
   RULE_MATCH_FIELDS,
   RULE_MATCH_TYPES,
   TRANSACTION_STATES,

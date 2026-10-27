@@ -24,7 +24,6 @@ import {
   setupOwner,
 } from "@/modules/expenses/__fixtures__/harness";
 import * as invoices from "@/modules/invoices";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
@@ -304,11 +303,9 @@ async function juneFixture(): Promise<Fixture> {
       toId: rows.transferIn,
     });
     if (transfer.error) throw new Error(transfer.error.message);
-    const feeEntry = (await journal.entriesForSources(tx, "bank_transaction", [rows.fee])).get(
-      rows.fee,
-    );
+    const feeEntry = (await banking.transactionFacts(tx, [rows.fee])).get(rows.fee);
     await settings.activateBasCategories(tx, caller, noopAudit, ["657"]);
-    const fee = await journal.categorise(tx, caller, noopAudit, feeEntry?.id as string, {
+    const fee = await banking.categorise(tx, caller, noopAudit, feeEntry?.id as string, {
       basCode: "657",
       noDocumentNeeded: true,
     });

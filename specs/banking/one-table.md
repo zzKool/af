@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: Spec — awaiting the owner's read (FULL lane: spec → read → tasks; the schema PR alone)
+**Status**: Approved by the owner 2026-10-27 · PR A built (`feat/banking-one-table`) · PR B and PR C after B1 (D65)
 
 **Input**: D59 (the owner, 2026-10-27, [[audit-2026-10-27]] §2.3): "`journal_entries` duplicates `bank_transactions` field by field and bolts on the owner's facts. Put the base, rate, BAS, partner, note and the no-proof flag on the bank row; the journal becomes a read of the same rows; manual journal entries go — periodisation is the accountant's (D1)."
 
@@ -38,7 +38,7 @@ The import writes each row **with** its SEK base and rate (`same_currency` 1 for
 
 ### User Story 2 - The existing books move once (Priority: P1)
 
-One migration: the new columns on `bank_transactions`; every bank-sourced `journal_entries` row copied onto its row (base, rate, rate source, rate date, BAS, partner, note, flag, categorised_by, rule_id); every `links` row with `from_type = 'journal_entry'` re-pointed to `bank_transaction` + the entry's `source_id` (duplicates with an existing bank-row link of the same kind and target dropped — the same fact); the audit trail untouched (its `entity_type = journal_entry` rows stay readable through the row's History, mapped by the migration's id map in a `journal_entry_rows(entry_id, transaction_id)` helper table kept for history reads). **Manual entries**: the migration refuses to run while any exist (`RAISE EXCEPTION` listing their dates and descriptions) — the owner deletes them first (none are expected: the Excel history is not imported, D65; a prepaid-service fact is the accountant's periodisation, D1).
+One migration: the new columns on `bank_transactions`; every bank-sourced `journal_entries` row copied onto its row (base, rate, rate source, rate date, BAS, partner, note, flag, categorised_by, rule_id); every `links` row with `from_type = 'journal_entry'` re-pointed to `bank_transaction` + the entry's `source_id` (duplicates with an existing bank-row link of the same kind and target dropped — the same fact); the audit trail kept: the entries' `update` rows are **appended** onto their rows' own trail (`entity_type = bank_transaction`, same `created_at`, audit rows are append-only), so the row's History reads one trail and no map table is needed; the old `journal_entry` rows stay as they are. **Manual entries**: the migration refuses to run while any exist (`RAISE EXCEPTION` listing their dates and descriptions) — the owner deletes them first (none are expected: the Excel history is not imported, D65; a prepaid-service fact is the accountant's periodisation, D1).
 
 **Acceptance Scenarios**:
 
@@ -52,7 +52,7 @@ One migration: the new columns on `bank_transactions`; every bank-sourced `journ
 
 **Acceptance Scenarios**:
 
-1. **Given** the owner on `/banking` **Then** the columns of the old ledger are available; the footer sums `amount_base`; the category filter shows the categories present.
+1. **Given** the owner on `/banking` **Then** the columns of the old ledger are available (Category, Partner, Note shown; *No document*, *Categorised by*, the base, rate and rate source as hidden columns); the footer sums `amount_base`; the category filter shows the categories present.
 2. **Given** `/journal` **Then** 404; `nav.journal` gone from the dictionaries; `kernel/nav` tests updated.
 
 ### User Story 4 - Linked means categorised (Priority: P2, PR C — audit B2, D58)
@@ -73,21 +73,21 @@ A row with no typed BAS that `justifies` an expense or a supplier invoice shows 
 
 ## Requirements *(mandatory)*
 
-- **FR-001** Schema (PR A, the migration alone touches it): `bank_transactions` + `amount_base DECIMAL(15,2) NOT NULL`, `rate DECIMAL(18,6) NOT NULL`, `rate_source rate_source NOT NULL CHECK (rate_source <> 'bank')`, `rate_date DATE`, `bas_code VARCHAR(4)`, `partner_id UUID` (a composite FK to `partners`, D63), `note TEXT`, `no_document_needed BOOLEAN NOT NULL DEFAULT false`, `categorised_by journal_categorised_by`, `rule_id UUID`; indexes on `(tenant_id, bas_code)`, `(tenant_id, partner_id)`, `(tenant_id, categorised_by)`; trigger `bank_transactions_lock_facts`; the data copy, the link re-pointing, the manual-entry guard, the `journal_entry_rows` map. The columns are added NOT NULL with the copy in the same transaction (a row without an entry — none expected — fails the migration by name).
-- **FR-002** `banking` absorbs the journal's write path and reads: `categorise`, `resolveRate` / the base rule, `entriesForSources` → gone (the row carries the facts), `deriveLinksState` (one identity), `withImplicitRates`, `entryHistory` → `transactionHistory` already exists and reads the map for the old entries. `modules/journal` is reduced to nothing in PR B; in PR A it re-exports from banking so no consumer breaks mid-way — then each consumer (`expenses`, `supplier-invoices`, `linking`, `package`, `partners` page, the three banking pages) switches to `banking`'s read in the same PR.
+- **FR-001** Schema (PR A, the migration alone touches it): `bank_transactions` + `amount_base DECIMAL(15,2) NOT NULL`, `rate DECIMAL(18,6) NOT NULL`, `rate_source rate_source NOT NULL CHECK (rate_source <> 'bank')`, `rate_date DATE`, `bas_code VARCHAR(4)`, `partner_id UUID` (a composite FK to `partners`, D63), `note TEXT`, `no_document_needed BOOLEAN NOT NULL DEFAULT false`, `categorised_by journal_categorised_by`, `rule_id UUID`; indexes on `(tenant_id, bas_code)`, `(tenant_id, partner_id)`, `(tenant_id, categorised_by)`; trigger `bank_transactions_lock_facts`; the data copy, the link re-pointing, the manual-entry guard, the audit-trail append. The columns are added NOT NULL with the copy in the same transaction (a row without an entry — none expected — fails the migration by name).
+- **FR-002** `banking` absorbs the journal's write path and reads: `categorise`, `resolveRate` / the base rule (`facts.ts`), `entriesForSources` → `transactionFacts` (the row carries the facts), `withImplicitRates` (`implicit-rate.ts`, apart from `facts.ts` so the actions' load-time schema read never meets linking's registry — the cycle the journal hid behind `await import`), `entryHistory` → `transactionHistory` reads the row's one trail. `modules/journal` is deleted in PR A (nothing re-exports it): every consumer (`expenses`, `supplier-invoices`, `linking`, `package`, `subscriptions`, the `partners` page, the three banking pages) switches to `banking`'s read in the same PR.
 - **FR-003** `linking`: `journal_entry` leaves `LinkableType`, the kinds matrix, hrefs, scoring; the registry has one identity for a row. Links data migrated (FR-001).
 - **FR-004** The Months grid, `open-work.ts`, `rowsToJustifyCount` and the dashboard read `bank_transactions` + `links` only — one query each, no entry join (audit D8 rides here: the layout's count becomes a SQL aggregate).
-- **FR-005** PR B (after one real month, D65): drop `journal_entries`, `journal_source`, `journal_entry_rows`; delete `modules/journal`, `/journal`, `nav.journal` (the nav file alone, with the i18n keys); `specs/journal` marked superseded by this spec.
+- **FR-005** PR B (after one real month, D65): drop `journal_entries`, `journal_source` and the `JournalEntry` model; `specs/journal` marked superseded by this spec. (`modules/journal`, `/journal`, `nav.journal` and the journal's i18n keys went in PR A — the nav file and the dictionaries in the same PR, one schema PR at a time.)
 - **FR-006** PR C: the derived category / partner (US4) as a read in `banking` (`effectiveCategory(row, links)`), used by the list, the panel, the package and the declarations' reads; `docs/banking.md` and `docs/accountant-package.md` say so; D58 recorded as applied.
 - **FR-007** Tests: the migration on the seed (US2-1, in `prisma/migrations/*.test.ts` or `banking/one-table.test.ts`: counts before / after, the links re-pointed, the golden); the lock trigger hit directly; `categorise` on the row; the e2e of `/banking` categorising a row and the inbox linking it, unchanged in behaviour; `kernel/guards` green (the cycle is gone — `implicit-rate.ts` imports nothing dynamically).
 
 ## Success Criteria *(mandatory)*
 
-- **SC-001** After PR A on the seed: every `bank_transactions` row has its base and rate; `journal_entries` is read by no code path (`grep -rn journalEntry src/modules | grep -v modules/journal` empty); the architecture guard shows no `await import` in banking.
+- **SC-001** After PR A on the seed: every `bank_transactions` row has its base and rate; `journal_entries` is read by no code path (`grep -rn "journalEntry\b" src/modules` empty); no `await import` in banking.
 - **SC-002** The banking e2e journeys (import, categorise, link, months, inbox, rules) pass unchanged.
 - **SC-003** The package golden is identical before and after PR A (the BAS column reads the row's typed value, exactly what the entry held).
 - **SC-004** PR C: the package of a month with an uncategorised row justified by a 6540 supplier invoice prints 6540 (a new golden, captured once).
-- **SC-005** `/journal` is gone after PR B; the sidebar has one entry fewer; the accountant's read works on `/banking`.
+- **SC-005** `/journal` is gone (PR A); the sidebar has one entry fewer; the accountant's read works on `/banking`.
 
 ## Assumptions
 

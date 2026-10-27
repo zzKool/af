@@ -17,7 +17,6 @@ const endpointSchema = z.object({
     "partner",
     "contract",
     "bank_transaction",
-    "journal_entry",
     "invoice",
     "supplier_invoice",
     "expense",

@@ -1,6 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import * as journal from "@/modules/journal";
 import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import { accountLabel } from "./bank-accounts";
@@ -8,8 +7,8 @@ import { accountLabel } from "./bank-accounts";
 /**
  * A bank transaction carries |amount| in its currency: it justifies invoices / documents / expenses with
  * allocations (never more than its amount — the linking service checks the source side too), pairs with
- * another transaction (`transfer`) or settles a reimbursement. For the matcher it is the row: its SEK base is
- * the journal entry's, its texts are every field Nordea gave (name, message, details, sender, recipient).
+ * another transaction (`transfer`) or settles a reimbursement. For the matcher it is the row: its SEK base and
+ * its partner (F113), its texts every field Nordea gave (name, message, details, sender, recipient).
  */
 const ROW_SELECT = {
   id: true,
@@ -22,6 +21,8 @@ const ROW_SELECT = {
   additionalDetails: true,
   sender: true,
   recipient: true,
+  amountBase: true,
+  partnerId: true,
   bankAccount: true,
 } as const satisfies Prisma.BankTransactionSelect;
 
@@ -32,27 +33,21 @@ async function toFacts(
   tx: TransactionClient,
   rows: Row[],
 ): Promise<Omit<EntityFacts, "remaining">[]> {
-  const entries = await journal.entriesForSources(
-    tx,
-    "bank_transaction",
-    rows.map((r) => r.id),
-  );
-  // the partner the owner (or a rule) put on the journal entry is a name the matcher may use
-  const partnerIds = [...entries.values()].map((e) => e.partnerId).filter((p): p is string => !!p);
+  // the partner the owner (or a rule) put on the row is a name the matcher may use
+  const partnerIds = rows.map((r) => r.partnerId).filter((p): p is string => !!p);
   const names = await partners.partnerNames(tx, [...new Set(partnerIds)]);
   return rows.map((t) => {
     const date = t.bookingDate.toISOString().slice(0, 10);
-    const entry = entries.get(t.id);
     return {
       type: "bank_transaction" as const,
       id: t.id,
       label: `${date} · ${t.amount.toFixed(2)} ${t.currency} · ${t.description} · ${accountLabel(t.bankAccount)}`,
       amount: t.amount.abs().toFixed(2),
       currency: t.currency,
-      amountBase: entry ? entry.amountBase.replace(/^-/, "") : null,
+      amountBase: t.amountBase.abs().toFixed(2),
       date,
       reference: null,
-      partnerName: entry?.partnerId ? (names.get(entry.partnerId) ?? null) : null,
+      partnerName: t.partnerId ? (names.get(t.partnerId) ?? null) : null,
       texts: [t.name, t.message, t.additionalDetails, t.sender, t.recipient, t.description].map(
         (s) => s ?? "",
       ),

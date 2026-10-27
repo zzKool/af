@@ -1,7 +1,7 @@
 "use client";
 
-// The side panel's History section (D40, F71): what happened to the row, newest first — the import, the journal
-// entry's category / partner / *no document needed*, the links made. Read from the audit trail on open and after
+// The side panel's History section (D40, F71): what happened to the row, newest first — the import, the
+// row's category / partner / *no document needed*, the links made. Read from the audit trail on open and after
 // every save in the panel (`refreshKey`); collapsed by default like every panel's History.
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useState } from "react";
@@ -13,7 +13,7 @@ import type { TransactionHistoryEvent } from "@/modules/banking/types";
 
 type T = ReturnType<typeof useT>;
 
-/** One event in the UI language; who decided a journal change (rule, by hand…) follows a dot. */
+/** One event in the UI language; who decided a categorisation (rule, by hand…) follows a dot. */
 export function historyText(t: T, e: TransactionHistoryEvent): string {
   switch (e.kind) {
     case "imported":
@@ -28,7 +28,7 @@ export function historyText(t: T, e: TransactionHistoryEvent): string {
         e.kind === "categorised"
           ? t("banking.history.categorised", { code: e.basCode })
           : t(`banking.history.${e.kind}`);
-      return e.by ? `${what} · ${t(`journal.categorisedBy.${e.by}`)}` : what;
+      return e.by ? `${what} · ${t(`banking.categorisedBy.${e.by}`)}` : what;
     }
   }
 }

@@ -22,16 +22,15 @@ const entry = (fields: Record<string, unknown>) => ({
 });
 
 describe("toHistoryEvents", () => {
-  it("the bank row's create is the import; the journal entry's create and an unchanged update say nothing", () => {
+  it("the bank row's create is the import; an unchanged update says nothing", () => {
     const events = toHistoryEvents(
       [
         row({ entityType: "bank_transaction", action: "create", source: "web" }),
-        row({ entityType: "journal_entry", action: "create", newData: entry({}) }),
         row({
-          entityType: "journal_entry",
+          entityType: "bank_transaction",
           action: "update",
-          oldData: entry({ bankImplicitRate: null }),
-          newData: entry({ bankImplicitRate: "11.9" }),
+          oldData: entry({ note: null }),
+          newData: entry({ note: "a word for the accountant" }),
         }),
       ],
       SELF,
@@ -39,11 +38,11 @@ describe("toHistoryEvents", () => {
     expect(events).toEqual([{ kind: "imported", at: at(0).toISOString(), source: "web" }]);
   });
 
-  it("a journal update gives one event per fact the owner sees, with who decided it", () => {
+  it("a categorisation gives one event per fact the owner sees, with who decided it", () => {
     const events = toHistoryEvents(
       [
         row({
-          entityType: "journal_entry",
+          entityType: "bank_transaction",
           action: "update",
           oldData: entry({}),
           newData: entry({
@@ -64,7 +63,7 @@ describe("toHistoryEvents", () => {
     const events = toHistoryEvents(
       [
         row({
-          entityType: "journal_entry",
+          entityType: "bank_transaction",
           action: "update",
           oldData: entry({ basCode: "657", noDocumentNeeded: true, categorisedBy: "rule" }),
           newData: entry({ categorisedBy: "manual" }),
@@ -111,7 +110,7 @@ describe("toHistoryEvents", () => {
       [
         row({ entityType: "bank_transaction", action: "create", createdAt: at(1) }),
         row({
-          entityType: "journal_entry",
+          entityType: "bank_transaction",
           action: "update",
           createdAt: at(5),
           oldData: entry({}),

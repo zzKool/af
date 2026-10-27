@@ -1,9 +1,10 @@
 "use client";
 
 // The workbench's docked details panel (D40): the title (date · amount · state), the transfer proposal as a
-// banner, then the sections About (the row as the bank said it) · Proof (links, suggestions) · Journal entry
-// (the categorise form, "create rule from this") · History (collapsed; the audit trail). Self-loading from the transaction id (the same view opens
-// from the list, from an import's "show the new rows" and in the inbox's right pane).
+// banner, then the sections About (the row as the bank said it) · Proof (links, suggestions) · Category (the
+// base, the categorise form, "create rule from this") · History (collapsed; the audit trail). Self-loading from
+// the transaction id (the same view opens from the list, from an import's "show the new rows" and in the inbox's
+// right pane).
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
@@ -23,9 +24,9 @@ import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { InfoBanner } from "@/kernel/ui/info-banner";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { acceptTransferAction, getTransactionAction } from "@/modules/banking/banking.actions";
-import { type TransactionDetailWire, toTransactionEntryWire } from "@/modules/banking/detail-wire";
-import { CategoriseForm, type CategoryOption, type PartnerOption } from "@/modules/journal/ui";
+import type { TransactionDetailWire, TransactionWire } from "@/modules/banking/detail-wire";
 import { GraphLink, LinksList, SuggestionsSection } from "@/modules/linking/ui";
+import { CategoriseForm, type CategoryOption, type PartnerOption } from "./categorise-form";
 import { RuleDialog } from "./rule-dialog";
 import { TransactionHistory } from "./transaction-history";
 import { TransactionStateLabel } from "./transaction-state";
@@ -77,7 +78,7 @@ export function TransactionPanel({
 }
 
 /**
- * One bank row in full — the row as the bank said it, the journal entry, the suggestions, the links, the transfer
+ * One bank row in full — the row as the bank said it, its facts, the suggestions, the links, the transfer
  * proposal, "create rule from this". Self-loading from the id; the side panel and the inbox's right pane share it.
  */
 export function TransactionDetailView({
@@ -132,9 +133,12 @@ export function TransactionDetailView({
     router.refresh();
   }
 
-  /** the categorise form hands back the saved entry — shown at once, before the reload lands */
-  function entrySaved(entry: NonNullable<Detail["entry"]>) {
-    setDetail((d) => (d ? { ...d, entry } : d));
+  /** the categorise form hands back the saved row — shown at once, before the reload lands (the implied rate is
+   * the pair's, unchanged by a categorisation) */
+  function rowSaved(row: TransactionWire) {
+    setDetail((d) =>
+      d ? { ...d, transaction: { ...row, bankImplicitRate: d.transaction.bankImplicitRate } } : d,
+    );
     changed();
   }
 
@@ -268,47 +272,43 @@ export function TransactionDetailView({
             </DetailsSection>
 
             <DetailsSection title={t("banking.panel.journal")}>
-              {detail.entry ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {t("banking.panel.base", {
-                      base: formatMoney(detail.entry.amountBase, "SEK", { bare: true }),
-                      rate: detail.entry.rate,
-                      source: t(`journal.rateSource.${detail.entry.rateSource}`),
-                    })}
-                    {detail.entry.bankImplicitRate
-                      ? ` · ${t("banking.panel.implicitRate", { rate: rate(detail.entry.bankImplicitRate) })}`
-                      : ""}
-                  </p>
-                  <CategoriseForm
-                    entry={detail.entry}
-                    categories={categories}
-                    partners={partners}
-                    canWrite={canWrite}
-                    onSaved={(e) => entrySaved(toTransactionEntryWire(e))}
-                  />
-                  {canWrite && (
-                    <div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setRuleOpen(true)}
-                        data-testid="create-rule"
-                      >
-                        {t("banking.panel.createRule")}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">—</p>
-              )}
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {t("banking.panel.base", {
+                    base: formatMoney(tx.amountBase, "SEK", { bare: true }),
+                    rate: tx.rate,
+                    source: t(`banking.rateSource.${tx.rateSource}`),
+                  })}
+                  {tx.bankImplicitRate
+                    ? ` · ${t("banking.panel.implicitRate", { rate: rate(tx.bankImplicitRate) })}`
+                    : ""}
+                </p>
+                <CategoriseForm
+                  entry={tx}
+                  categories={categories}
+                  partners={partners}
+                  canWrite={canWrite}
+                  onSaved={rowSaved}
+                />
+                {canWrite && (
+                  <div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRuleOpen(true)}
+                      data-testid="create-rule"
+                    >
+                      {t("banking.panel.createRule")}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </DetailsSection>
 
             <TransactionHistory transactionId={tx.id} refreshKey={version} />
           </div>
 
-          {canWrite && detail.entry && (
+          {canWrite && (
             <RuleDialog
               open={ruleOpen}
               onOpenChange={setRuleOpen}
@@ -316,9 +316,9 @@ export function TransactionDetailView({
               initial={{
                 name: tx.counterpartyKey,
                 matchPattern: tx.counterpartyKey,
-                basCode: detail.entry.basCode,
-                partnerId: detail.entry.partnerId,
-                noDocumentNeeded: detail.entry.noDocumentNeeded,
+                basCode: tx.basCode,
+                partnerId: tx.partnerId,
+                noDocumentNeeded: tx.noDocumentNeeded,
               }}
               categories={categories}
               partners={partners}

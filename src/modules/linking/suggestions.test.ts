@@ -9,6 +9,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
+import * as banking from "@/modules/banking";
 import * as contracts from "@/modules/contracts";
 import * as expenses from "@/modules/expenses";
 import {
@@ -20,7 +21,6 @@ import {
   setupOwner,
 } from "@/modules/expenses/__fixtures__/harness";
 import * as invoices from "@/modules/invoices";
-import * as journal from "@/modules/journal";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { inboxRows, unlinkedDocuments } from "./inbox";
@@ -621,11 +621,9 @@ describe("US3 — the inbox read model", () => {
     );
     // the fee row needs no document (the seeded rule did it) — flag it by hand here: the harness has no rules
     await run(owner.caller, async (tx) => {
-      const entry = (await journal.entriesForSources(tx, "bank_transaction", [fee as string])).get(
-        fee as string,
-      );
+      const entry = (await banking.transactionFacts(tx, [fee as string])).get(fee as string);
       if (!entry) throw new Error("no entry");
-      const r = await journal.categorise(tx, owner.caller, noopAudit, entry.id, {
+      const r = await banking.categorise(tx, owner.caller, noopAudit, entry.id, {
         noDocumentNeeded: true,
       });
       expect(r.error).toBeUndefined();

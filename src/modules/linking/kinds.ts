@@ -4,9 +4,9 @@ import type { LinkableType, LinkKind } from "./types";
 type Pair = { from: readonly LinkableType[]; to: readonly LinkableType[] };
 
 const MATRIX: Record<LinkKind, Pair> = {
-  // a money movement is justified by a document or a document-like entity
+  // a bank movement is justified by a document or a document-like entity
   justifies: {
-    from: ["bank_transaction", "journal_entry"],
+    from: ["bank_transaction"],
     to: ["document", "invoice", "supplier_invoice", "expense"],
   },
   // two own-account transactions justify each other (CHANGE CHFSEK)

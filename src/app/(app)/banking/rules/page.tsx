@@ -6,9 +6,14 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
-import { listRulesPage, RULE_COLUMN_KEYS, RULE_DEFAULT_SORT } from "@/modules/banking";
+import {
+  categoryOptions,
+  listRulesPage,
+  partnerOptions,
+  RULE_COLUMN_KEYS,
+  RULE_DEFAULT_SORT,
+} from "@/modules/banking";
 import { RulesActions, RulesTable } from "@/modules/banking/ui";
-import { categoryOptions, partnerOptions } from "@/modules/journal";
 import { getUserPreferences } from "@/modules/settings";
 
 // Categorisation rules — the order they run in, new / edit / delete, apply with dry run (specs/banking US2).

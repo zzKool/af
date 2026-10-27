@@ -1,15 +1,14 @@
 // The side panel's History section (F71): what happened to one bank row, read from the audit trail — nothing stored.
-// Three trails meet on a row: its own (`bank_transaction` create = the import), its journal entry's updates
-// (category, partner, *no document needed*) and the links that touch it today. A removed link's trail is not found
-// here: its row is gone and the kernel reads the trail by entity id only (lessons, F71 banking History).
+// Two trails meet on a row: its own (`bank_transaction` create = the import, update = a categorisation: category,
+// partner, *no document needed* — F113 moved the journal entry's updates onto it) and the links that touch it
+// today. A removed link's trail is not found here: its row is gone and the kernel reads the trail by entity id
+// only (lessons, F71 banking History).
 import { getAuditLog } from "@/kernel/audit/audit";
 import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import type { CategorisedBy } from "@/modules/journal";
-import * as journal from "@/modules/journal";
 import type { LinkableType, LinkKind } from "@/modules/linking";
 import * as linking from "@/modules/linking";
-import type { TransactionHistoryEvent } from "./types";
+import type { CategorisedBy, TransactionHistoryEvent } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -37,8 +36,9 @@ const linkKind = (v: unknown): LinkKind | null => linking.LINK_KINDS.find((k) =>
 
 /**
  * The audit rows of a bank row's trails → its history, newest first. Pure: `selfId` is the bank row, so a link's
- * other end is the endpoint that is not it. Rows that change nothing the owner sees (the entry's creation, the
- * implicit rate) are dropped; one journal update can give several events (category and partner in one save).
+ * other end is the endpoint that is not it. Rows that change nothing the owner sees are dropped; one update can
+ * give several events (category and partner in one save). The updates written on journal entries before F113 are
+ * on the row's trail too: the migration appended them.
  */
 export function toHistoryEvents(
   rows: readonly AuditRow[],
@@ -50,7 +50,7 @@ export function toHistoryEvents(
     const base = { at, source: r.source };
     if (r.entityType === "bank_transaction" && r.action === "create") {
       out.push({ ...base, kind: "imported" });
-    } else if (r.entityType === "journal_entry" && r.action === "update") {
+    } else if (r.entityType === "bank_transaction" && r.action === "update") {
       const before = record(r.oldData);
       const after = record(r.newData);
       const by = categorisedBy(after.categorisedBy);
@@ -81,7 +81,7 @@ export function toHistoryEvents(
     .map(({ e }) => e);
 }
 
-/** A bank row's history (the panel's *History* section): its trail, its journal entry's, its live links'. */
+/** A bank row's history (the panel's *History* section): its own trail and its live links'. */
 export async function transactionHistory(
   tx: TransactionClient,
   id: string,
@@ -91,12 +91,9 @@ export async function transactionHistory(
     return {
       error: { code: "NOT_FOUND", message: `Bank transaction not found: ${id}`, retryable: false },
     };
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [id]);
   const links = await linking.getLinksFor(tx, { type: "bank_transaction", id });
-  const entry = entries.get(id);
   const trails: { entityType: string; entityId: string }[] = [
     { entityType: "bank_transaction", entityId: id },
-    ...(entry ? [{ entityType: "journal_entry", entityId: entry.id }] : []),
     ...(links.data ?? []).map((l) => ({ entityType: "link", entityId: l.id })),
   ];
   const rows = (

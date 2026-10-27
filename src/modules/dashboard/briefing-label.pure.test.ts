@@ -17,7 +17,6 @@ const ENTITY_TYPES = [
   "expense",
   "expense_group",
   "invoice",
-  "journal_entry",
   "link",
   "normalbelopp",
   "package_build",

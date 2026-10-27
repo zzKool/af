@@ -73,7 +73,7 @@ describe("outgoingRowsInWindow", () => {
       currency: "SEK",
       amountBase: "199.00",
       remaining: "199.00",
-      journalPartnerId: null,
+      partnerId: null,
       noDocumentNeeded: false,
     });
     expect(rows[0]?.texts).toEqual(expect.arrayContaining(["BYTEFORM AB", "Kortköp"]));

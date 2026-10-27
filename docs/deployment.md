@@ -9,7 +9,7 @@ One image everywhere (constitution §1.8): the same `ghcr.io/zzkool/af` image ru
 | image | stage | what |
 |---|---|---|
 | `ghcr.io/zzkool/af` | `runner` | Next.js standalone + the pg-boss worker + Chromium (PDFs); `/api/health` answers with the version |
-| `ghcr.io/zzkool/af-migrate` | `migrate` | the Prisma CLI + `prisma/migrations`, one shot: `prisma migrate deploy` as the migration role |
+| `ghcr.io/zzkool/af-migrate` | `migrate` | the Prisma CLI + `prisma/migrations`, one shot: `prisma migrate deploy` as the migration role — the Postgres superuser of the compose (`POSTGRES_USER`): data migrations update tables under `FORCE ROW LEVEL SECURITY` (F113's copy), which any other role would need `BYPASSRLS` for |
 
 Tags: `main` (moving, the latest main), `sha-<12 chars>` (every build), `v1.2.3` (a release tag). The homelab **pulls, never builds**; `AF_TAG` pins what runs.
 

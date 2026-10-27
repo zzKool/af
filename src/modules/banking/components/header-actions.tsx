@@ -15,7 +15,7 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import { applyRulesAction } from "@/modules/banking/banking.actions";
-import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
+import type { CategoryOption, PartnerOption } from "./categorise-form";
 import { type AccountOption, ImportDialog } from "./import-dialog";
 import { RuleDialog } from "./rule-dialog";
 

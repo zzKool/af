@@ -14,7 +14,6 @@ const PAGES: Record<string, string> = {
   documents: "/documents",
   "documents-new": "/documents?new=1",
   "documents-inbox": "/documents/inbox",
-  journal: "/journal",
   partners: "/partners",
   invoices: "/invoices",
   "invoices-new": "/invoices/new",

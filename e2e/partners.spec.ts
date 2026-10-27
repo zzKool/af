@@ -56,7 +56,7 @@ test.describe("Partners", () => {
       "active",
     );
     await page.getByRole("tab", { name: "Transactions 0", exact: true }).click();
-    await expect(page.getByText("No journal entry names this partner yet.")).toBeVisible();
+    await expect(page.getByText("No bank row names this partner yet.")).toBeVisible();
     await page.getByRole("tab", { name: "Documents 0", exact: true }).click();
     await expect(page.getByText("No document is linked to this partner yet.")).toBeVisible();
     // the partner's own actions sit in the title row's ⋮; the state follows without a reload

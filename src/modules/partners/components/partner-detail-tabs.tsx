@@ -40,16 +40,16 @@ import {
 } from "@/modules/partners/partners.actions";
 import { PartnerStateLabel, PartnerTypeTags } from "./partner-labels";
 
-/** the books' base currency — read once here, for the journal and the expenses tabs (F85) */
+/** the books' base currency — read once here, for the transactions and the expenses tabs (F85) */
 const BASE = BASE_CURRENCY;
 
 type BasOption = { code: string; label: string };
 type VatOption = { id: string; label: string };
 type EmployeeOption = { id: string; name: string };
-/** a journal entry that names the partner — the newest first, capped by the page */
-export type PartnerJournalRow = {
+/** a bank row that names the partner (F113) — the newest first, capped by the page */
+export type PartnerTransactionRow = {
   id: string;
-  entryDate: string;
+  bookingDate: string;
   description: string;
   amount: string;
   currency: string;
@@ -66,7 +66,7 @@ interface PartnerDetailTabsProps {
   basOptions: BasOption[];
   defaultCurrency: string | null;
   documents: PartnerDocument[];
-  journal: { total: number; rows: PartnerJournalRow[] };
+  transactions: { total: number; rows: PartnerTransactionRow[] };
   /** spend with this partner (F87) — the expenses module's read, composed by the page */
   expenses: PartnerExpenses;
 }
@@ -80,7 +80,7 @@ export function PartnerDetailTabs({
   basOptions,
   defaultCurrency,
   documents,
-  journal,
+  transactions,
   expenses,
 }: PartnerDetailTabsProps) {
   const t = useT();
@@ -169,7 +169,7 @@ export function PartnerDetailTabs({
             <TabTrigger
               value="transactions"
               label={t("partners.tab.transactions")}
-              count={journal.total}
+              count={transactions.total}
             />
             <TabTrigger
               value="expenses"
@@ -232,33 +232,33 @@ export function PartnerDetailTabs({
       </TabsContent>
 
       <TabsContent value="transactions">
-        {journal.rows.length === 0 ? (
+        {transactions.rows.length === 0 ? (
           <Empty>{t("partners.transactions.empty")}</Empty>
         ) : (
           <div className="flex flex-col gap-2" data-testid="partner-transactions">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 {t("partners.transactions.showing", {
-                  shown: journal.rows.length,
-                  total: journal.total,
+                  shown: transactions.rows.length,
+                  total: transactions.total,
                 })}
               </span>
               <Link
-                href={`/journal?f.partnerId=in:${partner.id}`}
+                href={`/banking?f.partnerId=in:${partner.id}`}
                 className="text-primary hover:underline"
               >
                 {t("partners.transactions.openJournal")}
               </Link>
             </div>
             <ul className="rounded-lg border text-[13px]">
-              {journal.rows.map((r) => (
+              {transactions.rows.map((r) => (
                 <li
                   key={r.id}
                   className="flex min-h-8 items-center justify-between gap-3 border-b border-subtle px-3 py-1 last:border-b-0"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="shrink-0 text-muted-foreground tabular-nums">
-                      {r.entryDate}
+                      {r.bookingDate}
                     </span>
                     <span className="truncate" title={r.description}>
                       {r.description}

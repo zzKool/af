@@ -59,15 +59,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     group: "records",
   },
   {
-    path: "/journal",
-    label: "Journal",
-    labelKey: "nav.journal",
-    icon: "BookOpen",
-    roles: ["owner", "accountant"],
-    enabled: true,
-    group: "records",
-  },
-  {
     path: "/reconciliation",
     label: "Reconciliation",
     labelKey: "nav.reconciliation",

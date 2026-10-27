@@ -491,7 +491,7 @@ export function ExpenseTable({
           if (column === "rateSource")
             return value === "bank"
               ? t("expenses.rateSource.bank")
-              : t(`journal.rateSource.${value as Exclude<ExpenseRateSource, "bank">}`);
+              : t(`banking.rateSource.${value as Exclude<ExpenseRateSource, "bank">}`);
           if (
             column === "baseProvisional" ||
             column === "hasDocument" ||

@@ -79,20 +79,6 @@ const fakeTransactionLinkable: Linkable = {
   },
 };
 
-/** A fake manual journal entry — the other source a `justifies` allocation may come from (kinds.ts). */
-const fakeJournalEntries = new Set<string>();
-const fakeJournalEntryLinkable: Linkable = {
-  type: "journal_entry",
-  async exists(_tx, id) {
-    return fakeJournalEntries.has(id);
-  },
-  async summary(_tx, id) {
-    return fakeJournalEntries.has(id)
-      ? { type: "journal_entry", id, label: `je ${id.slice(0, 8)}`, amount: null, currency: null }
-      : null;
-  },
-};
-
 /** A fake expense (no amount needed here) — stands in for the expenses module in created_from tests. */
 const fakeExpenses = new Set<string>();
 const fakeExpenseLinkable: Linkable = {
@@ -125,14 +111,12 @@ beforeEach(async () => {
     fakeInvoiceLinkable,
     fakeTransactionLinkable,
     fakeExpenseLinkable,
-    fakeJournalEntryLinkable,
   ]) {
     registerLinkable(l);
   }
   fakeInvoices.clear();
   fakeTransactions.clear();
   fakeExpenses.clear();
-  fakeJournalEntries.clear();
 });
 
 afterAll(async () => {
@@ -464,44 +448,37 @@ describe("linking service", () => {
       });
       expect(transfers.map((l) => [l.kind, l.from.id, l.to.id])).toEqual([["transfer", b, idle]]);
       expect(await linksTouching(tx, "bank_transaction", [a, b])).toHaveLength(4);
-      expect((await allocatedFrom(tx, "journal_entry", [a])).size).toBe(0); // the type is part of the key
+      expect((await allocatedFrom(tx, "expense", [a])).size).toBe(0); // the type is part of the key
       expect((await allocatedFrom(tx, "bank_transaction", [])).size).toBe(0);
     });
   });
 
-  it("allocatedSums: Σ onto each target from bank rows and journal entries alike, allocating kinds only — the same figure as getAllocationStatus", async () => {
+  it("allocatedSums: Σ onto each target from bank rows, allocating kinds only — the same figure as getAllocationStatus", async () => {
     expect(ALLOCATING_KINDS).toEqual(["justifies", "settles"]);
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
-    const [row1, row2] = [uuid(), uuid()];
-    for (const id of [row1, row2]) fakeTransactions.add(id);
-    const entry = uuid();
-    fakeJournalEntries.add(entry);
+    const [row1, row2, row3] = [uuid(), uuid(), uuid()];
+    for (const id of [row1, row2, row3]) fakeTransactions.add(id);
     const [paid, partly, bare, untouched] = [uuid(), uuid(), uuid(), uuid()];
     fakeInvoices.set(paid, { label: "VA26-INV-010", amount: "1000.00", currency: "CHF" });
     fakeInvoices.set(partly, { label: "VA26-INV-011", amount: "500.00", currency: "CHF" });
     fakeInvoices.set(bare, { label: "VA26-INV-012", amount: "80.00", currency: "CHF" });
     fakeInvoices.set(untouched, { label: "VA26-INV-013", amount: "40.00", currency: "CHF" });
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
-      const justify = (
-        fromType: "bank_transaction" | "journal_entry",
-        from: string,
-        to: string,
-        allocatedAmount?: string,
-      ) =>
+      const justify = (from: string, to: string, allocatedAmount?: string) =>
         linking.createLink(tx, caller, noopAudit, {
-          from: { type: fromType, id: from },
+          from: { type: "bank_transaction", id: from },
           to: { type: "invoice", id: to },
           kind: "justifies",
           ...(allocatedAmount ? { allocatedAmount, currency: "CHF" } : {}),
         });
-      // one invoice paid by two bank rows and a manual journal entry
-      expect((await justify("bank_transaction", row1, paid, "600.10")).error).toBeUndefined();
-      expect((await justify("bank_transaction", row2, paid, "300.00")).error).toBeUndefined();
-      expect((await justify("journal_entry", entry, paid, "99.90")).error).toBeUndefined();
-      // one paid by a journal entry only
-      expect((await justify("journal_entry", entry, partly, "125.05")).error).toBeUndefined();
+      // one invoice paid by three bank rows
+      expect((await justify(row1, paid, "600.10")).error).toBeUndefined();
+      expect((await justify(row2, paid, "300.00")).error).toBeUndefined();
+      expect((await justify(row3, paid, "99.90")).error).toBeUndefined();
+      // one paid by the third row only
+      expect((await justify(row3, partly, "125.05")).error).toBeUndefined();
       // a link without an amount proves, it does not pay
-      expect((await justify("bank_transaction", row1, bare)).error).toBeUndefined();
+      expect((await justify(row1, bare)).error).toBeUndefined();
 
       const sums = await allocatedSums(tx, "invoice", [paid, partly, bare, untouched]);
       expect(Object.fromEntries(sums)).toEqual({ [paid]: "1000.00", [partly]: "125.05" });
@@ -511,8 +488,8 @@ describe("linking service", () => {
         expect(status.data?.allocated).toBe(sums.get(id));
       }
       // the mirror: what each source spent
-      expect(Object.fromEntries(await allocatedFrom(tx, "journal_entry", [entry]))).toEqual({
-        [entry]: "224.95",
+      expect(Object.fromEntries(await allocatedFrom(tx, "bank_transaction", [row3]))).toEqual({
+        [row3]: "224.95",
       });
       expect((await allocatedSums(tx, "supplier_invoice", [paid])).size).toBe(0); // the type is part of the key
       expect((await allocatedSums(tx, "invoice", [])).size).toBe(0);

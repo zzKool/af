@@ -19,7 +19,7 @@ import {
   ruleDateHierarchyAction,
 } from "@/modules/banking/banking.actions";
 import type { RuleListRow } from "@/modules/banking/types";
-import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
+import type { CategoryOption, PartnerOption } from "./categorise-form";
 import { filterSourceOf } from "./filter-source";
 import { RuleDialog } from "./rule-dialog";
 

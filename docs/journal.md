@@ -1,4 +1,6 @@
-# Journal — the categorised ledger of financial facts
+# Journal — the categorised ledger of financial facts (superseded 2026-10-27)
+
+> **Superseded by F113 (D59, [[banking]], `specs/banking/one-table.md`).** The journal's facts — the SEK base, rate, rate source and date, the BAS category, partner, note and *no document needed* — live on `bank_transactions` since migration `20261027120000_one_transaction_table`; `modules/journal`, the `/journal` page and the manual entries are gone (periodisation is the accountant's, D1). The `categorise` service, the never-overwrite rules, the categorise form and the History moved to banking (`facts.ts`, `implicit-rate.ts`, `components/categorise-form.tsx`). `journal_entries` stays in the database, read by nothing, until PR B drops it after one real month on the box (D65). What follows is the page as it was, kept for the rules it defined.
 
 Module `src/modules/journal` · schema `prisma/schema/journal.prisma` · migration `20261021100000_add_banking_import_and_journal` · spec `specs/journal/spec.md` · decisions D1, D2, D3. Part 1: model, service, queries, linkable. Part 2: the `/journal` page and the categorise form shared with the banking workbench.
 

@@ -20,7 +20,6 @@ import {
   setupOwner,
   storage,
 } from "@/modules/expenses/__fixtures__/harness";
-import { createManualEntry } from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
@@ -1185,32 +1184,23 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
     expect(section).toHaveLength(3);
   });
 
-  it("one allocated sum (audit 6): a bank row and a journal entry both count — list, detail, payments' open agree", async () => {
+  it("one allocated sum (audit 6): two bank rows count once — list, detail, payments' open agree", async () => {
     const si = await create(julyInvoice());
     const bankRow = await chfRow("2026-03-20", "-600.00");
+    const second = await chfRow("2026-03-21", "-300.00");
     await run(owner.caller, async (tx) => {
-      // a manual journal entry — a bank entry is reached through its transaction, never a link source (FR-004)
-      const manual = await createManualEntry(tx, owner.caller, noopAudit, {
-        entryDate: "2026-03-21",
-        description: "Paid from the private account",
-        amount: "-300.00",
-        currency: "CHF",
-        rate: "11.5",
-      });
-      expect(manual.error).toBeUndefined();
-      const entryId = manual.data!.id;
       const paid = await recordPayment(tx, owner.caller, noopAudit, {
         invoiceId: si.data!.id,
         bankTransactionId: bankRow,
       });
       expect(paid.error).toBeUndefined();
-      // a journal-entry payer written as the module writes its payments (D37: generic justifies are refused)
-      const viaJournal = await linking.createLink(
+      // a second payer written as the module writes its payments (D37: generic justifies are refused)
+      const viaLink = await linking.createLink(
         tx,
         owner.caller,
         noopAudit,
         {
-          from: { type: "journal_entry", id: entryId },
+          from: { type: "bank_transaction", id: second },
           to: { type: "supplier_invoice", id: si.data!.id },
           kind: "justifies",
           allocatedAmount: "300.00",
@@ -1218,7 +1208,7 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
         },
         { owner: "supplier_invoice" },
       );
-      expect(viaJournal.error).toBeUndefined();
+      expect(viaLink.error).toBeUndefined();
     });
     const list = await run(owner.caller, (tx) =>
       listSupplierInvoices(tx, Q, { today: "2026-03-25" }),
@@ -1227,13 +1217,12 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
     expect(row).toMatchObject({ status: "partially_paid", allocated: "900.00", open: "397.20" });
     const d = await detail(si.data!.id, "2026-03-25");
     expect(d).toMatchObject({ status: "partially_paid", allocated: "900.00", open: "397.20" });
-    // the panel's list adds up to the same sum, the journal entry shown by its label
+    // the panel's list adds up to the same sum
     expect(d.payments).toHaveLength(2);
     const sum = d.payments.reduce((acc, p) => acc + Number(p.allocated), 0);
     expect(sum.toFixed(2)).toBe(d.allocated);
-    const journalPayer = d.payments.find((p) => p.bankTransactionId === null);
-    expect(journalPayer).toMatchObject({ allocated: "300.00" });
-    expect(journalPayer?.payerLabel).toBeTruthy();
+    const secondPayer = d.payments.find((p) => p.bankTransactionId === second);
+    expect(secondPayer).toMatchObject({ allocated: "300.00", rowAmount: "-300.00" });
     // the payments service sees the same open: 397.30 is beyond it, 397.20 closes it
     const third = await chfRow("2026-03-24", "-397.30");
     await run(owner.caller, async (tx) => {

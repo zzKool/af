@@ -22,9 +22,10 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Supplier invoices" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Package" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Declarations" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
+    // the journal page went with F113 (D59): the rows carry their facts on /banking
+    await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
 
     // Not yet enabled — these appear as epics are completed
     await expect(nav.getByRole("link", { name: "Reconciliation" })).not.toBeVisible();
@@ -44,9 +45,8 @@ test.describe("Accountant authentication and navigation", () => {
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     await expect(nav).toBeVisible();
 
-    // Accountant sees Dashboard, Journal, Banking, Invoices (read-only) and Settings (My Preferences tab)
+    // Accountant sees Dashboard, Banking, Invoices (read-only) and Settings (My Preferences tab)
     await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Journal" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Invoices", exact: true })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Package" })).toBeVisible();

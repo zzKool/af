@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-20
 
-**Status**: Ready for planning (D1, D2, D3; feature-inventory §3.12; harvest `specs/banking/harvest.md` §3.2, §8.1)
+**Status**: Superseded 2026-10-27 by `specs/banking/one-table.md` (F113, D59) — the entry's facts live on the bank row; `modules/journal` and `/journal` are gone, the rules below moved to banking (`facts.ts`). Kept as the record of what was built (D1, D2, D3; feature-inventory §3.12; harvest `specs/banking/harvest.md` §3.2, §8.1)
 
 **Input**: "Every bank transaction is a financial fact with a BAS category, a partner, a note, a flag *no document needed*, and its SEK base with the rate that produced it. A few facts never touch the bank (a prepaid service spread over the year, a forfait) and are typed by hand. The accountant books; the journal is the chronological, filterable list she and the owner read."
 

@@ -14,13 +14,15 @@ import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenan
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import { createBankAccount, updateBankAccount } from "./bank-accounts";
+import { transactionFacts } from "./facts";
+import { withImplicitRates } from "./implicit-rate";
 import { deleteImport, importCsv } from "./import";
 import { accountAliasesFor, getTransaction, listTransactions, transactionStates } from "./queries";
 import { applyRules, createRule } from "./rules";
 import { acceptTransfer, proposeTransfers } from "./transfer-pairs";
+import type { BankTransactionDto } from "./types";
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
 const V2_FIXTURES = join(__dirname, "__fixtures__");
@@ -115,7 +117,7 @@ const importFile = (
   importCsv(tx, caller, realAudit(tx, caller), storage, { bankAccountId, fileName: name, bytes });
 
 describe("US1 — import a month of Nordea rows", () => {
-  it("scenario 1: the July sample → transactions verbatim, derived text, journal entries at rate 1", async () => {
+  it("scenario 1: the July sample → transactions verbatim, derived text, the base at rate 1", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { sek } = await accounts(caller);
     const summary = await run(caller, (tx) =>
@@ -142,9 +144,7 @@ describe("US1 — import a month of Nordea rows", () => {
       expect(openai?.reference).toBe("OPENAI *CHATGPT 1234");
       expect(openai?.amount.toFixed(2)).toBe("-132.52");
       expect(openai?.currency).toBe("SEK");
-      const entries = await journal.entriesForSources(tx, "bank_transaction", [
-        openai?.id as string,
-      ]);
+      const entries = await transactionFacts(tx, [openai?.id as string]);
       const e = entries.get(openai?.id as string);
       expect(e?.amountBase).toBe("-132.52");
       expect(e?.rate).toBe("1");
@@ -207,9 +207,8 @@ describe("US1 — import a month of Nordea rows", () => {
       const rows = await tx.bankTransaction.findMany({ orderBy: { rowIndex: "asc" } });
       expect(rows.map((t) => t.occurrence)).toEqual([0, 1]);
       expect(rows[0].dedupHash).toBe(rows[1].dedupHash);
-      const entries = await journal.entriesForSources(
+      const entries = await transactionFacts(
         tx,
-        "bank_transaction",
         rows.map((t) => t.id),
       );
       for (const t of rows) {
@@ -238,7 +237,7 @@ describe("US1 — import a month of Nordea rows", () => {
     expect(r.error).toBeUndefined();
     await run(caller, async (tx) => {
       const t = await tx.bankTransaction.findFirstOrThrow();
-      const e = (await journal.entriesForSources(tx, "bank_transaction", [t.id])).get(t.id);
+      const e = (await transactionFacts(tx, [t.id])).get(t.id);
       expect(e?.amount).toBe("-20000.00");
       expect(e?.currency).toBe("CHF");
       expect(e?.rate).toBe("11.899657");
@@ -330,23 +329,21 @@ describe("US1 — import a month of Nordea rows", () => {
     const importId = r.data?.id as string;
     const ids = r.data?.transactionIds as string[];
 
-    // immutable: the app role has no UPDATE grant and the trigger refuses anyway
+    // the bank's facts and the base are written once: the trigger refuses (`bank_transactions_lock_facts`, F113)
     await expect(
       run(caller, (tx) =>
         tx.$executeRawUnsafe(`UPDATE bank_transactions SET amount = 1 WHERE id = '${ids[0]}'`),
       ),
-    ).rejects.toThrow(/permission denied|bank_transaction_immutable/);
-    // the journal's money facts too
-    const entry = await run(caller, async (tx) =>
-      (await journal.entriesForSources(tx, "bank_transaction", [ids[0]])).get(ids[0]),
-    );
+    ).rejects.toThrow(/bank_transaction_locked/);
     await expect(
       run(caller, (tx) =>
-        tx.$executeRawUnsafe(
-          `UPDATE journal_entries SET amount_base = 1 WHERE id = '${entry?.id}'`,
-        ),
+        tx.$executeRawUnsafe(`UPDATE bank_transactions SET amount_base = 1 WHERE id = '${ids[0]}'`),
       ),
-    ).rejects.toThrow(/journal_entry_locked/);
+    ).rejects.toThrow(/bank_transaction_locked/);
+    // the owner's facts change freely
+    await run(caller, (tx) =>
+      tx.$executeRawUnsafe(`UPDATE bank_transactions SET note = 'x' WHERE id = '${ids[0]}'`),
+    );
 
     // link one → delete refused
     const doc = await adminPool.query(
@@ -371,7 +368,6 @@ describe("US1 — import a month of Nordea rows", () => {
     expect(deleted.data?.deleted).toBe(2);
     await run(caller, async (tx) => {
       expect(await tx.bankTransaction.count()).toBe(0);
-      expect(await tx.journalEntry.count()).toBe(0);
       expect(await tx.bankImport.count()).toBe(0);
     });
     await assertAuditLogged(adminPool, caller.tenantId, "delete", "bank_import", importId);
@@ -384,14 +380,13 @@ describe("US1 — import a month of Nordea rows", () => {
     const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
     await run(other, async (tx) => {
       expect(await tx.bankTransaction.count()).toBe(0);
-      expect(await tx.journalEntry.count()).toBe(0);
       const list = await listTransactions(tx, { page: 1, pageSize: 10, sort: [], filters: {} });
       expect(list.total).toBe(0);
     });
   });
 });
 
-describe("read API — accountAliasesFor (journal T006)", () => {
+describe("read API — accountAliasesFor", () => {
   it("each transaction's account label, the alias first, number + currency without one; another tenant's ids absent", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { sek, chf } = await accounts(caller);
@@ -457,7 +452,11 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
       expect(links.data).toHaveLength(1);
       expect(links.data?.[0].kind).toBe("transfer");
       expect(links.data?.[0].to.id).toBe(sekTx);
-      const entries = await journal.entriesForSources(tx, "bank_transaction", [chfTx, sekTx]);
+      const entries = new Map(
+        (
+          await withImplicitRates(tx, [...(await transactionFacts(tx, [chfTx, sekTx])).values()])
+        ).map((r) => [r.id, r]),
+      );
       const chfEntry = entries.get(chfTx);
       const sekEntry = entries.get(sekTx);
       // F65: the legs' facts are untouched — "transfer" is the link, the state derives from it
@@ -510,7 +509,7 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
     }));
     const ids = [inn.id, outTx.id];
     const facts = (tx: TransactionClient) =>
-      journal.entriesForSources(tx, "bank_transaction", ids).then((m) =>
+      transactionFacts(tx, ids).then((m) =>
         ids.map((id) => {
           const e = m.get(id);
           return {
@@ -538,11 +537,9 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
     );
     expect(accepted.error).toBeUndefined();
     await run(caller, async (tx) => {
-      const entries = await journal.entriesForSources(tx, "bank_transaction", [
-        inn.id,
-        interest.id,
-      ]);
-      expect(entries.get(inn.id)?.bankImplicitRate).toBeNull(); // same currency: nothing to record
+      const entries = await transactionFacts(tx, [inn.id, interest.id]);
+      const [innRow] = await withImplicitRates(tx, [entries.get(inn.id) as BankTransactionDto]);
+      expect(innRow?.bankImplicitRate).toBeNull(); // same currency: nothing to record
       // the interest row hit the default rule (regex on the details)
       expect(entries.get(interest.id)?.basCode).toBe("831");
       expect(entries.get(interest.id)?.noDocumentNeeded).toBe(true);
@@ -581,9 +578,9 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
     expect(applied.error).toBeUndefined();
     expect(applied.data?.applied).toBeGreaterThanOrEqual(1);
     await run(caller, async (tx) => {
-      const chfEntry = (await journal.entriesForSources(tx, "bank_transaction", [chfTx])).get(
-        chfTx,
-      );
+      const [chfEntry] = await withImplicitRates(tx, [
+        (await transactionFacts(tx, [chfTx])).get(chfTx) as BankTransactionDto,
+      ]);
       expect(chfEntry?.basCode).toBe("657");
       expect(chfEntry?.categorisedBy).toBe("rule");
       expect(chfEntry?.ruleId).toBe(rule.data?.id);

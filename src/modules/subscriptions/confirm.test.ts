@@ -84,11 +84,12 @@ const counts = async () => {
   );
   return r.rows[0] as { e: number; s: number; l: number };
 };
+/** the rows' facts (F113: on the row) — a confirm never touches them */
 const journal = async () =>
   (
     await adminPool.query(
       `SELECT id, amount, currency, amount_base, rate, bas_code, partner_id, no_document_needed, categorised_by
-       FROM journal_entries ORDER BY id`,
+       FROM bank_transactions ORDER BY id`,
     )
   ).rows;
 

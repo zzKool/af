@@ -1,6 +1,6 @@
 # AF Documentation
 
-Business administration for AnalyticsFab AB — documents, bank imports, journal, invoices, expenses, linking, monthly accountant package.
+Business administration for AnalyticsFab AB — documents, bank imports with the categorised rows, invoices, expenses, linking, monthly accountant package.
 
 ## Phase 0 — read first
 
@@ -65,8 +65,8 @@ Page-specific documentation and patterns.
 - [[user-preferences]] — Personal locale preferences, format utilities, LocaleProvider context
 - [[partners]] — the reference slice (phase-0 item 6): module layout, ListQuery read API, DataTable list page, entity page, the tests that define it
 - [[partner-crud-pattern]] — (v2 history) Domain entity CRUD pattern-setter: schema, service, actions, pages, soft-delete, FK validation
-- [[banking]] — Nordea import (D25 dedup, `Date` header, counterparty key), immutable transactions, categorisation rules (first hit wins, never over a hand-set fact), transfer pairs (`CHANGE CHFSEK` → one `transfer` link + the bank implicit rate), derived open/partial/linked/no-document state, ListQuery read model
-- [[journal]] — the categorised ledger (D3): one entry per bank transaction or by hand, SEK base written once (ECB / same currency / manual), category · partner · note · no-document-needed, the never-overwrite rule, the ledger list
+- [[banking]] — Nordea import (D25 dedup, `Date` header, counterparty key), the row with its facts (F113, D59: the SEK base written once, category · partner · note · no-document-needed changed freely, the never-overwrite rule), categorisation rules (first hit wins, never over a hand-set fact), transfer pairs (`CHANGE CHFSEK` → one `transfer` link + the bank implicit rate), derived open/partial/linked/no-document state, ListQuery read model
+- [[journal]] — (superseded by F113) the categorised ledger as it was: one entry per bank transaction, the rules the row inherited
 - [[expenses]] — groups (`213 — …`), the four payment sources, expenses with keys `Ex213-Tr-01` and SEK bases (ECB; the bank row's once attached, D26), derived status, the owner's liability ledger, FIFO settlements `ST26-001` with rounding / exchange difference, the reimbursement statement job, linkables
 - [[supplier-invoices]] — payables keyed like expenses (`SI213-Acc-01`, the shared per-group counter, D28), vendor partners with payment terms, derived unpaid / partially paid / paid / overdue, payments as `justifies` links (instalments, rounding note) or a cross-currency attach with the bank's base (D-g), cancel-not-delete, the stored-VAT read model for the declarations, the list with KPIs and the panel
 - [[subscriptions]] — recurring costs described once (F94, D57): expectations only, periods and their state derived, a matching card row / receipt / bill → one confirm through the owning module, `occurrence_of` links; rules keep the journal

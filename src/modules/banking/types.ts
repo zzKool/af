@@ -1,9 +1,33 @@
 // Public DTOs of the banking module. Plain types only — never Prisma types (constitution §2).
 // Decimals travel as strings ("-20000.00"), dates as ISO strings ("2026-07-08").
 
-import type { CategorisedBy } from "@/modules/journal";
 import type { LinkableType, LinkKind } from "@/modules/linking";
+import type { BaseRateResult } from "@/modules/rates";
 import type { BankFormatConfig } from "./csv-parser";
+
+/** A row's base rate source: the words of rates' `rateToBase` (`same_currency` · `ecb_daily` · `ecb_nearest`) or a
+ * rate typed by hand (`manual`, no row carries it since F113 — the vocabulary stays one with expenses). */
+export type RateSource = BaseRateResult["source"] | "manual";
+// a Record so the compiler refuses a list that misses a member of RateSource
+const RATE_SOURCE_SET: Record<RateSource, true> = {
+  same_currency: true,
+  ecb_daily: true,
+  ecb_nearest: true,
+  manual: true,
+};
+export const RATE_SOURCES = Object.keys(RATE_SOURCE_SET) as readonly RateSource[];
+
+/** Who set the category / partner last: the owner by hand or a rule (null = uncategorised). `partner_default` is
+ * gone from the database (F67) — it stays in this read type for the audit rows written before. */
+export type CategorisedBy = "manual" | "rule" | "partner_default";
+
+/** The owner's facts on a row (`categorise`). */
+export type CategoriseInput = {
+  basCode?: string | null;
+  partnerId?: string | null;
+  note?: string | null;
+  noDocumentNeeded?: boolean;
+};
 
 export type BankAccountRole = "main" | "savings";
 export const BANK_ACCOUNT_ROLES: readonly BankAccountRole[] = ["main", "savings"];
@@ -59,7 +83,20 @@ export type BankTransactionDto = {
   dedupHash: string;
   occurrence: number;
   rowIndex: number;
+  // the SEK base, written once by the import (F113, D59): signed like `amount`
+  amountBase: string;
+  rate: string;
+  rateSource: RateSource;
+  rateDate: string | null;
+  // the owner's facts — category, partner, note, no document needed — set by hand or a rule, never by the bank
+  basCode: string | null;
+  partnerId: string | null;
+  note: string | null;
+  noDocumentNeeded: boolean;
+  categorisedBy: CategorisedBy | null;
+  ruleId: string | null;
   createdAt: Date;
+  updatedAt: Date;
   createdBy: string;
   source: string;
 };
@@ -168,7 +205,7 @@ export type ApplyRulesResult = {
   }[];
 };
 
-/** Derived from links and the journal flag — never stored. */
+/** Derived from links and the row's *no document needed* flag — never stored. */
 export type TransactionState = "open" | "partial" | "linked" | "no_document";
 export const TRANSACTION_STATES: readonly TransactionState[] = [
   "open",
@@ -189,7 +226,7 @@ export type TransactionStateFacts = {
   inTransfer: boolean;
 };
 
-/** The workbench row: the transaction, the journal facts, the derived state. */
+/** The workbench row: the transaction with its facts, the labels, the derived state. */
 export type TransactionListRow = {
   id: string;
   bankAccountId: string;
@@ -203,11 +240,11 @@ export type TransactionListRow = {
   balance: string | null;
   reference: string | null;
   ownNotes: string | null;
-  // journal facts (null when the entry is missing — never the case after an import)
-  journalEntryId: string | null;
-  amountBase: string | null;
-  rate: string | null;
-  rateSource: string | null;
+  // the base and the owner's facts (on the row, F113)
+  amountBase: string;
+  rate: string;
+  rateSource: RateSource;
+  /** the transfer pair's implied rate, derived from the `transfer` link (D44) */
   bankImplicitRate: string | null;
   basCode: string | null;
   basLabel: string | null;
@@ -215,7 +252,7 @@ export type TransactionListRow = {
   partnerName: string | null;
   note: string | null;
   noDocumentNeeded: boolean;
-  categorisedBy: string | null;
+  categorisedBy: CategorisedBy | null;
   // derived
   state: TransactionState;
   allocated: string;
@@ -243,8 +280,8 @@ export type OutgoingMainRow = {
   description: string;
   bankAccountId: string;
   accountLabel: string;
-  /** the journal entry's base, null before the row has one */
-  amountBase: string | null;
+  /** the row's base (F113) */
+  amountBase: string;
 };
 
 /** An outgoing row inside a date window with what a matcher reads (`outgoingRowsInWindow`, F94). Amounts absolute. */
@@ -255,14 +292,14 @@ export type WindowRow = {
   /** |amount|, 2 dp */
   amount: string;
   currency: string;
-  /** |the journal entry's base|, null before the row has one */
-  amountBase: string | null;
+  /** |the row's base| */
+  amountBase: string;
   /** name, message, additional details, sender, recipient, description — the non-empty ones */
   texts: string[];
   description: string;
-  /** the partner a rule or the owner put on the row's journal entry */
-  journalPartnerId: string | null;
-  journalBasCode: string | null;
+  /** the partner and category a rule or the owner put on the row */
+  partnerId: string | null;
+  basCode: string | null;
   noDocumentNeeded: boolean;
   /** |amount| − Σ allocated from the row, 2 dp */
   remaining: string;
@@ -306,7 +343,7 @@ export type BankMonthsOverview = {
 
 /**
  * One line of a bank row's History (the side panel, F71) — read from the audit trail, never stored. `by` is the
- * journal entry's `categorisedBy` after the change; `source` the caller's (web, system…).
+ * row's `categorisedBy` after the change; `source` the caller's (web, system…).
  */
 export type TransactionHistoryEvent = { at: string; source: string } & (
   | { kind: "imported" }

@@ -13,7 +13,7 @@ Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mappin
 3. **Simplify the mechanism, never the capability.** A feature from v1, v2 or the Excel is kept unless the inventory says *drop*; what changes is how it is built.
 4. **A setting exists only when two tenants need different values today.** Otherwise it is a constant in code (document prefixes, invoice series format, number formats). One exception by the owner's decision (D39): the **base currency** is a tenant's own (`tenants.currency`), chosen at creation and locked once the tenant has a money fact.
 5. **Derived, never typed.** Paid / to refund / refunded / linked / due are computed from links and dates. No status column a human fills in.
-6. **Immutable money facts.** Amount, currency, base (in the tenant's base currency), rate and rate source are written once per entry and never updated; corrections are new entries. A bank row's journal entry is written once at import. An **expense or supplier invoice** is a draft while it is open: its money facts may change (edit, *attach* / *detach* of the paying bank row) until its **first payment link or settlement line**, then they are locked by a trigger, as bank rows are (D37).
+6. **Immutable money facts.** Amount, currency, base (in the tenant's base currency), rate and rate source are written once per entry and never updated; corrections are new entries. A bank row's base is written once at import, on the row (D59). An **expense or supplier invoice** is a draft while it is open: its money facts may change (edit, *attach* / *detach* of the paying bank row) until its **first payment link or settlement line**, then they are locked by a trigger, as bank rows are (D37).
 7. **Build for one, architect for many.** One real tenant and one real user today. RLS, roles and `can()` exist from day one; their UI polish does not.
 8. **Local first; the homelab is the target** (D61). The same image runs on a laptop, the homelab and Azure; environment differences live in env vars only. Where the two pull apart, the box wins: documents on a filesystem driver (Blob the second driver), files served only through an authenticated route, sign-up closed, admin by CLI, no Sentry.
 9. **Nothing assumes continuous uptime.** The app may be scaled to zero for weeks. Jobs are queued in Postgres and resumable; scheduled work catches up on start.
@@ -34,7 +34,7 @@ prisma/schema/<name>.prisma   the module's models — Prisma's multi-file schema
 
 File naming inside a module until the reference slice (item 6) fixes the final convention: `<entity>.ts` service, `<entity>.test.ts`, `<entity>.actions.ts`. Current layout and the v2 → 3a path map: `docs/feature-folders.md`.
 
-Modules (from the inventory): partners, contracts, documents, banking, rates, journal, linking, invoices, supplier-invoices, expenses, traktamente, exports, dashboard, settings.
+Modules (from the inventory): partners, contracts, documents, banking (with the rows' facts — the journal module went with D59), rates, linking, invoices, supplier-invoices, expenses, traktamente, exports, dashboard, settings.
 
 ### Import rules — enforced by `architecture.guard.test.ts`
 - `kernel/*` imports nothing from `modules/*` or `app/*`. *(enforced since 3a)*
@@ -124,7 +124,7 @@ A PR merges to `main` only when:
 |---|---|---|
 | superadmin | app-level: bank formats, currencies, tenants, users | you |
 | owner (tenant admin) | everything in the tenant | you |
-| accountant | read-only: journal, bank lines, invoices, supplier invoices, expenses, package; no relationship documents | planned |
+| accountant | read-only: bank lines with their categories, invoices, supplier invoices, expenses, package; no relationship documents | planned |
 | editor | upload, OCR review, linking; no settings, no issue | later |
 
 All checks through `kernel/auth/can(identity, action, subject)`. Sidebar hides by role; server enforces. Both required.

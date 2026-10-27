@@ -8,7 +8,8 @@ import { listQuerySchema } from "@/kernel/list-query/schema";
 import { createStorageService } from "@/kernel/storage/storage";
 import { uuid } from "@/kernel/validation/scalars";
 import { detectAccountFromFilename, pickAccount } from "@/modules/banking/account-detect";
-import { toTransactionDetailWire } from "@/modules/banking/detail-wire";
+import { toTransactionDetailWire, toTransactionWire } from "@/modules/banking/detail-wire";
+import { categorise, categoriseSchema } from "@/modules/banking/facts";
 import { transactionHistory } from "@/modules/banking/history";
 import { deleteImport, importCsv } from "@/modules/banking/import";
 import {
@@ -83,7 +84,7 @@ export const getTransactionAction = authedAction
     return r.error ? { error: r.error } : { data: toTransactionDetailWire(r.data) };
   });
 
-/** The side panel's History section: the row's audit trail, its journal entry's, its links' (F71). */
+/** The side panel's History section: the row's audit trail and its links' (F71). */
 export const getTransactionHistoryAction = authedAction
   .schema(z.object({ id: uuid }))
   .metadata({ name: "getBankTransactionHistory" })
@@ -154,6 +155,17 @@ export const proposeTransfersAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
     return proposeTransfers(ctx.tx, parsedInput.id);
+  });
+
+// --- the owner's facts on a row (owner only; F113 — the journal's `categorise`, on the row) ---
+
+export const categoriseTransactionAction = ownerAction
+  .schema(categoriseSchema.extend({ id: uuid }))
+  .metadata({ name: "categoriseBankTransaction" })
+  .action(async ({ ctx, parsedInput }) => {
+    const { id, ...facts } = parsedInput;
+    const r = await categorise(ctx.tx, ctx.callerIdentity, ctx.audit, id, facts);
+    return r.error ? { error: r.error } : { data: toTransactionWire(r.data) };
   });
 
 // --- the import (owner only) ---

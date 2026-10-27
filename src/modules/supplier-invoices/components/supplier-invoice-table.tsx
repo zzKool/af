@@ -577,7 +577,7 @@ export function SupplierInvoiceTable({
           if (column === "rateSource")
             return value === "bank"
               ? t("expenses.rateSource.bank")
-              : t(`journal.rateSource.${value as Exclude<SupplierInvoiceRateSource, "bank">}`);
+              : t(`banking.rateSource.${value as Exclude<SupplierInvoiceRateSource, "bank">}`);
           if (
             column === "dueDateDefaulted" ||
             column === "hasDocument" ||

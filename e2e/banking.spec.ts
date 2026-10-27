@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 // The owner's monthly routine (specs/banking US1–US4, SEK only — CI has no ECB rates): import the July export
 // → the fee rule categorised its row → open the OpenAI row, categorise it, create a rule from it → import the
-// savings file (interest rule) and the matching SEK leg → accept the transfer pair → journal and imports pages.
+// savings file (interest rule) and the matching SEK leg → accept the transfer pair → the categories on the list, imports page.
 const FIXTURES = join(__dirname, "..", "specs", "banking", "fixtures");
 const HEADER =
   "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
@@ -12,7 +12,7 @@ const HEADER =
 test.describe("Banking", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
 
-  test("import, categorise, rule from a row, transfer pair, journal", async ({ page }) => {
+  test("import, categorise, rule from a row, transfer pair, the list", async ({ page }) => {
     test.setTimeout(240_000); // five pages, four imports — a long journey (lessons: e2e budgets)
     // 1. the July sample into the SEK account (pre-selected from the file name)
     await page.goto("/banking");
@@ -100,12 +100,13 @@ test.describe("Banking", () => {
     await expect(history.getByRole("listitem").last()).toContainText("Imported");
     await page.keyboard.press("Escape");
 
-    // 4. the rules page lists the learned rule; the journal shows the entries; the imports page the three files
+    // 4. the rules page lists the learned rule; the list shows the categories on the rows (F113: no journal page);
+    //    the imports page the three files
     await page.goto("/banking/rules");
     await expect(page.getByRole("row").filter({ hasText: "OPENAI *CHATGPT SUBS" })).toContainText(
       "learned",
     );
-    await page.goto("/journal");
+    await page.goto("/banking");
     await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("657");
     await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("831");
     // the three imports of this journey are listed (other journeys import too — CI runs two workers)

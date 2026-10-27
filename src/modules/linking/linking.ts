@@ -230,7 +230,7 @@ export async function createLink(
         ),
       };
     }
-    // The source side (R19): a bank transaction or a manual journal entry carries an amount too, and the
+    // The source side (R19): a bank transaction carries an amount too, and the
     // allocations FROM it never exceed |amount| — in its own currency (a CHF transaction allocates CHF).
     const fromSummary = await fromLinkable.summary(tx, from.id);
     if (fromSummary?.amount !== null && fromSummary?.amount !== undefined && fromSummary.currency) {

@@ -249,7 +249,7 @@ function aboutRows(detail: ExpensePanelDetail, t: T): [ReactNode, ReactNode][] {
   const rateSource =
     e.rateSource === "bank"
       ? t("expenses.rateSource.bank")
-      : t(`journal.rateSource.${e.rateSource}`);
+      : t(`banking.rateSource.${e.rateSource}`);
   const rows: [ReactNode, ReactNode][] = [
     [
       t("expenses.col.group"),

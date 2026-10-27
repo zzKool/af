@@ -70,7 +70,7 @@ export function SupplierInvoiceAbout({
         source:
           si.rateSource === "bank"
             ? t("expenses.rateSource.bank")
-            : t(`journal.rateSource.${si.rateSource}`),
+            : t(`banking.rateSource.${si.rateSource}`),
       })}
     </span>,
   ]);

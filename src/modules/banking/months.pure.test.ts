@@ -107,11 +107,11 @@ describe("linkFactsOf", () => {
         from: { type: "bank_transaction", id: "r2" },
         to: { type: "bank_transaction", id: "r3" },
       }),
-      // a manual journal entry's allocation is not a bank row's
+      // another source's allocation is not a bank row's
       link({
         allocatedAmount: "9.00",
-        from: { type: "journal_entry", id: "j" },
-        to: { type: "invoice", id: "i" },
+        from: { type: "expense", id: "x" },
+        to: { type: "document", id: "d" },
       }),
     ]);
     expect(f.allocated.get("r1")).toBe("100.35");

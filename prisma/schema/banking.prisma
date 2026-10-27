@@ -2,9 +2,10 @@
 // Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
 // enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
 //
-// A bank transaction is one CSV row, kept verbatim and never updated (trigger `bank_transactions_immutable`);
-// the owner's facts about it (category, partner, note, no document needed) live on its journal entry
-// (prisma/schema/journal.prisma, D3). Linked / open / no-document are DERIVED from links and the journal flag.
+// A bank transaction is one CSV row, kept verbatim, carrying its own facts since D59 (F113, 2026-10-27): the bank's
+// facts and the SEK base / rate are written once (trigger `bank_transactions_lock_facts`); the owner's facts —
+// BAS category, partner, note, no document needed — change freely. Linked / open / no-document are DERIVED from
+// links and the flag. `journal_entries` (prisma/schema/journal.prisma) is read by nothing and dropped by PR B.
 // Dedup (D25): sha256 over the raw columns per account + the in-file occurrence index; balance and own notes
 // never take part. Cross-module references (document, partner, rule) are validated UUIDs, never FKs.
 
@@ -120,19 +121,40 @@ model BankTransaction {
   occurrence        Int      @default(0)
   /// position in the file — provenance only, never part of any key
   rowIndex          Int      @map("row_index")
+  /// SEK base = round(amount × rate, 2) — written at import, locked (F113, D59)
+  amountBase        Decimal  @map("amount_base") @db.Decimal(15, 2)
+  rate              Decimal  @db.Decimal(18, 6)
+  /// never `bank` (CHECK) — the row is the bank
+  rateSource        RateSource @map("rate_source")
+  rateDate          DateTime? @map("rate_date") @db.Date
+  /// the owner's facts (D3): 3-digit BAS group (bas_categories.code), validated at write
+  basCode           String?  @map("bas_code") @db.VarChar(4)
+  partnerId         String?  @map("partner_id") @db.Uuid
+  note              String?
+  /// the statement itself is the proof (bank fees, interest, transfer pairs, Skatteverket)
+  noDocumentNeeded  Boolean  @default(false) @map("no_document_needed")
+  categorisedBy     JournalCategorisedBy? @map("categorised_by")
+  /// the categorisation rule that hit (validated UUID), cleared when the owner overrides
+  ruleId            String?  @map("rule_id") @db.Uuid
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy         String   @map("created_by") @db.Uuid
   source            String   @default("web") @db.VarChar(20)
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   bankImport  BankImport  @relation(fields: [bankImportId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// D63: a composite FK — the partner of the same tenant, RESTRICT (a partner with categorised rows stays)
+  partner     Partner?    @relation(fields: [tenantId, partnerId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([bankAccountId, dedupHash, occurrence], map: "bank_transactions_account_hash_occurrence_key")
   @@index([tenantId, bookingDate(sort: Desc)])
   @@index([tenantId, bankAccountId, bookingDate])
   @@index([tenantId, counterpartyKey])
   @@index([tenantId, bankImportId])
+  @@index([tenantId, basCode])
+  @@index([tenantId, partnerId])
+  @@index([tenantId, categorisedBy])
   @@map("bank_transactions")
 }
 

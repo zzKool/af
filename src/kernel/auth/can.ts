@@ -15,7 +15,6 @@ export type Subject =
   | "link"
   | "bank_account"
   | "bank_transaction"
-  | "journal_entry"
   | "invoice"
   | "supplier_invoice"
   | "expense"
@@ -42,7 +41,6 @@ const TENANT_ALL: Rules = {
   link: ALL,
   bank_account: ALL,
   bank_transaction: ALL,
-  journal_entry: ALL,
   invoice: ALL,
   supplier_invoice: ALL,
   expense: ALL,
@@ -65,7 +63,6 @@ const RULES: Record<Role, Rules> = {
     link: READ,
     bank_account: READ,
     bank_transaction: READ,
-    journal_entry: READ,
     invoice: READ,
     supplier_invoice: READ,
     expense: READ,
@@ -83,7 +80,6 @@ const RULES: Record<Role, Rules> = {
     relationship_document: WORK,
     link: WORK,
     bank_transaction: WORK,
-    journal_entry: WORK,
     expense: WORK,
     user_preferences: ALL,
   },
