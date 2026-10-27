@@ -115,8 +115,11 @@ test.describe("Document review page — owner", () => {
     const download = await page.request.get(`/api/documents/${id}/file?download=1`);
     expect(download.headers()["content-disposition"]).toMatch(/^attachment; filename=/);
 
-    // no session: 401, no bytes
-    const anonymous = await request.newContext({ baseURL });
+    // no session: 401, no bytes (an empty storage state — the runner would otherwise lend this context the owner's)
+    const anonymous = await request.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+    });
     const refused = await anonymous.get(`/api/documents/${id}/file`);
     expect(refused.status()).toBe(401);
     await anonymous.dispose();
