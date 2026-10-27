@@ -79,7 +79,7 @@ ALTER TABLE "bank_transactions"
     ALTER COLUMN "rate"        SET NOT NULL,
     ALTER COLUMN "rate_source" SET NOT NULL,
     ADD CONSTRAINT "bank_transactions_rate_source_check" CHECK ("rate_source" <> 'bank'),
-    ADD CONSTRAINT "bank_transactions_partner_fkey"
+    ADD CONSTRAINT "bank_transactions_tenant_id_partner_id_fkey"
         FOREIGN KEY ("tenant_id", "partner_id") REFERENCES "partners"("tenant_id", "id")
         ON DELETE RESTRICT ON UPDATE NO ACTION;
 

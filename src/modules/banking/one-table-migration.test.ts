@@ -228,7 +228,7 @@ describe("one_transaction_table (F113 US2)", () => {
     // the partner is a foreign key (D63)
     await expect(
       db.query(`UPDATE bank_transactions SET partner_id = $2 WHERE id = $1`, [ROW_SEK, DOC]),
-    ).rejects.toThrow(/bank_transactions_partner_fkey/);
+    ).rejects.toThrow(/bank_transactions_tenant_id_partner_id_fkey/);
     // the old table is still there, read by nothing (PR B)
     expect((await db.query(`SELECT count(*)::int AS n FROM journal_entries`)).rows[0]?.n).toBe(2);
     // the old immutable trigger is gone, the lock is in place
