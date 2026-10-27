@@ -2,7 +2,7 @@ import { createMiddleware } from "next-safe-action";
 import type pino from "pino";
 import { ActionError } from "@/kernel/actions/errors";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
-import { roleFromMembership } from "@/kernel/auth/can";
+import { isKnownOrgRole, roleFromMembership } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
@@ -47,7 +47,7 @@ export const tenantMiddleware = createMiddleware<{
     });
   }
 
-  if (!["owner", "member", "editor"].includes(member.role)) {
+  if (!isKnownOrgRole(member.role)) {
     ctx.log.warn({ role: member.role, userId }, "Unknown Better Auth role");
     throw new ActionError({
       code: "FORBIDDEN",
