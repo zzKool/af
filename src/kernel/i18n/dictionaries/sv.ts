@@ -448,6 +448,7 @@ export const sv: Dictionary = {
   "invoices.action.copy": "Kopiera till nytt utkast",
   "invoices.action.downloadPdf": "Ladda ner PDF",
   "invoices.action.pdfPending": "PDF:en skapas…",
+  "invoices.action.pdfAgain": "Skapa igen",
   "invoices.action.deleteDraft": "Ta bort utkast",
   "invoices.action.deleteConfirm.title": "Ta bort utkast",
   "invoices.action.deleteConfirm.description": "Ta bort utkastet? Det går inte att ångra.",

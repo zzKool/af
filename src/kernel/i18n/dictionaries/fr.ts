@@ -448,6 +448,7 @@ export const fr: Dictionary = {
   "invoices.action.copy": "Copier en nouveau brouillon",
   "invoices.action.downloadPdf": "Télécharger le PDF",
   "invoices.action.pdfPending": "Le PDF est en cours de génération…",
+  "invoices.action.pdfAgain": "Générer à nouveau",
   "invoices.action.deleteDraft": "Supprimer le brouillon",
   "invoices.action.deleteConfirm.title": "Supprimer le brouillon",
   "invoices.action.deleteConfirm.description":

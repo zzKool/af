@@ -445,6 +445,7 @@ export const en = {
   "invoices.action.copy": "Copy to new draft",
   "invoices.action.downloadPdf": "Download PDF",
   "invoices.action.pdfPending": "PDF is being generated…",
+  "invoices.action.pdfAgain": "Generate again",
   "invoices.action.deleteDraft": "Delete draft",
   "invoices.action.deleteConfirm.title": "Delete draft",
   "invoices.action.deleteConfirm.description": "Delete this draft? This cannot be undone.",

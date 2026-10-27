@@ -2,7 +2,7 @@
 // expense's receipt (`Ex213-Tr-02_2026-03-21_.pdf`, generated), linked `created_from` from the expense (an
 // earlier breakdown's link is replaced; the old document stays). Idempotent: `per_diem_document_id` marks it done.
 import { withJobContext } from "@/kernel/jobs/context";
-import type { JobDefinition } from "@/kernel/jobs/types";
+import type { JobContext, JobDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import { renderPathToPdf } from "@/kernel/pdf/pdf";
 import { createStorageService } from "@/kernel/storage/storage";
@@ -92,6 +92,34 @@ export async function renderPerDiem(
   logger.info({ groupId, key: target.expense.key }, "traktamente.render-per-diem: stored");
 }
 
+/** After the last retry (F110): the failure goes on the trip's trail. */
+export async function markPerDiemFailed(
+  { tenantId, userId, groupId }: RenderPerDiemData,
+  ctx: JobContext,
+): Promise<void> {
+  logger.error(
+    { groupId, failure: ctx.failure },
+    "traktamente.render-per-diem: failed after all retries",
+  );
+  await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
+    const trip = await tx.trip.findUnique({
+      where: { groupId },
+      select: { id: true, perDiemDocumentId: true },
+    });
+    if (!trip || trip.perDiemDocumentId) return;
+    await audit.log({
+      action: "update",
+      entityType: "trip",
+      entityId: trip.id,
+      newData: {
+        perDiemRender: "failed",
+        error: ctx.failure?.error ?? "unknown error",
+        attempts: ctx.failure?.attempts ?? null,
+      },
+    });
+  });
+}
+
 export const renderPerDiemJob: JobDefinition<RenderPerDiemData> = {
   name: "traktamente.render-per-diem",
   options: {
@@ -102,6 +130,7 @@ export const renderPerDiemJob: JobDefinition<RenderPerDiemData> = {
     expireInSeconds: 120,
   },
   handler: (data) => renderPerDiem(data),
+  onDeadLetter: markPerDiemFailed,
 };
 
 export const traktamenteJobs = [renderPerDiemJob];
