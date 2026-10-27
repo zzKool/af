@@ -27,11 +27,10 @@ $COMPOSE exec -T db psql -U "$DB_USER" -d postgres -v ON_ERROR_STOP=1 -q \
   -c "DROP DATABASE IF EXISTS \"$DB_NAME\";" \
   -c "ALTER DATABASE \"${DB_NAME}_restore\" RENAME TO \"$DB_NAME\";"
 
-echo "restoring the blobs from $BLOBS"
-$COMPOSE stop azurite
-docker run --rm --volumes-from "$($COMPOSE ps -aq azurite)" -v "$(cd "$(dirname "$BLOBS")" && pwd)":/backup alpine \
-  sh -c "rm -rf /data/* && tar xzf /backup/$(basename "$BLOBS") -C /data"
-$COMPOSE start azurite
+echo "restoring the documents from $BLOBS"
+# the documents volume (F107) is mounted by the app, stopped above; the archive is the folder's content
+docker run --rm --volumes-from "$($COMPOSE ps -aq app)" -v "$(cd "$(dirname "$BLOBS")" && pwd)":/backup alpine \
+  sh -c "rm -rf /data/documents/* && tar xzf /backup/$(basename "$BLOBS") -C /data/documents"
 
 echo "starting the app (migrations run first)"
 $COMPOSE up -d app

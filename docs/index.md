@@ -13,7 +13,6 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 - [[feature-inventory]] — v1 vs v2 vs Excel: scope, decisions D1–D40, module verdicts, harvest list
 - [[ui-conventions]] — Layout (three archetypes, full width), the visual direction "Lakehouse" (D40: tokens light + dark, type, one money format, states vs tags, shell, page anatomy, the docked details panel), the Excel-style DataTable and `ListQuery`, i18n; its checklist form is the `af-design` skill
 - [[excel-to-v3-mapping]] — The owner's tracking Excel mapped column by column to the v3 model
-- [[phase-0]] — Status board of the organisation work before the first business feature
 - [[feature-folders]] — The kernel / modules layout (3a): what lives where, rules enforced now, v2 → 3a path map
 - [[linking]] — The single link table (3c): kinds matrix, invariants in service and database, how a module becomes linkable; the one scorer and the suggestions both ways (candidates through the registry, apply / bulk apply, *Link to…*), on the banking panel and the invoice page; the inbox work page with the keyboard and *Apply HIGH*
 - [[authorization]] — `can()` and the role table (4.2): roles, actions, subjects, where checks live
@@ -23,8 +22,6 @@ Business administration for AnalyticsFab AB — documents, bank imports, journal
 Technical decisions, stack choices, and system design patterns.
 
 - [[architecture-decisions]] — Post-commit side-effect pattern, future ADRs
-- [[tech-stack]] — Languages, frameworks, and library versions
-- [[data-model]] — Database schema, relationships, and RLS policies
 - [[prisma-rls-setup]] — Multi-tenant RLS with Prisma 7, tenant-aware client, migration workflow
 - [[cross-table-rls]] — Cross-table FK behavior under RLS, service-level FK validation pattern (Epic 4 spike)
 - [[auth-setup]] — Better Auth 1.5 configuration, organization-to-tenant mapping, session management
@@ -38,8 +35,6 @@ Reusable code patterns and development conventions.
 
 - [[conventions]] — Commit conventions, branching strategy, naming standards
 - [[server-actions]] — Middleware chain, RBAC, error handling, and testing guide
-- [[error-handling]] — Typed error codes and response patterns
-- [[hexagonal-architecture]] — Import boundaries and service isolation (paths updated for the 3a layout; see [[feature-folders]])
 - [[decimal-currency]] — Decimal arithmetic, currency formatting, boundary rule
 - [[clock-and-rates]] — Clock abstraction, timezone rules, ECB rate storage
 - [[ecb-rates]] — ECB SDMX API fetching service, XML parsing, gap detection
@@ -91,24 +86,16 @@ Page-specific documentation and patterns.
 
 UI component documentation and design system.
 
-- [[shadcn-ui]] — Component library usage and customization
-- [[domain-components]] — Business-specific UI components
-- [[shared-components]] — Loading states, empty states, dialogs
 
 ## Services
 
 Backend service documentation and API contracts.
 
-- [[business-logic]] — Service layer patterns and responsibilities
-- [[external-integrations]] — Azure DI, Blob Storage, ECB
-- [[testing]] — Test architecture, fixtures, and coverage strategy
 - [[test-performance-baseline]] — Test suite performance baseline and monitoring thresholds
 - [[config-page-test-template]] — Reusable test structure for config CRUD pages (Stories 3.1–3.4)
-- [[story-creation-checklist]] — Mutation story checklist, pattern-setter flag, retro gate check
 - [[auto-save-pattern]] — Comprehensive auto-save form pattern reference (8 edge cases)
 - [[blob-storage]] — Azure Blob Storage service, Azurite setup, test patterns
 - [[async-jobs]] — pg-boss in-process queue (D17): JobDefinition, withJobContext, retries + dead letter, schedules with catch-up, pgboss schema migration
 - [[pdf]] — kernel/pdf: Chromium in the image, print routes + print tokens, renderPathToPdf / renderHtmlToPdf
-- [[open-questions]] — the owner's decisions pending from the harvest (blocking vs during-the-build), with proposals
 - [[verify-gate]] — what runs on a PR and on main (lint, typecheck, drift check, tests, build, e2e + page screenshots), flaky quarantine, DoD mapping
 - [[ocr-processing]] — OCR service interface, Azure DI integration, resumable process-document job, quality classification
