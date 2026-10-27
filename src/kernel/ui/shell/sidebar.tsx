@@ -45,7 +45,13 @@ export function Sidebar({
   );
 
   const link = (item: NavItem) => {
-    const active = pathname === item.path || pathname.startsWith(`${item.path}/`);
+    // the longest matching path wins: /banking/inbox is Work's, not Banking's (F97 US4)
+    const matches = (p: string) => pathname === p || pathname.startsWith(`${p}/`);
+    const active =
+      matches(item.path) &&
+      !items.some(
+        (o) => o.path !== item.path && o.path.startsWith(`${item.path}/`) && matches(o.path),
+      );
     const Icon = SHELL_ICONS[item.icon];
     const label = t(item.labelKey);
     const count = counts[item.path] ?? 0;

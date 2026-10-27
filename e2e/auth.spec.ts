@@ -24,6 +24,8 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Declarations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
+    // Work (F97 US4): the inbox, first after Dashboard, the owner's
+    await expect(nav.getByRole("link", { name: /^Work/ })).toBeVisible();
     // the journal page went with F113 (D59): the rows carry their facts on /banking
     await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
 
@@ -53,6 +55,7 @@ test.describe("Accountant authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Declarations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
+    await expect(nav.getByRole("link", { name: /^Work/ })).not.toBeVisible();
     // Owner-only and not-yet-enabled links are NOT visible
     await expect(nav.getByRole("link", { name: "Documents" })).not.toBeVisible();
     await expect(nav.getByRole("link", { name: "Partners" })).not.toBeVisible();

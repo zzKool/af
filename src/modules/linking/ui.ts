@@ -7,6 +7,7 @@ export * from "./components/inbox-workbench";
 export * from "./components/justify-panel";
 export * from "./components/link-graph";
 export * from "./components/links-list";
+export * from "./components/payment-picker";
 export * from "./components/suggestions-section";
 export * from "./linking.actions";
 export type * from "./types";

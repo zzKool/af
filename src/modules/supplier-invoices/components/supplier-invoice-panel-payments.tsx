@@ -1,23 +1,18 @@
 "use client";
 
-// The payments section of the supplier-invoice panel: the linked payments (remove), and *Link payment* — rows of
-// the invoice currency first with an optional allocation; a row in another currency attaches the D-g way. The
-// linking inbox sends the owner here for a payment (D37, F58): `?open=<invoice>&attach=<bank row>` preselects it.
+// The payments section of the supplier-invoice panel: the linked payments (remove), and *Link payment* — the
+// scored rows first, a search over the rest (the `PaymentPicker`, F97 US2), an optional allocation; a row in
+// another currency attaches the D-g way. The linking inbox sends the owner here for a payment (D37, F58):
+// `?open=<invoice>&attach=<bank row>` preselects it.
 import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { PaymentPicker } from "@/modules/linking/ui";
 import type { PayableTransaction } from "@/modules/supplier-invoices/queries";
 import {
   attachSupplierPaymentAction,
@@ -141,26 +136,16 @@ export function SupplierInvoicePaymentsSection({
       {canWrite && !si.cancelled && detail.open !== "0.00" && !si.paidAmount && (
         <div className="mt-2 grid gap-2" data-testid="link-payment">
           <div>
-            <label htmlFor={`${ids}-pay`} className="mb-1 block text-xs font-medium">
+            <span className="mb-1 block text-xs font-medium">
               {t("supplierInvoices.panel.pickRow")}
-            </label>
-            <Select value={payId} onValueChange={(v) => setPayId(v ?? NONE)}>
-              <SelectTrigger id={`${ids}-pay`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>—</SelectItem>
-                {payable.map((tx) => (
-                  <SelectItem key={tx.id} value={tx.id}>
-                    {tx.bookingDate} · {money(tx.amount, tx.currency)}
-                    {tx.remaining !== tx.amount.replace("-", "")
-                      ? ` (${money(tx.remaining, tx.currency)} ${t("supplierInvoices.panel.left")})`
-                      : ""}{" "}
-                    · {tx.description}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            </span>
+            <PaymentPicker
+              entity={{ type: "supplier_invoice", id: si.id }}
+              rows={payable}
+              value={payId === NONE ? null : payId}
+              onChange={(id) => setPayId(id ?? NONE)}
+              refreshKey={detail.payments.length}
+            />
           </div>
           {selectedRow && !crossCurrency && (
             <div>

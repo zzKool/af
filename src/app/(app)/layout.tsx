@@ -68,6 +68,8 @@ export default async function AppLayout({
           const invoices = await overdueInvoiceCount(tx, today);
           const supplierInvoices = await overdueSupplierInvoiceCount(tx, today);
           return {
+            // Work (F97 US4): the rows to justify and the documents to review, one number
+            "/banking/inbox": banking + documents,
             "/banking": banking,
             "/documents": documents,
             "/invoices": invoices,

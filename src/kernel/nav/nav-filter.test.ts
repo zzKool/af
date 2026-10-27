@@ -3,11 +3,12 @@ import { NAV_GROUPS, NAV_ITEMS, type NavItem, NEW_ITEMS } from "@/kernel/nav/con
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 
 describe("filterNavItems", () => {
-  test("owner sees the monthly loop's order (D40): Banking before Documents, Settings last", () => {
+  test("owner sees the monthly loop's order (D40): Work first, Banking before Documents, Settings last", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
     expect(labels).toEqual([
       "Dashboard",
+      "Work",
       "Banking",
       "Documents",
       "Partners",
@@ -41,6 +42,13 @@ describe("filterNavItems", () => {
     const result = filterNavItems(NAV_ITEMS, "owner");
     const labels = result.map((i) => i.label);
     expect(labels).not.toContain("Reconciliation");
+  });
+
+  test("Work is the owner's — the accountant reads, the loop is not his", () => {
+    expect(filterNavItems(NAV_ITEMS, "owner").map((i) => i.path)).toContain("/banking/inbox");
+    expect(filterNavItems(NAV_ITEMS, "accountant").map((i) => i.path)).not.toContain(
+      "/banking/inbox",
+    );
   });
 
   test("Documents is visible to owner but not accountant", () => {

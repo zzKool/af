@@ -6,16 +6,9 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
@@ -25,7 +18,8 @@ import {
   detachBankTransactionAction,
 } from "@/modules/expenses/expenses.actions";
 import type { SettlementStatus, SourceOption, TransactionOption } from "@/modules/expenses/types";
-import { type ExpensePanelDetail, money, NONE } from "./expense-panel-shared";
+import { PaymentPicker } from "@/modules/linking/ui";
+import { type ExpensePanelDetail, NONE } from "./expense-panel-shared";
 import { SettlementStateLabel } from "./expense-state";
 
 export function ExpenseAttachRow({
@@ -43,7 +37,6 @@ export function ExpenseAttachRow({
   onChanged: () => void;
 }) {
   const t = useT();
-  const ids = useId();
   const params = useSearchParams();
   const e = detail.expense;
   const companyPaid = detail.paymentSource.kind === "bank_account";
@@ -98,22 +91,13 @@ export function ExpenseAttachRow({
       ) : (
         <>
           <div className="min-w-0 flex-1">
-            <label htmlFor={`${ids}-attach`} className="mb-1 block text-xs font-medium">
-              {t("expenses.panel.attachPick")}
-            </label>
-            <Select value={attachId} onValueChange={(v) => setAttachId(v ?? NONE)}>
-              <SelectTrigger id={`${ids}-attach`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>—</SelectItem>
-                {attachable.map((tx) => (
-                  <SelectItem key={tx.id} value={tx.id}>
-                    {tx.bookingDate} · {money(tx.amount, tx.currency)} · {tx.description}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="mb-1 block text-xs font-medium">{t("expenses.panel.attachPick")}</span>
+            <PaymentPicker
+              entity={{ type: "expense", id: e.id }}
+              rows={attachable}
+              value={attachId === NONE ? null : attachId}
+              onChange={(id) => setAttachId(id ?? NONE)}
+            />
           </div>
           <Button
             size="sm"
