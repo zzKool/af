@@ -22,6 +22,7 @@ import {
   TRANSACTION_DEFAULT_SORT,
 } from "@/modules/banking";
 import { TransactionTable, WorkbenchActions } from "@/modules/banking/ui";
+import { justifyOptions } from "@/modules/linking";
 import { getUserPreferences } from "@/modules/settings";
 
 // The transactions workbench — the URL is the query, the derived state computed server-side (D20).
@@ -46,6 +47,8 @@ export default async function BankingPage({
     const imports = await listImports(tx);
     const prefs = await getUserPreferences(tx, auth);
     const months = await bankMonths(tx, { today });
+    // the Justify panel's lists (F97) — the owner's, nothing for the accountant
+    const justify = can(auth, "create", "link") ? await justifyOptions(tx, auth) : null;
     return {
       months,
       result,
@@ -55,6 +58,7 @@ export default async function BankingPage({
       partners,
       imports,
       prefs,
+      justify,
     };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
@@ -95,6 +99,7 @@ export default async function BankingPage({
         accounts={accountOptions}
         categories={data.categories}
         partners={data.partners}
+        justifyOptions={data.justify}
         importLabels={Object.fromEntries(data.imports.map((i) => [i.id, i.fileName]))}
         canWrite={canWrite}
         initialSelectedId={typeof params.open === "string" ? params.open : null}

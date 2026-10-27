@@ -7,7 +7,7 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { categoryOptions, partnerOptions } from "@/modules/banking";
-import { inboxRows, unlinkedDocuments } from "@/modules/linking";
+import { inboxRows, justifyOptions, unlinkedDocuments } from "@/modules/linking";
 import { InboxWorkbench } from "@/modules/linking/ui";
 import { getUserPreferences } from "@/modules/settings";
 
@@ -21,7 +21,9 @@ export default async function InboxPage() {
     const categories = await categoryOptions(tx, auth);
     const partners = await partnerOptions(tx);
     const prefs = await getUserPreferences(tx, auth);
-    return { rows, documents, categories, partners, prefs };
+    // the Justify panel's lists (F97) — the owner's
+    const justify = can(auth, "create", "link") ? await justifyOptions(tx, auth) : null;
+    return { rows, documents, categories, partners, prefs, justify };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const high = data.rows.filter((r) => r.top?.confidence === "HIGH").length;
@@ -41,6 +43,7 @@ export default async function InboxPage() {
         documents={data.documents}
         categories={data.categories}
         partners={data.partners}
+        justifyOptions={data.justify}
         canWrite={can(auth, "create", "bank_transaction")}
       />
     </ListPage>

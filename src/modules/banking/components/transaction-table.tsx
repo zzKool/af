@@ -27,6 +27,7 @@ import type {
   TransactionListRow,
   TransactionState,
 } from "@/modules/banking/types";
+import type { JustifyOptions } from "@/modules/linking/ui";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 import type { AccountOption } from "./import-dialog";
 import { MonthsPanel } from "./months-panel";
@@ -73,6 +74,7 @@ export function TransactionTable({
   accounts,
   categories,
   partners,
+  justifyOptions = null,
   importLabels,
   canWrite,
   initialSelectedId,
@@ -83,6 +85,8 @@ export function TransactionTable({
   accounts: AccountOption[];
   categories: CategoryOption[];
   partners: PartnerOption[];
+  /** the Justify panel's option lists (F97); null hides it */
+  justifyOptions?: JustifyOptions | null;
   /** import id → file name, for the Import filter's values */
   importLabels: Record<string, string>;
   canWrite: boolean;
@@ -402,6 +406,7 @@ export function TransactionTable({
         onClose={() => setSelectedId(null)}
         categories={categories}
         partners={partners}
+        justifyOptions={justifyOptions}
         canWrite={canWrite}
         onChanged={() => router.refresh()}
       />
