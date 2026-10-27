@@ -5,6 +5,7 @@ import {
   generateBlobSASQueryParameters,
   StorageSharedKeyCredential,
 } from "@azure/storage-blob";
+import { createFsStorageService } from "./fs-storage";
 
 export interface StorageService {
   ensureContainer(): Promise<void>;
@@ -28,15 +29,40 @@ export interface StorageService {
   ): Promise<string>;
 }
 
+/**
+ * The driver (F107, D61): `STORAGE_DRIVER=fs` keeps the documents in `STORAGE_DIR` on the box — the production
+ * choice; `blob` (the default, as before) is Azure Blob or Azurite through `AZURE_STORAGE_CONNECTION_STRING`.
+ * Both honour `AZURE_STORAGE_CONTAINER` as the URL's container segment, so `extractBlobPath` reads either.
+ */
+export function resolveStorageDriver(
+  env: Record<string, string | undefined> = process.env,
+): { kind: "fs"; dir: string; container: string } | { kind: "blob" } {
+  const wanted = env.STORAGE_DRIVER?.trim().toLowerCase() || "blob";
+  if (wanted === "fs") {
+    const dir = env.STORAGE_DIR?.trim();
+    if (!dir) throw new Error("STORAGE_DIR is required with STORAGE_DRIVER=fs");
+    return { kind: "fs", dir, container: env.AZURE_STORAGE_CONTAINER?.trim() || "documents" };
+  }
+  if (wanted !== "blob")
+    throw new Error(`Unknown STORAGE_DRIVER "${env.STORAGE_DRIVER}" (fs | blob)`);
+  return { kind: "blob" };
+}
+
 export function createStorageService(
   connectionString?: string,
   containerName?: string,
 ): StorageService {
+  if (!connectionString) {
+    const driver = resolveStorageDriver();
+    if (driver.kind === "fs") return createFsStorageService(driver.dir, driver.container);
+  }
   const connStr = connectionString ?? process.env.AZURE_STORAGE_CONNECTION_STRING;
   const container = containerName ?? process.env.AZURE_STORAGE_CONTAINER;
 
   if (!connStr) {
-    throw new Error("AZURE_STORAGE_CONNECTION_STRING is required for storage service");
+    throw new Error(
+      "AZURE_STORAGE_CONNECTION_STRING is required for the blob storage driver (or STORAGE_DRIVER=fs with STORAGE_DIR)",
+    );
   }
   if (!container) {
     throw new Error("AZURE_STORAGE_CONTAINER is required for storage service");

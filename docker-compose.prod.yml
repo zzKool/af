@@ -10,7 +10,8 @@
 # Build locally instead of pulling: `docker compose -f docker-compose.prod.yml build` (the same Dockerfile).
 #
 # Differences from docker-compose.yml (dev): one database, the published images, no ports published except the
-# app, Azurite kept as blob storage until Azure Blob is used (switch = change two env vars).
+# app, the documents in a volume on the box (`STORAGE_DRIVER=fs`, F107 / D61) — Azure Blob is the other driver
+# (switch = `STORAGE_DRIVER=blob` + the connection string); Azurite is for dev only.
 services:
   migrate:
     image: ${AF_IMAGE:-ghcr.io/zzkool/af}-migrate:${AF_TAG:-main}
@@ -18,6 +19,11 @@ services:
       context: .
       target: migrate
     env_file: .env.prod
+    environment:
+      STORAGE_DRIVER: fs
+      STORAGE_DIR: /data/documents
+    volumes:
+      - documents:/data/documents
     restart: "no"
     depends_on:
       db:
@@ -33,13 +39,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      STORAGE_DRIVER: fs
+      STORAGE_DIR: /data/documents
+    volumes:
+      - documents:/data/documents
     ports:
       - "${AF_PORT:-3000}:3000"
     depends_on:
       migrate:
         condition: service_completed_successfully
-      azurite:
-        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 30s
@@ -62,13 +70,6 @@ services:
       timeout: 5s
       retries: 5
 
-  azurite:
-    image: mcr.microsoft.com/azure-storage/azurite
-    command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck --loose
-    restart: unless-stopped
-    volumes:
-      - blobdata:/data
-
 volumes:
   pgdata:
-  blobdata:
+  documents:
