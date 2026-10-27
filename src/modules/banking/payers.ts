@@ -10,7 +10,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { accountLabel } from "./bank-accounts";
-import type { BankAccountRole } from "./types";
+import { type BankAccountRole, type PayerKind, payerKindOf } from "./types";
 
 /** A payer as the pickers show it: `kind` says which link reimburses or pays it. */
 export type PayerAccount = {
@@ -18,7 +18,7 @@ export type PayerAccount = {
   label: string;
   currency: string;
   role: BankAccountRole;
-  kind: "bank_account" | "private";
+  kind: PayerKind;
 };
 
 export const privateAccountSchema = z.object({
@@ -34,13 +34,12 @@ export async function payerAccounts(tx: TransactionClient): Promise<PayerAccount
     select: { id: true, accountAlias: true, accountNumber: true, currency: true, role: true },
     orderBy: [{ role: "asc" }, { accountNumber: "asc" }, { currency: "asc" }],
   });
-  return rows.map((a) => ({
-    id: a.id,
-    label: accountLabel(a),
-    currency: a.currency,
-    role: a.role as BankAccountRole,
-    kind: a.role === "owner_private" ? "private" : "bank_account",
-  }));
+  return rows.flatMap((a) => {
+    const kind = payerKindOf(a.role);
+    return kind
+      ? [{ id: a.id, label: accountLabel(a), currency: a.currency, role: a.role, kind }]
+      : [];
+  });
 }
 
 /** One payer by id, or null — what another module validates `paid_from_account_id` with. */
@@ -52,14 +51,9 @@ export async function payerAccount(
     where: { id },
     select: { id: true, accountAlias: true, accountNumber: true, currency: true, role: true },
   });
-  if (!a || a.role === "savings") return null;
-  return {
-    id: a.id,
-    label: accountLabel(a),
-    currency: a.currency,
-    role: a.role as BankAccountRole,
-    kind: a.role === "owner_private" ? "private" : "bank_account",
-  };
+  const kind = a ? payerKindOf(a.role) : null;
+  if (!a || !kind) return null;
+  return { id: a.id, label: accountLabel(a), currency: a.currency, role: a.role, kind };
 }
 
 /** A private instrument of the owner: alias + currency, no format; the alias is its number too (unique per currency). */

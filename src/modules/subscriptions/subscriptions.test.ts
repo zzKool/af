@@ -331,7 +331,7 @@ describe("US2 — the periods' state from real entities", () => {
           currency: "SEK",
           paidFromAccountId: owner.sources.afSek.id,
         });
-        const attached = await expenses.attachBankTransaction(tx, owner.caller, noopAudit, {
+        const attached = await expenses.payExpense(tx, owner.caller, noopAudit, {
           expenseId: created.data!.id,
           bankTransactionId: rowId,
         });

@@ -90,6 +90,7 @@ export type PeriodRows = {
   rowStates: Awaited<ReturnType<typeof banking.transactionStates>>;
   /** type → ids justified by a period row */
   justified: Map<string, Set<string>>;
+  /** the expenses a period row reimbursed (`settles` links, F114) */
   settledIds: Set<string>;
   transferPairs: [string, string][];
 };
@@ -156,7 +157,7 @@ export type PeriodEntities = {
 export function selectEntities(
   period: PackagePeriod,
   lists: PeriodLists,
-  pr: Pick<PeriodRows, "justified" | "settledIds">,
+  pr: Pick<PeriodRows, "justified" | "settledIds" | "rowById">,
 ): PeriodEntities {
   const justifiedOf = (type: string): Set<string> => pr.justified.get(type) ?? new Set();
   const invoiceRows = lists.invoices.filter(
@@ -175,7 +176,8 @@ export function selectEntities(
     (e) => inPeriod(e.date, period) || justifiedOf("expense").has(e.id),
   );
   const activeSettlements = lists.settlements.filter((s) => s.status === "active");
-  const settlementRows = activeSettlements.filter((s) => pr.settledIds.has(s.id));
+  // a settlement is the statement over its refund row's `settles` links (F114): the period's are those of its rows
+  const settlementRows = activeSettlements.filter((s) => pr.rowById.has(s.bankTransactionId));
   // deterministic order (R6): by key / number, then id
   invoiceRows.sort(
     (a, b) => (a.number ?? "").localeCompare(b.number ?? "") || a.id.localeCompare(b.id),
@@ -407,6 +409,7 @@ export async function collectPeriod(
     }
   }
   const flags: PackageFlag[] = [];
+  const settlementOfRow = new Map(activeSettlements.map((s) => [s.bankTransactionId, s.number]));
   const bank: BankSheetRow[] = rows.map((r) => {
     const own = linksFrom.get(r.id) ?? [];
     const related: string[] = [];
@@ -414,8 +417,13 @@ export async function collectPeriod(
       const other = l.from.type === "bank_transaction" && l.from.id === r.id ? l.to : l.from;
       const key = keys.get(endpointKey(other)) ?? UNKNOWN_LABEL;
       if (l.kind === "transfer") related.push(`transfer ↔ ${key}`);
-      else if (l.kind === "settles") related.push(`settles ${key}`);
-      else related.push(key);
+      // the refund's `settles` links (one per expense, F114) read as the settlement they belong to, once —
+      // its sheet lists the expenses
+      else if (l.kind === "settles") {
+        const number = settlementOfRow.get(r.id);
+        const label = `settles ${number ?? key}`;
+        if (!related.includes(label)) related.push(label);
+      } else related.push(key);
     }
     const { status, allocated, delta, flag } = bankRowFacts(r, rowStates.get(r.id));
     const rowFlags: string[] = [];

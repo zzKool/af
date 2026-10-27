@@ -25,14 +25,14 @@ export default async function BankAccountsSettingsPage() {
       const bankFormats = await bankService.getBankFormats(tx);
       // the statement accounts (a format each) and the owner's private instruments (none, F114) — two lists
       const statementAccounts = (accountsResult.data ?? []).flatMap((a) =>
-        a.bankFormat && a.bankFormatId && a.role !== "owner_private"
+        a.bankFormat && a.bankFormatId && bankService.STATEMENT_ROLES.includes(a.role)
           ? [{ ...a, bankFormat: a.bankFormat, bankFormatId: a.bankFormatId }]
           : [],
       );
 
       return {
         privateInstruments: (accountsResult.data ?? [])
-          .filter((a) => a.role === "owner_private")
+          .filter((a) => bankService.payerKindOf(a.role) === "private")
           .map((a) => ({ id: a.id, label: bankService.accountLabel(a), currency: a.currency })),
         accounts: statementAccounts.map((a) => ({
           id: a.id,

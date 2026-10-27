@@ -27,7 +27,14 @@ export type {
 } from "./csv-parser";
 export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
 export type { CategoriseOptions, RowRate } from "./facts";
-export { baseAmount, categorise, categoriseSchema, resolveRate, transactionFacts } from "./facts";
+export {
+  baseAmount,
+  categorise,
+  categoriseSchema,
+  resolveRate,
+  transactionFacts,
+  transactionIdsByAmount,
+} from "./facts";
 export { transactionHistory } from "./history";
 export { impliedRate, withImplicitRates } from "./implicit-rate";
 export {
@@ -38,13 +45,13 @@ export {
   importCsvSchema,
   planImport,
 } from "./import";
+export { linkFactsOf, type RowForFacts } from "./link-facts";
 export { bankTransactionLinkable } from "./linkable";
 export type { MonthsInput } from "./months";
 export {
   addMonths,
   assembleMonths,
   bankMonths,
-  linkFactsOf,
   MONTHS_WINDOW,
   monthRange,
   needsProof,
@@ -92,8 +99,10 @@ export {
 export type * from "./types";
 export {
   BANK_ACCOUNT_ROLES,
+  payerKindOf,
   RATE_SOURCES,
   RULE_MATCH_FIELDS,
   RULE_MATCH_TYPES,
+  STATEMENT_ROLES,
   TRANSACTION_STATES,
 } from "./types";

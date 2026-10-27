@@ -3,7 +3,14 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@/generated/prisma/browser";
-import { isSettled, openAmount, settlementTolerance } from "./settlement";
+import {
+  fxDifference,
+  isSettled,
+  openAmount,
+  paidShare,
+  settlementTolerance,
+  sliceBase,
+} from "./settlement";
 
 const D = Prisma.Decimal;
 
@@ -112,6 +119,94 @@ describe("isSettled", () => {
         },
       ),
       { numRuns: 300 },
+    );
+  });
+});
+
+// --- the link as the payment record (F114, D60) ---
+
+describe("paidShare", () => {
+  it("is allocated ÷ amount, capped at 1; a zero amount counts as paid", () => {
+    expect(paidShare("100.00", "25.00").toFixed(4)).toBe("0.2500");
+    expect(paidShare("100.00", "120.00").toFixed(4)).toBe("1.0000");
+    expect(paidShare("0.00", "0.00").toFixed(4)).toBe("1.0000");
+  });
+});
+
+describe("fxDifference", () => {
+  it("the spec's card receipt: 45.00 CHF at an ECB base of 523.17, the SEK card gave 531.40 → +8.23, a loss", () => {
+    const fx = fxDifference("45.00", "523.17", [{ amount: "45.00", base: "531.40" }]);
+    expect(fx.allocated.toFixed(2)).toBe("45.00");
+    expect(fx.expectedBase.toFixed(2)).toBe("523.17");
+    expect(fx.difference.toFixed(2)).toBe("8.23");
+    expect(fx.rounding).toBe(false);
+  });
+  it("a private CHF receipt refunded in SEK below its ECB value: −40.00, a gain; rounding within the tolerance", () => {
+    const fx = fxDifference("100.00", "1140.00", [{ amount: "100.00", base: "1100.00" }]);
+    expect(fx.difference.toFixed(2)).toBe("-40.00");
+    expect(fx.rounding).toBe(false);
+    const r = fxDifference("999.70", "999.70", [{ amount: "999.70", base: "1000.00" }]);
+    expect(r.difference.toFixed(2)).toBe("0.30");
+    expect(r.rounding).toBe(true);
+  });
+  it("a partial payment compares against the paid share of the base", () => {
+    const fx = fxDifference("12000.00", "12000.00", [{ amount: "4000.00", base: "4000.00" }]);
+    expect(fx.expectedBase.toFixed(2)).toBe("4000.00");
+    expect(fx.difference.toFixed(2)).toBe("0.00");
+  });
+  it("property: same-currency slices at the entity's own rate never make a difference; the sign follows the base", () => {
+    fc.assert(
+      fc.property(amount(100_000), fc.integer({ min: 1, max: 4 }), (total, n) => {
+        const amt = new D(total);
+        if (amt.isZero()) return;
+        const slices: { amount: string; base: string }[] = [];
+        let left = amt;
+        for (let i = 0; i < n; i += 1) {
+          const take = i === n - 1 ? left : left.div(2).toDecimalPlaces(2);
+          left = left.minus(take);
+          slices.push({ amount: take.toFixed(2), base: take.toFixed(2) });
+        }
+        expect(fxDifference(total, total, slices).difference.toFixed(2)).toBe("0.00");
+        const more = slices.map((s) => ({ ...s, base: new D(s.base).plus("0.50").toFixed(2) }));
+        expect(fxDifference(total, total, more).difference.gt(0)).toBe(true);
+      }),
+    );
+  });
+});
+
+describe("sliceBase", () => {
+  it("pro rata of the row's base; the link that exhausts the row takes the exact remainder", () => {
+    const row = { amount: "-200.00", amountBase: "200.00" };
+    expect(sliceBase(row, { amount: "0", base: "0" }, "120.00").toFixed(2)).toBe("120.00");
+    expect(sliceBase(row, { amount: "120.00", base: "120.00" }, "80.00").toFixed(2)).toBe("80.00");
+    const chf = { amount: "-100.00", amountBase: "1140.00" };
+    expect(sliceBase(chf, { amount: "0", base: "0" }, "33.33").toFixed(2)).toBe("379.96");
+    expect(sliceBase(chf, { amount: "33.33", base: "379.96" }, "66.67").toFixed(2)).toBe("760.04");
+  });
+  it("property: slices that use a row up sum to its base to the cent", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 1_000_000 }),
+        fc.integer({ min: 1, max: 2_000_000 }),
+        fc.integer({ min: 1, max: 5 }),
+        (cents, baseCents, n) => {
+          const row = {
+            amount: new D(cents).div(100).toFixed(2),
+            amountBase: new D(baseCents).div(100).toFixed(2),
+          };
+          let givenAmount = new D(0);
+          let givenBase = new D(0);
+          for (let i = 0; i < n; i += 1) {
+            const left = new D(row.amount).minus(givenAmount);
+            const take = i === n - 1 ? left : left.div(2).toDecimalPlaces(2);
+            if (take.lte(0)) break;
+            const base = sliceBase(row, { amount: givenAmount, base: givenBase }, take);
+            givenAmount = givenAmount.plus(take);
+            givenBase = givenBase.plus(base);
+          }
+          expect(givenBase.toFixed(2)).toBe(row.amountBase);
+        },
+      ),
     );
   });
 });

@@ -47,5 +47,6 @@ export function openBase(
   );
   if (open.isZero()) return new D(0);
   const { expectedBase } = fxDifference(amount, amountBase, allocations);
-  return new D(amountBase).abs().minus(expectedBase);
+  const left = new D(amountBase).abs().minus(expectedBase);
+  return left.lt(0) ? new D(0) : left;
 }

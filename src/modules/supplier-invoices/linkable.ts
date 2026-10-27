@@ -55,8 +55,8 @@ async function toFacts(
 }
 
 /**
- * A supplier invoice carries what the company owes for it: the bank row's amount once a cross-currency payment is
- * attached (`paid_amount / paid_currency`, D-g), else the invoice total in its currency. Bank rows `justify` it —
+ * A supplier invoice carries what the company owes for it: its total in its own currency and its base (F114 / D60 —
+ * a payment in another currency changes nothing here; the link carries what the row gave). Bank rows `justify` it —
  * the allocations are the payments; a document is what it was created from.
  */
 export const supplierInvoiceLinkable: Linkable = {

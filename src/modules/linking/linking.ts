@@ -19,6 +19,7 @@ import {
   needsOwnFlow,
 } from "./kinds";
 import { getLinkable } from "./linkable";
+import { type RowUsage, rowRemaining } from "./row-usage";
 import type {
   AllocationStatus,
   CreateLinkInput,
@@ -125,10 +126,41 @@ export async function getAllocationStatus(
     where: { ...side, allocatedAmount: { not: null } },
     select: { allocatedAmount: true, allocatedBase: true, currency: true },
   });
+  const bases = rows.map((r) => r.allocatedBase ?? new Prisma.Decimal(0));
+  if (endpoint.type === "bank_transaction") {
+    // a row's capacity in its own currency: its cross-currency links count by the share of its base they took
+    const usage: RowUsage = { byCurrency: new Map(), base: sumAllocations(bases) };
+    for (const r of rows) {
+      const slot = usage.byCurrency.get(r.currency ?? "") ?? {
+        amount: new Prisma.Decimal(0),
+        base: new Prisma.Decimal(0),
+      };
+      slot.amount = slot.amount.plus(r.allocatedAmount as Prisma.Decimal);
+      slot.base = slot.base.plus(r.allocatedBase ?? 0);
+      usage.byCurrency.set(r.currency ?? "", slot);
+    }
+    const left = rowRemaining(
+      {
+        amount: summary.amount,
+        currency: summary.currency,
+        amountBase: summary.amountBase ?? null,
+      },
+      usage,
+    );
+    return {
+      data: {
+        endpoint,
+        amount: summary.amount,
+        currency: summary.currency,
+        allocated: new Prisma.Decimal(summary.amount).minus(left).toFixed(2),
+        remaining: left.toFixed(2),
+        allocatedBase: usage.base.toFixed(2),
+      },
+    };
+  }
   const allocations = rows
     .filter((r) => r.currency === summary.currency)
     .map((r) => r.allocatedAmount as Prisma.Decimal);
-  const bases = rows.map((r) => r.allocatedBase ?? new Prisma.Decimal(0));
   return {
     data: {
       endpoint,
@@ -294,10 +326,9 @@ export async function createLink(
           ),
         };
       }
-    } else if (input.allocatedBase != null) {
-      allocatedBase = new Prisma.Decimal(input.allocatedBase);
     } else {
-      return { error: violation(`${from.type} ${from.id} carries no base to allocate from`) };
+      // a source that carries no amount (never a real bank row) gives the amount at par, or what was stated
+      allocatedBase = new Prisma.Decimal(input.allocatedBase ?? allocatedAmount);
     }
   }
 

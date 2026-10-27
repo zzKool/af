@@ -814,7 +814,6 @@ export const fr: PartialDictionary = {
   "expenses.panel.money": "Montants",
   "expenses.panel.moneyLocked": "Remboursée ou liée — les montants sont figés.",
   "expenses.panel.base": "{base} SEK à {rate} ({source})",
-  "expenses.panel.paid": "Payé {amount} par la banque",
   "expenses.panel.attach": "Attacher la ligne bancaire",
   "expenses.panel.attachPick": "Choisir la ligne qui a payé cette dépense",
   "expenses.panel.attached": "Ligne bancaire attachée",
@@ -877,10 +876,6 @@ export const fr: PartialDictionary = {
   "expenses.settle.confirmTitle": "Rembourser {amount}",
   "expenses.settle.confirmExact": "Exact — chaque dépense sélectionnée est remboursée en entier.",
   "expenses.settle.confirmPartial": "Partiel — {amount} SEK restent ouverts.",
-  "expenses.settle.confirmOver":
-    "Sur-alloué de {amount} SEK — réduire une ligne ou confirmer un écart de change.",
-  "expenses.settle.exchangeDifference":
-    "Écart de change : {amount} SEK (à confirmer — le comptable le comptabilise)",
   "expenses.settle.rounding": "Arrondi : {amount} SEK (dans la tolérance de 0,50)",
   "expenses.settle.note": "Note",
   "expenses.settle.confirmed": "Remboursement {number} créé — le relevé arrive",

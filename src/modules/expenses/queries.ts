@@ -191,8 +191,8 @@ type PayerRow = {
   currency: string;
   role: string;
 };
-const payerKindOf = (a: PayerRow): PayerKind =>
-  a.role === "owner_private" ? "private" : "bank_account";
+// a savings account never pays (banking refuses it at write): read as the company's for a row that slipped through
+const payerKindOf = (a: PayerRow): PayerKind => banking.payerKindOf(a.role) ?? "bank_account";
 
 async function loadRows(
   tx: TransactionClient,

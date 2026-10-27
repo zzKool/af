@@ -21,13 +21,7 @@ import { _resetLinkables, type Linkable, registerLinkable } from "@/modules/link
 import { partnerLinkable } from "@/modules/partners";
 import { ALLOCATING_KINDS } from "./kinds";
 import * as linking from "./linking";
-import {
-  allocatedFrom,
-  allocatedSums,
-  createdFromTargets,
-  hasLinks,
-  linksTouching,
-} from "./queries";
+import { allocatedSums, createdFromTargets, hasLinks, linksTouching, rowUsage } from "./queries";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 
@@ -412,7 +406,7 @@ describe("linking service", () => {
     });
   });
 
-  it("allocatedFrom: Σ of the allocations from each source, allocating kinds only; linksTouching narrowed by kind", async () => {
+  it("rowUsage: what each row gave, allocating kinds only, per currency and in base; linksTouching narrowed by kind", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const [a, b, idle] = [uuid(), uuid(), uuid()];
     for (const id of [a, b, idle]) fakeTransactions.add(id);
@@ -440,16 +434,18 @@ describe("linking service", () => {
           })
         ).error,
       ).toBeUndefined();
-      const sums = await allocatedFrom(tx, "bank_transaction", [a, b, idle]);
-      expect(Object.fromEntries(sums)).toEqual({ [a]: "350.75" });
+      const usage = await rowUsage(tx, [a, b, idle]);
+      expect([...usage.keys()]).toEqual([a]);
+      expect(usage.get(a)?.byCurrency.get("CHF")?.amount.toFixed(2)).toBe("350.75");
+      // a fake row carries no base: the links took the amount at par
+      expect(usage.get(a)?.base.toFixed(2)).toBe("350.75");
       // linksTouching narrowed by kind
       const transfers = await linksTouching(tx, "bank_transaction", [a, b], {
         kinds: ["transfer"],
       });
       expect(transfers.map((l) => [l.kind, l.from.id, l.to.id])).toEqual([["transfer", b, idle]]);
       expect(await linksTouching(tx, "bank_transaction", [a, b])).toHaveLength(4);
-      expect((await allocatedFrom(tx, "expense", [a])).size).toBe(0); // the type is part of the key
-      expect((await allocatedFrom(tx, "bank_transaction", [])).size).toBe(0);
+      expect((await rowUsage(tx, [])).size).toBe(0);
     });
   });
 
@@ -488,9 +484,9 @@ describe("linking service", () => {
         expect(status.data?.allocated).toBe(sums.get(id));
       }
       // the mirror: what each source spent
-      expect(Object.fromEntries(await allocatedFrom(tx, "bank_transaction", [row3]))).toEqual({
-        [row3]: "224.95",
-      });
+      expect((await rowUsage(tx, [row3])).get(row3)?.byCurrency.get("CHF")?.amount.toFixed(2)).toBe(
+        "224.95",
+      );
       expect((await allocatedSums(tx, "supplier_invoice", [paid])).size).toBe(0); // the type is part of the key
       expect((await allocatedSums(tx, "invoice", [])).size).toBe(0);
     });

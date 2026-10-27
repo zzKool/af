@@ -54,13 +54,46 @@ export type FxDifference = {
   allocated: Dec;
   /** Σ what the rows gave, in base */
   allocatedBase: Dec;
-  /** the entity's base × the paid share — what the books carry for the part that is paid */
+  /** the base the books carry for the paid share (`expectedBases`, summed) */
   expectedBase: Dec;
   /** `allocatedBase − expectedBase`, signed: on a payable or a reimbursement > 0 is a loss (7960), < 0 a gain (3960); on a receivable the reverse */
   difference: Dec;
   /** |difference| within the tolerance of the expected base — rounding, not a gain or a loss */
   rounding: boolean;
 };
+
+/**
+ * The base the books carry for each allocation onto an entity, in the order the links were made (FR-003): the
+ * entity's base pro rata of the cumulative amount, the exact whole once the amount is covered within the
+ * tolerance (so the slices of a paid entity sum to its base to the cent). A partial slice whose base is within the
+ * tolerance of its pro-rata value IS that value — a same-currency refund settles exactly what it gives, and the
+ * cent the pro-rata rounding would invent is not a difference.
+ */
+export function expectedBases(
+  amount: Dec | string,
+  amountBase: Dec | string,
+  allocations: readonly Allocation[],
+): Dec[] {
+  const total = new Prisma.Decimal(amount).abs();
+  const base = new Prisma.Decimal(amountBase).abs();
+  let cumAmount = new Prisma.Decimal(0);
+  let cumExpected = new Prisma.Decimal(0);
+  const out: Dec[] = [];
+  for (const a of allocations) {
+    cumAmount = cumAmount.plus(new Prisma.Decimal(a.amount));
+    const settled = total.isZero() || isSettled(total, [cumAmount]);
+    const target = settled
+      ? base
+      : base.mul(cumAmount).div(total).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    let expected = target.minus(cumExpected);
+    const given = new Prisma.Decimal(a.base);
+    if (!settled && given.minus(expected).abs().lte(settlementTolerance(expected)))
+      expected = given;
+    cumExpected = cumExpected.plus(expected);
+    out.push(expected);
+  }
+  return out;
+}
 
 /**
  * The FX difference of an entity from its links: what the rows gave in base against the base the entity carries
@@ -74,10 +107,10 @@ export function fxDifference(
   const zero = new Prisma.Decimal(0);
   const allocated = allocations.reduce((acc, a) => acc.plus(new Prisma.Decimal(a.amount)), zero);
   const allocatedBase = allocations.reduce((acc, a) => acc.plus(new Prisma.Decimal(a.base)), zero);
-  const expectedBase = new Prisma.Decimal(amountBase)
-    .abs()
-    .mul(paidShare(amount, allocated))
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+  const expectedBase = expectedBases(amount, amountBase, allocations).reduce(
+    (acc, e) => acc.plus(e),
+    zero,
+  );
   const difference = allocatedBase.minus(expectedBase);
   return {
     allocated,

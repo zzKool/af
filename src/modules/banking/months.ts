@@ -8,6 +8,7 @@ import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as accountantPackage from "@/modules/package";
 import { accountLabel } from "./bank-accounts";
+import { linkFactsOf } from "./link-facts";
 import { deriveTransactionState } from "./queries";
 import type {
   BankAccountRole,
@@ -103,32 +104,6 @@ export function assembleMonths(input: MonthsInput): BankMonthsOverview {
   };
 }
 
-/** Σ allocations FROM each row and which rows sit in a transfer link — the same facts the workbench derives from. */
-export function linkFactsOf(links: readonly LinkDto[]): {
-  allocated: Map<string, string>;
-  transfer: Set<string>;
-} {
-  const sums = new Map<string, InstanceType<typeof D>>();
-  const transfer = new Set<string>();
-  for (const l of links) {
-    if (l.kind === "transfer") {
-      if (l.from.type === "bank_transaction") transfer.add(l.from.id);
-      if (l.to.type === "bank_transaction") transfer.add(l.to.id);
-      continue;
-    }
-    if (
-      l.from.type === "bank_transaction" &&
-      l.allocatedAmount !== null &&
-      linking.ALLOCATING_KINDS.includes(l.kind)
-    ) {
-      sums.set(l.from.id, (sums.get(l.from.id) ?? new D(0)).plus(l.allocatedAmount));
-    }
-  }
-  const allocated = new Map<string, string>();
-  for (const [id, sum] of sums) allocated.set(id, sum.toFixed(2));
-  return { allocated, transfer };
-}
-
 // --- the read ---
 
 const iso = (d: Date): string => d.toISOString().slice(0, 10);
@@ -172,6 +147,8 @@ export async function bankMonths(
       bankAccountId: true,
       bookingDate: true,
       amount: true,
+      currency: true,
+      amountBase: true,
       noDocumentNeeded: true,
     },
   });
@@ -179,7 +156,7 @@ export async function bankMonths(
 
   const ids = rows.map((r) => r.id);
   const links = await linking.linksTouching(tx, "bank_transaction", ids);
-  const facts = linkFactsOf(links);
+  const facts = linkFactsOf(links, rows);
 
   const covered = new Map<string, Set<string>>();
   for (const i of imports) {

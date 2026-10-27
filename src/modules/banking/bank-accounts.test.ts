@@ -159,7 +159,7 @@ describe("bank accounts service", () => {
     expect(accounts.data?.[0].accountAlias).toBe("Plusgiro SEK");
     expect(accounts.data?.[0].accountNumber).toBe("211 53 13-5");
     expect(accounts.data?.[0].currency).toBe("SEK");
-    expect(accounts.data?.[0].bankFormat.bankName).toBe("Nordea");
+    expect(accounts.data?.[0].bankFormat?.bankName).toBe("Nordea");
     // a DTO, not the Prisma row: no tenant or audit columns travel (lessons audit 30)
     expect(Object.keys(accounts.data?.[0] ?? {}).sort()).toEqual(
       [
@@ -177,7 +177,7 @@ describe("bank accounts service", () => {
         "updatedAt",
       ].sort(),
     );
-    expect(accounts.data?.[0].bankFormat.columnMapping?.columns).toHaveLength(10);
+    expect(accounts.data?.[0].bankFormat?.columnMapping?.columns).toHaveLength(10);
   });
 
   it("create multiple: same account number with different currencies", async () => {

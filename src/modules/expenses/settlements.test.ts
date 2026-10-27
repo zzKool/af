@@ -154,7 +154,6 @@ describe("F62 — one owed rule, one Σ of active lines", () => {
     const s = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: p.paidFromAccountId!,
         lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       }),
     );
@@ -195,7 +194,6 @@ describe("F62 — one owed rule, one Σ of active lines", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paidFromAccountId: p.paidFromAccountId!,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )
@@ -230,7 +228,7 @@ describe("US4 — settle a refund", () => {
       refundBase: "9700.00",
       paidFromAccountId: owner.sources.privateCh.id,
       allocatedBase: "9700.00",
-      exchangeDifferenceBase: "0.00",
+      differenceBase: "0.00",
       roundingBase: "0.00",
       residualOpen: "1065.00",
       unallocatedOnTransaction: "0.00",
@@ -248,7 +246,6 @@ describe("US4 — settle a refund", () => {
     const confirmed = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, realAudit(tx, owner.caller), {
         bankTransactionId: rowId,
-        paidFromAccountId: p.paidFromAccountId!,
         lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       }),
     );
@@ -259,13 +256,20 @@ describe("US4 — settle a refund", () => {
       refundAmount: "-9700.00",
       refundBase: "9700.00",
       allocatedBase: "9700.00",
-      exchangeDifferenceBase: "0.00",
-      roundingBase: "0.00",
+      expectedBase: "9700.00",
+      differenceBase: "0.00",
+      rounding: false,
+      differenceBasCode: null,
+      unallocatedBase: "0.00",
       status: "active",
       statementDocumentId: null,
     });
-    expect(s.lines).toHaveLength(3);
-    expect(s.lines.every((l) => l.note === null)).toBe(true);
+    // the lines ARE the `settles` links (F114): what each refunds in CHF, the base the row gave
+    expect(s.lines.map((l) => [l.key, l.allocatedAmount, l.currency, l.allocatedBase])).toEqual([
+      ["Ex213-Tr-01", "600.00", "CHF", "6450.00"],
+      ["Ex213-Tr-02", "150.00", "CHF", "1620.00"],
+      ["Ex213-Rep-01", "151.21", "CHF", "1630.00"],
+    ]);
     await assertAuditLogged(adminPool, owner.caller.tenantId, "create", "settlement", s.id);
 
     expect(await statuses()).toEqual({
@@ -278,8 +282,13 @@ describe("US4 — settle a refund", () => {
       expect(ledger.total).toEqual({ openBase: "1065.00", allocatedBase: "9700.00", openCount: 1 });
       const t = await banking.getTransaction(tx, rowId);
       expect(t.data?.state).toBe("linked");
-      expect(t.data?.links.map((l) => [l.kind, Number(l.allocatedAmount), l.otherLabel])).toEqual([
-        ["settles", 9700, "ST26-001 · 9700.00 SEK · 9700.00 SEK settled"],
+      expect(t.data?.allocated).toBe("9700.00");
+      expect(
+        t.data?.links.map((l) => [l.kind, l.allocatedAmount, l.currency, l.allocatedBase]),
+      ).toEqual([
+        ["settles", "600.00", "CHF", "6450.00"],
+        ["settles", "150.00", "CHF", "1620.00"],
+        ["settles", "151.21", "CHF", "1630.00"],
       ]);
       expect((await settleableTransactions(tx)).length).toBe(0);
       const again = await proposeSettlement(tx, { bankTransactionId: rowId });
@@ -305,31 +314,36 @@ describe("US4 — settle a refund", () => {
     });
   });
 
-  it("variant B: a CHF refund booked at 10.70 — the +65.00 exchange difference is confirmed explicitly", async () => {
+  it("variant B: a CHF refund booked at 10.70 settles the CHF claims in full — the −65.00 FX difference is derived (3960), no confirmation", async () => {
     const rowId = await refundRow("B");
-    const lines = FIXTURE.variant_B_full_chf_refund_exchange_difference.allocations.map(
-      (a: { expense: string; allocated_base: number }) => ({
-        expenseId: expenseIds[a.expense],
-        allocatedBase: a.allocated_base.toFixed(2),
-      }),
-    );
-    const refused = await run(owner.caller, (tx) =>
+    // FIFO over the row's base (10 700): the meals get 2 630 of their 2 695 — the owner says *in full*
+    const p = (await run(owner.caller, (tx) => proposeSettlement(tx, { bankTransactionId: rowId })))
+      .data!;
+    expect(p.lines.map((l) => [l.key, l.allocatedBase])).toEqual([
+      ["Ex213-Tr-01", "6450.00"],
+      ["Ex213-Tr-02", "1620.00"],
+      ["Ex213-Rep-01", "2630.00"],
+    ]);
+    const tooMuch = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
-        lines,
+        lines: FIXTURE.variant_B_full_chf_refund_exchange_difference.allocations.map(
+          (a: { expense: string; allocated_base: number }) => ({
+            expenseId: expenseIds[a.expense],
+            allocatedBase: a.allocated_base.toFixed(2),
+          }),
+        ),
       }),
     );
-    expect(refused.error?.message).toBe(
-      "Allocations exceed the refund by 65.00 SEK — confirm the exchange difference",
-    );
+    expect(tooMuch.error?.message).toMatch(/give 10765.00 SEK — the refund row carries 10700.00/);
     const ok = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
-        lines,
-        confirmExchangeDifference: true,
-        exchangeDifferenceBasCode: "657",
+        lines: p.lines.map((l) => ({
+          expenseId: l.expenseId,
+          allocatedBase: l.allocatedBase,
+          ...(l.key === "Ex213-Rep-01" ? { allocatedAmount: "250.00" } : {}),
+        })),
       }),
     );
     expect(ok.error).toBeUndefined();
@@ -338,10 +352,11 @@ describe("US4 — settle a refund", () => {
       refundAmount: "-1000.00",
       refundCurrency: "CHF",
       refundBase: "10700.00",
-      allocatedBase: "10765.00",
-      exchangeDifferenceBase: "65.00",
-      roundingBase: "0.00",
-      exchangeDifferenceBasCode: "657",
+      allocatedBase: "10700.00",
+      expectedBase: "10765.00",
+      differenceBase: "-65.00",
+      rounding: false,
+      differenceBasCode: "3960",
     });
     expect(await statuses()).toEqual({
       "Ex213-Tr-01": "refunded",
@@ -349,33 +364,36 @@ describe("US4 — settle a refund", () => {
       "Ex213-Rep-01": "refunded",
     });
     const ledger = await run(owner.caller, (tx) => ledgerSnapshot(tx));
-    expect(ledger.total).toEqual({ openBase: "0.00", allocatedBase: "10765.00", openCount: 0 });
+    expect(ledger.total).toEqual({ openBase: "0.00", allocatedBase: "10700.00", openCount: 0 });
   });
 
-  it("variant C: 0.30 within the tolerance is rounding, no confirmation, the note on the last line", async () => {
+  it("variant C: 0.30 short of the claims within the tolerance is rounding — no difference to book", async () => {
     const rowId = await refundRow("C"); // -1000 CHF at 10.7647 = 10 764.70
-    const lines = Object.values(expenseIds).map((id, i) => ({
-      expenseId: id,
-      allocatedBase: FIXTURE.expenses[i].amount_base.toFixed(2),
-    }));
+    const p = (await run(owner.caller, (tx) => proposeSettlement(tx, { bankTransactionId: rowId })))
+      .data!;
+    // the last claim's base is 0.30 short: within the tolerance the whole amount counts as refunded
+    expect(p.lines.map((l) => [l.key, l.allocatedBase, l.remainingOpen])).toEqual([
+      ["Ex213-Tr-01", "6450.00", "0.00"],
+      ["Ex213-Tr-02", "1620.00", "0.00"],
+      ["Ex213-Rep-01", "2694.70", "0.30"],
+    ]);
+    expect(p).toMatchObject({ differenceBase: "0.00", roundingBase: "-0.30" });
     const ok = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
-        lines,
+        lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       }),
     );
     expect(ok.error).toBeUndefined();
     expect(ok.data).toMatchObject({
       refundBase: "10764.70",
-      allocatedBase: "10765.00",
-      exchangeDifferenceBase: "0.00",
-      roundingBase: "0.30",
+      allocatedBase: "10764.70",
+      expectedBase: "10765.00",
+      differenceBase: "-0.30",
+      rounding: true,
+      differenceBasCode: null,
     });
-    const notes = ok.data!.lines.map((l) => l.note);
-    expect(notes.filter(Boolean)).toEqual([
-      "Rounding adjustment: SEK 0.30 (Swedish 50-öre rounding tolerance)",
-    ]);
+    expect(ok.data!.lines.map((l) => l.allocatedAmount)).toEqual(["600.00", "150.00", "250.00"]);
     expect(await statuses()).toEqual({
       "Ex213-Tr-01": "refunded",
       "Ex213-Tr-02": "refunded",
@@ -388,13 +406,24 @@ describe("US4 — settle a refund", () => {
     await run(owner.caller, async (tx) => {
       const over = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
-        lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "1620.01" }],
+        lines: [
+          {
+            expenseId: expenseIds["Ex213-Tr-02"],
+            allocatedBase: "1620.00",
+            allocatedAmount: "150.01",
+          },
+        ],
       });
-      expect(over.error?.message).toMatch(/Ex213-Tr-02: 1620.01 exceeds its open 1620.00 SEK/);
+      expect(over.error?.message).toMatch(
+        /Ex213-Tr-02: 150.01 CHF exceeds what is open on it \(150.00\)/,
+      );
+      const overRow = await confirmSettlement(tx, owner.caller, noopAudit, {
+        bankTransactionId: rowId,
+        lines: [{ expenseId: expenseIds["Ex213-Tr-01"], allocatedBase: "9700.01" }],
+      });
+      expect(overRow.error?.message).toMatch(/give 9700.01 SEK — the refund row carries 9700.00/);
       const dup = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
         lines: [
           { expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" },
           { expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" },
@@ -413,18 +442,11 @@ describe("US4 — settle a refund", () => {
       });
       const companyPaid = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
         lines: [{ expenseId: company.data!.id, allocatedBase: "10.00" }],
       });
       expect(companyPaid.error?.message).toMatch(
-        /paid from AF SEK — a company-paid expense is never settled/,
+        /paid from Plusgirokonto SEK — a company-paid expense is never settled/,
       );
-      const sourceMismatch = await confirmSettlement(tx, owner.caller, noopAudit, {
-        bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateSe.id,
-        lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" }],
-      });
-      expect(sourceMismatch.error?.message).toMatch(/belongs to Private CH, not Private SE/);
       const [incoming] = await importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
         { date: "2026-03-31", amount: "500.00", name: "Client" },
       ]);
@@ -435,18 +457,11 @@ describe("US4 — settle a refund", () => {
       ]);
       const sav = await proposeSettlement(tx, { bankTransactionId: savings });
       expect(sav.error?.message).toMatch(/savings account/);
-      const companySource = await confirmSettlement(tx, owner.caller, noopAudit, {
-        bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.afSek.id,
-        lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "100.00" }],
-      });
-      expect(companySource.error?.message).toMatch(/is a company account/);
     });
     // nothing was numbered by the refusals
     const ok = await run(owner.caller, (tx) =>
       confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateCh.id,
         lines: [{ expenseId: expenseIds["Ex213-Tr-02"], allocatedBase: "1620.00" }],
       }),
     );
@@ -461,7 +476,6 @@ describe("US4 — settle a refund", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paidFromAccountId: p.paidFromAccountId!,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )
@@ -500,7 +514,6 @@ describe("US4 — settle a refund", () => {
       // a new settlement on the same row gets the next number
       const next = await confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: p.paidFromAccountId!,
         lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
       });
       expect(next.data?.number).toBe("ST26-002");
@@ -522,7 +535,6 @@ describe("US4 — settle a refund", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paidFromAccountId: p.paidFromAccountId!,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )
@@ -549,9 +561,12 @@ describe("US4 — settle a refund", () => {
         mimeType: "application/pdf",
       });
       const t = await banking.getTransaction(tx, rowId);
+      // three `settles` links (one per expense) and the statement's own `justifies`
       expect(
         t.data?.links.map((l) => [l.kind, l.otherLabel?.includes("Reimb_ST26-001") ?? false]),
       ).toEqual([
+        ["settles", false],
+        ["settles", false],
         ["settles", false],
         ["justifies", true],
       ]);
@@ -589,7 +604,6 @@ describe("US4 — settle a refund", () => {
       await run(owner.caller, (tx) =>
         confirmSettlement(tx, owner.caller, noopAudit, {
           bankTransactionId: rowId,
-          paidFromAccountId: owner.sources.privateCh.id,
           lines: p.lines.map((l) => ({ expenseId: l.expenseId, allocatedBase: l.allocatedBase })),
         }),
       )

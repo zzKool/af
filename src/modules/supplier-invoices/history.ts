@@ -5,11 +5,11 @@
 //   update  new.cancelled = true                    cancelled            (lifecycle.ts)
 //   update  old.cancelled = true, new = false       reinstated           (lifecycle.ts)
 //   update  new.payment                             payment linked       (payments.ts recordPayment)
-//   update  old.paidAmount = null, new.paidAmount   bank row attached    (payments.ts attachPayment)
-//   update  old.paidAmount, new.paidAmount = null   bank row detached    (payments.ts detachPayment)
+//   update  old.payment, no new.payment             payment removed      (payments.ts removePayment)
+//   update  old.paidAmount = null, new.paidAmount   bank row attached    (entries written before F114 — the
+//   update  old.paidAmount, new.paidAmount = null   bank row detached     attach / detach of a cross-currency row)
 //   update  anything else                           edited               (update.ts)
 //
-// A same-currency payment *removed* is the link's own entry (linking audits it), not one of these.
 // Pure — the read is `supplierInvoiceHistory` in queries.ts.
 
 export const SUPPLIER_INVOICE_HISTORY_EVENTS = [
@@ -18,6 +18,7 @@ export const SUPPLIER_INVOICE_HISTORY_EVENTS = [
   "cancelled",
   "reinstated",
   "paymentLinked",
+  "paymentRemoved",
   "rowAttached",
   "rowDetached",
   "deleted",
@@ -51,6 +52,7 @@ export function historyEvent(entry: {
   if (after.cancelled === true && before.cancelled !== true) return "cancelled";
   if (before.cancelled === true && after.cancelled === false) return "reinstated";
   if ("payment" in after) return "paymentLinked";
+  if ("payment" in before) return "paymentRemoved";
   if ("paidAmount" in before && "paidAmount" in after) {
     if (before.paidAmount === null && after.paidAmount !== null) return "rowAttached";
     if (before.paidAmount !== null && after.paidAmount === null) return "rowDetached";

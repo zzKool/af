@@ -4,14 +4,9 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@/generated/prisma/browser";
-import {
-  fifoAllocate,
-  fifoOrder,
-  type OpenExpense,
-  residualOpen,
-  settlementDifference,
-} from "./fifo";
-import { deriveExpenseStatus, OPEN_BASE_TOLERANCE_SEK, openBase } from "./status";
+import { fifoAllocate, fifoOrder, type OpenExpense, residualOpen } from "./fifo";
+import { amountForBase, expectedBaseFor, settlementTotals } from "./settlement-math";
+import { deriveExpenseStatus, openBase } from "./status";
 
 const D = Prisma.Decimal;
 const fixture = JSON.parse(
@@ -49,21 +44,27 @@ describe("FIFO proposal (US4-1, variant A)", () => {
       ["Ex213-Tr-02", "1620.00", "0.00"],
       ["Ex213-Rep-01", "1630.00", "1065.00"],
     ]);
-    const diff = settlementDifference(lines, "9700.00");
-    expect(diff).toMatchObject({
-      allocatedBase: "9700.00",
-      exchangeDifferenceBase: "0.00",
-      roundingBase: "0.00",
-      unallocatedOnTransaction: "0.00",
-      roundingNote: null,
-    });
+    // SEK expenses: the base a line gives IS the claim it settles — no difference, nothing left on the row
+    const totals = settlementTotals(
+      lines.map((l) => ({ allocatedBase: l.allocatedBase, expectedBase: l.allocatedBase })),
+      "9700.00",
+    );
+    expect(totals.allocatedBase.toFixed(2)).toBe("9700.00");
+    expect(totals.differenceBase.toFixed(2)).toBe("0.00");
+    expect(totals.rounding).toBe(false);
+    expect(totals.unallocatedBase.toFixed(2)).toBe("0.00");
     expect(residualOpen(lines)).toBe("1065.00");
   });
 
   it("stops at the refund and reports what the transaction has left when the ledger is smaller", () => {
     const lines = fifoAllocate(open.slice(0, 1), "9700.00");
     expect(lines).toHaveLength(1);
-    expect(settlementDifference(lines, "9700.00").unallocatedOnTransaction).toBe("3250.00");
+    expect(
+      settlementTotals(
+        lines.map((l) => ({ allocatedBase: l.allocatedBase, expectedBase: l.allocatedBase })),
+        "9700.00",
+      ).unallocatedBase.toFixed(2),
+    ).toBe("3250.00");
     expect(fifoAllocate([], "100.00")).toEqual([]);
   });
 
@@ -81,58 +82,65 @@ describe("FIFO proposal (US4-1, variant A)", () => {
   });
 });
 
-describe("exchange difference and rounding (US4-3, US4-4; variants B, C)", () => {
-  const full = open.map((e) => ({ allocatedBase: e.openBase }));
-
-  it("variant B: 10 765 allocated against a 10 700 base is a +65.00 exchange difference", () => {
-    const diff = settlementDifference(full, "10700.00");
-    expect(diff.allocatedBase).toBe("10765.00");
-    expect(diff.exchangeDifferenceBase).toBe("65.00");
-    expect(diff.roundingBase).toBe("0.00");
+describe("the FX difference and the rounding on the links (US4-3, US4-4, F114)", () => {
+  it("a SEK refund rounded up by 0.30 is rounding, within the tolerance; 65.00 more is a loss (7960)", () => {
+    const claim = { allocatedBase: "10764.70", expectedBase: "10764.70" };
+    const rounded = settlementTotals([{ ...claim, allocatedBase: "10765.00" }], "10765.00");
+    expect(rounded.differenceBase.toFixed(2)).toBe("0.30");
+    expect(rounded.rounding).toBe(true);
+    const loss = settlementTotals(
+      [{ allocatedBase: "10765.00", expectedBase: "10700.00" }],
+      "10765.00",
+    );
+    expect(loss.differenceBase.toFixed(2)).toBe("65.00");
+    expect(loss.rounding).toBe(false);
   });
 
-  it("variant C: 0.30 within the 0.50 tolerance is rounding with the note", () => {
-    const diff = settlementDifference(full, "10764.70");
-    expect(diff.exchangeDifferenceBase).toBe("0.00");
-    expect(diff.roundingBase).toBe("0.30");
-    expect(diff.roundingNote).toBe(
-      "Rounding adjustment: SEK 0.30 (Swedish 50-öre rounding tolerance)",
+  it("a CHF claim of 1 140 refunded with 1 100 in full: the amount is the whole receipt, the difference −40.00 (3960)", () => {
+    const e = {
+      amount: "100.00",
+      amountBase: "1140.00",
+      openAmount: "100.00",
+      openBase: "1140.00",
+    };
+    // the base alone covers 96.5 % of the claim → the share, unless the owner says "in full"
+    expect(amountForBase(e, "1100.00").toFixed(2)).toBe("96.49");
+    expect(amountForBase(e, "1139.00").toFixed(2)).toBe("100.00"); // within the tolerance of the claim
+    expect(expectedBaseFor(e, "100.00").toFixed(2)).toBe("1140.00");
+    const totals = settlementTotals(
+      [{ allocatedBase: "1100.00", expectedBase: expectedBaseFor(e, "100.00").toFixed(2) }],
+      "1100.00",
     );
-    expect(settlementDifference(full, "10764.49").exchangeDifferenceBase).toBe("0.51");
+    expect(totals.differenceBase.toFixed(2)).toBe("-40.00");
+    expect(totals.rounding).toBe(false);
   });
 });
 
 describe("derived status (FR-005, US3-3)", () => {
-  const priv = (amountBase: string, allocatedBase: string) =>
-    deriveExpenseStatus({
-      paidByPrivate: true,
-      amountBase,
-      allocatedBase,
-      paidAmount: null,
-      justifiedAmount: "0.00",
-    });
-  it("private: to_refund → partially_refunded → refunded within 0.50", () => {
+  // amounts in the expense's currency (F114): the one tolerance, max(0.05, 0.5 %)
+  const priv = (amount: string, allocated: string) =>
+    deriveExpenseStatus({ paidByPrivate: true, amount, allocated });
+  it("private: to_refund → partially_refunded → refunded within the tolerance", () => {
     expect(priv("2695.00", "0.00")).toBe("to_refund");
     expect(priv("2695.00", "1630.00")).toBe("partially_refunded");
-    expect(priv("2695.00", "2694.63")).toBe("refunded");
-    expect(priv("2695.00", "2694.49")).toBe("partially_refunded");
+    expect(priv("2695.00", "2690.00")).toBe("refunded"); // 5.00 open ≤ 13.48
+    expect(priv("2695.00", "2680.00")).toBe("partially_refunded");
     expect(priv("2695.00", "2695.00")).toBe("refunded");
-    expect(openBase("2695.00", "2700.00").toFixed(2)).toBe("0.00");
+    // the claim in base: the base for the unpaid share; 0 once refunded within the tolerance
+    expect(
+      openBase("2695.00", "2695.00", [{ amount: "2690.00", base: "2690.00" }]).toFixed(2),
+    ).toBe("0.00");
+    expect(openBase("100.00", "1140.00", [{ amount: "50.00", base: "550.00" }]).toFixed(2)).toBe(
+      "570.00",
+    );
   });
-  it("company-paid: awaiting_link until the bank row allocates the paid amount", () => {
-    const company = (paidAmount: string | null, justifiedAmount: string) =>
-      deriveExpenseStatus({
-        paidByPrivate: false,
-        amountBase: "523.17",
-        allocatedBase: "0.00",
-        paidAmount,
-        justifiedAmount,
-      });
-    expect(company(null, "0.00")).toBe("awaiting_link");
-    expect(company("523.17", "0.00")).toBe("awaiting_link");
-    expect(company("523.17", "523.17")).toBe("paid");
-    expect(company("523.17", "523.12")).toBe("paid"); // within max(0.05, 0.5 %)
-    expect(company("523.17", "500.00")).toBe("awaiting_link");
+  it("company-paid: awaiting_link until the links cover the amount", () => {
+    const company = (allocated: string) =>
+      deriveExpenseStatus({ paidByPrivate: false, amount: "45.00", allocated });
+    expect(company("0.00")).toBe("awaiting_link");
+    expect(company("45.00")).toBe("paid");
+    expect(company("44.96")).toBe("paid"); // within max(0.05, 0.5 %)
+    expect(company("40.00")).toBe("awaiting_link");
   });
 });
 
@@ -173,8 +181,11 @@ describe("property: allocation invariants (SC-002)", () => {
           expect(lines[i - 1].remainingOpen).toBe("0.00");
         }
         const totalOpen = open.reduce((acc, e) => acc.plus(e.openBase), new D(0));
-        const diff = settlementDifference(lines, refundBase);
-        expect(new D(diff.exchangeDifferenceBase).isZero()).toBe(true);
+        const diff = settlementTotals(
+          lines.map((l) => ({ allocatedBase: l.allocatedBase, expectedBase: l.allocatedBase })),
+          refundBase,
+        );
+        expect(diff.differenceBase.isZero()).toBe(true);
         expect(
           totalOpen.minus(sum).toFixed(2) ===
             new D(residualOpen(lines))
@@ -185,15 +196,9 @@ describe("property: allocation invariants (SC-002)", () => {
               )
               .toFixed(2),
         ).toBe(true);
-        expect(new D(diff.unallocatedOnTransaction).plus(sum).toFixed(2)).toBe(
-          new D(refundBase).toFixed(2),
-        );
+        expect(diff.unallocatedBase.plus(sum).toFixed(2)).toBe(new D(refundBase).toFixed(2));
       }),
       { numRuns: 200 },
     );
-  });
-
-  it("the tolerance is a constant of 0.50 SEK", () => {
-    expect(OPEN_BASE_TOLERANCE_SEK.toFixed(2)).toBe("0.50");
   });
 });

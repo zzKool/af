@@ -18,11 +18,11 @@ import {
   setupOwner,
 } from "./__fixtures__/harness";
 import {
-  attachBankTransaction,
   attachDocument,
   createExpense,
   deleteExpense,
   detachDocument,
+  payExpense,
 } from "./expenses";
 import { createGroup } from "./groups";
 import { getExpenseDetail } from "./queries";
@@ -116,14 +116,14 @@ describe("attachDocument — the receipt after the expense (FR-012)", () => {
       ]),
     );
     const paid = await run(owner.caller, (tx) =>
-      attachBankTransaction(tx, owner.caller, noopAudit, {
+      payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.id,
         bankTransactionId: rowId!,
       }),
     );
     expect(paid.error).toBeUndefined();
     const before = await adminPool.query(
-      "SELECT amount, currency, date, amount_base, rate, rate_source, paid_amount FROM expenses WHERE id = $1",
+      "SELECT amount, currency, date, amount_base, rate, rate_source FROM expenses WHERE id = $1",
       [e.id],
     );
     const doc = await receipt("1");
@@ -132,7 +132,7 @@ describe("attachDocument — the receipt after the expense (FR-012)", () => {
     );
     expect(r.error).toBeUndefined();
     const after = await adminPool.query(
-      "SELECT amount, currency, date, amount_base, rate, rate_source, paid_amount FROM expenses WHERE id = $1",
+      "SELECT amount, currency, date, amount_base, rate, rate_source FROM expenses WHERE id = $1",
       [e.id],
     );
     expect(after.rows[0]).toEqual(before.rows[0]);

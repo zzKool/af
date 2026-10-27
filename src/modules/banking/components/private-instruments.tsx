@@ -30,7 +30,7 @@ export function PrivateInstruments({ initial }: { initial: PrivateInstrument[] }
   const [items, setItems] = useState(initial);
   const [open, setOpen] = useState(false);
   const [alias, setAlias] = useState("");
-  const [currency, setCurrency] = useState<string>("SEK");
+  const [currency, setCurrency] = useState<string>(CURRENCIES[0]);
   const { executeAsync, isPending } = useAction(createPrivateAccountAction);
 
   const add = async () => {

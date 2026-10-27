@@ -812,7 +812,6 @@ export const sv: PartialDictionary = {
   "expenses.panel.money": "Belopp",
   "expenses.panel.moneyLocked": "Reglerat eller kopplat — beloppsuppgifterna är skrivna.",
   "expenses.panel.base": "{base} SEK till kurs {rate} ({source})",
-  "expenses.panel.paid": "{amount} betalt av banken",
   "expenses.panel.attach": "Koppla bankrad",
   "expenses.panel.attachPick": "Välj raden som betalade utlägget",
   "expenses.panel.attached": "Bankrad kopplad",
@@ -874,10 +873,6 @@ export const sv: PartialDictionary = {
   "expenses.settle.confirmTitle": "Reglera {amount}",
   "expenses.settle.confirmExact": "Exakt — varje valt utlägg ersätts fullt ut.",
   "expenses.settle.confirmPartial": "Delvis — {amount} SEK förblir öppet i liggaren.",
-  "expenses.settle.confirmOver":
-    "Överfördelat med {amount} SEK — minska en rad eller bekräfta som kursdifferens.",
-  "expenses.settle.exchangeDifference":
-    "Kursdifferens: {amount} SEK (bekräfta — revisorn bokför den)",
   "expenses.settle.rounding": "Avrundning: {amount} SEK (inom toleransen 0,50)",
   "expenses.settle.note": "Anteckning",
   "expenses.settle.confirmed": "Reglering {number} skapad — sammanställningen är på väg",

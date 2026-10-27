@@ -315,7 +315,6 @@ async function juneFixture(): Promise<Fixture> {
     if (proposal.error) throw new Error(proposal.error.message);
     const confirmed = await expenses.confirmSettlement(tx, caller, audit(tx), {
       bankTransactionId: rows.refund,
-      paidFromAccountId: proposal.data.paidFromAccountId as string,
       lines: proposal.data.lines.map((l) => ({
         expenseId: l.expenseId,
         allocatedBase: l.allocatedBase,
@@ -479,7 +478,7 @@ describe("SC-001 — the fixture month", () => {
         "justifies bank_transaction→document",
         "justifies bank_transaction→invoice",
         "justifies bank_transaction→supplier_invoice",
-        "settles bank_transaction→settlement",
+        "settles bank_transaction→expense",
         "transfer bank_transaction→bank_transaction",
       ].sort(),
     );
@@ -709,7 +708,7 @@ describe("F83 — periodFlags: the flags without the package (the dashboard's it
         bankTransactionId: hosting as string,
       });
       if (paid.error) throw new Error(paid.error.message);
-      const attached = await expenses.attachBankTransaction(tx, caller, noopAudit, {
+      const attached = await expenses.payExpense(tx, caller, noopAudit, {
         expenseId: card.data.id,
         bankTransactionId: software as string,
       });

@@ -204,7 +204,6 @@ describe("US3 — the per-diem expense", () => {
     const settled = await run(owner.caller, (tx) =>
       expenses.confirmSettlement(tx, owner.caller, noopAudit, {
         bankTransactionId: rowId,
-        paidFromAccountId: owner.sources.privateSe.id,
         lines: [{ expenseId: first.expense.id, allocatedBase: "26357.60" }],
       }),
     );

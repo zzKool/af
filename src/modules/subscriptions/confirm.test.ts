@@ -121,16 +121,23 @@ describe("US3 — a card row fills its period, one confirm", () => {
     expect(r.data).toMatchObject({ created: true, attachedRow: true, attachedDocument: false });
     expect(r.data?.entity.key).toMatch(/^Ex\d+-Tr-01$/); // SC-005: the key of a hand-made expense
     const e = await adminPool.query(
-      "SELECT amount, currency, date, amount_base, rate_source, paid_amount, partner_id FROM expenses WHERE id = $1",
+      "SELECT amount, currency, date, amount_base, rate_source, partner_id FROM expenses WHERE id = $1",
       [r.data!.entity.id],
     );
     expect(e.rows[0]).toMatchObject({
       amount: "199.00",
       currency: "SEK",
       amount_base: "199.00",
-      rate_source: "bank",
-      paid_amount: "199.00",
+      rate_source: "same_currency",
     });
+    // F114: the payment is the link — 199.00 SEK, the row's base
+    const links = await adminPool.query(
+      "SELECT allocated_amount, currency, allocated_base FROM links WHERE to_id = $1 AND kind = 'justifies'",
+      [r.data!.entity.id],
+    );
+    expect(links.rows).toEqual([
+      { allocated_amount: "199.00", currency: "SEK", allocated_base: "199.00" },
+    ]);
     const after = await detail(id);
     expect(after.periods.find((p) => p.date === "2026-10-15")).toMatchObject({
       state: "charged",
@@ -230,18 +237,19 @@ describe("US3 — a card row fills its period, one confirm", () => {
     );
     expect(r.error).toBeUndefined();
     const e = await adminPool.query(
-      "SELECT amount, currency, paid_amount, paid_currency, amount_base, rate_source FROM expenses WHERE id = $1",
+      "SELECT amount, currency, amount_base, rate_source FROM expenses WHERE id = $1",
       [r.data!.entity.id],
     );
-    // D26: the receipt's amount in its currency, the bank row's SEK as the base
-    expect(e.rows[0]).toMatchObject({
-      amount: "22.00",
-      currency: "EUR",
-      paid_amount: "257.10",
-      paid_currency: "SEK",
-      amount_base: "257.10",
-      rate_source: "bank",
-    });
+    // F114 (D60 over D26): the receipt's amount in its currency at its own ECB base; the bank row's SEK on the link
+    expect(e.rows[0]).toMatchObject({ amount: "22.00", currency: "EUR" });
+    expect(e.rows[0]?.rate_source).not.toBe("bank");
+    const links = await adminPool.query(
+      "SELECT allocated_amount, currency, allocated_base FROM links WHERE to_id = $1 AND kind = 'justifies'",
+      [r.data!.entity.id],
+    );
+    expect(links.rows).toEqual([
+      { allocated_amount: "22.00", currency: "EUR", allocated_base: "257.10" },
+    ]);
     expect((await detail(id)).periods.find((p) => p.date === "2026-10-14")?.state).toBe("done");
   });
 
@@ -259,10 +267,9 @@ describe("US3 — a card row fills its period, one confirm", () => {
     );
     const money = () =>
       adminPool
-        .query(
-          "SELECT amount, currency, amount_base, rate, paid_amount FROM expenses WHERE id = $1",
-          [made.data!.entity.id],
-        )
+        .query("SELECT amount, currency, amount_base, rate FROM expenses WHERE id = $1", [
+          made.data!.entity.id,
+        ])
         .then((r) => r.rows[0]);
     const before = await money();
     const docId = await inboxDocument(adminPool, owner.caller, {

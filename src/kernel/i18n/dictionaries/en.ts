@@ -1335,6 +1335,7 @@ export const en = {
   "supplierInvoices.history.cancelled": "Cancelled",
   "supplierInvoices.history.reinstated": "Reinstated",
   "supplierInvoices.history.paymentLinked": "Payment linked",
+  "supplierInvoices.history.paymentRemoved": "Payment removed",
   "supplierInvoices.history.rowAttached": "Bank row attached (another currency)",
   "supplierInvoices.history.rowDetached": "Bank row detached",
   "supplierInvoices.history.deleted": "Deleted",

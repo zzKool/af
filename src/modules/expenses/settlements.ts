@@ -13,7 +13,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
-import { fxDifference, isSettled } from "@/kernel/money/settlement";
+import { expectedBases, isSettled } from "@/kernel/money/settlement";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { money, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
@@ -158,15 +158,23 @@ async function linesFor(
     },
   });
   const byId = new Map(expenses.map((e) => [e.id, e]));
+  // the base the books carried for each link: the kernel's rule over EVERY allocation onto the expense, in order
+  const history = await linking.allocationsOnto(tx, "expense", [...byId.keys()]);
+  const expectedByLink = new Map<string, Dec>();
+  for (const [expenseId, own] of history) {
+    const e = byId.get(expenseId);
+    if (!e) continue;
+    const expected = expectedBases(e.amount, e.amountBase, own);
+    own.forEach((a, i) => {
+      expectedByLink.set(a.linkId, expected[i] ?? new D(0));
+    });
+  }
   for (const s of active) {
     const own = links.filter((l) => l.from.id === s.bankTransactionId);
     const lines: LineFacts[] = [];
     for (const l of own) {
       const e = byId.get(l.to.id);
       if (!e) continue;
-      const share = fxDifference(e.amount, e.amountBase, [
-        { amount: l.allocatedAmount ?? "0", base: l.allocatedBase ?? "0" },
-      ]);
       lines.push({
         linkId: l.id,
         expenseId: e.id,
@@ -176,7 +184,7 @@ async function linesFor(
         allocatedAmount: l.allocatedAmount ?? "0.00",
         currency: l.currency ?? e.currency,
         allocatedBase: l.allocatedBase ?? "0.00",
-        expectedBase: share.expectedBase.toFixed(2),
+        expectedBase: (expectedByLink.get(l.id) ?? new D(0)).toFixed(2),
         note: l.note,
       });
     }
@@ -325,7 +333,7 @@ function toProposal(
     return {
       ...l,
       allocatedAmount: amount.toFixed(2),
-      expectedBase: expectedBaseFor(l, amount).toFixed(2),
+      expectedBase: expectedBaseFor(l, amount, l.allocatedBase).toFixed(2),
     };
   });
   const totals = settlementTotals(facts, refund.base);
@@ -417,7 +425,7 @@ export async function confirmSettlement(
         },
       });
       if (!row) return { error: notFound("Expense", l.expenseId) };
-      if (row.paidFromAccount.role !== "owner_private") {
+      if (banking.payerKindOf(row.paidFromAccount.role) !== "private") {
         return {
           error: violation(
             `${row.key} was paid from ${banking.accountLabel(row.paidFromAccount)} — a company-paid expense is never settled`,

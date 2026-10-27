@@ -47,7 +47,7 @@ Table `package_builds` (`prisma/schema/package.prisma`): period, version, status
 
 - main-account rows by booking date; savings rows by the **import's** month for a month (the owner exports the savings account once a year, D-b), by booking date for the year;
 - invoices issued in the period ∪ invoices justified by a period row (D-i: June and July both — the *In this package because* column says `issued`, `paid` or both); quotes and drafts never;
-- supplier invoices dated in the period ∪ justified by a period row (cancelled ones never); expenses dated ∪ justified; settlements settled by a period row;
+- supplier invoices dated in the period ∪ justified by a period row (cancelled ones never); expenses dated ∪ justified; settlements whose refund row is a period row (F114: a settlement is the statement over its row's `settles` links, so the row says which period);
 - documents: the invoice PDFs, the `created_from` documents, the per-diem breakdowns, the reimbursement statements, the documents a row justifies directly — each once, named `<business key><original extension>`.
 
 ## Flags (R7, FR-004)
@@ -62,7 +62,7 @@ Building never blocks. `notes.md`, the *Flags* sheet, the page and the build row
 | `unpaid_invoice` | an invoice of the period not `paid` / `credited` |
 | `document_not_ready` | an issued invoice whose PDF job has not run, a settlement without its statement yet |
 
-Not flags, but in the notes: the transfer pairs with their implied rates, the open owner liability per payment source (the ledger snapshot at build time), the Swiss VAT declaration periods the invoices fall under (totals per period and currency).
+Not flags, but in the notes: the transfer pairs with their implied rates, the open owner liability per private instrument (the ledger snapshot at build time — the owner's claim still open in base, derived from the `settles` links, F114), the Swiss VAT declaration periods the invoices fall under (totals per period and currency). The bank sheet's *Linked to* names what each row justifies or settles — a refund row reads `settles ST26-001` once, the settlement's number; the settlements sheet carries the derived FX difference and rounding (`differenceBase` / `rounding` of the settlement DTO, the one rule of `settlement-math.ts`). PR 2 of F114 (`feat/package-payment-columns`) adds the *Base · Paid base · FX difference* columns to the expenses and supplier-invoices sheets.
 
 ## On screen (D40, F71)
 

@@ -57,12 +57,26 @@ export function amountForBase(
   return D.min(openAmount, share);
 }
 
-/** The base the books carried for what a line refunds: the expense's base × the refunded share of its amount. */
+/**
+ * The base the books carry for what a line refunds of an open claim (the kernel's `expectedBases` rule, applied to
+ * what is still open): the whole open claim when the amount covers it within the tolerance; else the open claim pro
+ * rata — and the base given itself when it is within the tolerance of that (a same-currency refund settles
+ * exactly what it gives; the pro-rata cent is not a difference).
+ */
 export function expectedBaseFor(
-  e: { amount: string; amountBase: string },
+  e: { openAmount: string; openBase: string },
   allocatedAmount: Dec | string,
+  allocatedBase?: Dec | string,
 ): Dec {
-  const amount = new D(e.amount);
-  if (amount.isZero()) return new D(e.amountBase);
-  return new D(e.amountBase).mul(allocatedAmount).div(amount).toDecimalPlaces(2, D.ROUND_HALF_UP);
+  const openAmount = new D(e.openAmount);
+  const open = new D(e.openBase);
+  const amount = new D(allocatedAmount);
+  if (openAmount.isZero() || amount.gte(openAmount.minus(settlementTolerance(openAmount))))
+    return open;
+  const derived = open.mul(amount).div(openAmount).toDecimalPlaces(2, D.ROUND_HALF_UP);
+  if (allocatedBase !== undefined) {
+    const given = new D(allocatedBase);
+    if (given.minus(derived).abs().lte(settlementTolerance(derived))) return given;
+  }
+  return derived;
 }

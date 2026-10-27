@@ -24,6 +24,7 @@ import * as settings from "@/modules/settings";
 import { accountLabel } from "./bank-accounts";
 import { iso, toImportDto, toTransactionDto } from "./dto";
 import { withImplicitRates } from "./implicit-rate";
+import { type LinkFacts, linkFactsOf, type RowForFacts } from "./link-facts";
 import { listRules } from "./rules";
 import { proposeTransfers } from "./transfer-pairs";
 import type {
@@ -97,30 +98,19 @@ const ROW_CAP = 20_000;
 
 // --- the derived state ---
 
-type LinkFacts = { allocated: Map<string, string>; transfer: Set<string> };
-type RowForFacts = { id: string; amount: Dec; currency: string; amountBase: Dec };
-
 /**
  * What each transaction has allocated FROM it, in its own currency (allocating kinds — `justifies`, `settles`;
  * a cross-currency link counts by the share of the row's base it took, F114), and which ones sit in a transfer
- * link — two queries through linking's read API (lessons audit 22).
+ * link — one query through linking's read API (lessons audit 22), the Months panel's `linkFactsOf` rule.
  */
 async function linkFacts(tx: TransactionClient, rows: readonly RowForFacts[]): Promise<LinkFacts> {
   if (rows.length === 0) return { allocated: new Map(), transfer: new Set() };
-  const ids = rows.map((r) => r.id);
-  const usage = await linking.rowUsage(tx, ids);
-  const allocated = new Map<string, string>();
-  for (const r of rows) {
-    const u = usage.get(r.id);
-    if (!u) continue;
-    allocated.set(r.id, r.amount.abs().minus(linking.rowRemaining(r, u)).toFixed(2));
-  }
-  const transfers = await linking.linksTouching(tx, "bank_transaction", ids, {
-    kinds: ["transfer"],
-  });
-  const transfer = new Set<string>();
-  for (const t of transfers) for (const end of [t.from, t.to]) transfer.add(end.id);
-  return { allocated, transfer };
+  const links = await linking.linksTouching(
+    tx,
+    "bank_transaction",
+    rows.map((r) => r.id),
+  );
+  return linkFactsOf(links, rows);
 }
 
 /**

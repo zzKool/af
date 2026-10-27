@@ -126,6 +126,21 @@ export async function transactionFacts(
   return new Map(rows.map((r) => [r.id, toTransactionDto(r)]));
 }
 
+/** The rows whose amount is `amount` in either direction (the search's amount, two decimals), newest first, capped. */
+export async function transactionIdsByAmount(
+  tx: TransactionClient,
+  amount: string,
+  limit: number,
+): Promise<string[]> {
+  const rows = await tx.bankTransaction.findMany({
+    where: { amount: { in: [amount, `-${amount}`] } },
+    select: { id: true },
+    orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
+    take: limit,
+  });
+  return rows.map((r) => r.id);
+}
+
 /** The rows nothing has categorised yet, newest first — the candidates of an on-demand rules apply. */
 export async function uncategorisedTransactions(
   tx: TransactionClient,

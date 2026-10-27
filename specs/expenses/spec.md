@@ -6,6 +6,9 @@
 
 **Status**: Ready for planning (B10, B11, D-e answered → D26; harvest `specs/expenses/harvest.md`)
 
+> **Superseded in part by F114 / D60** (2026-10-27, `specs/linking/payment-record.md`): the link is the only payment record — `paid_amount`, `base_provisional`, `payment_sources` and `settlement_lines` are gone; a payer is a bank account (`owner_private` for the private instruments); a settlement is the numbered statement over its refund row's `settles` links, its difference derived. Where this spec and that one differ, that one holds.
+
+
 **Input**: "Every cost the company bears except supplier invoices: card purchases on the Nordea rows, private purchases I reclaim, Swiss VAT payments, subscriptions. They live in groups (`213 — Travel to CH in March 2026`, `217 — Online subscription`), each with a BAS alias and a key that is the receipt's filename (`Ex213-Tr-01_2026-03-11_`), and a *paid by* — AF SEK, AF CHF, private SE, private CH. What I paid privately piles up as a liability in SEK; a refund transfer settles a chosen set of them (FIFO proposed, I adjust), the rest stays in the company; the settlement produces a reimbursement statement PDF for the accountant. Paid / to refund / refunded are facts the app derives, never something I type."
 
 ## User Scenarios & Testing *(mandatory)*

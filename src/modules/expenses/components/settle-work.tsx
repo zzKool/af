@@ -114,7 +114,7 @@ export function SettleWork({
   const partialByBase = (e: OpenRow) => amountForBase(e, allocationOf(e)).lt(new D(e.openAmount));
   const lines = selected.map((e) => ({
     allocatedBase: fix(allocationOf(e)),
-    expectedBase: fix(expectedBaseFor(e, amountOf(e))),
+    expectedBase: fix(expectedBaseFor(e, amountOf(e), allocationOf(e))),
   }));
   const refundBase = tx?.amountBase ? new D(tx.amountBase).abs() : null;
   // the server's own arithmetic (settlement-math.ts), in Decimal — the same one propose and confirm run (F62)
@@ -126,7 +126,8 @@ export function SettleWork({
   const unallocated = refundBase === null ? new D(0) : totals.unallocatedBase;
   // what stays owed on the ledger after these lines: the claim the lines do not reach, in base
   const residual = selected.reduce<Dec>(
-    (acc, e) => acc.plus(D.max(new D(e.openBase).minus(expectedBaseFor(e, amountOf(e))), 0)),
+    (acc, e) =>
+      acc.plus(D.max(new D(e.openBase).minus(expectedBaseFor(e, amountOf(e), allocationOf(e))), 0)),
     new D(0),
   );
 

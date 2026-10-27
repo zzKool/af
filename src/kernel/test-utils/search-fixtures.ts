@@ -159,6 +159,12 @@ export async function seedSearchFixture(pool: Pool, stamp: string): Promise<Sear
      VALUES ($1, $2, $3, $4, $5, NOW())`,
     [ids.settlement, tenantId, keys.settlement, ids.bankTransaction, userId],
   );
+  // the settlement's one line (F114): the row refunds part of the private expense — the search names the payee
+  await q(
+    `INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, allocated_amount, currency, allocated_base, note, created_by)
+     VALUES ($1, 'bank_transaction', $2, 'expense', $3, 'settles', 111.61, 'EUR', 1250.00, $4, $5)`,
+    [tenantId, ids.bankTransaction, ids.expense, `Settlement ${keys.settlement}`, userId],
+  );
   await q(
     `INSERT INTO documents (id, tenant_id, business_key, file_name, blob_url, mime_type, file_size, prefix_type,
        document_type, created_by, updated_at)
