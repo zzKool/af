@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
+import { InfoBanner } from "@/kernel/ui/info-banner";
 import type { CompanyIdentity } from "@/modules/documents/billed-to";
 import { ArchivedSection } from "@/modules/documents/components/archived-section";
 import { DocumentReviewFooter } from "@/modules/documents/components/document-review-footer";
@@ -13,6 +16,7 @@ import { DocumentReviewForm } from "@/modules/documents/components/document-revi
 import { DocumentReviewHeader } from "@/modules/documents/components/document-review-header";
 import {
   type Became,
+  becameHref,
   type MakeItOptions,
   MakeItSection,
 } from "@/modules/documents/components/make-it-section";
@@ -166,6 +170,25 @@ export function DocumentReviewClient({
 
         {/* Right pane — Form (scrollable); a generated document (an issued invoice's PDF) has nothing to review */}
         <div className="space-y-6">
+          {/* F97 US5 (review 2026-10-26 §1.3b): the entity is the truth once the document became it */}
+          {became && data.status !== "generated" && (
+            <div data-testid="became-banner">
+              <InfoBanner
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    nativeButton={false}
+                    render={<Link href={becameHref(became)} />}
+                  >
+                    {t("documents.review.becameEdit")}
+                  </Button>
+                }
+              >
+                {t("documents.review.becameReadOnly", { key: became.label ?? "" })}
+              </InfoBanner>
+            </div>
+          )}
           {data.status === "generated" ? (
             <div className="rounded-lg border p-4 text-sm" data-testid="generated-document">
               <div className="font-medium">{data.businessKey}</div>
@@ -178,7 +201,8 @@ export function DocumentReviewClient({
               data={data}
               resolvedData={resolvedData}
               prefixType={prefixType}
-              readOnly={data.readOnly}
+              // F97 US5: once the document became something, the entity holds the truth — read-only here
+              readOnly={data.readOnly || !!became}
               saveStatus={saveStatus}
               onFieldChange={handleFieldChange}
               onItemsChange={handleItemsChange}

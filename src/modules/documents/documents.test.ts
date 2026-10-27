@@ -737,6 +737,36 @@ describe("documents service", () => {
       expect(result.data?.corrections).toMatchObject({ vendorName: "Corrected" });
     });
 
+    it("refuses once the document became something — the entity holds the truth (F97 US5)", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const { tenantId } = owner.callerIdentity;
+      const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        const r = await documentService.uploadDocument(
+          tx,
+          owner.callerIdentity,
+          audit,
+          mockStorage,
+          testClock,
+          pdf("became"),
+          "became.pdf",
+          "expense",
+        );
+        return stored(r).id;
+      });
+      await linkDocument(tenantId, docId, owner.callerIdentity.userId, "created_from");
+      const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
+        const audit = createRealAuditLogger(tx, owner.callerIdentity);
+        return documentService.updateDocumentCorrections(tx, owner.callerIdentity, audit, docId, {
+          vendorName: "Too late",
+        });
+      });
+      expect(result.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(result.error?.message).toMatch(/became an expense — edit it there/);
+      const doc = await adminPool.query(`SELECT corrections FROM documents WHERE id = $1`, [docId]);
+      expect(doc.rows[0].corrections).toBeNull();
+    });
+
     it("forbids accountant from making corrections", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const accountant = await createAuthenticatedContext(auth, "member", {

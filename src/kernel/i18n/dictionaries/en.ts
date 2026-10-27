@@ -1513,6 +1513,9 @@ export const en = {
   "documents.deleted": "{key} deleted",
   // --- documents: the review page, the preview, the upload zone ---
   "documents.review.back": "Back to Documents",
+  "documents.review.becameReadOnly":
+    "This document became {key} — its facts are read here and edited there.",
+  "documents.review.becameEdit": "Edit on the entity →",
   "documents.review.uploaded": "Uploaded",
   "documents.review.reviewed": "Reviewed",
   "documents.review.awaiting": "Awaiting review",
