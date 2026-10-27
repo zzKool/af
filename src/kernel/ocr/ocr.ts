@@ -480,18 +480,59 @@ export function createMockOcrService(): OcrService {
   };
 }
 
-// --- Factory ---
+// --- The provider (F108, audit 2026-10-27 B3 / D5) ---
+//
+// The mock invents readings ("Test Vendor AB · 1 250.00 · INV-2026-001", quality *high*) that the inbox, the scorer
+// and *Make it…* treat as read facts — so it runs only when asked for by name. A missing or mistyped Azure key is a
+// configuration error the owner must see, never a silent fallback: the job fails non-retryable with the reason.
 
-export function createOcrService(): OcrService {
-  const endpoint = process.env.AZURE_DI_ENDPOINT;
-  const apiKey = process.env.AZURE_DI_KEY;
+export type OcrProvider =
+  | { kind: "azure"; endpoint: string; apiKey: string }
+  | { kind: "mock" }
+  | { kind: "none"; reason: string };
 
-  if (endpoint && apiKey) {
-    return createAzureOcrService(endpoint, apiKey);
+export const OCR_NOT_CONFIGURED_HINT =
+  "set AZURE_DI_ENDPOINT and AZURE_DI_KEY, or OCR_PROVIDER=mock for invented readings (dev and tests only)";
+
+export function resolveOcrProvider(
+  env: Record<string, string | undefined> = process.env,
+): OcrProvider {
+  const wanted = env.OCR_PROVIDER?.trim().toLowerCase() || "azure";
+  if (wanted === "mock") return { kind: "mock" };
+  if (wanted !== "azure")
+    return { kind: "none", reason: `unknown OCR_PROVIDER "${env.OCR_PROVIDER}"` };
+  const endpoint = env.AZURE_DI_ENDPOINT?.trim();
+  const apiKey = env.AZURE_DI_KEY?.trim();
+  if (endpoint && apiKey) return { kind: "azure", endpoint, apiKey };
+  const missing = [!endpoint && "AZURE_DI_ENDPOINT", !apiKey && "AZURE_DI_KEY"].filter(Boolean);
+  return { kind: "none", reason: `${missing.join(" and ")} not set` };
+}
+
+/** Every call fails, non-retryable, with the configuration error — the document lands on *OCR failed* with the reason in the audit. */
+export function createUnconfiguredOcrService(reason: string): OcrService {
+  const error = `OCR is not configured (${reason}) — ${OCR_NOT_CONFIGURED_HINT}`;
+  return {
+    analyzeDocument: async () => ({ success: false, error, retryable: false }),
+  };
+}
+
+export function createOcrService(
+  env: Record<string, string | undefined> = process.env,
+): OcrService {
+  const provider = resolveOcrProvider(env);
+  switch (provider.kind) {
+    case "azure":
+      return createAzureOcrService(provider.endpoint, provider.apiKey);
+    case "mock":
+      logger.warn("OCR_PROVIDER=mock — the OCR invents its readings; never on real documents");
+      return createMockOcrService();
+    case "none":
+      logger.error(
+        { reason: provider.reason },
+        "OCR is not configured — every document will fail its OCR",
+      );
+      return createUnconfiguredOcrService(provider.reason);
   }
-
-  logger.warn("AZURE_DI_ENDPOINT not set — using mock OCR service");
-  return createMockOcrService();
 }
 
 // --- Blob path extraction ---

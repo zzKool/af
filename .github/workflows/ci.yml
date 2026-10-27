@@ -141,6 +141,8 @@ jobs:
       DATABASE_MIGRATION_URL: postgresql://af:test@localhost:5433/af_test
       AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
       AZURE_STORAGE_CONTAINER: documents
+      # F108: the mock OCR runs only when named; the e2e upload flows wait for its readings
+      OCR_PROVIDER: mock
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
