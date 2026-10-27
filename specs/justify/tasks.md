@@ -11,7 +11,7 @@ Spec: `spec.md`. The lane: spec (approved by the owner's *go*, 2026-10-27) → b
 - [x] T006 e2e `justify.spec.ts` (three rows from the inbox under the mock OCR); screenshots `specs/justify/screenshots/` (the panel, the card, the lost card)
 
 ## PR 2 — `feat/linking-payment-picker` (US2)
-- [ ] T007 `PaymentPicker`: `suggestionsForEntity` top 5 + a search (text, amount ±, date) over the rest; replaces the `<Select>` in `supplier-invoice-panel-payments.tsx` and `expense-panel-payments.tsx`; `payableTransactions` out of the UI path; tests + the two e2e journeys through the picker
+- [x] T007 `PaymentPicker` (`components/payment-picker.tsx`): the entity's scored rows (`suggestionsForEntityAction`, confidence, reasons, *Pick*) + a search (`searchRows`, pure: a date prefix, an amount ± 1 %, the text) over the rows the host loaded — a selection component, the payment stays the host's action; replaces the `<Select>` in `supplier-invoice-panel-payments.tsx` and `expense-panel-payments.tsx` (`payableTransactions` / the payer's rows are the search pool); `payment-picker.pure.test.ts`; the supplier-invoices e2e links through it (screenshot `payment-picker.png`)
 - [ ] T008 A HIGH inbox document on the row's panel: *Make it… & link* — the card on an existing document (the upload step skipped)
 
 ## PR 3 — `feat/nav-work` (US4, the nav file alone)
