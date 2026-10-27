@@ -19,6 +19,29 @@ export {
 } from "./graph";
 export { attachHref, entityHref, graphHref } from "./hrefs";
 export { INBOX_LIMIT, type InboxRow, inboxRows, unlinkedDocuments } from "./inbox";
+export type {
+  CompareCard,
+  JustifyInput,
+  JustifyKind,
+  JustifyResult,
+  NoProofInput,
+  NoProofReason,
+  Reading,
+  RowForJustify,
+} from "./justify";
+export {
+  compareRowToReading,
+  isCardPurchase,
+  justifyRow,
+  justifySchema,
+  monthOf,
+  NO_PROOF_BAS,
+  NO_PROOF_REASONS,
+  noProofNeeded,
+  noProofSchema,
+  proposeKind,
+} from "./justify";
+export { justifyOptions } from "./justify-options";
 export { ALLOCATING_KINDS, isKindAllowed, needsOwnFlow, OWN_PAYMENT_FLOW } from "./kinds";
 export type { Linkable } from "./linkable";
 export {

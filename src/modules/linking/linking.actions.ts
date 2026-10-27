@@ -6,6 +6,7 @@ import { can } from "@/kernel/auth/can";
 import "./linkables"; // make sure every module's linkable is registered before a link is validated
 import { uuid } from "@/kernel/validation/scalars";
 import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
+import { justifyRow, justifySchema, noProofNeeded, noProofSchema } from "./justify";
 import * as linkingService from "./linking";
 import { linksWithLabels } from "./queries";
 import * as suggestions from "./suggestions";
@@ -157,3 +158,19 @@ export const bulkApplyHighAction = ownerAction
       parsedInput.bankTransactionIds,
     ),
   }));
+
+// --- Justify from the bank row (F97): one click, one transaction — owner only ---
+
+export const justifyRowAction = ownerAction
+  .schema(justifySchema)
+  .metadata({ name: "justifyRow" })
+  .action(async ({ ctx, parsedInput }) =>
+    justifyRow(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
+
+export const noProofNeededAction = ownerAction
+  .schema(noProofSchema)
+  .metadata({ name: "noProofNeeded" })
+  .action(async ({ ctx, parsedInput }) =>
+    noProofNeeded(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
