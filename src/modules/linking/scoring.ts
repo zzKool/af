@@ -1,11 +1,15 @@
-// The one scorer (specs/linking/spec.md FR-002, harvest §4.1 / §8.1): a bank row against an entity, in either
-// direction. Pure — Decimal strings in, a score with its reasons out; no I/O. Weights: full reference 40,
-// partial invoice number 20, partner name 25, amount 40 / 30 / 20 / 10, date 30 / 25 / 15 / 5, currency −10
-// unless a reference matched. HIGH = (reference ∧ ≥ 60) ∨ ≥ 80, MEDIUM ≥ 50, else LOW. A side whose currency is
-// not known (null, F61-b) is never compared on the amount and never penalised: reference, name and date only.
+// The one scorer (specs/linking/spec.md FR-002, harvest §4.1 / §8.1; F116 `specs/linking/one-engine.md`): a bank
+// row against an entity, in either direction. Pure — Decimal strings in, a score with its reasons out; no I/O.
+// Every point is a claim and every claim is true (F116 FR-002): full reference 40, partial invoice number 20,
+// partner name (whole or by token) 25, *linked to this partner before* 25 (the counterparty memory — a reference,
+// D67), keyword 15, amount 40 / 30 / 20 / 10 within 10 % (nothing beyond), date 30 / 25 / 15 / 5 inside the
+// payment window (`window.ts`; nothing outside), currency −10 unless a reference matched. A pair whose only claim
+// is its date is no suggestion. HIGH = (reference ∧ ≥ 60 ∧ amount ≤ 5 %) ∨ ≥ 80, MEDIUM ≥ 50, else LOW. A side
+// whose currency is not known (null, F61-b) is never compared on the amount and never penalised.
 import { Prisma } from "@/generated/prisma/client";
 import { daysBetween } from "@/kernel/clock/calendar";
 import type { Confidence, EntityFacts, LinkableType, MatchResult } from "./types";
+import { inWindow } from "./window";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -26,6 +30,8 @@ export const WEIGHTS = {
   reference: 40,
   partialReference: 20,
   partnerName: 25,
+  /** the counterparty memory: this row's counterparty was linked to the candidate's partner before (D67) */
+  memory: 25,
   keyword: 15,
   amount: [40, 30, 20, 10] as const,
   date: [30, 25, 15, 5] as const,
@@ -72,7 +78,84 @@ const GENERIC_WORDS: ReadonlySet<string> = new Set([
   "abonnemang",
 ]);
 
+/** Words of a company name that tell nobody apart: legal forms, connectives, trade words (en · sv · fr · de). */
+const NAME_NOISE: ReadonlySet<string> = new Set([
+  "aktiebolag",
+  "gmbh",
+  "sarl",
+  "sàrl",
+  "limited",
+  "corp",
+  "corporation",
+  "company",
+  "group",
+  "holding",
+  "international",
+  "services",
+  "service",
+  "solutions",
+  "consulting",
+  "office",
+  "systems",
+  "technologies",
+  "sweden",
+  "sverige",
+  "schweiz",
+  "suisse",
+  "switzerland",
+  "europe",
+  "nordic",
+  "the",
+  "and",
+  "och",
+  "und",
+]);
+
 const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+const words = (s: string): string[] =>
+  normalise(s)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+
+/** The tokens of a partner's name worth finding alone (F116 FR-003): ≥ 4 characters, not a legal form or a trade word. */
+export function nameTokens(name: string): string[] {
+  return [
+    ...new Set(
+      words(name).filter((w) => w.length >= 4 && !NAME_NOISE.has(w) && !GENERIC_WORDS.has(w)),
+    ),
+  ];
+}
+
+/**
+ * A name token in the row's text: a word equal to it or starting with it (`anthropic*`), or a truncated word of
+ * at least six characters it starts with (Nordea cuts `SKATTEPUNKTENS` to `SKATTEPUNK`).
+ */
+function tokenHit(token: string, rowWords: readonly string[]): boolean {
+  return rowWords.some(
+    (w) => w === token || w.startsWith(token) || (w.length >= 6 && token.startsWith(w)),
+  );
+}
+
+/**
+ * The tokens of a row's text that could be an entity's number (`VA26-003`, `9160`, `2026-0031`): three characters
+ * or more with a digit, as written and upper-cased — what a finder looks numbers up by, whatever their date.
+ */
+export function referenceTokens(texts: readonly (string | null)[]): string[] {
+  const out = new Set<string>();
+  for (const t of texts) {
+    for (const raw of (t ?? "").split(/[\s,;:*()"'/]+/)) {
+      const tok = raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+      if (tok.length >= 3 && /\d/.test(tok)) {
+        out.add(tok);
+        out.add(tok.toUpperCase());
+      }
+    }
+  }
+  return [...out];
+}
+
+/** What the counterparty memory knows about one row: per partner id, its name and how many links it got. */
+export type Memory = ReadonlyMap<string, { name: string; count: number }>;
 
 /** The tokens of an invoice number worth searching on their own: `INV-2025-042` → `042` (R11). */
 export function partialTokens(reference: string): string[] {
@@ -89,13 +172,42 @@ export function partialTokens(reference: string): string[] {
 /** Whole calendar days between two ISO dates — the kernel's, re-exported for the scorer's callers (audit 27). */
 export { daysBetween };
 
-function amountTier(row: Dec, entity: Dec): number | null {
+/** The amount tier: 0.1 % · 1 % · 5 % · 10 %; null beyond 10 % — an amount that far off is no claim (F116 FR-002). */
+export function amountTier(row: Dec, entity: Dec): number | null {
   if (entity.lte(0)) return null;
   const diff = row.minus(entity).abs().div(entity);
   if (diff.lt("0.001")) return 0;
   if (diff.lt("0.01")) return 1;
   if (diff.lt("0.05")) return 2;
-  return 3;
+  if (diff.lt("0.10")) return 3;
+  return null;
+}
+
+/**
+ * The date claim inside the payment window (F116 FR-002), null outside it: the same day 30 · within 2 days 25 ·
+ * on the due date 30 · within the terms 15 · up to 5 days late 15 · up to 10 days late 5 · an entity dated once:
+ * within 5 days 15, within 10 days 5.
+ */
+export function dateClaim(
+  rowDate: string,
+  entity: Pick<EntityFacts, "type" | "date" | "dueDate">,
+): { points: number; reason: string } | null {
+  if (!inWindow(rowDate, entity)) return null;
+  const days = daysBetween(rowDate, entity.date);
+  if (days === 0) return { points: WEIGHTS.date[0], reason: "Same date" };
+  if (days <= 2) return { points: WEIGHTS.date[1], reason: "Within 2 days" };
+  const due = entity.dueDate && entity.dueDate !== entity.date ? entity.dueDate : null;
+  if (due) {
+    if (rowDate === due) return { points: WEIGHTS.date[0], reason: "Paid on the due date" };
+    if (rowDate < due) return { points: WEIGHTS.date[2], reason: "Within the terms" };
+    const late = daysBetween(rowDate, due);
+    return {
+      points: late <= 5 ? WEIGHTS.date[2] : WEIGHTS.date[3],
+      reason: `${late} days after the due date`,
+    };
+  }
+  if (days <= 5) return { points: WEIGHTS.date[2], reason: "Within 5 days" };
+  return { points: WEIGHTS.date[3], reason: `${days} days apart` };
 }
 
 const AMOUNT_REASON = [
@@ -123,11 +235,16 @@ export function confidenceOf(
  * Score one row against one entity. `null` when the pair cannot be compared at all: different currencies,
  * no SEK base on one side and no reference in the text (harvest R6 — such candidates are dropped).
  */
-export function scoreMatch(row: RowFacts, entity: EntityFacts): MatchResult | null {
+export function scoreMatch(
+  row: RowFacts,
+  entity: EntityFacts,
+  memory?: Memory,
+): MatchResult | null {
   const reasons: string[] = [];
   let score = 0;
   let reference = false;
   const haystack = normalise(row.texts.filter(Boolean).join(" "));
+  const rowWords = words(haystack);
 
   // 1. the entity's number / key in the row's text
   const ref = entity.reference ? normalise(entity.reference) : "";
@@ -143,11 +260,28 @@ export function scoreMatch(row: RowFacts, entity: EntityFacts): MatchResult | nu
     }
   }
 
-  // 2. the partner's name in the row's text — a reference too (every text field, v1 skipped `sender`)
+  // 2. the partner's name in the row's text — whole, or one of its tokens (Nordea truncates, F116 FR-003); a
+  //    reference too (every text field, v1 skipped `sender`)
   const name = entity.partnerName ? normalise(entity.partnerName) : "";
-  if (name.length >= 3 && haystack.includes(name)) {
+  const nameHit =
+    (name.length >= 3 && haystack.includes(name)) ||
+    nameTokens(entity.partnerName ?? "").some((t) => tokenHit(t, rowWords));
+  if (nameHit) {
     score += WEIGHTS.partnerName;
     reasons.push(NAME_LABEL[entity.type] ?? "Partner name match");
+    reference = true;
+  }
+
+  // 2a. the counterparty memory: this row's counterparty was linked to the entity's partner before (F116 FR-004,
+  //     D67 — a reference: eleven confirmations say more than a name in a truncated field)
+  const remembered = entity.partnerId ? memory?.get(entity.partnerId) : undefined;
+  if (remembered && remembered.count > 0) {
+    score += WEIGHTS.memory;
+    reasons.push(
+      remembered.count === 1
+        ? `Linked to ${remembered.name} once before`
+        : `Linked to ${remembered.name} ${remembered.count} times before`,
+    );
     reference = true;
   }
 
@@ -191,29 +325,23 @@ export function scoreMatch(row: RowFacts, entity: EntityFacts): MatchResult | nu
     if (tier !== null) {
       score += WEIGHTS.amount[tier];
       reasons.push(AMOUNT_REASON[tier]);
+      reasons.push(`Cross-currency match (${entity.currency}→${row.currency} at ECB)`);
     }
-    reasons.push(`Cross-currency match (${entity.currency}→${row.currency} at ECB)`);
   } else if (!reference) {
     return null;
   } else {
     reasons.push("Cross-currency match (no rate to compare)");
   }
 
-  // 4. the date
-  const days = daysBetween(row.date, entity.date);
-  if (days === 0) {
-    score += WEIGHTS.date[0];
-    reasons.push("Same date");
-  } else if (days <= 2) {
-    score += WEIGHTS.date[1];
-    reasons.push("Within 2 days");
-  } else if (days <= 5) {
-    score += WEIGHTS.date[2];
-    reasons.push("Within 5 days");
-  } else {
-    score += WEIGHTS.date[3];
-    reasons.push(`${days} days apart`);
+  // 4. the date — inside the payment window only (F116); outside it, nothing is claimed
+  const claimedBeforeDate = reasons.length > 0;
+  const date = dateClaim(row.date, entity);
+  if (date) {
+    score += date.points;
+    reasons.push(date.reason);
   }
+  // a pair whose only claim is its date is no suggestion (F116 FR-002)
+  if (!claimedBeforeDate) return null;
 
   // 5. the currency penalty — waived when a reference matched
   if (crossCurrency) {

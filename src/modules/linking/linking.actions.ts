@@ -8,6 +8,7 @@ import { uuid } from "@/kernel/validation/scalars";
 import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
 import { justifyRow, justifySchema, noProofNeeded, noProofSchema } from "./justify";
 import * as linkingService from "./linking";
+import { memoryForRow } from "./memory";
 import { linksWithLabels } from "./queries";
 import * as suggestions from "./suggestions";
 import { LINK_KINDS, type LinkableType } from "./types";
@@ -99,6 +100,15 @@ export const suggestionsForTransactionAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
     return suggestions.suggestionsForTransaction(ctx.tx, parsedInput.bankTransactionId);
+  });
+
+/** The partners this row's counterparty was linked to before, most first (F116 US3 — the Justify panel's proposal). */
+export const counterpartyMemoryAction = authedAction
+  .schema(z.object({ bankTransactionId: uuid }))
+  .metadata({ name: "counterpartyMemory" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    return { data: await memoryForRow(ctx.tx, parsedInput.bankTransactionId) };
   });
 
 export const suggestionsForEntityAction = authedAction

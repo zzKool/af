@@ -25,6 +25,7 @@ import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { inboxRows, unlinkedDocuments } from "./inbox";
 import { getAllocationStatus, getLinksFor, removeLink } from "./linking";
+import { memoryForKeys, memoryForRow } from "./memory";
 import {
   applySuggestion,
   bulkApplyHigh,
@@ -52,7 +53,15 @@ beforeEach(async () => {
   await adminPool.query("TRUNCATE ecb_rates");
   resetRateLimit();
   // 1 CHF = 10.75 SEK around the March invoice
-  for (const date of ["2026-03-10", "2026-03-12", "2026-03-13", "2026-03-16", "2026-03-31"]) {
+  for (const date of [
+    "2026-03-10",
+    "2026-03-12",
+    "2026-03-13",
+    "2026-03-16",
+    "2026-03-31",
+    "2026-04-09",
+    "2026-07-01",
+  ]) {
     await adminPool.query(
       `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/SEK', 10.75), ($1, 'EUR/CHF', 1)`,
       [date],
@@ -165,11 +174,12 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
       remaining: "25000.00",
     });
 
-    // the 3 100 row: the invoice is 8× its amount → approximate, no reference → LOW (still listed)
+    // the 3 100 row: the invoice is 8× its amount, no reference — nothing true to say beyond the date, so no
+    // suggestion at all (F116 FR-002: no more "approximate amount" for any pair)
     const forOther = await run(owner.caller, (tx) =>
       suggestionsForTransaction(tx, other as string),
     );
-    expect(forOther.data?.suggestions.map((x) => x.confidence)).toEqual(["LOW"]);
+    expect(forOther.data?.suggestions).toEqual([]);
 
     // the invoice's side: the two incoming CHF rows of the window, the right one first
     const forInvoice = await run(owner.caller, (tx) =>
@@ -178,7 +188,6 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
     expect(forInvoice.error).toBeUndefined();
     expect(forInvoice.data?.suggestions.map((x) => [x.candidate.id, x.confidence])).toEqual([
       [paid, "HIGH"],
-      [other, "LOW"],
     ]);
   });
 
@@ -267,8 +276,8 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
     expect(
       a.data?.suggestions.map((x) => [x.candidate.type, x.candidate.id, x.confidence]),
     ).toEqual([
+      // the Anthropic receipt (2 312.43) is no lead for a 132.52 OpenAI row any more (F116 FR-002)
       ["expense", expenseId, "HIGH"],
-      ["document", documentId, "LOW"],
     ]);
     const b = await run(owner.caller, (tx) => suggestionsForTransaction(tx, anthropic as string));
     expect(b.data?.suggestions[0]).toMatchObject({
@@ -503,6 +512,94 @@ describe("US2 — apply, allocate, unlink", () => {
   });
 });
 
+describe("F116 — the window on terms, the number anywhere, the counterparty memory", () => {
+  it("US1: the invoice paid on its due date, a month after its issue, is the first candidate — both ways", async () => {
+    const { invoice } = await issuedInvoice(owner.caller);
+    expect(invoice.dueDate).toBe("2026-04-09");
+    const [onTerms] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+        { date: "2026-04-09", amount: "25000.00", name: "VAUDOISE ASSURANCES", message: "" },
+      ]),
+    );
+    const r = await run(owner.caller, (tx) => suggestionsForTransaction(tx, onTerms as string));
+    expect(r.data?.suggestions[0]).toMatchObject({
+      candidate: { type: "invoice", id: invoice.id },
+      confidence: "HIGH",
+    });
+    expect(r.data?.suggestions[0]?.reasons).toEqual([
+      "Client name match",
+      "Exact amount match",
+      "Paid on the due date",
+    ]);
+    const e = await run(owner.caller, (tx) =>
+      suggestionsForEntity(tx, { type: "invoice", id: invoice.id }),
+    );
+    expect(e.data?.suggestions.map((x) => x.candidate.id)).toEqual([onTerms]);
+  });
+
+  it("its number in the text finds it far outside the window; the memory remembers the client after one link", async () => {
+    const { invoice } = await issuedInvoice(owner.caller);
+    // a deposit on the due date — linked by the owner
+    const [deposit] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+        { date: "2026-04-09", amount: "10000.00", name: "VAUDOISE ASSURANCES", message: "" },
+      ]),
+    );
+    const l = await run(owner.caller, (tx) =>
+      applySuggestion(tx, owner.caller, noopAudit, {
+        bankTransactionId: deposit as string,
+        to: { type: "invoice", id: invoice.id },
+        allocatedAmount: "10000.00",
+      }),
+    );
+    expect(l.error).toBeUndefined();
+
+    // the memory of that counterparty: Vaudoise, once
+    const key = await run(owner.caller, async (tx) => {
+      const t = await tx.bankTransaction.findUniqueOrThrow({ where: { id: deposit as string } });
+      return t.counterpartyKey;
+    });
+    const memory = await run(owner.caller, (tx) => memoryForKeys(tx, [key]));
+    expect([...(memory.get(key)?.values() ?? [])]).toEqual([
+      { name: "Vaudoise Assurances", count: 1 },
+    ]);
+
+    // the balance arrives three months later (window closed on 2026-05-09), no number in it: the memory brings
+    // the client's open invoice back as a candidate, and says why
+    const [late, byNumber] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+        { date: "2026-07-01", amount: "15000.00", name: "VAUDOISE ASSURANCES", message: "" },
+        {
+          date: "2026-07-01",
+          amount: "15000.00",
+          name: "SOMEONE ELSE",
+          message: invoice.number ?? "",
+        },
+      ]),
+    );
+    const m = await run(owner.caller, (tx) => suggestionsForTransaction(tx, late as string));
+    expect(m.data?.suggestions[0]).toMatchObject({
+      candidate: { id: invoice.id },
+      confidence: "HIGH",
+      allocation: "15000.00",
+    });
+    expect(m.data?.suggestions[0]?.reasons).toEqual([
+      "Client name match",
+      "Linked to Vaudoise Assurances once before",
+      "Exact amount match",
+    ]);
+    // the Justify panel's proposal reads the same memory (US3)
+    const proposal = await run(owner.caller, (tx) => memoryForRow(tx, late as string));
+    expect(proposal).toEqual([
+      { partnerId: invoice.partnerId, name: "Vaudoise Assurances", count: 1 },
+    ]);
+    // another payer quoting the number: the number alone fetches it, whatever the date
+    const n = await run(owner.caller, (tx) => suggestionsForTransaction(tx, byNumber as string));
+    expect(n.data?.suggestions[0]?.candidate.id).toBe(invoice.id);
+    expect(n.data?.suggestions[0]?.reasons).toContain("Invoice number in message");
+  });
+});
+
 describe("US3 — bulk apply HIGH with the skip reasons", () => {
   it("applies the clear ones, skips the rest with a reason", async () => {
     const { invoice } = await issuedInvoice(owner.caller);
@@ -515,7 +612,8 @@ describe("US3 — bulk apply HIGH with the skip reasons", () => {
           message: invoice.number ?? "",
         },
         { date: "2026-03-31", amount: "900.00", name: "INTEREST" },
-        { date: "2026-03-13", amount: "3100.00", name: "SOMEONE ELSE" },
+        // 8 % under the invoice, three days off, no reference: true but weak claims → LOW
+        { date: "2026-03-13", amount: "23000.00", name: "SOMEONE ELSE" },
       ]),
     );
     const r = await run(owner.caller, (tx) =>
@@ -631,7 +729,8 @@ describe("US3 — the inbox read model", () => {
     const rows = await run(owner.caller, (tx) => inboxRows(tx));
     expect(rows.map((r) => [r.row.id, r.top?.confidence ?? null])).toEqual([
       [paid, "HIGH"],
-      [other, "LOW"],
+      // the 3 100 row is listed — it needs attention — but with no candidate (F116: nothing true to say)
+      [other, null],
     ]);
     expect(rows[0]?.top?.candidate.id).toBe(invoice.id);
     expect(rows[0]?.top?.allocation).toBe("25000.00");
