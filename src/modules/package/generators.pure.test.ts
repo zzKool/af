@@ -2,7 +2,7 @@
 // the statement CSVs in the account's conventions, the summary's sheets and rows, notes.md's sections, the zip's
 // layout — and determinism: the same data twice gives the same bytes.
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { unzipSync } from "fflate";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -119,6 +119,9 @@ const data: PeriodData = {
       totalBase: "268750.00",
       paid: "25000.00",
       remaining: "0.00",
+      // paid into the SEK account at a weaker franc than the issue date's (F114): a gain of 250.00, derived
+      allocatedBase: "269000.00",
+      fxDifference: "250.00",
       status: "paid",
       declarationPeriod: "2026/Q2",
       pdfKey: "InvoiceAF_VA26-INV-001.pdf",
@@ -144,6 +147,8 @@ const data: PeriodData = {
       basLabel: "Redovisningstjänster",
       paid: "1250.00",
       open: "0.00",
+      allocatedBase: "1250.00",
+      fxDifference: "0.00",
       status: "paid",
       paidVia: ["Plusgirokonto SEK 2026-06-12 -1250.00 SEK"],
       documentKey: "SI213-Acc-01_2026-06-01_Skattepunkten",
@@ -166,6 +171,8 @@ const data: PeriodData = {
       currency: "CHF",
       rateSource: "ecb_daily",
       amountBase: "1290.00",
+      allocatedBase: "0.00",
+      fxDifference: "0.00",
       paidBy: "Private CH",
       status: "to_refund",
       refundDate: null,
@@ -187,6 +194,7 @@ const data: PeriodData = {
       kind: "justifies",
       allocated: "1250.00",
       currency: "SEK",
+      allocatedBase: "1250.00",
       createdAt: "2026-06-13T10:00:00.000Z",
     },
   ],
@@ -333,7 +341,23 @@ describe("summary.xlsx", () => {
       Status: "paid",
       PDF: "InvoiceAF_VA26-INV-001.pdf",
       "In this package because": "issued, paid",
+      // F114: what the bank gave in base and the signed difference, derived from the links
+      "Total SEK": 268750,
+      "Paid SEK": 269000,
+      "FX difference SEK": 250,
     });
+    const suppliers = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+      wb.Sheets[SHEETS.suppliers] as XLSX.WorkSheet,
+    );
+    expect(suppliers[0]).toMatchObject({
+      Ref: "SI213-Acc-01",
+      "Paid SEK": 1250,
+      "FX difference SEK": 0,
+    });
+    const links = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+      wb.Sheets[SHEETS.links] as XLSX.WorkSheet,
+    );
+    expect(links[0]).toMatchObject({ Kind: "justifies", Allocated: 1250, "Base SEK": 1250 });
     const expenses = XLSX.utils.sheet_to_json<Record<string, unknown>>(
       wb.Sheets[SHEETS.expenses] as XLSX.WorkSheet,
     );
@@ -360,6 +384,8 @@ describe("notes.md", () => {
     expect(md).toContain("### Unlinked bank lines (1)");
     expect(md).toContain("(implied rate 0.093023)");
     expect(md).toContain("- Private CH: 1290.00 SEK open over 1 expense");
+    expect(md).toContain("## FX differences (1)");
+    expect(md).toContain("- client invoice **VA26-INV-001** (25000.00 CHF): 250.00 SEK");
     expect(md).toContain("- 2026/Q2: 1 invoice, net 25000.00 CHF");
     expect(notesMd({ ...data, flags: [], transfers: [], liability: [], vatPeriods: [] })).toContain(
       "Nothing to ask about",
@@ -459,15 +485,30 @@ describe("the bytes the accountant gets (F71 golden)", () => {
 
   // The golden was re-captured on 2026-10-27 (F111): `summary.xlsx` is written by `kernel/xlsx` instead of SheetJS,
   // so its bytes — and the two zips that carry it — changed once; the sheet_to_json test above is what holds the
-  // content, this one holds the bytes still from here on.
+  // content, this one holds the bytes still from here on. Re-captured again the same day for F114 PR 2: *Paid SEK*
+  // and *FX difference SEK* on the income, supplier and expense sheets, *Base SEK* on the links, the FX section
+  // of the notes — the workbook opened with openpyxl and SheetJS before the hashes were taken.
+  // Re-capturing (a reviewed change of the sheets): `PACKAGE_GOLDEN_OUT=<dir> npx vitest run …generators.pure`
+  // writes the four files and the new `package-golden.json` there — open the workbook with a second reader
+  // (openpyxl, SheetJS) before copying the JSON over (lessons: three readers prove a format).
   it("zip, summary.xlsx, notes.md and the year zip are byte-identical to the golden", () => {
     const year: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026") };
     const may: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026-05"), documents: [] };
-    expect({
-      zip: sha(zipBytes(monthEntries(withMoneyFlags, bytes), withMoneyFlags.period.to)),
-      summary: sha(summaryXlsx(withMoneyFlags)),
-      notes: sha(notesMd(withMoneyFlags)),
-      year: sha(zipBytes(yearEntries(year, [may, withMoneyFlags], bytes), "2026-12-31")),
-    }).toEqual(golden);
+    const files = {
+      zip: zipBytes(monthEntries(withMoneyFlags, bytes), withMoneyFlags.period.to),
+      summary: summaryXlsx(withMoneyFlags),
+      notes: notesMd(withMoneyFlags),
+      year: zipBytes(yearEntries(year, [may, withMoneyFlags], bytes), "2026-12-31"),
+    };
+    const actual = Object.fromEntries(Object.entries(files).map(([k, v]) => [k, sha(v)]));
+    const outDir = process.env.PACKAGE_GOLDEN_OUT;
+    if (outDir) {
+      writeFileSync(join(outDir, "package.zip"), files.zip);
+      writeFileSync(join(outDir, "summary.xlsx"), files.summary);
+      writeFileSync(join(outDir, "notes.md"), files.notes);
+      writeFileSync(join(outDir, "year.zip"), files.year);
+      writeFileSync(join(outDir, "package-golden.json"), `${JSON.stringify(actual, null, 2)}\n`);
+    }
+    expect(actual).toEqual(golden);
   });
 });

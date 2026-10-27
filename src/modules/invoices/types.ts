@@ -160,6 +160,13 @@ export type InvoiceDerived = {
   allocated: string;
   /** total − allocated, never below 0 */
   remaining: string;
+  /** Σ what the paying rows gave, in base (F114 — the links' `allocated_base`) */
+  allocatedBase: string;
+  /**
+   * Σ `allocatedBase` − the base the books carry for the paid share (the kernel's `fxDifference`), signed; on a
+   * receivable > 0 is a gain (3960), < 0 a loss (7960). Null while the invoice has no base (a draft, a quote).
+   */
+  fxDifference: string | null;
   /** Σ totals of issued credit notes referencing this invoice */
   credited: string;
   /** for a quote: the number of the invoice it became (when that invoice is issued) */

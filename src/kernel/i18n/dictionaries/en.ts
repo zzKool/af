@@ -457,6 +457,9 @@ export const en = {
   "invoices.created": "Draft created",
   "invoices.related": "Related documents",
   "invoices.base": "In {currency}: {amount} at {rate} ({source}, {date})",
+  "invoices.detail.paidBase": "Paid in base",
+  "invoices.detail.paidBaseValue": "{amount} {currency}",
+  "invoices.detail.fxDifference": "FX difference {amount} ({code})",
   "invoices.allocated": "Paid: {amount} · Remaining: {remaining}",
   "invoices.lockedHint": "Issued documents cannot be edited — create a credit note.",
   // --- banking (the workbench, imports, rules) ---
