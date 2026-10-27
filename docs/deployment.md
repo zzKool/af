@@ -24,7 +24,7 @@ sudo mkdir -p /opt/af && cd /opt/af
 git clone https://github.com/zzKool/af.git .           # the compose file, the scripts, the Caddyfile example
 cp .env.prod.example .env.prod && $EDITOR .env.prod      # secrets: POSTGRES_PASSWORD, AF_APP_PASSWORD (+ DATABASE_URL), AUTH_SECRET, AUTH_URL, DI keys
 docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d          # db → migrate (exits 0) → app; azurite as blob storage
+docker compose -f docker-compose.prod.yml up -d          # db → migrate (exits 0) → app; the documents in the `documents` volume
 curl -s localhost:3000/api/health                        # {"status":"ok","db":"ok","jobs":"enabled","failedJobs":0,"version":"sha-…"}
 ```
 
@@ -44,7 +44,9 @@ AF_TAG=sha-abc123def456 docker compose -f docker-compose.prod.yml up -d  # migra
 
 Put `AF_TAG` in a file named **`.env`** next to the compose file to make it stick — not in `.env.prod`: compose chooses images and ports from `.env` (interpolation), `.env.prod` only reaches the containers (`env_file`). The same goes for `AF_PORT`: `AF_PORT=127.0.0.1:3000` in `.env` keeps the app off the local network behind a proxy; in `.env.prod` it is ignored and the port binds on every interface. Check with `docker compose -f docker-compose.prod.yml config`. Before an update, snapshot the host or VM: a new image may migrate the database, so rolling back means restoring the snapshot, not only the tag. A migration that fails leaves the app on the previous image (the `migrate` container exits non-zero and `app` does not start) — fix forward or roll `AF_TAG` back.
 
-**Backups** (constitution §7: financial records survive the host): `scripts/backup.sh` nightly from cron — a `pg_dump` custom-format dump plus the blob volume as a tarball, kept 30 days, copied off-host when `BACKUP_OFFSITE` points at a mounted remote (a NAS share, an rclone mount, an Azure Blob container mounted with blobfuse):
+**The documents** (F107, D61): plain files in the `documents` volume (`STORAGE_DRIVER=fs`, `STORAGE_DIR=/data/documents`, set by the compose), one file per document under its tenant's folder — readable by any tool, `rsync`-able (`docker volume inspect af_documents` gives the host path), backed up by the script below. Azurite is for dev only. **Moving an existing box off Azurite**: keep `AZURE_STORAGE_CONNECTION_STRING` in `.env.prod` for one more deploy — the migrate container copies every document into the folder and repoints the rows (`scripts/migrate-blobs-to-fs.mjs`, idempotent, deletes nothing); check the app and a backup, then drop the variable and the old `blobdata` volume. Azure Blob is the other driver: `STORAGE_DRIVER=blob` + the account's connection string.
+
+**Backups** (constitution §7: financial records survive the host): `scripts/backup.sh` nightly from cron — a `pg_dump` custom-format dump plus the documents folder as a tarball, kept 30 days, copied off-host when `BACKUP_OFFSITE` points at a mounted remote (a NAS share, an rclone mount, an Azure Blob container mounted with blobfuse):
 
 ```
 0 3 * * * BACKUP_OFFSITE=/mnt/nas/af /opt/af/scripts/backup.sh >> /var/log/af-backup.log 2>&1
@@ -55,13 +57,13 @@ Put `AF_TAG` in a file named **`.env`** next to the compose file to make it stic
 ```bash
 git clone https://github.com/zzKool/af.git /opt/af-restore-test && cd /opt/af-restore-test
 cp /opt/af/.env.prod .env.prod && sed -i 's/^AF_PORT=.*/AF_PORT=127.0.0.1:3100/' .env.prod
-docker compose -p af-restore-test -f docker-compose.prod.yml up -d db azurite
+docker compose -p af-restore-test -f docker-compose.prod.yml up -d db
 COMPOSE_PROJECT_NAME=af-restore-test ./scripts/restore.sh /mnt/nas/af/db-<stamp>.dump /mnt/nas/af/blobs-<stamp>.tgz
 curl -s localhost:3100/api/health                        # then log in and open last month's package
 docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 ```
 
-`scripts/restore.sh` stops the app, restores the dump into a fresh database and swaps it in, replaces the blob volume's data, starts the app (migrations run first) and calls the health endpoint.
+`scripts/restore.sh` stops the app, restores the dump into a fresh database and swaps it in, replaces the documents folder's content, starts the app (migrations run first) and calls the health endpoint.
 
 **Monitoring**: the container's `HEALTHCHECK` is `/api/health` (database round trip, jobs state, version, uptime); `restart: unless-stopped` brings the app back after a reboot; Sentry stays **off** on the owner's box (D51 — `NEXT_PUBLIC_SENTRY_DSN` empty); the logs are JSON on stdout (`docker compose logs -f app`, `LOG_LEVEL`).
 
@@ -76,7 +78,7 @@ The same two images, the same env vars. Resources, one resource group `af-prod` 
 | Container Apps environment + app `af` | consumption, min replicas 0, max 1, 0.5 vCPU / 1 GiB | the app image; ingress on 3000; secrets as env | 0–5 (scale to zero; a cold start is ~10 s) |
 | Container Apps job `af-migrate` | consumption, manual trigger | the migrate image, run before each revision | ~0 |
 | Azure Database for PostgreSQL Flexible Server | B1ms burstable, 32 GiB, 7-day backups | `DATABASE_URL` (app role) / `DATABASE_MIGRATION_URL` (admin) | ~14 |
-| Storage account | Standard LRS, one private container `documents` | `AZURE_STORAGE_CONNECTION_STRING` + `AZURE_STORAGE_CONTAINER` (replaces Azurite — the two env vars) | ~1 |
+| Storage account | Standard LRS, one private container `documents` | `STORAGE_DRIVER=blob` + `AZURE_STORAGE_CONNECTION_STRING` + `AZURE_STORAGE_CONTAINER` (the box uses the fs driver) | ~1 |
 | Document Intelligence | F0 | OCR | 0 |
 | Container Registry | none — pull from `ghcr.io` with a registry secret (a GitHub PAT with `read:packages`) | | 0 |
 

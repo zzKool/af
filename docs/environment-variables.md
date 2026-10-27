@@ -9,8 +9,10 @@ Every difference between a laptop, the homelab and Azure is an env var (constitu
 | `DATABASE_TEST_URL`, `DATABASE_TEST_MIGRATION_URL` | tests | Vitest setup, the e2e server | the test database (port 5433 locally and in CI) |
 | `AUTH_SECRET` | yes | Better Auth | ≥ 32 random bytes; rotating it logs everyone out |
 | `AUTH_URL` (or `BETTER_AUTH_URL`) | yes | Better Auth | the public address (`https://af.example.com`) — origins are validated against it |
-| `AZURE_STORAGE_CONNECTION_STRING` | yes | `kernel/storage` | Azurite (dev, homelab) or the storage account (Azure) — the one switch |
-| `AZURE_STORAGE_CONTAINER` | yes | `kernel/storage`, `extractBlobPath` | `documents` |
+| `STORAGE_DRIVER` | no | `kernel/storage` | `fs` (the box: files in `STORAGE_DIR`, F107) or `blob` (default: Azurite in dev, the storage account on Azure) |
+| `STORAGE_DIR` | with `fs` | `kernel/storage` | the documents folder (`/data/documents` in the prod compose, a named volume) |
+| `AZURE_STORAGE_CONNECTION_STRING` | with `blob` | `kernel/storage` | Azurite (dev) or the storage account (Azure); on a box moving off Azurite, kept for one deploy so the migrate container can copy the documents |
+| `AZURE_STORAGE_CONTAINER` | yes | `kernel/storage`, `extractBlobPath` | `documents` — the URL's container segment for both drivers |
 | `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | OCR | `kernel/ocr` | Document Intelligence; unset = the mock OCR (a warning at start) |
 | `CHROMIUM_PATH` | PDFs | `kernel/pdf` | set by the Dockerfile (`/usr/bin/chromium-browser`); locally playwright-core's Chromium |
 | `INTERNAL_BASE_URL` | no | `kernel/pdf` | where the renderer reaches the app's print routes (default `http://127.0.0.1:$PORT`) |

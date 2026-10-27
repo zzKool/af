@@ -76,7 +76,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 ## 3. Portability rules
 
 1. All environment differences live in env vars (`DATABASE_URL`, storage connection, OCR endpoint, `BASE_URL`, secrets). No `isAzure` / `isLocal` branches.
-2. Storage and OCR are adapters behind one interface each in the kernel; Azurite and the real Azure endpoints are configuration.
+2. Storage and OCR are adapters behind one interface each in the kernel; the filesystem driver (the box), Azurite (dev) and Azure Blob are configuration (`STORAGE_DRIVER`, F107).
 3. One `docker-compose.yml` for dev, one `docker-compose.prod.yml` for prod-like (same image, no bind mounts, real secrets). If it runs prod-like locally, it runs on Azure.
 4. No platform-specific features in code: no Dapr, no KEDA scalers, no managed identity, no cloud cron. Plain credentials, pg-boss schedules.
 5. Background work is resumable: queued in Postgres, idempotent handlers, catch-up on startup (ECB rates fetch the gap since the last stored date).
