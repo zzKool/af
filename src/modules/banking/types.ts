@@ -3,6 +3,7 @@
 
 import type { LinkableType, LinkKind } from "@/modules/linking";
 import type { BaseRateResult } from "@/modules/rates";
+import type { BalanceGap } from "./completeness";
 import type { BankFormatConfig } from "./csv-parser";
 
 /** A row's base rate source: the words of rates' `rateToBase` (`same_currency` · `ecb_daily` · `ecb_nearest`) or a
@@ -121,10 +122,15 @@ export type BankImportDto = {
 /** What the import dialog shows once the file is in. */
 export type ImportSummary = BankImportDto & {
   accountLabel: string;
+  /** the account's currency — the gaps are stated in it */
+  currency: string;
   /** ids of the transactions created by this import (the workbench highlights them) */
   transactionIds: string[];
   /** rules applied on the new rows */
   categorised: number;
+  /** the account's balance chain after this import (F115): how far it proves the account, the gaps it found */
+  completeTo: string | null;
+  balanceGaps: BalanceGap[];
 };
 
 export type RuleMatchType = "contains" | "starts_with" | "ends_with" | "exact" | "regex";
@@ -316,7 +322,8 @@ export type AccountBalance = {
 };
 
 /** The Months panel (F69): one account × month square — every row proven, a row still to justify, or no import covers it. */
-export type BankMonthCellState = "proven" | "open" | "not_imported";
+/** proven = justified and the balance chain covers the month whole (F115); incomplete = justified, chain not there */
+export type BankMonthCellState = "proven" | "open" | "incomplete" | "not_imported";
 
 export type BankMonthCell = {
   bankAccountId: string;
@@ -335,7 +342,16 @@ export type BankMonthsOverview = {
   to: string;
   /** oldest first */
   months: BankMonth[];
-  accounts: { id: string; label: string; role: BankAccountRole; currency: string }[];
+  accounts: {
+    id: string;
+    label: string;
+    role: BankAccountRole;
+    currency: string;
+    /** the last day the balance chain reaches without a gap (F115), null without a balanced row */
+    completeTo: string | null;
+    /** how many gaps the chain found — rows missing between exports */
+    gaps: number;
+  }[];
   cells: BankMonthCell[];
   /** the newest closed month with bank rows and no built package — *N transactions without proof — package YYYY-MM not built* */
   banner: { month: string; withoutProof: number } | null;

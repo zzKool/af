@@ -1,6 +1,7 @@
 // The Months panel's pure assembly (F69): month arithmetic, the cell rule, the bars, the banner's month, link facts.
 import { describe, expect, it } from "vitest";
 import type { LinkDto } from "@/modules/linking";
+import type { Completeness } from "./completeness";
 import { addMonths, assembleMonths, linkFactsOf, monthRange, needsProof } from "./months";
 
 const A = { id: "a", label: "SEK", role: "main" as const, currency: "SEK" };
@@ -22,10 +23,18 @@ describe("month arithmetic", () => {
 });
 
 describe("assembleMonths", () => {
+  // the balance chain of `a` (F115) holds from the end of May to the end of July: June and July can be proven
+  const chainA: Completeness = {
+    completeFrom: "2026-05-31",
+    completeTo: "2026-07-31",
+    gaps: [],
+    balancedDays: 9,
+  };
   const base = {
     months: ["2026-06", "2026-07", "2026-08"],
     accounts: [A, B],
     covered: new Map([["a", new Set(["2026-06", "2026-07"])]]),
+    completeness: new Map([["a", chainA]]),
     built: new Set<string>(),
     thisMonth: "2026-08",
   };
@@ -44,6 +53,11 @@ describe("assembleMonths", () => {
     expect(cell("a", "2026-06")).toMatchObject({ state: "proven", rows: 0 });
     expect(cell("a", "2026-08")?.state).toBe("not_imported");
     expect(cell("b", "2026-07")?.state).toBe("not_imported");
+    expect(o.accounts.find((a) => a.id === "a")).toMatchObject({
+      completeTo: "2026-07-31",
+      gaps: 0,
+    });
+    expect(o.accounts.find((a) => a.id === "b")).toMatchObject({ completeTo: null, gaps: 0 });
     expect(o.months.find((m) => m.month === "2026-07")).toEqual({
       month: "2026-07",
       justified: 1,
@@ -52,14 +66,43 @@ describe("assembleMonths", () => {
     });
   });
 
-  it("a row makes its month imported even without a covering import period", () => {
+  it("a row makes its month imported even without a covering import period — justified but incomplete: no balance chain proves the month whole (F115)", () => {
     const o = assembleMonths({
       ...base,
       rows: [{ bankAccountId: "b", month: "2026-08", state: "no_document" }],
     });
     expect(o.cells.find((c) => c.bankAccountId === "b" && c.month === "2026-08")?.state).toBe(
-      "proven",
+      "incomplete",
     );
+  });
+
+  it("never proven on half a month (F115): the chain must start before the month and reach its last day; a gap ends it", () => {
+    const rows = [
+      { bankAccountId: "a", month: "2026-06", state: "linked" as const },
+      { bankAccountId: "a", month: "2026-07", state: "linked" as const },
+    ];
+    const cell = (o: ReturnType<typeof assembleMonths>, m: string) =>
+      o.cells.find((c) => c.bankAccountId === "a" && c.month === m)?.state;
+    // the chain reaches 2026-07-15 only: June proven, July incomplete
+    const half = assembleMonths({
+      ...base,
+      rows,
+      completeness: new Map([["a", { ...chainA, completeTo: "2026-07-15" }]]),
+    });
+    expect([cell(half, "2026-06"), cell(half, "2026-07")]).toEqual(["proven", "incomplete"]);
+    // the first export starts on June 2nd: June is not proven — a row of June 1st could be missing
+    const lateStart = assembleMonths({
+      ...base,
+      rows,
+      completeness: new Map([["a", { ...chainA, completeFrom: "2026-06-02" }]]),
+    });
+    expect([cell(lateStart, "2026-06"), cell(lateStart, "2026-07")]).toEqual([
+      "incomplete",
+      "proven",
+    ]);
+    // no balance at all (another bank's CSV): nothing is ever proven
+    const none = assembleMonths({ ...base, rows, completeness: new Map() });
+    expect([cell(none, "2026-06"), cell(none, "2026-07")]).toEqual(["incomplete", "incomplete"]);
   });
 
   it("the banner names the newest closed month with rows and no built package — never the running month", () => {

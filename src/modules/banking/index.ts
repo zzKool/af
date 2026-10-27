@@ -17,6 +17,13 @@ export {
   updateBankAccountAction,
 } from "./bank-accounts.actions";
 export * from "./banking.actions";
+export {
+  type BalanceGap,
+  balanceChain,
+  type Completeness,
+  lastDayOf,
+  monthComplete,
+} from "./completeness";
 export { counterpartyKey, stripCardPrefix } from "./counterparty";
 export type {
   BankFormatColumn,

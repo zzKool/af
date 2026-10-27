@@ -22,6 +22,7 @@ import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { accountLabel } from "./bank-accounts";
+import { type BalanceRow, balanceChain, type Completeness } from "./completeness";
 import { iso, toImportDto, toTransactionDto } from "./dto";
 import { withImplicitRates } from "./implicit-rate";
 import { listRules } from "./rules";
@@ -625,6 +626,34 @@ export async function ruleDateHierarchy(
   q: ListQuery,
 ): Promise<DateHierarchy> {
   return rulesTable.dates(await listRulesWithLabels(tx), column, q);
+}
+
+/**
+ * The balance chain of each account (F115): the first and last balanced day the chain holds between, the gaps.
+ * Every row of the account, one query per call — a solo company's accounts hold a few thousand rows.
+ */
+export async function accountCompleteness(
+  tx: TransactionClient,
+  accountIds?: readonly string[],
+): Promise<Map<string, Completeness>> {
+  const rows = await tx.bankTransaction.findMany({
+    where: accountIds ? { bankAccountId: { in: [...accountIds] } } : undefined,
+    select: { bankAccountId: true, bookingDate: true, amount: true, balance: true, rowIndex: true },
+  });
+  const byAccount = new Map<string, BalanceRow[]>();
+  for (const r of rows) {
+    const list = byAccount.get(r.bankAccountId) ?? [];
+    list.push({
+      bookingDate: iso(r.bookingDate) as string,
+      amount: r.amount,
+      balance: r.balance,
+      rowIndex: r.rowIndex,
+    });
+    byAccount.set(r.bankAccountId, list);
+  }
+  const out = new Map<string, Completeness>();
+  for (const [id, list] of byAccount) out.set(id, balanceChain(list));
+  return out;
 }
 
 /** Each account with the balance of its latest booking date that has one (no stored running balance). */

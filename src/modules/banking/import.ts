@@ -22,6 +22,7 @@ import {
   parseColumnMapping,
 } from "./csv-parser";
 import { baseAmount, type RowRate, resolveRate } from "./facts";
+import { accountCompleteness } from "./queries";
 import { applyToTransactions, ensureDefaultRules, ruleTarget } from "./rules";
 import type { ImportSummary } from "./types";
 
@@ -223,12 +224,19 @@ export async function importCsv(
     newData: toAuditData(importRow),
   });
 
+  // 9. the balance chain over the whole account (F115): reported, never refused — a gap between two exports
+  //    is the owner's cue to export the missing days; a broken chain inside one file is the bank's to explain
+  const chain = (await accountCompleteness(tx, [account.id])).get(account.id);
+
   return {
     data: {
       ...toImportDto(importRow),
       accountLabel: label,
+      currency: account.currency,
       transactionIds: created.map((t) => t.id),
       categorised: applied.data.applied,
+      completeTo: chain?.completeTo ?? null,
+      balanceGaps: chain?.gaps ?? [],
     },
   };
 }

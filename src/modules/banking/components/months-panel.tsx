@@ -14,14 +14,16 @@ const BAR_HEIGHT = 56; // px
 const SQUARE: Record<BankMonthCellState, string> = {
   proven: "bg-state-done",
   open: "bg-state-attention",
+  incomplete: "bg-state-progress",
   not_imported: "bg-tag",
 };
 
 const CELL_WORD = {
   proven: "banking.months.proven",
   open: "banking.months.open",
+  incomplete: "banking.months.incomplete",
   not_imported: "banking.months.notImported",
-} as const;
+} as const satisfies Record<BankMonthCellState, string>;
 
 export function MonthsPanel({
   overview,
@@ -37,7 +39,7 @@ export function MonthsPanel({
   const t = useT();
   const scroller = useRef<HTMLDivElement>(null);
   const max = Math.max(1, ...overview.months.map((m) => m.justified + m.toJustify));
-  const columns = `minmax(7rem, 10rem) repeat(${overview.months.length}, 1.5rem)`;
+  const columns = `minmax(9rem, 12rem) repeat(${overview.months.length}, 1.5rem)`;
 
   // the newest months are the ones the owner works on: start scrolled to the right end
   useEffect(() => {
@@ -63,6 +65,7 @@ export function MonthsPanel({
         </span>
         <Legend colour="bg-state-done" label={t("banking.months.proven")} square />
         <Legend colour="bg-state-attention" label={t("banking.months.open")} square />
+        <Legend colour="bg-state-progress" label={t("banking.months.incomplete")} square />
         <Legend colour="bg-tag" label={t("banking.months.notImported")} square />
         {selectedMonth && (
           <button
@@ -144,6 +147,14 @@ export function MonthsPanel({
             <AccountRow
               key={a.id}
               label={a.label}
+              // F115: how far the balance chain proves the account, and the gaps it found
+              detail={
+                a.completeTo
+                  ? `${t("banking.months.completeTo", { date: a.completeTo })}${
+                      a.gaps > 0 ? ` · ${t("banking.months.gaps", { count: a.gaps })}` : ""
+                    }`
+                  : t("banking.months.noChain")
+              }
               cells={overview.months.map((m) => {
                 const state = cellOf(a.id, m.month)?.state ?? "not_imported";
                 return {
@@ -166,15 +177,24 @@ export function MonthsPanel({
 
 function AccountRow({
   label,
+  detail,
   cells,
 }: {
   label: string;
+  detail: string;
   cells: { month: string; state: BankMonthCellState; title: string }[];
 }) {
   return (
     <>
-      <div className="truncate py-0.5 pr-2 text-xs text-muted-foreground" title={label}>
+      <div
+        className="truncate py-0.5 pr-2 text-xs text-muted-foreground"
+        title={`${label} — ${detail}`}
+        data-testid="months-account"
+      >
         {label}
+        <span className="block truncate text-[10px] leading-3" data-testid="months-complete-to">
+          {detail}
+        </span>
       </div>
       {cells.map((c) => (
         <div key={c.month} className="flex justify-center py-0.5">
