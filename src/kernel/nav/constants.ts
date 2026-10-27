@@ -40,6 +40,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
     enabled: true,
     group: null,
   },
+  // Work (F97 US4, review 2026-10-26 §1.4): the monthly loop in one place — the rows to justify and the documents
+  // to review, with their count. The accountant reads; the loop is the owner's.
+  {
+    path: "/banking/inbox",
+    label: "Work",
+    labelKey: "nav.work",
+    icon: "ListChecks",
+    roles: ["owner"],
+    enabled: true,
+    group: null,
+  },
   {
     path: "/banking",
     label: "Banking",

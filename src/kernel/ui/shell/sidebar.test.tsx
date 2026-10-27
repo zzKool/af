@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 const shell = vi.hoisted(() => ({ collapsed: false }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+let pathname = "/dashboard";
+vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 vi.mock("@/kernel/ui/shell/shell-context", () => ({ useShell: () => shell }));
 
 import { Sidebar } from "./sidebar";
@@ -38,5 +39,15 @@ describe("Sidebar — counts of open work (F72)", () => {
   it("no counts given (the accountant) — nothing extra", () => {
     render(<Sidebar role={ACCOUNTANT} />);
     expect(screen.getByRole("link", { name: "Banking" }).textContent).toBe("Banking");
+  });
+
+  it("Work (F97 US4): first after Dashboard with the one count; on /banking/inbox it is the active item, not Banking", () => {
+    pathname = "/banking/inbox";
+    render(<Sidebar role={OWNER} counts={{ "/banking/inbox": 5, "/banking": 3 }} />);
+    const links = screen.getAllByRole("link").map((l) => l.textContent);
+    expect(links.slice(0, 3)).toEqual(["Dashboard", "Work5", "Banking3"]);
+    expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Banking" })).not.toHaveAttribute("aria-current");
+    pathname = "/dashboard";
   });
 });
