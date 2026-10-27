@@ -15,6 +15,7 @@ import type {
   ListResult,
   SortSpec,
 } from "@/kernel/list-query/types";
+import { fxDifference } from "@/kernel/money/settlement";
 import * as linking from "@/modules/linking";
 import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
@@ -69,22 +70,23 @@ const ROW_CAP = 20_000;
 // --- the derived read model ---
 
 type Sums = {
-  allocated: Map<string, string>;
+  /** every allocation onto the invoice — amount in its currency, the base the row gave (F114) */
+  allocations: Map<string, linking.AllocationOnto[]>;
   credited: Map<string, string>;
   converted: Map<string, string>;
 };
 
-/** Σ allocations (linking's read API), Σ issued credit notes and converted-quote numbers for a set of invoice ids — three queries. */
+/** The allocations (linking's read API), Σ issued credit notes and converted-quote numbers for a set of invoice ids — three queries. */
 async function derivedSums(tx: TransactionClient, ids: readonly string[]): Promise<Sums> {
-  const sums: Sums = { allocated: new Map(), credited: new Map(), converted: new Map() };
+  const sums: Sums = { allocations: new Map(), credited: new Map(), converted: new Map() };
   if (ids.length === 0) return sums;
-  const allocated = await linking.allocatedSums(tx, "invoice", ids);
+  const allocations = await linking.allocationsOnto(tx, "invoice", ids);
   const credits = await creditedSum(tx, ids);
   const conversions = await tx.invoice.findMany({
     where: { type: "invoice", status: { not: "draft" }, relatedInvoiceId: { in: [...ids] } },
     select: { relatedInvoiceId: true, number: true },
   });
-  sums.allocated = allocated;
+  sums.allocations = allocations;
   sums.credited = credits;
   for (const c of conversions)
     if (c.relatedInvoiceId && c.number) sums.converted.set(c.relatedInvoiceId, c.number);
@@ -97,12 +99,15 @@ function deriveFor(
     type: InvoiceType;
     status: "draft" | "issued" | "sent" | "accepted" | "declined";
     totalAmount: string;
+    totalBase: string | null;
     dueDate: string | null;
   },
   sums: Sums,
   today: string,
 ): InvoiceDerived {
-  const allocated = sums.allocated.get(inv.id) ?? "0.00";
+  const onto = sums.allocations.get(inv.id) ?? [];
+  const fx = fxDifference(inv.totalAmount, inv.totalBase ?? "0.00", onto);
+  const allocated = fx.allocated.toFixed(2);
   const credited = inv.type === "invoice" ? (sums.credited.get(inv.id) ?? "0.00") : "0.00";
   const convertedTo = inv.type === "quote" ? (sums.converted.get(inv.id) ?? null) : null;
   return {
@@ -126,6 +131,8 @@ function deriveFor(
       allocated,
       credited,
     }),
+    allocatedBase: fx.allocatedBase.toFixed(2),
+    fxDifference: inv.totalBase === null ? null : fx.difference.toFixed(2),
     credited,
     convertedTo,
   };
@@ -299,7 +306,7 @@ export async function overdueInvoiceCount(tx: TransactionClient, today: string):
   return rows.filter(
     (r) =>
       deriveFor(
-        { ...r, totalAmount: r.totalAmount.toFixed(2), dueDate: iso(r.dueDate) },
+        { ...r, totalAmount: r.totalAmount.toFixed(2), totalBase: null, dueDate: iso(r.dueDate) },
         sums,
         today,
       ).state === "overdue",

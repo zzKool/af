@@ -125,6 +125,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               totalAmount: inv.totalAmount,
               allocated: inv.allocated,
               remaining: inv.remaining,
+              allocatedBase: inv.allocatedBase,
+              fxDifference: inv.fxDifference,
               credited: inv.credited,
               baseCurrency: inv.baseCurrency,
               totalBase: inv.totalBase,

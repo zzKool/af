@@ -61,6 +61,18 @@ export function notesMd(data: PeriodData): string {
   }
   out.push("");
 
+  // F114: the FX differences the links derive — the accountant books them; the sign says which account
+  const fx = fxLines(data);
+  out.push(`## FX differences (${fx.length})`);
+  out.push("");
+  out.push(
+    "Σ what the bank gave in SEK − the SEK booked at the entity's date. Payables and reimbursements: > 0 a loss (7960), < 0 a gain (3960). Receivables: > 0 a gain (3960), < 0 a loss (7960). A settlement's rounding within the tolerance is on its own sheet, not here.",
+  );
+  out.push("");
+  if (fx.length === 0) out.push("None in the period.");
+  for (const line of fx) out.push(line);
+  out.push("");
+
   out.push("## Open owner liability");
   out.push("");
   if (data.liability.length === 0) out.push("Nothing open: every private payment is refunded.");
@@ -95,4 +107,22 @@ export function notesMd(data: PeriodData): string {
   );
   out.push("");
   return out.join("\n");
+}
+
+/** One line per entity of the period whose FX difference is not zero — receivables, payables, expenses. */
+function fxLines(data: PeriodData): string[] {
+  const nonZero = (v: string | null): v is string => v !== null && Number(v) !== 0;
+  const out: string[] = [];
+  for (const r of data.income)
+    if (nonZero(r.fxDifference))
+      out.push(
+        `- client invoice **${r.number}** (${r.total} ${r.currency}): ${r.fxDifference} SEK`,
+      );
+  for (const r of data.suppliers)
+    if (nonZero(r.fxDifference))
+      out.push(`- supplier invoice **${r.key}** (${r.total} ${r.currency}): ${r.fxDifference} SEK`);
+  for (const r of data.expenses)
+    if (nonZero(r.fxDifference))
+      out.push(`- expense **${r.key}** (${r.amount} ${r.currency}): ${r.fxDifference} SEK`);
+  return out;
 }

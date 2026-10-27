@@ -27,6 +27,10 @@ export type DetailsInvoice = {
   totalAmount: string;
   allocated: string;
   remaining: string;
+  /** Σ what the paying rows gave, in base (F114) */
+  allocatedBase: string;
+  /** signed, derived (F114): > 0 a gain (3960), < 0 a loss (7960) on a receivable; null without a base */
+  fxDifference: string | null;
   credited: string;
   baseCurrency: string;
   totalBase: string | null;
@@ -129,6 +133,26 @@ export function InvoiceDetails({
           source: inv.rateSource ?? "",
           date: inv.rateDate ?? "",
         })}
+      </span>,
+    ]);
+  // F114: what the bank gave in base once something is paid, and the FX difference when there is one
+  if (inv.totalBase && Number(inv.allocated) > 0)
+    about.push([
+      t("invoices.detail.paidBase"),
+      <span key="paid-base" className="tabular-nums" data-testid="invoice-paid-base">
+        {t("invoices.detail.paidBaseValue", {
+          currency: inv.baseCurrency,
+          amount: formatMoney(inv.allocatedBase, null, { bare: true }),
+        })}
+        {inv.fxDifference && Number(inv.fxDifference) !== 0 && (
+          <span className="text-muted-foreground" data-testid="invoice-fx-difference">
+            {" · "}
+            {t("invoices.detail.fxDifference", {
+              amount: formatMoney(inv.fxDifference, null, { bare: true }),
+              code: Number(inv.fxDifference) > 0 ? "3960" : "7960",
+            })}
+          </span>
+        )}
       </span>,
     ]);
   if (inv.declarationPeriod)

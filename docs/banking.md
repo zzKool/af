@@ -28,7 +28,7 @@ categorisation_rules  name (unique) · match_type ∈ contains|starts_with|ends_
 
 Cross-module references: `partner_id` is a composite `(tenant_id, id)` FK to `partners` (RESTRICT, D63 — the first one); `document_id` and `rule_id` stay validated UUIDs until their modules' next schema PR. `bank_transactions.bank_account_id / bank_import_id` are intra-module FKs (RESTRICT / CASCADE).
 
-`journal_entries` still exists in the database after F113's migration, read by nothing — PR B drops it after one real month on the box (D65, [[roadmap]]).
+`journal_entries` still exists in the database after F113's migration, read by nothing — PR B drops it after one real month on the box — a safety wait before dropping data, kept though D65 was lifted ([[roadmap]]).
 
 ## The parser — `csv-parser.ts` (v2, three D25 edits)
 
