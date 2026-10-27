@@ -22,6 +22,11 @@ export interface JobContext {
   id: string;
   /** 0 on the first attempt. */
   attempt: number;
+  /**
+   * On a dead-letter run only (F110): what the original job's last attempt threw, and how many attempts it
+   * took — so the handler can write *why* on the entity, not just *that*.
+   */
+  failure?: { error: string; attempts: number };
 }
 
 export interface JobDefinition<TData extends object = object> {

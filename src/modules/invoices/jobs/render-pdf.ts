@@ -3,7 +3,7 @@
 // `pdf_document_id` — the one column the lock lets through, once. Re-downloads serve the stored document.
 import { createAuditEntry } from "@/kernel/audit/audit";
 import { withJobContext } from "@/kernel/jobs/context";
-import type { JobDefinition } from "@/kernel/jobs/types";
+import type { JobContext, JobDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import { renderPathToPdf } from "@/kernel/pdf/pdf";
 import { createStorageService } from "@/kernel/storage/storage";
@@ -68,6 +68,34 @@ async function handler({ tenantId, userId, invoiceId }: RenderInvoicePdfData) {
   logger.info({ invoiceId, number: target.number }, "invoices.render-pdf: stored");
 }
 
+/** After the last retry (F110): the failure goes on the invoice's trail, so the page and the History say why. */
+async function markRenderFailed(
+  { tenantId, userId, invoiceId }: RenderInvoicePdfData,
+  ctx: JobContext,
+): Promise<void> {
+  logger.error(
+    { invoiceId, failure: ctx.failure },
+    "invoices.render-pdf: failed after all retries",
+  );
+  await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
+    const inv = await tx.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { pdfDocumentId: true },
+    });
+    if (!inv || inv.pdfDocumentId) return; // gone, or an attempt got through after all
+    await audit.log({
+      action: "update",
+      entityType: "invoice",
+      entityId: invoiceId,
+      newData: {
+        pdfRender: "failed",
+        error: ctx.failure?.error ?? "unknown error",
+        attempts: ctx.failure?.attempts ?? null,
+      },
+    });
+  });
+}
+
 export const renderInvoicePdfJob: JobDefinition<RenderInvoicePdfData> = {
   name: "invoices.render-pdf",
   options: {
@@ -78,6 +106,7 @@ export const renderInvoicePdfJob: JobDefinition<RenderInvoicePdfData> = {
     expireInSeconds: 120,
   },
   handler,
+  onDeadLetter: markRenderFailed,
 };
 
 export const invoiceJobs = [renderInvoicePdfJob];
