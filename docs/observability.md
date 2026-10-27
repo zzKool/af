@@ -127,5 +127,4 @@ The owner quotes it; `grep` on the app log finds the line, with the request id, 
 
 - [[audit-trail]] — Immutable business audit log (PostgreSQL)
 - [[server-actions]] — Middleware chain and error handling
-- [[error-handling]] — Error taxonomy and ActionError pattern
 - [[clock-and-rates]] — Clock abstraction and ECB rate storage

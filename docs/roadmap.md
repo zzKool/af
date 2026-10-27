@@ -149,7 +149,7 @@ Every lane: the features.md row updated · CI + architecture guard + lint rules 
 Per module, once its batch of rows is built: /speckit-converge ─► docs PR (gaps become tasks or rows)
 ```
 
-- **Not used**: `/speckit-clarify` (questions go to the owner in one batch → *Open decisions*), `checklist`, `analyze`, `taskstoissues`. No retro-specs for what is built: converge documents what exists.
+- **Removed** (F120): `speckit-clarify` (questions go to the owner in one batch → *Open decisions*), `checklist`, `analyze`, `taskstoissues` — they loaded in every session and were never used. No retro-specs for what is built: converge documents what exists.
 - **House skills, by trigger** (`.claude/skills/`): `server-action-pattern` — any action; `bas-accounting` — any money, VAT, BAS or rate; `invoice-pdf` — any rendered PDF; `af-design` — any UI; `test-conventions` — every lane; `module-slice` — a new module only.
 - **Stack docs**: `.mcp.json` (Context7, Microsoft Learn, Playwright, Postgres) loads only in a local Claude Code session. In a cloud session, check an API against the version in `package.json` and the types in `node_modules`, not against memory.
 - **Too much process** shows as: a one-line fix needing more than one PR, a builder reading process docs longer than code, `features.md` and a `tasks.md` disagreeing. Seen → a lesson + a simpler rule here, never a new tool.
@@ -163,4 +163,4 @@ Per module, once its batch of rows is built: /speckit-converge ─► docs PR (g
 - In a cloud agent session: `scripts/dev-env.sh` builds all of it from nothing (Postgres, Azurite, `.env.local`, migrations, seed, Chromium, the build, `next start` on :3000) — `scripts/dev-env.md` says why each step and the test loop there.
 - In a cloud agent session the CI logs on GitHub's blob host are not reachable through the proxy: read failures with `gh api repos/zzKool/af/check-runs/<id>/annotations`.
 
-Related: [[feature-inventory]] · [[phase-0]] · [[open-questions]] · [[constitution]] · [[verify-gate]]
+Related: [[feature-inventory]] · [[constitution]] · [[verify-gate]]

@@ -5,7 +5,7 @@ Business-administration app for AnalyticsFab AB, a solo Swedish aktiebolag that 
 
 v3 = v2 (DefterFab) foundations kept in this repo's history + v1 (`af_core`) feature knowledge harvested as specs + the owner's Excel business rules.
 
-**Read before working:** `docs/roadmap.md` (what is done, what is next, how we work — start here) · `docs/constitution.md` (rules, import boundaries, definition of done) · `docs/feature-inventory.md` (scope, decisions D1–D20, module verdicts) · `docs/excel-to-v3-mapping.md` (business rules) · `docs/ui-conventions.md` (layout, DataTable) · `docs/phase-0.md` (current todo) · `docs/index.md` (pattern wiki from v2). Skills in `.claude/skills/` apply to every change of their kind.
+**Read before working:** `docs/roadmap.md` (what is done, what is next, how we work — start here) · `docs/constitution.md` (rules, import boundaries, definition of done) · `docs/feature-inventory.md` (scope, decisions D1–D20, module verdicts) · `docs/excel-to-v3-mapping.md` (business rules) · `docs/ui-conventions.md` (layout, DataTable) · `docs/index.md` (the wiki). Skills in `.claude/skills/` apply to every change of their kind.
 
 ## Stack
 Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 · pg-boss (replaces Inngest, D17) · Azure Blob (Azurite locally) + Azure Document Intelligence · Chromium for PDF · shadcn/Tailwind · Zustand · pino · Vitest + Playwright · Biome · Docker Compose · Node 24.
