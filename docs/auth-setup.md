@@ -37,6 +37,8 @@ Better Auth Session
 
 `getCaller()` (pages) refuses what the action middleware refuses: no session, no active tenant, **no membership of the active tenant, or an unknown organisation role** (`isKnownOrgRole`, one list in `can.ts`) — a member removed from the tenant keeps a cookie until it expires but no page renders for it.
 
+**Admin by CLI** (F112): `scripts/user.ts` — `create` (Better Auth's `signUpEmail`, so the hash and hooks are the app's), `set-password` (the context's `password.hash` + `internalAdapter.updatePassword`, then every session of the user deleted), `add-member <owner|member|editor>` (one tenant → no slug), `list`. No password-reset e-mail, no members page: one owner, one box.
+
 The app role's password comes from `AF_APP_PASSWORD`, set by `scripts/set-app-password.mjs` in the migrate image after every deploy (the init migration created `af_app` with `app`; dev and CI keep it).
 
 ## Session Structure
