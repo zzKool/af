@@ -26,7 +26,6 @@ export type LinkableType =
   | "partner"
   | "contract"
   | "bank_transaction"
-  | "journal_entry"
   | "invoice"
   | "supplier_invoice"
   | "expense"

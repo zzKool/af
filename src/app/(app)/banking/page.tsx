@@ -13,14 +13,15 @@ import {
   accountBalances,
   accountLabel,
   bankMonths,
+  categoryOptions,
   getBankAccounts,
   listImports,
   listTransactions,
+  partnerOptions,
   TRANSACTION_COLUMN_KEYS,
   TRANSACTION_DEFAULT_SORT,
 } from "@/modules/banking";
 import { TransactionTable, WorkbenchActions } from "@/modules/banking/ui";
-import { categoryOptions, partnerOptions } from "@/modules/journal";
 import { getUserPreferences } from "@/modules/settings";
 
 // The transactions workbench — the URL is the query, the derived state computed server-side (D20).

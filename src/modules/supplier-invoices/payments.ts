@@ -1,6 +1,6 @@
 // Payments (FR-004; US2): a `justifies` link from the paying bank row. Same currency → allocations in the invoice
 // currency (instalments, batch payments); another currency → the row is attached like a company-paid expense
-// (D-g = D26): what the bank paid becomes `paid_amount / paid_currency`, the row's journal base the invoice's base
+// (D-g = D26): what the bank paid becomes `paid_amount / paid_currency`, the row's base the invoice's base
 // (`rate_source = bank`), one link of the paid amount. MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
 import { Prisma } from "@/generated/prisma/browser";
@@ -12,7 +12,6 @@ import { openAmount, settlementTolerance } from "@/kernel/money/settlement";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { positiveMoney, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { allocatedTo } from "./allocated";
@@ -156,7 +155,7 @@ export async function removePayment(
 }
 
 /**
- * Another currency (US2-4, D-g): the bank row's amount is what the company paid; its journal base becomes the
+ * Another currency (US2-4, D-g): the bank row's amount is what the company paid; its base becomes the
  * invoice's base (`rate_source = bank`); one `justifies` link allocates the paid amount in the paid currency.
  */
 export async function attachPayment(
@@ -190,9 +189,9 @@ export async function attachPayment(
       error: violation(`The row is in the invoice currency — record it as a payment instead`),
     };
   }
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [t.data.id]);
+  const entries = await banking.transactionFacts(tx, [t.data.id]);
   const entry = entries.get(t.data.id);
-  if (!entry) return { error: violation(`Bank transaction ${t.data.id} has no journal entry`) };
+  if (!entry) return { error: violation(`Bank transaction ${t.data.id} not found`) };
   const paid = new D(t.data.amount).abs();
   const updated = await tx.supplierInvoice.update({
     where: { id: row.id },

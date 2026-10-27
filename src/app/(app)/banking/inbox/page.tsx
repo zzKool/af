@@ -6,7 +6,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
-import { categoryOptions, partnerOptions } from "@/modules/journal";
+import { categoryOptions, partnerOptions } from "@/modules/banking";
 import { inboxRows, unlinkedDocuments } from "@/modules/linking";
 import { InboxWorkbench } from "@/modules/linking/ui";
 import { getUserPreferences } from "@/modules/settings";

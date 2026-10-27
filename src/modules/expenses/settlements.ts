@@ -13,7 +13,6 @@ import { RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { money, uuid } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import { nextInSeries, settlementNumber, settlementSeries } from "@/modules/numbering";
 import * as settings from "@/modules/settings";
@@ -141,9 +140,9 @@ async function resolveRefund(tx: TransactionClient, id: string): Promise<Service
     select: { number: true },
   });
   if (active) return { error: violation(`This transaction already settles ${active.number}`) };
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [id]);
+  const entries = await banking.transactionFacts(tx, [id]);
   const entry = entries.get(id);
-  if (!entry) return { error: violation(`Bank transaction ${id} has no journal entry`) };
+  if (!entry) return { error: violation(`Bank transaction ${id} not found`) };
   return {
     data: {
       id: t.id,

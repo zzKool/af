@@ -1,10 +1,9 @@
 // The Months panel's read model (F69, ui-conventions *Page anatomy* 4–5): per month, how many bank rows are
 // justified and how many still need proof; per account × month, proven / open / not imported; the banner's month.
-// Read only — bank rows, their journal entry's flag, the links touching them (through linking's index), the
+// Read only — bank rows with their flag, the links touching them (through linking's index), the
 // imports' periods and which packages are built (through package's index). No table, nothing stored.
 import { Prisma } from "@/generated/prisma/browser";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as accountantPackage from "@/modules/package";
@@ -168,12 +167,17 @@ export async function bankMonths(
 
   const rows = await tx.bankTransaction.findMany({
     where: { bookingDate: { gte: start, lt: endExclusive } },
-    select: { id: true, bankAccountId: true, bookingDate: true, amount: true },
+    select: {
+      id: true,
+      bankAccountId: true,
+      bookingDate: true,
+      amount: true,
+      noDocumentNeeded: true,
+    },
   });
   const built = await accountantPackage.builtPeriods(tx, months);
 
   const ids = rows.map((r) => r.id);
-  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
   const links = await linking.linksTouching(tx, "bank_transaction", ids);
   const facts = linkFactsOf(links);
 
@@ -201,7 +205,7 @@ export async function bankMonths(
         amount: r.amount.toFixed(2),
         allocated: facts.allocated.get(r.id) ?? "0.00",
         inTransfer: facts.transfer.has(r.id),
-        noDocumentNeeded: entries.get(r.id)?.noDocumentNeeded ?? false,
+        noDocumentNeeded: r.noDocumentNeeded,
       }),
     })),
     covered,

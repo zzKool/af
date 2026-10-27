@@ -22,7 +22,6 @@ describe("can() — the role table (constitution §6)", () => {
 
   it("accountant is read-only on financial data and blind to relationship documents and settings", () => {
     expect(canRole("accountant", "read", "financial_document")).toBe(true);
-    expect(canRole("accountant", "read", "journal_entry")).toBe(true);
     expect(canRole("accountant", "read", "accountant_package")).toBe(true);
     expect(canRole("accountant", "read", "relationship_document")).toBe(false);
     expect(canRole("accountant", "update", "financial_document")).toBe(false);

@@ -7,7 +7,6 @@ import * as contracts from "@/modules/contracts";
 import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
 import * as invoices from "@/modules/invoices";
-import * as journal from "@/modules/journal";
 import * as partners from "@/modules/partners";
 import * as subscriptions from "@/modules/subscriptions";
 import * as supplierInvoices from "@/modules/supplier-invoices";
@@ -19,7 +18,6 @@ provideLinkables(() => [
   documents.documentLinkable,
   invoices.invoiceLinkable,
   banking.bankTransactionLinkable,
-  journal.journalEntryLinkable,
   expenses.expenseLinkable,
   expenses.settlementLinkable,
   supplierInvoices.supplierInvoiceLinkable,

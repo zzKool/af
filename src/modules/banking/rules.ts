@@ -1,7 +1,7 @@
 // Categorisation rules (specs/banking/spec.md US2, harvest H4): a text match on the bank row → BAS category /
-// partner / "no document needed" on the journal entry. Pure matching (`orderRules`, `matchRule`, `firstHit`)
+// partner / "no document needed" on the row itself (F113). Pure matching (`orderRules`, `matchRule`, `firstHit`)
 // + the service (CRUD, test, apply with dry run, learn from a transaction). Rules run on every import on the
-// new rows and on demand; they never set a status, never create a link, never touch a hand-categorised entry.
+// new rows and on demand; they never set a status, never create a link, never touch a hand-categorised row.
 // MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
 import type { CategorisationRule } from "@/generated/prisma/client";
@@ -11,11 +11,12 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { basCode, uuid } from "@/kernel/validation/scalars";
-import * as journal from "@/modules/journal";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { categorise, transactionFacts, uncategorisedTransactions } from "./facts";
 import type {
   ApplyRulesResult,
+  BankTransactionDto,
   CategorisationRuleDto,
   RuleMatchField,
   RuleMatchType,
@@ -383,27 +384,20 @@ export async function listRules(tx: TransactionClient): Promise<CategorisationRu
 
 // --- applying ---
 
-export type EntryTarget = {
-  /** the journal entry to categorise */
-  entryId: string;
+/** A row the rules run over: its id and the text they match. */
+export type RuleTarget = {
   transactionId: string;
   description: string;
   text: RuleText;
 };
 
-/** True when the categorisation wrote something on the entry — any of the facts a rule may set, or who set them. */
-export function changedBy(
-  before:
-    | Pick<
-        journal.JournalEntryDto,
-        "basCode" | "partnerId" | "noDocumentNeeded" | "categorisedBy" | "ruleId"
-      >
-    | undefined,
-  after: Pick<
-    journal.JournalEntryDto,
-    "basCode" | "partnerId" | "noDocumentNeeded" | "categorisedBy" | "ruleId"
-  >,
-): boolean {
+type RuleFacts = Pick<
+  BankTransactionDto,
+  "basCode" | "partnerId" | "noDocumentNeeded" | "categorisedBy" | "ruleId"
+>;
+
+/** True when the categorisation wrote something on the row — any of the facts a rule may set, or who set them. */
+export function changedBy(before: RuleFacts | undefined, after: RuleFacts): boolean {
   if (!before) return true;
   return (
     before.basCode !== after.basCode ||
@@ -415,26 +409,25 @@ export function changedBy(
 }
 
 /**
- * Run the ordered rules over entries and write the hits through the journal (which refuses to overwrite
- * hand-set facts). Returns the hits; `dryRun` writes nothing.
+ * Run the ordered rules over rows and write the hits through `categorise` (which refuses to overwrite hand-set
+ * facts). Returns the hits; `dryRun` writes nothing.
  */
-export async function applyToEntries(
+export async function applyToTransactions(
   tx: TransactionClient,
   caller: CallerIdentity,
   audit: AuditLogger,
   rules: readonly CategorisationRule[],
-  targets: readonly EntryTarget[],
+  targets: readonly RuleTarget[],
   options: { dryRun?: boolean } = {},
 ): Promise<ServiceResult<ApplyRulesResult>> {
   const ordered = orderRules(rules);
   const preview: ApplyRulesResult["preview"] = [];
   const hitsByRule = new Map<string, number>();
-  // the entries as they were: a hit that changes nothing (the journal's never-overwrite rules) is not counted
+  // the rows as they were: a hit that changes nothing (the never-overwrite rules) is not counted
   const before = options.dryRun
-    ? new Map<string, journal.JournalEntryDto>()
-    : await journal.entriesForSources(
+    ? new Map<string, BankTransactionDto>()
+    : await transactionFacts(
         tx,
-        "bank_transaction",
         targets.map((t) => t.transactionId),
       );
   for (const t of targets) {
@@ -447,17 +440,17 @@ export async function applyToEntries(
       basCode: hit.basCode,
     });
     if (options.dryRun) continue;
-    // a partner set by the rule with no category → the partner's default category (journal applies the never-overwrite rules)
+    // a partner set by the rule with no category → the partner's default category (`categorise` applies the never-overwrite rules)
     let basCode = hit.basCode;
     if (!basCode && hit.partnerId) {
       const p = await partners.getPartner(tx, hit.partnerId);
       basCode = p.data?.defaultBasCategoryCode ?? null;
     }
-    const r = await journal.categorise(
+    const r = await categorise(
       tx,
       caller,
       audit,
-      t.entryId,
+      t.transactionId,
       { basCode, partnerId: hit.partnerId, noDocumentNeeded: hit.noDocumentNeeded },
       { by: "rule", ruleId: hit.id },
     );
@@ -484,40 +477,41 @@ export async function applyToEntries(
   };
 }
 
-/**
- * The tenant's uncategorised bank entries with their transaction text (the candidates of an on-demand apply).
- * The entries through journal's read API — banking does not read `journal_entries` (lessons audit 24).
- */
+/** The text of a row a rule looks at. */
+export function ruleTarget(t: {
+  id: string;
+  description: string;
+  counterpartyKey: string;
+  name: string | null;
+  additionalDetails: string | null;
+  message: string | null;
+  sender: string | null;
+  recipient: string | null;
+}): RuleTarget {
+  return {
+    transactionId: t.id,
+    description: t.description,
+    text: {
+      counterpartyKey: t.counterpartyKey,
+      name: t.name,
+      additionalDetails: t.additionalDetails,
+      message: t.message,
+      sender: t.sender,
+      recipient: t.recipient,
+    },
+  };
+}
+
+/** The tenant's uncategorised rows with their text (the candidates of an on-demand apply), newest first. */
 export async function uncategorisedTargets(
   tx: TransactionClient,
   limit = 20_000,
-): Promise<EntryTarget[]> {
-  const entries = await journal.uncategorisedEntries(tx, "bank_transaction", limit);
-  const ids = entries.flatMap((e) => (e.sourceId ? [e.sourceId] : []));
-  const txs = await tx.bankTransaction.findMany({ where: { id: { in: ids } } });
-  const byId = new Map(txs.map((t) => [t.id, t]));
-  const targets: EntryTarget[] = [];
-  for (const e of entries) {
-    const t = e.sourceId ? byId.get(e.sourceId) : undefined;
-    if (!t) continue;
-    targets.push({
-      entryId: e.id,
-      transactionId: t.id,
-      description: t.description,
-      text: {
-        counterpartyKey: t.counterpartyKey,
-        name: t.name,
-        additionalDetails: t.additionalDetails,
-        message: t.message,
-        sender: t.sender,
-        recipient: t.recipient,
-      },
-    });
-  }
-  return targets;
+): Promise<RuleTarget[]> {
+  const rows = await uncategorisedTransactions(tx, limit);
+  return rows.map(ruleTarget);
 }
 
-/** On demand: every active rule over every uncategorised bank entry; dry run previews ≤ 50 and writes nothing. */
+/** On demand: every active rule over every uncategorised row; dry run previews ≤ 50 and writes nothing. */
 export async function applyRules(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -526,7 +520,7 @@ export async function applyRules(
 ): Promise<ServiceResult<ApplyRulesResult>> {
   const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
   const targets = await uncategorisedTargets(tx);
-  return applyToEntries(tx, caller, audit, rules, targets, options);
+  return applyToTransactions(tx, caller, audit, rules, targets, options);
 }
 
 /** How many of the newest uncategorised transactions a pattern would hit (the dialog's "Test"). */
@@ -552,7 +546,7 @@ export async function testRule(
 }
 
 /**
- * "Create rule from this transaction": pre-filled from the counterparty key and the entry's current facts,
+ * "Create rule from this transaction": pre-filled from the counterparty key and the row's current facts,
  * source `learned`; the new rule is applied to that transaction at once.
  */
 export async function createRuleFromTransaction(
@@ -563,48 +557,24 @@ export async function createRuleFromTransaction(
 ): Promise<ServiceResult<CategorisationRuleDto>> {
   const t = await tx.bankTransaction.findUnique({ where: { id: input.transactionId } });
   if (!t) return { error: notFound("Bank transaction", input.transactionId) };
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [t.id]);
-  const entry = entries.get(t.id);
   const ruleInput: RuleInput = {
     name: input.name ?? t.counterpartyKey,
     description: input.description ?? null,
     matchType: input.matchType ?? "contains",
     matchPattern: input.matchPattern ?? t.counterpartyKey,
     matchField: input.matchField ?? "counterparty_key",
-    basCode: input.basCode !== undefined ? input.basCode : (entry?.basCode ?? null),
-    partnerId: input.partnerId !== undefined ? input.partnerId : (entry?.partnerId ?? null),
-    noDocumentNeeded: input.noDocumentNeeded ?? entry?.noDocumentNeeded ?? false,
+    basCode: input.basCode !== undefined ? input.basCode : t.basCode,
+    partnerId: input.partnerId !== undefined ? input.partnerId : t.partnerId,
+    noDocumentNeeded: input.noDocumentNeeded ?? t.noDocumentNeeded,
     priority: input.priority ?? 100,
     isActive: true,
   };
   const created = await createRule(tx, caller, audit, ruleInput, "learned");
   if (created.error) return created;
-  if (entry) {
-    const row = await tx.categorisationRule.findUnique({ where: { id: created.data.id } });
-    if (row) {
-      const applied = await applyToEntries(
-        tx,
-        caller,
-        audit,
-        [row],
-        [
-          {
-            entryId: entry.id,
-            transactionId: t.id,
-            description: t.description,
-            text: {
-              counterpartyKey: t.counterpartyKey,
-              name: t.name,
-              additionalDetails: t.additionalDetails,
-              message: t.message,
-              sender: t.sender,
-              recipient: t.recipient,
-            },
-          },
-        ],
-      );
-      if (applied.error) return { error: applied.error };
-    }
+  const row = await tx.categorisationRule.findUnique({ where: { id: created.data.id } });
+  if (row) {
+    const applied = await applyToTransactions(tx, caller, audit, [row], [ruleTarget(t)]);
+    if (applied.error) return { error: applied.error };
   }
   return created;
 }

@@ -27,7 +27,7 @@ import type {
   TransactionListRow,
   TransactionState,
 } from "@/modules/banking/types";
-import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
+import type { CategoryOption, PartnerOption } from "./categorise-form";
 import type { AccountOption } from "./import-dialog";
 import { MonthsPanel } from "./months-panel";
 import { TransactionPanel } from "./transaction-panel";
@@ -377,10 +377,10 @@ export function TransactionTable({
           if (column === "partnerId") return partnerLabels[value] ?? value;
           if (column === "bankImportId") return importLabels[value] ?? value;
           if (column === "categorisedBy")
-            return t(`journal.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
+            return t(`banking.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
           if (column === "rateSource")
             return t(
-              `journal.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
+              `banking.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
             );
           if (column === "noDocumentNeeded")
             return value === "true" ? t("common.yes") : t("common.no");

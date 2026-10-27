@@ -32,7 +32,10 @@ model Partner {
   contracts         Contract[] @relation("PartnerContracts")
   employeeContracts Contract[] @relation("EmployeeContracts")
   contacts          PartnerContact[]
+  bankTransactions  BankTransaction[]
 
+  /// D63: the target of composite (tenant_id, id) foreign keys from other modules (F113 first)
+  @@unique([tenantId, id], map: "partners_tenant_id_id_key")
   @@unique([tenantId, orgNumber], map: "idx_partners_tenant_org") // created as a partial index (WHERE org_number IS NOT NULL) in the migration
   @@unique([tenantId, shortCode], map: "idx_partners_tenant_short_code") // partial index (WHERE short_code IS NOT NULL)
   @@map("partners")

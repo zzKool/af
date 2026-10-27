@@ -9,7 +9,6 @@ import { addDays, daysBetween } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as rates from "@/modules/rates";
 import { accountLabel } from "./bank-accounts";
@@ -246,15 +245,8 @@ export async function acceptTransfer(
     note: match.ecb ? `implied ${match.implied} (ECB ${match.ecb})` : "own-account move",
   });
   if (link.error) return { error: link.error };
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [
-    match.from.id,
-    match.to.id,
-  ]);
   // the owner's facts (category, partner, "no document needed", who categorised) stay as they were: "transfer"
-  // is the link itself, derived wherever it is read — the bank's implied rate too (journal `withImplicitRates`,
-  // F86 dropped the stored copy) — unpairing leaves the legs as before, rules still see them
-  for (const id of [match.from.id, match.to.id]) {
-    if (!entries.get(id)) return { error: notFound("Journal entry of transaction", id) };
-  }
+  // is the link itself, derived wherever it is read — the bank's implied rate too (`withImplicitRates`, F86
+  // dropped the stored copy) — unpairing leaves the legs as before, rules still see them
   return { data: { linkId: link.data.id, implied: match.implied } };
 }

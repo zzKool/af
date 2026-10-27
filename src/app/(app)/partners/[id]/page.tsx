@@ -4,10 +4,10 @@ import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { EntityPage } from "@/kernel/ui/shell/page";
+import { listTransactions, TRANSACTION_DEFAULT_SORT } from "@/modules/banking";
 import * as contractService from "@/modules/contracts";
 import { documentsByIds } from "@/modules/documents";
 import { expensesForPartner } from "@/modules/expenses";
-import { JOURNAL_DEFAULT_SORT, listJournalEntries } from "@/modules/journal";
 import { linksTouching } from "@/modules/linking";
 import * as partnerService from "@/modules/partners";
 import { PartnerDetailTabs } from "@/modules/partners/ui";
@@ -28,7 +28,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     employeesResult,
     contactsResult,
     documents,
-    journal,
+    transactions,
     expenses,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const partner = await partnerService.getPartner(tx, id);
@@ -44,16 +44,16 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       today,
     );
     // the relationships (specs/linking, "relationship navigation"): the documents linked to the partner and
-    // the journal entries that name it — read models of other modules, composed here
+    // the bank rows that name it (F113) — read models of other modules, composed here
     const links = await linksTouching(tx, "partner", [id]);
     const documentIds = links.flatMap((l) =>
       [l.from, l.to].filter((e) => e.type === "document").map((e) => e.id),
     );
     const documents = await documentsByIds(tx, [...new Set(documentIds)]);
-    const journal = await listJournalEntries(tx, {
+    const transactions = await listTransactions(tx, {
       page: 1,
       pageSize: 25,
-      sort: JOURNAL_DEFAULT_SORT,
+      sort: TRANSACTION_DEFAULT_SORT,
       filters: { partnerId: { kind: "in", values: [id] } },
     });
     // spend with this partner (F87): its expenses, newest first, and Σ base
@@ -67,7 +67,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       employeesResult: employees,
       contactsResult: contacts,
       documents,
-      journal,
+      transactions,
       expenses,
     };
   });
@@ -141,11 +141,11 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
         basOptions={basOptions}
         defaultCurrency={partner.defaultCurrency}
         documents={documents}
-        journal={{
-          total: journal.total,
-          rows: journal.rows.map((r) => ({
+        transactions={{
+          total: transactions.total,
+          rows: transactions.rows.map((r) => ({
             id: r.id,
-            entryDate: r.entryDate,
+            bookingDate: r.bookingDate,
             description: r.description,
             amount: r.amount,
             currency: r.currency,

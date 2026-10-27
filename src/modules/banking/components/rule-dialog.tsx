@@ -32,7 +32,7 @@ import {
   updateRuleAction,
 } from "@/modules/banking/banking.actions";
 import type { CategorisationRuleDto, RuleMatchField, RuleMatchType } from "@/modules/banking/types";
-import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
+import type { CategoryOption, PartnerOption } from "./categorise-form";
 
 const NONE = "__none__";
 const TYPES: RuleMatchType[] = ["contains", "starts_with", "ends_with", "exact", "regex"];

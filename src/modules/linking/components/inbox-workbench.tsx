@@ -22,8 +22,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import type { CategoryOption, PartnerOption } from "@/modules/banking/ui";
 import { TransactionDetailView, TransactionStateLabel } from "@/modules/banking/ui";
-import type { CategoryOption, PartnerOption } from "@/modules/journal/ui";
 import type { InboxRow } from "@/modules/linking/inbox";
 import {
   applySuggestionAction,

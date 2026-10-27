@@ -44,8 +44,8 @@ const row = (o: Partial<MatchRow> = {}): MatchRow => ({
   currency: "SEK",
   texts: ["BYTEFORM AB", "Kortköp 261016"],
   description: "BYTEFORM AB",
-  journalPartnerId: null,
-  journalBasCode: null,
+  partnerId: null,
+  basCode: null,
   noDocumentNeeded: false,
   ...o,
 });
@@ -70,7 +70,7 @@ describe("matchRow (US3-1…3)", () => {
     const r = matchRow(
       sekPeriod,
       { ...sub, matchText: null },
-      row({ texts: ["KORTKÖP"], journalPartnerId: "p-byteform" }),
+      row({ texts: ["KORTKÖP"], partnerId: "p-byteform" }),
       noRate,
     );
     expect(r).toMatchObject({ byText: false, exact: false });
@@ -113,8 +113,7 @@ describe("matchRow (US3-1…3)", () => {
   });
   it("hints, never blocking: a rule said no document; the journal's category differs", () => {
     expect(
-      matchRow(sekPeriod, sub, row({ noDocumentNeeded: true, journalBasCode: "6570" }), noRate)
-        ?.hints,
+      matchRow(sekPeriod, sub, row({ noDocumentNeeded: true, basCode: "6570" }), noRate)?.hints,
     ).toEqual(["rule_no_document", "category_differs"]);
   });
 });

@@ -23,8 +23,6 @@ export function entityHref(node: Pick<GraphNode, "type" | "id" | "label">): stri
       return `/banking?open=${node.id}`;
     case "contract":
       return `/partners?q=${encodeURIComponent(node.label)}`;
-    case "journal_entry":
-      return "/journal";
     case "subscription":
       return `/subscriptions?open=${node.id}`;
   }

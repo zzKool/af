@@ -1,6 +1,6 @@
-// T002 (US2): picking a partner on an entry with no category proposes the partner's default category — saved with
-// the partner in the categorise form, filled (and still changeable) in the *New entry* dialog — never overwriting a
-// category already set. Base UI's Select is stubbed by a native <select> so the test drives the rule, not the widget.
+// Journal T002 (US2), on the row (F113): picking a partner on a row with no category proposes the partner's
+// default category — saved with the partner in the categorise form — never overwriting a category already set.
+// Base UI's Select is stubbed by a native <select> so the test drives the rule, not the widget.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,9 +8,8 @@ import "@testing-library/jest-dom/vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() } }));
-vi.mock("@/modules/journal/journal.actions", () => ({
-  categoriseEntryAction: "categorise",
-  createManualEntryAction: "create",
+vi.mock("@/modules/banking/banking.actions", () => ({
+  categoriseTransactionAction: "categorise",
 }));
 
 const calls: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -74,7 +73,6 @@ vi.mock("@/components/ui/select", async () => {
 });
 
 import { CategoriseForm, type PartnerOption, proposedCategory } from "./categorise-form";
-import { ManualEntryDialog } from "./manual-entry-dialog";
 
 const OPENAI = "55555555-5555-4555-8555-555555555555";
 const NORDEA = "66666666-6666-4666-8666-666666666666";
@@ -101,14 +99,14 @@ describe("the partner's default category (T002)", () => {
     for (const k of Object.keys(calls)) delete calls[k];
   });
 
-  it("proposedCategory: only when the entry has none and the partner has one", () => {
+  it("proposedCategory: only when the row has none and the partner has one", () => {
     expect(proposedCategory(null, OPENAI, partners)).toBe("654");
     expect(proposedCategory("657", OPENAI, partners)).toBeNull();
     expect(proposedCategory(null, NORDEA, partners)).toBeNull();
     expect(proposedCategory(null, null, partners)).toBeNull();
   });
 
-  it("categorise form: an uncategorised entry saves the partner with its default category", async () => {
+  it("categorise form: an uncategorised row saves the partner with its default category", async () => {
     render(
       <CategoriseForm entry={entry(null)} categories={categories} partners={partners} canWrite />,
     );
@@ -132,32 +130,5 @@ describe("the partner's default category (T002)", () => {
       expect(calls.categorise).toHaveBeenCalledWith({ id: entry(null).id, partnerId: OPENAI }),
     );
     expect(screen.getByLabelText("Category")).toHaveValue("657");
-  });
-
-  it("New entry: the partner fills an empty category; the owner's change before saving is what is sent", async () => {
-    render(
-      <ManualEntryDialog
-        open
-        onOpenChange={() => {}}
-        today="2026-03-02"
-        categories={categories}
-        partners={partners}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText("Partner"), { target: { value: OPENAI } });
-    expect(screen.getByLabelText("Category")).toHaveValue("654");
-    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "657" } });
-    // picking the partner again does not overwrite the owner's choice
-    fireEvent.change(screen.getByLabelText("Partner"), { target: { value: NORDEA } });
-    fireEvent.change(screen.getByLabelText("Partner"), { target: { value: OPENAI } });
-    expect(screen.getByLabelText("Category")).toHaveValue("657");
-    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Licence" } });
-    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: "-120.00" } });
-    fireEvent.click(screen.getByTestId("manual-entry-create"));
-    await waitFor(() =>
-      expect(calls.create).toHaveBeenCalledWith(
-        expect.objectContaining({ partnerId: OPENAI, basCode: "657", amount: "-120.00" }),
-      ),
-    );
   });
 });

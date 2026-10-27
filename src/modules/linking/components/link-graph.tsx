@@ -20,7 +20,6 @@ import { moneyText } from "./money";
 // movements, sales, costs, the proof, the parties. The type itself is in the tooltip and on the list's tag.
 const NODE_FILL: Record<LinkableType, string> = {
   bank_transaction: "fill-chart-1",
-  journal_entry: "fill-chart-1",
   invoice: "fill-chart-2",
   supplier_invoice: "fill-chart-3",
   expense: "fill-chart-3",

@@ -35,8 +35,8 @@ export type MatchRow = {
   currency: string;
   texts: readonly string[];
   description: string;
-  journalPartnerId: string | null;
-  journalBasCode: string | null;
+  partnerId: string | null;
+  basCode: string | null;
   noDocumentNeeded: boolean;
 };
 
@@ -89,14 +89,13 @@ export function matchRow(
   if (row.bookingDate < period.rowWindow.from || row.bookingDate > period.rowWindow.to) return null;
   const needle = sub.matchText ? fold(sub.matchText) : "";
   const byText = needle !== "" && row.texts.some((t) => fold(t).includes(needle));
-  const byPartner = row.journalPartnerId !== null && row.journalPartnerId === sub.partnerId;
+  const byPartner = row.partnerId !== null && row.partnerId === sub.partnerId;
   if (!byText && !byPartner) return null;
   const c = compare(new D(row.amount), row.currency, period.price, row.bookingDate, rateOf);
   if (c === null || c.diff.greaterThan(sub.tolerancePct)) return null;
   const hints: RowMatch["hints"] = [];
   if (row.noDocumentNeeded) hints.push("rule_no_document");
-  if (row.journalBasCode !== null && row.journalBasCode !== sub.basCode)
-    hints.push("category_differs");
+  if (row.basCode !== null && row.basCode !== sub.basCode) hints.push("category_differs");
   return {
     rowId: row.id,
     bookingDate: row.bookingDate,

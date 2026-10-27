@@ -10,7 +10,6 @@ describe("filterNavItems", () => {
       "Dashboard",
       "Banking",
       "Documents",
-      "Journal",
       "Partners",
       "Invoices",
       "Supplier invoices",
@@ -22,13 +21,12 @@ describe("filterNavItems", () => {
     ]);
   });
 
-  test("accountant sees Dashboard, Journal, Banking, Invoices (read-only) and Settings (Partners is owner-only)", () => {
+  test("accountant sees Dashboard, Banking, Invoices (read-only) and Settings (Partners is owner-only)", () => {
     const result = filterNavItems(NAV_ITEMS, "accountant");
     const labels = result.map((i) => i.label);
     expect(labels).toEqual([
       "Dashboard",
       "Banking",
-      "Journal",
       "Invoices",
       "Supplier invoices",
       "Expenses",

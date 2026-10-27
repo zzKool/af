@@ -330,7 +330,7 @@ export async function listForGroup(
 /** One allocation onto the invoice — the panel's list sums to the detail's `allocated`. */
 export type SupplierInvoicePayment = {
   linkId: string;
-  /** the paying bank row; null when another payer (a journal entry) justifies the invoice */
+  /** the paying bank row; null should another linkable ever justify the invoice (the kinds matrix allows none today) */
   bankTransactionId: string | null;
   /** the payer's label when it is not a bank row */
   payerLabel: string | null;

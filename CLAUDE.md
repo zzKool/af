@@ -1,7 +1,7 @@
 # AF — AI agent context
 
 ## Project in one minute
-Business-administration app for AnalyticsFab AB, a solo Swedish aktiebolag that is also Swiss VAT-registered. Documents + OCR, Nordea CSV imports (SEK, CHF, savings), categorised journal (BAS), quotes and invoices (days × contract rate, CHF/EUR/SEK), supplier invoices, expenses with groups and owner reimbursements, traktamente, linking of everything to everything, monthly accountant package. The accountant books; the app organises, links and proves.
+Business-administration app for AnalyticsFab AB, a solo Swedish aktiebolag that is also Swiss VAT-registered. Documents + OCR, Nordea CSV imports (SEK, CHF, savings) with each row categorised (BAS) on the row itself, quotes and invoices (days × contract rate, CHF/EUR/SEK), supplier invoices, expenses with groups and owner reimbursements, traktamente, linking of everything to everything, monthly accountant package. The accountant books; the app organises, links and proves.
 
 v3 = v2 (DefterFab) foundations kept in this repo's history + v1 (`af_core`) feature knowledge harvested as specs + the owner's Excel business rules.
 

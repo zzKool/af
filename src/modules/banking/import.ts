@@ -1,8 +1,8 @@
-// Bank import (specs/banking/spec.md US1, D25): one Nordea CSV → immutable transactions + journal entries,
-// deduplicated per account, the file stored as a document, the rules applied to the new rows, one import
-// record — all in the caller's transaction. MUST NOT import from next/* or src/components/*.
+// Bank import (specs/banking/spec.md US1, D25): one Nordea CSV → immutable transactions, each with its SEK base
+// (F113: the row carries its facts), deduplicated per account, the file stored as a document, the rules applied
+// to the new rows, one import record — all in the caller's transaction. MUST NOT import from next/* or src/components/*.
 import { z } from "zod/v4";
-import type { BankImport, BankTransaction, Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -11,7 +11,6 @@ import { type AppError, RollbackError, type ServiceResult } from "@/kernel/error
 import type { StorageService } from "@/kernel/storage/storage";
 import { uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import * as numbering from "@/modules/numbering";
 import { accountLabel } from "./bank-accounts";
@@ -22,8 +21,9 @@ import {
   parse,
   parseColumnMapping,
 } from "./csv-parser";
-import { applyToEntries, type EntryTarget, ensureDefaultRules } from "./rules";
-import type { BankImportDto, BankTransactionDto, ImportSummary } from "./types";
+import { baseAmount, type RowRate, resolveRate } from "./facts";
+import { applyToTransactions, ensureDefaultRules, ruleTarget } from "./rules";
+import type { ImportSummary } from "./types";
 
 const violation = (message: string, details?: Record<string, string | number>): AppError => ({
   code: "BUSINESS_RULE_VIOLATION",
@@ -48,56 +48,9 @@ export const importCsvSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
 });
 
-// --- DTO mapping ---
+import { toImportDto } from "./dto";
 
-const iso = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
-
-export function toTransactionDto(row: BankTransaction): BankTransactionDto {
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    bankAccountId: row.bankAccountId,
-    bankImportId: row.bankImportId,
-    bookingDate: iso(row.bookingDate) ?? "",
-    amount: row.amount.toFixed(2),
-    currency: row.currency,
-    balance: row.balance ? row.balance.toFixed(2) : null,
-    sender: row.sender,
-    recipient: row.recipient,
-    name: row.name,
-    additionalDetails: row.additionalDetails,
-    message: row.message,
-    ownNotes: row.ownNotes,
-    description: row.description,
-    reference: row.reference,
-    counterpartyKey: row.counterpartyKey,
-    dedupHash: row.dedupHash,
-    occurrence: row.occurrence,
-    rowIndex: row.rowIndex,
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-    source: row.source,
-  };
-}
-
-export function toImportDto(row: BankImport): BankImportDto {
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    bankAccountId: row.bankAccountId,
-    fileName: row.fileName,
-    documentId: row.documentId,
-    recordCount: row.recordCount,
-    importedCount: row.importedCount,
-    duplicateCount: row.duplicateCount,
-    errorCount: row.errorCount,
-    errors: Array.isArray(row.errors) ? (row.errors as string[]) : [],
-    periodFrom: iso(row.periodFrom),
-    periodTo: iso(row.periodTo),
-    importedAt: row.importedAt,
-    createdBy: row.createdBy,
-  };
-}
+export { toImportDto, toTransactionDto } from "./dto";
 
 // --- pure: which parsed rows are new ---
 
@@ -199,11 +152,14 @@ export async function importCsv(
   const periodFrom = dates[0] ?? null;
   const periodTo = dates[dates.length - 1] ?? null;
 
-  // 4. every new row needs a base rate — checked before anything is written (a returned error does not
-  //    roll the transaction back; a service never leaves half an import behind)
+  // 4. every new row needs a base rate — resolved before anything is written (a returned error does not
+  //    roll the transaction back; a service never leaves half an import behind). SEK → 1 (`same_currency`);
+  //    else the ECB rate of the booking date (nearest weekday) — the base rule, once (D3, F113)
+  const rates = new Map<string, RowRate>();
   for (const date of [...new Set(fresh.map((r) => r.date))]) {
-    const r = await journal.resolveRate(tx, date, account.currency);
+    const r = await resolveRate(tx, date, account.currency);
     if (r.error) return { error: r.error };
+    rates.set(date, r.data);
   }
 
   // 5. the statement as a document (even when every row was a duplicate — the package needs the file);
@@ -236,10 +192,12 @@ export async function importCsv(
     },
   });
 
-  // 7. the transactions, in file order
+  // 7. the transactions, in file order, each with its base (the rates were resolved above)
   const created = fresh.length
     ? await tx.bankTransaction.createManyAndReturn({
-        data: fresh.map((r) => transactionRow(caller, account.id, importRow.id, r)),
+        data: fresh.map((r) =>
+          transactionRow(caller, account.id, importRow.id, r, rates.get(r.date) as RowRate),
+        ),
       })
     : [];
   for (const t of created) {
@@ -251,47 +209,11 @@ export async function importCsv(
     });
   }
 
-  // 8. one journal entry per new transaction (SEK base — the rates were checked above)
-  const entries = await journal.createBankEntries(
-    tx,
-    caller,
-    audit,
-    created.map((t) => ({
-      sourceId: t.id,
-      entryDate: iso(t.bookingDate) as string,
-      description: t.description,
-      counterpartyKey: t.counterpartyKey,
-      amount: t.amount.toFixed(2),
-      currency: t.currency,
-    })),
-  );
-  if (entries.error) throw new RollbackError(entries.error);
-
-  // 9. rules on the new rows (the defaults first, when the tenant has none yet)
+  // 8. rules on the new rows (the defaults first, when the tenant has none yet)
   const defaults = await ensureDefaultRules(tx, caller, audit);
   if (defaults.error) throw new RollbackError(defaults.error);
   const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
-  const entryBySource = new Map(entries.data.map((e) => [e.sourceId as string, e]));
-  const targets: EntryTarget[] = created.flatMap((t) => {
-    const e = entryBySource.get(t.id);
-    if (!e) return [];
-    return [
-      {
-        entryId: e.id,
-        transactionId: t.id,
-        description: t.description,
-        text: {
-          counterpartyKey: t.counterpartyKey,
-          name: t.name,
-          additionalDetails: t.additionalDetails,
-          message: t.message,
-          sender: t.sender,
-          recipient: t.recipient,
-        },
-      },
-    ];
-  });
-  const applied = await applyToEntries(tx, caller, audit, rules, targets);
+  const applied = await applyToTransactions(tx, caller, audit, rules, created.map(ruleTarget));
   if (applied.error) throw new RollbackError(applied.error);
 
   await audit.log({
@@ -316,6 +238,7 @@ function transactionRow(
   bankAccountId: string,
   bankImportId: string,
   r: ParsedRow,
+  base: RowRate,
 ): Prisma.BankTransactionCreateManyInput {
   return {
     tenantId: caller.tenantId,
@@ -337,6 +260,10 @@ function transactionRow(
     dedupHash: r.dedupHash,
     occurrence: r.occurrence,
     rowIndex: r.rowIndex,
+    amountBase: baseAmount(r.amount, base.rate),
+    rate: base.rate,
+    rateSource: base.rateSource,
+    rateDate: base.rateDate ? new Date(`${base.rateDate}T00:00:00Z`) : null,
     createdBy: caller.userId,
     source: caller.source,
   };
@@ -361,7 +288,7 @@ export function formatConfig(format: {
   };
 }
 
-/** Delete an import with its transactions and their journal entries — refused when any transaction is linked. */
+/** Delete an import with its transactions — refused when any transaction is linked. */
 export async function deleteImport(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -384,8 +311,6 @@ export async function deleteImport(
         }),
       };
   }
-  const entries = await journal.deleteBySource(tx, caller, audit, "bank_transaction", ids);
-  if (entries.error) return { error: entries.error };
   try {
     await tx.bankTransaction.deleteMany({ where: { bankImportId: id } });
     await tx.bankImport.delete({ where: { id } });

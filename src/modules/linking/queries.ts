@@ -46,7 +46,7 @@ export async function hasLinks(
 /**
  * Every link touching any of `ids` of one type, in one query — the package's *Links* sheet and the document set of a
  * period (specs/accountant-package/spec.md FR-002). Ordered by creation, the deterministic order of its R6.
- * `kinds` narrows it (the journal reads only the `transfer` links of its bank entries, T004 / T005).
+ * `kinds` narrows it (banking reads only the `transfer` links of its rows for the implied rate, D44).
  */
 export async function linksTouching(
   tx: TransactionClient,
@@ -70,7 +70,7 @@ export async function linksTouching(
 
 /**
  * Σ of the allocations FROM each of `ids` (allocating kinds only — `justifies`, `settles`), in one grouped query;
- * ids with no allocation are absent. What "how much of this movement is proven" reads (journal T004, audit 22).
+ * ids with no allocation are absent. What "how much of this movement is proven" reads (audit 22).
  */
 export async function allocatedFrom(
   tx: TransactionClient,
@@ -96,7 +96,7 @@ export async function allocatedFrom(
 
 /**
  * Σ of the allocations ONTO each of `ids` (allocating kinds only — `justifies`, `settles`), whatever the source —
- * a bank row or a journal entry — in one grouped query; ids with no allocation are absent. In the target's currency
+ * a bank row — in one grouped query; ids with no allocation are absent. In the target's currency
  * (an allocation is written in it). What "how much of this invoice / expense / settlement is paid" reads — the
  * mirror of `allocatedFrom` and the rule `getAllocationStatus` applies to one entity (audit 22).
  */

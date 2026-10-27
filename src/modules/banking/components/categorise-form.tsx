@@ -1,7 +1,7 @@
 "use client";
 
-// The owner's facts on a journal entry — category, partner, note, "no document needed" — saved on change.
-// Shared by the banking workbench's side panel and the journal page. Reads only (accountant): plain values.
+// The owner's facts on a bank row — category, partner, note, "no document needed" — saved on change (F113: on
+// the row itself). The workbench's side panel. Reads only (accountant): plain values.
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
@@ -18,21 +18,21 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { DetailsGrid } from "@/kernel/ui/details-section";
 import { Tag } from "@/kernel/ui/tags";
-import { basName } from "@/modules/journal/bas-name";
-import { categoriseEntryAction } from "@/modules/journal/journal.actions";
-import type { JournalEntryDto } from "@/modules/journal/types";
+import { categoriseTransactionAction } from "@/modules/banking/banking.actions";
+import { basName } from "@/modules/banking/bas-name";
+import type { TransactionWire } from "@/modules/banking/detail-wire";
 
 export type CategoryOption = { code: string; label: string };
 export type PartnerOption = {
   id: string;
   name: string;
-  /** the partner's default BAS category — proposed when an entry without one gets this partner (T002) */
+  /** the partner's default BAS category — proposed when a row without one gets this partner (journal T002) */
   defaultBasCode?: string | null;
 };
 
 /**
- * The category to propose when `partnerId` is picked (T002, US2): the partner's default, only while the entry has
- * none — never overwriting a category already set. Saved as the owner's choice (`categorised_by = manual`).
+ * The category to propose when `partnerId` is picked (journal T002, US2): the partner's default, only while the
+ * row has none — never overwriting a category already set. Saved as the owner's choice (`categorised_by = manual`).
  */
 export function proposedCategory(
   currentBasCode: string | null,
@@ -53,13 +53,13 @@ export function CategoriseForm({
   onSaved,
 }: {
   entry: Pick<
-    JournalEntryDto,
+    TransactionWire,
     "id" | "basCode" | "partnerId" | "note" | "noDocumentNeeded" | "categorisedBy"
   >;
   categories: CategoryOption[];
   partners: PartnerOption[];
   canWrite: boolean;
-  onSaved?: (entry: JournalEntryDto) => void;
+  onSaved?: (row: TransactionWire) => void;
 }) {
   const t = useT();
   const ids = useId();
@@ -67,9 +67,9 @@ export function CategoriseForm({
   const [partnerId, setPartnerId] = useState(entry.partnerId ?? NONE);
   const [note, setNote] = useState(entry.note ?? "");
   const [noDocument, setNoDocument] = useState(entry.noDocumentNeeded);
-  const { executeAsync, isPending } = useAction(categoriseEntryAction);
+  const { executeAsync, isPending } = useAction(categoriseTransactionAction);
 
-  // another entry selected → fresh values
+  // another row selected → fresh values
   useEffect(() => {
     setBasCode(entry.basCode ?? NONE);
     setPartnerId(entry.partnerId ?? NONE);
@@ -89,7 +89,7 @@ export function CategoriseForm({
       toast.error(error);
       return;
     }
-    toast.success(t("journal.form.saved"));
+    toast.success(t("banking.form.saved"));
     if (r?.data?.data) onSaved?.(r.data.data);
   }
 
@@ -105,7 +105,7 @@ export function CategoriseForm({
       <DetailsGrid
         rows={[
           [
-            t("journal.form.category"),
+            t("banking.form.category"),
             entry.basCode ? (
               <span key="cat" className="inline-flex flex-wrap items-center gap-1.5">
                 <Tag>{entry.basCode}</Tag>
@@ -113,9 +113,9 @@ export function CategoriseForm({
               </span>
             ) : null,
           ],
-          [t("journal.form.partner"), partner?.name ?? null],
-          [t("journal.form.note"), entry.note],
-          [t("journal.form.noDocument"), entry.noDocumentNeeded ? t("common.yes") : t("common.no")],
+          [t("banking.form.partner"), partner?.name ?? null],
+          [t("banking.form.note"), entry.note],
+          [t("banking.form.noDocument"), entry.noDocumentNeeded ? t("common.yes") : t("common.no")],
         ]}
       />
     );
@@ -124,11 +124,11 @@ export function CategoriseForm({
   return (
     <div className="grid gap-3" data-testid="categorise-form">
       {entry.categorisedBy === "rule" && (
-        <p className="text-xs text-muted-foreground">{t("journal.form.categorisedByRule")}</p>
+        <p className="text-xs text-muted-foreground">{t("banking.form.categorisedByRule")}</p>
       )}
       <div>
         <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
-          {t("journal.form.category")}
+          {t("banking.form.category")}
         </label>
         <Select
           value={basCode}
@@ -143,7 +143,7 @@ export function CategoriseForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>{t("journal.form.noCategory")}</SelectItem>
+            <SelectItem value={NONE}>{t("banking.form.noCategory")}</SelectItem>
             {categoryList.map((c) => (
               <SelectItem key={c.code} value={c.code}>
                 {c.label}
@@ -154,7 +154,7 @@ export function CategoriseForm({
       </div>
       <div>
         <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
-          {t("journal.form.partner")}
+          {t("banking.form.partner")}
         </label>
         <Select
           value={partnerId}
@@ -172,7 +172,7 @@ export function CategoriseForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>{t("journal.form.noPartner")}</SelectItem>
+            <SelectItem value={NONE}>{t("banking.form.noPartner")}</SelectItem>
             {partners.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -183,7 +183,7 @@ export function CategoriseForm({
       </div>
       <div>
         <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
-          {t("journal.form.note")}
+          {t("banking.form.note")}
         </label>
         <Input
           id={`${ids}-note`}
@@ -207,9 +207,9 @@ export function CategoriseForm({
             void save({ noDocumentNeeded: next });
           }}
           disabled={isPending}
-          aria-label={t("journal.form.noDocument")}
+          aria-label={t("banking.form.noDocument")}
         />
-        <span>{t("journal.form.noDocument")}</span>
+        <span>{t("banking.form.noDocument")}</span>
       </label>
     </div>
   );

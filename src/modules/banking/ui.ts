@@ -5,6 +5,7 @@
 export * from "./bank-accounts.actions";
 export * from "./banking.actions";
 export * from "./components/bank-accounts-tab";
+export * from "./components/categorise-form";
 export * from "./components/header-actions";
 export * from "./components/import-dialog";
 export * from "./components/imports-table";

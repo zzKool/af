@@ -15,7 +15,6 @@ import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
 import * as invoices from "@/modules/invoices";
-import * as journal from "@/modules/journal";
 import type { LinkDto, LinkEndpoint } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as settings from "@/modules/settings";
@@ -309,11 +308,6 @@ export async function collectPeriod(
   // --- 1. the rows and what they point at ---
   const pr = await periodRows(tx, period);
   const { rows, rowById, rowLinks, rowStates, transferPairs } = pr;
-  const entries = await journal.entriesForSources(
-    tx,
-    "bank_transaction",
-    rows.map((r) => r.id),
-  );
   const justifiedOf = (type: string): Set<string> => pr.justified.get(type) ?? new Set();
 
   // --- 2. the entities: every list whole (the notes and the key index read beyond the selection) ---
@@ -401,7 +395,7 @@ export async function collectPeriod(
   // --- 6. the bank sheet ---
   const labels = await settings.basLabels(
     tx,
-    [...entries.values()].flatMap((e) => (e.basCode ? [e.basCode] : [])),
+    rows.flatMap((r) => (r.basCode ? [r.basCode] : [])),
   );
   const linksFrom = new Map<string, LinkDto[]>();
   for (const l of rowLinks) {
@@ -414,7 +408,6 @@ export async function collectPeriod(
   }
   const flags: PackageFlag[] = [];
   const bank: BankSheetRow[] = rows.map((r) => {
-    const e = entries.get(r.id) ?? null;
     const own = linksFrom.get(r.id) ?? [];
     const related: string[] = [];
     for (const l of own) {
@@ -445,16 +438,16 @@ export async function collectPeriod(
       message: r.message,
       ownNotes: r.ownNotes,
       counterpartyKey: r.counterpartyKey,
-      basCode: e?.basCode ?? null,
-      basLabel: e?.basCode ? (labels.get(e.basCode) ?? e.basCode) : null,
-      rate: e?.rate ?? null,
-      rateSource: e?.rateSource ?? null,
-      amountBase: e?.amountBase ?? null,
+      basCode: r.basCode,
+      basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
+      rate: r.rate,
+      rateSource: r.rateSource,
+      amountBase: r.amountBase,
       related: related.sort(),
       allocated: allocated.toFixed(2),
       delta: delta.toFixed(2),
       status,
-      note: e?.note ?? null,
+      note: r.note,
       flags: rowFlags,
       importFileName: r.importFileName,
       rowIndex: r.rowIndex,
@@ -693,7 +686,7 @@ function dedupeLinks(links: LinkDto[]): LinkDto[] {
   return out;
 }
 
-/** Endpoints the period did not select (a partner, a journal entry, a row of another month) get their linkable's label. */
+/** Endpoints the period did not select (a partner, a row of another month) get their linkable's label. */
 async function resolveMissingKeys(
   tx: TransactionClient,
   keys: KeyIndex,

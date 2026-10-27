@@ -13,8 +13,8 @@ import { prisma } from "@/kernel/db/client";
 import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
-import * as journal from "@/modules/journal";
 import { createBankAccount } from "./bank-accounts";
+import { categorise, transactionFacts } from "./facts";
 import { transactionHistory } from "./history";
 import { importCsv } from "./import";
 import {
@@ -130,17 +130,16 @@ describe("F71 — a bank row's History", () => {
     expect(fresh.data?.map((e) => e.kind)).toEqual(["imported"]);
 
     await run(caller, async (tx) => {
-      const entry = (await journal.entriesForSources(tx, "bank_transaction", [chfTx])).get(chfTx);
+      const entry = (await transactionFacts(tx, [chfTx])).get(chfTx);
       expect(entry).toBeDefined();
       const audit = auditFor(tx, caller);
       const id = entry?.id as string;
       expect(
-        (await journal.categorise(tx, caller, audit, id, { basCode: "657", partnerId: null }))
-          .error,
+        (await categorise(tx, caller, audit, id, { basCode: "657", partnerId: null })).error,
       ).toBeUndefined();
       expect(
         (
-          await journal.categorise(tx, caller, audit, id, {
+          await categorise(tx, caller, audit, id, {
             basCode: "657",
             partnerId: null,
             noDocumentNeeded: true,
@@ -245,9 +244,8 @@ describe("lessons audit 23 — banking's read API", () => {
         where: { currency: "SEK", id: { not: sekTx } },
         orderBy: [{ bookingDate: "asc" }, { id: "asc" }],
       });
-      const entries = await journal.entriesForSources(
+      const entries = await transactionFacts(
         tx,
-        "bank_transaction",
         rows.map((r) => r.id),
       );
       return rows.filter((r) => entries.get(r.id)?.noDocumentNeeded === false).slice(0, 2);
@@ -255,10 +253,8 @@ describe("lessons audit 23 — banking's read API", () => {
     expect((await run(caller, (tx) => transactionStates(tx, []))).size).toBe(0);
 
     await run(caller, async (tx) => {
-      const entry = (await journal.entriesForSources(tx, "bank_transaction", [flagged.id])).get(
-        flagged.id,
-      );
-      const r = await journal.categorise(tx, caller, auditFor(tx, caller), entry?.id as string, {
+      const entry = (await transactionFacts(tx, [flagged.id])).get(flagged.id);
+      const r = await categorise(tx, caller, auditFor(tx, caller), entry?.id as string, {
         noDocumentNeeded: true,
       });
       expect(r.error).toBeUndefined();

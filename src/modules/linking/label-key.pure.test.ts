@@ -17,7 +17,6 @@ describe("splitLabelKey", () => {
   it("leaves unkeyed types whole — a bank row leads with its date, a partner is a name", () => {
     const row = "2026-10-01 · 1000.00 SEK · VA26-INV-001 · SEK main";
     expect(splitLabelKey("bank_transaction", row)).toEqual({ key: null, rest: row });
-    expect(splitLabelKey("journal_entry", row)).toEqual({ key: null, rest: row });
     expect(splitLabelKey("partner", "Vaudoise · Lausanne")).toEqual({
       key: null,
       rest: "Vaudoise · Lausanne",

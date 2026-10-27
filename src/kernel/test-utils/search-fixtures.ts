@@ -149,8 +149,8 @@ export async function seedSearchFixture(pool: Pool, stamp: string): Promise<Sear
   );
   await q(
     `INSERT INTO bank_transactions (id, tenant_id, bank_account_id, bank_import_id, booking_date, amount, currency,
-       name, description, counterparty_key, dedup_hash, row_index, created_by)
-     VALUES ($1, $2, $3, $4, '2023-04-13', -1250, 'SEK', $5, $5, 'SPOTIFY', $6, 0, $7)`,
+       name, description, counterparty_key, dedup_hash, row_index, amount_base, rate, rate_source, created_by)
+     VALUES ($1, $2, $3, $4, '2023-04-13', -1250, 'SEK', $5, $5, 'SPOTIFY', $6, 0, -1250, 1, 'same_currency', $7)`,
     [ids.bankTransaction, tenantId, account, imp, keys.bankText, "a".repeat(64), userId],
   );
   await q(

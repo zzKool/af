@@ -21,7 +21,6 @@ import {
 } from "@/kernel/validation/scalars";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
-import * as journal from "@/modules/journal";
 import * as linking from "@/modules/linking";
 import { expenseDocumentKey, expenseRef, expenseSeries, nextInSeries } from "@/modules/numbering";
 import * as partners from "@/modules/partners";
@@ -575,7 +574,7 @@ export async function detachDocument(
 
 /**
  * A company-paid expense meets its bank row (FR-004, D26): what the bank paid becomes `paid_amount / paid_currency`,
- * the row's journal base becomes the expense's base (`rate_source = bank`), and the row justifies the expense with
+ * the row's base becomes the expense's base (`rate_source = bank`), and the row justifies the expense with
  * an allocation of the paid amount. A 45.00 CHF receipt on the SEK card → paid 523.17 SEK, base 523.17.
  */
 export async function attachBankTransaction(
@@ -616,9 +615,9 @@ export async function attachBankTransaction(
       ),
     };
   }
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [t.id]);
+  const entries = await banking.transactionFacts(tx, [t.id]);
   const entry = entries.get(t.id);
-  if (!entry) return { error: violation(`Bank transaction ${t.id} has no journal entry`) };
+  if (!entry) return { error: violation(`Bank transaction ${t.id} not found`) };
 
   const paid = new D(t.amount).abs();
   const updated = await tx.expense.update({

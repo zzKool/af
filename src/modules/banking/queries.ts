@@ -1,7 +1,7 @@
-// Read API of the banking module. The transactions list carries DERIVED columns (state from links + the
-// journal flag; category, partner, note, base from the journal entry) that no `where` can express, so it runs
-// in two steps like the invoices list: Prisma filters the stored columns, the journal facts and allocations
-// are joined over that set, and the derived filters / search / sort / page run in memory (cap 20 000 rows).
+// Read API of the banking module. The transactions list carries DERIVED columns (state from links + the row's
+// flag; the labels of its category and partner) that no `where` can express, so it runs in two steps like the
+// invoices list: Prisma filters the stored columns, the labels and allocations are joined over that set, and
+// the derived filters / search / sort / page run in memory (cap 20 000 rows).
 import { Prisma } from "@/generated/prisma/browser";
 import { addDays } from "@/kernel/clock/calendar";
 import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
@@ -17,13 +17,13 @@ import type {
   SortSpec,
 } from "@/kernel/list-query/types";
 import { isSettled } from "@/kernel/money/settlement";
-import * as journal from "@/modules/journal";
 import type { LinkDto } from "@/modules/linking";
 import * as linking from "@/modules/linking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { accountLabel } from "./bank-accounts";
-import { toImportDto, toTransactionDto } from "./import";
+import { iso, toImportDto, toTransactionDto } from "./dto";
+import { withImplicitRates } from "./implicit-rate";
 import { listRules } from "./rules";
 import { proposeTransfers } from "./transfer-pairs";
 import type {
@@ -80,18 +80,12 @@ export const TRANSACTION_DEFAULT_SORT: SortSpec[] = [
   { col: "createdAt", dir: "desc" },
 ];
 
+// `rate` is stored but filtered in memory: a `number` column over a Decimal(18,6) keeps the in-memory semantics
 const DERIVED: ReadonlySet<string> = new Set([
   "accountLabel",
-  "amountBase",
   "rate",
-  "rateSource",
-  "basCode",
   "basLabel",
-  "partnerId",
   "partnerName",
-  "note",
-  "noDocumentNeeded",
-  "categorisedBy",
   "state",
   "allocated",
 ]);
@@ -121,8 +115,7 @@ async function linkFacts(tx: TransactionClient, ids: readonly string[]): Promise
 
 /**
  * The account each of `transactionIds` was booked on, as its label (`accountLabel`: the alias, else number +
- * currency), in one query — the journal's *Source* column (journal T006) reads it instead of banking's tables.
- * Ids that are not this tenant's transactions are absent.
+ * currency), in one query. Ids that are not this tenant's transactions are absent.
  */
 export async function accountAliasesFor(
   tx: TransactionClient,
@@ -160,8 +153,6 @@ export function deriveTransactionState(input: {
 
 // --- the list ---
 
-const iso = (d: Date): string => d.toISOString().slice(0, 10);
-
 async function loadRows(
   tx: TransactionClient,
   q: ListQuery,
@@ -179,47 +170,44 @@ async function loadRows(
     },
   });
   const ids = rows.map((r) => r.id);
-  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
+  const dtos = await withImplicitRates(tx, rows.map(toTransactionDto));
   const facts = await linkFacts(tx, ids);
-  const partnerIds = [
-    ...new Set([...entries.values()].flatMap((e) => (e.partnerId ? [e.partnerId] : []))),
-  ];
-  const codes = [...entries.values()].flatMap((e) => (e.basCode ? [e.basCode] : []));
+  const partnerIds = [...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : [])))];
+  const codes = rows.flatMap((r) => (r.basCode ? [r.basCode] : []));
   const names = await partners.partnerNames(tx, partnerIds);
   const labels = await settings.basLabels(tx, codes);
-  const list: TransactionListRow[] = rows.map((r) => {
-    const e = entries.get(r.id) ?? null;
+  const list: TransactionListRow[] = rows.map((r, i) => {
+    const dto = dtos[i] as (typeof dtos)[number];
     const allocated = facts.allocated.get(r.id) ?? "0.00";
     return {
       id: r.id,
       bankAccountId: r.bankAccountId,
       accountLabel: accountLabel(r.bankAccount),
       bankImportId: r.bankImportId,
-      bookingDate: iso(r.bookingDate),
+      bookingDate: dto.bookingDate,
       description: r.description,
       counterpartyKey: r.counterpartyKey,
-      amount: r.amount.toFixed(2),
+      amount: dto.amount,
       currency: r.currency,
-      balance: r.balance ? r.balance.toFixed(2) : null,
+      balance: dto.balance,
       reference: r.reference,
       ownNotes: r.ownNotes,
-      journalEntryId: e?.id ?? null,
-      amountBase: e?.amountBase ?? null,
-      rate: e?.rate ?? null,
-      rateSource: e?.rateSource ?? null,
-      bankImplicitRate: e?.bankImplicitRate ?? null,
-      basCode: e?.basCode ?? null,
-      basLabel: e?.basCode ? (labels.get(e.basCode) ?? e.basCode) : null,
-      partnerId: e?.partnerId ?? null,
-      partnerName: e?.partnerId ? (names.get(e.partnerId) ?? null) : null,
-      note: e?.note ?? null,
-      noDocumentNeeded: e?.noDocumentNeeded ?? false,
-      categorisedBy: e?.categorisedBy ?? null,
+      amountBase: dto.amountBase,
+      rate: dto.rate,
+      rateSource: dto.rateSource,
+      bankImplicitRate: dto.bankImplicitRate,
+      basCode: r.basCode,
+      basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
+      partnerId: r.partnerId,
+      partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,
+      note: r.note,
+      noDocumentNeeded: r.noDocumentNeeded,
+      categorisedBy: r.categorisedBy,
       state: deriveTransactionState({
-        amount: r.amount.toFixed(2),
+        amount: dto.amount,
         allocated,
         inTransfer: facts.transfer.has(r.id),
-        noDocumentNeeded: e?.noDocumentNeeded ?? false,
+        noDocumentNeeded: r.noDocumentNeeded,
       }),
       allocated,
       createdAt: r.createdAt,
@@ -286,9 +274,9 @@ export async function transactionDateHierarchy(
 // --- the read API other modules call instead of reading `bank_transactions` (lessons audit 23) ---
 
 /**
- * Outgoing rows on main accounts, newest first, with their journal base — what the settle / attach pickers
- * (expenses) and the *Link payment* picker (supplier invoices) start from. Each caller filters its own (rows that
- * already settle, rows with nothing left to allocate), so it asks for more than it shows.
+ * Outgoing rows on main accounts, newest first, with their base — what the settle / attach pickers (expenses)
+ * and the *Link payment* picker (supplier invoices) start from. Each caller filters its own (rows that already
+ * settle, rows with nothing left to allocate), so it asks for more than it shows.
  */
 export async function outgoingMainRows(
   tx: TransactionClient,
@@ -300,11 +288,6 @@ export async function outgoingMainRows(
     orderBy: [{ bookingDate: "desc" }, { id: "asc" }],
     take: limit,
   });
-  const entries = await journal.entriesForSources(
-    tx,
-    "bank_transaction",
-    rows.map((r) => r.id),
-  );
   return rows.map((r) => ({
     id: r.id,
     bookingDate: r.bookingDate.toISOString().slice(0, 10),
@@ -313,13 +296,13 @@ export async function outgoingMainRows(
     description: r.description,
     bankAccountId: r.bankAccountId,
     accountLabel: accountLabel(r.bankAccount),
-    amountBase: entries.get(r.id)?.amountBase ?? null,
+    amountBase: r.amountBase.toFixed(2),
   }));
 }
 
 /**
  * Outgoing rows of the given accounts booked inside `[from, to]` (inclusive) that still have something left to
- * justify, with every text field Nordea gave and the journal facts a matcher reads (F94: the subscriptions module's
+ * justify, with every text field Nordea gave and the owner's facts a matcher reads (F94: the subscriptions module's
  * row candidates — it never reads `bank_transactions` itself). Oldest first; a row whose state is *linked* or
  * *no document* is dropped (its `noDocumentNeeded` flag is still reported on the rest).
  */
@@ -337,15 +320,14 @@ export async function outgoingRowsInWindow(
     orderBy: [{ bookingDate: "asc" }, { id: "asc" }],
   });
   if (rows.length === 0) return [];
-  const ids = rows.map((r) => r.id);
-  // one after the other: a transaction has one connection (F53)
-  const entries = await journal.entriesForSources(tx, "bank_transaction", ids);
-  const states = await transactionStates(tx, ids);
+  const states = await transactionStates(
+    tx,
+    rows.map((r) => r.id),
+  );
   const out: WindowRow[] = [];
   for (const r of rows) {
     const state = states.get(r.id);
     if (state && (state.state === "linked" || state.state === "no_document")) continue;
-    const entry = entries.get(r.id);
     const abs = r.amount.abs();
     out.push({
       id: r.id,
@@ -353,14 +335,14 @@ export async function outgoingRowsInWindow(
       bookingDate: r.bookingDate.toISOString().slice(0, 10),
       amount: abs.toFixed(2),
       currency: r.currency,
-      amountBase: entry?.amountBase ? entry.amountBase.replace(/^-/, "") : null,
+      amountBase: r.amountBase.abs().toFixed(2),
       texts: [r.name, r.message, r.additionalDetails, r.sender, r.recipient, r.description].filter(
         (t): t is string => !!t && t.trim() !== "",
       ),
       description: r.description,
-      journalPartnerId: entry?.partnerId ?? null,
-      journalBasCode: entry?.basCode ?? null,
-      noDocumentNeeded: entry?.noDocumentNeeded ?? false,
+      partnerId: r.partnerId,
+      basCode: r.basCode,
+      noDocumentNeeded: r.noDocumentNeeded,
       remaining: abs.minus(state?.allocated ?? "0").toFixed(2),
     });
   }
@@ -382,7 +364,7 @@ export async function bookingDates(
 
 /**
  * The derived state of each of `ids` with its allocation and transfer facts — the rule `deriveTransactionState`
- * applies, read in three queries (rows, journal entries, links). An unknown id is absent.
+ * applies, read in three queries (rows, allocations, transfer links). An unknown id is absent.
  */
 export async function transactionStates(
   tx: TransactionClient,
@@ -392,9 +374,8 @@ export async function transactionStates(
   if (unique.length === 0) return new Map();
   const rows = await tx.bankTransaction.findMany({
     where: { id: { in: unique } },
-    select: { id: true, amount: true },
+    select: { id: true, amount: true, noDocumentNeeded: true },
   });
-  const entries = await journal.entriesForSources(tx, "bank_transaction", unique);
   const facts = await linkFacts(tx, unique);
   return new Map(
     rows.map((r) => {
@@ -404,7 +385,7 @@ export async function transactionStates(
         amount: r.amount.toFixed(2),
         allocated,
         inTransfer,
-        noDocumentNeeded: entries.get(r.id)?.noDocumentNeeded ?? false,
+        noDocumentNeeded: r.noDocumentNeeded,
       });
       return [r.id, { state, allocated, inTransfer }];
     }),
@@ -423,9 +404,9 @@ export async function firstBookingDate(tx: TransactionClient): Promise<string | 
 // --- single reads ---
 
 export type TransactionDetail = {
-  transaction: BankTransactionDto;
+  /** the row with its facts and the transfer pair's implied rate (D44) */
+  transaction: BankTransactionDto & { bankImplicitRate: string | null };
   accountLabel: string;
-  entry: journal.JournalEntryDto | null;
   state: TransactionState;
   allocated: string;
   links: (LinkDto & { otherLabel: string | null })[];
@@ -462,11 +443,10 @@ export async function getTransaction(
     return {
       error: { code: "NOT_FOUND", message: `Bank transaction not found: ${id}`, retryable: false },
     };
-  const entries = await journal.entriesForSources(tx, "bank_transaction", [id]);
+  const [transaction] = await withImplicitRates(tx, [toTransactionDto(row)]);
   const facts = await linkFacts(tx, [id]);
   const links = await linking.getLinksFor(tx, { type: "bank_transaction", id });
   const transfers = await proposeTransfers(tx, id);
-  const entry = entries.get(id) ?? null;
   const allocated = facts.allocated.get(id) ?? "0.00";
   const withLabels = await mapInOrder(links.data ?? [], async (l) => {
     const other = l.from.type === "bank_transaction" && l.from.id === id ? l.to : l.from;
@@ -476,14 +456,13 @@ export async function getTransaction(
   });
   return {
     data: {
-      transaction: toTransactionDto(row),
+      transaction: transaction as NonNullable<typeof transaction>,
       accountLabel: accountLabel(row.bankAccount),
-      entry,
       state: deriveTransactionState({
         amount: row.amount.toFixed(2),
         allocated,
         inTransfer: facts.transfer.has(id),
-        noDocumentNeeded: entry?.noDocumentNeeded ?? false,
+        noDocumentNeeded: row.noDocumentNeeded,
       }),
       allocated,
       links: withLabels,

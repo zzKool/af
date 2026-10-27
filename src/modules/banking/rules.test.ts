@@ -17,8 +17,8 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
-import * as journal from "@/modules/journal";
 import { createBankAccount } from "./bank-accounts";
+import { categorise, transactionFacts } from "./facts";
 import { importCsv } from "./import";
 import * as rules from "./rules";
 
@@ -91,7 +91,7 @@ async function july(caller: CallerIdentity) {
 const openaiOf = (tx: TransactionClient) =>
   tx.bankTransaction.findFirstOrThrow({ where: { counterpartyKey: { startsWith: "OPENAI" } } });
 const entryOf = async (tx: TransactionClient, transactionId: string) =>
-  (await journal.entriesForSources(tx, "bank_transaction", [transactionId])).get(transactionId);
+  (await transactionFacts(tx, [transactionId])).get(transactionId);
 
 describe("US2 — rules that categorise", () => {
   it("scenario 1 + 8: the first import creates the defaults; a rule added later applies on demand (dry run first)", async () => {
@@ -173,7 +173,7 @@ describe("US2 — rules that categorise", () => {
     await run(caller, async (tx) => {
       const t = await openaiOf(tx);
       const e = await entryOf(tx, t.id);
-      const byHand = await journal.categorise(tx, caller, noopAudit, e?.id as string, {
+      const byHand = await categorise(tx, caller, noopAudit, e?.id as string, {
         basCode: "657",
       });
       expect(byHand.data?.categorisedBy).toBe("manual");
@@ -205,7 +205,6 @@ describe("US2 — rules that categorise", () => {
       const t = await openaiOf(tx);
       const e = await entryOf(tx, t.id);
       const target = {
-        entryId: e?.id as string,
         transactionId: t.id,
         description: t.description,
         text: {
@@ -222,16 +221,18 @@ describe("US2 — rules that categorise", () => {
         (await tx.categorisationRule.findUniqueOrThrow({ where: { id: ruleId } })).hitCount;
 
       // first apply writes the category: one hit
-      const first = await rules.applyToEntries(tx, caller, noopAudit, await ruleRows(), [target]);
+      const first = await rules.applyToTransactions(tx, caller, noopAudit, await ruleRows(), [
+        target,
+      ]);
       expect(first.data?.applied).toBe(1);
       expect((await entryOf(tx, t.id))?.basCode).toBe("654");
       expect(await hits()).toBe(1);
-      // the same rule on the same entry again: the journal changes nothing, nothing counted
-      await rules.applyToEntries(tx, caller, noopAudit, await ruleRows(), [target]);
+      // the same rule on the same row again: nothing changes, nothing counted
+      await rules.applyToTransactions(tx, caller, noopAudit, await ruleRows(), [target]);
       expect(await hits()).toBe(1);
-      // an entry set by hand: the rule matches, the journal refuses to overwrite, nothing counted
-      await journal.categorise(tx, caller, noopAudit, e?.id as string, { basCode: "657" });
-      await rules.applyToEntries(tx, caller, noopAudit, await ruleRows(), [target]);
+      // a row set by hand: the rule matches, `categorise` refuses to overwrite, nothing counted
+      await categorise(tx, caller, noopAudit, e?.id as string, { basCode: "657" });
+      await rules.applyToTransactions(tx, caller, noopAudit, await ruleRows(), [target]);
       expect(await hits()).toBe(1);
       expect((await entryOf(tx, t.id))?.basCode).toBe("657");
     });
@@ -244,7 +245,7 @@ describe("US2 — rules that categorise", () => {
       const t = await openaiOf(tx);
       const e = await entryOf(tx, t.id);
       // the owner first sets the category by hand, then "create rule from this"
-      await journal.categorise(tx, caller, noopAudit, e?.id as string, { basCode: "654" });
+      await categorise(tx, caller, noopAudit, e?.id as string, { basCode: "654" });
       const learned = await rules.createRuleFromTransaction(tx, caller, realAudit(tx, caller), {
         transactionId: t.id,
       });
