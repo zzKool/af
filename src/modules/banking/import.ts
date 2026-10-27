@@ -153,7 +153,7 @@ export async function importCsv(
       }),
     };
 
-  // 1. parse
+  // 1. parse — all or nothing (F109): a row the parser could not read fails the whole file, every bad row named
   const result = parse(input.bytes, config);
   if (result.rows.length === 0) {
     const first = result.errors[0] ?? "No data rows found";
@@ -163,6 +163,15 @@ export async function importCsv(
             bankName: account.bankFormat.bankName,
           })
         : invalid(first),
+    };
+  }
+  if (result.errors.length > 0) {
+    const n = result.errors.length;
+    return {
+      error: invalid(
+        `${n} row${n === 1 ? "" : "s"} could not be read — ${result.errors.slice(0, 3).join("; ")}${n > 3 ? "; …" : ""} — nothing was imported`,
+        { errors: result.errors.join("\n"), rows: n },
+      ),
     };
   }
 
@@ -218,8 +227,8 @@ export async function importCsv(
       recordCount: result.rows.length,
       importedCount: fresh.length,
       duplicateCount: duplicates,
-      errorCount: result.errors.length,
-      errors: result.errors,
+      errorCount: 0, // a file with a bad row never gets here (F109); the columns stay for the history
+      errors: [],
       periodFrom: periodFrom ? new Date(`${periodFrom}T00:00:00Z`) : null,
       periodTo: periodTo ? new Date(`${periodTo}T00:00:00Z`) : null,
       createdBy: caller.userId,
