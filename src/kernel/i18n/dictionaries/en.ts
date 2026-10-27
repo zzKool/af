@@ -1919,6 +1919,9 @@ export const en = {
   "subscriptions.panel.ended": "Subscription ended",
   "subscriptions.panel.reopen": "Reopen",
   "subscriptions.panel.reopened": "Subscription reopened",
+  "subscriptions.panel.makeRule": "Make it a rule",
+  "subscriptions.panel.ruleMade": "Rule made: {name}",
+  "subscriptions.panel.openRules": "Open rules",
   "subscriptions.panel.delete": "Delete subscription",
   "subscriptions.panel.deleteConfirm":
     "Delete {name}? Only possible while no period has an expense or invoice — otherwise end it.",

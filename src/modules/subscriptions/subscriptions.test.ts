@@ -28,6 +28,7 @@ import {
   type SubscriptionInput,
   updateSubscription,
 } from "./subscriptions";
+import { ruleFromSubscription, toRule } from "./to-rule";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("@/kernel/logging/logger", () => ({
@@ -406,5 +407,80 @@ describe("US2 — the periods' state from real entities", () => {
       }),
     ).catch((err: Error) => ({ error: { message: err.message } }));
     expect(twice.error?.message).toBeDefined();
+  });
+});
+
+describe("F116 PR C2 — a subscription as a rule", () => {
+  it("makes one rule with its text, account, direction, today's price and cadence; the rule categorises its row", async () => {
+    const r = await create({ matchText: "BYTEFORM" });
+    expect(r.error).toBeUndefined();
+    const made = await run(owner.caller, (tx) =>
+      toRule(tx, owner.caller, noopAudit, r.data!.id, TODAY),
+    );
+    expect(made.error).toBeUndefined();
+    const rule = await run(owner.caller, (tx) =>
+      tx.categorisationRule.findUniqueOrThrow({ where: { id: made.data!.ruleId } }),
+    );
+    expect(rule).toMatchObject({
+      name: "Byteform (subscription)",
+      matchPattern: "BYTEFORM",
+      matchField: "all",
+      basCode: "580",
+      partnerId: byteform,
+      bankAccountId: owner.sources.afSek.id,
+      sign: "out",
+      cadence: "monthly",
+    });
+    expect(rule.expectedAmount?.toFixed(2)).toBe("199.00");
+    expect(rule.tolerancePct.toFixed(2)).toBe("5.00");
+    // its row: categorised by the rule on import
+    const [row] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-10-15", amount: "-199.00", details: "Kortköp 261014 BYTEFORM AB" },
+      ]),
+    );
+    const t = await run(owner.caller, (tx) =>
+      tx.bankTransaction.findUniqueOrThrow({ where: { id: row as string } }),
+    );
+    expect(t.ruleId).toBe(made.data!.ruleId);
+  });
+
+  it("refuses without a match text, or when paid privately", async () => {
+    const plain = await create({ name: "No text" });
+    const a = await run(owner.caller, (tx) =>
+      toRule(tx, owner.caller, noopAudit, plain.data!.id, TODAY),
+    );
+    expect(a.error?.message).toMatch(/match text/);
+    const priv = await create({
+      name: "Private one",
+      matchText: "PRIVATE",
+      paidFromAccountId: owner.sources.privateSe.id,
+      newGroup: { description: "Private one" },
+    });
+    expect(priv.error).toBeUndefined();
+    const b = await run(owner.caller, (tx) =>
+      toRule(tx, owner.caller, noopAudit, priv.data!.id, TODAY),
+    );
+    expect(b.error?.message).toMatch(/paid privately/);
+  });
+
+  it("a price in another currency than the account's is no amount condition (pure)", () => {
+    const base = {
+      name: "Tabular",
+      matchText: "TABULAR",
+      basCode: "540",
+      partnerId: "p",
+      bankAccountId: "a",
+      accountCurrency: "SEK",
+      cadence: "yearly" as const,
+      tolerancePct: "80.00",
+    };
+    expect(
+      ruleFromSubscription({ ...base, price: { amount: "120.00", currency: "EUR" } }),
+    ).toMatchObject({ expectedAmount: null, tolerancePct: "50", cadence: "yearly", sign: "out" });
+    expect(
+      ruleFromSubscription({ ...base, price: { amount: "1290.00", currency: "SEK" } })
+        .expectedAmount,
+    ).toBe("1290.00");
   });
 });
