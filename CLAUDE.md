@@ -21,7 +21,7 @@ Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 ·
 - `src/kernel/*` (auth + `can()`, tenancy, audit, money, clock, errors, logging, storage, ocr, jobs, pdf, ui, i18n, nav, stores) and `src/modules/<name>/` (`<entity>.ts` service, `<entity>.actions.ts`, `queries.ts`, `components/`, `stores/`, `jobs/`, tests, `index.ts`). Models in `prisma/schema/<name>.prisma`. `src/app/` is routes only; `src/components/ui` + `src/lib/utils.ts` are the shadcn kernel kit. Map: `docs/feature-folders.md`.
 - A module imports `kernel/*` and other modules' `index.ts` only. `index.ts` exposes DTOs, never Prisma types. Guard test enforces.
 - Hexagonal: actions → services → db. Services never import `next/*` or components; they take a tenant-scoped `tx` + `CallerIdentity` and return `ServiceResult`; actions never throw, they return `AppError`.
-- Multi-tenant via RLS (`SET LOCAL app.tenant_id`). Cross-module references are validated UUIDs, not cross-table FKs — except the shared reference `expense_groups` (D38).
+- Multi-tenant via RLS (`SET LOCAL app.tenant_id`). Cross-module references are composite `(tenant_id, id)` FKs, `RESTRICT`, never a cascade across modules (D63); reads still through the owner's `index.ts`.
 - `modules/linking` owns the `link` table; modules register as `linkable`. Suggestions, graph, exports are read models.
 - Money: Decimal in services, number only at the display boundary. Amount + currency + base (the tenant's base currency, D39) + rate + rate source written once, never updated — an open expense / supplier invoice is a draft until its first payment (D37).
 - Statuses (paid, refunded, linked, due) are derived, never typed.
@@ -30,7 +30,7 @@ Next.js 16 + React 19 · Prisma 7 + PostgreSQL 17 with RLS · Better Auth 1.5 ·
 ## Conventions
 - Files kebab-case, components PascalCase, DB snake_case, Postgres enums, TIMESTAMPTZ, `@db.Uuid`.
 - Tests: `.test.ts` co-located (Vitest), `.spec.ts` in `e2e/` (Playwright). Property tests on money and allocations.
-- i18n keys from day one: en + fr + sv (sv added 2026-10-21); a new language is one dictionary file, never a code change.
+- i18n keys from day one, **in `en.ts` only** (D62, 2026-10-27): `fr` / `sv` fall back on `en` until one translation pass at the end; printed invoice strings keep theirs. A new language is one dictionary file, never a code change.
 - Business keys are fixed functions: `Ex{group}-{BAS alias}-{seq}_{date}_`, invoices `{client short}{yy}-{nnn}` via `number_series`. No prefix settings.
 - Docs: `docs/<topic>.md` with `[[wiki-links]]`, indexed in `docs/index.md`. Specs in `specs/<module>/`.
 
@@ -55,6 +55,6 @@ The owner's real company data (partners, amounts, bank rows, documents, invoices
 - Do attach a screenshot of every new page and every generated PDF to the PR (definition of done §4.5) — on seed data only (D51).
 - Do keep the architecture guard green; if a rule blocks you, propose a constitution change, don't work around it.
 - Don't add a setting, a config engine or a generic framework for a single use.
-- Don't touch `schema.prisma`, nav constants, i18n dictionaries or `package.json` in parallel with another branch.
+- Don't touch `schema.prisma`, nav constants or `package.json` in parallel with another branch.
 - Don't copy code from `af_core` or v2 history; harvest behaviour and tests into specs.
 - Ask before anything irreversible: migrations that drop data, deleting documents, changing numbering series.

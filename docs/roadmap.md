@@ -71,6 +71,23 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 ## Next up
 
+### 0. Before B1 — the audit's fix-now and the one table (2026-10-27, D59–D65)
+
+[[audit-2026-10-27]] §3 and §7. In this order, serialised where the schema is touched; the rest in parallel by module:
+
+```
+F105 close the box ─► F106 one file route ─► F107 fs storage ─► F108 mock OCR gated ─► F109 imports all-or-nothing
+F110 failed jobs visible · F111 rollback + deps · F112 admin CLI · F118 en only · F120 the cuts        (parallel, by module)
+                                        │
+                                        ▼
+F113 one transaction table (D59, FULL: spec → migration PR alone → one PR per module)   ◄── the Justify panel (F97) lands on it
+                                        │
+                                        ▼
+                                   B1 (below)
+```
+
+F114 (the link as the only payment record), F115 (completeness by balance), F116 (one engine) follow B1's first month unless B1 needs them. No new feature row is dispatched before B1 (D65); a refactor rides only with an owner-visible change in its module.
+
 ### 1. B1 — 2023-Q2 end to end, on the owner's box
 
 The acceptance test: one real quarter, from the start of the activity, through every module, ending in a package compared with what the accountant filed. The owner does the entering; the agent fixes what he reports (D51: never on the box, never with his values).
@@ -111,6 +128,8 @@ F03 Members is *later*: the owner will not invite the accountant into the app fo
 ## Open decisions (the owner's)
 
 None open.
+
+Decided 2026-10-27 (the audit's §8, one batch): **D59** one transaction table · **D60** the link as the only payment record · **D61** the homelab is the target (fs storage, one file route, closed sign-up, CLI admin, no Sentry) · **D62** one language at build time (`en.ts` only; `fr` / `sv` fall back) · **D63** the FK ban lifted (composite FKs, `RESTRICT`) · **D64** the review page is not a record · **D65** B1 before features. The Excel history stays **not imported** (the owner re-keys; confirmed). Open from the audit, not yet asked: subscriptions — probation to 2026-11-30 (D57 / F104) stands; whether the document preview loads on the box and whether the box is reachable from the internet (sets F105's urgency).
 
 Decided 2026-10-23 (O6–O8 and two more, chat): **F70 parked** — the base stays SEK in code until a second company needs another, a guard stops new hard-coded SEK (D46 → F85); the reimbursement statement prints *owed* like the app (D47 → F88); both unread columns dropped now, before real data (D48 → F86); expenses get an **optional partner** for spend per merchant (D49 → F87, FULL).
 

@@ -15,7 +15,7 @@ Context: `feature-inventory.md` (scope, decisions D1–D18), `excel-to-v3-mappin
 5. **Derived, never typed.** Paid / to refund / refunded / linked / due are computed from links and dates. No status column a human fills in.
 6. **Immutable money facts.** Amount, currency, base (in the tenant's base currency), rate and rate source are written once per entry and never updated; corrections are new entries. A bank row's journal entry is written once at import. An **expense or supplier invoice** is a draft while it is open: its money facts may change (edit, *attach* / *detach* of the paying bank row) until its **first payment link or settlement line**, then they are locked by a trigger, as bank rows are (D37).
 7. **Build for one, architect for many.** One real tenant and one real user today. RLS, roles and `can()` exist from day one; their UI polish does not.
-8. **Local first, cloud agnostic.** The same image runs on a laptop, the homelab and Azure. Environment differences live in env vars only.
+8. **Local first; the homelab is the target** (D61). The same image runs on a laptop, the homelab and Azure; environment differences live in env vars only. Where the two pull apart, the box wins: documents on a filesystem driver (Blob the second driver), files served only through an authenticated route, sign-up closed, admin by CLI, no Sentry.
 9. **Nothing assumes continuous uptime.** The app may be scaled to zero for weeks. Jobs are queued in Postgres and resumable; scheduled work catches up on start.
 
 ---
@@ -57,7 +57,7 @@ Modules (from the inventory): partners, contracts, documents, banking, rates, jo
 - Actions are thin wrappers on the `authedAction` / `ownerAction` middleware: validate with Zod (field scalars — `uuid`, `isoDate`, `money`, `positiveMoney`, `positiveRate`, `basCode` — from `kernel/validation/scalars`, never redeclared), call the service, return `{ data | error: AppError }`.
 - Every mutation on a financial or linked entity writes an audit row with source provenance.
 - A module that can be linked exports `linkable: { type, exists(id), summary(id), amount(id) }` and registers it with `modules/linking`.
-- Cross-module references are UUIDs validated through the target module's `index.ts`, not cross-table FKs (RLS blocks them). **Shared references** are the named exception — a table other modules may point at with a real FK: today only `expense_groups` (from `traktamente.trips.group_id` and `supplier_invoices.group_id`, D38). Reads still go through the owner's `index.ts` (`expenses.getGroup`), never a Prisma relation include across modules; adding a shared reference is a constitution PR.
+- Cross-module references are composite `(tenant_id, id)` foreign keys, `ON DELETE RESTRICT` — never a cascade across a module boundary (D63, 2026-10-27; the earlier "RLS blocks them" was wrong: FK checks bypass RLS, `cross-table-rls-spike.test.ts`). A reference that must survive the target's absence (an audit row, a snapshot) stays a validated UUID. Reads still go through the owner's `index.ts` (`expenses.getGroup`), never a Prisma relation include across modules. Existing validated-UUID references become FKs as their module is next touched.
 
 ### Linking invariants — in the database and in the service
 - One writer: only `modules/linking` inserts or deletes rows in `link`.
@@ -112,7 +112,7 @@ A PR merges to `main` only when:
 - **Spec-driven, per module.** `/speckit.specify → plan → tasks → implement` inside `specs/<module>/`. The constitution is the spec-kit constitution. No epics, no sprints, no retros.
 - **Reference slice first.** `partners` is rebuilt by hand into the module layout before any parallel work; the result becomes the `module-slice` skill.
 - **Contracts frozen before fan-out.** Prisma schema for the batch, `index.ts` DTOs, shared UI, nav entries. Then one agent per module in its own git worktree; one reviewer agent that has not seen the code.
-- **Shared files are serialised.** `schema.prisma`, nav constants, i18n dictionaries, `docs/index.md`: one PR at a time touches them.
+- **Shared files are serialised.** `schema.prisma`, nav constants, `docs/index.md`: one PR at a time touches them. New UI strings go to `en.ts` only (D62 — `fr` / `sv` fall back on `en` until one translation pass at the end), so the dictionaries are no longer a lock.
 - **Trunk is `main`.** Feature branches `feat/<module>-<topic>`, PR into `main`, CI is the gate. Conventional commits. No `Co-Authored-By` headers, no "Generated with" lines in PRs or commits.
 - **Harvest, don't copy.** v1 (`af_core`) and v2 history are read for behaviour and test cases; no code is pasted across stacks.
 

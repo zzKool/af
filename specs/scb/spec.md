@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: Spec — awaiting the owner's read (F96; review 2026-10-26 §7)
+**Status**: Spec — awaiting the owner's read (F96; review 2026-10-26 §7). Builds after B1 (D65); plan and tasks follow the read.
 
 **Input**: "Every quarter SCB asks me for the survey *Foreign trade in services, non cross-border goods and current transfers* (SCB's respondent site, deadlines 15 April / July / October / January). I need the app to help me fill it — the figures per SCB code and country, in thousands of SEK, what is behind them, what is excluded and why — not to file it for me."
 
