@@ -25,7 +25,13 @@ import { InfoBanner } from "@/kernel/ui/info-banner";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { acceptTransferAction, getTransactionAction } from "@/modules/banking/banking.actions";
 import type { TransactionDetailWire, TransactionWire } from "@/modules/banking/detail-wire";
-import { GraphLink, LinksList, SuggestionsSection } from "@/modules/linking/ui";
+import {
+  GraphLink,
+  type JustifyOptions,
+  JustifyPanel,
+  LinksList,
+  SuggestionsSection,
+} from "@/modules/linking/ui";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "./categorise-form";
 import { RuleDialog } from "./rule-dialog";
 import { TransactionHistory } from "./transaction-history";
@@ -43,6 +49,7 @@ export function TransactionPanel({
   onClose,
   categories,
   partners,
+  justifyOptions = null,
   canWrite,
   onChanged,
 }: {
@@ -50,6 +57,8 @@ export function TransactionPanel({
   onClose: () => void;
   categories: CategoryOption[];
   partners: PartnerOption[];
+  /** the Justify panel's option lists (F97); null hides it */
+  justifyOptions?: JustifyOptions | null;
   canWrite: boolean;
   /** something was saved — the list behind the panel should refresh */
   onChanged?: () => void;
@@ -62,6 +71,7 @@ export function TransactionPanel({
             transactionId={transactionId}
             categories={categories}
             partners={partners}
+            justifyOptions={justifyOptions}
             canWrite={canWrite}
             onChanged={onChanged}
             header={(title, description) => (
@@ -85,14 +95,20 @@ export function TransactionDetailView({
   transactionId,
   categories,
   partners,
+  justifyOptions = null,
   canWrite,
   onChanged,
   header,
   openSearchKey = 0,
+  proofKey = 0,
+  noProofKey = 0,
+  lostKey = 0,
 }: {
   transactionId: string;
   categories: CategoryOption[];
   partners: PartnerOption[];
+  /** the Justify panel's option lists (F97); null hides the panel */
+  justifyOptions?: JustifyOptions | null;
   canWrite: boolean;
   /** something was saved — the list behind the panel should refresh */
   onChanged?: () => void;
@@ -100,6 +116,10 @@ export function TransactionDetailView({
   header: (title: ReactNode, description: ReactNode) => ReactNode;
   /** bump it to open "Link to…" with the keyboard (the inbox's `l`) */
   openSearchKey?: number;
+  /** the inbox's `p` · `n` · `x` (F97): drop the proof, no proof needed, receipt lost */
+  proofKey?: number;
+  noProofKey?: number;
+  lostKey?: number;
 }) {
   const t = useT();
   const router = useRouter();
@@ -242,6 +262,30 @@ export function TransactionDetailView({
             ))}
 
           <div className="flex flex-col">
+            {/* justify from the row (F97): the proof, no proof, the receipt lost — for a row still to justify */}
+            {canWrite &&
+              justifyOptions &&
+              (detail.state === "open" || detail.state === "partial") && (
+                <JustifyPanel
+                  row={{
+                    id: tx.id,
+                    bookingDate: tx.bookingDate,
+                    amount: tx.amount,
+                    currency: tx.currency,
+                    amountBase: tx.amountBase,
+                    description: tx.description,
+                    counterpartyKey: tx.counterpartyKey,
+                    bankAccountId: tx.bankAccountId,
+                  }}
+                  canWrite={canWrite}
+                  options={justifyOptions}
+                  onDone={changed}
+                  proofKey={proofKey}
+                  noProofKey={noProofKey}
+                  lostKey={lostKey}
+                />
+              )}
+
             <DetailsSection title={t("banking.panel.raw")}>
               <DetailsGrid rows={about} />
             </DetailsSection>

@@ -35,6 +35,7 @@ import { attachHref } from "../hrefs";
 import { needsOwnFlow } from "../kinds";
 import { ConfidenceLabel } from "./confidence-label";
 import { EntityLabel } from "./entity-label";
+import type { JustifyOptions } from "./justify-panel";
 import { moneyText } from "./money";
 import { SuggestionsSection, useReasonLabel } from "./suggestions-section";
 
@@ -44,6 +45,9 @@ const KEYS: [string, string][] = [
   ["j / ↓ · k / ↑", "linking.inbox.help.move"],
   ["Enter", "linking.inbox.help.enter"],
   ["1 – 9", "linking.inbox.help.nth"],
+  ["p", "linking.inbox.help.proof"],
+  ["n", "linking.inbox.help.noProof"],
+  ["x", "linking.inbox.help.lost"],
   ["l", "linking.inbox.help.linkTo"],
   ["c", "linking.inbox.help.categorise"],
   ["u", "linking.inbox.help.undo"],
@@ -74,12 +78,15 @@ export function InboxWorkbench({
   documents,
   categories,
   partners,
+  justifyOptions = null,
   canWrite,
 }: {
   rows: InboxRow[];
   documents: EntityFacts[];
   categories: CategoryOption[];
   partners: PartnerOption[];
+  /** the Justify panel's option lists (F97); null hides the panel */
+  justifyOptions?: JustifyOptions | null;
   canWrite: boolean;
 }) {
   const t = useT();
@@ -90,6 +97,10 @@ export function InboxWorkbench({
   const [selectedDoc, setSelectedDoc] = useState<string | null>(documents[0]?.id ?? null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [openSearchKey, setOpenSearchKey] = useState(0);
+  // the Justify panel's keys (F97): p · n · x
+  const [proofKey, setProofKey] = useState(0);
+  const [noProofKey, setNoProofKey] = useState(0);
+  const [lostKey, setLostKey] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [report, setReport] = useState<BulkApplyResult | null>(null);
   const undo = useRef<string[]>([]);
@@ -195,6 +206,15 @@ export function InboxWorkbench({
       } else if (e.key === "l" && selected) {
         e.preventDefault();
         setOpenSearchKey((k) => k + 1);
+      } else if (e.key === "p" && selected && justifyOptions) {
+        e.preventDefault();
+        setProofKey((k) => k + 1);
+      } else if (e.key === "n" && selected && justifyOptions) {
+        e.preventDefault();
+        setNoProofKey((k) => k + 1);
+      } else if (e.key === "x" && selected && justifyOptions) {
+        e.preventDefault();
+        setLostKey((k) => k + 1);
       } else if (e.key === "c") {
         e.preventDefault();
         document
@@ -207,7 +227,7 @@ export function InboxWorkbench({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tab, helpOpen, move, selected, applyOne, undoLast, t]);
+  }, [tab, helpOpen, move, selected, applyOne, undoLast, t, justifyOptions]);
 
   async function applyHigh() {
     const ids = checked.size > 0 ? [...checked] : rows.map((r) => r.row.id);
@@ -372,9 +392,13 @@ export function InboxWorkbench({
                 transactionId={selected.row.id}
                 categories={categories}
                 partners={partners}
+                justifyOptions={justifyOptions}
                 canWrite={canWrite}
                 onChanged={() => router.refresh()}
                 openSearchKey={openSearchKey}
+                proofKey={proofKey}
+                noProofKey={noProofKey}
+                lostKey={lostKey}
                 header={(title, description) => (
                   <div>
                     <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">
