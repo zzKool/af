@@ -39,7 +39,7 @@ export function MonthsPanel({
   const t = useT();
   const scroller = useRef<HTMLDivElement>(null);
   const max = Math.max(1, ...overview.months.map((m) => m.justified + m.toJustify));
-  const columns = `minmax(7rem, 10rem) repeat(${overview.months.length}, 1.5rem)`;
+  const columns = `minmax(9rem, 12rem) repeat(${overview.months.length}, 1.5rem)`;
 
   // the newest months are the ones the owner works on: start scrolled to the right end
   useEffect(() => {

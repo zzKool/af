@@ -29,6 +29,10 @@
 
 Property (fast-check): a consistent statement has no gap; dropping any row but the first and the last produces exactly one gap whose difference is that row's amount, and `completeTo` is the day before.
 
+## Screenshots
+
+`specs/banking/screenshots/f115-import-chain-ok.png` (June in: *complete to 2026-06-28*), `f115-import-gap.png` (July with a day missing: the gap and its −200.00 SEK), `f115-months-complete-to.png` (the grid: *complete to 2026-06-28 · 1 gap(s)*, the *Incomplete* square on May — the chain starts on the 31st).
+
 ## Not here
 
 A *complete* column in the accountant package's notes; a gap as a package flag; the dashboard's wording. All read `accountCompleteness` when wanted.
