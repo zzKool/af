@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: Draft for the owner's read · the schema PR is prepared behind it and merges after his word (its migration drops columns)
+**Status**: Answered 2026-10-27 (D66) — PR 1 #318 merged; was: Draft for the owner's read · the schema PR is prepared behind it and merges after his word (its migration drops columns)
 
 **Input**: D60 (the owner, 2026-10-27, [[audit-2026-10-27]] §2.3): "A `justifies` / `settles` link carries `allocated_amount`, `currency` and `allocated_base`; paid / open and the FX gain **or loss** are derived from Σ links, one rule for receivables, payables and reimbursements; `paid_amount`, `paid_currency`, `base_provisional`, settlement lines and `payment_sources` go — private payers are `bank_accounts` with `role = owner_private`. A deposit + a balance, or two receipts on one card row, are allowed." Audit rows A1, A2, A3, A5, A6, A7, A8, A10, A12, A13.
 
@@ -129,6 +129,9 @@ The package's expenses and supplier-invoices sheets carry *Base* (at the entity'
 - Rollback of PR 1 = the snapshot taken before the deploy ([[deployment]]).
 
 ## Questions for the owner (one batch; the recommended answer is the spec's)
+
+> **Answered 2026-10-27 (D66):** 1 — yes, the ECB base at the receipt's date, *and* the bank's amount is the truth of what was paid: it stays on the link, and the ECB-vs-bank difference is always shown (the FX difference). 2 — yes, derived, no confirmation. 3 — yes, Settings → Bank accounts.
+
 
 1. The receipt's base stays ECB at its date, the card's SEK goes on the link, and the sheet shows both with the difference — instead of the Excel's "the expense cost what the card paid". Yes (D60 / A8), or keep the card's SEK as the expense's base and show only the row?
 2. The settlement's exchange difference needs no confirmation any more — derived and signed, 3960 / 7960 by sign. Yes?

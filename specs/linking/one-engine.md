@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: Draft for the owner's read · four questions at the end · no code before his word (the suggestions change behaviour for every row he opens)
+**Status**: Answered 2026-10-27 (D67) — every recommended answer taken; PR A under way
 
 **Input**: [[audit-2026-10-27]] §2.2 and B1 · B6 · B7 · B8 · B12 · B14: "A scorer that can always be applied, with memory. Today the candidate window is ±5 days around the booking date on the *issue* date, so an invoice paid on 30-day terms — the company's only income — is never a candidate; a cross-currency receipt is scored, then refused on apply; any pair gets 15 points with a false reason; the strongest signal there is — *this counterparty key was linked to this partner before* — is not read. Rules, the scorer and the subscriptions matcher are three engines with three tolerance semantics. One engine: history first, then tokens, due-date windows, FX tolerance by instrument. This is the first 'AI' layer and needs no model."
 
@@ -90,6 +90,9 @@ The owner turns the OpenAI subscription into a rule from the subscription page (
 - **SC-005** The subscriptions matcher and the rules give the same answer on the subscriptions' fixture cases (`matching-cases.json`) once PR C lands.
 
 ## Questions for the owner (one batch)
+
+> **Answered 2026-10-27 (D67):** 1 — 25 points, a reference. 2 — the credit-note document + a rule; no negative allocation. 3 — the rule shape now, the matcher on the engine, the module's fate at F104. 4 — 6 %.
+
 
 1. **The memory's weight.** 25 points as a reference (so *linked before* + an exact amount = HIGH without any text match) — or a hint of 15 that never makes HIGH alone? The spec says 25: eleven confirmations are stronger evidence than a name in a truncated field.
 2. **Vendor refunds.** Today a refund can only be a rule (categorised, *no document needed*). Should an incoming row be able to **reduce the expense it refunds** (a `justifies` link with a negative allocation — the expense derives *partly refunded by the vendor*), or is the credit-note document as proof plus the rule enough? The spec builds the document path (US5) and leaves the negative allocation out unless you want it (it touches F114's allocation trigger).
