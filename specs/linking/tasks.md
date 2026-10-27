@@ -42,7 +42,7 @@
 ## Part 7 — one engine with memory (F116, `specs/linking/one-engine.md`)
 
 - [x] T020 The spec: the five-line rule, the seven cases, US1–US6, FR-001–FR-010, SC-001–005, the owner's four questions (docs PR, 2026-10-27).
-- [ ] T021 PR A `feat/linking-engine-window` — FR-001–FR-004, FR-009 (scorer, finder, memory), FR-010. Answered (D67) — in progress.
-- [ ] T022 PR B `feat/linking-engine-fx` — FR-005, FR-006. After F114 PR 1 merges.
-- [ ] T023 PR C `feat/banking-rules-engine` — FR-007, FR-008. Question 3 answered: the rule shape now, the module stays to F104.
+- [x] T021 PR A `feat/linking-engine-window` #326 (merged 2026-10-27) — FR-001–FR-004, FR-009 (scorer, finder, inbox, memory, `window.pure.test.ts`, the DB cases in `suggestions.test.ts`), FR-010 (`docs/linking.md`); the Justify panel proposes the remembered partner (`counterpartyMemoryAction`).
+- [x] T022 PR B `feat/linking-engine-fx` (built 2026-10-27) — FR-005 (`crossAllocation`, `withForeignBases`; Apply HIGH still leaves a currency to a click), FR-006 (negative-total documents are incoming proofs); `cross-allocation.pure.test.ts`, the cross / EUR-receipt / refund cases in `suggestions.test.ts`.
+- [ ] T023 PR C `feat/banking-rules-engine` — FR-007, FR-008. Question 3 answered (D67): the rule shape now, the module stays to F104.
 

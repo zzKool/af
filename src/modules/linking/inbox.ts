@@ -16,6 +16,7 @@ import {
   dedupe,
   JUSTIFIABLE,
   SUGGESTIONS_SHOWN,
+  withForeignBases,
   withRemaining,
 } from "./suggestions";
 import type { Confidence, EntityFacts, FlowDirection, Suggestion } from "./types";
@@ -109,8 +110,12 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     if (new D(f.remaining).gt(0)) {
       const memory = memoryOf(f);
       const tokens = tokensOf.get(f.id) ?? new Set<string>();
-      for (const c of pool) {
-        if (!belongs(f.date, tokens, memory, c)) continue;
+      const mine = await withForeignBases(
+        tx,
+        f,
+        pool.filter((c) => belongs(f.date, tokens, memory, c)),
+      );
+      for (const c of mine) {
         const m = scoreMatch(
           {
             amount: f.amount,
