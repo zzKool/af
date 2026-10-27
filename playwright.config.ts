@@ -48,6 +48,8 @@ export default defineConfig({
         reuseExistingServer: true,
         env: {
           DATABASE_URL: "postgresql://af:test@localhost:5433/af_test",
+          // F108: the e2e upload flows wait for the mock's readings; the mock runs only when named
+          OCR_PROVIDER: "mock",
         },
       },
 });

@@ -44,7 +44,7 @@ Unknown/custom prefix types (from tenant configuration in Story 3.4) fall back t
 | Azurite local | Azure cloud | Buffer (`base64Source`) | Azure DI can't reach localhost |
 | Azurite local | Mock | Buffer (N/A) | Mock ignores source |
 
-Detection: `isReachableAzureBlob(blobUrl)` (`documents/jobs/process-document.ts`) — only an `https://*.blob.core.windows.net` URL goes to Azure DI as a SAS link; everything else (Azurite on `127.0.0.1` locally, `http://azurite:10000` inside the prod compose) is sent as bytes. `AZURE_DI_ENDPOINT` set → remote OCR, else the mock.
+Detection: `isReachableAzureBlob(blobUrl)` (`documents/jobs/process-document.ts`) — only an `https://*.blob.core.windows.net` URL goes to Azure DI as a SAS link; everything else (Azurite on `127.0.0.1` locally, `http://azurite:10000` inside the prod compose) is sent as bytes. `OCR_PROVIDER` picks the service (`azure` with both keys, `mock` by name, otherwise a service that fails every call with the configuration error — F108).
 
 ## Quality Classification
 
@@ -103,10 +103,11 @@ Read back by `parseOcrPayload()` in `src/modules/documents/ocr-payload.ts` — t
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `AZURE_DI_ENDPOINT` | No | If not set, mock OCR service used |
-| `AZURE_DI_KEY` | No | Required with endpoint |
+| `OCR_PROVIDER` | No | `azure` (default) or `mock`. **The mock runs only when named** (F108, audit 2026-10-27 B3): it invents readings ("Test Vendor AB · 1 250.00 · INV-2026-001", quality *high*) that the inbox, the scorer and *Make it…* would treat as read facts |
+| `AZURE_DI_ENDPOINT` | With `azure` | Missing → `resolveOcrProvider` returns `none` and every OCR job fails **non-retryable** with the reason (`OCR is not configured (AZURE_DI_KEY not set) — set …`): the document lands on *OCR failed*, the reason is in the audit log and in the app log at `error` |
+| `AZURE_DI_KEY` | With `azure` | Same |
 
-**CI MUST NOT set `AZURE_DI_ENDPOINT`** — prevents accidental real API calls and costs.
+`.env.example` sets `OCR_PROVIDER=mock` (dev); the CI e2e job and the Playwright dev server set it too (their upload flows wait for the mock's readings). **CI MUST NOT set `AZURE_DI_ENDPOINT`** — prevents accidental real API calls and costs. Production sets the two keys and nothing else: a typo there is visible on the first upload, not after a month of invented vendors.
 
 ## Security
 

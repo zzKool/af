@@ -63,7 +63,7 @@ docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 
 **Monitoring**: the container's `HEALTHCHECK` is `/api/health` (database round trip, jobs state, version, uptime); `restart: unless-stopped` brings the app back after a reboot; Sentry stays **off** on the owner's box (D51 — `NEXT_PUBLIC_SENTRY_DSN` empty); the logs are JSON on stdout (`docker compose logs -f app`, `LOG_LEVEL`).
 
-**Azure Document Intelligence** is the one cloud dependency of the homelab stack (OCR): `AZURE_DI_ENDPOINT` / `AZURE_DI_KEY` (F0 free tier, 500 pages a month). Without them the mock OCR runs — fine for a trial, not for real receipts.
+**Azure Document Intelligence** is the one cloud dependency of the homelab stack (OCR): `AZURE_DI_ENDPOINT` / `AZURE_DI_KEY` (F0 free tier, 500 pages a month). Without them every upload's OCR fails with the reason (*OCR is not configured*) — never a mock on the box (F108); the mock is `OCR_PROVIDER=mock`, for dev and tests.
 
 ## Azure (later, scale to zero)
 
