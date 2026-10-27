@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { can, canRole, documentSubject, isTenantAdmin, roleFromMembership } from "./can";
+import {
+  can,
+  canRole,
+  documentSubject,
+  isKnownOrgRole,
+  isTenantAdmin,
+  roleFromMembership,
+} from "./can";
 
 describe("can() — the role table (constitution §6)", () => {
   it("owner and superadmin may do everything in a tenant; only superadmin touches app settings", () => {
@@ -41,6 +48,13 @@ describe("can() — the role table (constitution §6)", () => {
     expect(roleFromMembership("owner")).toBe("owner");
     expect(roleFromMembership("member")).toBe("accountant");
     expect(roleFromMembership("editor")).toBe("editor");
+    // F105: an unknown organisation role is refused before it is mapped — by the pages and the actions alike
+    expect(isKnownOrgRole("owner")).toBe(true);
+    expect(isKnownOrgRole("member")).toBe(true);
+    expect(isKnownOrgRole("editor")).toBe(true);
+    expect(isKnownOrgRole("admin")).toBe(false);
+    expect(isKnownOrgRole(null)).toBe(false);
+    expect(isKnownOrgRole(undefined)).toBe(false);
     expect(roleFromMembership(undefined)).toBe("accountant");
   });
 });

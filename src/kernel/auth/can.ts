@@ -112,6 +112,13 @@ export function isTenantAdmin(identity: Pick<CallerIdentity, "role">): boolean {
   return identity.role === "owner" || identity.role === "superadmin";
 }
 
+/** The Better Auth organisation roles the app knows. Anything else is refused — by the pages and by the actions alike (F105). */
+export const KNOWN_ORG_ROLES: readonly string[] = ["owner", "member", "editor"];
+
+export function isKnownOrgRole(orgRole: string | null | undefined): orgRole is string {
+  return typeof orgRole === "string" && KNOWN_ORG_ROLES.includes(orgRole);
+}
+
 /** Better Auth organisation role → application role. Members are accountants until the editor role is offered in the UI. */
 export function roleFromMembership(orgRole: string | null | undefined): Role {
   if (orgRole === "owner") return "owner";

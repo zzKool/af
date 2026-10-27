@@ -117,7 +117,7 @@ AZURE_DI_ENDPOINT=https://your-instance.cognitiveservices.azure.com
 AZURE_DI_KEY=your-api-key
 ```
 
-Without these, uploads use a mock OCR service that returns fixture data.
+With `OCR_PROVIDER=mock` (the `.env.example` default) uploads get fixture readings from the mock; without it and without the two keys every upload fails its OCR with the reason — the mock is never a fallback (F108).
 
 ## Other useful commands
 

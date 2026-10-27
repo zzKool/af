@@ -5,8 +5,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/kernel/db/client";
 import { getAuthContext } from "./auth";
 import type { CallerIdentity } from "./caller-identity";
-import { type Action, can, roleFromMembership, type Subject } from "./can";
+import { type Action, can, isKnownOrgRole, roleFromMembership, type Subject } from "./can";
 
+/**
+ * The caller of a page, or null: no session, no active tenant, **no membership of that tenant, or an unknown
+ * organisation role** — the same four refusals as the action middleware (`kernel/actions/tenant.ts`). A member
+ * removed from the tenant keeps a session cookie until it expires; the pages must not render for it (F105).
+ */
 export async function getCaller(): Promise<CallerIdentity | null> {
   const hdrs = await headers();
   const auth = await getAuthContext(hdrs);
@@ -15,10 +20,11 @@ export async function getCaller(): Promise<CallerIdentity | null> {
     where: { userId: auth.userId, organizationId: auth.tenantId },
     select: { role: true },
   });
+  if (!member || !isKnownOrgRole(member.role)) return null;
   return {
     userId: auth.userId,
     tenantId: auth.tenantId,
-    role: roleFromMembership(member?.role),
+    role: roleFromMembership(member.role),
     source: "web",
   };
 }

@@ -22,11 +22,13 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json prisma.config.ts ./
 COPY prisma ./prisma
+COPY scripts/set-app-password.mjs ./scripts/
 # the schema engine is fetched on first use (`npm ci --ignore-scripts` skipped it) — fetch it now, with network
 RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma version > /dev/null
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 USER nextjs
-CMD ["npx", "prisma", "migrate", "deploy"]
+# migrate, then set the app role's password from AF_APP_PASSWORD (F105; a no-op without the variable)
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/set-app-password.mjs"]
 
 # Stage 3: Production runtime — the one image: Next.js + pg-boss worker + Chromium (constitution §1.9, §3.6)
 FROM node:22-alpine AS runner

@@ -1,11 +1,12 @@
 // String lookup — server-safe (no React). Dictionaries are data: a new language is one file + one line here.
-import { type Dictionary, en, type MessageKey } from "./dictionaries/en";
+// English is complete; fr and sv are partial (D62): a key they lack shows its English, key by key.
+import { type Dictionary, en, type MessageKey, type PartialDictionary } from "./dictionaries/en";
 import { fr } from "./dictionaries/fr";
 import { sv } from "./dictionaries/sv";
 
-export type { Dictionary, MessageKey };
+export type { Dictionary, MessageKey, PartialDictionary };
 
-const DICTIONARIES: Record<string, Dictionary> = { en, fr, sv };
+const DICTIONARIES: Record<string, PartialDictionary> = { en, fr, sv };
 
 export const SUPPORTED_UI_LANGUAGES = Object.keys(DICTIONARIES) as ReadonlyArray<string>;
 

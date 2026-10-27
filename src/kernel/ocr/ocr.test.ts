@@ -10,6 +10,7 @@ import {
   extractBlobPath,
   MODEL_MAP,
   type OcrSource,
+  resolveOcrProvider,
 } from "@/kernel/ocr/ocr";
 
 // Mock logger
@@ -156,30 +157,60 @@ describe("MODEL_MAP", () => {
 
 // --- Factory tests ---
 
-describe("createOcrService", () => {
-  const origEndpoint = process.env.AZURE_DI_ENDPOINT;
-  const origKey = process.env.AZURE_DI_KEY;
-
-  afterEach(() => {
-    if (origEndpoint) process.env.AZURE_DI_ENDPOINT = origEndpoint;
-    else delete process.env.AZURE_DI_ENDPOINT;
-    if (origKey) process.env.AZURE_DI_KEY = origKey;
-    else delete process.env.AZURE_DI_KEY;
+describe("createOcrService / resolveOcrProvider (F108: the mock only when asked)", () => {
+  it("Azure when both keys are set and nothing says otherwise", () => {
+    expect(
+      resolveOcrProvider({ AZURE_DI_ENDPOINT: "https://di.example", AZURE_DI_KEY: "k" }),
+    ).toEqual({ kind: "azure", endpoint: "https://di.example", apiKey: "k" });
+    expect(
+      resolveOcrProvider({
+        OCR_PROVIDER: "azure",
+        AZURE_DI_ENDPOINT: "https://di.example",
+        AZURE_DI_KEY: "k",
+      }).kind,
+    ).toBe("azure");
   });
 
-  it("returns mock service when env vars not set", () => {
-    delete process.env.AZURE_DI_ENDPOINT;
-    delete process.env.AZURE_DI_KEY;
-    const service = createOcrService();
-    // Mock service should return immediately without API calls
-    expect(service.analyzeDocument).toBeDefined();
+  it("the mock only under OCR_PROVIDER=mock — never as a fallback", () => {
+    expect(resolveOcrProvider({ OCR_PROVIDER: "mock" })).toEqual({ kind: "mock" });
+    expect(resolveOcrProvider({ OCR_PROVIDER: " Mock " })).toEqual({ kind: "mock" });
+    expect(resolveOcrProvider({})).toEqual({
+      kind: "none",
+      reason: "AZURE_DI_ENDPOINT and AZURE_DI_KEY not set",
+    });
+    expect(resolveOcrProvider({ AZURE_DI_ENDPOINT: "https://di.example" })).toEqual({
+      kind: "none",
+      reason: "AZURE_DI_KEY not set",
+    });
+    expect(resolveOcrProvider({ AZURE_DI_ENDPOINT: " ", AZURE_DI_KEY: "k" })).toEqual({
+      kind: "none",
+      reason: "AZURE_DI_ENDPOINT not set",
+    });
+    expect(resolveOcrProvider({ OCR_PROVIDER: "tesseract" })).toEqual({
+      kind: "none",
+      reason: 'unknown OCR_PROVIDER "tesseract"',
+    });
   });
 
-  it("returns Azure service when env vars are set", () => {
-    process.env.AZURE_DI_ENDPOINT = "https://test.cognitiveservices.azure.com";
-    process.env.AZURE_DI_KEY = "test-key";
-    const service = createOcrService();
-    expect(service.analyzeDocument).toBeDefined();
+  it("unconfigured: every analysis fails non-retryable with the reason and the hint", async () => {
+    const service = createOcrService({});
+    const result = await service.analyzeDocument(
+      { type: "buffer", buffer: Buffer.from("x"), mimeType: "application/pdf" },
+      "inv",
+    );
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("unreachable");
+    expect(result.retryable).toBe(false);
+    expect(result.error).toContain("AZURE_DI_ENDPOINT and AZURE_DI_KEY not set");
+    expect(result.error).toContain("OCR_PROVIDER=mock");
+  });
+
+  it("the mock service when asked, the Azure service when configured", () => {
+    expect(createOcrService({ OCR_PROVIDER: "mock" }).analyzeDocument).toBeDefined();
+    expect(
+      createOcrService({ AZURE_DI_ENDPOINT: "https://di.example", AZURE_DI_KEY: "k" })
+        .analyzeDocument,
+    ).toBeDefined();
   });
 });
 
