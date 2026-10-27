@@ -76,7 +76,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 [[audit-2026-10-27]] §3 and §7. **Done 2026-10-27** (one night, twelve PRs): ~~F105~~ close the box · ~~F106~~ one file route · ~~F107~~ fs storage · ~~F108~~ mock OCR gated · ~~F109~~ imports all-or-nothing · ~~F110~~ failed jobs visible · ~~F111~~ rollback + deps · ~~F112~~ admin CLI · ~~F118~~ en only · F120 the docs cuts (the code cuts left) · the lessons · ~~F113 PR A~~ the one transaction table (the spec approved by the owner, the migration, the journal folded into banking, `/journal` gone). Main is on the fs driver with the file route, Sentry and react-query gone, `xlsx` dev-only, one table for a bank movement.
 
 ```
-~~F113 PR A~~ ─► ~~the Justify panel (F97)~~ ─► ~~F114~~ (#318 merged 2026-10-27, PR 2 #319 the package columns) ─► ~~F115~~ (#320) ─► F116 (spec answered 2026-10-27; PR A next)
+~~F113 PR A~~ ─► ~~the Justify panel (F97)~~ ─► ~~F114~~ (#318 merged 2026-10-27, PR 2 #319 the package columns) ─► ~~F115~~ (#320) ─► ~~F116~~ (#326 · #327 · #328 · #329, 2026-10-27/28) — **next: B1, the owner's real month**
                                                      │
                                                      ▼
                                          B1 — one real month on the box (D65)
