@@ -1,4 +1,5 @@
-// UI strings — English is the key set; every other dictionary (fr, sv) is typed against it — a new language is one more file.
+// UI strings — English is the key set and, since D62 (2026-10-27), the only dictionary a change must touch: fr and sv
+// are partial, fall back on English key by key, and are completed in one translation pass at the end.
 // Keys are `<module>.<area>.<name>`; `{name}` placeholders are filled by translate()/useT().
 export const en = {
   "common.save": "Save",
@@ -1911,3 +1912,5 @@ export const en = {
 
 export type MessageKey = keyof typeof en;
 export type Dictionary = Record<MessageKey, string>;
+/** A translation of some keys: what fr and sv are between two translation passes (D62). Unknown keys are refused. */
+export type PartialDictionary = Partial<Dictionary>;
