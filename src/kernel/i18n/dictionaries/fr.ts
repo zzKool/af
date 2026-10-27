@@ -1,6 +1,7 @@
-import type { Dictionary } from "./en";
+// fr: a partial dictionary since D62 — a key missing here shows its English (translate.ts); a key not in en.ts is a type error.
+import type { PartialDictionary } from "./en";
 
-export const fr: Dictionary = {
+export const fr: PartialDictionary = {
   "common.save": "Enregistrer",
   "common.cancel": "Annuler",
   "common.delete": "Supprimer",

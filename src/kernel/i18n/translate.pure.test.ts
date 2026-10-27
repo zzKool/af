@@ -30,17 +30,25 @@ describe("kernel i18n dictionary", () => {
     expect(translate("en", "contracts.rates.error.overlap", { from: "x" })).toContain("{to}");
   });
 
-  it("every dictionary has every key, no empty strings, and the same placeholders as English", () => {
+  it("English has every key non-empty; fr and sv hold no orphan key, no empty string, the same placeholders (D62)", () => {
     const keys = Object.keys(en) as (keyof typeof en)[];
     const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    for (const key of keys) expect(en[key], key).toBeTruthy();
     for (const dict of [fr, sv]) {
-      for (const key of keys) {
-        expect(dict[key], key).toBeTruthy();
-        expect(en[key], key).toBeTruthy();
+      for (const [key, value] of Object.entries(dict) as [keyof typeof en, string][]) {
+        // a translation of a key that no longer exists is dead weight — delete it with the English one
+        expect(keys, `orphan key ${key}`).toContain(key);
+        expect(value, key).toBeTruthy();
         // a translation that drops or misspells a placeholder would show the raw `{name}` on screen
-        expect(placeholders(dict[key]), key).toEqual(placeholders(en[key]));
+        expect(placeholders(value), key).toEqual(placeholders(en[key]));
       }
-      expect(Object.keys(dict).sort()).toEqual([...keys].sort());
     }
+  });
+
+  it("a key the language lacks shows its English, key by key — never the key itself (D62)", () => {
+    const missingInFr = (Object.keys(en) as (keyof typeof en)[]).find((k) => !(k in fr));
+    // today every key is translated; the rule is what matters: fall back per key, not per language
+    if (missingInFr) expect(translate("fr", missingInFr)).toBe(en[missingInFr]);
+    expect(translate("fr", "common.save")).toBe("Enregistrer");
   });
 });

@@ -1,8 +1,9 @@
 // Svenska — typed against the English key set (translate.ts). Terminology follows BAS / Skatteverket usage:
 // faktura, leverantörsfaktura, utlägg, traktamente, moms, kontoutdrag, bokföringsunderlag.
-import type { Dictionary } from "./en";
+// sv: a partial dictionary since D62 — a key missing here shows its English (translate.ts); a key not in en.ts is a type error.
+import type { PartialDictionary } from "./en";
 
-export const sv: Dictionary = {
+export const sv: PartialDictionary = {
   "common.save": "Spara",
   "common.cancel": "Avbryt",
   "common.delete": "Ta bort",
