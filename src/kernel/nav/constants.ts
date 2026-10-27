@@ -227,8 +227,6 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 // App configuration constants (from architecture doc)
 export const DEFAULT_PAGE_SIZE = 50;
 export const MAX_FILE_SIZE_MB = 10;
-export const SIGNED_URL_TTL_SECONDS = 300;
-export const SIGNED_URL_REFRESH_MS = SIGNED_URL_TTL_SECONDS * 0.8 * 1000; // 240_000ms (4 min)
 export const OCR_MAX_RETRIES = 3;
 export const ECB_RATE_STALE_DAYS = 3;
 export const RATE_LIMIT_WINDOW_MS = 60_000;

@@ -9,6 +9,7 @@ import type { ServiceResult } from "@/kernel/errors/app-error";
 import { extractBlobPath } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
 import { createdFromTargets } from "@/modules/linking";
+import { documentFileUrl } from "./file";
 import { parseCorrections, parseOcrPayload, resolveDocumentData } from "./ocr-payload";
 import { type DocumentState, documentState } from "./state-family";
 
@@ -210,9 +211,8 @@ export async function getDocumentDownloadUrl(
     };
   }
 
-  const blobPath = extractBlobPath(doc.blobUrl);
-  const downloadUrl = await storage.generateDownloadUrl(blobPath, doc.fileName);
-  return { data: { downloadUrl } };
+  // F106: the authenticated route, `download=1` — the browser never sees a storage URL
+  return { data: { downloadUrl: documentFileUrl(documentId, { download: true }) } };
 }
 
 export async function getRecentDocuments(

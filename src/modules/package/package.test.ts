@@ -805,7 +805,8 @@ describe("SC-003 — roles; the page's reads", () => {
     const url = await run(accountant, (tx) =>
       documents.getDocumentDownloadUrl(tx, accountant, storage, done.documentId as string),
     );
-    expect(url.data?.downloadUrl).toMatch(/^https:\/\/blob.test\/download\//);
+    // F106: the authenticated route, never a storage URL
+    expect(url.data?.downloadUrl).toBe(`/api/documents/${done.documentId}/file?download=1`);
   });
 
   it("the overview lists the months with live counts and flags, the year, and every build; the preview is the notes", async () => {

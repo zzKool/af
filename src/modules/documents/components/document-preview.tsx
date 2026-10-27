@@ -1,41 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
-import { SIGNED_URL_REFRESH_MS } from "@/kernel/nav/constants";
-import { refreshSignedUrlAction } from "@/modules/documents/documents.actions";
 
 // MUST NOT import server code (except type imports from actions)
 
 // LOCAL worker — NOT CDN (enterprise reliability)
 pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
-/** Route cross-origin Azurite URLs through our same-origin proxy to avoid CORS. */
-function proxyIfLocal(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") {
-      return `/api/blob-proxy?url=${encodeURIComponent(url)}`;
-    }
-  } catch {
-    // not a valid URL — return as-is
-  }
-  return url;
-}
-
 type DocumentPreviewProps = {
-  signedUrl: string;
+  /** the authenticated route `/api/documents/{id}/file` (F106) — same origin, the session cookie goes with it; nothing to refresh */
+  fileUrl: string;
   mimeType: string;
-  documentId: string;
 };
 
-export default function DocumentPreview({ signedUrl, mimeType, documentId }: DocumentPreviewProps) {
+export default function DocumentPreview({ fileUrl, mimeType }: DocumentPreviewProps) {
   const t = useT();
-  const [previewUrl, setPreviewUrl] = useState(proxyIfLocal(signedUrl));
+  const [previewUrl, setPreviewUrl] = useState(fileUrl);
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -45,21 +30,6 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isPdf = mimeType === "application/pdf";
-
-  // Signed URL auto-refresh at 80% TTL
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const result = await refreshSignedUrlAction({ documentId });
-        if (result?.data?.data?.signedUrl) {
-          setPreviewUrl(proxyIfLocal(result.data.data.signedUrl));
-        }
-      } catch {
-        // Signed URL refresh failure is non-fatal — current URL stays active
-      }
-    }, SIGNED_URL_REFRESH_MS);
-    return () => clearInterval(interval);
-  }, [documentId]);
 
   // <Document> destroys its own loading task on unmount (react-pdf ≥ 11 has no destroy on the proxy)
   const onDocumentLoadSuccess = useCallback((pdf: { numPages: number }) => {
@@ -75,10 +45,9 @@ export default function DocumentPreview({ signedUrl, mimeType, documentId }: Doc
   const handleRetry = useCallback(() => {
     setError(false);
     setLoading(true);
-    const proxied = proxyIfLocal(signedUrl);
-    const sep = proxied.includes("?") ? "&" : "?";
-    setPreviewUrl(`${proxied}${sep}retry=${Date.now()}`);
-  }, [signedUrl]);
+    const sep = fileUrl.includes("?") ? "&" : "?";
+    setPreviewUrl(`${fileUrl}${sep}retry=${Date.now()}`);
+  }, [fileUrl]);
 
   const handleRotate = useCallback(() => {
     setRotation((prev) => (prev + 90) % 360);

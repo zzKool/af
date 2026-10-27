@@ -4,9 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 // --- Hoisted mocks ---
-const { mockRefreshAction } = vi.hoisted(() => ({
-  mockRefreshAction: vi.fn(),
-}));
 
 // Mock react-pdf — must come before import
 vi.mock("react-pdf", () => ({
@@ -40,28 +37,17 @@ vi.mock("react-pdf", () => ({
 vi.mock("react-pdf/dist/Page/AnnotationLayer.css", () => ({}));
 vi.mock("react-pdf/dist/Page/TextLayer.css", () => ({}));
 
-// Mock server actions
-vi.mock("@/modules/documents/documents.actions", () => ({
-  refreshSignedUrlAction: mockRefreshAction,
-}));
-
-// Mock constants
-vi.mock("@/kernel/nav/constants", () => ({
-  SIGNED_URL_REFRESH_MS: 240_000,
-}));
-
 import DocumentPreview from "@/modules/documents/components/document-preview";
 
+// F106: the preview takes the authenticated route's path — same origin, nothing to sign or refresh
 const pdfProps = {
-  signedUrl: "https://blob.test/doc.pdf?sig=abc",
+  fileUrl: "/api/documents/doc-123/file",
   mimeType: "application/pdf",
-  documentId: "doc-123",
 };
 
 const imageProps = {
-  signedUrl: "https://blob.test/receipt.jpg?sig=abc",
+  fileUrl: "/api/documents/doc-456/file",
   mimeType: "image/jpeg",
-  documentId: "doc-456",
 };
 
 describe("DocumentPreview", () => {
@@ -72,7 +58,6 @@ describe("DocumentPreview", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
-    mockRefreshAction.mockReset();
   });
 
   // --- PDF rendering ---
@@ -87,7 +72,7 @@ describe("DocumentPreview", () => {
     render(<DocumentPreview {...imageProps} />);
     const img = screen.getByAltText("Document preview") as HTMLImageElement;
     expect(img).toBeInTheDocument();
-    expect(img.src).toContain("receipt.jpg");
+    expect(img.src).toContain("/api/documents/doc-456/file"); // F106: the route, same origin
   });
 
   // --- Zoom ---
@@ -159,45 +144,18 @@ describe("DocumentPreview", () => {
 
   // --- Error state ---
   it("shows error message and retry button on load failure", () => {
-    render(
-      <DocumentPreview
-        signedUrl="https://blob.test/fail.pdf?sig=abc"
-        mimeType="application/pdf"
-        documentId="doc-err"
-      />,
-    );
+    render(<DocumentPreview fileUrl="/api/documents/fail/file" mimeType="application/pdf" />);
     expect(screen.getByText("Unable to load preview")).toBeInTheDocument();
     expect(screen.getByText("Retry")).toBeInTheDocument();
   });
 
   it("retries on retry button click", () => {
-    render(
-      <DocumentPreview
-        signedUrl="https://blob.test/fail.pdf?sig=abc"
-        mimeType="application/pdf"
-        documentId="doc-err"
-      />,
-    );
+    render(<DocumentPreview fileUrl="/api/documents/fail/file" mimeType="application/pdf" />);
 
     fireEvent.click(screen.getByText("Retry"));
     // After retry the URL changes (adds retry param) but still contains "fail",
     // so the mock triggers error again — verifies the retry mechanism fires
     expect(screen.getByText("Unable to load preview")).toBeInTheDocument();
-  });
-
-  // --- Signed URL refresh ---
-  it("auto-refreshes signed URL at 80% TTL", async () => {
-    mockRefreshAction.mockResolvedValue({
-      data: { data: { signedUrl: "https://blob.test/doc.pdf?sig=refreshed" } },
-    });
-
-    render(<DocumentPreview {...pdfProps} />);
-
-    await act(async () => {
-      vi.advanceTimersByTime(240_000);
-    });
-
-    expect(mockRefreshAction).toHaveBeenCalledWith({ documentId: "doc-123" });
   });
 
   // --- ARIA ---

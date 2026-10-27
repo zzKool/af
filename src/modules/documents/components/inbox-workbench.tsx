@@ -29,10 +29,10 @@ import {
   archiveDocumentsAction,
   listInboxAction,
   markDocumentReviewedAction,
-  refreshSignedUrlAction,
   runOcrAction,
   unarchiveDocumentsAction,
 } from "@/modules/documents/documents.actions";
+import { documentFileUrl } from "@/modules/documents/file";
 import type { InboxState, InboxTab } from "@/modules/documents/inbox";
 import type { InboxData, InboxItem } from "@/modules/documents/queries";
 import { NewExpenseDialog } from "@/modules/expenses/ui";
@@ -670,19 +670,8 @@ function InboxPane({
   onLinked: () => void;
 }) {
   const t = useT();
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const { executeAsync: signUrl } = useAction(refreshSignedUrlAction);
-
-  useEffect(() => {
-    let cancelled = false;
-    void signUrl({ documentId: row.id }).then((r) => {
-      const url = r?.data && "data" in r.data ? r.data.data?.signedUrl : undefined;
-      if (!cancelled && url) setSignedUrl(url);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [row.id, signUrl]);
+  // F106: the bytes come from the authenticated route — a pure path from the id, nothing to fetch first
+  const fileUrl = documentFileUrl(row.id);
 
   const f = row.facts;
   const facts: [MessageKey, ReactNode][] = [
@@ -831,11 +820,7 @@ function InboxPane({
 
       <DetailsSection title={t("documents.preview.label")}>
         <div className="overflow-hidden rounded-lg border bg-background" style={{ height: "60vh" }}>
-          {signedUrl ? (
-            <DocumentPreview signedUrl={signedUrl} mimeType={row.mimeType} documentId={row.id} />
-          ) : (
-            <div className="h-full animate-pulse bg-muted" />
-          )}
+          <DocumentPreview fileUrl={fileUrl} mimeType={row.mimeType} />
         </div>
       </DetailsSection>
     </div>

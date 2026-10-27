@@ -88,13 +88,9 @@ Organization: **Dev AB** (slug: `dev-ab`, org number: `556677-8899`)
 
 The seed is idempotent — safe to run multiple times.
 
-## 6. Set up Azurite CORS
+## 6. Azurite CORS — no longer needed for previews
 
-```bash
-npm run dev:setup
-```
-
-This configures CORS rules on Azurite so the browser can load document previews. Run once after `docker compose up -d` (persisted in the Azurite volume).
+Since F106 the browser reads documents through `/api/documents/[id]/file` (same origin); Azurite is only ever reached by the server. `npm run dev:setup` still sets CORS rules on Azurite for anything that might talk to it directly — harmless, not required.
 
 ## 7. Start the dev server
 

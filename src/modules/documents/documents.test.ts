@@ -888,7 +888,7 @@ describe("documents service", () => {
       // Verify both corrections are preserved (atomic JSONB merge, no lost updates)
       mockGenerateSasUrl.mockResolvedValue("https://signed.url/doc");
       const final = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentForReview(tx, owner.callerIdentity, mockStorage, docId);
+        return documentService.getDocumentForReview(tx, owner.callerIdentity, docId);
       });
 
       expect(final.data?.corrections).toMatchObject({
@@ -1325,11 +1325,11 @@ describe("documents service", () => {
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentForReview(tx, owner.callerIdentity, mockStorage, docId);
+        return documentService.getDocumentForReview(tx, owner.callerIdentity, docId);
       });
 
       expect(result.data).toBeDefined();
-      expect(result.data?.signedUrl).toBe("https://signed.url/doc");
+      expect(result.data?.fileUrl).toBe(`/api/documents/${docId}/file`); // F106: the route, never a storage URL
       expect(result.data?.extractedData?.vendorName).toBe("TestCo");
       expect(result.data?.quality).toBe("high");
       expect(result.data?.readOnly).toBe(false);
@@ -1374,7 +1374,7 @@ describe("documents service", () => {
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentForReview(tx, owner.callerIdentity, mockStorage, docId);
+        return documentService.getDocumentForReview(tx, owner.callerIdentity, docId);
       });
 
       expect(result.data?.resolvedData.vendorName).toBe("Corrected");
@@ -1406,12 +1406,7 @@ describe("documents service", () => {
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentForReview(
-          tx,
-          accountant.callerIdentity,
-          mockStorage,
-          docId,
-        );
+        return documentService.getDocumentForReview(tx, accountant.callerIdentity, docId);
       });
 
       expect(result.error?.code).toBe("FORBIDDEN");
@@ -1442,12 +1437,7 @@ describe("documents service", () => {
       });
 
       const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-        return documentService.getDocumentForReview(
-          tx,
-          accountant.callerIdentity,
-          mockStorage,
-          docId,
-        );
+        return documentService.getDocumentForReview(tx, accountant.callerIdentity, docId);
       });
 
       expect(result.data?.readOnly).toBe(true);

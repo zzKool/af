@@ -160,11 +160,7 @@ export function DocumentReviewClient({
             className="overflow-hidden rounded-lg border bg-background"
             style={{ height: "calc(100vh - 200px)" }}
           >
-            <DocumentPreview
-              signedUrl={data.signedUrl}
-              mimeType={data.mimeType}
-              documentId={data.id}
-            />
+            <DocumentPreview fileUrl={data.fileUrl} mimeType={data.mimeType} />
           </div>
         </div>
 

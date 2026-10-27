@@ -116,12 +116,7 @@ export const getDocumentForReviewAction = authedAction
   .schema(documentIdSchema)
   .metadata({ name: "getDocumentForReview" })
   .action(async ({ ctx, parsedInput }) => {
-    return documentService.getDocumentForReview(
-      ctx.tx,
-      ctx.callerIdentity,
-      getStorage(),
-      parsedInput.documentId,
-    );
+    return documentService.getDocumentForReview(ctx.tx, ctx.callerIdentity, parsedInput.documentId);
   });
 
 const correctionsSchema = z.object({
@@ -182,18 +177,6 @@ export const markDocumentReviewedAction = authedAction
       ctx.callerIdentity,
       ctx.audit,
       clock,
-      parsedInput.documentId,
-    );
-  });
-
-export const refreshSignedUrlAction = authedAction
-  .schema(documentIdSchema)
-  .metadata({ name: "refreshSignedUrl" })
-  .action(async ({ ctx, parsedInput }) => {
-    return documentService.refreshSignedUrl(
-      ctx.tx,
-      ctx.callerIdentity,
-      getStorage(),
       parsedInput.documentId,
     );
   });

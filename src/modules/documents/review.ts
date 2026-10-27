@@ -6,11 +6,11 @@ import { can, documentSubject } from "@/kernel/auth/can";
 import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import { SIGNED_URL_TTL_SECONDS } from "@/kernel/nav/constants";
 import { extractBlobPath, type OcrExtractedData, ocrModelFor } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
 import { getDocumentClassification } from "@/modules/documents/business-key";
 import { isUploadKind, reprefixUploadKey } from "@/modules/numbering";
+import { documentFileUrl } from "./file";
 import { isDocumentLinked } from "./linkable";
 import {
   type CorrectionsPatch,
@@ -33,7 +33,8 @@ export type DocumentReviewData = {
   documentType: string;
   status: string;
   createdAt: Date;
-  signedUrl: string;
+  /** the authenticated route serving the bytes (F106) — never a storage URL */
+  fileUrl: string;
   extractedData: OcrExtractedData | null;
   corrections: Partial<OcrExtractedData> | null;
   resolvedData: Partial<OcrExtractedData>;
@@ -137,7 +138,6 @@ export async function getDocumentOcrData(
 export async function getDocumentForReview(
   tx: TransactionClient,
   caller: CallerIdentity,
-  storage: StorageService,
   documentId: string,
 ): Promise<ServiceResult<DocumentReviewData>> {
   const doc = await tx.document.findUnique({ where: { id: documentId } });
@@ -166,10 +166,6 @@ export async function getDocumentForReview(
   const corrections = parseCorrections(doc.corrections);
   const resolvedData = resolveDocumentData(extractedData, corrections);
 
-  // Generate signed URL
-  const blobPath = extractBlobPath(doc.blobUrl);
-  const signedUrl = await storage.generateSasUrl(blobPath, SIGNED_URL_TTL_SECONDS / 60);
-
   return {
     data: {
       id: doc.id,
@@ -181,7 +177,7 @@ export async function getDocumentForReview(
       documentType: doc.documentType,
       status: doc.status,
       createdAt: doc.createdAt,
-      signedUrl,
+      fileUrl: documentFileUrl(doc.id),
       extractedData,
       corrections,
       resolvedData,
@@ -406,37 +402,4 @@ export async function markDocumentReviewed(
   });
 
   return { data: { reviewedAt, reviewedBy: caller.userId } };
-}
-
-export async function refreshSignedUrl(
-  tx: TransactionClient,
-  caller: CallerIdentity,
-  storage: StorageService,
-  documentId: string,
-): Promise<ServiceResult<{ signedUrl: string }>> {
-  const doc = await tx.document.findUnique({
-    where: { id: documentId },
-    select: { blobUrl: true, documentType: true },
-  });
-  if (!doc) {
-    return {
-      error: { code: "NOT_FOUND", message: `Document not found: ${documentId}`, retryable: false },
-    };
-  }
-
-  // Accountant: financial only
-  if (!can(caller, "read", documentSubject(doc.documentType))) {
-    return {
-      error: {
-        code: "FORBIDDEN",
-        message: "Access denied to non-financial documents",
-        retryable: false,
-      },
-    };
-  }
-
-  const blobPath = extractBlobPath(doc.blobUrl);
-  const signedUrl = await storage.generateSasUrl(blobPath, SIGNED_URL_TTL_SECONDS / 60);
-
-  return { data: { signedUrl } };
 }
