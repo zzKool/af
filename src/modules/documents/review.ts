@@ -9,6 +9,7 @@ import type { ServiceResult } from "@/kernel/errors/app-error";
 import { extractBlobPath, type OcrExtractedData, ocrModelFor } from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
 import { getDocumentClassification } from "@/modules/documents/business-key";
+import * as linking from "@/modules/linking";
 import { isUploadKind, reprefixUploadKey } from "@/modules/numbering";
 import { documentFileUrl } from "./file";
 import { isDocumentLinked } from "./linkable";
@@ -210,6 +211,19 @@ export async function updateDocumentCorrections(
   if (!parsed.success) {
     return {
       error: { code: "VALIDATION_ERROR", message: "Invalid correction data", retryable: false },
+    };
+  }
+  // F97 US5 (review 2026-10-26 §1.3b): once the document became something, the entity is the truth and the
+  // document's facts a reading of it — corrected on the entity, never here (the two never diverge)
+  const became = (await linking.createdFromTargets(tx, [documentId])).get(documentId);
+  if (became) {
+    return {
+      error: {
+        code: "BUSINESS_RULE_VIOLATION",
+        message: `This document became ${became.type === "expense" ? "an expense" : "a supplier invoice"} — edit it there`,
+        retryable: false,
+        details: { becameType: became.type, becameId: became.id },
+      },
     };
   }
   const patchJson = JSON.stringify(parsed.data);

@@ -196,6 +196,9 @@ test.describe("Document review page — owner", () => {
     await expect(page.getByTestId("make-it")).toHaveCount(0);
     const href = await page.getByTestId("became-chip").getAttribute("href");
     expect(href).toMatch(/^\/expenses\?open=[0-9a-f-]{36}$/);
+    // F97 US5: the entity is the truth now — the banner says so, the form is read-only
+    await expect(page.getByTestId("became-banner")).toContainText(/became Ex\d+-\w+-\d+/);
+    await expect(page.locator("#vendorName")).toBeDisabled();
 
     // FR-005: the library says it too — Expense {key}, linking to the same expense
     const docKey = (await page.getByTestId("document-review-key").textContent())?.trim() ?? "";

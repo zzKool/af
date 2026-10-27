@@ -18,4 +18,4 @@ Spec: `spec.md`. The lane: spec (approved by the owner's *go*, 2026-10-27) → b
 - [ ] T009 `/banking/inbox` labelled *Work*, first, with the one count (rows to justify + documents to review); `nav.*` keys; the nav tests and `e2e/auth.spec.ts`
 
 ## PR 4 — US5
-- [ ] T010 `updateDocumentCorrectionsAction` refuses a document with a `created_from` link; the review client read-only with the banner *This document became … — edit it there*; `docs/document-review.md`
+- [x] T010 `updateDocumentCorrections` refuses a document with a `created_from` link (`BUSINESS_RULE_VIOLATION`, *became an expense — edit it there*, through `linking.createdFromTargets`); the review client renders the form read-only under the banner *This document became {key} — its facts are read here and edited there* with *Edit on the entity →*; `documents.test.ts`, the document-review e2e asserts the banner and a disabled field; `docs/document-review.md`

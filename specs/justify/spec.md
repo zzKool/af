@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: US1 + US3 built 2026-10-27 (`feat/linking-justify`); US2, US4, US5 next — each its own PR
+**Status**: Built 2026-10-27 — US1 + US3 (#312), US4 (#313), US2 (#314), US5 (`feat/documents-became-readonly`)
 
 **Input**: [[review-2026-10-26]] §1.1–1.4, §2: "select a transaction and upload a supplier invoice; DI extracts; done." Swedish bookkeeping is proof-per-transaction: the row is the fact, the document is its evidence. Today the proof always starts on `/documents`; the row offers *links · transfer · create rule* and the inbox *l = Link to…*, *c = categorise*.
 
