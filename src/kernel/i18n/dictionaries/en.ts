@@ -15,6 +15,7 @@ export const en = {
 
   // --- nav (the sidebar and the breadcrumb) ---
   "nav.dashboard": "Dashboard",
+  "nav.work": "Work",
   "nav.documents": "Documents",
   "nav.banking": "Banking",
   "nav.partners": "Partners",
