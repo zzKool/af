@@ -1,5 +1,6 @@
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
+import * as partners from "@/modules/partners";
 
 type ExpenseRow = {
   id: string;
@@ -10,6 +11,7 @@ type ExpenseRow = {
   currency: string;
   amountBase: { toFixed(n: number): string };
   note: string | null;
+  partnerId: string | null;
   group: { number: number; description: string };
 };
 
@@ -22,11 +24,15 @@ const EXPENSE_SELECT = {
   currency: true,
   amountBase: true,
   note: true,
+  partnerId: true,
   group: { select: { number: true, description: true } },
 } as const;
 
 /** The matcher's view: the receipt's amount in its currency, keyed `Ex213-Tr-01`, dated the receipt's day. */
-function expenseFacts(e: ExpenseRow): Omit<EntityFacts, "remaining"> {
+function expenseFacts(
+  e: ExpenseRow,
+  partnerName: string | null = null,
+): Omit<EntityFacts, "remaining"> {
   return {
     type: "expense",
     id: e.id,
@@ -36,11 +42,22 @@ function expenseFacts(e: ExpenseRow): Omit<EntityFacts, "remaining"> {
     amountBase: e.amountBase.toFixed(2),
     date: e.date.toISOString().slice(0, 10),
     reference: e.key,
-    partnerName: null,
+    partnerName,
+    partnerId: e.partnerId,
     texts: [e.key, e.description, `${e.group.number} — ${e.group.description}`, e.note ?? ""],
     keywords: e.description.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4),
     direction: "outgoing",
   };
+}
+
+/** The facts with the partners' names — the scorer matches them and the memory names them (F116). */
+async function toFacts(
+  tx: TransactionClient,
+  rows: readonly ExpenseRow[],
+): Promise<Omit<EntityFacts, "remaining">[]> {
+  const ids = [...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : [])))];
+  const names = ids.length ? await partners.partnerNames(tx, ids) : new Map<string, string>();
+  return rows.map((e) => expenseFacts(e, e.partnerId ? (names.get(e.partnerId) ?? null) : null));
 }
 
 /**
@@ -78,7 +95,16 @@ export const expenseLinkable: Linkable = {
   },
   async facts(tx: TransactionClient, id: string) {
     const e = await tx.expense.findUnique({ where: { id }, select: EXPENSE_SELECT });
-    return e ? expenseFacts(e) : null;
+    return e ? ((await toFacts(tx, [e]))[0] ?? null) : null;
+  },
+  /** Many at once — the counterparty memory reads the partners of what rows were linked to (F116). */
+  async factsMany(tx: TransactionClient, ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await tx.expense.findMany({
+      where: { id: { in: [...ids] } },
+      select: EXPENSE_SELECT,
+    });
+    return toFacts(tx, rows);
   },
   /** Company-paid expenses dated inside the (wider) window; linking drops the ones with nothing left open. */
   async candidates(tx: TransactionClient, q: CandidateQuery) {
@@ -92,7 +118,7 @@ export const expenseLinkable: Linkable = {
       orderBy: [{ date: "desc" }],
       take: q.limit,
     });
-    return rows.map(expenseFacts);
+    return toFacts(tx, rows);
   },
   async search(tx: TransactionClient, q: string, limit: number) {
     const rows = await tx.expense.findMany({
@@ -107,6 +133,6 @@ export const expenseLinkable: Linkable = {
       orderBy: [{ date: "desc" }],
       take: limit,
     });
-    return rows.map(expenseFacts);
+    return toFacts(tx, rows);
   },
 };

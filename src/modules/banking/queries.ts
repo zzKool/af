@@ -242,6 +242,18 @@ function searchHit(row: TransactionListRow, term: string): boolean {
   ].some((v) => (v ?? "").toLowerCase().includes(t));
 }
 
+/** The accounts a rule may be bound to (F116 PR C1): the statement accounts — a private instrument has no rows. */
+export async function ruleAccountOptions(
+  tx: TransactionClient,
+): Promise<{ id: string; label: string }[]> {
+  const rows = await tx.bankAccount.findMany({
+    where: { bankFormatId: { not: null } },
+    select: { id: true, accountAlias: true, accountNumber: true, currency: true },
+    orderBy: [{ role: "asc" }, { currency: "asc" }],
+  });
+  return rows.map((a) => ({ id: a.id, label: accountLabel(a) }));
+}
+
 /** The ids of the main accounts (SEK / CHF) — what the inbox and the settle page consider. */
 export async function listMainAccountIds(tx: TransactionClient): Promise<string[]> {
   const rows = await tx.bankAccount.findMany({ where: { role: "main" }, select: { id: true } });

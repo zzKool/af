@@ -157,10 +157,11 @@ const V3: Record<string, { confidence: Confidence; score: number; reasons: strin
     reasons: ["Client name match", "Exact amount match", "Within 5 days"],
   },
   // name + approximate amount (1 500 vs 1 000): a lead, never HIGH — LOW 40 → MEDIUM 65
+  // F116 FR-002: an amount more than 10 % off is no claim — no points, no "approximate" reason
   "inv-large-amount-diff": {
     confidence: "MEDIUM",
-    score: 65,
-    reasons: ["Client name match", "Approximate amount match", "Same date"],
+    score: 55,
+    reasons: ["Client name match", "Same date"],
   },
   // same result, v3 wording for an expense's key (`Ex213-Tr-01`); the claimant is the owner, never scored
   "expense-claim-number-and-name": {
@@ -347,7 +348,7 @@ describe("properties (SC-002)", () => {
       fc.property(
         fc.array(fc.tuple(arbRow, arbEntity), { minLength: 1, maxLength: 8 }),
         (pairs) => {
-          const items = pairs.map(([r, e], i) => {
+          const items = pairs.flatMap(([r, e], i) => {
             const cand: EntityFacts = {
               type: "invoice",
               id: `id-${i}`,
@@ -372,7 +373,8 @@ describe("properties (SC-002)", () => {
               },
               cand,
             );
-            if (!m) throw new Error("same currency is always comparable");
+            // same currency: dropped only when the date is the one claim (F116 FR-002)
+            if (!m) return [];
             if (m.confidence === "HIGH") expect(m.score).toBeGreaterThanOrEqual(60);
             // the rule as the spec states it (HIGH = score ≥ 80, or a reference with ≥ 60 unless the amount is
             // only approximate; MEDIUM ≥ 50; else LOW) — written out, not recomputed with confidenceOf (audit 31)
@@ -384,7 +386,12 @@ describe("properties (SC-002)", () => {
                   ? "MEDIUM"
                   : "LOW";
             expect(m.confidence).toBe(expected);
-            return { ...m, candidate: cand, allocation: null };
+            // every point is a claim (F116): no reason, no score — and a lone date is never a suggestion
+            expect(m.reasons.length).toBeGreaterThan(0);
+            expect(
+              m.reasons.some((x) => !/^(Same date|Within \d+ days|\d+ days apart)$/.test(x)),
+            ).toBe(true);
+            return [{ ...m, candidate: cand, allocation: null }];
           });
           const a = rank(items).map((x) => x.candidate.id);
           const b = rank(items.slice().reverse()).map((x) => x.candidate.id);
@@ -424,11 +431,12 @@ describe("a receipt whose currency was not read (F61-b)", () => {
   });
 
   it("never scores as SEK: the same amount on a SEK row earns no amount points", () => {
-    const m = scoreMatch(row("SEK", "-45.90", "KORTKÖP RANDOM SHOP"), receipt);
-    expect(m).not.toBeNull();
+    // the date alone is no suggestion (F116) — and the amount, unread, claims nothing
+    expect(scoreMatch(row("SEK", "-45.90", "KORTKÖP RANDOM SHOP"), receipt)).toBeNull();
+    const m = scoreMatch(row("SEK", "-45.90", "KORTKÖP MIGROS"), receipt);
     expect(m?.reasons.some((r) => /amount/i.test(r))).toBe(false);
     expect(m?.reasons.some((r) => /currency/i.test(r))).toBe(false);
-    expect(m?.score).toBe(30); // the date only
+    expect(m?.score).toBe(55); // the name and the date
     expect(m?.crossCurrency).toBe(false);
   });
 
@@ -441,8 +449,8 @@ describe("a receipt whose currency was not read (F61-b)", () => {
     expect(chf?.reasons).toEqual(["Partner name match", "Same date"]);
   });
 
-  it("is not dropped without a reference either (a SEK-defaulted CHF pair used to be)", () => {
-    expect(scoreMatch(row("CHF", "-99.00", "SOMETHING ELSE"), receipt)?.score).toBe(30);
+  it("is not dropped as cross-currency (a SEK-defaulted CHF pair used to be): the name still scores", () => {
+    expect(scoreMatch(row("CHF", "-99.00", "MIGROS ZÜRICH"), receipt)?.score).toBe(55);
   });
 
   it("proposes no allocation, whatever the remainders", () => {

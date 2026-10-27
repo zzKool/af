@@ -23,6 +23,7 @@ const ROW_SELECT = {
   recipient: true,
   amountBase: true,
   partnerId: true,
+  counterpartyKey: true,
   bankAccount: true,
 } as const satisfies Prisma.BankTransactionSelect;
 
@@ -48,6 +49,8 @@ async function toFacts(
       date,
       reference: null,
       partnerName: t.partnerId ? (names.get(t.partnerId) ?? null) : null,
+      partnerId: t.partnerId,
+      counterpartyKey: t.counterpartyKey,
       texts: [t.name, t.message, t.additionalDetails, t.sender, t.recipient, t.description].map(
         (s) => s ?? "",
       ),
@@ -111,6 +114,23 @@ export const bankTransactionLinkable: Linkable = {
       take: q.limit,
     });
     return toFacts(tx, rows);
+  },
+  /** The rows of each counterparty key, newest first — what the counterparty memory reads the links of (F116). */
+  async rowsByCounterparty(tx: TransactionClient, keys: readonly string[], limit: number) {
+    const out = new Map<string, string[]>();
+    if (keys.length === 0) return out;
+    const rows = await tx.bankTransaction.findMany({
+      where: { counterpartyKey: { in: [...keys] } },
+      select: { id: true, counterpartyKey: true },
+      orderBy: [{ bookingDate: "desc" }],
+      take: limit * keys.length,
+    });
+    for (const r of rows) {
+      const list = out.get(r.counterpartyKey) ?? [];
+      if (list.length < limit) list.push(r.id);
+      out.set(r.counterpartyKey, list);
+    }
+    return out;
   },
   async search(tx: TransactionClient, q: string, limit: number) {
     const rows = await tx.bankTransaction.findMany({

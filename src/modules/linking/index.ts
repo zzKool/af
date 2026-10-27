@@ -55,6 +55,7 @@ export { createLink, type LinkWriteOptions, removeLink, toLinkDto } from "./link
 export {
   applySuggestionAction,
   bulkApplyHighAction,
+  counterpartyMemoryAction,
   createLinkAction,
   getAllocationStatusAction,
   getLinksForAction,
@@ -65,6 +66,7 @@ export {
   suggestionsForEntityAction,
   suggestionsForTransactionAction,
 } from "./linking.actions";
+export { memoryForKeys, memoryForRow, rememberedPartners } from "./memory";
 export {
   type ProposeForRowsData,
   proposalJobs,
@@ -91,22 +93,27 @@ export * from "./proposals/proposals.actions";
 export * from "./queries";
 export {
   AMBIGUITY_GAP,
+  amountTier,
   CROSS_CURRENCY_TOLERANCE,
   confidenceOf,
+  dateClaim,
   daysBetween,
+  type Memory,
+  nameTokens,
   partialTokens,
   type RowFacts,
   rank,
+  referenceTokens,
   scoreMatch,
   WEIGHTS,
 } from "./scoring";
 export {
   type ApplyInput,
   applySuggestion,
+  belongs,
   bulkApplyHigh,
   CANDIDATES_PER_TYPE,
-  DATE_WINDOW_DAYS,
-  DEFAULT_WINDOW_DAYS,
+  candidateQuery,
   JUSTIFIABLE,
   rowFacts,
   SUGGESTIONS_SHOWN,
@@ -116,3 +123,14 @@ export {
 } from "./suggestions";
 export type * from "./types";
 export { LINK_KINDS } from "./types";
+export {
+  AFTER_DUE_DAYS,
+  BEFORE_ISSUE_DAYS,
+  DATED_WINDOW_DAYS,
+  EXTRA_CANDIDATES,
+  HAS_TERMS,
+  inWindow,
+  MIN_TERMS_DAYS,
+  paymentWindow,
+  termsSpan,
+} from "./window";

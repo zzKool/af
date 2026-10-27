@@ -9,7 +9,7 @@ Spec: `specs/ai/spec.md` (approved 2026-10-27). PR 1 = everything but the model 
 - **The memory that exists today is banking's own history**, not F116's link memory (`memoryFor`, not built): the rows with the same `counterparty_key` whose category / partner the owner set by hand. That is US1 exactly, and it is banking's data → `banking.categoryMemory(tx, keys)`. F116's link memory joins it as a fourth input when it lands (one call in `stage1.ts`).
 - **The composite FK RESTRICT would block `deleteImport`** once a row has a proposal. D63 forbids a cascade across modules; banking's `deleteImport` calls `linking.dropProposalsFor(tx, ids)` first (linking writes its own table; banking already reads linking's index).
 
-## Schema (`prisma/schema/linking.prisma`, migration `20261028090000_add_proposals`)
+## Schema (`prisma/schema/linking.prisma`, migration `20261028120000_add_proposals`)
 
 ```
 enum proposal_target   bank_transaction

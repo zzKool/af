@@ -31,10 +31,21 @@ import {
   testRuleAction,
   updateRuleAction,
 } from "@/modules/banking/banking.actions";
-import type { CategorisationRuleDto, RuleMatchField, RuleMatchType } from "@/modules/banking/types";
+import type {
+  CategorisationRuleDto,
+  RuleCadence,
+  RuleMatchField,
+  RuleMatchType,
+  RuleSign,
+} from "@/modules/banking/types";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 
 const NONE = "__none__";
+const SIGNS: RuleSign[] = ["any", "in", "out"];
+const CADENCES: RuleCadence[] = ["none", "monthly", "quarterly", "yearly"];
+
+/** An account a rule may be bound to (the statement accounts — a private instrument has no rows). */
+export type RuleAccountOption = { id: string; label: string };
 const TYPES: RuleMatchType[] = ["contains", "starts_with", "ends_with", "exact", "regex"];
 const FIELDS: RuleMatchField[] = [
   "counterparty_key",
@@ -57,6 +68,11 @@ export type RuleEditable = Pick<
   | "partnerId"
   | "noDocumentNeeded"
   | "priority"
+  | "bankAccountId"
+  | "sign"
+  | "expectedAmount"
+  | "tolerancePct"
+  | "cadence"
 >;
 
 export type RuleDraft = {
@@ -68,6 +84,12 @@ export type RuleDraft = {
   partnerId: string | null;
   noDocumentNeeded: boolean;
   priority: number;
+  /** F116 PR C1 — the conditions beyond the text */
+  bankAccountId: string | null;
+  sign: RuleSign;
+  expectedAmount: string;
+  tolerancePct: string;
+  cadence: RuleCadence;
 };
 
 export function RuleDialog({
@@ -78,6 +100,7 @@ export function RuleDialog({
   fromTransactionId,
   categories,
   partners,
+  accounts = [],
   onSaved,
 }: {
   open: boolean;
@@ -90,6 +113,8 @@ export function RuleDialog({
   fromTransactionId?: string | null;
   categories: CategoryOption[];
   partners: PartnerOption[];
+  /** the accounts a rule may be bound to */
+  accounts?: RuleAccountOption[];
   onSaved?: (rule: CategorisationRuleDto) => void;
 }) {
   const t = useT();
@@ -139,6 +164,11 @@ export function RuleDialog({
       partnerId: draft.partnerId,
       noDocumentNeeded: draft.noDocumentNeeded,
       priority: draft.priority,
+      bankAccountId: draft.bankAccountId,
+      sign: draft.sign,
+      expectedAmount: draft.expectedAmount.trim() ? draft.expectedAmount.trim() : null,
+      tolerancePct: draft.tolerancePct.trim() || "0.5",
+      cadence: draft.cadence,
     };
     const r = rule
       ? await update({ id: rule.id, ...payload })
@@ -279,6 +309,118 @@ export function RuleDialog({
               </SelectContent>
             </Select>
           </div>
+          {/* F116 PR C1: only when… — the account, the direction, the amount, the rhythm */}
+          <fieldset
+            className="grid gap-2 rounded-md border border-subtle p-2"
+            data-testid="rule-conditions"
+          >
+            <legend className="px-1 text-xs font-medium">{t("banking.rules.form.onlyWhen")}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label htmlFor={`${ids}-account`} className="mb-1 block text-xs">
+                  {t("banking.rules.form.account")}
+                </label>
+                <Select
+                  value={draft.bankAccountId ?? NONE}
+                  onValueChange={(v) =>
+                    setDraft({ ...draft, bankAccountId: !v || v === NONE ? null : v })
+                  }
+                >
+                  <SelectTrigger
+                    id={`${ids}-account`}
+                    className="w-full"
+                    data-testid="rule-account"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>{t("banking.rules.form.anyAccount")}</SelectItem>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor={`${ids}-sign`} className="mb-1 block text-xs">
+                  {t("banking.rules.form.sign")}
+                </label>
+                <Select
+                  value={draft.sign}
+                  onValueChange={(v) => v && setDraft({ ...draft, sign: v as RuleSign })}
+                >
+                  <SelectTrigger id={`${ids}-sign`} className="w-full" data-testid="rule-sign">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SIGNS.map((x) => (
+                      <SelectItem key={x} value={x}>
+                        {t(`banking.rules.sign.${x}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-[1fr_6rem_1fr] gap-2">
+              <div>
+                <label htmlFor={`${ids}-amount`} className="mb-1 block text-xs">
+                  {t("banking.rules.form.expectedAmount")}
+                </label>
+                <Input
+                  id={`${ids}-amount`}
+                  inputMode="decimal"
+                  placeholder={t("banking.rules.form.anyAmount")}
+                  value={draft.expectedAmount}
+                  onChange={(e) => setDraft({ ...draft, expectedAmount: e.target.value })}
+                  className="text-right tabular-nums"
+                  data-testid="rule-amount"
+                />
+              </div>
+              <div>
+                <label htmlFor={`${ids}-tol`} className="mb-1 block text-xs">
+                  {t("banking.rules.form.tolerance")}
+                </label>
+                <Input
+                  id={`${ids}-tol`}
+                  inputMode="decimal"
+                  value={draft.tolerancePct}
+                  onChange={(e) => setDraft({ ...draft, tolerancePct: e.target.value })}
+                  className="text-right tabular-nums"
+                  disabled={!draft.expectedAmount.trim()}
+                />
+              </div>
+              <div>
+                <label htmlFor={`${ids}-cadence`} className="mb-1 block text-xs">
+                  {t("banking.rules.form.cadence")}
+                </label>
+                <Select
+                  value={draft.cadence}
+                  onValueChange={(v) => v && setDraft({ ...draft, cadence: v as RuleCadence })}
+                >
+                  <SelectTrigger
+                    id={`${ids}-cadence`}
+                    className="w-full"
+                    data-testid="rule-cadence"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CADENCES.map((x) => (
+                      <SelectItem key={x} value={x}>
+                        {t(`banking.rules.cadence.${x}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {t("banking.rules.form.conditionsHint")}
+            </p>
+          </fieldset>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
               id={`${ids}-nodoc`}
@@ -354,6 +496,11 @@ function fromRule(rule: RuleEditable | null | undefined, initial?: Partial<RuleD
       partnerId: rule.partnerId,
       noDocumentNeeded: rule.noDocumentNeeded,
       priority: rule.priority,
+      bankAccountId: rule.bankAccountId,
+      sign: rule.sign,
+      expectedAmount: rule.expectedAmount ?? "",
+      tolerancePct: rule.tolerancePct,
+      cadence: rule.cadence,
     };
   }
   return {
@@ -365,5 +512,10 @@ function fromRule(rule: RuleEditable | null | undefined, initial?: Partial<RuleD
     partnerId: initial?.partnerId ?? null,
     noDocumentNeeded: initial?.noDocumentNeeded ?? false,
     priority: initial?.priority ?? 100,
+    bankAccountId: initial?.bankAccountId ?? null,
+    sign: initial?.sign ?? "any",
+    expectedAmount: initial?.expectedAmount ?? "",
+    tolerancePct: initial?.tolerancePct ?? "0.50",
+    cadence: initial?.cadence ?? "none",
   };
 }

@@ -59,6 +59,7 @@ model BankAccount {
   transactions BankTransaction[]
   /// D63 composite FKs from the payers' side (F114): what an expense / a subscription is paid from
   paidExpenses      Expense[]
+  rules             CategorisationRule[]
   paidSubscriptions Subscription[]
 
   @@unique([tenantId, accountNumber, currency], map: "bank_accounts_tenant_account_currency_unique")
@@ -201,6 +202,25 @@ enum RuleSource {
   @@map("rule_source")
 }
 
+/// which way the money goes for a rule to hit (F116 PR C1)
+enum RuleSign {
+  any
+  in
+  out
+
+  @@map("rule_sign")
+}
+
+/// how often a rule's rows come — a hint, never a condition: an off-cadence row is flagged, not refused
+enum RuleCadence {
+  none
+  monthly
+  quarterly
+  yearly
+
+  @@map("rule_cadence")
+}
+
 /// A text match on the bank row → BAS category / partner / "no document needed" on the journal entry.
 /// Runs on every import (new rows only) and on demand; never sets a status, never creates a link.
 model CategorisationRule {
@@ -216,6 +236,12 @@ model CategorisationRule {
   /// validated UUID through the partners module
   partnerId        String?        @map("partner_id") @db.Uuid
   noDocumentNeeded Boolean        @default(false) @map("no_document_needed")
+  /// F116 PR C1: the paying account (null = any), the sign, an expected |amount| ± tolerance %, the cadence
+  bankAccountId    String?        @map("bank_account_id") @db.Uuid
+  sign             RuleSign       @default(any)
+  expectedAmount   Decimal?       @map("expected_amount") @db.Decimal(15, 2)
+  tolerancePct     Decimal        @default(0.5) @map("tolerance_pct") @db.Decimal(5, 2)
+  cadence          RuleCadence    @default(none)
   /// higher first; tie-break: longer pattern, then newest
   priority         Int            @default(100)
   isActive         Boolean        @default(true) @map("is_active")
@@ -227,9 +253,11 @@ model CategorisationRule {
   createdBy        String         @map("created_by") @db.Uuid
   source           String         @default("web") @db.VarChar(20)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount? @relation(fields: [tenantId, bankAccountId], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([tenantId, name], map: "categorisation_rules_tenant_name_key")
   @@index([tenantId, isActive, priority(sort: Desc)])
+  @@index([tenantId, bankAccountId])
   @@map("categorisation_rules")
 }

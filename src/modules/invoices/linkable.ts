@@ -1,5 +1,11 @@
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
+import {
+  type CandidateQuery,
+  type EntityFacts,
+  EXTRA_CANDIDATES,
+  type Linkable,
+  termsSpan,
+} from "@/modules/linking";
 import * as partners from "@/modules/partners";
 
 /** Issued invoices and credit notes carry an amount: bank transactions justify them with allocations (D18). */
@@ -10,6 +16,7 @@ type Row = {
   status: string;
   partnerId: string;
   issueDate: Date;
+  dueDate: Date | null;
   totalAmount: { toFixed(n: number): string };
   totalBase: { toFixed(n: number): string } | null;
   currency: string;
@@ -23,6 +30,7 @@ const ROW_SELECT = {
   status: true,
   partnerId: true,
   issueDate: true,
+  dueDate: true,
   totalAmount: true,
   totalBase: true,
   currency: true,
@@ -48,6 +56,8 @@ async function toFacts(
         date: r.issueDate.toISOString().slice(0, 10),
         reference: r.number,
         partnerName: partner,
+        partnerId: r.partnerId,
+        dueDate: r.dueDate ? r.dueDate.toISOString().slice(0, 10) : null,
         texts: [r.number ?? "", partner ?? "", r.periodLabel ?? ""],
         // a client pays an invoice (money in); a credit note is refunded to the client (money out)
         direction: r.type === "credit_note" ? ("outgoing" as const) : ("incoming" as const),
@@ -88,18 +98,48 @@ export const invoiceLinkable: Linkable = {
     const [f] = await toFacts(tx, [inv]);
     return f ?? null;
   },
-  /** Issued / sent invoices for incoming rows, credit notes for outgoing ones, issued inside the window. */
+  /** Many at once — the counterparty memory reads the partners of what rows were linked to (F116). */
+  async factsMany(tx: TransactionClient, ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await tx.invoice.findMany({ where: { id: { in: [...ids] } }, select: ROW_SELECT });
+    return toFacts(tx, rows);
+  },
+  /**
+   * Issued / sent invoices for incoming rows, credit notes for outgoing ones, that a row of the span can still pay
+   * (F116: issued by then, due no sooner than ten days before it — an invoice on 30-day terms is paid a month
+   * later); plus the ones whose number is in the rows' text and the remembered clients' latest, whatever the date.
+   */
   async candidates(tx: TransactionClient, q: CandidateQuery) {
-    const rows = await tx.invoice.findMany({
-      where: {
-        type: q.direction === "incoming" ? "invoice" : "credit_note",
-        status: { in: ["issued", "sent"] },
-        issueDate: { gte: new Date(q.dateFrom), lte: new Date(q.dateTo) },
-      },
-      select: ROW_SELECT,
-      orderBy: [{ issueDate: "desc" }],
-      take: q.limit,
-    });
+    const span = termsSpan(q);
+    const window = span
+      ? {
+          issueDate: { lte: new Date(span.issuedTo) },
+          OR: [
+            { dueDate: { gte: new Date(span.dueFrom) } },
+            { issueDate: { gte: new Date(span.issuedFrom) } },
+          ],
+        }
+      : { issueDate: { gte: new Date(q.dateFrom), lte: new Date(q.dateTo) } };
+    const find = (where: object, take: number) =>
+      tx.invoice.findMany({
+        where: {
+          type: q.direction === "incoming" ? "invoice" : "credit_note",
+          status: { in: ["issued", "sent"] },
+          ...where,
+        },
+        select: ROW_SELECT,
+        orderBy: [{ issueDate: "desc" }],
+        take,
+      });
+    const rows = [
+      ...(await find(window, q.limit)),
+      ...(q.references?.length
+        ? await find({ number: { in: [...q.references] } }, EXTRA_CANDIDATES)
+        : []),
+      ...(q.partnerIds?.length
+        ? await find({ partnerId: { in: [...q.partnerIds] } }, EXTRA_CANDIDATES)
+        : []),
+    ];
     return toFacts(tx, rows);
   },
   async search(tx: TransactionClient, q: string, limit: number) {
