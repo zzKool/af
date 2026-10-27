@@ -42,7 +42,7 @@
 ## Part 7 — one engine with memory (F116, `specs/linking/one-engine.md`)
 
 - [x] T020 The spec: the five-line rule, the seven cases, US1–US6, FR-001–FR-010, SC-001–005, the owner's four questions (docs PR, 2026-10-27).
-- [ ] T021 PR A `feat/linking-engine-window` — FR-001–FR-004, FR-009 (scorer, finder, memory), FR-010. After the owner's read.
+- [ ] T021 PR A `feat/linking-engine-window` — FR-001–FR-004, FR-009 (scorer, finder, memory), FR-010. Answered (D67) — in progress.
 - [ ] T022 PR B `feat/linking-engine-fx` — FR-005, FR-006. After F114 PR 1 merges.
-- [ ] T023 PR C `feat/banking-rules-engine` — FR-007, FR-008. After the answer to question 3.
+- [ ] T023 PR C `feat/banking-rules-engine` — FR-007, FR-008. Question 3 answered: the rule shape now, the module stays to F104.
 
