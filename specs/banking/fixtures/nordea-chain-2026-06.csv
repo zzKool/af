@@ -1,0 +1,6 @@
+Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;
+2026/06/28;1000,00;Client AB;;Client AB;Invoice VA26-003;VA26-003;;10600,00;SEK;
+2026/06/10;-250,00;;;;Kortköp 260609 TRAIN SJ;SJ 1234;;9600,00;SEK;
+2026/06/10;-50,00;;;;Kortköp 260609 PARKING;PARKING 1234;;;SEK;
+2026/06/02;-100,00;;;;Kortköp 260601 OFFICE SUPPLY;OFFICE 1234;;9900,00;SEK;
+2026/05/31;-40,00;;;AVGIFTER NORDEA;Avgift;;;10000,00;SEK;

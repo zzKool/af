@@ -19,7 +19,13 @@ import { createBankAccount, updateBankAccount } from "./bank-accounts";
 import { transactionFacts } from "./facts";
 import { withImplicitRates } from "./implicit-rate";
 import { deleteImport, importCsv } from "./import";
-import { accountAliasesFor, getTransaction, listTransactions, transactionStates } from "./queries";
+import {
+  accountAliasesFor,
+  accountCompleteness,
+  getTransaction,
+  listTransactions,
+  transactionStates,
+} from "./queries";
 import { applyRules, createRule } from "./rules";
 import { acceptTransfer, proposeTransfers } from "./transfer-pairs";
 import type { BankTransactionDto } from "./types";
@@ -383,6 +389,55 @@ describe("US1 — import a month of Nordea rows", () => {
       const list = await listTransactions(tx, { page: 1, pageSize: 10, sort: [], filters: {} });
       expect(list.total).toBe(0);
     });
+  });
+});
+
+describe("F115 — completeness by balance", () => {
+  it("the chain holds inside the June file; the July export that skipped a day reports one gap, the account is complete to June 28", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    const june = await run(caller, (tx) => importFile(tx, caller, sek, "nordea-chain-2026-06.csv"));
+    expect(june.error).toBeUndefined();
+    expect(june.data).toMatchObject({ completeTo: "2026-06-28", balanceGaps: [], currency: "SEK" });
+
+    const july = await run(caller, (tx) =>
+      importFile(tx, caller, sek, "nordea-chain-2026-07-gap.csv"),
+    );
+    expect(july.error).toBeUndefined();
+    // reported, never refused: the rows are in, the chain says −200.00 is missing between the exports
+    expect(july.data?.importedCount).toBe(2);
+    expect(july.data?.completeTo).toBe("2026-06-28");
+    expect(july.data?.balanceGaps).toEqual([
+      {
+        from: "2026-06-28",
+        to: "2026-07-10",
+        expected: "10590.00",
+        actual: "10390.00",
+        difference: "-200.00",
+      },
+    ]);
+    // the read API: the same chain per account; an account without rows is absent
+    const chains = await run(caller, (tx) => accountCompleteness(tx));
+    expect(chains.get(sek)).toMatchObject({ completeFrom: "2026-05-31", completeTo: "2026-06-28" });
+    expect(chains.size).toBe(1);
+
+    // the missing day arrives (a re-export of July from the 1st): the gap closes, complete to July 31
+    const fixed = Buffer.from(
+      [
+        "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;",
+        "2026/07/31;-300,00;;;;Kortköp 260730 HOTEL BERN;HOTEL 1234;;10090,00;SEK;",
+        "2026/07/10;-10,00;;;;Kortköp 260709 COFFEE;COFFEE 1234;;10390,00;SEK;",
+        "2026/07/03;-200,00;;;;Kortköp 260702 TRAIN SJ;SJ 1234;;10400,00;SEK;",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const again = await run(caller, (tx) =>
+      importFile(tx, caller, sek, "nordea-chain-2026-07-full.csv", fixed),
+    );
+    expect(again.data?.importedCount).toBe(1);
+    expect(again.data?.balanceGaps).toEqual([]);
+    expect(again.data?.completeTo).toBe("2026-07-31");
   });
 });
 

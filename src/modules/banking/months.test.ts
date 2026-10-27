@@ -137,8 +137,13 @@ describe("F69 — the Months read model", () => {
       justified: 2,
       toJustify: 0,
     });
-    expect(july(after, chf)?.state).toBe("proven");
-    expect(july(after, sek)?.state).toBe("proven");
+    // justified — but one balanced day on July 8th proves nothing about the rest of July (F115): incomplete
+    expect(july(after, chf)?.state).toBe("incomplete");
+    expect(july(after, sek)?.state).toBe("incomplete");
+    expect(after.accounts.find((a) => a.id === chf)).toMatchObject({
+      completeTo: "2026-07-08",
+      gaps: 0,
+    });
   });
 
   it("not imported: an account no import covers, and the months around an import; an import's period counts without rows", async () => {
@@ -162,7 +167,9 @@ describe("F69 — the Months read model", () => {
     expect((await importFile(caller, sav, "nordea-savings-year.csv")).error).toBeUndefined();
     const withSavings = await run(caller, (tx) => bankMonths(tx, AUGUST));
     const savCells = withSavings.cells.filter((c) => c.bankAccountId === sav);
+    // the year file's two balanced days (Jan 2 → Dec 31) chain over every month between: May is proven whole
     expect(savCells.find((c) => c.month === "2026-05")).toMatchObject({ state: "proven", rows: 0 });
+    // January's own row is still open; the pure test holds the rule that the month the chain starts in is never proven
     expect(savCells.find((c) => c.month === "2025-12")?.state).toBe("not_imported");
   });
 
