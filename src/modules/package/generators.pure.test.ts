@@ -457,7 +457,10 @@ describe("the bytes the accountant gets (F71 golden)", () => {
     process.env.TZ = tz;
   });
 
-  it("zip, summary.xlsx, notes.md and the year zip are byte-identical to before the restyle", () => {
+  // The golden was re-captured on 2026-10-27 (F111): `summary.xlsx` is written by `kernel/xlsx` instead of SheetJS,
+  // so its bytes — and the two zips that carry it — changed once; the sheet_to_json test above is what holds the
+  // content, this one holds the bytes still from here on.
+  it("zip, summary.xlsx, notes.md and the year zip are byte-identical to the golden", () => {
     const year: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026") };
     const may: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026-05"), documents: [] };
     expect({

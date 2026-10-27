@@ -8,7 +8,7 @@ AF uses three distinct observability systems, each serving a different purpose w
 |--------|---------|---------|-----------|-------------|
 | [[audit-trail]] | Legal business record — who did what | PostgreSQL `audit_logs` (immutable) | Permanent | Every business mutation (via `audit.log()`) |
 | **Application logging** | Operational telemetry — request flow, timing | Pino → stdout → Azure Log Analytics | 30-90 days | Every request, business events, warnings |
-| **Error tracking** | Exceptions, stack traces, breadcrumbs | Sentry | Per plan | Unexpected crashes only |
+| **Error reporting** | Exceptions with a reference | pino (the app log) | 0 | Unexpected crashes only (F111) |
 
 These systems are **architecturally independent** — never conflate them.
 
@@ -86,37 +86,30 @@ In Azure Container Apps, stdout is automatically collected by Azure Log Analytic
 
 See [[deployment]] for Azure Container Apps setup.
 
-## Error Tracking (Sentry) — Active
+## Error reporting — one log line with a reference (F111; Sentry removed 2026-10-27)
 
-`@sentry/nextjs` is configured with error-only tracking (no performance/replay features).
+Sentry left with F111 (audit 2026-10-27 D13): it was off on the box by D51, yet 57 MB in the image and wrapping the build. Unexpected errors are now **one structured pino line** with a fresh 8-character **reference** — the "Reference: …" the user sees — found with `docker compose -f docker-compose.prod.yml logs app | grep <reference>`. Nothing leaves the box.
 
-### Configuration
+### What gets reported
 
-- **DSN:** `NEXT_PUBLIC_SENTRY_DSN` env var — empty string disables Sentry (graceful no-op for local dev)
-- **Source maps:** Uploaded only in production CI builds via `SENTRY_AUTH_TOKEN` (GitHub Actions secret)
-- **Config files:** `src/instrumentation-client.ts` (browser; was `sentry.client.config.ts` before Sentry 11), `sentry.server.config.ts`, `sentry.edge.config.ts`
-- **Instrumentation:** `src/instrumentation.ts` loads Sentry on server/edge startup
-
-### What Gets Reported
-
-- **Unexpected crashes in a Server Action** (non-`ActionError` exceptions) — with `sentryEventId` returned to the user
-- **Failed job attempts** (pg-boss) — every attempt that throws, before pg-boss retries it
-- **Render / route errors** — through `onRequestError` in `src/instrumentation.ts` (no user context there)
+- **Unexpected crashes in a Server Action** (non-`ActionError` exceptions) — with the reference returned to the user
+- **Failed job attempts** (pg-boss) — every attempt that throws, before pg-boss retries it; the terminal failure also lands on the entity (F110, [[async-jobs]])
+- **Render / route errors** — through `onRequestError` in `src/instrumentation.ts` (the route as the action, no user context there)
 
 ### Request context
 
-Every report goes through one function, `reportError(error, context)` in `src/kernel/errors/report-error.ts`, which puts the context **on the event itself** (`captureException(error, { user, tags })`) — never on a shared Sentry scope, so two concurrent requests cannot lend each other their user or tenant.
+Every report goes through one function, `reportError(error, context)` in `src/kernel/errors/report-error.ts`, which puts the context **on the line itself** — never on a shared scope, so two concurrent requests cannot lend each other their user or tenant.
 
 ```
 Server Action                                   Job attempt (src/kernel/jobs/run-reported.ts)
 auth ──► userId, tenantId ─┐                    pg-boss ──► job, jobId, attempt
 logging ──► requestId, log ┤                    payload ──► tenantId (when it carries one)
 throw ─► handleServerError(error, { ctx, metadata })      throw ─► reportError ─► rethrow (retry)
-             └─► reportError: user.id + tags { tenantId, requestId, action }
-                 ctx.log.error({ err, sentryEventId, action })  ← the same requestId in pino
+             └─► reportError: { err, reference, userId, tenantId, requestId, action }
+                 ctx.log.error({ err, reference, action })  ← the same requestId in pino
 ```
 
-What the chain had not reached is left out (a crash before auth has no user). The Sentry reference and the pino line share the `requestId`, so a user's "Reference: …" leads to the log lines of that request.
+What the chain had not reached is left out (a crash before auth has no user). The reference and the request's pino lines share the `requestId`, so a user's "Reference: …" leads to the log lines of that request.
 
 ### What Does NOT Get Reported
 
@@ -125,14 +118,10 @@ What the chain had not reached is left out (a crash before auth has no user). Th
 
 ### User Support Integration
 
-When an unexpected error occurs, the error response includes a Sentry reference ID:
-`"An unexpected error occurred. Reference: ABC123"`
+When an unexpected error occurs, the error response includes the reference:
+`"An unexpected error occurred. Reference: 3f9a1c2e"`
 
-Users can quote this reference when reporting issues, enabling direct lookup in the Sentry dashboard.
-
-### Test Endpoint
-
-`GET /api/sentry-test` — Development only. Throws a test error to verify Sentry receives it.
+The owner quotes it; `grep` on the app log finds the line, with the request id, the action, the user and the tenant beside the stack.
 
 ## Related
 

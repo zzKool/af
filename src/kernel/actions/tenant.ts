@@ -70,10 +70,23 @@ export const tenantMiddleware = createMiddleware<{
     postCommitCallbacks.push(cb);
   };
 
-  // Middleware-managed transaction — handler runs inside RLS-scoped tx
+  // Middleware-managed transaction — handler runs inside RLS-scoped tx.
+  // F111 (audit D12): a handler that RETURNS an error after a write used to commit the write — atomicity by
+  // convention (`throw new RollbackError` at 19 sites). Now the middleware rolls back whenever the result
+  // carries an error, and hands the same result back, so the client sees exactly what it saw before.
+  let rolledBack = false;
   const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
-    return next({ ctx: { callerIdentity, tx, onCommit } });
+    const r = await next({ ctx: { callerIdentity, tx, onCommit } });
+    if (returnedError(r)) throw new RolledBack(r);
+    return r;
+  }).catch((error: unknown) => {
+    if (!(error instanceof RolledBack)) throw error;
+    rolledBack = true;
+    // the handler's own answer, typed as the transaction's result it is (the throw carried it out unchanged)
+    return error.result as never;
   });
+  // rolled back: nothing was written, no side effect runs — the handler's answer goes to the client
+  if (rolledBack) return result;
 
   // Transaction committed — run side effects sequentially
   for (const cb of postCommitCallbacks) {
@@ -86,3 +99,24 @@ export const tenantMiddleware = createMiddleware<{
 
   return result;
 });
+
+/** The handler's result is a `ServiceResult` with an error (`{ data: { error } }`), or next-safe-action's own failure. */
+export function returnedError(result: { success?: boolean; data?: unknown } | undefined): boolean {
+  if (!result) return false;
+  if (result.success === false) return true;
+  const data = result.data;
+  return (
+    !!data &&
+    typeof data === "object" &&
+    "error" in data &&
+    (data as { error?: unknown }).error != null
+  );
+}
+
+/** Thrown inside the transaction to roll it back while keeping the handler's result for the client. */
+class RolledBack extends Error {
+  constructor(public readonly result: unknown) {
+    super("rolled back: the handler returned an error");
+    this.name = "RolledBack";
+  }
+}

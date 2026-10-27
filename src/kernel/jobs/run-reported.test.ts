@@ -39,7 +39,7 @@ describe("runReported", () => {
     };
     expect(reportError).toHaveBeenCalledWith(error, context);
     expect(logError).toHaveBeenCalledWith(
-      { err: error, sentryEventId: "event-9", ...context },
+      { err: error, reference: "event-9", ...context },
       "jobs: attempt failed",
     );
   });
