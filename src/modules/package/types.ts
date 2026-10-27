@@ -122,6 +122,10 @@ export type IncomeRow = {
   totalBase: string | null;
   paid: string;
   remaining: string;
+  /** Σ what the paying rows gave, in base (F114) */
+  allocatedBase: string;
+  /** signed, derived (F114): on a receivable > 0 a gain (3960), < 0 a loss (7960); null without a base */
+  fxDifference: string | null;
   status: string;
   declarationPeriod: string | null;
   /** the PDF's business key, null while the job has not rendered it */
@@ -148,6 +152,10 @@ export type SupplierRow = {
   basLabel: string;
   paid: string;
   open: string;
+  /** Σ what the paying rows gave, in base (F114) */
+  allocatedBase: string;
+  /** signed, derived (F114): on a payable > 0 a loss (7960), < 0 a gain (3960) */
+  fxDifference: string;
   status: string;
   /** the bank rows that paid it: `SEK 2026-06-12 −1 250.00` */
   paidVia: string[];
@@ -170,6 +178,10 @@ export type ExpenseRow = {
   currency: string;
   rateSource: string;
   amountBase: string;
+  /** Σ what the rows gave — paid by the company or refunded to the owner — in base (F114) */
+  allocatedBase: string;
+  /** signed, derived (F114): > 0 a loss (7960), < 0 a gain (3960) — rounding within the tolerance reads 0.00 on the settlement */
+  fxDifference: string;
   paidBy: string;
   status: string;
   /** the refund's booking date (the settlement's bank row) when refunded */
@@ -208,6 +220,8 @@ export type LinkRow = {
   kind: string;
   allocated: string | null;
   currency: string | null;
+  /** what the row gave for it, in base (F114) */
+  allocatedBase: string | null;
   createdAt: string;
 };
 
