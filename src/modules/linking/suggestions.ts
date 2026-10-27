@@ -11,10 +11,20 @@ import { settlementTolerance } from "@/kernel/money/settlement";
 import { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 import { getLinkable, listLinkableTypes } from "./linkable";
 import { createLink } from "./linking";
+import { memoryForKeys, rememberedPartners } from "./memory";
 import { rowRemaining, rowUsage } from "./queries";
-import { AMBIGUITY_GAP, proposedAllocation, type RowFacts, rank, scoreMatch } from "./scoring";
+import {
+  AMBIGUITY_GAP,
+  type Memory,
+  proposedAllocation,
+  type RowFacts,
+  rank,
+  referenceTokens,
+  scoreMatch,
+} from "./scoring";
 import type {
   BulkApplyResult,
+  CandidateQuery,
   EntityFacts,
   FlowDirection,
   LinkableType,
@@ -22,6 +32,7 @@ import type {
   LinkEndpoint,
   Suggestion,
 } from "./types";
+import { DATED_WINDOW_DAYS, inWindow, paymentWindow } from "./window";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -31,9 +42,6 @@ export const JUSTIFIABLE: Record<FlowDirection, readonly LinkableType[]> = {
   incoming: ["invoice"],
   outgoing: ["supplier_invoice", "expense", "invoice", "document"],
 };
-/** The window around the row's booking date in which an entity's date may fall (harvest R3; expenses lag). */
-export const DATE_WINDOW_DAYS: Partial<Record<LinkableType, number>> = { expense: 10 };
-export const DEFAULT_WINDOW_DAYS = 5;
 export const CANDIDATES_PER_TYPE = 50;
 export const SUGGESTIONS_SHOWN = 5;
 
@@ -69,6 +77,17 @@ async function allocatedOnto(
     out.set(r.toId, (out.get(r.toId) ?? new D(0)).plus(r.allocatedAmount as Dec));
   }
   return out;
+}
+
+/** One fact per entity: a candidate found by its window, its number and its partner comes back once. */
+export function dedupe<T extends { type: string; id: string }>(facts: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return facts.filter((f) => {
+    const k = `${f.type}:${f.id}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 /** Facts + what is still open on them; entities with nothing left (within the tolerance) are dropped. */
@@ -120,12 +139,49 @@ export async function rowFacts(
   };
 }
 
+/**
+ * Whether a candidate belongs with a row (F116): inside its payment window, or its number is in the row's text, or
+ * its partner is one the row's counterparty was linked to before — the last two whatever the date.
+ */
+export function belongs(
+  rowDate: string,
+  tokens: ReadonlySet<string>,
+  memory: Memory | undefined,
+  c: Pick<EntityFacts, "type" | "date" | "dueDate" | "reference" | "partnerId">,
+): boolean {
+  if (inWindow(rowDate, c)) return true;
+  if (c.reference && tokens.has(c.reference.toUpperCase())) return true;
+  return !!c.partnerId && !!memory?.has(c.partnerId);
+}
+
+/** The candidate query for rows booked in [from, to]: the dated span, the terms span, numbers and remembered partners. */
+export function candidateQuery(
+  direction: FlowDirection,
+  bookedFrom: string,
+  bookedTo: string,
+  references: readonly string[],
+  partnerIds: readonly string[],
+  limit: number,
+): CandidateQuery {
+  return {
+    direction,
+    dateFrom: addDays(bookedFrom, -DATED_WINDOW_DAYS),
+    dateTo: addDays(bookedTo, DATED_WINDOW_DAYS),
+    bookedFrom,
+    bookedTo,
+    references,
+    partnerIds,
+    limit,
+  };
+}
+
 function toSuggestion(
   row: RowFacts,
   rowRemaining: string,
   candidate: EntityFacts,
+  memory?: Memory,
 ): Suggestion | null {
-  const m = scoreMatch(row, candidate);
+  const m = scoreMatch(row, candidate, memory);
   if (!m) return null;
   const allocation = proposedAllocation(
     m,
@@ -145,23 +201,29 @@ export async function suggestionsForTransaction(
   if (!facts) return { error: notFound(`Bank transaction ${bankTransactionId} not found`) };
   const { row, ...rowEntity } = facts;
   if (new D(rowEntity.remaining).lte(0)) return { data: { row: rowEntity, suggestions: [] } };
+  const key = rowEntity.counterpartyKey ?? null;
+  const memory = key ? (await memoryForKeys(tx, [key])).get(key) : undefined;
+  const references = referenceTokens(rowEntity.texts);
+  const tokens = new Set(references.map((t) => t.toUpperCase()));
+  const query = candidateQuery(
+    rowEntity.direction,
+    rowEntity.date,
+    rowEntity.date,
+    references,
+    rememberedPartners(memory),
+    CANDIDATES_PER_TYPE,
+  );
   const raw: Omit<EntityFacts, "remaining">[] = [];
   for (const type of JUSTIFIABLE[rowEntity.direction]) {
     const linkable = getLinkable(type);
     if (!linkable?.candidates || !isKindAllowed("justifies", "bank_transaction", type)) continue;
-    const days = DATE_WINDOW_DAYS[type] ?? DEFAULT_WINDOW_DAYS;
-    raw.push(
-      ...(await linkable.candidates(tx, {
-        direction: rowEntity.direction,
-        dateFrom: addDays(rowEntity.date, -days),
-        dateTo: addDays(rowEntity.date, days),
-        limit: CANDIDATES_PER_TYPE,
-      })),
-    );
+    raw.push(...(await linkable.candidates(tx, query)));
   }
-  const candidates = await withRemaining(tx, "to", raw);
+  const candidates = (await withRemaining(tx, "to", dedupe(raw))).filter((c) =>
+    belongs(rowEntity.date, tokens, memory, c),
+  );
   const scored = candidates
-    .map((c) => toSuggestion(row, rowEntity.remaining, c))
+    .map((c) => toSuggestion(row, rowEntity.remaining, c, memory))
     .filter((s): s is Suggestion => s !== null);
   return { data: { row: rowEntity, suggestions: rank(scored).slice(0, limit) } };
 }
@@ -182,14 +244,19 @@ export async function suggestionsForEntity(
   if (!entity || new D(entity.remaining).lte(0)) {
     return { data: { entity: entity ?? { ...facts, remaining: "0.00" }, suggestions: [] } };
   }
-  const days = DATE_WINDOW_DAYS[endpoint.type] ?? DEFAULT_WINDOW_DAYS;
+  // the rows booked inside the entity's payment window (F116: an invoice on terms is paid by its due date)
+  const window = paymentWindow(entity);
   const rowsRaw = await bank.candidates(tx, {
     direction: entity.direction,
-    dateFrom: addDays(entity.date, -days),
-    dateTo: addDays(entity.date, days),
+    dateFrom: window.from,
+    dateTo: window.to,
     limit: CANDIDATES_PER_TYPE,
   });
   const rows = await withRemaining(tx, "from", rowsRaw);
+  const memories = await memoryForKeys(
+    tx,
+    rows.map((r) => r.counterpartyKey),
+  );
   const scored = rows
     .map((r) => {
       const m = scoreMatch(
@@ -201,6 +268,7 @@ export async function suggestionsForEntity(
           texts: r.texts,
         },
         entity,
+        r.counterpartyKey ? memories.get(r.counterpartyKey) : undefined,
       );
       if (!m) return null;
       const allocation = proposedAllocation(m, r, entity);

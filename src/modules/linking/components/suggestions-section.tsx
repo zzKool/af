@@ -45,6 +45,8 @@ const REASON_KEY: Record<string, string> = {
   "Same date": "linking.reason.sameDate",
   "Within 2 days": "linking.reason.within2",
   "Within 5 days": "linking.reason.within5",
+  "Paid on the due date": "linking.reason.dueDate",
+  "Within the terms": "linking.reason.withinTerms",
   "Currency differs but reference matches": "linking.reason.currencyRef",
   "Cross-currency match (no rate to compare)": "linking.reason.crossNoRate",
 };
@@ -56,6 +58,11 @@ export function useReasonLabel() {
     if (key) return t(key as Parameters<typeof t>[0]);
     const days = /^(\d+) days apart$/.exec(reason);
     if (days) return t("linking.reason.daysApart", { days: days[1] ?? "" });
+    const late = /^(\d+) days after the due date$/.exec(reason);
+    if (late) return t("linking.reason.afterDue", { days: late[1] ?? "" });
+    const memory = /^Linked to (.+) (?:(\d+) times|once) before$/.exec(reason);
+    if (memory)
+      return t("linking.reason.memory", { name: memory[1] ?? "", count: memory[2] ?? "1" });
     return reason;
   };
 }

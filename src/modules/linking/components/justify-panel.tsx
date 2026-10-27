@@ -44,7 +44,11 @@ import {
   type Reading,
   type RowForJustify,
 } from "../justify-rules";
-import { justifyRowAction, noProofNeededAction } from "../linking.actions";
+import {
+  counterpartyMemoryAction,
+  justifyRowAction,
+  noProofNeededAction,
+} from "../linking.actions";
 
 /** The option lists the card needs — loaded by the page (`justifyOptions`), plain data. */
 export type JustifyOptions = {
@@ -397,6 +401,31 @@ function CompareCardForm({
     if (basCode === NONE && p?.defaultBasCode) setBasCode(p.defaultBasCode);
   }
 
+  // the counterparty memory (F116 US3): the partner this row's counterparty was linked to most often is proposed
+  // when nothing else picked one — the same memory the suggestions score with
+  const { executeAsync: loadMemory } = useAction(counterpartyMemoryAction);
+  const [remembered, setRemembered] = useState<{ name: string; count: number } | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per row — the proposal must not override a later pick
+  useEffect(() => {
+    let live = true;
+    void loadMemory({ bankTransactionId: row.id }).then((r) => {
+      const result = r?.data;
+      const list = result && "data" in result ? result.data : [];
+      const top = list.find((m) => options.partners.some((p) => p.id === m.partnerId));
+      if (!live || !top) return;
+      setRemembered({ name: top.name, count: top.count });
+      setPartnerId((current) => {
+        if (current !== NONE) return current;
+        const p = options.partners.find((x) => x.id === top.partnerId);
+        if (p?.defaultBasCode) setBasCode((b) => (b === NONE ? (p.defaultBasCode ?? NONE) : b));
+        return top.partnerId;
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [row.id]);
+
   async function submit() {
     const common = { transactionId: row.id, ...(documentId ? { documentId } : {}) };
     const net =
@@ -532,6 +561,14 @@ function CompareCardForm({
               ))}
             </SelectContent>
           </Select>
+          {remembered && (
+            <p className="text-xs text-muted-foreground" data-testid="justify-remembered">
+              {t("linking.justify.remembered", {
+                name: remembered.name,
+                count: String(remembered.count),
+              })}
+            </p>
+          )}
         </Field>
         {kind === "supplier_invoice" ? (
           <Field id={`${ids}-number`} label={t("linking.justify.field.invoiceNumber")}>

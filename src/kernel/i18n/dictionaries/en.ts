@@ -701,6 +701,10 @@ export const en = {
   "linking.reason.sameDate": "Same date",
   "linking.reason.within2": "Within 2 days",
   "linking.reason.within5": "Within 5 days",
+  "linking.reason.dueDate": "Paid on the due date",
+  "linking.reason.withinTerms": "Within the terms",
+  "linking.reason.afterDue": "{days} days after the due date",
+  "linking.reason.memory": "Linked to {name} {count} time(s) before",
   "linking.reason.daysApart": "{days} days apart",
   "linking.reason.currencyRef": "Currency differs but reference matches",
   "linking.reason.crossNoRate": "Cross-currency match (no rate to compare)",
@@ -740,6 +744,7 @@ export const en = {
   "linking.inbox.help.lost": "receipt lost — create without a document",
   // --- Justify from the bank row (F97) ---
   "linking.justify.title": "Justify",
+  "linking.justify.remembered": "This counterparty was linked to {name} {count} time(s) before",
   "linking.justify.drop": "Drop the proof here, or",
   "linking.justify.choose": "choose a file",
   "linking.justify.kind.supplier_invoice": "Supplier invoice",

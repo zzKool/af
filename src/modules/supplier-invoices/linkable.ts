@@ -1,5 +1,11 @@
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
+import {
+  type CandidateQuery,
+  type EntityFacts,
+  EXTRA_CANDIDATES,
+  type Linkable,
+  termsSpan,
+} from "@/modules/linking";
 import * as partners from "@/modules/partners";
 
 type Row = {
@@ -48,6 +54,8 @@ async function toFacts(
       date: si.invoiceDate.toISOString().slice(0, 10),
       reference: si.invoiceNumber,
       partnerName: partner,
+      partnerId: si.partnerId,
+      dueDate: si.dueDate.toISOString().slice(0, 10),
       texts: [si.key, si.invoiceNumber, partner ?? "", si.note ?? ""],
       direction: "outgoing" as const,
     };
@@ -95,18 +103,48 @@ export const supplierInvoiceLinkable: Linkable = {
     const [f] = await toFacts(tx, [si]);
     return f ?? null;
   },
-  /** Open payables dated inside the window (the linking module drops the ones already paid). */
+  /** Many at once — the counterparty memory reads the partners of what rows were linked to (F116). */
+  async factsMany(tx: TransactionClient, ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await tx.supplierInvoice.findMany({
+      where: { id: { in: [...ids] } },
+      select: ROW_SELECT,
+    });
+    return toFacts(tx, rows);
+  },
+  /**
+   * Payables a row of the span can still pay (F116): issued by then and due no sooner than ten days before it —
+   * plus the ones whose number is in the rows' text and the remembered partners' latest, whatever their date. The
+   * linking module drops the ones already paid.
+   */
   async candidates(tx: TransactionClient, q: CandidateQuery) {
     if (q.direction !== "outgoing") return [];
-    const rows = await tx.supplierInvoice.findMany({
-      where: {
-        cancelled: false,
-        invoiceDate: { gte: new Date(q.dateFrom), lte: new Date(q.dateTo) },
-      },
-      select: ROW_SELECT,
-      orderBy: [{ invoiceDate: "desc" }],
-      take: q.limit,
-    });
+    const span = termsSpan(q);
+    const window = span
+      ? {
+          invoiceDate: { lte: new Date(span.issuedTo) },
+          OR: [
+            { dueDate: { gte: new Date(span.dueFrom) } },
+            { invoiceDate: { gte: new Date(span.issuedFrom) } },
+          ],
+        }
+      : { invoiceDate: { gte: new Date(q.dateFrom), lte: new Date(q.dateTo) } };
+    const find = (where: object, take: number) =>
+      tx.supplierInvoice.findMany({
+        where: { cancelled: false, ...where },
+        select: ROW_SELECT,
+        orderBy: [{ invoiceDate: "desc" }],
+        take,
+      });
+    const rows = [
+      ...(await find(window, q.limit)),
+      ...(q.references?.length
+        ? await find({ invoiceNumber: { in: [...q.references] } }, EXTRA_CANDIDATES)
+        : []),
+      ...(q.partnerIds?.length
+        ? await find({ partnerId: { in: [...q.partnerIds] } }, EXTRA_CANDIDATES)
+        : []),
+    ];
     return toFacts(tx, rows);
   },
   async search(tx: TransactionClient, q: string, limit: number) {

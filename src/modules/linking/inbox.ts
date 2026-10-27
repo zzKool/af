@@ -2,17 +2,18 @@
 // nor "no document needed", each with its top candidates — scored in one pass over candidate pools fetched once
 // per type for the whole date span, not row by row.
 import { Prisma } from "@/generated/prisma/client";
-import { addDays } from "@/kernel/clock/calendar";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import { isKindAllowed } from "./kinds";
 import { getLinkable } from "./linkable";
-import { proposedAllocation, rank, scoreMatch } from "./scoring";
+import { memoryForKeys, rememberedPartners } from "./memory";
+import { proposedAllocation, rank, referenceTokens, scoreMatch } from "./scoring";
 import {
+  belongs,
   CANDIDATES_PER_TYPE,
-  DATE_WINDOW_DAYS,
-  DEFAULT_WINDOW_DAYS,
+  candidateQuery,
+  dedupe,
   JUSTIFIABLE,
   SUGGESTIONS_SHOWN,
   withRemaining,
@@ -63,28 +64,40 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
   const byId = new Map(facts.map((f) => [f.id, f]));
   const rowsById = new Map(candidatesRows.map((r) => [r.id, r]));
 
-  // one candidate pool per direction × type over the whole span (each row then filters its own window)
+  // the counterparty memory of every row's key, one read (F116)
+  const memories = await memoryForKeys(
+    tx,
+    facts.map((f) => f.counterpartyKey),
+  );
+  const memoryOf = (f: EntityFacts) =>
+    f.counterpartyKey ? memories.get(f.counterpartyKey) : undefined;
+  const tokensOf = new Map(
+    facts.map((f) => [f.id, new Set(referenceTokens(f.texts).map((t) => t.toUpperCase()))]),
+  );
+
+  // one candidate pool per direction × type over the whole span (each row then keeps what belongs with it)
   const pools = new Map<FlowDirection, EntityFacts[]>();
   for (const direction of ["incoming", "outgoing"] as const) {
-    const dates = facts.filter((f) => f.direction === direction).map((f) => f.date);
-    if (dates.length === 0) continue;
+    const mine = facts.filter((f) => f.direction === direction);
+    if (mine.length === 0) continue;
+    const dates = mine.map((f) => f.date);
     const min = dates.reduce((a, b) => (a < b ? a : b));
     const max = dates.reduce((a, b) => (a > b ? a : b));
+    const query = candidateQuery(
+      direction,
+      min,
+      max,
+      [...new Set(mine.flatMap((f) => referenceTokens(f.texts)))].slice(0, 500),
+      [...new Set(mine.flatMap((f) => rememberedPartners(memoryOf(f))))],
+      CANDIDATES_PER_TYPE * 10,
+    );
     const raw: Omit<EntityFacts, "remaining">[] = [];
     for (const type of JUSTIFIABLE[direction]) {
       const linkable = getLinkable(type);
       if (!linkable?.candidates || !isKindAllowed("justifies", "bank_transaction", type)) continue;
-      const days = DATE_WINDOW_DAYS[type] ?? DEFAULT_WINDOW_DAYS;
-      raw.push(
-        ...(await linkable.candidates(tx, {
-          direction,
-          dateFrom: addDays(min, -days),
-          dateTo: addDays(max, days),
-          limit: CANDIDATES_PER_TYPE * 10,
-        })),
-      );
+      raw.push(...(await linkable.candidates(tx, query)));
     }
-    pools.set(direction, await withRemaining(tx, "to", raw));
+    pools.set(direction, await withRemaining(tx, "to", dedupe(raw)));
   }
 
   const out: InboxRow[] = [];
@@ -94,9 +107,10 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     const pool = pools.get(f.direction) ?? [];
     const scored: Suggestion[] = [];
     if (new D(f.remaining).gt(0)) {
+      const memory = memoryOf(f);
+      const tokens = tokensOf.get(f.id) ?? new Set<string>();
       for (const c of pool) {
-        const days = DATE_WINDOW_DAYS[c.type] ?? DEFAULT_WINDOW_DAYS;
-        if (c.date < addDays(f.date, -days) || c.date > addDays(f.date, days)) continue;
+        if (!belongs(f.date, tokens, memory, c)) continue;
         const m = scoreMatch(
           {
             amount: f.amount,
@@ -106,6 +120,7 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
             texts: f.texts,
           },
           c,
+          memory,
         );
         if (!m) continue;
         scored.push({

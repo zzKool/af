@@ -118,6 +118,12 @@ export type EntityFacts = {
   texts: string[];
   /** words of the entity (a receipt's description, a vendor) that may appear in a bank row's text */
   keywords?: string[];
+  /** the partner the entity belongs to — what the counterparty memory counts (F116) */
+  partnerId?: string | null;
+  /** ISO due date of an entity with terms — its payment window and the date claim run to it (F116) */
+  dueDate?: string | null;
+  /** a bank row's counterparty key — the identity its memory is kept under (F116) */
+  counterpartyKey?: string | null;
   direction: FlowDirection;
   /** what is still open after the existing allocations (set by the linking module) */
   remaining: string;
@@ -125,9 +131,19 @@ export type EntityFacts = {
 
 export type CandidateQuery = {
   direction: FlowDirection;
-  /** ISO dates, inclusive */
+  /** ISO dates, inclusive — the span an entity dated once may lie in (the rows' span ± its window) */
   dateFrom: string;
   dateTo: string;
+  /**
+   * The rows' booking span (F116): an entity with terms is a candidate while a row in the span can still pay it —
+   * issued no later than `bookedTo + 5`, due no sooner than `bookedFrom − 10` (or issued within 60 days of it).
+   */
+  bookedFrom?: string;
+  bookedTo?: string;
+  /** tokens of the rows' text: an entity whose number is among them is a candidate whatever its date */
+  references?: readonly string[];
+  /** partners the counterparty memory remembers: their open entities are candidates whatever their date */
+  partnerIds?: readonly string[];
   limit: number;
 };
 

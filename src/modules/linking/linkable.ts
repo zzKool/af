@@ -19,6 +19,15 @@ export type Linkable = {
   ): Promise<Omit<EntityFacts, "remaining">[]>;
   /** The entities a bank row of `direction` could justify, dated inside the window (cap `limit`). */
   candidates?(tx: TransactionClient, q: CandidateQuery): Promise<Omit<EntityFacts, "remaining">[]>;
+  /**
+   * Bank rows only (F116): the ids of the rows carrying each counterparty key, newest first (cap `limit` per key)
+   * — what the counterparty memory reads the links of.
+   */
+  rowsByCounterparty?(
+    tx: TransactionClient,
+    keys: readonly string[],
+    limit: number,
+  ): Promise<Map<string, string[]>>;
   /** The entities whose label or texts contain `q` — the "Link to…" picker (cap `limit`). */
   search?(
     tx: TransactionClient,
