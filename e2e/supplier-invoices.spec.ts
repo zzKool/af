@@ -1,5 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { expect, type Locator, test } from "@playwright/test";
 import { expectToast, trackToasts, withToastReport } from "./fixtures/toasts";
+
+const SHOTS = join(__dirname, "..", "specs", "justify", "screenshots");
+
+/** `E2E_SCREENSHOTS=1`: the picker as the PR's screenshot (definition of done §4.5) */
+async function snapElement(locator: Locator, name: string) {
+  if (!process.env.E2E_SCREENSHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  await locator.screenshot({ path: join(SHOTS, `${name}.png`) });
+}
 
 // The accountant's invoice (specs/supplier-invoices US1–US3; SEK only — CI has no ECB rates): a vendor with
 // 20-day terms → the invoice in a new group, due date from the terms, SI key → the paying row imported into
@@ -115,8 +126,13 @@ test.describe("Supplier invoices", () => {
       await page.goto(`/supplier-invoices?q=${encodeURIComponent(key)}`);
       await page.getByRole("row").filter({ hasText: key }).first().getByText(key).click();
       await expect(panel).toBeVisible();
-      await panel.getByLabel("Pick the bank row that paid this invoice").click();
-      await page.getByRole("option", { name: new RegExp(vendor) }).click();
+      // the picker (F97 US2): the row scores HIGH for the invoice — one click picks it; the search covers the rest
+      const picker = panel.getByTestId("payment-picker");
+      await expect(picker.getByTestId("payment-suggestions")).toContainText(vendor, {
+        timeout: 20_000,
+      });
+      await snapElement(panel.getByTestId("link-payment"), "payment-picker");
+      await picker.getByTestId("payment-suggestion-pick").first().click();
       await page.getByTestId("link-payment-run").click();
       await expectToast(page, "Payment linked");
       await expect(page.getByTestId("panel-status")).toHaveText("Paid");
