@@ -6,7 +6,8 @@
 //
 // The instance lives on globalThis: Next.js gives instrumentation.ts and each route its own module
 // graph, so a plain module singleton would start one pg-boss per bundle.
-import { PgBoss } from "pg-boss";
+import { type JobWithMetadata, PgBoss } from "pg-boss";
+import { prisma } from "@/kernel/db/client";
 import { logger } from "@/kernel/logging/logger";
 import { runReported } from "./run-reported";
 import type { EnqueueOptions, JobDefinition, ScheduleDefinition } from "./types";
@@ -121,12 +122,22 @@ export async function startJobs(
       });
       if (job.onDeadLetter) {
         const onDeadLetter = job.onDeadLetter.bind(job);
-        await boss.work<object>(deadLetterQueueName(job.name), { batchSize: 1 }, async ([j]) => {
-          await runReported(deadLetterQueueName(job.name), onDeadLetter, j.data, {
-            id: j.id,
-            attempt: j.retryCount,
-          });
-        });
+        // includeMetadata: the dead-lettered copy carries the original's final output (its error) and
+        // retry count — the handler gets them as `ctx.failure` (F110)
+        await boss.work(
+          deadLetterQueueName(job.name),
+          { batchSize: 1, includeMetadata: true } as const,
+          async ([j]: JobWithMetadata<object>[]) => {
+            await runReported(deadLetterQueueName(job.name), onDeadLetter, j.data, {
+              id: j.id,
+              attempt: j.retryCount,
+              failure: {
+                error: failureMessage(j.sourceOutput),
+                attempts: (j.sourceRetryCount ?? 0) + 1,
+              },
+            });
+          },
+        );
       }
       s.workers.add(job.name);
     }
@@ -144,6 +155,49 @@ export async function startJobs(
   } catch (error) {
     logger.error({ err: error }, "jobs: worker failed to start — queue unavailable");
     return false;
+  }
+}
+
+/** pg-boss stores a thrown error as `{ message, stack, … }`; anything else is shown as JSON. */
+export function failureMessage(output: unknown): string {
+  if (output && typeof output === "object" && "message" in output) {
+    const m = (output as { message?: unknown }).message;
+    if (typeof m === "string" && m) return m;
+  }
+  if (output == null) return "unknown error";
+  return typeof output === "string" ? output : JSON.stringify(output);
+}
+
+export interface FailedJobs {
+  /** failed jobs still retained, per queue (dead-letter queues excluded); a rolling count, not an all-time total */
+  byQueue: Record<string, number>;
+  total: number;
+}
+
+/**
+ * Terminal failures still in `pgboss.job` (F110, audit D9): what `/api/health` reports so a failed invoice
+ * PDF or package build is seen without opening the entity. Empty when the queue is disabled or unreachable.
+ */
+export async function failedJobs(): Promise<FailedJobs> {
+  const empty: FailedJobs = { byQueue: {}, total: 0 };
+  if (!jobsEnabled()) return empty;
+  try {
+    // live from the job table (pg-boss's own per-queue counters are refreshed by its monitor pass, not on
+    // every state change); the dead-letter copies have their own queue and are not counted twice
+    const rows = await prisma.$queryRaw<{ name: string; count: bigint }[]>`
+      SELECT name, count(*)::bigint AS count FROM pgboss.job
+      WHERE state = 'failed' AND name NOT LIKE '%.dead'
+      GROUP BY name ORDER BY name`;
+    const byQueue: Record<string, number> = {};
+    let total = 0;
+    for (const r of rows) {
+      byQueue[r.name] = Number(r.count);
+      total += Number(r.count);
+    }
+    return { byQueue, total };
+  } catch (error) {
+    logger.warn({ err: error }, "jobs: failed-job count unavailable");
+    return empty;
   }
 }
 

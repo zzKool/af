@@ -3,8 +3,16 @@
 import { PgBoss } from "pg-boss";
 import pgBossPackage from "pg-boss/package.json";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { deadLetterQueueName, enqueue, getBoss, startJobs, stopJobs } from "./queue";
-import type { JobDefinition } from "./types";
+import {
+  deadLetterQueueName,
+  enqueue,
+  failedJobs,
+  failureMessage,
+  getBoss,
+  startJobs,
+  stopJobs,
+} from "./queue";
+import type { JobContext, JobDefinition } from "./types";
 
 async function waitFor(check: () => boolean, timeoutMs = 15_000): Promise<void> {
   const start = Date.now();
@@ -16,6 +24,7 @@ async function waitFor(check: () => boolean, timeoutMs = 15_000): Promise<void> 
 
 const ran: string[] = [];
 const dead: string[] = [];
+const deadContexts: JobContext[] = [];
 let attempts = 0;
 
 const okJob: JobDefinition<{ id: string }> = {
@@ -33,8 +42,9 @@ const failingJob: JobDefinition<{ id: string }> = {
     attempts++;
     throw new Error("boom");
   },
-  onDeadLetter: async (data) => {
+  onDeadLetter: async (data, ctx) => {
     dead.push(data.id);
+    deadContexts.push(ctx);
   },
 };
 
@@ -80,11 +90,25 @@ describe("kernel/jobs queue (pg-boss)", () => {
     expect(ran).not.toContain("a-dup");
   });
 
-  it("a throwing handler is retried, then the dead-letter handler runs", async () => {
+  it("a throwing handler is retried, then the dead-letter handler runs with the failure (F110)", async () => {
     await enqueue(failingJob, { id: "f" });
     await waitFor(() => dead.includes("f"), 25_000);
     expect(attempts).toBe(2); // first attempt + retryLimit 1
+    // the dead-letter run knows what the last attempt threw and how many attempts it took
+    expect(deadContexts.at(-1)?.failure).toEqual({ error: "boom", attempts: 2 });
+    // and the failure is a health fact: the source queue counts it, the dead-letter queue is not listed
+    const failed = await failedJobs();
+    expect(failed.byQueue[failingJob.name]).toBeGreaterThanOrEqual(1);
+    expect(failed.byQueue[deadLetterQueueName(failingJob.name)]).toBeUndefined();
+    expect(failed.total).toBeGreaterThanOrEqual(1);
   }, 30_000);
+
+  it("failureMessage reads pg-boss's stored error, else shows what it got", () => {
+    expect(failureMessage({ message: "boom", stack: "…" })).toBe("boom");
+    expect(failureMessage("plain")).toBe("plain");
+    expect(failureMessage({ code: 42 })).toBe('{"code":42}');
+    expect(failureMessage(null)).toBe("unknown error");
+  });
 
   // F92: a batch upload queues up to 50 OCR jobs at once. Each job name is its own queue with its own
   // worker taking one job at a time, so that backlog waits in its own queue and never sits in front of

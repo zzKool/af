@@ -52,6 +52,14 @@ export async function catchUpWindow(today: string = clock.today()): Promise<numb
 export const ecbSyncJob: JobDefinition<EcbSyncData> = {
   name: "rates.ecb-sync",
   options: { retryLimit: 3, retryDelay: 120, retryBackoff: true, expireInSeconds: 120 },
+  // F110: no entity to mark — the failure is a health fact (`failedJobs`) and the dashboard's missing-rate
+  // to-do shows the gap; the next scheduled run catches up
+  onDeadLetter: async (data, ctx) => {
+    logger.error(
+      { lastN: data.lastN, failure: ctx.failure },
+      "rates.ecb-sync: failed after all retries",
+    );
+  },
   handler: async (data) => {
     const lastN = data.lastN ?? (await catchUpWindow());
     const result = await fetchDailyRates(prisma, { lastN });

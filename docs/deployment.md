@@ -25,7 +25,7 @@ git clone https://github.com/zzKool/af.git .           # the compose file, the s
 cp .env.prod.example .env.prod && $EDITOR .env.prod      # secrets: POSTGRES_PASSWORD, AF_APP_PASSWORD (+ DATABASE_URL), AUTH_SECRET, AUTH_URL, DI keys
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d          # db → migrate (exits 0) → app; azurite as blob storage
-curl -s localhost:3000/api/health                        # {"status":"ok","db":"ok","jobs":"enabled","version":"sha-…"}
+curl -s localhost:3000/api/health                        # {"status":"ok","db":"ok","jobs":"enabled","failedJobs":0,"version":"sha-…"}
 ```
 
 Then the first user: with `AUTH_SIGNUP` unset, register on `/register` (the first account becomes the owner of its tenant). **Then close the box**: `AUTH_SIGNUP=closed` in `.env.prod` and `docker compose -f docker-compose.prod.yml up -d app` — from then on `/register` is a 404, Better Auth refuses sign-ups and new organisations, and the login page shows no *create an account* (D61, F105). A second user (the accountant, F03) is added by the admin CLI when it exists (F112), never by reopening sign-up. Seed data (`prisma/seed.ts`) is for development only — never run it against production.

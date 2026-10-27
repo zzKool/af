@@ -23,6 +23,7 @@ import {
   deleteDraftAction,
   issueInvoiceAction,
   markSentAction,
+  requeueInvoicePdfAction,
 } from "@/modules/invoices/invoices.actions";
 import type { InvoiceState, InvoiceStatus, InvoiceType } from "@/modules/invoices/types";
 
@@ -55,6 +56,7 @@ export function InvoiceActions({
   const { executeAsync: copy } = useAction(copyToDraftAction);
   const { executeAsync: remove } = useAction(deleteDraftAction);
   const { executeAsync: downloadUrl } = useAction(getDocumentDownloadUrlAction);
+  const { executeAsync: requeuePdf } = useAction(requeueInvoicePdfAction);
   const issueDialog = useConfirmDialog({
     title: t("invoices.action.issueConfirm.title", { number: numberHint ?? "…" }),
     confirmLabel: t("invoices.action.issue"),
@@ -161,19 +163,23 @@ export function InvoiceActions({
         ) : (
           <span className="text-xs text-muted-foreground" data-testid="pdf-pending">
             {t("invoices.action.pdfPending")}
-            {/* V12: the polls ran out while the render still queues — say so and let one click start them again */}
+            {/* V12 / F110: the polls ran out — the render may still queue, or it failed for good (the History
+                says which). One click queues it again (exclusive per invoice: never doubled) and polls again. */}
             {pdfPolls >= PDF_POLL_LIMIT && (
               <Button
                 size="sm"
                 variant="link"
                 className="ml-1 h-auto p-0 text-xs"
                 data-testid="pdf-poll-again"
-                onClick={() => {
+                onClick={async () => {
+                  const r = await requeuePdf({ id });
+                  const error = extractError(r);
+                  if (error) return toast.error(error);
                   setPdfPolls(0);
                   router.refresh();
                 }}
               >
-                {t("errors.tryAgain")}
+                {t("invoices.action.pdfAgain")}
               </Button>
             )}
           </span>
