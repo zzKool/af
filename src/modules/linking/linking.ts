@@ -380,9 +380,15 @@ export function triggerDetail(error: unknown, name: string): string | null {
   return m ? m[1].trim() : name;
 }
 
+/** One link by id, as its DTO; null when it does not exist (in this tenant). */
+export async function linkById(tx: TransactionClient, id: string): Promise<LinkDto | null> {
+  const row = await tx.link.findUnique({ where: { id } });
+  return row ? toLinkDto(row) : null;
+}
+
 export async function removeLink(
   tx: TransactionClient,
-  _caller: CallerIdentity,
+  caller: CallerIdentity,
   audit: AuditLogger,
   id: string,
   opts: LinkWriteOptions = {},
@@ -390,8 +396,17 @@ export async function removeLink(
   const row = await tx.link.findUnique({ where: { id } });
   if (!row)
     return { error: { code: "NOT_FOUND", message: `Link not found: ${id}`, retryable: false } };
+  // a payment of an entity that writes its own (D37) comes off through its module (F124 (3)): *Unlink* anywhere
+  const toType = row.toType as LinkableType;
+  if (needsOwnFlow(row.kind as LinkKind, toType) && opts.owner !== toType) {
+    const unpay = getLinkable(toType)?.unpay;
+    if (unpay) {
+      const r = await unpay(tx, caller, audit, { id: row.toId, linkId: id });
+      return r.error ? { error: r.error } : { data: { removed: true } };
+    }
+  }
   // removing an attach-made link here would leave the paid amount and the bank base on the entity (audit 4)
-  const refused = ownFlowRefusal(row.kind as LinkKind, row.toType as LinkableType, opts);
+  const refused = ownFlowRefusal(row.kind as LinkKind, toType, opts);
   if (refused) return { error: refused };
   await tx.link.delete({ where: { id } });
   await audit.log({

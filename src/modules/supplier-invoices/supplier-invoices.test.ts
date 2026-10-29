@@ -952,7 +952,7 @@ describe("US2 — paid by a link", () => {
     expect(d.payments).toEqual([]);
   });
 
-  it("the inbox opens the panel (F58, D37): a generic justifies is refused both ways, paid follows the panel's payment", async () => {
+  it("the payment is this module's (D37): linking's apply and unlink come through pay / unpay (F124 (3)); a raw link is refused", async () => {
     const r = await create(julyInvoice());
     const si = { type: "supplier_invoice" as const, id: r.data!.id };
     const row = await chfRow("2026-03-31", "-1297.20");
@@ -966,14 +966,8 @@ describe("US2 — paid by a link", () => {
       return { status: d.status, allocatedBase: d.allocatedBase, payments: d.payments.length };
     };
 
-    // the inbox's apply and a generic link write nothing
+    // a raw generic link writes nothing — only this module's path may (the registry's `pay`)
     await run(owner.caller, async (tx) => {
-      const applied = await linking.applySuggestion(tx, owner.caller, noopAudit, {
-        bankTransactionId: row,
-        to: si,
-      });
-      expect(applied.error?.message).toMatch(/invoice's own panel/);
-      expect(applied.error?.details).toEqual({ ownFlow: "supplier_invoice" });
       const generic = await linking.createLink(tx, owner.caller, noopAudit, {
         from: { type: "bank_transaction", id: sekRow },
         to: si,
@@ -982,50 +976,43 @@ describe("US2 — paid by a link", () => {
         currency: "SEK",
       });
       expect(generic.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(generic.error?.details).toEqual({ ownFlow: "supplier_invoice" });
     });
     expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
 
-    // same currency: the panel's payment → paid; a generic unlink refused; the panel's remove → unpaid
+    // same currency: *Link* on the suggestion (linking's apply) pays through this module → paid; *Unlink* → unpaid
+    const applied = await run(owner.caller, (tx) =>
+      linking.applySuggestion(tx, owner.caller, noopAudit, { bankTransactionId: row, to: si }),
+    );
+    expect(applied.error).toBeUndefined();
+    // the CHF row's base at ITS date (10.70), not the invoice's (ecb_nearest at 10.76): the difference is derived
+    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "13880.04", payments: 1 });
+    expect((await detail(r.data!.id)).payments[0]?.linkId).toBe(applied.data!.id);
+    await run(owner.caller, async (tx) => {
+      const removed = await linking.removeLink(tx, owner.caller, noopAudit, applied.data!.id);
+      expect(removed.error).toBeUndefined();
+    });
+    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
+
+    // another currency through the same generic path: the row's base on the link
+    const cross = await run(owner.caller, (tx) =>
+      linking.applySuggestion(tx, owner.caller, noopAudit, { bankTransactionId: sekRow, to: si }),
+    );
+    expect(cross.error).toBeUndefined();
+    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "14000.00", payments: 1 });
+
+    // the module's own path, as the panel calls it, is the same thing
+    await run(owner.caller, (tx) =>
+      removePayment(tx, owner.caller, noopAudit, {
+        invoiceId: r.data!.id,
+        linkId: cross.data!.id,
+      }),
+    );
+    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
     await run(owner.caller, (tx) =>
       recordPayment(tx, owner.caller, noopAudit, { invoiceId: r.data!.id, bankTransactionId: row }),
     );
-    // the CHF row's base at ITS date (10.70), not the invoice's (ecb_nearest at 10.76): the difference is derived
     expect(await paidState()).toEqual({ status: "paid", allocatedBase: "13880.04", payments: 1 });
-    const [payment] = (await detail(r.data!.id)).payments;
-    await run(owner.caller, async (tx) => {
-      const removed = await linking.removeLink(tx, owner.caller, noopAudit, payment!.linkId);
-      expect(removed.error?.message).toMatch(/invoice's own panel/);
-    });
-    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "13880.04", payments: 1 });
-    await run(owner.caller, (tx) =>
-      removePayment(tx, owner.caller, noopAudit, {
-        invoiceId: r.data!.id,
-        linkId: payment!.linkId,
-      }),
-    );
-    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
-
-    // another currency: the same payment, the row's base on the link; a generic unlink still refused
-    await run(owner.caller, (tx) =>
-      recordPayment(tx, owner.caller, noopAudit, {
-        invoiceId: r.data!.id,
-        bankTransactionId: sekRow,
-      }),
-    );
-    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "14000.00", payments: 1 });
-    const [sekLink] = (await detail(r.data!.id)).payments;
-    await run(owner.caller, async (tx) => {
-      const removed = await linking.removeLink(tx, owner.caller, noopAudit, sekLink!.linkId);
-      expect(removed.error?.code).toBe("BUSINESS_RULE_VIOLATION");
-    });
-    expect(await paidState()).toEqual({ status: "paid", allocatedBase: "14000.00", payments: 1 });
-    await run(owner.caller, (tx) =>
-      removePayment(tx, owner.caller, noopAudit, {
-        invoiceId: r.data!.id,
-        linkId: sekLink!.linkId,
-      }),
-    );
-    expect(await paidState()).toEqual({ status: "unpaid", allocatedBase: "0.00", payments: 0 });
   });
 
   it("the panel's History (F71): the invoice's audit entries, newest first, named by what happened", async () => {

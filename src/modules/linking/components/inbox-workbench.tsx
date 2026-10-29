@@ -31,8 +31,6 @@ import {
   removeLinkAction,
 } from "@/modules/linking/linking.actions";
 import type { BulkApplyResult, EntityFacts, Suggestion } from "@/modules/linking/types";
-import { attachHref } from "../hrefs";
-import { needsOwnFlow } from "../kinds";
 import { ConfidenceLabel } from "./confidence-label";
 import { EntityLabel } from "./entity-label";
 import type { JustifyOptions } from "./justify-panel";
@@ -145,11 +143,7 @@ export function InboxWorkbench({
   const applyOne = useCallback(
     async (row: InboxRow, s: Suggestion) => {
       if (!canWrite) return;
-      // an expense / supplier invoice writes its own payment (D37, F58): its panel, the row preselected
-      if (needsOwnFlow("justifies", s.candidate.type)) {
-        router.push(attachHref({ type: s.candidate.type, id: s.candidate.id }, row.row.id));
-        return;
-      }
+      // an expense / supplier invoice is paid through its own module by the service (D37, F124 (3))
       if (s.allocation === null) {
         toast.error(t("linking.crossCurrencyHint"));
         return;

@@ -48,10 +48,10 @@ export const EXCLUSIVE_SIDES: Readonly<Partial<Record<LinkKind, "both" | "from">
 };
 
 /**
- * Entities whose payments their own module writes (D37, F58): the bank row's amount, base and rate land on the
- * entity together with the `justifies` link (*attach* / *record payment*), and come off with it (*detach* /
- * *remove payment*). Linking's generic paths (inbox apply, *Link to…*, *Unlink*) refuse a `justifies` onto
- * them — the inbox opens the entity's panel instead. The owning module passes `{ owner }` to write.
+ * Entities whose payments their own module writes (D37, F58; F114: the link is the record): the module validates
+ * the pair and writes the `justifies` link with `{ owner }`. A raw `createLink` without it is refused; linking's
+ * generic paths (inbox apply, *Link to…*, *Unlink*) reach the module through the linkable's `pay` / `unpay`
+ * (F124 (3)) — one click, the module's rules.
  */
 export const OWN_PAYMENT_FLOW: readonly LinkableType[] = ["expense", "supplier_invoice"];
 
