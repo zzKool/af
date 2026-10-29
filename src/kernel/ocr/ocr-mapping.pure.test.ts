@@ -47,6 +47,21 @@ describe("mapAnalyzeResult — an invoice", () => {
     expect(data.reverseCharge).toBe(true);
   });
 
+  it("takes the vendor's name from its address block when the logo line was not read as a name", () => {
+    const bare = structuredClone(invoice) as { documents: { fields: Record<string, unknown> }[] };
+    const fields = bare.documents[0].fields;
+    delete fields.VendorName;
+    fields.VendorAddressRecipient = {
+      type: "string",
+      valueString: "Northwind Cloud AB",
+      content: "Northwind  Cloud AB",
+      confidence: 0.9,
+    };
+    expect(mapAnalyzeResult(asResult(bare), "prebuilt-invoice", 1).data.vendorName).toBe(
+      "Northwind Cloud AB",
+    );
+  });
+
   it("leaves the currency unknown when no amount carries a code — never a guess", () => {
     const bare = structuredClone(invoice) as { documents: { fields: Record<string, unknown> }[] };
     const fields = bare.documents[0].fields;

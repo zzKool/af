@@ -307,6 +307,7 @@ export async function classifyDocument(
       prefixType: true,
       businessKey: true,
       reviewedAt: true,
+      mimeType: true,
     },
   });
   if (!doc) {
@@ -342,7 +343,7 @@ export async function classifyDocument(
   const reread =
     followsType &&
     REREAD_FROM.has(doc.status) &&
-    ocrModelFor(doc.prefixType) !== ocrModelFor(newPrefixType);
+    ocrModelFor(doc.prefixType, doc.mimeType) !== ocrModelFor(newPrefixType, doc.mimeType);
 
   await tx.document.update({
     where: { id: documentId },

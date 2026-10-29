@@ -48,3 +48,21 @@ export function memoryConfidence(n: number): number {
 
 export const RULE_CONFIDENCE = 1;
 export const PARTNER_DEFAULT_CONFIDENCE = 0.95;
+
+/** What a form pre-fills without saving: the HIGH proposals (`prefilled`, PREFILL_HIGH) — one value per fact. */
+export function prefillFromProposals(
+  proposals: readonly {
+    prefilled: boolean;
+    kind: "bas" | "partner";
+    payload: { basCode?: string; partnerId?: string } | Record<string, unknown>;
+  }[],
+): { basCode?: string; partnerId?: string } {
+  const out: { basCode?: string; partnerId?: string } = {};
+  for (const p of proposals) {
+    if (!p.prefilled) continue;
+    if (p.kind === "bas" && typeof p.payload.basCode === "string") out.basCode = p.payload.basCode;
+    if (p.kind === "partner" && typeof p.payload.partnerId === "string")
+      out.partnerId = p.payload.partnerId;
+  }
+  return out;
+}

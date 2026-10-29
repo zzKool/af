@@ -48,7 +48,11 @@ import {
   counterpartyMemoryAction,
   justifyRowAction,
   noProofNeededAction,
+  suggestionsForTransactionAction,
 } from "../linking.actions";
+import { prefillFromProposals } from "../proposals/policy";
+import type { ProposalDto, Suggestion } from "../types";
+import { ConfidenceLabel } from "./confidence-label";
 
 /** The option lists the card needs — loaded by the page (`justifyOptions`), plain data. */
 export type JustifyOptions = {
@@ -73,7 +77,9 @@ export function JustifyPanel({
   row,
   canWrite,
   options,
+  proposals = [],
   onDone,
+  onProofRead,
   proofKey = 0,
   noProofKey = 0,
   lostKey = 0,
@@ -81,8 +87,12 @@ export function JustifyPanel({
   row: RowForJustify;
   canWrite: boolean;
   options: JustifyOptions | null;
+  /** the row's current proposals (F98): a HIGH one pre-fills the card's category / supplier */
+  proposals?: ProposalDto[];
   /** the row is justified (or flagged): the host reloads and moves on */
   onDone?: () => void;
+  /** a proof was read for this row (the card is up): the host may refresh its suggestions */
+  onProofRead?: () => void;
   proofKey?: number;
   noProofKey?: number;
   lostKey?: number;
@@ -99,6 +109,24 @@ export function JustifyPanel({
   const { executeAsync: createRule } = useAction(createRuleFromTransactionAction);
 
   const incoming = Number(row.amount) > 0;
+
+  // T008: a proof already in the inbox — the documents that score for this row, offered before any upload.
+  // A document uploaded from this row but not turned into anything yet comes back here after a reload.
+  const { executeAsync: loadSuggestions } = useAction(suggestionsForTransactionAction);
+  const [inboxProofs, setInboxProofs] = useState<Suggestion[]>([]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per row and per host refresh (proofKey is a signal)
+  useEffect(() => {
+    if (incoming || !canWrite) return;
+    let live = true;
+    void loadSuggestions({ bankTransactionId: row.id }).then((r) => {
+      const d = r?.data && "data" in r.data ? r.data.data : undefined;
+      if (!live || !d) return;
+      setInboxProofs(d.suggestions.filter((s) => s.candidate.type === "document").slice(0, 3));
+    });
+    return () => {
+      live = false;
+    };
+  }, [row.id, phase.kind === "idle"]);
 
   // the keyboard: p opens the file picker, n the reasons, x the card without a document
   // biome-ignore lint/correctness/useExhaustiveDependencies: the keys are the signals
@@ -133,6 +161,7 @@ export function JustifyPanel({
           reading,
           note: d.status === "ocr_failed" ? t("linking.justify.readFailed") : null,
         });
+        onProofRead?.();
         return;
       }
       if (Date.now() - startedAt > OCR_WAIT_MS) {
@@ -141,12 +170,12 @@ export function JustifyPanel({
       }
       timer = setTimeout(tick, OCR_POLL_MS);
     };
-    let timer = setTimeout(tick, OCR_POLL_MS);
+    let timer = setTimeout(tick, 0);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [phase, readDocument, row, t]);
+  }, [phase, readDocument, row, t, onProofRead]);
 
   async function takeFile(file: File) {
     setPhase({ kind: "uploading" });
@@ -233,6 +262,7 @@ export function JustifyPanel({
             kind={kind}
             onKind={setKind}
             options={options}
+            proposals={proposals}
             onCancel={() => setPhase({ kind: "idle" })}
             onDone={() => {
               setPhase({ kind: "idle" });
@@ -244,6 +274,39 @@ export function JustifyPanel({
         )
       ) : (
         <div className="flex flex-col gap-3" data-testid="justify-panel">
+          {inboxProofs.length > 0 && phase.kind === "idle" && (
+            <div
+              className="rounded-lg border bg-muted/40 px-3 py-2 text-sm"
+              data-testid="justify-inbox-proofs"
+            >
+              <div className="mb-1 text-xs font-medium">{t("linking.justify.inboxProofs")}</div>
+              <ul className="flex flex-col gap-1">
+                {inboxProofs.map((s) => (
+                  <li key={s.candidate.id} className="flex items-center gap-2">
+                    <ConfidenceLabel confidence={s.confidence} />
+                    <span className="min-w-0 flex-1 truncate">{s.candidate.label}</span>
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      {s.candidate.date}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setPhase({
+                          kind: "reading",
+                          documentId: s.candidate.id,
+                          startedAt: Date.now(),
+                        })
+                      }
+                      data-testid="justify-use-proof"
+                    >
+                      {t("linking.justify.useProof")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* biome-ignore lint/a11y/noStaticElementInteractions: the drop target; the button inside is the keyboard path */}
           <div
             onDragOver={(e) => {
@@ -331,23 +394,30 @@ export function JustifyPanel({
   );
 }
 
+/** *Create as*: what the proof becomes — a supplier invoice (terms, a number) or a receipt / expense (paid by the row). */
 function KindToggle({ kind, onKind }: { kind: JustifyKind; onKind: (k: JustifyKind) => void }) {
   const t = useT();
   return (
-    <div className="flex gap-1" role="radiogroup" aria-label={t("linking.justify.field.kind")}>
-      {(["supplier_invoice", "expense"] as const).map((k) => (
-        <Button
-          key={k}
-          size="sm"
-          variant={kind === k ? "secondary" : "ghost"}
-          role="radio"
-          aria-checked={kind === k}
-          onClick={() => onKind(k)}
-          data-testid={`justify-kind-${k}`}
-        >
-          {t(`linking.justify.kind.${k}`)}
-        </Button>
-      ))}
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium">{t("linking.justify.field.kind")}</span>
+        <div className="flex gap-1" role="radiogroup" aria-label={t("linking.justify.field.kind")}>
+          {(["supplier_invoice", "expense"] as const).map((k) => (
+            <Button
+              key={k}
+              size="sm"
+              variant={kind === k ? "secondary" : "ghost"}
+              role="radio"
+              aria-checked={kind === k}
+              onClick={() => onKind(k)}
+              data-testid={`justify-kind-${k}`}
+            >
+              {t(`linking.justify.kind.${k}`)}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">{t(`linking.justify.kindHint.${kind}`)}</p>
     </div>
   );
 }
@@ -361,6 +431,7 @@ function CompareCardForm({
   kind,
   onKind,
   options,
+  proposals,
   onCancel,
   onDone,
 }: {
@@ -371,6 +442,7 @@ function CompareCardForm({
   kind: JustifyKind;
   onKind: (k: JustifyKind) => void;
   options: JustifyOptions;
+  proposals: ProposalDto[];
   onCancel: () => void;
   onDone: () => void;
 }) {
@@ -379,8 +451,14 @@ function CompareCardForm({
   const card: CompareCard = compareRowToReading(row, reading);
   const { executeAsync: justify, isPending } = useAction(justifyRowAction);
 
-  // the fields, pre-filled from the reading, else from the row
-  const [partnerId, setPartnerId] = useState<string>(NONE);
+  // the fields, pre-filled from the reading, else from the row; the category and the supplier from a HIGH
+  // proposal (F98: a rule, the partner's default, the owner's history) — a proposal, until the click saves it
+  const prefill = prefillFromProposals(proposals);
+  const [partnerId, setPartnerId] = useState<string>(
+    prefill.partnerId && options.partners.some((p) => p.id === prefill.partnerId)
+      ? prefill.partnerId
+      : NONE,
+  );
   const [extraPartners, setExtraPartners] = useState<JustifyOptions["partners"]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState(card.invoiceNumber ?? "");
   const [date, setDate] = useState(card.documentDate ?? row.bookingDate);
@@ -390,7 +468,12 @@ function CompareCardForm({
   const [vat, setVat] = useState(
     typeof reading.totalTax === "number" && reading.totalTax > 0 ? reading.totalTax.toFixed(2) : "",
   );
-  const [basCode, setBasCode] = useState<string>(NONE);
+  const [basCode, setBasCode] = useState<string>(() => {
+    if (prefill.basCode && options.categories.some((c) => c.code === prefill.basCode))
+      return prefill.basCode;
+    const p = options.partners.find((x) => x.id === prefill.partnerId);
+    return p?.defaultBasCode ?? NONE;
+  });
   const [groupId, setGroupId] = useState<string>(options.groups[0]?.id ?? NONE);
   const partners = [...extraPartners, ...options.partners];
 
@@ -486,46 +569,80 @@ function CompareCardForm({
       : card.days === 0
         ? t("linking.justify.card.sameDay")
         : t("linking.justify.card.days", { days: card.days });
+  // what the click still needs: the key wants a category (its alias), a supplier invoice wants its supplier
+  const missing = [
+    ...(groupId === NONE ? [t("linking.justify.field.group")] : []),
+    ...(basCode === NONE ? [t("linking.justify.field.category")] : []),
+    ...(kind === "supplier_invoice" && partnerId === NONE
+      ? [t("linking.justify.field.partner")]
+      : []),
+  ];
 
   return (
     <div className="flex flex-col gap-3" data-testid="justify-card">
-      {/* the two sides */}
-      <div className="grid gap-1 rounded-lg border px-3 py-2 text-sm tabular-nums">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <span className="w-20 shrink-0 text-xs text-muted-foreground">
-            {t("linking.justify.card.document")}
-          </span>
-          {documentId ? (
-            <>
-              <span>
-                {card.documentAmount
-                  ? formatMoney(card.documentAmount, card.documentCurrency)
-                  : "—"}
-              </span>
-              <span>{card.documentDate ?? "—"}</span>
-              <span className="truncate">{card.vendorName ?? "—"}</span>
-              {card.vatNumber && <Tag>{card.vatNumber}</Tag>}
-              {card.invoiceNumber && <Tag>{card.invoiceNumber}</Tag>}
-            </>
-          ) : (
-            <span className="text-muted-foreground">{t("linking.justify.card.lostTitle")}</span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <span className="w-20 shrink-0 text-xs text-muted-foreground">
-            {t("linking.justify.card.row")}
-          </span>
-          <span>{formatMoney(row.amount, row.currency, { signed: true })}</span>
-          <span>{row.bookingDate}</span>
-          <span className="truncate">{row.description}</span>
-        </div>
+      {/* the two sides, column by column: amount · date · who · reference — the verdict under them */}
+      <div className="rounded-lg border px-3 py-2 text-sm">
+        <table className="w-full table-fixed border-collapse" data-testid="justify-compare">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th className="w-20 font-normal" />
+              <th className="w-[7.5rem] font-normal">{t("linking.justify.field.amount")}</th>
+              <th className="w-[6.5rem] font-normal">{t("linking.justify.field.date")}</th>
+              <th className="font-normal">{t("linking.justify.card.who")}</th>
+              <th className="hidden w-36 font-normal sm:table-cell">
+                {t("linking.justify.card.reference")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="py-0.5 text-xs text-muted-foreground">
+                {t("linking.justify.card.document")}
+              </td>
+              {documentId ? (
+                <>
+                  <td className="py-0.5 tabular-nums">
+                    {card.documentAmount
+                      ? formatMoney(card.documentAmount, card.documentCurrency)
+                      : "—"}
+                  </td>
+                  <td className="py-0.5 tabular-nums">{card.documentDate ?? "—"}</td>
+                  <td className="truncate py-0.5">{card.vendorName ?? "—"}</td>
+                  <td className="hidden py-0.5 sm:table-cell">
+                    <span className="flex flex-wrap gap-1">
+                      {card.invoiceNumber ? <Tag>{card.invoiceNumber}</Tag> : null}
+                      {card.vatNumber ? <Tag>{card.vatNumber}</Tag> : null}
+                      {!card.invoiceNumber && !card.vatNumber ? "—" : null}
+                    </span>
+                  </td>
+                </>
+              ) : (
+                <td colSpan={4} className="py-0.5 text-muted-foreground">
+                  {t("linking.justify.card.lostTitle")}
+                </td>
+              )}
+            </tr>
+            <tr>
+              <td className="py-0.5 text-xs text-muted-foreground">
+                {t("linking.justify.card.row")}
+              </td>
+              <td className="py-0.5 tabular-nums">
+                {formatMoney(row.amount, row.currency, { signed: true })}
+              </td>
+              <td className="py-0.5 tabular-nums">{row.bookingDate}</td>
+              <td className="truncate py-0.5" colSpan={2}>
+                {row.description}
+              </td>
+            </tr>
+          </tbody>
+        </table>
         {documentId && (
-          <div className="text-xs text-muted-foreground" data-testid="justify-verdict">
+          <div className="mt-1 text-xs text-muted-foreground" data-testid="justify-verdict">
             {verdict}
             {dayText ? ` · ${dayText}` : ""}
           </div>
         )}
-        {note && <div className="text-xs text-muted-foreground">{note}</div>}
+        {note && <div className="mt-1 text-xs text-muted-foreground">{note}</div>}
       </div>
 
       <KindToggle kind={kind} onKind={onKind} />
@@ -670,16 +787,16 @@ function CompareCardForm({
         <Button
           size="sm"
           onClick={() => void submit()}
-          disabled={
-            isPending ||
-            groupId === NONE ||
-            basCode === NONE ||
-            (kind === "supplier_invoice" && partnerId === NONE)
-          }
+          disabled={isPending || missing.length > 0}
           data-testid="justify-create"
         >
           {t(`linking.justify.create.${kind}`)}
         </Button>
+        {missing.length > 0 && (
+          <span className="text-xs text-muted-foreground" data-testid="justify-missing">
+            {t("linking.justify.missing", { fields: missing.join(" · ") })}
+          </span>
+        )}
         {documentId && (
           <Button
             size="sm"
