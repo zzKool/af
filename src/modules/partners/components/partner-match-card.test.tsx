@@ -98,7 +98,12 @@ describe("PartnerMatchCard — the vendor address", () => {
       },
     });
     render(
-      <PartnerMatchCard vendor={vendor} selectedId="" onUseMatch={onUseMatch} onCreated={onCreated} />,
+      <PartnerMatchCard
+        vendor={vendor}
+        selectedId=""
+        onUseMatch={onUseMatch}
+        onCreated={onCreated}
+      />,
     );
     fireEvent.click(await screen.findByTestId("partner-match-new"));
     fireEvent.click(screen.getByTestId("new-vendor-create"));

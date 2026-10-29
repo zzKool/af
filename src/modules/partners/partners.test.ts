@@ -398,7 +398,12 @@ describe("partner validation", () => {
     expect(self.error).toBeUndefined();
     // deactivated: still one record — the refusal names it so the card can use it
     await withTenantTransaction(prisma, tenantId, async (tx) =>
-      partnerService.deactivatePartner(tx, owner.callerIdentity, noopAudit, first.data?.id as string),
+      partnerService.deactivatePartner(
+        tx,
+        owner.callerIdentity,
+        noopAudit,
+        first.data?.id as string,
+      ),
     );
     const afterDeactivation = await withTenantTransaction(prisma, tenantId, async (tx) =>
       partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
