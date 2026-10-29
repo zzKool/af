@@ -10,6 +10,7 @@ import {
   extractBlobPath,
   MODEL_MAP,
   type OcrSource,
+  ocrModelFor,
   resolveOcrProvider,
 } from "@/kernel/ocr/ocr";
 
@@ -152,6 +153,26 @@ describe("MODEL_MAP", () => {
 
   it("returns undefined for unknown prefix (factory code uses ?? fallback)", () => {
     expect(MODEL_MAP["unknown-type"]).toBeUndefined();
+  });
+});
+
+describe("ocrModelFor — the type decides (D52), the file refines it (D69)", () => {
+  it("an expense that is a PDF is an invoice-shaped document paid by card: the invoice model", () => {
+    expect(ocrModelFor("expense", "application/pdf")).toBe("prebuilt-invoice");
+    expect(ocrModelFor("expense", "APPLICATION/PDF")).toBe("prebuilt-invoice");
+  });
+
+  it("a photographed receipt (an image) keeps the receipt model; no file known → the type's model", () => {
+    expect(ocrModelFor("expense", "image/jpeg")).toBe("prebuilt-receipt");
+    expect(ocrModelFor("expense", "image/png")).toBe("prebuilt-receipt");
+    expect(ocrModelFor("expense")).toBe("prebuilt-receipt");
+    expect(ocrModelFor("expense", null)).toBe("prebuilt-receipt");
+  });
+
+  it("the other types do not look at the file", () => {
+    expect(ocrModelFor("invoice", "image/jpeg")).toBe("prebuilt-invoice");
+    expect(ocrModelFor("contract", "application/pdf")).toBe("prebuilt-layout");
+    expect(ocrModelFor("unknown", "application/pdf")).toBe("prebuilt-layout");
   });
 });
 

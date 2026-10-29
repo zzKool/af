@@ -22,12 +22,13 @@ The factory function `createOcrService()` selects automatically based on whether
 
 ## Model Selection
 
-Prefix types map to Azure DI prebuilt models via a configurable map:
+Prefix types map to Azure DI prebuilt models (`ocrModelFor(prefixType, mimeType)`); **the type decides (D52), the file refines it (D69, 2026-10-29)**: an *expense* that is a **PDF** is read with the invoice model — a cloud bill, a subscription, an online order paid by card is printed like an invoice, and only that model reads the vendor's name, VAT number and invoice number; the receipt model stays for the photographed till receipt (an image). A type change re-reads only when the model differs, so *expense ↔ invoice* on a PDF swaps the key and keeps the reading.
 
 | Prefix Type | Model | Fields Extracted |
 |-------------|-------|-----------------|
-| expense | prebuilt-receipt | MerchantName, Total, TotalTax, TransactionDate, Items (Description, Quantity, Price, TotalPrice); the currency from the amounts |
-| invoice | prebuilt-invoice | VendorName, VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, SubTotal, TotalTax, InvoiceDate, DueDate, InvoiceId, CustomerName (else BillingAddressRecipient) + CustomerTaxId (D53), PaymentDetails, Items (Description folded to one line, Quantity, UnitPrice, Amount, Tax, TaxRate → `taxRate` %); the currency from the amounts |
+| expense (image) | prebuilt-receipt | MerchantName, Total, TotalTax, TransactionDate, Items (Description, Quantity, Price, TotalPrice); the currency from the amounts |
+| expense (PDF) | prebuilt-invoice | as *invoice* below |
+| invoice | prebuilt-invoice | VendorName (else VendorAddressRecipient — the name on the vendor's address block), VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, SubTotal, TotalTax, InvoiceDate, DueDate, InvoiceId, CustomerName (else BillingAddressRecipient) + CustomerTaxId (D53), PaymentDetails, Items (Description folded to one line, Quantity, UnitPrice, Amount, Tax, TaxRate → `taxRate` %); the currency from the amounts |
 | contract | prebuilt-layout | Raw text only |
 | nda | prebuilt-layout | Raw text only |
 | certificate | prebuilt-layout | Raw text only |
