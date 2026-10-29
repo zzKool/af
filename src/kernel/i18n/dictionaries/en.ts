@@ -1877,6 +1877,7 @@ export const en = {
   "partners.match.vatNumber": "VAT number",
   "partners.match.create": "Create supplier",
   "partners.match.created": "Supplier {name} created",
+  "partners.match.exists": "{name} is on file already — using it",
   "documents.upload.unsupported": "Unsupported file type. Accepted: PDF, JPEG, PNG, TIFF",
   "documents.upload.failed": "Upload failed",
   // subscriptions (F94, D57)
