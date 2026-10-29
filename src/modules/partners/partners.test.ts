@@ -334,6 +334,81 @@ describe("partner validation", () => {
     expect(result.error?.code).toBe("DUPLICATE_ENTRY");
   });
 
+  it("one partner per name (D70): the same name in another case or spacing is refused, naming the existing one", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const first = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "Northwind Cloud AB",
+        types: ["vendor"],
+      }),
+    );
+    const again = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "  northwind   cloud ab ",
+        types: ["vendor"],
+      }),
+    );
+    expect(again.error).toMatchObject({
+      code: "DUPLICATE_ENTRY",
+      details: { existingId: first.data?.id, existingName: "Northwind Cloud AB", field: "name" },
+    });
+    expect(again.error?.message).toMatch(/exists already/);
+  });
+
+  it("one partner per VAT number (D70): spaces, dots and dashes ignored; a rename onto another one is refused; a deactivated one still counts", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const first = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "Contoso Ltd",
+        vatNumber: "SE 5566.77-889901",
+        types: ["vendor"],
+      }),
+    );
+    const sameVat = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "Contoso Limited",
+        vatNumber: "se556677889901",
+        types: ["vendor"],
+      }),
+    );
+    expect(sameVat.error).toMatchObject({
+      code: "DUPLICATE_ENTRY",
+      details: { existingId: first.data?.id, field: "vatNumber" },
+    });
+    const other = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "Fabrikam",
+        types: ["client"],
+      }),
+    );
+    const renamed = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.updatePartner(tx, owner.callerIdentity, noopAudit, other.data?.id as string, {
+        name: "contoso ltd",
+      }),
+    );
+    expect(renamed.error?.code).toBe("DUPLICATE_ENTRY");
+    // its own name again is fine (a no-op rename, or a case fix)
+    const self = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.updatePartner(tx, owner.callerIdentity, noopAudit, first.data?.id as string, {
+        name: "CONTOSO LTD",
+      }),
+    );
+    expect(self.error).toBeUndefined();
+    // deactivated: still one record — the refusal names it so the card can use it
+    await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.deactivatePartner(tx, owner.callerIdentity, noopAudit, first.data?.id as string),
+    );
+    const afterDeactivation = await withTenantTransaction(prisma, tenantId, async (tx) =>
+      partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
+        name: "Contoso Ltd",
+        types: ["vendor"],
+      }),
+    );
+    expect(afterDeactivation.error?.details).toMatchObject({ existingId: first.data?.id });
+  });
+
   it("same org_number in different tenant → success", async () => {
     const ownerA = await createAuthenticatedContext(auth, "owner");
     const ownerB = await createAuthenticatedContext(auth, "owner");

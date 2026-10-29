@@ -15,7 +15,7 @@ vi.mock("next-safe-action/hooks", () => ({
     isPending: false,
   }),
 }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() } }));
 vi.mock("@/modules/partners/partners.actions", () => ({
   matchPartnersAction: "match",
   createPartnerAction: "create",
@@ -82,5 +82,29 @@ describe("PartnerMatchCard — the vendor address", () => {
     fireEvent.click(screen.getByTestId("new-vendor-create"));
     await waitFor(() => expect(calls.create).toHaveBeenCalled());
     expect(calls.create.mock.calls[0][0].address).toEqual({});
+  });
+
+  it("one partner per name / VAT number (D70): a refused create names the existing one and the card uses it", async () => {
+    const onUseMatch = vi.fn();
+    const onCreated = vi.fn();
+    calls.create.mockResolvedValueOnce({
+      data: {
+        error: {
+          code: "DUPLICATE_ENTRY",
+          message: "A partner named “Test Vendor AB” exists already — use it instead",
+          retryable: false,
+          details: { existingId: "old-p", existingName: "Test Vendor AB", field: "name" },
+        },
+      },
+    });
+    render(
+      <PartnerMatchCard vendor={vendor} selectedId="" onUseMatch={onUseMatch} onCreated={onCreated} />,
+    );
+    fireEvent.click(await screen.findByTestId("partner-match-new"));
+    fireEvent.click(screen.getByTestId("new-vendor-create"));
+    await waitFor(() => expect(onUseMatch).toHaveBeenCalledWith("old-p"));
+    expect(onCreated).not.toHaveBeenCalled();
+    // the inline form closed: the card is back to its matches
+    expect(screen.queryByTestId("new-vendor-create")).toBeNull();
   });
 });
