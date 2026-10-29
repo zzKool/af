@@ -5,8 +5,6 @@
 // below it *Link to…*, a search over every registered linkable for the cases nothing was suggested.
 // Self-loading from the endpoint; the owner links, the accountant sees. An expense or supplier invoice writes
 // its own payments (D37, F58): its candidates offer *Open* — its panel, the row preselected — instead of *Link*.
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -22,8 +20,6 @@ import {
   suggestionsForTransactionAction,
 } from "@/modules/linking/linking.actions";
 import type { EntityFacts, LinkableType, LinkEndpoint, Suggestion } from "@/modules/linking/types";
-import { attachHref } from "../hrefs";
-import { needsOwnFlow } from "../kinds";
 import { ConfidenceLabel } from "./confidence-label";
 import { EntityLabel } from "./entity-label";
 import { moneyText } from "./money";
@@ -95,7 +91,6 @@ export function SuggestionsSection({
   limit?: number;
 }) {
   const t = useT();
-  const router = useRouter();
   const ids = useId();
   const reasonLabel = useReasonLabel();
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
@@ -175,24 +170,9 @@ export function SuggestionsSection({
     };
   }, [query, searchOpen, search, rowMode, self]);
 
-  /** The panel that pays `candidate` with this row, when its module writes its own payments; else null. */
-  function ownFlowHref(candidate: EntityFacts): string | null {
-    if (bankTransactionId) {
-      return needsOwnFlow("justifies", candidate.type)
-        ? attachHref({ type: candidate.type, id: candidate.id }, bankTransactionId)
-        : null;
-    }
-    return endpointType && endpointId && needsOwnFlow("justifies", endpointType)
-      ? attachHref({ type: endpointType, id: endpointId }, candidate.id)
-      : null;
-  }
-
+  // one click pays, whatever the target: an expense or a supplier invoice is paid through its own module (D37,
+  // F124 (3)) by the service — the *Open* detour of F58 is gone
   async function link(candidate: EntityFacts, allocation: string | null) {
-    const own = ownFlowHref(candidate);
-    if (own) {
-      router.push(own);
-      return;
-    }
     const input = bankTransactionId
       ? { bankTransactionId, to: { type: candidate.type, id: candidate.id } }
       : {
@@ -221,11 +201,6 @@ export function SuggestionsSection({
     if (!s) return;
     if (applyRequest.requireHigh && s.confidence !== "HIGH") {
       toast.message(applyRequest.needsHighMessage ?? t("linking.inbox.enterNeedsHigh"));
-      return;
-    }
-    const own = ownFlowHref(s.candidate);
-    if (own) {
-      router.push(own);
       return;
     }
     if (s.allocation === null) {
@@ -277,11 +252,7 @@ export function SuggestionsSection({
               <div className="text-xs text-muted-foreground">
                 {s.reasons.map(reasonLabel).join(" · ")}
               </div>
-              {canWrite && ownFlowHref(s.candidate) !== null ? (
-                <div className="flex items-center gap-2">
-                  <OwnFlowButton href={ownFlowHref(s.candidate) as string} />
-                </div>
-              ) : canWrite ? (
+              {canWrite ? (
                 <div className="flex items-center gap-2">
                   {s.allocation !== null ? (
                     <>
@@ -369,19 +340,15 @@ export function SuggestionsSection({
                       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {Number(h.remaining) > 0 ? (moneyText(h.remaining, h.currency) ?? "") : ""}
                       </span>
-                      {ownFlowHref(h) !== null ? (
-                        <OwnFlowButton href={ownFlowHref(h) as string} variant="outline" />
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={applying}
-                          onClick={() => void link(h, null)}
-                          data-testid="link-hit-link"
-                        >
-                          {t("linking.link")}
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={applying}
+                        onClick={() => void link(h, null)}
+                        data-testid="link-hit-link"
+                      >
+                        {t("linking.link")}
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -391,22 +358,5 @@ export function SuggestionsSection({
         </div>
       )}
     </section>
-  );
-}
-
-/** *Open* the entity's own panel, the bank row preselected — where its payment is attached (D37, F58). */
-function OwnFlowButton({ href, variant }: { href: string; variant?: "outline" }) {
-  const t = useT();
-  return (
-    <Button
-      size="sm"
-      variant={variant}
-      className="ml-auto"
-      nativeButton={false}
-      render={<Link href={href} />}
-      data-testid="suggestion-open-own"
-    >
-      {t("linking.graph.openEntity")}
-    </Button>
   );
 }

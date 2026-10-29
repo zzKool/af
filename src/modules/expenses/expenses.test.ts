@@ -449,7 +449,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     });
   });
 
-  it("the inbox opens attach (F58, D37): a generic justifies is refused both ways, paid follows attach / detach", async () => {
+  it("the payment is this module's (D37): linking's apply and unlink come through pay / unpay (F124 (3)); a raw link is refused", async () => {
     const g = await group213();
     const e = await run(owner.caller, (tx) =>
       createExpense(tx, owner.caller, noopAudit, {
@@ -478,14 +478,8 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         };
       });
 
-    // before: the inbox's apply and a generic link write nothing — the expense would stay awaiting link for good
+    // a raw generic link writes nothing — only this module's path may (the registry's `pay`)
     await run(owner.caller, async (tx) => {
-      const applied = await linking.applySuggestion(tx, owner.caller, noopAudit, {
-        bankTransactionId: rowId,
-        to: expense,
-      });
-      expect(applied.error?.message).toMatch(/expense's own panel/);
-      expect(applied.error?.details).toEqual({ ownFlow: "expense" });
       const generic = await linking.createLink(tx, owner.caller, noopAudit, {
         from: { type: "bank_transaction", id: rowId },
         to: expense,
@@ -494,6 +488,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         currency: "SEK",
       });
       expect(generic.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+      expect(generic.error?.details).toEqual({ ownFlow: "expense" });
     });
     expect(await statusAndPaid()).toEqual({
       status: "awaiting_link",
@@ -501,7 +496,29 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       justifies: 0,
     });
 
-    // what the inbox opens: pay → paid
+    // *Link* on the suggestion (linking's apply) pays through this module → paid
+    const applied = await run(owner.caller, (tx) =>
+      linking.applySuggestion(tx, owner.caller, noopAudit, {
+        bankTransactionId: rowId,
+        to: expense,
+      }),
+    );
+    expect(applied.error).toBeUndefined();
+    expect(applied.data).toMatchObject({ kind: "justifies", allocatedAmount: "120.00" });
+    expect(await statusAndPaid()).toEqual({ status: "paid", allocated: "120.00", justifies: 1 });
+
+    // *Unlink* anywhere (linking's remove) comes off through unpay → awaiting link again
+    await run(owner.caller, async (tx) => {
+      const removed = await linking.removeLink(tx, owner.caller, noopAudit, applied.data!.id);
+      expect(removed.error).toBeUndefined();
+    });
+    expect(await statusAndPaid()).toEqual({
+      status: "awaiting_link",
+      allocated: "0.00",
+      justifies: 0,
+    });
+
+    // the module's own path, as the panel calls it, is the same thing
     const attached = await run(owner.caller, (tx) =>
       payExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,
@@ -510,18 +527,6 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     );
     expect(attached.error).toBeUndefined();
     expect(await statusAndPaid()).toEqual({ status: "paid", allocated: "120.00", justifies: 1 });
-
-    // the generic *Unlink* is refused — it would leave the paid amount and the bank base behind
-    await run(owner.caller, async (tx) => {
-      const [link] = (await linking.getLinksFor(tx, expense)).data!.filter(
-        (l) => l.kind === "justifies",
-      );
-      const removed = await linking.removeLink(tx, owner.caller, noopAudit, link!.id);
-      expect(removed.error?.message).toMatch(/expense's own panel/);
-    });
-    expect(await statusAndPaid()).toEqual({ status: "paid", allocated: "120.00", justifies: 1 });
-
-    // the expense's own unpay removes the link → awaiting link again
     const detached = await run(owner.caller, (tx) =>
       unpayExpense(tx, owner.caller, noopAudit, {
         expenseId: e.data!.id,

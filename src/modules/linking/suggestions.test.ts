@@ -614,6 +614,106 @@ describe("US2 — apply, allocate, unlink", () => {
     expect(links.data).toHaveLength(2);
   });
 
+  it("F124 (3): a suggested expense is paid through its module — the link is the record, the expense derives paid; unlink removes the payment", async () => {
+    const expenseId = await run(owner.caller, async (tx) => {
+      const group = await expenses.createGroup(tx, owner.caller, noopAudit, {
+        description: "Cloud bills July",
+      });
+      const e = await expenses.createExpense(tx, owner.caller, noopAudit, {
+        groupId: group.data?.id as string,
+        date: "2026-03-09",
+        description: "Northwind cloud bill",
+        basCode: "580",
+        amount: "123.88",
+        currency: "SEK",
+        paidFromAccountId: owner.sources.afSek.id,
+      });
+      if (e.error) throw new Error(e.error.message);
+      return e.data.id;
+    });
+    const [row] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-10", amount: "-123.88", details: "Kortköp 260309 NORTHWIND#G100200300" },
+      ]),
+    );
+    // the generic path, as *Link* on the suggestion and *Apply HIGH* call it
+    const link = await run(owner.caller, (tx) =>
+      applySuggestion(tx, owner.caller, realAudit(tx, owner.caller), {
+        bankTransactionId: row as string,
+        to: { type: "expense", id: expenseId },
+      }),
+    );
+    expect(link.error).toBeUndefined();
+    expect(link.data).toMatchObject({
+      kind: "justifies",
+      from: { type: "bank_transaction", id: row },
+      to: { type: "expense", id: expenseId },
+      allocatedAmount: "123.88",
+      currency: "SEK",
+      allocatedBase: "123.88",
+    });
+    const paid = await run(owner.caller, (tx) => expenses.getExpenseDetail(tx, expenseId));
+    expect(paid.data?.status).toBe("paid");
+    // the row has nothing left; a second apply is refused by the module's rule, not by a crash
+    const again = await run(owner.caller, (tx) =>
+      applySuggestion(tx, owner.caller, realAudit(tx, owner.caller), {
+        bankTransactionId: row as string,
+        to: { type: "expense", id: expenseId },
+      }),
+    );
+    expect(again.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+
+    // *Unlink* anywhere: the payment comes off through the module
+    await run(owner.caller, async (tx) => {
+      const r = await removeLink(
+        tx,
+        owner.caller,
+        realAudit(tx, owner.caller),
+        link.data?.id as string,
+      );
+      expect(r.error).toBeUndefined();
+    });
+    const open = await run(owner.caller, (tx) => expenses.getExpenseDetail(tx, expenseId));
+    expect(open.data?.status).toBe("awaiting_link");
+    expect(open.data?.isOpen).toBe(true);
+  });
+
+  it("F124 (3): a privately paid expense is still refused by its module — the message names the rule", async () => {
+    const expenseId = await run(owner.caller, async (tx) => {
+      const group = await expenses.createGroup(tx, owner.caller, noopAudit, {
+        description: "Private March",
+      });
+      const e = await expenses.createExpense(tx, owner.caller, noopAudit, {
+        groupId: group.data?.id as string,
+        date: "2026-03-09",
+        description: "Taxi",
+        basCode: "580",
+        amount: "250.00",
+        currency: "SEK",
+        paidFromAccountId: owner.sources.privateSe.id,
+      });
+      if (e.error) throw new Error(e.error.message);
+      return e.data.id;
+    });
+    const [row] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-10", amount: "-250.00", details: "TAXI STOCKHOLM" },
+      ]),
+    );
+    const r = await run(owner.caller, (tx) =>
+      applySuggestion(tx, owner.caller, realAudit(tx, owner.caller), {
+        bankTransactionId: row as string,
+        to: { type: "expense", id: expenseId },
+      }),
+    );
+    expect(r.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    expect(r.error?.message).toMatch(/paid privately/);
+    const links = await run(owner.caller, (tx) =>
+      getLinksFor(tx, { type: "expense", id: expenseId }),
+    );
+    expect(links.data).toEqual([]);
+  });
+
   it("Link to…: searches every registered type by number, key, name or file name", async () => {
     const { invoice } = await issuedInvoice(owner.caller);
     const hits = await run(owner.caller, (tx) => searchLinkables(tx, "VA26"));
