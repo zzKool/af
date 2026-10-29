@@ -64,7 +64,7 @@ vi.mock("@/modules/partners/ui", () => ({
   ),
 }));
 
-import { NewExpenseDialog } from "./new-expense-dialog";
+import { defaultSourceId, NewExpenseDialog } from "./new-expense-dialog";
 
 const props = {
   open: true,
@@ -105,9 +105,9 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     calls.create.mockClear();
   });
 
-  it("US1-1/3/4: the default replaces the pre-selection and a previous default, marked from partner; none leaves it", () => {
+  it("US1-1/3/4: no category until chosen (F124 (5)); the default fills it and replaces a previous default, marked from partner; none leaves it", () => {
     render(<NewExpenseDialog {...props} />);
-    expect(category()).toHaveTextContent("580 · Travel");
+    expect(category()).toHaveTextContent("—");
     expect(screen.queryByTestId("category-from-partner")).toBeNull();
     pick("cerf");
     expect(category()).toHaveTextContent("583 · Representation");
@@ -118,6 +118,42 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(category()).toHaveTextContent("580 · Travel");
     pick(""); // cleared: the proposal stays
     expect(category()).toHaveTextContent("580 · Travel");
+  });
+
+  it("F124 (5): the payer a document proposes is the company account in its currency, never the first of the list", () => {
+    const sources = [
+      ...props.sources,
+      {
+        id: "00000000-0000-4000-8000-000000000011",
+        label: "Plusgirokonto CHF",
+        kind: "bank_account" as const,
+        bankAccountId: "00000000-0000-4000-8000-000000000011",
+        currency: "CHF",
+        isActive: true,
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000012",
+        label: "Plusgirokonto SEK",
+        kind: "bank_account" as const,
+        bankAccountId: "00000000-0000-4000-8000-000000000012",
+        currency: "SEK",
+        isActive: true,
+      },
+    ];
+    expect(defaultSourceId(sources, "sek")).toBe("00000000-0000-4000-8000-000000000012");
+    expect(defaultSourceId(sources, "CHF")).toBe("00000000-0000-4000-8000-000000000011");
+    // no company account in that currency: the first company account; no company account at all: the first source
+    expect(defaultSourceId(sources, "EUR")).toBe("00000000-0000-4000-8000-000000000011");
+    expect(defaultSourceId(sources)).toBe("00000000-0000-4000-8000-000000000011");
+    expect(defaultSourceId(props.sources, "SEK")).toBe("00000000-0000-4000-8000-000000000002");
+    render(
+      <NewExpenseDialog
+        {...props}
+        sources={sources}
+        initial={{ currency: "SEK", amount: "123.88", description: "Northwind" }}
+      />,
+    );
+    expect(screen.getByLabelText("Paid by")).toHaveTextContent("Plusgirokonto SEK");
   });
 
   it("US4: no card without OCR facts; with them, nothing is picked until Use match, which proposes the default", () => {

@@ -65,6 +65,20 @@ export type ExpenseInitial = {
 
 const NONE = "__none__";
 
+/**
+ * The payer a document proposes (F124 (5)): the company account in the document's currency (a SEK bill → Plusgirokonto
+ * SEK), else the first company account, else the first source — never "the first of the list" by accident.
+ */
+export function defaultSourceId(
+  sources: readonly SourceOption[],
+  currency?: string | null,
+): string {
+  const company = sources.filter((s) => s.kind === "bank_account");
+  const wanted = currency?.toUpperCase();
+  const inCurrency = wanted ? company.find((s) => s.currency === wanted) : undefined;
+  return (inCurrency ?? company[0] ?? sources[0])?.id ?? "";
+}
+
 export function NewExpenseDialog({
   open,
   onOpenChange,
@@ -96,17 +110,15 @@ export function NewExpenseDialog({
   const [kind, setKind] = useState<ExpenseKind>("receipt");
   const [date, setDate] = useState(today);
   const [description, setDescription] = useState("");
-  // the first category is a pre-selection, not the owner's choice: a partner's default may replace it (FR-003)
-  const [category, setCategory] = useState<CategoryState>({
-    code: categories[0]?.code ?? "",
-    source: null,
-  });
+  // no category until one is chosen (F124 (5): the first of the list — 501 Lokalhyra — looked like a proposal);
+  // a partner's default fills the empty slot (FR-003), the button waits for one
+  const [category, setCategory] = useState<CategoryState>({ code: "", source: null });
   const basCode = category.code;
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const { vendors, add: addVendor } = useVendors(open);
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<string>("SEK");
-  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [sourceId, setSourceId] = useState(defaultSourceId(sources, initial?.currency));
   const [documentId, setDocumentId] = useState(NONE);
   const [documentMissing, setDocumentMissing] = useState(false);
   const [vatAmount, setVatAmount] = useState("");
@@ -132,6 +144,7 @@ export function NewExpenseDialog({
     setCategory((c) => (c.source === "partner" ? { ...c, source: null } : c));
     // the document's facts fill the form when the dialog opens from the review page or the inbox
     if (!initial) return;
+    setSourceId(defaultSourceId(sources, initial.currency));
     if (initial.date) setDate(initial.date);
     if (initial.description) setDescription(initial.description);
     if (initial.amount) setAmount(initial.amount);
@@ -329,11 +342,15 @@ export function NewExpenseDialog({
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.category")}
             </label>
-            <Select value={basCode} onValueChange={(v) => v && setCategory(chooseCategory(v))}>
-              <SelectTrigger id={`${ids}-cat`} className="w-full">
+            <Select
+              value={basCode || NONE}
+              onValueChange={(v) => v && v !== NONE && setCategory(chooseCategory(v))}
+            >
+              <SelectTrigger id={`${ids}-cat`} className="w-full" data-testid="expense-category">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NONE}>—</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c.code} value={c.code}>
                     {c.label}

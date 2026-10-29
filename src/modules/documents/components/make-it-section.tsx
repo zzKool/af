@@ -72,6 +72,7 @@ export function initialFromFacts(
       documentKey,
       vendor: {
         name: facts.merchantName ?? facts.vendorName ?? null,
+        vatNumber: facts.vendorTaxId ?? null,
         address: facts.vendorAddress ?? null,
       },
     },

@@ -927,7 +927,7 @@ export const en = {
   "expenses.form.amount": "Amount",
   "expenses.form.currency": "Currency",
   "expenses.form.paidBy": "Paid by",
-  "expenses.form.vatAmount": "Swiss VAT on the receipt (optional)",
+  "expenses.form.vatAmount": "VAT on the receipt (optional)",
   "expenses.form.document": "Receipt",
   "expenses.form.noDocument": "No document",
   "expenses.form.documentMissing": "No receipt exists",
