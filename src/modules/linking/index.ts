@@ -67,6 +67,29 @@ export {
   suggestionsForTransactionAction,
 } from "./linking.actions";
 export { memoryForKeys, memoryForRow, rememberedPartners } from "./memory";
+export {
+  type ProposeForRowsData,
+  proposalJobs,
+  proposalSchedules,
+  proposeForRows,
+  proposeForRowsJob,
+} from "./proposals/jobs/propose";
+export { familyOf, PREFILL_HIGH, type ProposalFamily } from "./proposals/policy";
+export {
+  type AcceptResult,
+  acceptProposals,
+  currentForRows,
+  currentProposals,
+  dropProposalsFor,
+  type ProposalDto,
+  type ProposalStats,
+  proposalStats,
+  type RowFactsForProposals,
+  type RunResult,
+  rejectProposal,
+  runProposals,
+} from "./proposals/proposals";
+export * from "./proposals/proposals.actions";
 export * from "./queries";
 export {
   AMBIGUITY_GAP,

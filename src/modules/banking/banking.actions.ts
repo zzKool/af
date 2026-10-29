@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { zfd } from "zod-form-data";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
+import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { createStorageService } from "@/kernel/storage/storage";
 import { uuid } from "@/kernel/validation/scalars";
@@ -33,6 +34,7 @@ import {
 } from "@/modules/banking/queries";
 import * as rules from "@/modules/banking/rules";
 import { acceptTransfer, proposeTransfers } from "@/modules/banking/transfer-pairs";
+import * as linking from "@/modules/linking";
 
 const MAX_CSV_MB = 10;
 const columnSchema = z.enum(TRANSACTION_COLUMN_KEYS as [TransactionColumn, ...TransactionColumn[]]);
@@ -184,11 +186,20 @@ export const importCsvAction = ownerAction
   .metadata({ name: "importBankCsv" })
   .action(async ({ ctx, parsedInput }) => {
     const bytes = Buffer.from(await parsedInput.file.arrayBuffer());
-    return importCsv(ctx.tx, ctx.callerIdentity, ctx.audit, getStorage(), {
+    const result = await importCsv(ctx.tx, ctx.callerIdentity, ctx.audit, getStorage(), {
       bankAccountId: parsedInput.bankAccountId,
       fileName: parsedInput.file.name,
       bytes,
     });
+    // F98: stage-1 proposals for the new rows, once the import is committed (never inside its transaction)
+    const importId = result.data?.id;
+    if (importId && result.data?.transactionIds.length) {
+      const { tenantId, userId } = ctx.callerIdentity;
+      ctx.onCommit(async () => {
+        await enqueue(linking.proposeForRowsJob, { tenantId, userId, importId });
+      });
+    }
+    return result;
   });
 
 /** The dialog's pre-selection: which account the filename (and the first row's currency) points at. */

@@ -1,5 +1,7 @@
 // Public DTOs of the linking module. Plain types only — never Prisma types (constitution §2).
 
+import type { ParsedPayload, ProposalSourceName } from "./proposals/payload";
+
 /** Relationship kinds — the CHECK constraint on `links.kind` mirrors this list. New kinds are a migration. */
 export type LinkKind =
   | "justifies"
@@ -211,3 +213,23 @@ export type Graph = {
   /** true when the depth or the node cap stopped the walk — more exists beyond the last ring */
   truncated: boolean;
 };
+
+// --- proposals (F98, specs/ai) ---
+
+/** How far a proposal's confidence goes on screen (`proposals/policy.ts`). */
+export type ProposalFamily = "high" | "medium" | "low";
+
+/** A current proposal, as the panel, the inbox and the list read it. */
+export type ProposalDto = {
+  id: string;
+  runId: string;
+  targetId: string;
+  source: ProposalSourceName;
+  confidence: number;
+  family: ProposalFamily;
+  /** HIGH and PREFILL_HIGH: the picker shows it as its value — drawn as a proposal, never saved until accepted */
+  prefilled: boolean;
+  reason: string | null;
+  model: string | null;
+  createdAt: string;
+} & ParsedPayload;

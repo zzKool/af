@@ -73,6 +73,15 @@ export {
   payerAccounts,
   privateAccountSchema,
 } from "./payers";
+export {
+  type CategoryMemory,
+  categoryMemory,
+  type ProposalInput,
+  type ProposalRow,
+  proposalInputs,
+  proposalRowIds,
+  type RuleSuggestion,
+} from "./proposal-inputs";
 export * from "./queries";
 export type { RuleInput, RuleLike, RuleTarget, UpdateRuleInput } from "./rules";
 export {

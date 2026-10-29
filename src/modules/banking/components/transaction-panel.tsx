@@ -30,7 +30,10 @@ import {
   type JustifyOptions,
   JustifyPanel,
   LinksList,
+  type ProposalDto,
+  ProposalLine,
   SuggestionsSection,
+  useRowProposals,
 } from "@/modules/linking/ui";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "./categorise-form";
 import { RuleDialog } from "./rule-dialog";
@@ -103,6 +106,8 @@ export function TransactionDetailView({
   proofKey = 0,
   noProofKey = 0,
   lostKey = 0,
+  acceptKey = 0,
+  rejectKey = 0,
 }: {
   transactionId: string;
   categories: CategoryOption[];
@@ -120,6 +125,9 @@ export function TransactionDetailView({
   proofKey?: number;
   noProofKey?: number;
   lostKey?: number;
+  /** the inbox's `a` · `r` (F98): accept / reject the row's proposals */
+  acceptKey?: number;
+  rejectKey?: number;
 }) {
   const t = useT();
   const router = useRouter();
@@ -128,6 +136,8 @@ export function TransactionDetailView({
   const [version, setVersion] = useState(0);
   const { executeAsync: load } = useAction(getTransactionAction);
   const { executeAsync: accept, isPending: accepting } = useAction(acceptTransferAction);
+  // F98: the row's current proposals — the Proposed line and the form's pre-fill read the same list
+  const { proposals } = useRowProposals(transactionId, version);
 
   const reload = useCallback(async () => {
     if (!transactionId) return;
@@ -328,12 +338,31 @@ export function TransactionDetailView({
                     ? ` · ${t("banking.panel.implicitRate", { rate: rate(tx.bankImplicitRate) })}`
                     : ""}
                 </p>
+                <ProposalLine
+                  transactionId={tx.id}
+                  proposals={proposals}
+                  options={{ categories, partners }}
+                  canWrite={canWrite}
+                  acceptKey={acceptKey}
+                  rejectKey={rejectKey}
+                  onDecided={(accepted) => {
+                    changed();
+                    if (accepted?.proposeRule)
+                      toast.message(t("linking.proposals.ruleOffer"), {
+                        action: {
+                          label: t("banking.panel.createRule"),
+                          onClick: () => setRuleOpen(true),
+                        },
+                      });
+                  }}
+                />
                 <CategoriseForm
                   entry={tx}
                   categories={categories}
                   partners={partners}
                   canWrite={canWrite}
                   onSaved={rowSaved}
+                  prefill={prefillOf(proposals)}
                 />
                 {canWrite && (
                   <div>
@@ -381,4 +410,15 @@ export function TransactionDetailView({
       )}
     </div>
   );
+}
+
+/** F98: what the form shows as its value without saving — the HIGH proposals, when PREFILL_HIGH (policy.ts). */
+function prefillOf(proposals: ProposalDto[]): { basCode?: string; partnerId?: string } {
+  const out: { basCode?: string; partnerId?: string } = {};
+  for (const p of proposals) {
+    if (!p.prefilled) continue;
+    if (p.kind === "bas") out.basCode = p.payload.basCode;
+    if (p.kind === "partner" && "partnerId" in p.payload) out.partnerId = p.payload.partnerId;
+  }
+  return out;
 }

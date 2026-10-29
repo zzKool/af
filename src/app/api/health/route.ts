@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aiStatus } from "@/kernel/ai/ai";
 import { prisma } from "@/kernel/db/client";
 import { failedJobs, jobsEnabled } from "@/kernel/jobs/queue";
 
@@ -18,6 +19,8 @@ export async function GET() {
   }
   // F110: terminal job failures are a health fact — a failed invoice PDF or package build shows here first
   const failed = await failedJobs();
+  // F98: the local model's state — off, mock, ok, or unreachable (cached 60 s; the app is healthy either way)
+  const ai = await aiStatus();
   return NextResponse.json(
     {
       status: "ok",
@@ -26,6 +29,7 @@ export async function GET() {
       jobs: jobsEnabled() ? "enabled" : "disabled",
       failedJobs: failed.total,
       failedJobsByQueue: failed.byQueue,
+      ai: ai.state,
       version: process.env.APP_VERSION ?? null,
       uptimeSeconds: Math.round(process.uptime()),
     },

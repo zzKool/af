@@ -132,3 +132,56 @@ describe("the partner's default category (T002)", () => {
     expect(screen.getByLabelText("Category")).toHaveValue("657");
   });
 });
+
+describe("F98 — a HIGH proposal pre-filled (the owner's answer 2)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    for (const k of Object.keys(calls)) delete calls[k];
+  });
+
+  it("the picker shows the proposal and says it is not saved — nothing is written by showing it", () => {
+    render(
+      <CategoriseForm
+        entry={entry(null)}
+        categories={categories}
+        partners={partners}
+        canWrite
+        prefill={{ basCode: "654", partnerId: OPENAI }}
+      />,
+    );
+    expect(screen.getByLabelText("Category")).toHaveValue("654");
+    expect(screen.getByLabelText("Partner")).toHaveValue(OPENAI);
+    expect(screen.getByTestId("prefill-hint")).toBeInTheDocument();
+    expect(calls.categorise).not.toHaveBeenCalled();
+  });
+
+  it("a category already on the row wins over the proposal", () => {
+    render(
+      <CategoriseForm
+        entry={entry("657")}
+        categories={categories}
+        partners={partners}
+        canWrite
+        prefill={{ basCode: "654" }}
+      />,
+    );
+    expect(screen.getByLabelText("Category")).toHaveValue("657");
+    expect(screen.queryByTestId("prefill-hint")).toBeNull();
+  });
+
+  it("picking another category saves that one, by hand", async () => {
+    render(
+      <CategoriseForm
+        entry={entry(null)}
+        categories={categories}
+        partners={partners}
+        canWrite
+        prefill={{ basCode: "654" }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "657" } });
+    await waitFor(() =>
+      expect(calls.categorise).toHaveBeenCalledWith({ id: entry(null).id, basCode: "657" }),
+    );
+  });
+});

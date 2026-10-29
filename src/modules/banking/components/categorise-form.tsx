@@ -51,6 +51,7 @@ export function CategoriseForm({
   partners,
   canWrite,
   onSaved,
+  prefill = {},
 }: {
   entry: Pick<
     TransactionWire,
@@ -60,11 +61,19 @@ export function CategoriseForm({
   partners: PartnerOption[];
   canWrite: boolean;
   onSaved?: (row: TransactionWire) => void;
+  /**
+   * F98 (the owner's answer 2, 2026-10-27): a HIGH proposal shown as the picker's value while the row has none —
+   * drawn as a proposal (dashed, *proposed — not saved*), never saved here: the Proposed line's Accept writes it.
+   */
+  prefill?: { basCode?: string; partnerId?: string };
 }) {
   const t = useT();
   const ids = useId();
   const [basCode, setBasCode] = useState(entry.basCode ?? NONE);
   const [partnerId, setPartnerId] = useState(entry.partnerId ?? NONE);
+  // the pre-fill shows only while nothing is chosen — neither saved on the row nor picked here
+  const prefilledBas = basCode === NONE && prefill.basCode ? prefill.basCode : null;
+  const prefilledPartner = partnerId === NONE && prefill.partnerId ? prefill.partnerId : null;
   const [note, setNote] = useState(entry.note ?? "");
   const [noDocument, setNoDocument] = useState(entry.noDocumentNeeded);
   const { executeAsync, isPending } = useAction(categoriseTransactionAction);
@@ -93,9 +102,10 @@ export function CategoriseForm({
     if (r?.data?.data) onSaved?.(r.data.data);
   }
 
+  const shownCode = entry.basCode ?? prefilledBas;
   const categoryList =
-    entry.basCode && !categories.some((c) => c.code === entry.basCode)
-      ? [{ code: entry.basCode, label: entry.basCode }, ...categories]
+    shownCode && !categories.some((c) => c.code === shownCode)
+      ? [{ code: shownCode, label: shownCode }, ...categories]
       : categories;
 
   if (!canWrite) {
@@ -131,7 +141,7 @@ export function CategoriseForm({
           {t("banking.form.category")}
         </label>
         <Select
-          value={basCode}
+          value={prefilledBas ?? basCode}
           onValueChange={(v) => {
             const next = v ?? NONE;
             setBasCode(next);
@@ -139,7 +149,11 @@ export function CategoriseForm({
           }}
           disabled={isPending}
         >
-          <SelectTrigger id={`${ids}-cat`} className="w-full">
+          <SelectTrigger
+            id={`${ids}-cat`}
+            className={prefilledBas ? "w-full border-dashed border-primary" : "w-full"}
+            data-prefilled={prefilledBas ? "true" : undefined}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -151,13 +165,18 @@ export function CategoriseForm({
             ))}
           </SelectContent>
         </Select>
+        {prefilledBas && (
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="prefill-hint">
+            {t("banking.form.prefilled")}
+          </p>
+        )}
       </div>
       <div>
         <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
           {t("banking.form.partner")}
         </label>
         <Select
-          value={partnerId}
+          value={prefilledPartner ?? partnerId}
           onValueChange={(v) => {
             const next = v ?? NONE;
             setPartnerId(next);
@@ -168,7 +187,11 @@ export function CategoriseForm({
           }}
           disabled={isPending}
         >
-          <SelectTrigger id={`${ids}-partner`} className="w-full">
+          <SelectTrigger
+            id={`${ids}-partner`}
+            className={prefilledPartner ? "w-full border-dashed border-primary" : "w-full"}
+            data-prefilled={prefilledPartner ? "true" : undefined}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

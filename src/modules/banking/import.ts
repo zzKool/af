@@ -323,6 +323,8 @@ export async function deleteImport(
         }),
       };
   }
+  // F98: the rows' proposals first — their composite FK is RESTRICT, and D63 forbids a cascade across modules
+  await linking.dropProposalsFor(tx, ids);
   try {
     await tx.bankTransaction.deleteMany({ where: { bankImportId: id } });
     await tx.bankImport.delete({ where: { id } });

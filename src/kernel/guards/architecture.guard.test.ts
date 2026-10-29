@@ -279,6 +279,8 @@ describe("Architecture guard: vendor SDKs stay behind their kernel adapter (cons
     [/^pg-boss(\/|$)/, ["src/kernel/jobs/"]],
     [/^playwright-core(\/|$)/, ["src/kernel/pdf/"]],
     [/^inngest(\/|$)/, []], // replaced by pg-boss (D17)
+    // F98: a model is reached through kernel/ai's one fetch — no SDK anywhere (docs/local-ai.md §2)
+    [/^(openai|ollama|@anthropic-ai\/sdk|llamaindex|langchain|@langchain\/)/, []],
   ];
 
   test("@azure/* only in kernel/storage and kernel/ocr, pg-boss only in kernel/jobs, playwright-core only in kernel/pdf, no inngest", () => {
@@ -292,6 +294,22 @@ describe("Architecture guard: vendor SDKs stay behind their kernel adapter (cons
             `${file} imports ${spec} — only ${homes.join(", ") || "nobody"} may`,
           ).toBe(true);
         }
+      }
+    }
+  });
+});
+
+describe("Architecture guard: the local model is reached through kernel/ai only (F98, docs/local-ai.md §2)", () => {
+  test("AI_* env vars are read in kernel/ai alone", () => {
+    const files = findFiles("src", [".ts", ".tsx"], TEST_FILE);
+    for (const file of files) {
+      if (file.startsWith("src/kernel/ai/")) continue;
+      const lines = readFileSync(file, "utf-8").split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        expect(
+          /process\.env\.AI_[A-Z_]+/.test(lines[i]),
+          `${file} line ${i + 1} reads an AI_* variable — only src/kernel/ai may`,
+        ).toBe(false);
       }
     }
   });

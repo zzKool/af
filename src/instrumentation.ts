@@ -14,6 +14,7 @@ export async function register() {
         { packageJobs },
         settings,
         exportsModule,
+        { proposalJobs, proposalSchedules },
       ] = await Promise.all([
         import("@/kernel/jobs/queue"),
         import("@/modules/documents"),
@@ -25,6 +26,7 @@ export async function register() {
         import("@/modules/package"),
         import("@/modules/settings"),
         import("@/modules/exports"),
+        import("@/modules/linking"),
       ]);
       // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted;
       // T024: nor closed before the last day it priced)
@@ -45,8 +47,9 @@ export async function register() {
           ...expenseJobs,
           ...traktamenteJobs,
           ...packageJobs,
+          ...proposalJobs,
         ],
-        [...rateSchedules],
+        [...rateSchedules, ...proposalSchedules],
       );
     }
   }

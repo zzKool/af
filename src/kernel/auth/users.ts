@@ -20,3 +20,22 @@ export async function tenantMembers(db: Db, tenantId: string): Promise<TenantMem
     select: { id: true, userId: true, role: true },
   });
 }
+
+export type TenantOwner = { tenantId: string; userId: string };
+
+/**
+ * One owner per tenant (the oldest membership) — who a scheduled, tenant-wide job runs as (F98's nightly
+ * proposals): the audit names him, as it names the uploader of a document for its OCR job.
+ */
+export async function tenantOwners(db: Db): Promise<TenantOwner[]> {
+  const rows = await db.member.findMany({
+    where: { role: "owner" },
+    select: { organizationId: true, userId: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const seen = new Map<string, TenantOwner>();
+  for (const r of rows)
+    if (!seen.has(r.organizationId))
+      seen.set(r.organizationId, { tenantId: r.organizationId, userId: r.userId });
+  return [...seen.values()];
+}

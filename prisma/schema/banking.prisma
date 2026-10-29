@@ -157,6 +157,8 @@ model BankTransaction {
   partner     Partner?    @relation(fields: [tenantId, partnerId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
   /// the settlements this row refunds (F114: a composite FK from settlements, RESTRICT)
   settlements Settlement[]
+  /// F98: what the proposals say about this row (modules/linking writes them)
+  proposals   Proposal[]
 
   @@unique([bankAccountId, dedupHash, occurrence], map: "bank_transactions_account_hash_occurrence_key")
   @@unique([tenantId, id], map: "bank_transactions_tenant_id_id_key")

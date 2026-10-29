@@ -67,6 +67,10 @@ export const TRANSACTION_COLUMNS = {
   basLabel: { type: "text" },
   partnerId: { type: "enum" },
   partnerName: { type: "text", searchable: true },
+  // F98: the current category proposal (derived, from linking's proposals) — code, source, confidence
+  proposedBasCode: { type: "enum" },
+  proposedSource: { type: "enum" },
+  proposedConfidence: { type: "number" },
   note: { type: "text", searchable: true },
   noDocumentNeeded: { type: "boolean" },
   categorisedBy: { type: "enum" },
@@ -89,6 +93,9 @@ const DERIVED: ReadonlySet<string> = new Set([
   "rate",
   "basLabel",
   "partnerName",
+  "proposedBasCode",
+  "proposedSource",
+  "proposedConfidence",
   "state",
   "allocated",
 ]);
@@ -176,6 +183,7 @@ async function loadRows(
   const codes = rows.flatMap((r) => (r.basCode ? [r.basCode] : []));
   const names = await partners.partnerNames(tx, partnerIds);
   const labels = await settings.basLabels(tx, codes);
+  const proposals = await linking.currentForRows(tx, rows);
   const list: TransactionListRow[] = rows.map((r, i) => {
     const dto = dtos[i] as (typeof dtos)[number];
     const allocated = facts.allocated.get(r.id) ?? "0.00";
@@ -200,6 +208,7 @@ async function loadRows(
       basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
       partnerId: r.partnerId,
       partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,
+      ...proposedColumns(proposals.get(r.id)),
       note: r.note,
       noDocumentNeeded: r.noDocumentNeeded,
       categorisedBy: r.categorisedBy,
@@ -742,4 +751,14 @@ export async function rawRowsForPeriod(
     delimiter: r.bankAccount.bankFormat?.delimiter ?? ";",
     decimalSeparator: r.bankAccount.bankFormat?.decimalSeparator ?? ",",
   }));
+}
+
+/** F98: the list's three *Proposed* cells from the row's current category proposal (none → nulls). */
+function proposedColumns(proposals: linking.ProposalDto[] | undefined) {
+  const bas = proposals?.find((p) => p.kind === "bas");
+  return {
+    proposedBasCode: bas && bas.kind === "bas" ? bas.payload.basCode : null,
+    proposedSource: bas?.source ?? null,
+    proposedConfidence: bas ? bas.confidence : null,
+  };
 }
