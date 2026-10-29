@@ -60,15 +60,17 @@ export function isCardPurchase(row: Pick<RowForJustify, "description">): boolean
 }
 
 /**
- * The kind the facts propose: an invoice number or a VAT number read → a supplier invoice; a card purchase or
- * nothing read → an expense (a receipt). The owner flips it on the card.
+ * The kind the facts propose (spec US1 scenario 5): a card purchase is an expense whatever the document says —
+ * a cloud bill paid by card is printed like an invoice (number, VAT number) and is still a receipt in the books;
+ * otherwise an invoice number or a VAT number read → a supplier invoice; nothing read → an expense (a receipt).
+ * The owner flips it on the card.
  */
 export function proposeKind(
   row: Pick<RowForJustify, "description">,
   reading: Reading,
 ): JustifyKind {
-  if (reading.invoiceNumber || reading.vendorTaxId) return "supplier_invoice";
   if (isCardPurchase(row)) return "expense";
+  if (reading.invoiceNumber || reading.vendorTaxId) return "supplier_invoice";
   return reading.merchantName && !reading.vendorName ? "expense" : "supplier_invoice";
 }
 

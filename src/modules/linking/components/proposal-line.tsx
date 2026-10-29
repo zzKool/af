@@ -13,7 +13,11 @@ import { useT } from "@/kernel/i18n/use-t";
 import { StateLabel } from "@/kernel/ui/state-label";
 import { Tag } from "@/kernel/ui/tags";
 import { confidenceFamily } from "../confidence-family";
-import { familyOf } from "../proposals/policy";
+import { familyOf, prefillFromProposals } from "../proposals/policy";
+
+/** The HIGH proposals as a form's pre-fill (`policy.ts`) — re-exported for the panels that render the line. */
+export { prefillFromProposals };
+
 import type { ProposalDto } from "../proposals/proposals";
 import {
   acceptProposalsAction,
