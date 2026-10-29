@@ -13,7 +13,7 @@ import { logger } from "@/kernel/logging/logger";
 // --- Types ---
 
 export type OcrSource =
-  | { type: "url"; url: string }
+  | { type: "url"; url: string; mimeType?: string | null }
   | { type: "buffer"; buffer: Buffer; mimeType: string };
 
 export interface OcrService {
@@ -87,8 +87,19 @@ const MODEL_MAP: Record<string, string> = {
   certificate: "prebuilt-layout",
 };
 
-/** The Document Intelligence model a kind is read with — a type change re-reads only when this differs (D52). */
-export function ocrModelFor(prefixType: string): string {
+/** A PDF is a printed document (an invoice, a bill, an online receipt), never a photographed till receipt. */
+const isPdf = (mimeType: string | null | undefined) =>
+  mimeType?.toLowerCase() === "application/pdf";
+
+/**
+ * The Document Intelligence model a document is read with: the type decides (D52), the file refines it (D69):
+ * an **expense** that is a PDF is an invoice-shaped document paid by card (a cloud bill, a subscription, an online
+ * order) — the invoice model reads its vendor, VAT number and invoice number, which the receipt model never
+ * does; the receipt model stays for the photographed till receipt (an image). A type change re-reads only when
+ * the model differs.
+ */
+export function ocrModelFor(prefixType: string, mimeType?: string | null): string {
+  if (prefixType === "expense" && isPdf(mimeType)) return "prebuilt-invoice";
   return MODEL_MAP[prefixType] ?? "prebuilt-layout";
 }
 
@@ -265,8 +276,11 @@ export function mapAnalyzeResult(
   const isReceipt = modelId === "prebuilt-receipt";
 
   const data: OcrExtractedData = {
-    // Invoice fields
-    vendorName: isReceipt ? undefined : extractStringValue(fields?.VendorName),
+    // Invoice fields — the vendor's name, else the name on its address block (`Microsoft AB` under `Microsoft`)
+    vendorName: isReceipt
+      ? undefined
+      : (extractStringValue(fields?.VendorName) ??
+        extractTextValue(fields?.VendorAddressRecipient)),
     vendorTaxId: isReceipt ? undefined : extractStringValue(fields?.VendorTaxId),
     vendorAddress: isReceipt ? undefined : extractAddressValue(fields?.VendorAddress),
     invoiceDate: isReceipt ? undefined : extractDateValue(fields?.InvoiceDate),
@@ -315,7 +329,7 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
 
   return {
     async analyzeDocument(source: OcrSource, prefixType: string): Promise<OcrResult> {
-      const modelId = MODEL_MAP[prefixType] ?? "prebuilt-layout";
+      const modelId = ocrModelFor(prefixType, source.mimeType);
       if (!(prefixType in MODEL_MAP)) {
         logger.warn(
           { prefixType, modelId },

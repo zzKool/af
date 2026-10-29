@@ -61,7 +61,7 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
       source = { type: "buffer", buffer: fileBuffer, mimeType: doc.mimeType };
     } else {
       const sasUrl = await storage.generateSasUrl(blobPath, 5);
-      source = { type: "url", url: sasUrl };
+      source = { type: "url", url: sasUrl, mimeType: doc.mimeType };
     }
     return { skipped: false as const, source, prefixType: doc.prefixType };
   });

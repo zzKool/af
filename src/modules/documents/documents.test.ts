@@ -91,6 +91,14 @@ function pdf(label: string): Buffer {
 }
 const PDF_BUFFER = pdf("");
 
+// a photographed receipt: JPEG magic bytes, distinct per label (the duplicate check is on the bytes)
+function jpeg(label: string): Buffer {
+  const buf = Buffer.alloc(1024);
+  Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]).copy(buf);
+  Buffer.from(label, "ascii").copy(buf, 64);
+  return buf;
+}
+
 /** The stored branch of an upload result (fails the test on a duplicate or an error). */
 function stored(result: Awaited<ReturnType<typeof documentService.uploadDocument>>) {
   expect(result.error).toBeUndefined();
@@ -1051,8 +1059,10 @@ describe("documents service", () => {
       await assertAuditLogged(adminPool, tenantId, "update", "document", docId);
     });
 
-    // D52: the type drives the reading — before the review the key follows the type and the new model reads it again
-    async function readExpense(name: string) {
+    // D52: the type drives the reading — before the review the key follows the type and the new model reads it again.
+    // D69: the file refines the model — a PDF expense reads with the invoice model, a photographed receipt (an
+    // image) with the receipt model.
+    async function readExpense(name: string, bytes: Buffer = PDF_BUFFER) {
       const owner = await createAuthenticatedContext(auth, "owner");
       const { tenantId } = owner.callerIdentity;
       const docId = await withTenantTransaction(prisma, tenantId, async (tx) => {
@@ -1063,13 +1073,13 @@ describe("documents service", () => {
           audit,
           mockStorage,
           testClock,
-          PDF_BUFFER,
+          bytes,
           name,
           "expense",
         );
         return stored(r).id;
       });
-      // the receipt model read it; the owner corrected the vendor
+      // the first model read it; the owner corrected the vendor
       await adminPool.query(
         `UPDATE documents SET status = 'extracted', corrections = '{"vendorName":"Northwind Cloud Inc."}'::jsonb WHERE id = $1`,
         [docId],
@@ -1092,8 +1102,11 @@ describe("documents service", () => {
       return { owner, tenantId, docId, key, classify, row };
     }
 
-    it("expense → invoice before the review: inv_ key, same date and number; read again; corrections kept", async () => {
-      const { key, classify, row, docId } = await readExpense("type-reread.pdf");
+    it("a photographed receipt, expense → invoice before the review: inv_ key, same date and number; read again; corrections kept", async () => {
+      const { key, classify, row, docId } = await readExpense(
+        "type-reread.jpg",
+        jpeg("type-reread"),
+      );
       expect(key).toMatch(/^exp_\d{8}_\d{3}$/);
 
       const result = await classify("invoice");
@@ -1113,6 +1126,20 @@ describe("documents service", () => {
       await adminPool.query(`UPDATE documents SET status = 'extracted' WHERE id = $1`, [docId]);
       const back = await classify("expense");
       expect(back.data).toMatchObject({ businessKey: key, reread: true });
+    });
+
+    it("a PDF expense → invoice swaps the key but is not read again — both read with the invoice model (D69)", async () => {
+      const { key, classify, row } = await readExpense("type-pdf-expense.pdf");
+      expect(key).toMatch(/^exp_\d{8}_\d{3}$/);
+
+      const result = await classify("invoice");
+
+      expect(result.data).toMatchObject({
+        prefixType: "invoice",
+        businessKey: key.replace(/^exp_/, "inv_"),
+        reread: false,
+      });
+      expect((await row()).status).toBe("extracted");
     });
 
     it("a kind with the same model swaps the key but is not read again (contract → nda: layout)", async () => {
