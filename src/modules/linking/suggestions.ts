@@ -11,7 +11,7 @@ import { settlementTolerance } from "@/kernel/money/settlement";
 import * as rates from "@/modules/rates";
 import { ALLOCATING_KINDS, isKindAllowed } from "./kinds";
 import { getLinkable, listLinkableTypes } from "./linkable";
-import { createLink } from "./linking";
+import { createLink, linkById } from "./linking";
 import { memoryForKeys, rememberedPartners } from "./memory";
 import { rowRemaining, rowUsage } from "./queries";
 import {
@@ -344,8 +344,9 @@ export type ApplyInput = {
 
 /**
  * Apply one suggestion (FR-004): the `justifies` link with the allocation in the target's currency — in another
- * currency too (F116 FR-005, D60: `crossAllocation`, the row's base on the link). Supplier invoices and expenses are
- * refused by `createLink` in any currency — their own panel writes the payment (D37, F58).
+ * currency too (F116 FR-005, D60: `crossAllocation`, the row's base on the link). An entity that writes its own
+ * payments (a supplier invoice, an expense — D37) is paid through its module's `pay` (F124 (3), 2026-10-29): one
+ * click, the module's validations, the link it wrote returned — `createLink` still refuses the generic path.
  */
 export async function applySuggestion(
   tx: TransactionClient,
@@ -357,6 +358,16 @@ export async function applySuggestion(
   if (!facts) return { error: notFound(`Bank transaction ${input.bankTransactionId} not found`) };
   const linkable = getLinkable(input.to.type);
   if (!linkable?.facts) return { error: violation(`${input.to.type} cannot be linked this way`) };
+  if (linkable.pay) {
+    const paid = await linkable.pay(tx, caller, audit, {
+      id: input.to.id,
+      bankTransactionId: input.bankTransactionId,
+      ...(input.allocatedAmount?.trim() ? { amount: input.allocatedAmount.trim() } : {}),
+    });
+    if (paid.error) return { error: paid.error };
+    const link = await linkById(tx, paid.data.linkId);
+    return link ? { data: link } : { error: notFound(`Link ${paid.data.linkId} not found`) };
+  }
   const targetFacts = await linkable.facts(tx, input.to.id);
   if (!targetFacts) return { error: notFound(`${input.to.type} ${input.to.id} not found`) };
   const [target] = await withRemaining(tx, "to", [targetFacts], true);

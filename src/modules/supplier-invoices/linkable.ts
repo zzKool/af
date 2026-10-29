@@ -7,6 +7,7 @@ import {
   termsSpan,
 } from "@/modules/linking";
 import * as partners from "@/modules/partners";
+import { recordPayment, removePayment } from "./payments";
 
 type Row = {
   id: string;
@@ -71,6 +72,18 @@ export const supplierInvoiceLinkable: Linkable = {
   type: "supplier_invoice",
   async exists(tx: TransactionClient, id: string) {
     return (await tx.supplierInvoice.count({ where: { id } })) > 0;
+  },
+  // the payment is this module's (D37): linking's *Link* / *Unlink* come through here (F124 (3))
+  async pay(tx, caller, audit, input) {
+    const r = await recordPayment(tx, caller, audit, {
+      invoiceId: input.id,
+      bankTransactionId: input.bankTransactionId,
+      ...(input.amount ? { amount: input.amount } : {}),
+    });
+    return r.error ? { error: r.error } : { data: { linkId: r.data.linkId } };
+  },
+  async unpay(tx, caller, audit, input) {
+    return removePayment(tx, caller, audit, { invoiceId: input.id, linkId: input.linkId });
   },
   async summary(tx: TransactionClient, id: string) {
     const si = await tx.supplierInvoice.findUnique({

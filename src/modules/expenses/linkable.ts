@@ -1,6 +1,7 @@
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { CandidateQuery, EntityFacts, Linkable } from "@/modules/linking";
 import * as partners from "@/modules/partners";
+import { payExpense, unpayExpense } from "./expenses";
 
 type ExpenseRow = {
   id: string;
@@ -69,6 +70,18 @@ export const expenseLinkable: Linkable = {
   type: "expense",
   async exists(tx: TransactionClient, id: string) {
     return (await tx.expense.count({ where: { id } })) > 0;
+  },
+  // the payment is this module's (D37): linking's *Link* / *Unlink* come through here (F124 (3))
+  async pay(tx, caller, audit, input) {
+    const r = await payExpense(tx, caller, audit, {
+      expenseId: input.id,
+      bankTransactionId: input.bankTransactionId,
+      ...(input.amount ? { amount: input.amount } : {}),
+    });
+    return r.error ? { error: r.error } : { data: { linkId: r.data.linkId } };
+  },
+  async unpay(tx, caller, audit, input) {
+    return unpayExpense(tx, caller, audit, { expenseId: input.id, linkId: input.linkId });
   },
   async summary(tx: TransactionClient, id: string) {
     const e = await tx.expense.findUnique({
