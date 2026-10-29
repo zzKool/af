@@ -155,7 +155,7 @@ export function NewExpenseDialog({
       setDocumentMissing(false);
     }
     setAckNote("");
-  }, [open, defaultGroupId, groups, initial]);
+  }, [open, defaultGroupId, groups, sources, initial]);
 
   // the duplicate check (specs/documents US3): the same bytes, or a similar expense of the same merchant
   const checkKey = open
