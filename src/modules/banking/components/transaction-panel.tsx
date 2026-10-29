@@ -30,8 +30,8 @@ import {
   type JustifyOptions,
   JustifyPanel,
   LinksList,
-  type ProposalDto,
   ProposalLine,
+  prefillFromProposals,
   SuggestionsSection,
   useRowProposals,
 } from "@/modules/linking/ui";
@@ -290,7 +290,9 @@ export function TransactionDetailView({
                   }}
                   canWrite={canWrite}
                   options={justifyOptions}
+                  proposals={proposals}
                   onDone={changed}
+                  onProofRead={changed}
                   proofKey={proofKey}
                   noProofKey={noProofKey}
                   lostKey={lostKey}
@@ -362,7 +364,7 @@ export function TransactionDetailView({
                   partners={partners}
                   canWrite={canWrite}
                   onSaved={rowSaved}
-                  prefill={prefillOf(proposals)}
+                  prefill={prefillFromProposals(proposals)}
                 />
                 {canWrite && (
                   <div>
@@ -410,15 +412,4 @@ export function TransactionDetailView({
       )}
     </div>
   );
-}
-
-/** F98: what the form shows as its value without saving — the HIGH proposals, when PREFILL_HIGH (policy.ts). */
-function prefillOf(proposals: ProposalDto[]): { basCode?: string; partnerId?: string } {
-  const out: { basCode?: string; partnerId?: string } = {};
-  for (const p of proposals) {
-    if (!p.prefilled) continue;
-    if (p.kind === "bas") out.basCode = p.payload.basCode;
-    if (p.kind === "partner" && "partnerId" in p.payload) out.partnerId = p.payload.partnerId;
-  }
-  return out;
 }

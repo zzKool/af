@@ -1,7 +1,7 @@
 "use client";
 
 // The partner match card (specs/documents US1, harvest R39): the OCR vendor against the partners — *Use match*
-// on the best one (shown from 60 %), the other matches, or *New vendor* pre-filled with the OCR facts (name, VAT
+// on the best one (shown from 60 %), the other matches, or *New supplier* pre-filled with the OCR facts (name, VAT
 // number, address — documents T026), created as a vendor and selected at once. Used by the supplier-invoice and
 // the expense dialogs (F87 moved it here from supplier-invoices: it only ever used partners' actions and strings).
 import { useAction } from "next-safe-action/hooks";

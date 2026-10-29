@@ -89,11 +89,18 @@ describe("proposeKind", () => {
     expect(proposeKind(row(), { invoiceNumber: "2026-071" })).toBe("supplier_invoice");
     expect(proposeKind(row(), { vendorTaxId: "CHE-123.456.789" })).toBe("supplier_invoice");
   });
-  it("a card purchase → expense, whatever the reading", () => {
+  it("a card purchase → expense, whatever the reading — even an invoice-shaped cloud bill", () => {
     const card = row({ description: "Kortköp 260727 OPENAI *CHATGPT SUBS" });
     expect(isCardPurchase(card)).toBe(true);
     expect(proposeKind(card, {})).toBe("expense");
     expect(proposeKind(card, { merchantName: "OpenAI" })).toBe("expense");
+    expect(
+      proposeKind(card, {
+        vendorName: "Northwind Cloud AB",
+        vendorTaxId: "SE556000000001",
+        invoiceNumber: "G100200300",
+      }),
+    ).toBe("expense");
   });
   it("a merchant read with no vendor → expense; otherwise a supplier invoice", () => {
     expect(proposeKind(row(), { merchantName: "SJ" })).toBe("expense");
