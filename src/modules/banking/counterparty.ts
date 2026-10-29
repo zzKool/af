@@ -22,6 +22,21 @@ export type CounterpartyFields = {
 
 const UNKNOWN = "UNKNOWN";
 
+/**
+ * A per-transaction reference at the end of a merchant text (D71, F124 (6)): `MICROSOFT#G169504312` (the bill
+ * number), `MSFT * E0100ZW7M8` (an order code), `AMZN MKTP SE*2A1BC3DEF`. A key is a *who*, never a *which* —
+ * with the reference kept, next month's row of the same merchant is a different key and nothing keyed on it
+ * (rules from a row, the counterparty memory, the owner's history) ever recurs. Stripped: a trailing `#…` and a
+ * trailing `* CODE` whose code carries a digit (`OPENAI *CHATGPT SUBS` is a product name — kept).
+ * `prisma/migrations/*_counterparty_key_without_reference` applies the same two expressions to the stored keys.
+ */
+export function stripReference(key: string): string {
+  return key
+    .replace(/\s*#[A-Z0-9][A-Z0-9-]*$/, "")
+    .replace(/\s*\*\s*[A-Z0-9]*\d[A-Z0-9]*$/, "")
+    .trim();
+}
+
 export function counterpartyKey(f: CounterpartyFields): string {
   const pick =
     nonEmpty(f.name) ??
@@ -30,11 +45,14 @@ export function counterpartyKey(f: CounterpartyFields): string {
     nonEmpty(f.sender) ??
     nonEmpty(f.recipient) ??
     UNKNOWN;
-  return stripCardPrefix(pick)
-    .toUpperCase()
-    .replace(/\s+\d{4}\s*$/, "") // merchant + card digits: `OPENAI *CHATGPT 1234`
-    .replace(/\s+/g, " ")
-    .trim();
+  const key = stripReference(
+    stripCardPrefix(pick)
+      .toUpperCase()
+      .replace(/\s+\d{4}\s*$/, "") // merchant + card digits: `OPENAI *CHATGPT 1234`
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+  return key || UNKNOWN;
 }
 
 function nonEmpty(s: string | null | undefined): string | null {
