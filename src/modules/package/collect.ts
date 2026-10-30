@@ -395,9 +395,11 @@ export async function collectPeriod(
   await resolveMissingKeys(tx, keys, allLinks);
 
   // --- 6. the bank sheet ---
+  // the accountant's sheet: his chart's Swedish name, the English one beside it (D72)
   const labels = await settings.basLabels(
     tx,
     rows.flatMap((r) => (r.basCode ? [r.basCode] : [])),
+    "sv+en",
   );
   const linksFrom = new Map<string, LinkDto[]>();
   for (const l of rowLinks) {

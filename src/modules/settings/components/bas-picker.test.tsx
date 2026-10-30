@@ -48,7 +48,7 @@ describe("BasPicker", () => {
     expect(screen.getByTestId("bas")).toHaveTextContent("Pick one");
   });
 
-  it("the suggestion on top says where it comes from; the Swedish name is the second line", async () => {
+  it("the suggestion on top says where it comes from; English only, the Swedish name a tooltip (D72)", async () => {
     render(
       <BasPicker
         options={OPTIONS}
@@ -64,7 +64,8 @@ describe("BasPicker", () => {
     expect(suggested).toBeInTheDocument();
     const it654 = screen.getByTestId("bas-option-654");
     expect(it654).toHaveTextContent("the supplier's default");
-    expect(it654).toHaveTextContent("IT-tjänster");
+    expect(it654).not.toHaveTextContent("IT-tjänster");
+    expect(it654).toHaveAttribute("title", "IT-tjänster");
     // the favourite comes next, then the cost classes
     const labels = screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"));
     expect(labels.slice(0, 2)).toEqual(["654 · IT services (IT)", "501 · Premises rent (Lokal)"]);

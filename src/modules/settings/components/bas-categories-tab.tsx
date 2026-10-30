@@ -430,8 +430,12 @@ function QuickStartPreview({
               className="rounded"
             />
             <span className="font-mono text-xs text-muted-foreground w-8">{cat.code}</span>
-            <span>{cat.name}</span>
-            {cat.nameEn && <span className="text-muted-foreground">— {cat.nameEn}</span>}
+            <span>{cat.nameEn || cat.name}</span>
+            {cat.nameEn && (
+              <span className="text-xs text-muted-foreground italic" title={cat.name}>
+                {cat.name}
+              </span>
+            )}
           </label>
         ))}
       </div>
@@ -509,11 +513,9 @@ function ClassAccordion({
         <div className="flex items-center gap-2">
           <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "" : "-rotate-90"}`} />
           <span className="font-medium text-sm">
-            {classNum}. {className}
+            {classNum}. {t(`settings.bas.class.${classNum as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`)}
           </span>
-          <span className="text-xs text-muted-foreground">
-            {t(`settings.bas.class.${classNum as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`)}
-          </span>
+          <span className="text-xs text-muted-foreground italic">{className}</span>
         </div>
         <span className="text-xs text-muted-foreground">
           {t("settings.bas.activeOf", { active: activeCount, total: categories.length })}
@@ -612,13 +614,13 @@ function CategoryRow({
           {category.code}
         </span>
 
-        {/* Name */}
-        <span className="truncate flex-1 min-w-0">{category.name}</span>
-
-        {/* English name in lighter text */}
-        {category.nameEn && (
-          <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-40">
-            {category.nameEn}
+        {/* Name — English (the owner's own, else the chart's), the Swedish canonical name small (D72) */}
+        <span className="truncate flex-1 min-w-0">
+          {ownEnglish(preference) || category.nameEn || category.name}
+        </span>
+        {(ownEnglish(preference) || category.nameEn) && (
+          <span className="hidden sm:inline text-xs text-muted-foreground italic truncate max-w-40">
+            {category.name}
           </span>
         )}
 
@@ -736,4 +738,12 @@ function InlineField({
       />
     </div>
   );
+}
+
+/** The owner's own English name for an account (Settings → BAS, `translations.en`), when he wrote one. */
+function ownEnglish(
+  pref: { translations?: Record<string, unknown> | null } | null | undefined,
+): string | null {
+  const en = pref?.translations?.en;
+  return typeof en === "string" && en.trim() ? en.trim() : null;
 }
