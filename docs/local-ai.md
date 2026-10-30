@@ -297,7 +297,7 @@ Depends on: **F116 PR A** (memory) for stage 1c — build P1 after it, or P1 rea
 2. **Order**: P1 → P2 → P3 as above (BAS and partner proposals first, the closing run second) — or the closing run first with stage 1 only, since the deterministic half already changes the month?
 3. **The nightly run**: wanted, or only after an import and on *Run now*? (The nightly catches late proofs and the checks; it costs nothing when nothing is open.)
 4. **Ask your books**: in this plan (P5), or parked until the first three are in use? It is the only item that adds a database role.
-5. **Proposals on documents** (the second reader, §8): with P2, or later? It is the only part that touches the review page (F117 says the page is not a record — a proposal fits that).
+5. ~~**Proposals on documents**~~ — **with P2** (the owner, 2026-10-31: "I want it directly suggested", F126). Was: (the second reader, §8): with P2, or later? It is the only part that touches the review page (F117 says the page is not a record — a proposal fits that).
 6. **A rejected proposal**: never re-made for that row (the plan), or re-made when the model or the prompt version changes?
 
 ## Related
