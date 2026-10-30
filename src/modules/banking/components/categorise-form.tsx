@@ -1,7 +1,5 @@
 "use client";
 
-// The owner's facts on a bank row — category, partner, note, "no document needed" — saved on change (F113: on
-// the row itself). The workbench's side panel. Reads only (accountant): plain values.
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +19,9 @@ import { Tag } from "@/kernel/ui/tags";
 import { categoriseTransactionAction } from "@/modules/banking/banking.actions";
 import { basName } from "@/modules/banking/bas-name";
 import type { TransactionWire } from "@/modules/banking/detail-wire";
+// The owner's facts on a bank row — category, partner, note, "no document needed" — saved on change (F113: on
+// the row itself). The workbench's side panel. Reads only (accountant): plain values.
+import { BasPicker, type BasSuggestion } from "@/modules/settings/ui";
 
 export type CategoryOption = { code: string; label: string };
 export type PartnerOption = {
@@ -52,6 +53,8 @@ export function CategoriseForm({
   canWrite,
   onSaved,
   prefill = {},
+  suggestions,
+  direction = "any",
 }: {
   entry: Pick<
     TransactionWire,
@@ -66,6 +69,10 @@ export function CategoriseForm({
    * drawn as a proposal (dashed, *proposed — not saved*), never saved here: the Proposed line's Accept writes it.
    */
   prefill?: { basCode?: string; partnerId?: string };
+  /** the row's proposals and the partner's default, on top of the BAS picker (F125) */
+  suggestions?: BasSuggestion[];
+  /** outgoing rows read the cost classes first, incoming the revenue */
+  direction?: "cost" | "income" | "any";
 }) {
   const t = useT();
   const ids = useId();
@@ -140,31 +147,23 @@ export function CategoriseForm({
         <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
           {t("banking.form.category")}
         </label>
-        <Select
-          value={prefilledBas ?? basCode}
-          onValueChange={(v) => {
-            const next = v ?? NONE;
+        <BasPicker
+          id={`${ids}-cat`}
+          options={categoryList}
+          value={(prefilledBas ?? basCode) === NONE ? "" : (prefilledBas ?? basCode)}
+          onChange={(code) => {
+            const next = code || NONE;
             setBasCode(next);
             void save({ basCode: next === NONE ? null : next });
           }}
+          suggestions={suggestions}
+          direction={direction}
+          allowNone
+          noneLabel={t("banking.form.noCategory")}
+          proposed={!!prefilledBas}
           disabled={isPending}
-        >
-          <SelectTrigger
-            id={`${ids}-cat`}
-            className={prefilledBas ? "w-full border-dashed border-primary" : "w-full"}
-            data-prefilled={prefilledBas ? "true" : undefined}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>{t("banking.form.noCategory")}</SelectItem>
-            {categoryList.map((c) => (
-              <SelectItem key={c.code} value={c.code}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          data-testid="categorise-category"
+        />
         {prefilledBas && (
           <p className="mt-1 text-xs text-muted-foreground" data-testid="prefill-hint">
             {t("banking.form.prefilled")}

@@ -567,3 +567,47 @@ describe("isBasActivated", () => {
     expect(seenByB).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// F125 — the BAS picker's options (one builder for every picker)
+// ─────────────────────────────────────────────────────────────
+describe("basPickerOptions (F125, F95)", () => {
+  it("the active set in chart order, named in English, the Swedish name as the second line, the alias, the favourite", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { basPickerOptions } = await import("@/modules/settings/bas-options");
+    const options = await withTenantTransaction(
+      prisma,
+      owner.callerIdentity.tenantId,
+      async (tx) => {
+        await basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, [
+          "657",
+          "153",
+          "654",
+        ]);
+        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "654", {
+          isFavorite: true,
+          shortCode: "It",
+        });
+        // the owner's own English wins over the chart's
+        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "657", {
+          translations: { en: "Bank fees" },
+        });
+        return basPickerOptions(tx);
+      },
+    );
+    const mine = options.filter((o) => ["153", "654", "657"].includes(o.code));
+    expect(mine.map((o) => o.code)).toEqual(["153", "654", "657"]);
+    expect(mine[0]).toMatchObject({
+      code: "153",
+      name: "Contractual receivables",
+      nameSv: "Kontraktsfordringar",
+      alias: "Kund",
+      classNum: 1,
+      favourite: false,
+      label: "153 · Contractual receivables (Kund)",
+    });
+    expect(mine[1]).toMatchObject({ name: "IT services", alias: "It", favourite: true });
+    expect(mine[2]).toMatchObject({ name: "Bank fees", nameSv: "Bankkostnader", alias: null });
+    expect(mine[2]?.label).toBe("657 · Bank fees");
+  });
+});

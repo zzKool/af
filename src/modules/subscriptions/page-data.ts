@@ -15,7 +15,7 @@ export type SubscriptionVendorOption = {
 };
 export type SubscriptionPageOptions = {
   vendors: SubscriptionVendorOption[];
-  categories: { code: string; label: string }[];
+  categories: expenses.CategoryOption[];
   groups: { id: string; label: string }[];
   sources: { id: string; label: string; kind: "bank_account" | "private"; currency: string }[];
   registrations: { id: string; label: string }[];

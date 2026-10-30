@@ -39,6 +39,7 @@ import {
   useDuplicateCheck,
 } from "@/modules/expenses/ui";
 import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
+import { BasPicker } from "@/modules/settings/ui";
 import {
   checkSupplierInvoiceDuplicatesAction,
   copyLastSupplierInvoiceAction,
@@ -186,6 +187,10 @@ export function NewSupplierInvoiceDialog({
       ? supplier.defaultBasCategoryCode
       : null;
   const supplierTerms = supplier?.paymentTermsDays ?? DEFAULT_TERMS;
+  // the supplier's default, also on top of the picker (F125) — said as the supplier's, not as the app's opinion
+  const supplierSuggestion = supplierBas
+    ? [{ code: supplierBas, source: "partner" as const }]
+    : undefined;
   useEffect(() => {
     if (!supplierId) return;
     // the document's currency wins over the supplier's default when the dialog opens from the review page
@@ -498,19 +503,16 @@ export function NewSupplierInvoiceDialog({
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("supplierInvoices.form.category")}
             </label>
-            <Select value={basCode || NONE} onValueChange={(v) => v && v !== NONE && setBasCode(v)}>
-              <SelectTrigger id={`${ids}-cat`} className="w-full" data-testid="si-category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>—</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BasPicker
+              id={`${ids}-cat`}
+              options={categories}
+              value={basCode}
+              onChange={(code) => code && setBasCode(code)}
+              suggestions={supplierSuggestion}
+              direction="cost"
+              requireAlias
+              data-testid="si-category"
+            />
           </div>
           <div>
             <label htmlFor={`${ids}-reg`} className="mb-1 block text-xs font-medium">

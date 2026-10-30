@@ -3,25 +3,18 @@
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as partners from "@/modules/partners";
+import type { BasOption } from "@/modules/settings";
 import * as settings from "@/modules/settings";
 
-export type CategoryOption = { code: string; label: string };
+export type CategoryOption = BasOption;
 export type PartnerOption = { id: string; name: string; defaultBasCode: string | null };
 
+/** The tenant's active BAS set as the picker takes it (F125: settings' one builder; the picker groups and searches). */
 export async function categoryOptions(
   tx: TransactionClient,
-  caller: CallerIdentity,
+  _caller: CallerIdentity,
 ): Promise<CategoryOption[]> {
-  const prefs = await settings.getTenantBasPreferences(tx, caller);
-  const list = (prefs.data ?? [])
-    .slice()
-    .sort(
-      (a, b) => Number(b.isFavorite) - Number(a.isFavorite) || a.basCode.localeCompare(b.basCode),
-    );
-  return list.map((p) => ({
-    code: p.basCode,
-    label: `${p.basCode} · ${p.basCategory.name}${p.shortCode ? ` (${p.shortCode})` : ""}`,
-  }));
+  return settings.basPickerOptions(tx);
 }
 
 export async function partnerOptions(tx: TransactionClient): Promise<PartnerOption[]> {

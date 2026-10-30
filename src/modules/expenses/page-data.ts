@@ -23,29 +23,15 @@ export type ExpensePageOptions = {
   transactions: TransactionOption[];
 };
 
-/** The tenant's active BAS set (favourites first) as `580 · Resekostnader (Tr)` — only categories with a short code can key an expense, so those come first. */
+/**
+ * The tenant's active BAS set as the picker takes it (F125: settings' one builder — `654 · IT services (It)`, the
+ * alias the key needs, the class, the favourite). The picker groups, searches and disables what has no alias.
+ */
 export async function expenseCategoryOptions(
   tx: TransactionClient,
-  caller: CallerIdentity,
+  _caller: CallerIdentity,
 ): Promise<CategoryOption[]> {
-  const prefs = await settings.getTenantBasPreferences(tx, caller);
-  const codes = (prefs.data ?? []).map((p) => p.basCode);
-  const aliases = await settings.basAliases(tx, codes);
-  return (prefs.data ?? [])
-    .slice()
-    .sort(
-      (a, b) =>
-        Number(Boolean(aliases.get(b.basCode))) - Number(Boolean(aliases.get(a.basCode))) ||
-        Number(b.isFavorite) - Number(a.isFavorite) ||
-        a.basCode.localeCompare(b.basCode),
-    )
-    .map((p) => {
-      const alias = aliases.get(p.basCode);
-      return {
-        code: p.basCode,
-        label: `${p.basCode} · ${p.basCategory.name}${alias ? ` (${alias})` : ""}`,
-      };
-    });
+  return settings.basPickerOptions(tx);
 }
 
 /** The partner picker's choices (F87, FR-008): active vendors, by name, with their default category. */

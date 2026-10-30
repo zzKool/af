@@ -27,6 +27,7 @@ export {
 export type { TablePreferenceData } from "./table-preferences";
 export { upsertTablePreference } from "./table-preferences";
 export { getTablePreferenceAction, upsertTablePreferenceAction } from "./table-preferences.actions";
+export type * from "./types";
 export type { UserPreferences } from "./user-preferences";
 export { updateUserLocale } from "./user-preferences";
 export { getUserPreferencesAction, updateUserLocaleAction } from "./user-preferences.actions";

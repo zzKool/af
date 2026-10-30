@@ -18,8 +18,7 @@ import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/kernel/nav/constants";
 import { DetailsSection } from "@/kernel/ui/details-section";
 import { updatePartnerAction } from "@/modules/partners/partners.actions";
-
-type BasOption = { code: string; label: string };
+import { type BasOption, BasPicker } from "@/modules/settings/ui";
 
 type ExternalIdentifier = { label: string; value: string };
 
@@ -293,26 +292,18 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
           </div>
           <div>
             <Label>{t("partners.form.basCategory")}</Label>
-            <Select
-              value={defaultBasCategoryCode || "__none__"}
-              onValueChange={(v) => {
-                const val = v === "__none__" || !v ? "" : v;
-                setDefaultBasCategoryCode(val);
-                handleSelectChange("defaultBasCategoryCode", v ?? "__none__");
+            <BasPicker
+              options={basOptions}
+              value={defaultBasCategoryCode}
+              onChange={(code) => {
+                setDefaultBasCategoryCode(code);
+                handleSelectChange("defaultBasCategoryCode", code || "__none__");
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("partners.form.selectBas")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
-                {basOptions.map((o) => (
-                  <SelectItem key={o.code} value={o.code}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              allowNone
+              noneLabel={t("partners.form.none")}
+              direction="cost"
+              data-testid="partner-default-bas"
+            />
           </div>
           <div>
             <Label htmlFor="paymentTermsDays">{t("partners.form.paymentTerms")}</Label>

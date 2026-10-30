@@ -20,6 +20,30 @@ vi.mock("next-safe-action/hooks", () => ({
   },
 }));
 
+// the BAS picker (F125) as a native select too: the test drives the rule, not the widget
+vi.mock("@/modules/settings/ui", () => ({
+  BasPicker: ({
+    id,
+    value,
+    onChange,
+    options,
+  }: {
+    id?: string;
+    value: string;
+    onChange: (code: string) => void;
+    options: { code: string; label: string }[];
+  }) => (
+    <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">—</option>
+      {options.map((o) => (
+        <option key={o.code} value={o.code}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  ),
+}));
+
 // a native select: SelectTrigger's id names it, SelectItem's are its options
 vi.mock("@/components/ui/select", async () => {
   const React = await import("react");

@@ -2,6 +2,7 @@
 // 3b/3d: declared here as named re-exports; extraction into standalone query implementations
 // (ListQuery, distinct values for DataTable headers) happens with the partners reference slice.
 
+export { basDisplayName, basPickerOptions } from "./bas-options";
 export {
   basAlias,
   basAliases,

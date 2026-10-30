@@ -1,9 +1,5 @@
 "use client";
 
-// *New subscription* (F94 US1, FR-013): describe a recurring cost once. The vendor proposes its default category and
-// currency — never over what the owner chose (D49's rule); the group defaults to a new batch group named after the
-// subscription (Q2 B); a supplier invoice is paid from a company account (US1-2); the match text defaults to the
-// vendor's name. *Make it recurring* (US1-5) opens the same form with `initial` and an `entity` to attribute.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useState } from "react";
@@ -28,6 +24,11 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
+// *New subscription* (F94 US1, FR-013): describe a recurring cost once. The vendor proposes its default category and
+// currency — never over what the owner chose (D49's rule); the group defaults to a new batch group named after the
+// subscription (Q2 B); a supplier invoice is paid from a company account (US1-2); the match text defaults to the
+// vendor's name. *Make it recurring* (US1-5) opens the same form with `initial` and an `entity` to attribute.
+import { BasPicker } from "@/modules/settings/ui";
 import type { SubscriptionPageOptions } from "../page-data";
 import { createSubscriptionAction, makeRecurringAction } from "../subscriptions.actions";
 import type { Becomes, Cadence } from "../types";
@@ -267,27 +268,19 @@ export function SubscriptionFormDialog({
                 </span>
               )}
             </label>
-            <Select
+            <BasPicker
+              id={`${ids}-cat`}
+              options={options.categories}
               value={basCode}
-              onValueChange={(v) => {
-                if (!v) return;
-                setBasCode(v);
+              onChange={(code) => {
+                if (!code) return;
+                setBasCode(code);
                 setBasFromPartner(false);
               }}
-            >
-              <SelectTrigger id={`${ids}-cat`} className="w-full" data-testid="sub-category">
-                <SelectValue>
-                  {options.categories.find((c) => c.code === basCode)?.label ?? "—"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {options.categories.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              direction="cost"
+              requireAlias
+              data-testid="sub-category"
+            />
           </div>
           <div className="sm:col-span-2">
             <label htmlFor={`${ids}-group`} className={label}>

@@ -110,14 +110,14 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(category()).toHaveTextContent("—");
     expect(screen.queryByTestId("category-from-partner")).toBeNull();
     pick("cerf");
-    expect(category()).toHaveTextContent("583 · Representation");
+    expect(category()).toHaveTextContent(/583\s*Representation/);
     expect(screen.getByTestId("category-from-partner")).toBeInTheDocument();
     pick("sas");
-    expect(category()).toHaveTextContent("580 · Travel");
+    expect(category()).toHaveTextContent(/580\s*Travel/);
     pick("taxi"); // no default
-    expect(category()).toHaveTextContent("580 · Travel");
+    expect(category()).toHaveTextContent(/580\s*Travel/);
     pick(""); // cleared: the proposal stays
-    expect(category()).toHaveTextContent("580 · Travel");
+    expect(category()).toHaveTextContent(/580\s*Travel/);
   });
 
   it("F124 (5): the payer a document proposes is the company account in its currency, never the first of the list", () => {
@@ -172,7 +172,7 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(screen.getByTestId("expense-partner")).toHaveValue("");
     fireEvent.click(screen.getByTestId("partner-match-use"));
     expect(screen.getByTestId("expense-partner")).toHaveValue("cerf");
-    expect(category()).toHaveTextContent("583 · Representation");
+    expect(category()).toHaveTextContent(/583\s*Representation/);
     // the description stays the merchant's (US4-4)
     expect(screen.getByTestId("expense-description")).toHaveValue("RESTAURANT LE CERF SA");
   });
