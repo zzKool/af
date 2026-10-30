@@ -128,3 +128,27 @@ describe("NewSupplierInvoiceDialog — the duplicate check (D35)", () => {
     );
   });
 });
+
+describe("NewSupplierInvoiceDialog — the BAS picker's suggestions (F125)", () => {
+  afterEach(cleanup);
+
+  it("the supplier's history on top of the picker, with how often it was used", async () => {
+    render(
+      <NewSupplierInvoiceDialog
+        {...base}
+        groups={[{ id: "g1", number: 7, description: "Receipts", kind: "batch" }]}
+        categories={[
+          { code: "6530", label: "6530 · Accounting services (Acc)" },
+          { code: "6540", label: "6540 · IT services (IT)" },
+        ]}
+        basHistory={{ p1: [{ code: "6540", count: 2 }] }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("si-category"));
+    expect(await screen.findByText("Suggested")).toBeInTheDocument();
+    const suggested = screen.getByTestId("bas-option-6540");
+    expect(suggested).toHaveTextContent("used 2× before for this partner");
+    // nothing is chosen for the owner: the field stays empty until a click (F124 (5))
+    expect(screen.getByTestId("si-category")).not.toHaveTextContent("6540");
+  });
+});

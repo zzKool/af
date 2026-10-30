@@ -34,7 +34,12 @@ import { Tag } from "@/kernel/ui/tags";
 import { createRuleFromTransactionAction } from "@/modules/banking/ui";
 import { getDocumentForReviewAction, uploadDocumentAction } from "@/modules/documents/ui";
 import { PartnerMatchCard } from "@/modules/partners/ui";
-import { type BasOption, BasPicker, type BasSuggestionSource } from "@/modules/settings/ui";
+import {
+  type BasOption,
+  BasPicker,
+  type BasSuggestionSource,
+  partnerBasSuggestions,
+} from "@/modules/settings/ui";
 import {
   type CompareCard,
   compareRowToReading,
@@ -61,6 +66,8 @@ export type JustifyOptions = {
   /** the expense categories (a short code each — the keys need one) */
   categories: BasOption[];
   partners: { id: string; name: string; defaultBasCode: string | null }[];
+  /** per partner, the accounts used before (F125 PR 2) */
+  basHistory?: Record<string, { code: string; count: number }[]>;
 };
 
 const NONE = "__none__";
@@ -497,7 +504,13 @@ function CompareCardForm({
           ]
         : [],
     ),
-    ...(pickedDefault ? [{ code: pickedDefault, source: "partner" as const }] : []),
+    ...(partnerId !== NONE
+      ? partnerBasSuggestions({
+          defaultCode: pickedDefault,
+          history: options.basHistory?.[partnerId],
+          historyReason: (count) => t("settings.basPicker.usedBefore", { count }),
+        })
+      : []),
   ];
   const partners = [...extraPartners, ...options.partners];
 

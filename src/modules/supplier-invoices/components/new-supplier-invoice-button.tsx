@@ -20,6 +20,7 @@ export function NewSupplierInvoiceButton({
   suppliers,
   registrations,
   documents,
+  basHistory,
   defaultGroupId,
 }: {
   groups: GroupOption[];
@@ -27,6 +28,7 @@ export function NewSupplierInvoiceButton({
   suppliers: SupplierOption[];
   registrations: RegistrationOption[];
   documents: DocumentOption[];
+  basHistory?: Record<string, { code: string; count: number }[]>;
   defaultGroupId?: string;
 }) {
   const t = useT();
@@ -44,6 +46,7 @@ export function NewSupplierInvoiceButton({
         suppliers={suppliers}
         registrations={registrations}
         documents={documents}
+        basHistory={basHistory}
         defaultGroupId={defaultGroupId}
       />
     </>

@@ -31,12 +31,14 @@ export default async function DocumentInboxPage() {
           groups: expense.groups,
           categories: expense.categories,
           sources: expense.sources,
+          basHistory: expense.basHistory,
         },
         supplier: {
           groups: supplier.groups,
           categories: supplier.categories,
           suppliers: supplier.suppliers,
           registrations: supplier.registrations,
+          basHistory: supplier.basHistory,
         },
       };
     }

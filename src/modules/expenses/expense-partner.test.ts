@@ -418,3 +418,51 @@ describe("US3 / SC-002 — spend per partner", () => {
     });
   });
 });
+
+describe("F125 PR 2 — the partner's history for the BAS picker", () => {
+  it("expenses and the rows categorised by hand count per partner and account; a rule's never", async () => {
+    const cerf = await vendor(owner.caller, "Le Cerf");
+    const g = await group();
+    for (const basCode of ["583", "583", "580"])
+      await run(owner.caller, (tx) =>
+        createExpense(tx, owner.caller, noopAudit, dinner(g, { partnerId: cerf, basCode })),
+      );
+    await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, dinner(g, { basCode: "690" })),
+    ); // no partner: not counted
+    const [byHand, byRule] = await run(owner.caller, (tx) =>
+      importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+        { date: "2026-03-11", amount: "-500.00", name: "LE CERF" },
+        { date: "2026-03-12", amount: "-400.00", name: "LE CERF" },
+      ]),
+    );
+    await adminPool.query(
+      `UPDATE bank_transactions SET partner_id = $1, bas_code = '583', categorised_by = 'manual' WHERE id = $2`,
+      [cerf, byHand],
+    );
+    await adminPool.query(
+      `UPDATE bank_transactions SET partner_id = $1, bas_code = '657', categorised_by = 'rule' WHERE id = $2`,
+      [cerf, byRule],
+    );
+    const { partnerBasUsage } = await import("./partner-bas-usage");
+    const banking = await import("@/modules/banking");
+    const own = await run(owner.caller, (tx) => partnerBasUsage(tx));
+    const rows = await run(owner.caller, (tx) => banking.partnerBasUsage(tx));
+    expect(
+      own.filter((u) => u.partnerId === cerf).sort((a, b) => a.basCode.localeCompare(b.basCode)),
+    ).toEqual([
+      { partnerId: cerf, basCode: "580", count: 1 },
+      { partnerId: cerf, basCode: "583", count: 2 },
+    ]);
+    expect(rows).toEqual([{ partnerId: cerf, basCode: "583", count: 1 }]);
+    // the page options merge them
+    const { expensePageOptions } = await import("./page-data");
+    const options = await run(owner.caller, (tx) =>
+      expensePageOptions(tx, owner.caller, { documents: false, transactions: false }),
+    );
+    expect(options.basHistory[cerf]).toEqual([
+      { code: "583", count: 3 },
+      { code: "580", count: 1 },
+    ]);
+  });
+});

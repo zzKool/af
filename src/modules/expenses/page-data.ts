@@ -5,6 +5,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { partnerBasUsage } from "./partner-bas-usage";
 import { candidateDocuments, listGroups, settleableTransactions } from "./queries";
 import type {
   CategoryOption,
@@ -18,6 +19,8 @@ import type {
 export type ExpensePageOptions = {
   groups: GroupOption[];
   categories: CategoryOption[];
+  /** per partner, the accounts the owner used before (F125 PR 2) — the picker's *used before* suggestions */
+  basHistory: Record<string, { code: string; count: number }[]>;
   sources: SourceOption[];
   documents: DocumentOption[];
   transactions: TransactionOption[];
@@ -62,6 +65,10 @@ export async function expensePageOptions(
       kind: g.kind,
     })),
     categories,
+    basHistory: settings.mergeBasUsage([
+      await partnerBasUsage(tx),
+      await banking.partnerBasUsage(tx),
+    ]),
     sources: sources.map((s) => ({ id: s.id, label: s.label, kind: s.kind, currency: s.currency })),
     documents,
     transactions,

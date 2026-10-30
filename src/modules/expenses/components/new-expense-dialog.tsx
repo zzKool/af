@@ -46,7 +46,7 @@ import type {
 } from "@/modules/expenses/types";
 import { EXPENSE_KINDS, type ExpenseKind } from "@/modules/expenses/types";
 import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
-import { BasPicker } from "@/modules/settings/ui";
+import { BasPicker, partnerBasSuggestions } from "@/modules/settings/ui";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
 import { GroupPicker, initialGroupId, useCreateGroupIfNew } from "./group-picker";
 import { PartnerPicker, useVendors } from "./partner-picker";
@@ -86,6 +86,7 @@ export function NewExpenseDialog({
   groups,
   categories,
   sources,
+  basHistory,
   documents,
   defaultGroupId,
   initial,
@@ -96,6 +97,8 @@ export function NewExpenseDialog({
   groups: GroupOption[];
   categories: CategoryOption[];
   sources: SourceOption[];
+  /** per partner, the accounts used before (F125 PR 2) */
+  basHistory?: Record<string, { code: string; count: number }[]>;
   documents: DocumentOption[];
   defaultGroupId?: string;
   /** the OCR facts of the document this expense is made from — applied when the dialog opens */
@@ -197,8 +200,13 @@ export function NewExpenseDialog({
   const partnerDefault = partnerId
     ? (vendors.find((v) => v.id === partnerId)?.defaultBasCategoryCode ?? null)
     : null;
-  const partnerSuggestion = partnerDefault
-    ? [{ code: partnerDefault, source: "partner" as const }]
+  // …and what the owner used before for this partner (F125 PR 2)
+  const partnerSuggestion = partnerId
+    ? partnerBasSuggestions({
+        defaultCode: partnerDefault,
+        history: basHistory?.[partnerId],
+        historyReason: (count) => t("settings.basPicker.usedBefore", { count }),
+      })
     : undefined;
   function pickPartner(id: string | null, defaultCode?: string | null) {
     setPartnerId(id);

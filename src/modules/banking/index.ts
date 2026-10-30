@@ -65,6 +65,7 @@ export {
 } from "./months";
 export { rowsToJustifyCount } from "./open-work";
 export { categoryOptions, partnerOptions } from "./options";
+export { partnerBasUsage } from "./partner-bas-usage";
 export {
   createPrivateAccount,
   type PayerAccount,
