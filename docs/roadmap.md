@@ -76,7 +76,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 [[audit-2026-10-27]] §3 and §7. **Done 2026-10-27** (one night, twelve PRs): ~~F105~~ close the box · ~~F106~~ one file route · ~~F107~~ fs storage · ~~F108~~ mock OCR gated · ~~F109~~ imports all-or-nothing · ~~F110~~ failed jobs visible · ~~F111~~ rollback + deps · ~~F112~~ admin CLI · ~~F118~~ en only · F120 the docs cuts (the code cuts left) · the lessons · ~~F113 PR A~~ the one transaction table (the spec approved by the owner, the migration, the journal folded into banking, `/journal` gone). Main is on the fs driver with the file route, Sentry and react-query gone, `xlsx` dev-only, one table for a bank movement.
 
 ```
-~~F113 PR A~~ ─► ~~the Justify panel (F97)~~ ─► ~~F114~~ (#318 merged 2026-10-27, PR 2 #319 the package columns) ─► ~~F115~~ (#320) ─► ~~F116~~ (#326 · #327 · #328 · #329, 2026-10-27/28) — **next: B1, the owner's real month**
+~~F113 PR A~~ ─► ~~the Justify panel (F97)~~ ─► ~~F114~~ (#318 merged 2026-10-27, PR 2 #319 the package columns) ─► ~~F115~~ (#320) ─► ~~F116~~ (#326 · #327 · #328 · #329, 2026-10-27/28) ─► **F124** the owner's first proof (2026-10-29/30: #333 · #334 · #335 · #336 · #337 · #338) — **next: B1, the owner's real month**
                                                      │
                                                      ▼
                                          B1 — one real month on the box (D65)
@@ -86,6 +86,8 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ```
 
 **The owner's side, before the next `up -d` on the box** ([[deployment]]): snapshot the VM; `AUTH_SIGNUP=closed` and `AF_APP_PASSWORD` (+ `DATABASE_URL`) in `.env.prod`; keep `AZURE_STORAGE_CONNECTION_STRING` for that one deploy (the migrate container moves the documents into the folder — *documents: N moved* in its log), check a preview, run `backup.sh`, then drop the variable and the old `blobdata` volume. **F113's migration refuses to run while a manual journal entry exists** — it names them; delete them first (none expected). Features are dispatched again — D65 was lifted by the owner on 2026-10-27; B1 stays the next milestone, not a gate.
+
+**2026-10-29, the first proof on the box** (F124, [[features]]): the owner dropped one card-paid PDF on its row and hit six things in a row — the receipt model on an invoice-shaped bill (D69), a card unlabelled, a greyed button, the same supplier ten times (D70), the dialog's accidental defaults, and a counterparty key that keeps the bill number so nothing learned ever recurs (D71). Every one is a PR; every oddity of B1 goes the same way: a line here, a row in [[features]], a lesson. Still open from it: F98 PR 2 (the model stage — stage 1 proposes only from rules, partner defaults and the owner's own history, so a fresh tenant sees nothing until it has some), and expenses never reaching the Swiss VAT return (no screen sets `vat_registration_id`, [[lessons]] *F124 build*).
 
 ### 1. B1 — 2023-Q2 end to end, on the owner's box
 
