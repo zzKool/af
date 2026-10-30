@@ -13,6 +13,7 @@ export {
 export { supplierInvoiceLinkable } from "./linkable";
 export type { SupplierInvoicePageOptions } from "./page-data";
 export { supplierInvoicePageOptions } from "./page-data";
+export { partnerBasUsage } from "./partner-bas-usage";
 export type { RecordPaymentInput } from "./payments";
 export {
   recordPayment,

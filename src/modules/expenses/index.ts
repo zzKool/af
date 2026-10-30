@@ -62,6 +62,7 @@ export {
 export { expenseLinkable } from "./linkable";
 export type { ExpensePageOptions } from "./page-data";
 export { expenseCategoryOptions, expensePageOptions, vendorOptions } from "./page-data";
+export { partnerBasUsage } from "./partner-bas-usage";
 export * from "./queries";
 // global search (F93): the module's palette hits
 export { searchExpenseHits, searchSettlementHits } from "./search";

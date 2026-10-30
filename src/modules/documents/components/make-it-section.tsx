@@ -35,12 +35,14 @@ export type MakeItOptions = {
     groups: ExpenseGroupOption[];
     categories: ExpenseCategoryOption[];
     sources: SourceOption[];
+    basHistory?: Record<string, { code: string; count: number }[]>;
   };
   supplier: {
     groups: SiGroupOption[];
     categories: SiCategoryOption[];
     suppliers: SupplierOption[];
     registrations: RegistrationOption[];
+    basHistory?: Record<string, { code: string; count: number }[]>;
   };
 };
 
@@ -196,6 +198,7 @@ export function MakeItSection({
         groups={options.expense.groups}
         categories={options.expense.categories}
         sources={options.expense.sources}
+        basHistory={options.expense.basHistory}
         documents={[]}
         initial={initial.expense}
         onCreated={() => router.refresh()}
@@ -207,6 +210,7 @@ export function MakeItSection({
         categories={options.supplier.categories}
         suppliers={options.supplier.suppliers}
         registrations={options.supplier.registrations}
+        basHistory={options.supplier.basHistory}
         documents={[]}
         initial={initial.supplier}
         onCreated={() => router.refresh()}

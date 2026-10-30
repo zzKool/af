@@ -25,6 +25,7 @@ export type NewExpenseOptions = {
   categories: CategoryOption[];
   sources: SourceOption[];
   documents: DocumentOption[];
+  basHistory?: Record<string, { code: string; count: number }[]>;
 };
 
 /** The primary that opens the New expense dialog — on the list, or pre-set to a group on its page. */
@@ -51,6 +52,7 @@ export function NewExpenseButton({
         groups={options.groups}
         categories={options.categories}
         sources={options.sources}
+        basHistory={options.basHistory}
         documents={options.documents}
         defaultGroupId={groupId}
       />

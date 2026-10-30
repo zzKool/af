@@ -1068,6 +1068,7 @@ export const en = {
   "settings.basPicker.source.partner": "the supplier's default",
   "settings.basPicker.source.history": "used before for this supplier",
   "settings.basPicker.source.model": "AI proposal",
+  "settings.basPicker.usedBefore": "used {count}× before for this partner",
   "settings.basPicker.class.1": "1 · Assets",
   "settings.basPicker.class.2": "2 · Equity and liabilities",
   "settings.basPicker.class.3": "3 · Revenue",

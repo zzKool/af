@@ -39,7 +39,7 @@ import {
   useDuplicateCheck,
 } from "@/modules/expenses/ui";
 import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
-import { BasPicker } from "@/modules/settings/ui";
+import { BasPicker, partnerBasSuggestions } from "@/modules/settings/ui";
 import {
   checkSupplierInvoiceDuplicatesAction,
   copyLastSupplierInvoiceAction,
@@ -91,6 +91,7 @@ export function NewSupplierInvoiceDialog({
   onOpenChange,
   groups,
   categories,
+  basHistory,
   suppliers,
   registrations,
   documents,
@@ -102,6 +103,8 @@ export function NewSupplierInvoiceDialog({
   onOpenChange: (open: boolean) => void;
   groups: GroupOption[];
   categories: CategoryOption[];
+  /** per supplier, the accounts used before (F125 PR 2) */
+  basHistory?: Record<string, { code: string; count: number }[]>;
   suppliers: SupplierOption[];
   registrations: RegistrationOption[];
   documents: DocumentOption[];
@@ -188,8 +191,12 @@ export function NewSupplierInvoiceDialog({
       : null;
   const supplierTerms = supplier?.paymentTermsDays ?? DEFAULT_TERMS;
   // the supplier's default, also on top of the picker (F125) — said as the supplier's, not as the app's opinion
-  const supplierSuggestion = supplierBas
-    ? [{ code: supplierBas, source: "partner" as const }]
+  const supplierSuggestion = supplierId
+    ? partnerBasSuggestions({
+        defaultCode: supplierBas,
+        history: basHistory?.[supplierId],
+        historyReason: (count) => t("settings.basPicker.usedBefore", { count }),
+      })
     : undefined;
   useEffect(() => {
     if (!supplierId) return;
