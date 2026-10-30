@@ -23,3 +23,11 @@ Spec `spec.md` · plan `plan.md`. PR 1 = T001–T012, PR 2 = T013–T016.
 - [ ] T014 Stage 2 in the run: only what stage 1 left open or disagrees on; one request at a time; timeout → skip
 - [ ] T015 `npm run ai -- eval` (counts only)
 - [ ] T016 The mock's fixed answers for the e2e; docs
+- T013–T016 revised by `spec-suggest-from-first-entry.md` FR-201: the prompt carries the active accounts' *Use for* notes; no name → account mapping anywhere
+
+## F126 — the rest of "suggested from the first entry" (`spec-suggest-from-first-entry.md`)
+
+- [ ] T101 `feat/settings-bas-notes`: `use_for` + `use_for_state` columns; `draftUseForNotes` (prompt `bas-use-for` v1); Settings → BAS *Use for* line, *Draft with AI*, *Confirm all*; tests (a confirmed note never overwritten)
+- [ ] T102 `feat/ai-document-proposals`: `document` target + FK RESTRICT; drop with the document; stage 1 + 2 on OCR'd documents; job after OCR; tests incl. RLS
+- [ ] T103 Same PR: the SI / expense dialogs and the Justify card read the document's proposals (*AI proposal*, HIGH pre-filled dashed); save = accept / other code = reject; e2e with the mock
+- [ ] T104 `feat/settings-bas-four-digit` (D68): four-digit chart from the two XLSX files; `NNN` → `NNN0` everywhere in one migration; migration test; deploy on the owner's word
