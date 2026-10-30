@@ -76,6 +76,14 @@ export function PartnerMatchCard({
     });
     const error = extractError(r);
     if (error) {
+      // one partner per name / VAT number (D70): the refusal names the existing one — use it instead
+      const existing = duplicateOf(r);
+      if (existing) {
+        toast.message(t("partners.match.exists", { name: existing.name }));
+        setCreating(false);
+        onUseMatch(existing.id);
+        return;
+      }
       toast.error(error);
       return;
     }
@@ -177,4 +185,15 @@ export function PartnerMatchCard({
       )}
     </div>
   );
+}
+
+/** The existing partner a `DUPLICATE_ENTRY` names (`details.existingId` / `existingName`, D70); null otherwise. */
+function duplicateOf(result: unknown): { id: string; name: string } | null {
+  const err = (
+    result as { data?: { error?: { code?: string; details?: Record<string, unknown> } } }
+  )?.data?.error;
+  if (err?.code !== "DUPLICATE_ENTRY") return null;
+  const id = err.details?.existingId;
+  const name = err.details?.existingName;
+  return typeof id === "string" && typeof name === "string" ? { id, name } : null;
 }

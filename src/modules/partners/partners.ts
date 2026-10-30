@@ -187,6 +187,50 @@ export async function getPartner(
   return { data: toPartnerDto(partner) };
 }
 
+// --- one partner per name / VAT number (D70, F124 (4), 2026-10-29) ---
+
+/** The name as the rule compares it: case and runs of spaces ignored. */
+export const foldPartnerName = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+/** The VAT number as the rule compares it: spaces, dots and dashes ignored, upper case (`SE 5566-77` = `SE556677`). */
+export const foldVatNumber = (vat: string) => vat.replace(/[\s.-]/g, "").toUpperCase();
+
+/**
+ * A supplier created ten times from the match card (the owner's first proof, 2026-10-29): within a tenant two
+ * partners may not share a name (folded) or a VAT number (folded), deactivated ones included — the refusal names
+ * the existing one so the caller can use it instead (`details.existingId` / `existingName` / `field`).
+ */
+async function partnerDuplicate(
+  tx: TransactionClient,
+  input: { name?: string | null; vatNumber?: string | null },
+  exceptId?: string,
+): Promise<AppError | null> {
+  const name = input.name ? foldPartnerName(input.name) : null;
+  const vat = input.vatNumber ? foldVatNumber(input.vatNumber) : null;
+  if (!name && !vat) return null;
+  // the tenant's partners, compared folded in memory (a solo company has dozens — the match card loads them too)
+  const rows = await tx.partner.findMany({
+    where: exceptId ? { id: { not: exceptId } } : {},
+    select: { id: true, name: true, vatNumber: true },
+  });
+
+  const byName = name ? rows.find((r) => foldPartnerName(r.name) === name) : undefined;
+  const byVat = vat
+    ? rows.find((r) => r.vatNumber && foldVatNumber(r.vatNumber) === vat)
+    : undefined;
+  const hit = byName ?? byVat;
+  if (!hit) return null;
+  const field = byName ? "name" : "vatNumber";
+  return {
+    code: "DUPLICATE_ENTRY",
+    message:
+      field === "name"
+        ? `A partner named “${hit.name}” exists already — use it instead`
+        : `“${hit.name}” already carries the VAT number ${hit.vatNumber} — use it instead`,
+    retryable: false,
+    details: { existingId: hit.id, existingName: hit.name, field },
+  };
+}
+
 export async function createPartner(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -224,6 +268,10 @@ export async function createPartner(
     const fkError = await validateBasCategoryFK(tx, data.defaultBasCategoryCode);
     if (fkError) return { error: fkError };
   }
+
+  // one partner per name / VAT number (D70)
+  const duplicate = await partnerDuplicate(tx, { name: data.name, vatNumber: data.vatNumber });
+  if (duplicate) return { error: duplicate };
 
   try {
     const partner = await tx.partner.create({
@@ -318,6 +366,19 @@ export async function updatePartner(
   if (data.defaultBasCategoryCode !== undefined && data.defaultBasCategoryCode !== null) {
     const fkError = await validateBasCategoryFK(tx, data.defaultBasCategoryCode);
     if (fkError) return { error: fkError };
+  }
+
+  // one partner per name / VAT number (D70): a rename or a new VAT number may not land on another one
+  if (data.name !== undefined || data.vatNumber !== undefined) {
+    const duplicate = await partnerDuplicate(
+      tx,
+      {
+        name: data.name !== undefined ? data.name : null,
+        vatNumber: data.vatNumber !== undefined ? data.vatNumber : null,
+      },
+      id,
+    );
+    if (duplicate) return { error: duplicate };
   }
 
   // Type-removal guard: prevent removing types referenced by active contracts

@@ -127,7 +127,8 @@ export function NewSupplierInvoiceDialog({
   const [vatAmount, setVatAmount] = useState("");
   const [amountTotal, setAmountTotal] = useState("");
   const [totalTouched, setTotalTouched] = useState(false);
-  const [basCode, setBasCode] = useState(categories[0]?.code ?? "");
+  // no category until chosen — the supplier's default fills it, the first of the list is no proposal (F124 (5))
+  const [basCode, setBasCode] = useState("");
   const [registrationId, setRegistrationId] = useState(NONE);
   const [documentId, setDocumentId] = useState(NONE);
   const [documentMissing, setDocumentMissing] = useState(false);
@@ -497,11 +498,12 @@ export function NewSupplierInvoiceDialog({
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("supplierInvoices.form.category")}
             </label>
-            <Select value={basCode} onValueChange={(v) => v && setBasCode(v)}>
+            <Select value={basCode || NONE} onValueChange={(v) => v && v !== NONE && setBasCode(v)}>
               <SelectTrigger id={`${ids}-cat`} className="w-full" data-testid="si-category">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NONE}>—</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c.code} value={c.code}>
                     {c.label}
