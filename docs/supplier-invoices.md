@@ -71,3 +71,5 @@ E2E `e2e/supplier-invoices.spec.ts` (SEK only, dated around today): a vendor wit
 ## The sidebar's count (F72)
 
 `overdueSupplierInvoiceCount(tx, today)` — how many are *overdue*, the KPI strip's and the dashboard's number, for the sidebar's *Supplier invoices* badge (the app layout, the owner, every page): the not-cancelled invoices due before today, their allocations (`allocatedSums`), `deriveSupplierInvoiceStatus`. Held equal to `kpis(…).overdueCount` in `supplier-invoices.test.ts`.
+
+Since F124 (5) (2026-10-29) the new supplier-invoice dialog pre-selects **no category**: the supplier's default fills it when one is picked, *Copy last* brings the last one; the first of the list is no proposal.

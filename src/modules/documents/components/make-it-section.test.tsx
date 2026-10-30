@@ -71,9 +71,11 @@ describe("MakeItSection (specs/documents US1)", () => {
       vatAmount: "6.44",
       documentId: "doc-1",
       documentKey: "exp_20260304_001",
-      // F87: the merchant (else the vendor) and its address reach the expense dialog's match card
+      // F87: the merchant (else the vendor) and its address reach the expense dialog's match card; the VAT number
+      // too (F124 (5): the invoice model reads it on a PDF expense, D69 — a VAT match is the surest one)
       vendor: {
         name: "SBB CFF FFS",
+        vatNumber: "CHE-123.456.789",
         address: { street: "Wylerstrasse 123", postalCode: "3000", city: "Bern", country: "CH" },
       },
     });
