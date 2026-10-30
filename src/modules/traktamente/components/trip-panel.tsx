@@ -1,7 +1,5 @@
 "use client";
 
-// The trip panel on the group page (specs/traktamente FR-006): date-times, country (with the year's amount),
-// agency, the meal counts, nights / long stay collapsed, the live result card, "Create per-diem expense".
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -21,6 +19,9 @@ import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { StateIcon } from "@/kernel/ui/state-label";
 import { CodeChip } from "@/kernel/ui/tags";
+// The trip panel on the group page (specs/traktamente FR-006): date-times, country (with the year's amount),
+// agency, the meal counts, nights / long stay collapsed, the live result card, "Create per-diem expense".
+import { type BasOption, BasPicker } from "@/modules/settings/ui";
 import type { CountryOption } from "@/modules/traktamente/queries";
 import {
   countryOptionsAction,
@@ -60,7 +61,7 @@ export function TripPanel({
   groupId: string;
   trip: TripView | null;
   countries: CountryOption[];
-  categories: { code: string; label: string }[];
+  categories: BasOption[];
   /** the trip's per-diem expense; its category is fixed once written (the key carries the BAS alias) */
   perDiemExpense: { id: string; key: string; amount: string; basCode: string } | null;
   canWrite: boolean;
@@ -389,18 +390,14 @@ export function TripPanel({
                   <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
                     {t("traktamente.trip.category")}
                   </label>
-                  <Select value={basCode} onValueChange={(v) => v && setBasCode(v)}>
-                    <SelectTrigger id={`${ids}-cat`} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <BasPicker
+                    id={`${ids}-cat`}
+                    options={categories}
+                    value={basCode}
+                    onChange={(code) => code && setBasCode(code)}
+                    direction="cost"
+                    requireAlias
+                  />
                 </div>
               )}
               <Button

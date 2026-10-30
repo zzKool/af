@@ -32,7 +32,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     expenses,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const partner = await partnerService.getPartner(tx, id);
-    const basPrefs = await settingsService.getTenantBasPreferences(tx, callerIdentity);
+    const basPrefs = { data: await settingsService.basPickerOptions(tx) };
     const contracts = await contractService.getContracts(tx, id, { includeInactive: true, today });
     const vat = await settingsService.getVatRegistrations(tx, callerIdentity);
     const employees = await partnerService.getPartners(tx, { types: ["employee"] });
@@ -76,10 +76,8 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  const basOptions = (basPrefsResult.data ?? []).map((p) => ({
-    code: p.basCode,
-    label: `${p.basCode} — ${p.basCategory.name}`,
-  }));
+  // the BAS picker's options (F125): settings' one builder
+  const basOptions = basPrefsResult.data;
 
   // Serialize the partner data for client component
   const partner = {

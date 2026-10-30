@@ -1,5 +1,6 @@
 // DTOs of the supplier-invoices module (specs/supplier-invoices/spec.md). Prisma types never leave the module.
 
+import type { BasOption } from "@/modules/settings/ui";
 /** the base is written once at the invoice date — never the bank's (F114, CHECK `rate_source <> 'bank'`) */
 export const SUPPLIER_INVOICE_RATE_SOURCES = [
   "same_currency",
@@ -130,6 +131,7 @@ export type GroupOption = {
   description: string;
   kind: "trip" | "batch";
 };
-export type CategoryOption = { code: string; label: string };
+/** A BAS account as the pickers show it (F125) — settings' one list builder. */
+export type CategoryOption = BasOption;
 export type DocumentOption = { id: string; businessKey: string; fileName: string; status: string };
 export type RegistrationOption = { id: string; label: string; country: string };

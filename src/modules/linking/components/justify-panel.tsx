@@ -34,6 +34,7 @@ import { Tag } from "@/kernel/ui/tags";
 import { createRuleFromTransactionAction } from "@/modules/banking/ui";
 import { getDocumentForReviewAction, uploadDocumentAction } from "@/modules/documents/ui";
 import { PartnerMatchCard } from "@/modules/partners/ui";
+import { type BasOption, BasPicker, type BasSuggestionSource } from "@/modules/settings/ui";
 import {
   type CompareCard,
   compareRowToReading,
@@ -58,11 +59,18 @@ import { ConfidenceLabel } from "./confidence-label";
 export type JustifyOptions = {
   groups: { id: string; label: string }[];
   /** the expense categories (a short code each — the keys need one) */
-  categories: { code: string; label: string }[];
+  categories: BasOption[];
   partners: { id: string; name: string; defaultBasCode: string | null }[];
 };
 
 const NONE = "__none__";
+/** a proposal's source as the picker names it */
+const PROPOSAL_SOURCE: Record<string, BasSuggestionSource> = {
+  rule: "rule",
+  partner_default: "partner",
+  memory: "history",
+  model: "model",
+};
 const OCR_POLL_MS = 2000;
 const OCR_WAIT_MS = 60_000;
 const READ_STATES = new Set(["extracted", "reviewed", "ocr_failed"]);
@@ -475,6 +483,22 @@ function CompareCardForm({
     return p?.defaultBasCode ?? NONE;
   });
   const [groupId, setGroupId] = useState<string>(options.groups[0]?.id ?? NONE);
+  // on top of the BAS picker (F125): the row's proposals (each with its source), then the picked partner's default
+  const pickedDefault = options.partners.find((p) => p.id === partnerId)?.defaultBasCode ?? null;
+  const basSuggestions = [
+    ...proposals.flatMap((p) =>
+      p.kind === "bas"
+        ? [
+            {
+              code: p.payload.basCode,
+              source: PROPOSAL_SOURCE[p.source] ?? ("proposal" as const),
+              ...(p.reason ? { reason: p.reason } : {}),
+            },
+          ]
+        : [],
+    ),
+    ...(pickedDefault ? [{ code: pickedDefault, source: "partner" as const }] : []),
+  ];
   const partners = [...extraPartners, ...options.partners];
 
   // the partner's default category fills an empty one (journal T002, on the row)
@@ -748,19 +772,16 @@ function CompareCardForm({
           />
         </Field>
         <Field id={`${ids}-cat`} label={t("linking.justify.field.category")}>
-          <Select value={basCode} onValueChange={(v) => setBasCode(v ?? NONE)}>
-            <SelectTrigger id={`${ids}-cat`} className="w-full" data-testid="justify-category">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>—</SelectItem>
-              {options.categories.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <BasPicker
+            id={`${ids}-cat`}
+            options={options.categories}
+            value={basCode === NONE ? "" : basCode}
+            onChange={(code) => setBasCode(code || NONE)}
+            suggestions={basSuggestions}
+            direction="cost"
+            requireAlias
+            data-testid="justify-category"
+          />
         </Field>
         <Field id={`${ids}-group`} label={t("linking.justify.field.group")}>
           <Select value={groupId} onValueChange={(v) => setGroupId(v ?? NONE)}>

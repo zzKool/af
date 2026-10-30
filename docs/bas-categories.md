@@ -50,6 +50,10 @@ The BAS standard is updated annually. To update:
 4. Handle any code changes (renamed/removed/added categories)
 5. Existing `tenant_bas_preferences` rows remain valid unless codes are removed
 
+## The picker and the names on screen (F125, F95 part 1 — 2026-10-30)
+
+Every BAS field reads `settings.basPickerOptions(tx)` — one builder, chart order (class, code), per account: `name` in the UI language (the tenant's own `translations.en` → the chart's `name_en` → the Swedish `name`), `nameSv` (the Swedish name, when it differs — the picker's second line), `alias` (the tenant's short code → the chart's suggested alias), `classNum`, `favourite`, and the one-line `label` (`654 · IT services (IT)`). It replaced three builders that each sorted their own way (alias first, favourites first, by code) — the order the owner read as chaotic. `BasPicker` ([[ui-conventions]] *Where it lives*) groups and searches. Left of F95: the **list columns and filters** still read `basLabels` (Swedish), and the accountant's package keeps the Swedish names on purpose.
+
 ## Related
 
 - [[prisma-rls-setup]] — RLS pattern (used by `tenant_bas_preferences`)

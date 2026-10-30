@@ -1,7 +1,5 @@
 "use client";
 
-// Create / edit a categorisation rule — also "create rule from this transaction" (pre-filled, learned).
-// Regex sits behind "Advanced"; "Test" counts the newest uncategorised rows the pattern would hit.
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -38,6 +36,9 @@ import type {
   RuleMatchType,
   RuleSign,
 } from "@/modules/banking/types";
+// Create / edit a categorisation rule — also "create rule from this transaction" (pre-filled, learned).
+// Regex sits behind "Advanced"; "Test" counts the newest uncategorised rows the pattern would hit.
+import { BasPicker } from "@/modules/settings/ui";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 
 const NONE = "__none__";
@@ -271,22 +272,14 @@ export function RuleDialog({
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("banking.rules.form.category")}
             </label>
-            <Select
-              value={draft.basCode ?? NONE}
-              onValueChange={(v) => setDraft({ ...draft, basCode: !v || v === NONE ? null : v })}
-            >
-              <SelectTrigger id={`${ids}-cat`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>{t("banking.rules.form.noCategory")}</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BasPicker
+              id={`${ids}-cat`}
+              options={categories}
+              value={draft.basCode ?? ""}
+              onChange={(code) => setDraft({ ...draft, basCode: code || null })}
+              allowNone
+              noneLabel={t("banking.rules.form.noCategory")}
+            />
           </div>
           <div>
             <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">

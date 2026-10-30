@@ -1,8 +1,5 @@
 "use client";
 
-// The facts form of the supplier-invoice panel — category, VAT registration, note (saved on change / blur),
-// *document missing* — for the owner while the invoice is not cancelled (read-only, they are rows of About); then its
-// lines and its document (for Proof).
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,6 +12,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT } from "@/kernel/i18n/use-t";
+// The facts form of the supplier-invoice panel — category, VAT registration, note (saved on change / blur),
+// *document missing* — for the owner while the invoice is not cancelled (read-only, they are rows of About); then its
+// lines and its document (for Proof).
+import { BasPicker } from "@/modules/settings/ui";
 import type { CategoryOption, RegistrationOption } from "@/modules/supplier-invoices/types";
 import {
   money,
@@ -54,25 +55,16 @@ export function SupplierInvoiceFactsForm({
         <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
           {t("supplierInvoices.form.category")}
         </label>
-        <Select
+        <BasPicker
+          id={`${ids}-cat`}
+          options={categories}
           value={si.basCode}
-          onValueChange={(v) => v && v !== si.basCode && void save({ basCode: v })}
+          onChange={(code) => code && code !== si.basCode && void save({ basCode: code })}
+          fallbackLabel={detail.basLabel}
+          direction="cost"
+          requireAlias
           disabled={saving}
-        >
-          <SelectTrigger id={`${ids}-cat`} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(categories.some((c) => c.code === si.basCode)
-              ? categories
-              : [{ code: si.basCode, label: detail.basLabel }, ...categories]
-            ).map((c) => (
-              <SelectItem key={c.code} value={c.code}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <p className="mt-1 text-xs text-muted-foreground">{t("expenses.form.aliasWarning")}</p>
       </div>
       <div>

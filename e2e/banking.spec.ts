@@ -43,7 +43,7 @@ test.describe("Banking", () => {
     await expect(panel.getByTestId("panel-amount")).toHaveText(/^−132\.52\sSEK$/);
     await expect(panel.getByTestId("panel-state")).toHaveText("Open");
     await panel.getByLabel("Category").click();
-    await page.getByRole("option", { name: /654 · IT-tjänster/ }).click();
+    await page.getByRole("option", { name: /^654 · IT services/ }).click();
     await expect(page.getByText("Saved").first()).toBeVisible();
     await panel.getByTestId("create-rule").click();
     const dialog = page.getByTestId("rule-dialog");

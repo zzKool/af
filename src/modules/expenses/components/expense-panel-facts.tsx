@@ -1,8 +1,5 @@
 "use client";
 
-// The facts of the expense panel — description, the partner (F87: a fact, changeable in every state; it never
-// changes the category), category, note (saved on change / blur), *document missing* — and its document (the
-// Proof section).
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +14,10 @@ import {
 import { useT } from "@/kernel/i18n/use-t";
 import { DetailsGrid } from "@/kernel/ui/details-section";
 import type { CategoryOption } from "@/modules/expenses/types";
+// The facts of the expense panel — description, the partner (F87: a fact, changeable in every state; it never
+// changes the category), category, note (saved on change / blur), *document missing* — and its document (the
+// Proof section).
+import { BasPicker } from "@/modules/settings/ui";
 import type { ExpensePanelDetail, SaveExpense } from "./expense-panel-shared";
 import { PartnerPicker, useVendors } from "./partner-picker";
 
@@ -86,25 +87,16 @@ export function ExpenseFactsSection({
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.category")}
             </label>
-            <Select
+            <BasPicker
+              id={`${ids}-cat`}
+              options={categories}
               value={e.basCode}
-              onValueChange={(v) => v && v !== e.basCode && void save({ basCode: v })}
+              onChange={(code) => code && code !== e.basCode && void save({ basCode: code })}
+              fallbackLabel={detail.basLabel}
+              direction="cost"
+              requireAlias
               disabled={saving}
-            >
-              <SelectTrigger id={`${ids}-cat`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(categories.some((c) => c.code === e.basCode)
-                  ? categories
-                  : [{ code: e.basCode, label: detail.basLabel }, ...categories]
-                ).map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
             <p className="mt-1 text-xs text-muted-foreground">{t("expenses.form.aliasWarning")}</p>
           </div>
           <div>

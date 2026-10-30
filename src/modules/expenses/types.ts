@@ -1,5 +1,6 @@
 // DTOs of the expenses module (specs/expenses/spec.md). Prisma types never leave the module; Decimals are strings.
 
+import type { BasOption } from "@/modules/settings/ui";
 export const EXPENSE_GROUP_KINDS = ["trip", "batch"] as const;
 export type ExpenseGroupKind = (typeof EXPENSE_GROUP_KINDS)[number];
 
@@ -235,7 +236,8 @@ export type SourceOption = {
   kind: PayerKind;
   currency: string;
 };
-export type CategoryOption = { code: string; label: string };
+/** A BAS account as the pickers show it (F125) — settings' one list builder. */
+export type CategoryOption = BasOption;
 /** A vendor the expense's partner picker offers (F87): active vendors only. */
 export type VendorOption = { id: string; name: string; defaultBasCategoryCode: string | null };
 export type DocumentOption = { id: string; businessKey: string; fileName: string; status: string };

@@ -46,6 +46,7 @@ import type {
 } from "@/modules/expenses/types";
 import { EXPENSE_KINDS, type ExpenseKind } from "@/modules/expenses/types";
 import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
+import { BasPicker } from "@/modules/settings/ui";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
 import { GroupPicker, initialGroupId, useCreateGroupIfNew } from "./group-picker";
 import { PartnerPicker, useVendors } from "./partner-picker";
@@ -192,6 +193,13 @@ export function NewExpenseDialog({
       : documents;
 
   const categoryCodes = categories.map((c) => c.code);
+  // the picked partner's default category, on top of the picker (F125) — the field fills itself only when empty (F87)
+  const partnerDefault = partnerId
+    ? (vendors.find((v) => v.id === partnerId)?.defaultBasCategoryCode ?? null)
+    : null;
+  const partnerSuggestion = partnerDefault
+    ? [{ code: partnerDefault, source: "partner" as const }]
+    : undefined;
   function pickPartner(id: string | null, defaultCode?: string | null) {
     setPartnerId(id);
     const def =
@@ -342,22 +350,16 @@ export function NewExpenseDialog({
             <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.category")}
             </label>
-            <Select
-              value={basCode || NONE}
-              onValueChange={(v) => v && v !== NONE && setCategory(chooseCategory(v))}
-            >
-              <SelectTrigger id={`${ids}-cat`} className="w-full" data-testid="expense-category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>—</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BasPicker
+              id={`${ids}-cat`}
+              options={categories}
+              value={basCode}
+              onChange={(code) => code && setCategory(chooseCategory(code))}
+              suggestions={partnerSuggestion}
+              direction="cost"
+              requireAlias
+              data-testid="expense-category"
+            />
             {category.source === "partner" && (
               <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-partner">
                 {t("expenses.categoryFromPartner")}

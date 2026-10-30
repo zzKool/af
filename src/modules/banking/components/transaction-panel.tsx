@@ -42,6 +42,14 @@ import { TransactionStateLabel } from "./transaction-state";
 
 type Detail = TransactionDetailWire;
 
+/** a proposal's source as the BAS picker names it (F125) */
+const BAS_SOURCE: Record<string, "rule" | "partner" | "history" | "model"> = {
+  rule: "rule",
+  partner_default: "partner",
+  memory: "history",
+  model: "model",
+};
+
 const money = (amount: string, currency: string) => formatMoney(amount, currency);
 /** a rate as the bank / ECB gave it, without trailing zeros */
 const rate = (r: string) => r.replace(/0+$/, "").replace(/\.$/, "");
@@ -365,6 +373,18 @@ export function TransactionDetailView({
                   canWrite={canWrite}
                   onSaved={rowSaved}
                   prefill={prefillFromProposals(proposals)}
+                  suggestions={proposals.flatMap((p) =>
+                    p.kind === "bas"
+                      ? [
+                          {
+                            code: p.payload.basCode,
+                            source: BAS_SOURCE[p.source] ?? ("proposal" as const),
+                            ...(p.reason ? { reason: p.reason } : {}),
+                          },
+                        ]
+                      : [],
+                  )}
+                  direction={Number(tx.amount) < 0 ? "cost" : "income"}
                 />
                 {canWrite && (
                   <div>
