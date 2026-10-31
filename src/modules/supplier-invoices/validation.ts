@@ -64,7 +64,7 @@ export async function resolveAlias(
   if (!alias) {
     return {
       error: violation(
-        `Category ${code} ${cat.name} has no short code — set one under Settings → BAS categories`,
+        `Category ${code} ${cat.nameEn ?? cat.name} has no short code — set one under Settings → BAS categories`,
         { basCode: code },
       ),
     };

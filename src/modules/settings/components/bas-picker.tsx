@@ -3,8 +3,9 @@
 // The BAS picker (F125, audit C3, F95): one searchable field for every BAS account in the app. The trigger shows the
 // account in the UI language; the popup has a search on number, English, Swedish and short code, then the suggested
 // accounts (each saying where the suggestion comes from), the owner's favourites, and the chart by class — the cost
-// classes first where a cost is picked. The Swedish name is the second line. An account without a short code cannot
-// key an expense or a supplier invoice (`requireAlias`): shown, disabled, with the reason.
+// classes first where a cost is picked. English only on screen (D72) — the Swedish name stays searchable and is the
+// item's tooltip. An account without a short code cannot key an expense or a supplier invoice (`requireAlias`):
+// shown, disabled, with the reason.
 import { useMemo, useState } from "react";
 import {
   Combobox,
@@ -187,6 +188,7 @@ export function BasPicker({
                       value={item}
                       disabled={blocked}
                       aria-label={item.label}
+                      title={item.nameSv ?? undefined}
                       data-testid={`bas-option-${item.code || "none"}`}
                     >
                       {item.code ? (
@@ -204,13 +206,10 @@ export function BasPicker({
                               </span>
                             )}
                           </span>
-                          {(item.nameSv || item.suggestion || blocked) && (
+                          {(item.suggestion || blocked) && (
                             <span className="ml-11 flex min-w-0 flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                               {item.suggestion && (
                                 <span className="text-primary">{sourceText(item.suggestion)}</span>
-                              )}
-                              {item.nameSv && (
-                                <span className="truncate italic">{item.nameSv}</span>
                               )}
                               {blocked && <span>{t("settings.basPicker.needsAlias")}</span>}
                             </span>

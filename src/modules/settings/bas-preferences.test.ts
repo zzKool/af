@@ -611,3 +611,27 @@ describe("basPickerOptions (F125, F95)", () => {
     expect(mine[2]?.label).toBe("657 · Bank fees");
   });
 });
+
+describe("basLabels (D72: English on screen, Swedish + English for the accountant)", () => {
+  it("lists read English — the owner's own name first; the package reads the Swedish name with the English beside it", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const { en, both } = await withTenantTransaction(
+      prisma,
+      owner.callerIdentity.tenantId,
+      async (tx) => {
+        await basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["657", "654"]);
+        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "657", {
+          translations: { en: "Bank fees" },
+        });
+        return {
+          en: await basService.basLabels(tx, ["654", "657", "654"]),
+          both: await basService.basLabels(tx, ["654", "657"], "sv+en"),
+        };
+      },
+    );
+    expect(en.get("654")).toBe("654 · IT services");
+    expect(en.get("657")).toBe("657 · Bank fees");
+    expect(both.get("654")).toBe("654 · IT-tjänster (IT services)");
+    expect(both.get("657")).toBe("657 · Bankkostnader (Bank fees)");
+  });
+});

@@ -4,6 +4,7 @@ import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import { basDisplayName } from "./bas-options";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -79,18 +80,37 @@ export async function basAlias(tx: TransactionClient, code: string): Promise<str
   return (await basAliases(tx, [code])).get(code) ?? null;
 }
 
-/** Labels for a set of BAS codes (`657 · Bankkostnader`), for list rows and filter options. */
+/**
+ * Labels for a set of BAS codes, for list rows, filters and panels. D72 (the owner, 2026-10-31): **English on
+ * screen** — the owner's own English name, else the chart's (`657 · Bank charges`); the accountant's package reads
+ * `"sv+en"` — his chart's Swedish name with the English one beside it (`657 · Bankkostnader (Bank charges)`).
+ */
 export async function basLabels(
   tx: TransactionClient,
   codes: readonly string[],
+  lang: "en" | "sv+en" = "en",
 ): Promise<Map<string, string>> {
   const unique = [...new Set(codes)];
   if (unique.length === 0) return new Map();
   const rows = await tx.basCategory.findMany({
     where: { code: { in: unique } },
-    select: { code: true, name: true },
+    select: { code: true, name: true, nameEn: true },
   });
-  return new Map(rows.map((r) => [r.code, `${r.code} · ${r.name}`]));
+  const prefs = await tx.tenantBasPreference.findMany({
+    where: { basCode: { in: unique } },
+    select: { basCode: true, translations: true },
+  });
+  const own = new Map(prefs.map((p) => [p.basCode, p.translations]));
+  return new Map(
+    rows.map((r) => {
+      const en = basDisplayName({ name: r.name, nameEn: r.nameEn, translations: own.get(r.code) });
+      const label =
+        lang === "en"
+          ? `${r.code} · ${en}`
+          : `${r.code} · ${r.name}${en !== r.name ? ` (${en})` : ""}`;
+      return [r.code, label];
+    }),
+  );
 }
 
 /**

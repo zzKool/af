@@ -1140,7 +1140,7 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
       allocated: "1297.20",
       open: "0.00",
       partnerName: "Skattepunkten Office Services AB",
-      basLabel: "653 · Redovisningstjänster",
+      basLabel: "653 · Accountancy services",
       groupNumber: 213,
     });
     expect(byKey["SI213-Acc-02"]).toMatchObject({ status: "unpaid", open: "1297.20" });
