@@ -562,6 +562,8 @@ export type InboxDocumentFacts = {
   tax: string | null;
   /** null when OCR read no known currency (never guessed) */
   currency: string | null;
+  /** the line items' descriptions as read (at most eight) — what was bought, for the BAS proposal (F126) */
+  lines: string[];
 };
 
 /**
@@ -638,6 +640,10 @@ export async function inboxFinancialFacts(
       subtotal: amountText(r.subtotal),
       tax: amountText(r.totalTax),
       currency,
+      lines: (r.items ?? [])
+        .map((i) => i.description?.trim() ?? "")
+        .filter((s) => s !== "")
+        .slice(0, 8),
     });
   }
   return out;

@@ -29,6 +29,6 @@ Spec `spec.md` · plan `plan.md`. PR 1 = T001–T012, PR 2 = T013–T016.
 ## F126 — the rest of "suggested from the first entry" (`spec-suggest-from-first-entry.md`)
 
 - [x] T101 `feat/settings-bas-notes`: `use_for` + `use_for_state` columns; `draftUseForNotes` (prompt `bas-use-for` v1); Settings → BAS *Use for* line, *Draft with AI*, *Confirm all*; tests (a confirmed note never overwritten)
-- [ ] T102 `feat/ai-document-proposals`: `document` target + FK RESTRICT; drop with the document; stage 1 + 2 on OCR'd documents; job after OCR; tests incl. RLS
-- [ ] T103 Same PR: the SI / expense dialogs and the Justify card read the document's proposals (*AI proposal*, HIGH pre-filled dashed); save = accept / other code = reject; e2e with the mock
+- [x] T102 `feat/ai-document-proposals`: `document` target + FK RESTRICT; drop with the document; stage 1 + 2 on OCR'd documents; job after OCR; tests incl. RLS
+- [x] T103 Same PR (the Justify card reads the row's own proposals, which stage 2 now fills — no document hint there): the SI / expense dialogs and the Justify card read the document's proposals (*AI proposal*, HIGH pre-filled dashed); save = accept / other code = reject; e2e with the mock
 - [ ] T104 `feat/settings-bas-four-digit` (D68): four-digit chart from the two XLSX files; `NNN` → `NNN0` everywhere in one migration; migration test; deploy on the owner's word

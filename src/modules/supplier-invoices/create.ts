@@ -160,6 +160,8 @@ export async function createSupplierInvoice(
       kind: "created_from",
     });
     if (link.error) throw new RollbackError(link.error);
+    // F126: the AI's account for this document — kept → accepted, changed → rejected (the eval counts both)
+    await linking.decideDocumentProposal(tx, caller, audit, v.documentId, v.basCode);
   }
   return { data: toSupplierInvoiceDto(row) };
 }

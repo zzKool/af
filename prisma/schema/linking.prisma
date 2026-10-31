@@ -43,9 +43,10 @@ model Link {
 // accepting one goes through banking's `categorise` (the owner's key). *Current* (the newest run per target and
 // kind), *superseded* and *open* are derived on read. Owned by modules/linking.
 
-/// what a proposal is about (documents arrive with F99-b)
+/// what a proposal is about — a bank row, or a document before it becomes an expense / a supplier invoice (F126)
 enum ProposalTarget {
   bank_transaction
+  document
 
   @@map("proposal_target")
 }
@@ -99,9 +100,15 @@ model Proposal {
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
   createdBy     String            @map("created_by") @db.Uuid
 
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  /// D63: a composite FK — the row of the same tenant, RESTRICT; banking's deleteImport drops the proposals first
-  bankTransaction BankTransaction @relation(fields: [tenantId, targetId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  /// the target again, in the column of its type — so each has its composite FK (a CHECK keeps them = target_id)
+  bankTransactionId String? @map("bank_transaction_id") @db.Uuid
+  documentId        String? @map("document_id") @db.Uuid
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// D63: composite FKs — the row / the document of the same tenant, RESTRICT; banking's deleteImport and documents'
+  /// delete drop the proposals first
+  bankTransaction BankTransaction? @relation(fields: [tenantId, bankTransactionId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  document        Document?        @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([tenantId, targetType, targetId, kind, runId], map: "proposals_target_kind_run_key")
   @@index([tenantId, targetId, kind, createdAt(sort: Desc)], map: "idx_proposals_target")

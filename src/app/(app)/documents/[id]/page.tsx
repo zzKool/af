@@ -6,7 +6,7 @@ import { getDocumentForReviewAction } from "@/modules/documents";
 import type { Became, CompanyIdentity, MakeItOptions } from "@/modules/documents/ui";
 import { DocumentReviewClient } from "@/modules/documents/ui";
 import { expensePageOptions } from "@/modules/expenses";
-import { linksWithLabels } from "@/modules/linking";
+import { documentBasHints, linksWithLabels } from "@/modules/linking";
 import { getTenantProfile, getVatRegistrations } from "@/modules/settings";
 import { supplierInvoicePageOptions } from "@/modules/supplier-invoices";
 
@@ -55,6 +55,7 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
             registrations: supplier.registrations,
             basHistory: supplier.basHistory,
           },
+          basProposals: await documentBasHints(tx, [id]),
         };
       }
       // who an invoice should be billed to (D53): the company's name, org number and VAT numbers

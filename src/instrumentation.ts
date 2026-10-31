@@ -4,8 +4,8 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     if (process.env.NEXT_PHASE !== "phase-production-build") {
       const [
-        { startJobs },
-        { documentJobs },
+        { startJobs, enqueue },
+        documents,
         { rateJobs, rateSchedules },
         contracts,
         invoices,
@@ -14,7 +14,7 @@ export async function register() {
         { packageJobs },
         settings,
         exportsModule,
-        { proposalJobs, proposalSchedules },
+        linking,
       ] = await Promise.all([
         import("@/kernel/jobs/queue"),
         import("@/modules/documents"),
@@ -31,6 +31,14 @@ export async function register() {
       // cross-module hooks are wired here, never by the modules themselves (D24: a used rate cannot be deleted;
       // T024: nor closed before the last day it priced)
       contracts.setRateUsage(invoices.ratePricingFromInvoiceLines);
+      // F126: a document whose facts were just read gets the model's BAS proposal (queued, never in OCR's way)
+      documents.setOnDocumentExtracted(async ({ tenantId, userId, documentId }) => {
+        await enqueue(linking.proposeForDocumentsJob, {
+          tenantId,
+          userId,
+          documentIds: [documentId],
+        });
+      });
       // lesson 19: a VAT registration an invoice or a declaration carries cannot be deleted
       settings.setVatRegistrationUsage("invoices", invoices.vatRegistrationUsageFromInvoices);
       settings.setVatRegistrationUsage(
@@ -41,16 +49,16 @@ export async function register() {
       );
       await startJobs(
         [
-          ...documentJobs,
+          ...documents.documentJobs,
           ...rateJobs,
           ...invoices.invoiceJobs,
           ...expenseJobs,
           ...traktamenteJobs,
           ...packageJobs,
-          ...proposalJobs,
+          ...linking.proposalJobs,
           ...settings.settingsJobs,
         ],
-        [...rateSchedules, ...proposalSchedules],
+        [...rateSchedules, ...linking.proposalSchedules],
       );
     }
   }

@@ -147,6 +147,7 @@ export async function runProposals(
         runId: input.runId,
         targetType: "bank_transaction",
         targetId: i.row.id,
+        bankTransactionId: i.row.id,
         kind: d.kind,
         payload: d.payload as Prisma.InputJsonValue,
         source: d.source,

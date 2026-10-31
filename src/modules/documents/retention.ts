@@ -6,7 +6,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import { isLinked } from "@/modules/linking";
+import { dropProposalsForDocuments, isLinked } from "@/modules/linking";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -59,6 +59,8 @@ export async function deleteDocument(
     };
   }
 
+  // its proposals go first (F126: the composite FK is RESTRICT, D63 forbids the cascade)
+  await dropProposalsForDocuments(tx, [documentId]);
   await tx.document.delete({ where: { id: documentId } });
   await audit.log({
     action: "delete",

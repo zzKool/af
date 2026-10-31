@@ -1,6 +1,6 @@
 // The owner's own history of BAS accounts per partner (F125 PR 2): what the entries of each module carry, merged —
 // the picker's *used before for this supplier* suggestions. Pure; each module counts its own table.
-import type { BasSuggestion } from "./types";
+import type { BasProposalHint, BasSuggestion } from "./types";
 
 export type PartnerBasUsage = { partnerId: string; basCode: string; count: number };
 
@@ -41,4 +41,10 @@ export function partnerBasSuggestions(input: {
       ...(input.historyReason ? { reason: input.historyReason(h.count) } : {}),
     });
   return out;
+}
+
+/** F126: a document's AI proposal as the picker's first suggestion — empty without one. */
+export function aiSuggestion(hint: BasProposalHint | null | undefined): BasSuggestion[] {
+  if (!hint) return [];
+  return [{ code: hint.code, source: "model", ...(hint.reason ? { reason: hint.reason } : {}) }];
 }

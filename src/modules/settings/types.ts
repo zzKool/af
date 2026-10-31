@@ -22,3 +22,9 @@ export type BasOption = {
 export type BasSuggestionSource = "proposal" | "rule" | "partner" | "history" | "model";
 
 export type BasSuggestion = { code: string; source: BasSuggestionSource; reason?: string };
+
+/**
+ * F126: the AI's account for a document, as a dialog receives it — on top of the picker with its reason; `prefill`
+ * (HIGH) fills the empty field, drawn as a proposal, until the owner or a supplier's default replaces it.
+ */
+export type BasProposalHint = { code: string; reason: string | null; prefill: boolean };

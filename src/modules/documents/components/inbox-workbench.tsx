@@ -368,7 +368,15 @@ export function InboxWorkbench({
   });
 
   const makeInitial = useMemo(
-    () => (open ? initialFromFacts(open.id, open.businessKey, open.facts) : null),
+    () =>
+      open
+        ? initialFromFacts(
+            open.id,
+            open.businessKey,
+            open.facts,
+            options?.basProposals?.[open.id] ?? null,
+          )
+        : null,
     [open],
   );
   const counts = data.counts;

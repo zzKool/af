@@ -1,7 +1,12 @@
 // FR-003 / SC-004: the partner's default category is proposed, never overwriting the owner's choice.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { type CategoryState, chooseCategory, proposeCategory } from "./category-proposal";
+import {
+  type CategoryState,
+  chooseCategory,
+  proposeCategory,
+  proposeFromAi,
+} from "./category-proposal";
 
 const CODES = ["580", "583", "653", "690"];
 const start: CategoryState = { code: "580", source: null };
@@ -58,5 +63,33 @@ describe("proposeCategory", () => {
         }
       }),
     );
+  });
+});
+
+describe("proposeFromAi (F126)", () => {
+  const codes = ["501", "654", "659"];
+  it("fills an empty, untouched field only, with a code the tenant has", () => {
+    expect(proposeFromAi({ code: "", source: null }, "659", codes)).toEqual({
+      code: "659",
+      source: "ai",
+    });
+    expect(proposeFromAi({ code: "", source: null }, "999", codes)).toEqual({
+      code: "",
+      source: null,
+    });
+    expect(proposeFromAi({ code: "654", source: "owner" }, "659", codes)).toEqual({
+      code: "654",
+      source: "owner",
+    });
+    expect(proposeFromAi({ code: "654", source: "partner" }, "659", codes)).toEqual({
+      code: "654",
+      source: "partner",
+    });
+  });
+
+  it("a partner picked afterwards replaces it with its default; the owner's pick is his", () => {
+    const ai = proposeFromAi({ code: "", source: null }, "659", codes);
+    expect(proposeCategory(ai, "654", codes)).toEqual({ code: "654", source: "partner" });
+    expect(chooseCategory("501")).toEqual({ code: "501", source: "owner" });
   });
 });

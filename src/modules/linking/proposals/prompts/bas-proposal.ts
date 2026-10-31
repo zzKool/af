@@ -76,6 +76,28 @@ export function basProposalUser(row: PromptRow): string {
   ].join("\n");
 }
 
+/** A document before it becomes an expense or a supplier invoice (F126): its kind, vendor, lines and total. */
+export type PromptDocument = {
+  kind: "receipt" | "invoice";
+  date: string | null;
+  vendor: string | null;
+  lines: readonly string[];
+  total: string | null;
+  currency: string | null;
+};
+
+/** The document's question — the same static part as a bank row's, so the cache serves both. */
+export function basProposalUserForDocument(d: PromptDocument): string {
+  const out = [
+    `Document: a ${d.kind === "receipt" ? "receipt (paid)" : "supplier invoice"} — money out`,
+    `Date: ${d.date ?? "(unknown)"}`,
+    `From: ${d.vendor || "(unknown)"}`,
+  ];
+  if (d.lines.length) out.push(`Lines: ${d.lines.join("; ")}`);
+  out.push(`Total: ${d.total ? `${d.total} ${d.currency ?? ""}`.trim() : "(unknown)"}`);
+  return out.join("\n");
+}
+
 /**
  * What the model may answer: a code from the active set (the enum — the server's grammar cannot produce another),
  * a confidence, a reason, up to two alternatives.

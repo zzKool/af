@@ -354,6 +354,8 @@ export async function createExpense(
       kind: "created_from",
     });
     if (link.error) throw new RollbackError(link.error);
+    // F126: the AI's account for this receipt — kept → accepted, changed → rejected (the eval counts both)
+    await linking.decideDocumentProposal(tx, caller, audit, v.documentId, v.basCode);
   }
   return { data: toExpenseDto(row) };
 }
@@ -501,6 +503,7 @@ export async function attachDocument(
     kind: "created_from",
   });
   if (link.error) return { error: link.error };
+  await linking.decideDocumentProposal(tx, caller, audit, input.documentId, row.basCode);
   const renamed = await documents.assignBusinessKey(
     tx,
     caller,

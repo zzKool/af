@@ -33,6 +33,7 @@ import {
   type CategoryState,
   chooseCategory,
   proposeCategory,
+  proposeFromAi,
 } from "@/modules/expenses/category-proposal";
 import {
   checkExpenseDuplicatesAction,
@@ -46,7 +47,12 @@ import type {
 } from "@/modules/expenses/types";
 import { EXPENSE_KINDS, type ExpenseKind } from "@/modules/expenses/types";
 import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
-import { BasPicker, partnerBasSuggestions } from "@/modules/settings/ui";
+import {
+  aiSuggestion,
+  BasPicker,
+  type BasProposalHint,
+  partnerBasSuggestions,
+} from "@/modules/settings/ui";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
 import { GroupPicker, initialGroupId, useCreateGroupIfNew } from "./group-picker";
 import { PartnerPicker, useVendors } from "./partner-picker";
@@ -62,6 +68,8 @@ export type ExpenseInitial = {
   documentKey?: string | null;
   /** the OCR merchant (name, address) — the match card offers its vendor; nothing is picked without a click */
   vendor?: VendorFacts | null;
+  /** F126: the AI's account for the receipt — on top of the picker; HIGH fills the empty field */
+  basProposal?: BasProposalHint | null;
 };
 
 const NONE = "__none__";
@@ -145,7 +153,13 @@ export function NewExpenseDialog({
     opened.current = true;
     setGroupId(initialGroupId(groups, defaultGroupId));
     setPartnerId(null);
-    setCategory((c) => (c.source === "partner" ? { ...c, source: null } : c));
+    setCategory((c) =>
+      c.source === "partner"
+        ? { ...c, source: null }
+        : c.source === "ai"
+          ? { code: "", source: null } // another document's proposal is not this one's
+          : c,
+    );
     // the document's facts fill the form when the dialog opens from the review page or the inbox
     if (!initial) return;
     setSourceId(defaultSourceId(sources, initial.currency));
@@ -158,8 +172,17 @@ export function NewExpenseDialog({
       setDocumentId(initial.documentId);
       setDocumentMissing(false);
     }
+    const ai = initial.basProposal;
+    if (ai?.prefill)
+      setCategory((c) =>
+        proposeFromAi(
+          c,
+          ai.code,
+          categories.map((x) => x.code),
+        ),
+      );
     setAckNote("");
-  }, [open, defaultGroupId, groups, sources, initial]);
+  }, [open, defaultGroupId, groups, sources, initial, categories]);
 
   // the duplicate check (specs/documents US3): the same bytes, or a similar expense of the same merchant
   const checkKey = open
@@ -363,11 +386,17 @@ export function NewExpenseDialog({
               options={categories}
               value={basCode}
               onChange={(code) => code && setCategory(chooseCategory(code))}
-              suggestions={partnerSuggestion}
+              suggestions={[...aiSuggestion(initial?.basProposal), ...(partnerSuggestion ?? [])]}
+              proposed={category.source === "ai"}
               direction="cost"
               requireAlias
               data-testid="expense-category"
             />
+            {category.source === "ai" && (
+              <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-ai">
+                {t("expenses.categoryFromAi")}
+              </p>
+            )}
             {category.source === "partner" && (
               <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-partner">
                 {t("expenses.categoryFromPartner")}

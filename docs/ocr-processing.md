@@ -75,6 +75,8 @@ enqueue(processDocumentJob, { tenantId, userId, documentId }, { singletonKey: do
   1. claim      uploaded → processing              short RLS transaction; any other status = already claimed, carry on
   2. OCR        read doc, prepare source, call DI   the call runs OUTSIDE any transaction (10–15 s)
   3. save       processing → extracted | ocr_failed short RLS transaction
+  4. after      extracted → the `setOnDocumentExtracted` hook (F126: linking queues the model's BAS proposal;
+                wired in instrumentation.ts, a failure only logged — never the document's)
   onDeadLetter  processing → ocr_failed            after OCR_MAX_RETRIES or an expired attempt; idempotent
 ```
 

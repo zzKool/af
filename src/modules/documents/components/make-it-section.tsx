@@ -1,9 +1,5 @@
 "use client";
 
-// Make it… (specs/documents US1): under the review form the owner says what the document is — an expense, a
-// supplier invoice (the modules' own dialogs, pre-filled from the OCR facts as corrected, the document
-// pre-selected) or nothing to create (*Just file it* = mark reviewed). Once the document became something the
-// section shows what, with a link. The dialogs stay the modules'; this is the composition.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
@@ -19,6 +15,11 @@ import type {
   SourceOption,
 } from "@/modules/expenses/ui";
 import { type ExpenseInitial, NewExpenseDialog } from "@/modules/expenses/ui";
+// Make it… (specs/documents US1): under the review form the owner says what the document is — an expense, a
+// supplier invoice (the modules' own dialogs, pre-filled from the OCR facts as corrected, the document
+// pre-selected) or nothing to create (*Just file it* = mark reviewed). Once the document became something the
+// section shows what, with a link. The dialogs stay the modules'; this is the composition.
+import type { BasProposalHint } from "@/modules/settings/ui";
 import type {
   RegistrationOption,
   CategoryOption as SiCategoryOption,
@@ -44,6 +45,8 @@ export type MakeItOptions = {
     registrations: RegistrationOption[];
     basHistory?: Record<string, { code: string; count: number }[]>;
   };
+  /** F126: per document, the AI's account — the dialogs open with it on top (HIGH pre-filled) */
+  basProposals?: Record<string, BasProposalHint>;
 };
 
 /** What the document became (the `created_from` link), as the page reads it through the linking module. */
@@ -59,6 +62,7 @@ export function initialFromFacts(
   documentId: string,
   documentKey: string,
   facts: Partial<OcrExtractedData>,
+  basProposal: BasProposalHint | null = null,
 ): { expense: ExpenseInitial; supplier: SupplierInvoiceInitial } {
   const vendor = facts.vendorName ?? facts.merchantName ?? null;
   const date = isoDay(facts.invoiceDate) ?? isoDay(facts.transactionDate);
@@ -77,6 +81,7 @@ export function initialFromFacts(
         vatNumber: facts.vendorTaxId ?? null,
         address: facts.vendorAddress ?? null,
       },
+      basProposal,
     },
     supplier: {
       vendor: {
@@ -93,6 +98,7 @@ export function initialFromFacts(
       amountTotal: money(facts.invoiceTotal),
       documentId,
       documentKey,
+      basProposal,
     },
   };
 }
@@ -148,7 +154,12 @@ export function MakeItSection({
   }
   if (!options) return null;
 
-  const initial = initialFromFacts(documentId, documentKey, facts);
+  const initial = initialFromFacts(
+    documentId,
+    documentKey,
+    facts,
+    options.basProposals?.[documentId] ?? null,
+  );
 
   async function justFile() {
     const r = await markReviewed({ documentId });

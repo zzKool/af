@@ -11,6 +11,17 @@ import {
 import { createStorageService } from "@/kernel/storage/storage";
 import { ocrPayloadToJson } from "@/modules/documents/ocr-payload";
 
+/**
+ * What runs after a document's facts are read (F126: linking's BAS proposal). Wired in `instrumentation.ts` — a
+ * cross-module hook, never a module import; nothing by default (tests, scripts). A failure is logged, never the
+ * document's: the proposal is a convenience, the nightly run catches up.
+ */
+type OnExtracted = (data: ProcessDocumentData) => Promise<void>;
+let onExtracted: OnExtracted = async () => {};
+export function setOnDocumentExtracted(fn: OnExtracted): void {
+  onExtracted = fn;
+}
+
 export interface ProcessDocumentData {
   tenantId: string;
   userId: string;
@@ -89,7 +100,7 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
   }
 
   // 3. Save: processing → extracted | ocr_failed.
-  await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
+  const extracted = await withJobContext(tenantId, userId, async (tx, _caller, audit) => {
     if (result.success) {
       const ocrPayload = {
         extractedData: result.data,
@@ -107,7 +118,7 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
         oldData: { status: "processing" },
         newData: { status: "extracted", quality: result.quality },
       });
-      return;
+      return true;
     }
     // Non-retryable OCR failure (auth, unsupported file): final.
     await tx.document.update({ where: { id: documentId }, data: { status: "ocr_failed" } });
@@ -118,7 +129,18 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
       oldData: { status: "processing" },
       newData: { status: "ocr_failed", error: result.error },
     });
+    return false;
   });
+  if (extracted) {
+    try {
+      await onExtracted({ tenantId, userId, documentId });
+    } catch (e) {
+      logger.warn(
+        { documentId, error: e instanceof Error ? e.name : "unknown" },
+        "process-document: the after-extraction hook failed",
+      );
+    }
+  }
 }
 
 /** Safety net after the last retry: a document must never stay in `processing`. Idempotent. */
