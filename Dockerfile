@@ -26,6 +26,9 @@ COPY scripts/set-app-password.mjs scripts/migrate-blobs-to-fs.mjs ./scripts/
 # the schema engine is fetched on first use (`npm ci --ignore-scripts` skipped it) — fetch it now, with network
 RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma version > /dev/null
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+# the documents folder exists in the image, owned by the app user: a NEW named volume mounted here copies this
+# owner, so the documents move (and the app) can write into it — without it the volume is root's (EACCES, 2026-10-29)
+RUN mkdir -p /data/documents && chown nextjs:nodejs /data/documents
 USER nextjs
 # migrate, set the app role's password from AF_APP_PASSWORD (F105), move the documents into the folder when the
 # app runs on the filesystem driver and a Blob store is still configured (F107) — each a no-op without its variables
@@ -45,6 +48,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+# same as the migrate stage: a new `documents` volume takes this owner (F107)
+RUN mkdir -p /data/documents && chown nextjs:nodejs /data/documents
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
