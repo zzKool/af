@@ -51,13 +51,15 @@ export function classGroupOf(o: Pick<BasOption, "code" | "classNum">): BasClassG
 
 /**
  * A query matches an account when the code starts with it (`65`, `654`) or every word of it appears in the English
- * name, the Swedish name or the short code — in any order (`it serv`, `tjänster it`, `acc`).
+ * name, the Swedish name, the short code or the owner's *Use for* note — in any order (`it serv`, `tjänster it`, `acc`).
  */
 export function matchesBas(o: BasOption, query: string): boolean {
   const q = foldText(query);
   if (!q) return true;
   if (/^\d+$/.test(q)) return o.code.startsWith(q);
-  const hay = foldText([o.code, nameOf(o), o.nameSv ?? "", aliasOf(o) ?? ""].join(" "));
+  const hay = foldText(
+    [o.code, nameOf(o), o.nameSv ?? "", aliasOf(o) ?? "", o.useFor ?? ""].join(" "),
+  );
   return q.split(" ").every((w) => hay.includes(w));
 }
 

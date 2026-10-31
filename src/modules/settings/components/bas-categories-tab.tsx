@@ -1,7 +1,7 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ChevronDown, Loader2, Search, Star } from "lucide-react";
+import { Check, ChevronDown, Loader2, Search, Sparkles, Star } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +11,9 @@ import { useT } from "@/kernel/i18n/use-t";
 import { createTenantStore } from "@/kernel/stores/create-tenant-store";
 import {
   activateBasCategoriesAction,
+  confirmUseForNotesAction,
   deactivateBasCategoryAction,
+  draftUseForNotesAction,
   updateBasPreferenceAction,
 } from "@/modules/settings/bas-preferences.actions";
 
@@ -35,12 +37,17 @@ type BasPreference = {
   isFavorite: boolean;
   shortCode: string | null;
   translations: Record<string, unknown> | null;
+  /** F126: what goes on this account, in English — drafted by the model or written by the owner */
+  useFor?: string | null;
+  useForState?: "draft" | "confirmed" | null;
   basCategory: BasCategory;
 };
 
 type Props = {
   initialCategories: BasCategory[];
   initialPreferences: BasPreference[];
+  /** the local model is configured — *Draft with AI* is offered */
+  aiOn?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -64,7 +71,7 @@ function actionError(result: {
 // ─────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────
-export function BasCategoriesTab({ initialCategories, initialPreferences }: Props) {
+export function BasCategoriesTab({ initialCategories, initialPreferences, aiOn = false }: Props) {
   const t = useT();
   const search = useBasSearch((s) => s.search);
   const setSearch = useCallback((v: string) => useBasSearch.store.setState({ search: v }), []);
@@ -80,6 +87,8 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
   const { executeAsync: execActivate } = useAction(activateBasCategoriesAction);
   const { executeAsync: execDeactivate } = useAction(deactivateBasCategoryAction);
   const { executeAsync: execUpdate } = useAction(updateBasPreferenceAction);
+  const { executeAsync: execDraft, isPending: drafting } = useAction(draftUseForNotesAction);
+  const { executeAsync: execConfirm, isPending: confirming } = useAction(confirmUseForNotesAction);
 
   // Filter categories by search
   const filteredCategories = useMemo(() => {
@@ -92,7 +101,8 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
         c.name.toLowerCase().includes(q) ||
         c.nameEn?.toLowerCase().includes(q) ||
         c.nameFr?.toLowerCase().includes(q) ||
-        pref?.shortCode?.toLowerCase().includes(q)
+        pref?.shortCode?.toLowerCase().includes(q) ||
+        pref?.useFor?.toLowerCase().includes(q)
       );
     });
   }, [initialCategories, search, preferences]);
@@ -271,6 +281,71 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
     [preferences, execUpdate, t],
   );
 
+  // ─── *Use for* notes (F126) ───
+  const noteCounts = useMemo(() => {
+    let drafts = 0;
+    let confirmed = 0;
+    for (const p of preferences.values()) {
+      if (p.useForState === "draft") drafts++;
+      if (p.useForState === "confirmed") confirmed++;
+    }
+    return { drafts, confirmed, active: preferences.size };
+  }, [preferences]);
+
+  const setNote = useCallback(
+    (code: string, useFor: string | null, useForState: "draft" | "confirmed" | null) =>
+      setPreferences((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(code);
+        if (existing) next.set(code, { ...existing, useFor, useForState });
+        return next;
+      }),
+    [],
+  );
+
+  const handleUseForSave = useCallback(
+    async (code: string, value: string) => {
+      const pref = preferences.get(code);
+      if (!pref) return;
+      const val = value.trim() || null;
+      if (val === (pref.useFor ?? null) && (val === null || pref.useForState === "confirmed"))
+        return;
+      setNote(code, val, val ? "confirmed" : null);
+      const result = await execUpdate({ basCode: code, useFor: val });
+      if (result) {
+        const err = actionError(result);
+        if (err) toast.error(t("settings.bas.notes.saveFailed", { error: err }));
+      }
+    },
+    [preferences, execUpdate, setNote, t],
+  );
+
+  const handleConfirm = useCallback(
+    async (codes?: string[]) => {
+      const result = await execConfirm({ codes });
+      const err = result ? actionError(result) : null;
+      if (err) {
+        toast.error(t("settings.bas.notes.saveFailed", { error: err }));
+        return;
+      }
+      setPreferences((prev) => {
+        const next = new Map(prev);
+        for (const [code, p] of prev)
+          if (p.useForState === "draft" && (!codes || codes.includes(code)))
+            next.set(code, { ...p, useForState: "confirmed" });
+        return next;
+      });
+    },
+    [execConfirm, t],
+  );
+
+  const handleDraft = useCallback(async () => {
+    const result = await execDraft({});
+    const err = result ? actionError(result) : null;
+    if (err) toast.error(err);
+    else toast.success(t("settings.bas.notes.queued"));
+  }, [execDraft, t]);
+
   // ─── Quick-start ───
   const commonCategories = useMemo(
     () => initialCategories.filter((c) => c.isCommon && !preferences.has(c.code)),
@@ -342,6 +417,48 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
         </div>
       )}
 
+      {hasActivePrefs && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs"
+          data-testid="bas-notes-bar"
+        >
+          <span className="flex-1 min-w-0 text-muted-foreground">
+            {t("settings.bas.notes.summary", {
+              confirmed: noteCounts.confirmed,
+              active: noteCounts.active,
+              drafts: noteCounts.drafts,
+            })}
+          </span>
+          {noteCounts.drafts > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleConfirm()}
+              disabled={confirming}
+              data-testid="bas-confirm-all"
+            >
+              <Check className="h-3 w-3" />
+              {t("settings.bas.notes.confirmAll", { count: noteCounts.drafts })}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDraft}
+            disabled={!aiOn || drafting}
+            title={aiOn ? undefined : t("settings.bas.notes.aiOff")}
+            data-testid="bas-draft-ai"
+          >
+            {drafting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            {t("settings.bas.notes.draft")}
+          </Button>
+        </div>
+      )}
+
       {hasActivePrefs && !hasFavorites && (
         <p className="text-xs text-muted-foreground">{t("settings.bas.noFavorites")}</p>
       )}
@@ -384,6 +501,8 @@ export function BasCategoriesTab({ initialCategories, initialPreferences }: Prop
             onFavoriteToggle={handleFavoriteToggle}
             onShortCodeSave={handleShortCodeSave}
             onTranslationSave={handleTranslationSave}
+            onUseForSave={handleUseForSave}
+            onConfirmNote={(code) => handleConfirm([code])}
           />
         ))}
     </div>
@@ -476,6 +595,8 @@ function ClassAccordion({
   onFavoriteToggle,
   onShortCodeSave,
   onTranslationSave,
+  onUseForSave,
+  onConfirmNote,
 }: {
   classNum: number;
   className: string;
@@ -491,6 +612,8 @@ function ClassAccordion({
   onFavoriteToggle: (code: string) => void;
   onShortCodeSave: (code: string, shortCode: string) => void;
   onTranslationSave: (code: string, lang: "en" | "sv" | "fr", value: string) => void;
+  onUseForSave: (code: string, value: string) => void;
+  onConfirmNote: (code: string) => void;
 }) {
   const t = useT();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -499,7 +622,9 @@ function ClassAccordion({
   const virtualizer = useVirtualizer({
     count: categories.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) => (expandedRows.has(categories[index].code) ? 110 : 44),
+    estimateSize: (index) =>
+      (expandedRows.has(categories[index].code) ? 160 : 44) +
+      (preferences.get(categories[index].code)?.useFor ? 20 : 0),
     overscan: 10,
   });
 
@@ -555,6 +680,8 @@ function ClassAccordion({
                     onFavoriteToggle={() => onFavoriteToggle(cat.code)}
                     onShortCodeSave={(v) => onShortCodeSave(cat.code, v)}
                     onTranslationSave={(lang, v) => onTranslationSave(cat.code, lang, v)}
+                    onUseForSave={(v) => onUseForSave(cat.code, v)}
+                    onConfirmNote={() => onConfirmNote(cat.code)}
                   />
                 </div>
               );
@@ -580,6 +707,8 @@ function CategoryRow({
   onFavoriteToggle,
   onShortCodeSave,
   onTranslationSave,
+  onUseForSave,
+  onConfirmNote,
 }: {
   category: BasCategory;
   preference?: BasPreference;
@@ -591,9 +720,12 @@ function CategoryRow({
   onFavoriteToggle: () => void;
   onShortCodeSave: (shortCode: string) => void;
   onTranslationSave: (lang: "en" | "sv" | "fr", value: string) => void;
+  onUseForSave: (value: string) => void;
+  onConfirmNote: () => void;
 }) {
   const t = useT();
   const isActive = !!preference;
+  const draft = preference?.useForState === "draft";
 
   return (
     <div className={`border-b last:border-b-0 ${isActive ? "bg-primary/5" : ""}`}>
@@ -662,9 +794,46 @@ function CategoryRow({
         {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
       </div>
 
+      {/* The *Use for* note (F126): the owner's words, or the model's draft until he confirms it */}
+      {isActive && preference?.useFor && (
+        <div
+          className="flex items-start gap-2 px-3 pb-1.5 pl-[3.25rem] text-xs text-muted-foreground"
+          data-testid={`bas-note-${category.code}`}
+          data-state={preference.useForState ?? undefined}
+        >
+          <span className={`min-w-0 flex-1 ${draft ? "italic" : ""}`}>
+            {draft && (
+              <span className="mr-1.5 rounded bg-muted px-1 py-px text-[10px] not-italic uppercase">
+                {t("settings.bas.notes.draftTag")}
+              </span>
+            )}
+            {preference.useFor}
+          </span>
+          {draft && (
+            <button
+              type="button"
+              onClick={onConfirmNote}
+              className="shrink-0 text-primary hover:underline"
+              data-testid={`bas-note-confirm-${category.code}`}
+            >
+              {t("settings.bas.notes.confirm")}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Expanded edit area */}
       {isActive && expanded && (
         <div className="px-3 pb-2 pt-0 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="col-span-full">
+            <InlineField
+              code={category.code}
+              label={t("settings.bas.notes.label")}
+              value={preference?.useFor || ""}
+              onSave={onUseForSave}
+              placeholder={t("settings.bas.notes.placeholder")}
+            />
+          </div>
           <InlineField
             code={category.code}
             label={t("settings.bas.alias")}

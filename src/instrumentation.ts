@@ -48,6 +48,7 @@ export async function register() {
           ...traktamenteJobs,
           ...packageJobs,
           ...proposalJobs,
+          ...settings.settingsJobs,
         ],
         [...rateSchedules, ...proposalSchedules],
       );

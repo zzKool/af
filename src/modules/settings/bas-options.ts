@@ -34,6 +34,7 @@ export async function basPickerOptions(tx: TransactionClient): Promise<BasOption
       alias,
       classNum: c.classNum,
       favourite: p.isFavorite,
+      useFor: p.useFor?.trim() || null,
     };
   });
 }

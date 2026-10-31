@@ -21,6 +21,9 @@ export const translationsSchema = z
 
 export type BasTranslations = z.infer<typeof translationsSchema>;
 
+/** A *Use for* note's length (F126) — the column is 300; a line the prompt and the picker can show. */
+export const USE_FOR_MAX = 300;
+
 /**
  * Get all BAS categories (shared reference data, no RLS).
  * Any authenticated user can read — no caller/audit params needed.
@@ -268,6 +271,8 @@ export async function updateBasPreference(
     isFavorite?: boolean;
     shortCode?: string | null;
     translations?: BasTranslations;
+    /** F126: the owner's *Use for* note — his words, so confirmed; empty clears it */
+    useFor?: string | null;
   },
 ): Promise<ServiceResult<{ updated: boolean }>> {
   // Validate translations shape if provided
@@ -302,6 +307,11 @@ export async function updateBasPreference(
   if (input.isFavorite !== undefined) updateData.isFavorite = input.isFavorite;
   if (input.shortCode !== undefined) updateData.shortCode = input.shortCode;
   if (input.translations !== undefined) updateData.translations = input.translations;
+  if (input.useFor !== undefined) {
+    const note = input.useFor?.trim().slice(0, USE_FOR_MAX) || null;
+    updateData.useFor = note;
+    updateData.useForState = note ? "confirmed" : null;
+  }
 
   const updated = await tx.tenantBasPreference.update({
     where: { id: existing.id },
