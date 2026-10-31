@@ -60,3 +60,11 @@ Every BAS field reads `settings.basPickerOptions(tx)` — one builder, chart ord
 - [[audit-trail]] — Audit logging for preference mutations
 - [[zustand-stores]] — Tenant-scoped search state in the UI
 - [[config-page-test-template]] — Test structure for this and similar config pages
+
+## *Use for* notes (F126, `specs/ai/spec-suggest-from-first-entry.md` FR-202)
+
+One English line per **active** account saying what goes there — `tenant_bas_preferences.use_for` (≤ 300) + `use_for_state` (`draft` | `confirmed`; a CHECK keeps both null or both set). This is where "which account for a cloud subscription, a desk in a shared office, a software licence" lives — **in the owner's data, never in code**.
+
+- **Draft with AI** (Settings → BAS, the notes bar): the job `settings.draft-use-for` asks the local model (`prompts/bas-use-for.ts` v1) for every active account without a confirmed note, twelve per call, outside any transaction; the answers are written as **drafts**. Disabled while AI is off.
+- **The owner**: a draft shows in italics with *Draft* and *Confirm*; *Confirm N drafts* takes them all; editing the *Use for* field writes his own words (confirmed); emptying it clears the note. A draft never overwrites a confirmed note, even one written while the model was answering.
+- **Who reads them**: the BAS picker (the second line, and a word of the note finds the account) and the BAS proposals' prompt (`linking/proposals/prompts/bas-proposal.ts`: `code English (Swedish) — use for: …`). An edited note changes the prompt's facts, so the open rows are asked again on the next run.

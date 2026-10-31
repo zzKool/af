@@ -15,6 +15,7 @@ import {
   basProposalSystem,
   basProposalUser,
   type PromptAccount,
+  toPromptAccounts,
 } from "./prompts/bas-proposal";
 import { stage1 } from "./stage1";
 
@@ -117,11 +118,7 @@ export async function runEval(
     owner.userId,
     async (tx) => {
       const options = await settings.basPickerOptions(tx);
-      const accounts: PromptAccount[] = options.map((o) => ({
-        code: o.code,
-        name: o.name ?? o.label,
-        nameSv: o.nameSv ?? null,
-      }));
+      const accounts: PromptAccount[] = toPromptAccounts(options);
       return {
         replay: await banking.proposalReplayInputs(tx, opts),
         accounts,

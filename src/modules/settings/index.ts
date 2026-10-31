@@ -3,6 +3,13 @@
 // Never import this file from a client component — use ./ui for components and stores.
 
 export { mergeBasUsage, type PartnerBasUsage, partnerBasSuggestions } from "./bas-history";
+export {
+  askUseForDrafts,
+  confirmUseForNotes,
+  prepareUseForDrafts,
+  type UseForDraft,
+  writeUseForDrafts,
+} from "./bas-notes";
 export type { BasTranslations } from "./bas-preferences";
 export {
   activateBasCategories,
@@ -12,11 +19,14 @@ export {
 } from "./bas-preferences";
 export {
   activateBasCategoriesAction,
+  confirmUseForNotesAction,
   deactivateBasCategoryAction,
+  draftUseForNotesAction,
   getBasCategoriesAction,
   getTenantBasPreferencesAction,
   updateBasPreferenceAction,
 } from "./bas-preferences.actions";
+export { draftUseFor, draftUseForJob, settingsJobs } from "./jobs/draft-use-for";
 export * from "./queries";
 export type { TenantProfile, UpdateTenantProfileInput } from "./settings";
 export { updateTenantProfile } from "./settings";

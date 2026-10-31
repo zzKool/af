@@ -14,6 +14,8 @@ export type BasOption = {
   alias?: string | null;
   classNum?: number;
   favourite?: boolean;
+  /** F126: the owner's *Use for* note (English) — the picker's second line; the BAS proposals' prompt reads it */
+  useFor?: string | null;
 };
 
 /** Where a suggested account comes from — said on screen, never "AI" unless a model proposed it. */

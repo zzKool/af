@@ -19,6 +19,14 @@ model BasCategory {
   @@map("bas_categories")
 }
 
+/// F126: a *Use for* note the model drafted (the owner has not read it yet) or the owner's own
+enum BasNoteState {
+  draft
+  confirmed
+
+  @@map("bas_note_state")
+}
+
 model TenantBasPreference {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
@@ -26,6 +34,10 @@ model TenantBasPreference {
   isFavorite   Boolean  @default(false) @map("is_favorite")
   shortCode    String?  @map("short_code") @db.VarChar(10) // User-defined alias
   translations Json?    @db.JsonB // { en?: string, sv?: string, fr?: string }
+  /// F126: what goes on this account, in the owner's English — drafted by the model, confirmed or written by him;
+  /// the BAS proposals' prompt reads it (no vendor → account mapping in code)
+  useFor       String?       @map("use_for") @db.VarChar(300)
+  useForState  BasNoteState? @map("use_for_state")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   createdBy    String   @map("created_by") @db.Uuid

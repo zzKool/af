@@ -82,6 +82,22 @@ describe("BasPicker", () => {
     expect(onChange).toHaveBeenCalledWith("653");
   });
 
+  it("the owner's Use for note is the second line, and a word of it finds the account (F126)", async () => {
+    const withNote = OPTIONS.map((o) =>
+      o.code === "654" ? { ...o, useFor: "Software licences and cloud subscriptions" } : o,
+    );
+    render(<BasPicker options={withNote} value="" onChange={vi.fn()} data-testid="bas" />);
+    open();
+    expect(await screen.findByTestId("bas-option-654")).toHaveTextContent(
+      "Software licences and cloud subscriptions",
+    );
+    fireEvent.change(screen.getByPlaceholderText(/Search a number/), {
+      target: { value: "licences" },
+    });
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+    expect(screen.getByTestId("bas-option-654")).toBeInTheDocument();
+  });
+
   it("where the field keys an entry, an account without a short code is shown disabled with the reason", async () => {
     render(
       <BasPicker options={OPTIONS} value="" onChange={vi.fn()} requireAlias data-testid="bas" />,

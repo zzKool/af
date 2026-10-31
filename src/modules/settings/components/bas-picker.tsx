@@ -4,7 +4,7 @@
 // account in the UI language; the popup has a search on number, English, Swedish and short code, then the suggested
 // accounts (each saying where the suggestion comes from), the owner's favourites, and the chart by class — the cost
 // classes first where a cost is picked. English only on screen (D72) — the Swedish name stays searchable and is the
-// item's tooltip. An account without a short code cannot key an expense or a supplier invoice (`requireAlias`):
+// item's tooltip; the owner's *Use for* note (F126) is the second line. An account without a short code cannot key an expense or a supplier invoice (`requireAlias`):
 // shown, disabled, with the reason.
 import { useMemo, useState } from "react";
 import {
@@ -206,10 +206,13 @@ export function BasPicker({
                               </span>
                             )}
                           </span>
-                          {(item.suggestion || blocked) && (
+                          {(item.suggestion || blocked || item.useFor) && (
                             <span className="ml-11 flex min-w-0 flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                               {item.suggestion && (
                                 <span className="text-primary">{sourceText(item.suggestion)}</span>
+                              )}
+                              {item.useFor && !item.suggestion && (
+                                <span className="truncate">{item.useFor}</span>
                               )}
                               {blocked && <span>{t("settings.basPicker.needsAlias")}</span>}
                             </span>

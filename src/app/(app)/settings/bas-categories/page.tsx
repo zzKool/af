@@ -1,3 +1,4 @@
+import { resolveAiProvider } from "@/kernel/ai/ai";
 import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
@@ -32,7 +33,11 @@ export default async function BasCategoriesSettingsPage() {
       <h1 className="mb-6 text-2xl font-semibold">
         <Msg k="settings.bas.title" />
       </h1>
-      <BasCategoriesTab initialCategories={categories} initialPreferences={preferences} />
+      <BasCategoriesTab
+        initialCategories={categories}
+        initialPreferences={preferences}
+        aiOn={resolveAiProvider().kind !== "off"}
+      />
     </div>
   );
 }
