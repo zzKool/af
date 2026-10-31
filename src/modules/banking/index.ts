@@ -76,10 +76,16 @@ export {
 } from "./payers";
 export {
   type CategoryMemory,
+  type ConfirmedExample,
+  type ConfirmedExampleRow,
   categoryMemory,
+  confirmedExampleRows,
+  confirmedExamples,
   type ProposalInput,
   type ProposalRow,
+  pickExamples,
   proposalInputs,
+  proposalReplayInputs,
   proposalRowIds,
   type RuleSuggestion,
 } from "./proposal-inputs";

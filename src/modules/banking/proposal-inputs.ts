@@ -169,3 +169,126 @@ export async function categoryMemory(
   }
   return out;
 }
+
+/** A row the owner categorised by hand — an example the model reads (F98 PR 2, FR-201). */
+export type ConfirmedExample = { text: string; amount: string; currency: string; basCode: string };
+export type ConfirmedExampleRow = ConfirmedExample & { id: string };
+
+/** The owner's own categorised rows (`categorised_by = manual`), newest first — the pool examples are picked from. */
+export async function confirmedExampleRows(
+  tx: TransactionClient,
+  take = 500,
+): Promise<ConfirmedExampleRow[]> {
+  const rows = await tx.bankTransaction.findMany({
+    where: { categorisedBy: "manual", basCode: { not: null } },
+    orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
+    take,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    text: bankText(r),
+    amount: r.amount.toFixed(2),
+    currency: r.currency,
+    basCode: r.basCode as string,
+  }));
+}
+
+/**
+ * The newest row per BAS code, at most `limit` codes — so the examples cover different accounts rather than one
+ * busy counterparty. `excludeId`: the row being asked about never serves as its own example (the eval). Pure.
+ */
+export function pickExamples(
+  rows: readonly ConfirmedExampleRow[],
+  limit = 8,
+  excludeId?: string,
+): ConfirmedExample[] {
+  const out: ConfirmedExample[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (r.id === excludeId || seen.has(r.basCode)) continue;
+    seen.add(r.basCode);
+    out.push({ text: r.text, amount: r.amount, currency: r.currency, basCode: r.basCode });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** The model's examples for a run (F98 PR 2): `pickExamples` over the owner's categorised rows. */
+export async function confirmedExamples(
+  tx: TransactionClient,
+  limit = 8,
+): Promise<ConfirmedExample[]> {
+  return pickExamples(await confirmedExampleRows(tx), limit);
+}
+
+/**
+ * The eval's replay (F98 PR 2, FR-010): the rows the owner categorised by hand since a day, each as stage 1 would
+ * have seen it before he did — category off, his own row taken out of the history (leave one out). The partner
+ * stays as he set it. The truth (his code) comes back beside each input. Read only.
+ */
+export async function proposalReplayInputs(
+  tx: TransactionClient,
+  opts: { since: string; limit?: number },
+): Promise<{ input: ProposalInput; truth: string }[]> {
+  const rows = await tx.bankTransaction.findMany({
+    where: {
+      categorisedBy: "manual",
+      basCode: { not: null },
+      bookingDate: { gte: new Date(`${opts.since}T00:00:00Z`) },
+    },
+    orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
+    take: opts.limit ?? 1_000,
+  });
+  if (rows.length === 0) return [];
+  const rules = orderRules(
+    (await tx.categorisationRule.findMany({ where: { isActive: true } })).filter(
+      (r) => r.basCode !== null || r.partnerId !== null,
+    ) as (RuleLike & { name: string; basCode: string | null; partnerId: string | null })[],
+  );
+  const partnerList = (await partners.getPartners(tx, {})).data ?? [];
+  const defaults = new Map(partnerList.map((p) => [p.id, p.defaultBasCategoryCode ?? null]));
+  const memory = await categoryMemory(
+    tx,
+    rows.map((r) => r.counterpartyKey),
+  );
+  return rows.map((r) => {
+    const hit = firstHit(rules, ruleTarget(r).text);
+    const own = memory.get(r.counterpartyKey) ?? { bas: [], partner: [] };
+    // leave one out: the row's own vote is not its history
+    const minus = <T extends { n: number }>(list: T[], self: (x: T) => boolean) =>
+      list
+        .map((x) => (self(x) ? { ...x, n: x.n - 1 } : x))
+        .filter((x) => x.n > 0)
+        .sort((a, b) => b.n - a.n);
+    return {
+      truth: r.basCode as string,
+      input: {
+        row: {
+          id: r.id,
+          bookingDate: r.bookingDate.toISOString().slice(0, 10),
+          amount: r.amount.toFixed(2),
+          currency: r.currency,
+          counterpartyKey: r.counterpartyKey,
+          text: bankText(r),
+          basCode: null,
+          partnerId: r.partnerId,
+          categorisedBy: null,
+        },
+        rule: hit
+          ? {
+              ruleId: hit.id,
+              ruleName: hit.name,
+              basCode:
+                hit.basCode ?? (hit.partnerId ? (defaults.get(hit.partnerId) ?? null) : null),
+              partnerId: hit.partnerId,
+            }
+          : null,
+        partnerDefault: r.partnerId ? (defaults.get(r.partnerId) ?? null) : null,
+        memory: {
+          bas: minus(own.bas, (x) => x.code === r.basCode),
+          partner: minus(own.partner, (x) => x.id === r.partnerId),
+        },
+      },
+    };
+  });
+}

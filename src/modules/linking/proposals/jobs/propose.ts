@@ -1,8 +1,10 @@
 // The proposal jobs (F98, specs/ai FR-007). After an import commits, its open rows; every night, every tenant's
-// open rows (the rows imported before a rule existed, the history that grew since). Stage 1 only in PR 1 — no
-// model, no external call; PR 2 adds stage 2 between two short transactions (constitution: never call out
-// inside a transaction).
+// open rows (the rows imported before a rule existed, the history that grew since). Stage 1 in one short
+// transaction; then stage 2 (PR 2): the model, outside any transaction (constitution: never call out inside one),
+// for what stage 1 left open; its answers written in a second short transaction.
 import { randomUUID } from "node:crypto";
+import { createAiService } from "@/kernel/ai/ai";
+import type { AiService } from "@/kernel/ai/types";
 import { tenantOwners } from "@/kernel/auth/users";
 import { prisma } from "@/kernel/db/client";
 import { withJobContext } from "@/kernel/jobs/context";
@@ -10,14 +12,25 @@ import type { JobDefinition, ScheduleDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import * as banking from "@/modules/banking";
 import { type RunResult, runProposals } from "../proposals";
+import { askStage2, prepareStage2, writeStage2 } from "../stage2";
 
 export type ProposeForRowsData = {
   tenantId: string;
   userId: string;
 } & ({ importId: string } | { transactionIds: string[] } | { all: true });
 
-/** One run over one tenant's rows: pick the open rows, then stage 1, in one short transaction. */
-export async function proposeForRows(data: ProposeForRowsData): Promise<RunResult> {
+export type ProposeResult = RunResult & {
+  model: { asked: number; proposed: number; failed: number; stopped: boolean };
+};
+
+/**
+ * One run over one tenant's rows: the open rows and stage 1 in one short transaction; the model for what stage 1
+ * left open (no transaction); its answers in a second one. AI off → stage 1 alone, as before.
+ */
+export async function proposeForRows(
+  data: ProposeForRowsData,
+  ai: AiService = createAiService(),
+): Promise<ProposeResult> {
   const scope =
     "importId" in data
       ? { importId: data.importId }
@@ -25,10 +38,28 @@ export async function proposeForRows(data: ProposeForRowsData): Promise<RunResul
         ? { transactionIds: data.transactionIds }
         : { all: true as const };
   const runId = randomUUID();
-  const result = await withJobContext(data.tenantId, data.userId, async (tx, caller) => {
-    const ids = await banking.proposalRowIds(tx, scope);
-    return runProposals(tx, caller, { runId, transactionIds: ids });
-  });
+  const { stage1, prepared } = await withJobContext(
+    data.tenantId,
+    data.userId,
+    async (tx, caller) => {
+      const ids = await banking.proposalRowIds(tx, scope);
+      const stage1 = await runProposals(tx, caller, { runId, transactionIds: ids });
+      const prepared = ai.kind === "off" ? null : await prepareStage2(tx, ids);
+      return { stage1, prepared };
+    },
+  );
+  const model = { asked: 0, proposed: 0, failed: 0, stopped: false };
+  if (prepared) {
+    const outcome = await askStage2(ai, prepared);
+    model.asked = outcome.asked;
+    model.failed = outcome.failed;
+    model.stopped = outcome.stopped;
+    if (outcome.drafts.length)
+      model.proposed = await withJobContext(data.tenantId, data.userId, (tx, caller) =>
+        writeStage2(tx, caller, runId, outcome.drafts),
+      );
+  }
+  const result: ProposeResult = { ...stage1, model };
   // counts only — never a row, a name or an amount (D51)
   logger.info({ tenantId: data.tenantId, ...result }, "linking.propose: run done");
   return result;

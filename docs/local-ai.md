@@ -1,5 +1,7 @@
 # Local AI — the model on the box, the adapter, the proposals
 
+> **2026-10-31, F98 PR 2:** stage 2 — the model proposes the **category** of every open row stage 1 leaves without an answer (`stage2.ts`, `prompts/bas-proposal.ts`, the mock's invented answer), and the eval (`scripts/ai-eval.ts`, counts only). The partner proposal through the model, the owner's *Use for* notes and proposals on documents follow (`specs/ai/spec-suggest-from-first-entry.md`).
+>
 > **Built so far (2026-10-28, F98 PR 1):** `kernel/ai` (§2: provider, `complete()`, status, the mock, the guard), the `proposals` table and stage 1 (§3, §4.1 1a–1c, §4.4–§4.6: rules · partner default · the owner's history; no model), the *Proposed* line + pre-fill + list column, Settings → AI, `/api/health`'s `ai`. Next: PR 2 — stage 2 through the model + `npm run ai -- eval` (`specs/ai/tasks.md` T013–T016). The module doc of what exists is [[linking]] *Proposals*; this page stays the design.
 >
 > Plan for the owner's read (2026-10-27), ahead of the FULL-lane specs of **F98** (adapter + proposals) and **F99** (the closing run). It says what gets built, in what order, and where every line of it goes. **No code before the owner's word** on the questions at the end. The box-specific runbook (hardware, VM sizing, addresses) is `private/local-ai-box.md` — gitignored, never in the repo (CLAUDE.md, *Real data*).

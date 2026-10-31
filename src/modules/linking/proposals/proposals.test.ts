@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
+import { createMockAiService } from "@/kernel/ai/ai";
+import type { AiService } from "@/kernel/ai/types";
 import { createAuditEntry } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import { auth } from "@/kernel/auth/auth";
@@ -19,6 +21,8 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import * as banking from "@/modules/banking";
+import * as settings from "@/modules/settings";
+import { runEval } from "./eval";
 import { proposeForRows } from "./jobs/propose";
 import {
   acceptProposals,
@@ -397,5 +401,169 @@ describe("F98 — stage-1 proposals", () => {
     const s = await run(caller, (tx) => proposalStats(tx, 30));
     expect(s.bySource).toEqual([{ source: "memory", made: 2, accepted: 2, rejected: 0 }]);
     expect(s.lastRunAt).not.toBeNull();
+  });
+});
+
+describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
+  const ANSWER = {
+    basCode: "659",
+    confidence: 0.86,
+    reason: "Looks like a subscription for software",
+    alternatives: [
+      { basCode: "654", why: "IT services" },
+      { basCode: "659", why: "the same" },
+    ],
+  };
+  const mock = (answer: unknown = ANSWER) =>
+    createMockAiService({ "linking.bas-proposal": answer });
+
+  async function activate(caller: CallerIdentity, codes = ["654", "659", "501"]) {
+    await run(caller, (tx) =>
+      settings.activateBasCategories(tx, caller, auditFor(tx, caller), codes),
+    );
+  }
+
+  it("US1: a counterparty never seen before gets a category proposal from its first row — HIGH, pre-filled", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await imported(caller);
+    await activate(caller);
+    const r = await proposeForRows(
+      { tenantId: caller.tenantId, userId: caller.userId, all: true },
+      mock(),
+    );
+    expect(r.model).toEqual({ asked: 4, proposed: 4, failed: 0, stopped: false });
+    const [p] =
+      (await run(caller, (tx) => currentProposals(tx, [ids.byteform]))).get(ids.byteform) ?? [];
+    expect(p).toMatchObject({
+      kind: "bas",
+      source: "model",
+      model: "mock",
+      family: "high",
+      prefilled: true,
+      confidence: 0.86,
+      reason: "Looks like a subscription for software",
+      payload: { basCode: "659", alternatives: [{ basCode: "654", why: "IT services" }] },
+    });
+    const row = await run(caller, (tx) =>
+      tx.bankTransaction.findUnique({ where: { id: ids.byteform } }),
+    );
+    expect(row?.basCode).toBeNull(); // proposed, never written
+  });
+
+  it("stage 1 answers first; the model is not asked again on the same facts; a rejection stands", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await imported(caller);
+    const cloud = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+      types: ["vendor"],
+    });
+    await history(caller, ids, cloud.id);
+    await activate(caller);
+    const scope = { tenantId: caller.tenantId, userId: caller.userId, all: true as const };
+    const first = await proposeForRows(scope, mock());
+    expect(first.model.asked).toBe(1); // BYTEFORM only — inv3 has the remembered answer
+    expect(await proposeForRows(scope, mock())).toMatchObject({ model: { asked: 0 } });
+
+    const [p] =
+      (await run(caller, (tx) => currentProposals(tx, [ids.byteform]))).get(ids.byteform) ?? [];
+    await run(caller, (tx) =>
+      rejectProposal(tx, caller, auditFor(tx, caller), { proposalId: p?.id as string }),
+    );
+    expect(await proposeForRows(scope, mock())).toMatchObject({ model: { asked: 0 } });
+    const after = await run(caller, (tx) => currentProposals(tx, [ids.byteform]));
+    expect(after.get(ids.byteform)).toBeUndefined();
+  });
+
+  it("an account activated since asks again (the prompt's facts changed)", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await imported(caller);
+    await activate(caller);
+    const scope = { tenantId: caller.tenantId, userId: caller.userId, all: true as const };
+    await proposeForRows(scope, mock());
+    await activate(caller, ["657"]);
+    expect((await proposeForRows(scope, mock())).model.asked).toBe(4);
+  });
+
+  it("an answer outside the active set never lands", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await imported(caller);
+    await activate(caller);
+    const r = await proposeForRows(
+      { tenantId: caller.tenantId, userId: caller.userId, all: true },
+      mock({ ...ANSWER, basCode: "999" }),
+    );
+    expect(r.model).toMatchObject({ asked: 4, proposed: 0, failed: 4 });
+    expect(await run(caller, (tx) => tx.proposal.count({ where: { source: "model" } }))).toBe(0);
+  });
+
+  it("an unreachable model stops the run; a timeout is retried once; AI off asks nothing", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await imported(caller);
+    await activate(caller);
+    const scope = { tenantId: caller.tenantId, userId: caller.userId, all: true as const };
+    const down: AiService = {
+      kind: "openai-compatible",
+      complete: vi.fn(async () => ({
+        ok: false as const,
+        error: "unavailable" as const,
+        retryable: true,
+        detail: "down",
+      })),
+    };
+    expect((await proposeForRows(scope, down)).model).toEqual({
+      asked: 1,
+      proposed: 0,
+      failed: 1,
+      stopped: true,
+    });
+
+    let calls = 0;
+    const slowOnce: AiService = {
+      kind: "openai-compatible",
+      complete: async (call) => {
+        calls++;
+        if (calls === 1) return { ok: false, error: "timeout", retryable: true, detail: "slow" };
+        return mock().complete(call);
+      },
+    };
+    const r = await proposeForRows(scope, slowOnce);
+    expect(r.model).toMatchObject({ asked: 4, proposed: 4, failed: 0 });
+    expect(calls).toBe(5);
+
+    const off: AiService = { kind: "off", complete: vi.fn() };
+    expect((await proposeForRows(scope, off)).model.asked).toBe(0);
+    expect(off.complete).not.toHaveBeenCalled();
+  });
+});
+
+describe("the eval (F98 PR 2, US5)", () => {
+  it("replays the hand-categorised rows: the history leaves the row out, the model never sees it as an example", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await imported(caller);
+    const cloud = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+      types: ["vendor"],
+    });
+    await history(caller, ids, cloud.id); // inv1, inv2 → 654 by hand
+    await run(caller, (tx) =>
+      settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["654", "659"]),
+    );
+    const seen: string[] = [];
+    const spy = createMockAiService({
+      "linking.bas-proposal": { basCode: "654", confidence: 0.9, reason: "x", alternatives: [] },
+    });
+    const ai = {
+      ...spy,
+      complete: async <T>(call: Parameters<typeof spy.complete<T>>[0]) => {
+        seen.push(call.messages.map((m) => m.content).join("\n"));
+        return spy.complete(call);
+      },
+    };
+    const r = await runEval(caller, ai, { since: "2026-01-01" });
+    // each of the two rows has one other row of history (N = 1): not enough — the model is asked for both
+    expect(r.rows).toBe(2);
+    expect(r.model.asked).toBe(2);
+    expect(r.shown).toEqual({ n: 2, agree: 2 });
+    for (const prompt of seen) expect(prompt.match(/CLOUDHOST INV/g)?.length).toBe(2); // one example + the row
+    const count = await run(caller, (tx) => tx.proposal.count());
+    expect(count).toBe(0); // read only
   });
 });
