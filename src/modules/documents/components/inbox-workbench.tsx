@@ -377,7 +377,7 @@ export function InboxWorkbench({
             options?.basProposals?.[open.id] ?? null,
           )
         : null,
-    [open],
+    [open, options?.basProposals],
   );
   const counts = data.counts;
   const countOf: Record<InboxTab, number> = {
