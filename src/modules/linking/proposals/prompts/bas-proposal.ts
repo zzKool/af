@@ -7,6 +7,7 @@
 // no vendor, product or keyword is mapped to an account here (SC-202 — a test greps for it).
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { BasOption } from "@/modules/settings";
 
 /** Bumped with any change of the text below — logged with every call, part of a proposal's facts. */
 export const BAS_PROPOSAL_VERSION = "bas-proposal.v1";
@@ -22,6 +23,16 @@ export type PromptAccount = {
   /** the owner's *Use for* note (F126), when there is one */
   useFor?: string | null;
 };
+
+/** The tenant's active accounts (settings' picker options) as the prompt lists them — notes included (F126). */
+export function toPromptAccounts(options: readonly BasOption[]): PromptAccount[] {
+  return options.map((o) => ({
+    code: o.code,
+    name: o.name ?? o.label,
+    nameSv: o.nameSv ?? null,
+    useFor: o.useFor ?? null,
+  }));
+}
 
 export type PromptExample = { text: string; amount: string; currency: string; basCode: string };
 

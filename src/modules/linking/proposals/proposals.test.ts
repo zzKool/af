@@ -483,6 +483,33 @@ describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
     expect((await proposeForRows(scope, mock())).model.asked).toBe(4);
   });
 
+  it("the owner's Use for note is in the prompt; editing it asks again (F126, US4)", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await imported(caller);
+    await activate(caller);
+    const prompts: string[] = [];
+    const base = mock();
+    const spy: AiService = {
+      kind: "mock",
+      complete: async (call) => {
+        prompts.push(call.messages[0]?.content ?? "");
+        return base.complete(call);
+      },
+    };
+    const note = (useFor: string) =>
+      run(caller, (tx) =>
+        settings.updateBasPreference(tx, caller, auditFor(tx, caller), "659", { useFor }),
+      );
+    await note("software subscriptions billed monthly");
+    const scope = { tenantId: caller.tenantId, userId: caller.userId, all: true as const };
+    await proposeForRows(scope, spy);
+    expect(prompts[0]).toContain("659");
+    expect(prompts[0]).toContain("use for: software subscriptions billed monthly");
+    expect((await proposeForRows(scope, spy)).model.asked).toBe(0);
+    await note("software and cloud subscriptions");
+    expect((await proposeForRows(scope, spy)).model.asked).toBe(4);
+  });
+
   it("an answer outside the active set never lands", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     await imported(caller);

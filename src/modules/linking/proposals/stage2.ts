@@ -29,6 +29,7 @@ import {
   type PromptExample,
   type PromptRow,
   promptFactsHash,
+  toPromptAccounts,
 } from "./prompts/bas-proposal";
 
 /** Rows asked per run, newest first — a CPU box answers one in seconds; the nightly run takes the rest. */
@@ -74,11 +75,7 @@ export async function prepareStage2(
   if (inputs.length === 0) return null;
   const options = await settings.basPickerOptions(tx);
   if (options.length === 0) return null;
-  const accounts: PromptAccount[] = options.map((o) => ({
-    code: o.code,
-    name: o.name ?? o.label,
-    nameSv: o.nameSv ?? null,
-  }));
+  const accounts: PromptAccount[] = toPromptAccounts(options);
   const activeCodes = accounts.map((a) => a.code);
   const promptHash = promptFactsHash(accounts);
 
