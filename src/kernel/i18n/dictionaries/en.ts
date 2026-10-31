@@ -924,6 +924,7 @@ export const en = {
   "expenses.partnerNone": "— No partner",
   "expenses.partnerInactive": "{name} (inactive)",
   "expenses.categoryFromPartner": "From the partner’s default category",
+  "expenses.categoryFromAi": "Proposed by the AI from the receipt — not saved until you save",
   "expenses.form.amount": "Amount",
   "expenses.form.currency": "Currency",
   "expenses.form.paidBy": "Paid by",
@@ -1406,6 +1407,8 @@ export const en = {
   "supplierInvoices.form.vat": "VAT",
   "supplierInvoices.form.total": "Total",
   "supplierInvoices.form.category": "Category",
+  "supplierInvoices.form.categoryFromAi":
+    "Proposed by the AI from the document — not saved until you save",
   "supplierInvoices.form.registration": "VAT registration (input VAT reclaimed under)",
   "supplierInvoices.form.noRegistration": "No VAT reclaim",
   "supplierInvoices.form.document": "Document",

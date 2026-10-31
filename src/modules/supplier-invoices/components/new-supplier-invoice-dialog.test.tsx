@@ -152,3 +152,28 @@ describe("NewSupplierInvoiceDialog — the BAS picker's suggestions (F125)", () 
     expect(screen.getByTestId("si-category")).not.toHaveTextContent("6540");
   });
 });
+
+describe("NewSupplierInvoiceDialog — the AI's account for the document (F126)", () => {
+  afterEach(cleanup);
+
+  it("HIGH fills the empty field, dashed and marked; the proposal heads the picker with its reason", async () => {
+    render(
+      <NewSupplierInvoiceDialog
+        {...base}
+        groups={[]}
+        initial={{
+          documentId: "00000000-0000-4000-8000-0000000000d1",
+          basProposal: { code: "6530", reason: "Bookkeeping for the month", prefill: true },
+        }}
+      />,
+    );
+    const field = screen.getByTestId("si-category");
+    expect(field).toHaveTextContent("6530");
+    expect(field).toHaveAttribute("data-prefilled", "true");
+    expect(screen.getByTestId("si-category-from-ai")).toBeInTheDocument();
+    fireEvent.click(field);
+    expect(await screen.findByTestId("bas-option-6530")).toHaveTextContent(
+      "Bookkeeping for the month",
+    );
+  });
+});

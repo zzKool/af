@@ -27,7 +27,6 @@ import {
   basProposalUser,
   type PromptAccount,
   type PromptExample,
-  type PromptRow,
   promptFactsHash,
   toPromptAccounts,
 } from "./prompts/bas-proposal";
@@ -35,7 +34,8 @@ import {
 /** Rows asked per run, newest first — a CPU box answers one in seconds; the nightly run takes the rest. */
 export const STAGE2_MAX_ROWS = 60;
 
-export type Stage2Request = { targetId: string; factsHash: string; row: PromptRow };
+/** One question: the target, its facts hash and its own message (a bank row's, or a document's). */
+export type Stage2Request = { targetId: string; factsHash: string; user: string };
 export type Stage2Prepared = {
   accounts: PromptAccount[];
   examples: PromptExample[];
@@ -103,12 +103,12 @@ export async function prepareStage2(
     requests.push({
       targetId: i.row.id,
       factsHash: hash,
-      row: {
+      user: basProposalUser({
         bookingDate: i.row.bookingDate,
         amount: i.row.amount,
         currency: i.row.currency,
         text: i.row.text,
-      },
+      }),
     });
     if (requests.length >= maxRows) break;
   }
@@ -129,7 +129,7 @@ export async function askStage2(ai: AiService, prepared: Stage2Prepared): Promis
       promptVersion: BAS_PROPOSAL_VERSION,
       messages: [
         { role: "system" as const, content: system },
-        { role: "user" as const, content: basProposalUser(r.row) },
+        { role: "user" as const, content: r.user },
       ],
       schema,
     };
@@ -187,6 +187,7 @@ export async function writeStage2(
       runId,
       targetType: "bank_transaction",
       targetId: d.targetId,
+      bankTransactionId: d.targetId,
       kind: "bas",
       payload: d.payload as Prisma.InputJsonValue,
       source: "model",

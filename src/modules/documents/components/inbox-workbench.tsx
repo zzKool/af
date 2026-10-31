@@ -368,8 +368,16 @@ export function InboxWorkbench({
   });
 
   const makeInitial = useMemo(
-    () => (open ? initialFromFacts(open.id, open.businessKey, open.facts) : null),
-    [open],
+    () =>
+      open
+        ? initialFromFacts(
+            open.id,
+            open.businessKey,
+            open.facts,
+            options?.basProposals?.[open.id] ?? null,
+          )
+        : null,
+    [open, options?.basProposals],
   );
   const counts = data.counts;
   const countOf: Record<InboxTab, number> = {

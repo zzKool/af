@@ -11,6 +11,7 @@ import { withJobContext } from "@/kernel/jobs/context";
 import type { JobDefinition, ScheduleDefinition } from "@/kernel/jobs/types";
 import { logger } from "@/kernel/logging/logger";
 import * as banking from "@/modules/banking";
+import { prepareDocumentProposals, writeDocumentProposals } from "../documents";
 import { type RunResult, runProposals } from "../proposals";
 import { askStage2, prepareStage2, writeStage2 } from "../stage2";
 
@@ -80,6 +81,57 @@ export const proposeForRowsJob: JobDefinition<ProposeForRowsData> = {
   },
 };
 
+export type ProposeForDocumentsData = {
+  tenantId: string;
+  userId: string;
+} & ({ documentIds: string[] } | { all: true });
+
+/**
+ * F126: the model's BAS account for inbox documents (a receipt, a supplier invoice) — after OCR read one, and with
+ * the nightly / *Run now* run for every inbox document. AI off → nothing (the dialogs show what they show today).
+ */
+export async function proposeForDocuments(
+  data: ProposeForDocumentsData,
+  ai: AiService = createAiService(),
+): Promise<{ asked: number; proposed: number; failed: number; stopped: boolean }> {
+  const none = { asked: 0, proposed: 0, failed: 0, stopped: false };
+  if (ai.kind === "off") return none;
+  const runId = randomUUID();
+  const scope = "all" in data ? { all: true as const } : { documentIds: data.documentIds };
+  const prepared = await withJobContext(data.tenantId, data.userId, (tx, caller) =>
+    prepareDocumentProposals(tx, caller, scope),
+  );
+  if (!prepared) return none;
+  const outcome = await askStage2(ai, prepared);
+  const proposed = outcome.drafts.length
+    ? await withJobContext(data.tenantId, data.userId, (tx, caller) =>
+        writeDocumentProposals(tx, caller, runId, outcome.drafts),
+      )
+    : 0;
+  const result = {
+    asked: outcome.asked,
+    proposed,
+    failed: outcome.failed,
+    stopped: outcome.stopped,
+  };
+  logger.info({ tenantId: data.tenantId, ...result }, "linking.propose-documents: run done");
+  return result;
+}
+
+export const proposeForDocumentsJob: JobDefinition<ProposeForDocumentsData> = {
+  name: "linking.propose-for-documents",
+  options: { retryLimit: 1, retryDelay: 60, expireInSeconds: 900 },
+  handler: async (data) => {
+    await proposeForDocuments(data);
+  },
+  onDeadLetter: async (data, ctx) => {
+    logger.error(
+      { tenantId: data.tenantId, failure: ctx.failure },
+      "linking.propose-documents: failed after all retries",
+    );
+  },
+};
+
 export type ProposeNightlyData = Record<string, never>;
 
 /** Every tenant, as its owner: every open row. */
@@ -90,6 +142,7 @@ export const proposeNightlyJob: JobDefinition<ProposeNightlyData> = {
     for (const owner of await tenantOwners(prisma)) {
       try {
         await proposeForRows({ ...owner, all: true });
+        await proposeForDocuments({ ...owner, all: true });
       } catch (e) {
         // one tenant's failure does not stop the others; the reason is in the log (no data in it)
         logger.error(
@@ -112,5 +165,5 @@ export const proposeNightlySchedule: ScheduleDefinition<ProposeNightlyData> = {
   missed: "once",
 };
 
-export const proposalJobs = [proposeForRowsJob, proposeNightlyJob] as const;
+export const proposalJobs = [proposeForRowsJob, proposeForDocumentsJob, proposeNightlyJob] as const;
 export const proposalSchedules = [proposeNightlySchedule] as const;

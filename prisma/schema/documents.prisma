@@ -3,32 +3,35 @@
 // enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
 
 model Document {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId     String   @map("tenant_id") @db.Uuid
-  businessKey  String   @map("business_key") @db.VarChar(100)
-  fileName     String   @map("file_name") @db.VarChar(255)
-  blobUrl      String   @map("blob_url") @db.VarChar(500)
-  mimeType     String   @map("mime_type") @db.VarChar(50)
-  fileSize     Int      @map("file_size")
-  prefixType   String   @map("prefix_type") @db.VarChar(30)
-  documentType String   @map("document_type") @db.VarChar(20)
-  status       String   @default("uploaded") @map("status") @db.VarChar(20)
-  ocrData      Json?    @map("ocr_data") @db.JsonB
-  corrections  Json?    @map("corrections") @db.JsonB
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  businessKey  String    @map("business_key") @db.VarChar(100)
+  fileName     String    @map("file_name") @db.VarChar(255)
+  blobUrl      String    @map("blob_url") @db.VarChar(500)
+  mimeType     String    @map("mime_type") @db.VarChar(50)
+  fileSize     Int       @map("file_size")
+  prefixType   String    @map("prefix_type") @db.VarChar(30)
+  documentType String    @map("document_type") @db.VarChar(20)
+  status       String    @default("uploaded") @map("status") @db.VarChar(20)
+  ocrData      Json?     @map("ocr_data") @db.JsonB
+  corrections  Json?     @map("corrections") @db.JsonB
   reviewedAt   DateTime? @map("reviewed_at") @db.Timestamptz
-  reviewedBy   String?  @map("reviewed_by") @db.Uuid
+  reviewedBy   String?   @map("reviewed_by") @db.Uuid
   /// sha256 hex of the stored bytes, set once (upload / generated); null on rows stored before the column
-  contentHash  String?  @map("content_hash") @db.Char(64)
+  contentHash  String?   @map("content_hash") @db.Char(64)
   /// the parking flag (archive / restore on the inbox) — a fact beside the pipeline status
   archivedAt   DateTime? @map("archived_at") @db.Timestamptz
-  archivedBy   String?  @map("archived_by") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
-  createdBy    String   @map("created_by") @db.Uuid
-  source       String   @default("web")
+  archivedBy   String?   @map("archived_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy    String    @map("created_by") @db.Uuid
+  source       String    @default("web")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// F126: what the proposals say about this document before it becomes anything (modules/linking writes them)
+  proposals Proposal[]
 
+  @@unique([tenantId, id], map: "documents_tenant_id_id_key")
   @@index([tenantId, status], map: "idx_documents_tenant_status")
   @@index([tenantId, businessKey], map: "idx_documents_tenant_business_key")
   @@index([tenantId, contentHash], map: "idx_documents_tenant_content_hash")

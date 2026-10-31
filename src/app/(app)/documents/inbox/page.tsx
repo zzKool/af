@@ -10,6 +10,7 @@ import { listInbox, toInboxData } from "@/modules/documents";
 import type { MakeItOptions } from "@/modules/documents/ui";
 import { InboxWorkbench } from "@/modules/documents/ui";
 import { expensePageOptions } from "@/modules/expenses";
+import { documentBasHints } from "@/modules/linking";
 import { getUserPreferences } from "@/modules/settings";
 import { supplierInvoicePageOptions } from "@/modules/supplier-invoices";
 
@@ -40,6 +41,10 @@ export default async function DocumentInboxPage() {
           registrations: supplier.registrations,
           basHistory: supplier.basHistory,
         },
+        basProposals: await documentBasHints(
+          tx,
+          inbox.rows.map((r) => r.id),
+        ),
       };
     }
     return { inbox: toInboxData(inbox), options, prefs };

@@ -187,3 +187,29 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(calls.create.mock.calls[0]?.[0]).toMatchObject({ partnerId: "cerf", basCode: "583" });
   });
 });
+
+describe("NewExpenseDialog — the AI's account for the receipt (F126)", () => {
+  afterEach(cleanup);
+  const ai = { code: "690", reason: "Small office supplies", prefill: true };
+
+  it("HIGH fills the empty field, marked as the AI's; a partner's default replaces it", () => {
+    render(<NewExpenseDialog {...props} initial={{ currency: "CHF", basProposal: ai }} />);
+    expect(category()).toHaveTextContent(/690\s*Other/);
+    expect(screen.getByTestId("expense-category")).toHaveAttribute("data-prefilled", "true");
+    expect(screen.getByTestId("category-from-ai")).toBeInTheDocument();
+    pick("cerf");
+    expect(category()).toHaveTextContent(/583\s*Representation/);
+    expect(screen.queryByTestId("category-from-ai")).toBeNull();
+  });
+
+  it("MEDIUM (no prefill) leaves the field empty — the account waits on top of the picker", () => {
+    render(
+      <NewExpenseDialog
+        {...props}
+        initial={{ currency: "CHF", basProposal: { ...ai, prefill: false } }}
+      />,
+    );
+    expect(category()).toHaveTextContent("—");
+    expect(screen.queryByTestId("category-from-ai")).toBeNull();
+  });
+});

@@ -32,7 +32,7 @@ import {
   nameOf,
 } from "./bas-picker-model";
 
-export { mergeBasUsage, partnerBasSuggestions } from "../bas-history";
+export { aiSuggestion, mergeBasUsage, partnerBasSuggestions } from "../bas-history";
 export {
   aliasOf,
   type BasDirection,

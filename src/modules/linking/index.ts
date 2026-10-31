@@ -68,9 +68,18 @@ export {
 } from "./linking.actions";
 export { memoryForKeys, memoryForRow, rememberedPartners } from "./memory";
 export {
+  currentDocumentProposals,
+  decideDocumentProposal,
+  documentBasHints,
+  dropProposalsForDocuments,
+} from "./proposals/documents";
+export {
+  type ProposeForDocumentsData,
   type ProposeForRowsData,
   proposalJobs,
   proposalSchedules,
+  proposeForDocuments,
+  proposeForDocumentsJob,
   proposeForRows,
   proposeForRowsJob,
 } from "./proposals/jobs/propose";

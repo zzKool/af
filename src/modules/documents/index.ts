@@ -64,7 +64,11 @@ export {
   PENDING_STATES,
 } from "./inbox";
 export type { ProcessDocumentData } from "./jobs/process-document";
-export { documentJobs, processDocumentJob } from "./jobs/process-document";
+export {
+  documentJobs,
+  processDocumentJob,
+  setOnDocumentExtracted,
+} from "./jobs/process-document";
 export { documentLinkable, unlinkedFinancialDocuments } from "./linkable";
 export * from "./queries";
 // global search (F93): the module's palette hits

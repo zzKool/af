@@ -356,6 +356,7 @@ describe("F98 — stage-1 proposals", () => {
             runId: randomUUID(),
             targetType: "bank_transaction",
             targetId: ids.inv3,
+            bankTransactionId: ids.inv3,
             kind: "bas",
             payload: { basCode: "654", alternatives: [] },
             source: "memory",

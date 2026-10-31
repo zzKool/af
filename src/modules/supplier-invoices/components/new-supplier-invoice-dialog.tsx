@@ -39,7 +39,12 @@ import {
   useDuplicateCheck,
 } from "@/modules/expenses/ui";
 import { PartnerMatchCard, type VendorFacts } from "@/modules/partners/ui";
-import { BasPicker, partnerBasSuggestions } from "@/modules/settings/ui";
+import {
+  aiSuggestion,
+  BasPicker,
+  type BasProposalHint,
+  partnerBasSuggestions,
+} from "@/modules/settings/ui";
 import {
   checkSupplierInvoiceDuplicatesAction,
   copyLastSupplierInvoiceAction,
@@ -67,6 +72,8 @@ export type SupplierInvoiceInitial = {
   amountTotal?: string | null;
   documentId?: string | null;
   documentKey?: string | null;
+  /** F126: the AI's account for the document — on top of the picker; HIGH fills the empty field */
+  basProposal?: BasProposalHint | null;
 };
 
 const NONE = "__none__";
@@ -133,6 +140,8 @@ export function NewSupplierInvoiceDialog({
   const [totalTouched, setTotalTouched] = useState(false);
   // no category until chosen — the supplier's default fills it, the first of the list is no proposal (F124 (5))
   const [basCode, setBasCode] = useState("");
+  // the field holds the AI's proposal (F126) — drawn dashed until the owner or the supplier's default replaces it
+  const [basFromAi, setBasFromAi] = useState(false);
   const [registrationId, setRegistrationId] = useState(NONE);
   const [documentId, setDocumentId] = useState(NONE);
   const [documentMissing, setDocumentMissing] = useState(false);
@@ -173,8 +182,13 @@ export function NewSupplierInvoiceDialog({
       setDocumentId(initial.documentId);
       setDocumentMissing(false);
     }
+    const ai = initial.basProposal;
+    if (ai?.prefill && categories.some((c) => c.code === ai.code)) {
+      setBasCode(ai.code);
+      setBasFromAi(true);
+    }
     setAckNote("");
-  }, [open, defaultGroupId, groups, initial]);
+  }, [open, defaultGroupId, groups, initial, categories]);
 
   // created from the match card, then listed by the refreshed page too → once (the duplicate React key)
   const allSuppliers = withCreatedSuppliers(extraSuppliers, suppliers);
@@ -202,7 +216,10 @@ export function NewSupplierInvoiceDialog({
     if (!supplierId) return;
     // the document's currency wins over the supplier's default when the dialog opens from the review page
     if (supplierCurrency && !initialCurrency) setCurrency(supplierCurrency);
-    if (supplierBas) setBasCode(supplierBas);
+    if (supplierBas) {
+      setBasCode(supplierBas);
+      setBasFromAi(false);
+    }
   }, [supplierId, supplierCurrency, supplierBas, initialCurrency]);
   useEffect(() => {
     if (!dueTouched) setDueDate(addDays(invoiceDate, supplierTerms));
@@ -514,12 +531,22 @@ export function NewSupplierInvoiceDialog({
               id={`${ids}-cat`}
               options={categories}
               value={basCode}
-              onChange={(code) => code && setBasCode(code)}
-              suggestions={supplierSuggestion}
+              onChange={(code) => {
+                if (!code) return;
+                setBasCode(code);
+                setBasFromAi(false);
+              }}
+              suggestions={[...aiSuggestion(initial?.basProposal), ...(supplierSuggestion ?? [])]}
+              proposed={basFromAi}
               direction="cost"
               requireAlias
               data-testid="si-category"
             />
+            {basFromAi && (
+              <p className="mt-1 text-xs text-muted-foreground" data-testid="si-category-from-ai">
+                {t("supplierInvoices.form.categoryFromAi")}
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor={`${ids}-reg`} className="mb-1 block text-xs font-medium">

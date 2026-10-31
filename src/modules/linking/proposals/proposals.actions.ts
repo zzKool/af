@@ -8,7 +8,7 @@ import { aiStatus } from "@/kernel/ai/ai";
 import { enqueue } from "@/kernel/jobs/queue";
 import { uuid } from "@/kernel/validation/scalars";
 import "../linkables";
-import { proposeForRowsJob } from "./jobs/propose";
+import { proposeForDocumentsJob, proposeForRowsJob } from "./jobs/propose";
 import { acceptProposals, currentProposals, proposalStats, rejectProposal } from "./proposals";
 
 /** The current proposals of these rows — the panel, the inbox's right pane. */
@@ -62,6 +62,7 @@ export const runProposalsNowAction = ownerAction
     const { tenantId, userId } = ctx.callerIdentity;
     ctx.onCommit(async () => {
       await enqueue(proposeForRowsJob, { tenantId, userId, all: true });
+      await enqueue(proposeForDocumentsJob, { tenantId, userId, all: true });
     });
     return { data: { queued: true } };
   });
