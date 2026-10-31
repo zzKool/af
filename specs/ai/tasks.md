@@ -19,10 +19,11 @@ Spec `spec.md` · plan `plan.md`. PR 1 = T001–T012, PR 2 = T013–T016.
 
 ## PR 2 — `feat/ai-model-stage`
 
-- [ ] T013 Prompts `bas-proposal` / `partner-proposal` v1 (static prefix first), output schemas with the active-code enum
-- [ ] T014 Stage 2 in the run: only what stage 1 left open or disagrees on; one request at a time; timeout → skip
-- [ ] T015 `npm run ai -- eval` (counts only)
-- [ ] T016 The mock's fixed answers for the e2e; docs
+- [x] T013 Prompt `bas-proposal` v1 (static prefix first), output schema with the active-code enum (2026-10-31)
+- [ ] T013b Prompt `partner-proposal` v1 + `newPartner` — after F126 (the category was the owner's ask)
+- [x] T014 Stage 2 in the run: only what stage 1 left open (a disagreement keeps stage 1's capped answer + alternative); one request at a time, ≤ 60 per run; timeout retried once; unreachable stops the run
+- [x] T015 The eval — `npx tsx scripts/ai-eval.ts` (no `package.json` script: one less serialised file), counts only
+- [x] T016 The mock's fixed answer (`linking.bas-proposal`); docs. CI keeps AI off (the stage-1 e2e asserts it), stage 2 is covered by DB tests with an injected service
 - T013–T016 revised by `spec-suggest-from-first-entry.md` FR-201: the prompt carries the active accounts' *Use for* notes; no name → account mapping anywhere
 
 ## F126 — the rest of "suggested from the first entry" (`spec-suggest-from-first-entry.md`)

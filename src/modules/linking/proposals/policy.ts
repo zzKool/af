@@ -48,6 +48,8 @@ export function memoryConfidence(n: number): number {
 
 export const RULE_CONFIDENCE = 1;
 export const PARTNER_DEFAULT_CONFIDENCE = 0.95;
+/** The model never outranks a rule or a partner's default (F98 PR 2). */
+export const MODEL_MAX_CONFIDENCE = 0.95;
 
 /** What a form pre-fills without saving: the HIGH proposals (`prefilled`, PREFILL_HIGH) — one value per fact. */
 export function prefillFromProposals(

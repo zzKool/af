@@ -230,8 +230,18 @@ export function createMockAiService(answers: Record<string, unknown> = MOCK_ANSW
   };
 }
 
-/** The mock's answers by task (PR 2 fills it with invented, fixed answers for the e2e). */
-export const MOCK_ANSWERS: Record<string, unknown> = {};
+/**
+ * The mock's answers by task — invented and fixed (dev and tests). The BAS proposal names 654 (IT services, in
+ * the seed's active set); a tenant without it gets `invalid_output`, like a model answering outside the enum.
+ */
+export const MOCK_ANSWERS: Record<string, unknown> = {
+  "linking.bas-proposal": {
+    basCode: "654",
+    confidence: 0.86,
+    reason: "Looks like a software or cloud service (mock answer)",
+    alternatives: [],
+  },
+};
 
 export function createAiService(
   env: Env = process.env,
