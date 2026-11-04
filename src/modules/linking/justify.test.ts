@@ -284,6 +284,86 @@ describe("justifyRow (US1)", () => {
     });
   });
 
+  it("F130: the warnings the owner confirmed over go on the justifies link's audit trail; an unknown code is refused", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    const base = {
+      transactionId: s.row,
+      documentId: s.documentId,
+      kind: "supplier_invoice" as const,
+      supplier: {
+        groupId: s.groupId,
+        partnerId: s.supplierId,
+        invoiceNumber: "2026-071",
+        invoiceDate: "2026-07-06",
+        currency: "SEK" as const,
+        amountNet: "1297.20",
+        amountTotal: "1297.20",
+        basCode: "654",
+      },
+    };
+    // the boundary: only the seven codes
+    const bad = await run(caller, (tx) =>
+      justifyRow(tx, caller, noopAudit, {
+        ...base,
+        confirmedWarnings: ["looks_wrong" as unknown as "date"],
+      }),
+    );
+    expect(bad.error?.code).toBe("VALIDATION_ERROR");
+
+    const r = await run(caller, (tx) =>
+      justifyRow(tx, caller, realAudit(tx, caller), {
+        ...base,
+        confirmedWarnings: ["vendor_counterparty", "date", "vendor_counterparty"],
+      }),
+    );
+    expect(r.error).toBeUndefined();
+    const linkId = await run(caller, async (tx) => {
+      const links = await getLinksFor(tx, { type: "bank_transaction", id: s.row });
+      return links.data?.find((l) => l.kind === "justifies")?.id as string;
+    });
+    expect(linkId).toBeTruthy();
+    const trail = await adminPool.query(
+      `SELECT action, new_data FROM audit_logs WHERE entity_type = 'link' AND entity_id = $1 ORDER BY created_at`,
+      [linkId],
+    );
+    expect(trail.rows.map((a) => a.action)).toEqual(["create", "update"]);
+    // once each, in the order given — the link's own create row untouched
+    expect(trail.rows[1].new_data).toEqual({ confirmedWarnings: ["vendor_counterparty", "date"] });
+    expect(trail.rows[0].new_data.kind).toBe("justifies");
+
+    // nothing confirmed: no second row
+    const [cardRow] = await run(caller, (tx) =>
+      importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-09", amount: "-99.00", details: "Kortköp 260708 KIOSK" },
+      ]),
+    );
+    const plain = await run(caller, (tx) =>
+      justifyRow(tx, caller, realAudit(tx, caller), {
+        transactionId: cardRow as string,
+        kind: "expense",
+        confirmedWarnings: [],
+        expense: {
+          groupId: s.groupId,
+          date: "2026-07-08",
+          description: "Kiosk",
+          basCode: "580",
+          amount: "99.00",
+          currency: "SEK",
+        },
+      }),
+    );
+    expect(plain.error).toBeUndefined();
+    const plainLinks = await run(caller, (tx) =>
+      getLinksFor(tx, { type: "bank_transaction", id: cardRow as string }),
+    );
+    const plainTrail = await adminPool.query(
+      `SELECT action FROM audit_logs WHERE entity_type = 'link' AND entity_id = $1`,
+      [plainLinks.data?.[0]?.id],
+    );
+    expect(plainTrail.rows.map((a) => a.action)).toEqual(["create"]);
+  });
+
   it("the accountant cannot; another tenant sees nothing", async () => {
     const s = await scene(owner.caller);
     const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
