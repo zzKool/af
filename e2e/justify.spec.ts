@@ -10,6 +10,7 @@ const SHOTS = join(__dirname, "..", "specs", "justify", "screenshots");
 async function snap(page: Page, name: string) {
   if (!process.env.E2E_SCREENSHOTS) return;
   mkdirSync(SHOTS, { recursive: true });
+  await page.waitForTimeout(400); // a theme or a scroll just changed: let the paint settle
   await page.screenshot({ path: join(SHOTS, `${name}.png`) });
 }
 
@@ -42,6 +43,8 @@ test.describe("Justify", () => {
     page,
   }) => {
     test.setTimeout(300_000);
+    // the dialog fills the viewport: the PR's pictures take a taller one so the checks and the group are in view
+    if (process.env.E2E_SCREENSHOTS) await page.setViewportSize({ width: 1280, height: 1000 });
     await trackToasts(page);
     await withToastReport(page, async () => {
       // 1. a trip group whose days cover a paper date (2025, the seeded rates' year) — the dialog proposes it
@@ -144,6 +147,7 @@ test.describe("Justify", () => {
       await expect(
         dialog.getByTestId("reading-check-warning").filter({ hasText: /^!?\s*Booked/ }),
       ).toHaveCount(1);
+      await dialog.getByTestId("reading-checks").scrollIntoViewIfNeeded();
       await snap(page, "reading-dialog-warnings");
       await snapElement(dialog.getByTestId("reading-checks"), "reading-dialog-checks-element");
       // the category, then the one click — warn, never block
