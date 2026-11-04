@@ -119,7 +119,10 @@ test.describe("Linking", () => {
       if (process.env.E2E_SCREENSHOTS) {
         const justifyShots = join(__dirname, "..", "specs", "justify", "screenshots");
         mkdirSync(justifyShots, { recursive: true });
-        await page.screenshot({ path: join(justifyShots, "row-derived-partner.png"), fullPage: true });
+        await page.screenshot({
+          path: join(justifyShots, "row-derived-partner.png"),
+          fullPage: true,
+        });
       }
       await page.keyboard.press("Escape");
       const paidRow = page.getByRole("row").filter({ hasText: client.toUpperCase() }).first();
