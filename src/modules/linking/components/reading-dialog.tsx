@@ -12,7 +12,7 @@
 // list order) · the Category with its source · one primary, *Confirm & link* → `justifyRowAction` (one transaction),
 // then the D74 toast when the result proposes a rule. Escape closes without writing. Replaces the F97 compare card.
 import { useAction } from "next-safe-action/hooks";
-import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -216,6 +216,9 @@ function ReadingDialogBody({
   );
   const picked = pick ? partners.find((p) => p.id === pick.partnerId) : undefined;
   const partnerId = picked?.id ?? NONE;
+  // the latest pick for the proposals that arrive asynchronously (a match, the memory) — no side effect in an updater
+  const pickRef = useRef(pick);
+  pickRef.current = pick;
 
   // --- the category: a HIGH proposal pre-fills it (F98), else the picked partner's default; the source is named ---
   const [basCode, setBasCode] = useState<string>(() => {
@@ -251,13 +254,11 @@ function ReadingDialogBody({
     // the partner's default category fills an empty one (journal T002, on the row)
     if (p?.defaultBasCode) setBasCode((b) => (b === NONE ? (p.defaultBasCode ?? NONE) : b));
   }
+  /** a proposal from a fact: it never replaces the owner's pick; a match replaces the memory's proposal */
   function proposePartner(next: PartnerPick) {
-    setPick((cur) => {
-      if (cur && !(cur.from === "memory" && next.from === "match")) return cur;
-      const p = partners.find((x) => x.id === next.partnerId);
-      if (p?.defaultBasCode) setBasCode((b) => (b === NONE ? (p.defaultBasCode ?? NONE) : b));
-      return next;
-    });
+    const cur = pickRef.current;
+    if (cur && !(cur.from === "memory" && next.from === "match")) return;
+    pickPartner(next);
   }
 
   // --- the group, proposed from the paper's date (review §5.2): the covering trip, else the month's group ---

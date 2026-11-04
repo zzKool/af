@@ -38,7 +38,9 @@ test.describe("Justify", () => {
   const tripName = `Justify trip ${stamp}`;
   const groupName = `Justify ${stamp}`;
 
-  test("the reading dialog — an invoice, a receipt, no proof, the receipt lost", async ({ page }) => {
+  test("the reading dialog — an invoice, a receipt, no proof, the receipt lost", async ({
+    page,
+  }) => {
     test.setTimeout(300_000);
     await trackToasts(page);
     await withToastReport(page, async () => {
@@ -50,7 +52,10 @@ test.describe("Justify", () => {
       await page.getByRole("option", { name: "Trip" }).click();
       await page.getByTestId("save-group").click();
       await expectToast(page, "created");
-      await page.getByRole("link", { name: new RegExp(tripName) }).first().click();
+      await page
+        .getByRole("link", { name: new RegExp(tripName) })
+        .first()
+        .click();
       await expect(page).toHaveURL(/\/expenses\/groups\/[0-9a-f-]+$/);
       await page.getByLabel("Departure").fill("2025-03-10T09:00");
       await page.getByLabel("Return").fill("2025-03-20T17:00");
