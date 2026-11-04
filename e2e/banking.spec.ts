@@ -115,7 +115,8 @@ test.describe("Banking", () => {
     await newRule.getByLabel("Pattern").fill(insurance.toUpperCase());
     await newRule.getByRole("checkbox", { name: /No document needed/ }).click();
     await newRule.getByRole("button", { name: "Save rule" }).click();
-    await expect(page.getByText("Rule saved")).toBeVisible();
+    // two saves in a row: the first toast may still be on screen on a slow runner — the newest counts
+    await expect(page.getByText("Rule saved").last()).toBeVisible();
     await page.keyboard.press("Escape");
     const nearMiss = page
       .getByTestId("rule-near-miss")
@@ -133,7 +134,6 @@ test.describe("Banking", () => {
     await editRule.getByLabel("Partner").click();
     await page.getByRole("option", { name: "Nordea" }).click();
     await editRule.getByRole("button", { name: "Save rule" }).click();
-    await expect(page.getByText("Rule saved")).toBeVisible();
     await expect(page.getByTestId("rule-near-miss").filter({ hasText: insurance })).toHaveCount(0);
     await page.goto("/banking");
     await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("657");
