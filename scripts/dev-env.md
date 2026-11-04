@@ -30,7 +30,7 @@ Like CI, everything runs on the **test** database — app, unit tests, e2e. No `
 | `DATABASE_MIGRATION_URL` / `DATABASE_TEST_MIGRATION_URL` | `postgresql://af:test@localhost:5433/af_test` | migrations, seed, `reset-e2e-data.sh` |
 
 - `af` (superuser) is created by the script; `af_app` by the first migration.
-- `.env.local` is written once (random `AUTH_SECRET`, Azurite's well-known key, `CHROMIUM_PATH`) and never overwritten — delete it to regenerate. Git ignores it.
+- `.env.local` is written once (random `AUTH_SECRET`, Azurite's well-known key, `CHROMIUM_PATH`, `OCR_PROVIDER=mock` — the server the e2e reuses must read the mock itself: Playwright's `webServer.env` never applies with `reuseExistingServer`, lessons *F127 build*) and never overwritten — delete it to regenerate. Git ignores it.
 
 ## Migrations without the Prisma engine
 
