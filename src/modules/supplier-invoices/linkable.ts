@@ -21,6 +21,7 @@ type Row = {
   currency: string;
   note: string | null;
   cancelled: boolean;
+  basCode: string;
 };
 
 const ROW_SELECT = {
@@ -35,6 +36,7 @@ const ROW_SELECT = {
   currency: true,
   note: true,
   cancelled: true,
+  basCode: true,
 } as const;
 
 /** The matcher's view: the supplier's own number is the reference, its name the partner, dated the invoice day. */
@@ -56,6 +58,7 @@ async function toFacts(
       reference: si.invoiceNumber,
       partnerName: partner,
       partnerId: si.partnerId,
+      basCode: si.basCode,
       dueDate: si.dueDate.toISOString().slice(0, 10),
       texts: [si.key, si.invoiceNumber, partner ?? "", si.note ?? ""],
       direction: "outgoing" as const,

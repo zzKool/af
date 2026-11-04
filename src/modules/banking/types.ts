@@ -5,6 +5,9 @@ import type { LinkableType, LinkKind } from "@/modules/linking";
 import type { BaseRateResult } from "@/modules/rates";
 import type { BalanceGap } from "./completeness";
 import type { BankFormatConfig } from "./csv-parser";
+import type { EffectiveFacts, FactSource } from "./effective";
+
+export type { EffectiveFacts, FactSource, ProofFact } from "./effective";
 
 /** A row's base rate source: the words of rates' `rateToBase` (`same_currency` · `ecb_daily` · `ecb_nearest`) or a
  * rate typed by hand (`manual`, no row carries it since F113 — the vocabulary stays one with expenses). */
@@ -229,20 +232,26 @@ export type RuleText = {
   amount?: string | null;
 };
 
-/** Why a rule whose text matched did not fire — or fired off its cadence (the rules page's *Needs a look*). */
-export type RuleNearMissReason = "account" | "sign" | "amount" | "cadence";
+/**
+ * Why a rule whose text matched did not fire — or fired off its cadence — and, since F129, a rule that sets *no
+ * proof* without a partner: its rows stay to justify (the rules page's *Needs a look*).
+ */
+export type RuleNearMissReason = "account" | "sign" | "amount" | "cadence" | "no_partner";
 
 export type RuleNearMiss = {
-  transactionId: string;
-  bookingDate: string;
-  amount: string;
-  currency: string;
-  description: string;
+  /** the row concerned; null for an entry about the rule itself (`no_partner`) */
+  transactionId: string | null;
+  bookingDate: string | null;
+  amount: string | null;
+  currency: string | null;
+  description: string | null;
   ruleId: string;
   ruleName: string;
   reason: RuleNearMissReason;
   /** for an amount miss: what the rule expects (± its tolerance) */
   expected: string | null;
+  /** for a `no_partner` entry: how many rows the rule categorised */
+  rows: number | null;
 };
 
 export type RuleTestResult = { matches: number; tested: number; sample: string[] };
@@ -258,25 +267,40 @@ export type ApplyRulesResult = {
   }[];
 };
 
-/** Derived from links and the row's *no document needed* flag — never stored. */
-export type TransactionState = "open" | "partial" | "linked" | "no_document";
+/**
+ * Derived from the links, the row's *no document needed* flag and its effective partner — never stored (F129, D73:
+ * a justified row names a partner). `linked_no_partner` and `no_document_no_partner` are still *to justify*; a
+ * transfer leg and a savings-account row need no partner (the other statement is the proof, D13 / F65).
+ */
+export type TransactionState =
+  | "open"
+  | "partial"
+  | "linked"
+  | "linked_no_partner"
+  | "no_document"
+  | "no_document_no_partner";
 export const TRANSACTION_STATES: readonly TransactionState[] = [
   "open",
   "partial",
   "linked",
+  "linked_no_partner",
   "no_document",
+  "no_document_no_partner",
 ];
 
 /**
  * A row's derived state with the facts it derives from — what another module reads instead of re-deriving the
- * allocation and the transfer from the links itself (the package's bank sheet, lessons audit 23).
+ * allocation, the transfer and the effective partner / category from the links itself (the package's bank sheet,
+ * lessons audit 23).
  */
-export type TransactionStateFacts = {
+export type TransactionStateFacts = EffectiveFacts & {
   state: TransactionState;
   /** Σ allocated FROM the row, 2 dp ("0.00" when none) */
   allocated: string;
   /** the row is a leg of an accepted transfer pair */
   inTransfer: boolean;
+  /** the effective partner's name (F129) */
+  partnerName: string | null;
 };
 
 /** The workbench row: the transaction with its facts, the labels, the derived state. */
@@ -299,10 +323,15 @@ export type TransactionListRow = {
   rateSource: RateSource;
   /** the transfer pair's implied rate, derived from the `transfer` link (D44) */
   bankImplicitRate: string | null;
+  // the effective category and partner (F129, D73): typed on the row, else the proof's — `basFrom` / `partnerFrom`
+  // say which; `mixed` when the proofs disagree
   basCode: string | null;
   basLabel: string | null;
+  basFrom: FactSource | null;
   partnerId: string | null;
   partnerName: string | null;
+  partnerFrom: FactSource | null;
+  mixed: boolean;
   /** F98: the current category proposal (derived): code, source word, confidence 0–1 */
   proposedBasCode: string | null;
   proposedSource: "rule" | "partner_default" | "memory" | "model" | null;
@@ -385,7 +414,7 @@ export type BankMonthCell = {
   toJustify: number;
 };
 
-/** One bar: rows justified (linked / no document needed) and to justify (open / partially linked); derived, never stored. */
+/** One bar: rows justified (linked / no document needed, each with a partner) and to justify (the four other states); derived, never stored. */
 export type BankMonth = { month: string; justified: number; toJustify: number; built: boolean };
 
 export type BankMonthsOverview = {

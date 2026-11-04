@@ -6,7 +6,10 @@ import {
   isCardPurchase,
   monthOf,
   NO_PROOF_BAS,
+  NO_PROOF_REASONS,
+  proposedPartnerRole,
   proposeKind,
+  proposeVendorRule,
   type RowForJustify,
 } from "./justify-rules";
 
@@ -115,5 +118,32 @@ describe("the small rules", () => {
     expect(NO_PROOF_BAS.fee).toBe("657");
     expect(NO_PROOF_BAS.interest).toBe("831");
     expect(NO_PROOF_BAS.other).toBeNull();
+  });
+});
+
+describe("F129 — the reasons' partner by type, the vendor rule (D74)", () => {
+  it("proposedPartnerRole: fee / interest → the bank, tax by the account's currency, salary → the owner, client → the picker, other → none", () => {
+    expect(proposedPartnerRole("fee", "SEK")).toBe("bank");
+    expect(proposedPartnerRole("interest", "SEK")).toBe("bank");
+    expect(proposedPartnerRole("tax", "SEK")).toBe("tax_agency_se");
+    expect(proposedPartnerRole("tax", "CHF")).toBe("tax_agency_ch");
+    expect(proposedPartnerRole("tax", "chf")).toBe("tax_agency_ch");
+    expect(proposedPartnerRole("tax", "EUR")).toBe("tax_agency_se");
+    expect(proposedPartnerRole("salary", "CHF")).toBe("owner");
+    expect(proposedPartnerRole("client", "SEK")).toBe("client");
+    expect(proposedPartnerRole("other", "SEK")).toBeNull();
+    expect(NO_PROOF_REASONS).toContain("client");
+    expect(NO_PROOF_BAS.client).toBeNull();
+  });
+  it("proposeVendorRule: the key, contains on the counterparty key, the partner and the category", () => {
+    expect(proposeVendorRule("SKATTEPUNKTEN OFFICE", "p1", "6540")).toEqual({
+      name: "SKATTEPUNKTEN OFFICE",
+      matchType: "contains",
+      matchField: "counterparty_key",
+      matchPattern: "SKATTEPUNKTEN OFFICE",
+      partnerId: "p1",
+      basCode: "6540",
+    });
+    expect(proposeVendorRule("MSFT", "p2", null).basCode).toBeNull();
   });
 });

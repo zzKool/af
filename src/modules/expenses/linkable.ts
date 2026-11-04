@@ -13,6 +13,7 @@ type ExpenseRow = {
   amountBase: { toFixed(n: number): string };
   note: string | null;
   partnerId: string | null;
+  basCode: string;
   group: { number: number; description: string };
 };
 
@@ -26,6 +27,7 @@ const EXPENSE_SELECT = {
   amountBase: true,
   note: true,
   partnerId: true,
+  basCode: true,
   group: { select: { number: true, description: true } },
 } as const;
 
@@ -45,6 +47,7 @@ function expenseFacts(
     reference: e.key,
     partnerName,
     partnerId: e.partnerId,
+    basCode: e.basCode,
     texts: [e.key, e.description, `${e.group.number} — ${e.group.description}`, e.note ?? ""],
     keywords: e.description.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4),
     direction: "outgoing",

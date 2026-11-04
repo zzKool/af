@@ -27,8 +27,10 @@ export type {
   JustifyResult,
   NoProofInput,
   NoProofReason,
+  ProposedPartner,
   Reading,
   RowForJustify,
+  VendorRuleDraft,
 } from "./justify";
 export {
   compareRowToReading,
@@ -38,9 +40,13 @@ export {
   monthOf,
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
+  NO_PROOF_REASONS_INCOMING,
   noProofNeeded,
   noProofSchema,
+  PARTNER_REQUIRED,
+  proposedPartnerRole,
   proposeKind,
+  proposeVendorRule,
 } from "./justify";
 export { justifyOptions } from "./justify-options";
 export { ALLOCATING_KINDS, isKindAllowed, needsOwnFlow, OWN_PAYMENT_FLOW } from "./kinds";

@@ -122,6 +122,8 @@ export type EntityFacts = {
   keywords?: string[];
   /** the partner the entity belongs to — what the counterparty memory counts (F116) */
   partnerId?: string | null;
+  /** the BAS account the entity carries (an expense, a supplier invoice) — what a row it justifies shows on read (F129, D73) */
+  basCode?: string | null;
   /** ISO due date of an entity with terms — its payment window and the date claim run to it (F116) */
   dueDate?: string | null;
   /** a bank row's counterparty key — the identity its memory is kept under (F116) */

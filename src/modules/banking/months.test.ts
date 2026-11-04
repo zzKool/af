@@ -13,9 +13,12 @@ import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenan
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import * as accountantPackage from "@/modules/package";
+import * as partners from "@/modules/partners";
 import { createBankAccount } from "./bank-accounts";
+import { categorise } from "./facts";
 import { importCsv } from "./import";
 import { bankMonths } from "./months";
+import { listTransactions } from "./queries";
 import { acceptTransfer } from "./transfer-pairs";
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
@@ -144,6 +147,45 @@ describe("F69 — the Months read model", () => {
       completeTo: "2026-07-08",
       gaps: 0,
     });
+  });
+
+  it("F129 (D73): a row flagged without a partner stays to justify, with one it is justified; the savings interest never asks", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, sav } = await setup(caller);
+    expect((await importFile(caller, sek, "nordea-2026-07-sek-sample.csv")).error).toBeUndefined();
+    expect((await importFile(caller, sav, "nordea-savings-year.csv")).error).toBeUndefined();
+    const july = async () =>
+      (await run(caller, (tx) => bankMonths(tx, AUGUST))).months.find((m) => m.month === "2026-07");
+    // 12 rows in July: the fee the default rule flagged (the bank its partner since F129) is justified
+    expect(await july()).toMatchObject({ justified: 1, toJustify: 11 });
+    const row = await run(caller, (tx) =>
+      tx.bankTransaction.findFirstOrThrow({
+        where: { bankAccountId: sek, name: { not: "AVGIFTER NORDEA" } },
+        orderBy: [{ bookingDate: "asc" }, { rowIndex: "asc" }],
+      }),
+    );
+    await run(caller, (tx) =>
+      categorise(tx, caller, noopAudit, row.id, { noDocumentNeeded: true }),
+    );
+    expect(await july()).toMatchObject({ justified: 1, toJustify: 11 }); // flagged, no partner: still to justify
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    await run(caller, (tx) =>
+      categorise(tx, caller, noopAudit, row.id, { partnerId: bank?.id as string }),
+    );
+    expect(await july()).toMatchObject({ justified: 2, toJustify: 10 });
+    // the savings account: its rows need no partner (Q3) — the interest row the rule flagged is justified, and no
+    // savings row is ever *no partner*
+    const states = await run(caller, (tx) =>
+      listTransactions(tx, {
+        page: 1,
+        pageSize: 100,
+        sort: [],
+        filters: { bankAccountId: { kind: "in", values: [sav] } },
+      }),
+    );
+    expect(states.rows.some((r) => r.noDocumentNeeded && r.state === "no_document")).toBe(true);
+    expect(states.rows.map((r) => r.state)).not.toContain("no_document_no_partner");
+    expect(states.rows.map((r) => r.state)).not.toContain("linked_no_partner");
   });
 
   it("not imported: an account no import covers, and the months around an import; an import's period counts without rows", async () => {

@@ -23,6 +23,8 @@ import {
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
   type NoProofReason,
+  proposeVendorRule,
+  type VendorRuleDraft,
 } from "./justify-rules";
 import { WARNING_CODES, type WarningCode } from "./types";
 
@@ -48,10 +50,15 @@ export {
   monthOf,
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
+  NO_PROOF_REASONS_INCOMING,
   type NoProofReason,
+  type ProposedPartner,
+  proposedPartnerRole,
   proposeKind,
+  proposeVendorRule,
   type Reading,
   type RowForJustify,
+  type VendorRuleDraft,
 } from "./justify-rules";
 
 // --- the boundary ---
@@ -105,11 +112,16 @@ export const justifySchema = z
   });
 export type JustifyInput = z.input<typeof justifySchema>;
 
+export const PARTNER_REQUIRED =
+  "A partner is required — the statement is the proof, the partner says of what";
+
 export const noProofSchema = z.object({
   transactionId: uuid,
   reason: z.enum(NO_PROOF_REASONS as [NoProofReason, ...NoProofReason[]]),
   /** the owner's own category, else the reason's */
   basCode: basCode.nullable().optional(),
+  /** the partner the statement names (F129, D73 (b)): the reason proposes one, the owner confirms or picks — required */
+  partnerId: z.string({ error: PARTNER_REQUIRED }).uuid(),
 });
 export type NoProofInput = z.input<typeof noProofSchema>;
 
@@ -117,6 +129,11 @@ export type JustifyResult = {
   entity: { type: JustifyKind; id: string; key: string };
   /** the row as categorised by the click */
   row: { partnerId: string | null; basCode: string | null };
+  /**
+   * D74 (F129 FR-008): the rule to propose — the counterparty key → the proof's partner — when no active rule names
+   * that partner for the key yet; null when one does, or when the entity has no partner
+   */
+  proposeRule: VendorRuleDraft | null;
 };
 
 // --- the composite ---
@@ -147,11 +164,30 @@ async function auditConfirmedWarnings(
   });
 }
 
+/** The states a proof may still be made for: linked (with or without a partner) and *no proof* with one are not. */
+const CLOSED_FOR_PROOF: ReadonlySet<banking.TransactionState> = new Set<banking.TransactionState>([
+  "linked",
+  "linked_no_partner",
+  "no_document",
+]);
+/** The states *no proof needed* is refused on: the row is linked — the proof exists; remove the link first. */
+const LINKED: ReadonlySet<banking.TransactionState> = new Set<banking.TransactionState>([
+  "linked",
+  "linked_no_partner",
+]);
+
 /** The row the panel may justify: outgoing, on a main account, with something left to allocate. */
 async function openRow(
   tx: TransactionClient,
   id: string,
-): Promise<ServiceResult<{ currency: string; amount: string; bankAccountId: string }>> {
+): Promise<
+  ServiceResult<{
+    currency: string;
+    amount: string;
+    bankAccountId: string;
+    counterpartyKey: string;
+  }>
+> {
   const row = await banking.getBankTransaction(tx, id);
   if (!row)
     return {
@@ -170,9 +206,33 @@ async function openRow(
       ),
     };
   const state = (await banking.transactionStates(tx, [id])).get(id);
-  if (state && (state.state === "linked" || state.state === "no_document"))
+  if (state && CLOSED_FOR_PROOF.has(state.state))
     return { error: violation("This row is justified already") };
-  return { data: { currency: row.currency, amount: row.amount, bankAccountId: row.bankAccountId } };
+  return {
+    data: {
+      currency: row.currency,
+      amount: row.amount,
+      bankAccountId: row.bankAccountId,
+      counterpartyKey: row.counterpartyKey,
+    },
+  };
+}
+
+/**
+ * D74: after the proof is linked, the rule to propose for the counterparty key — the proof's partner, the category
+ * the owner picked — unless an active rule names that partner for the key already (`rulesForKey`), or the entity
+ * has no partner. The panel's toast offers it; `createRuleFromTransaction` writes it on a click.
+ */
+async function vendorRuleProposal(
+  tx: TransactionClient,
+  key: string,
+  partnerId: string | null | undefined,
+  basCode: string | null,
+): Promise<VendorRuleDraft | null> {
+  if (!partnerId) return null;
+  const rules = await banking.rulesForKey(tx, key);
+  if (rules.some((r) => r.partnerId === partnerId)) return null;
+  return proposeVendorRule(key, partnerId, basCode);
 }
 
 /**
@@ -224,6 +284,12 @@ export async function justifyRow(
       data: {
         entity: { type: "supplier_invoice", id: created.data.id, key: created.data.key },
         row: { partnerId: facts.data.partnerId, basCode: facts.data.basCode },
+        proposeRule: await vendorRuleProposal(
+          tx,
+          row.data.counterpartyKey,
+          s.partnerId,
+          facts.data.basCode,
+        ),
       },
     };
   }
@@ -260,20 +326,31 @@ export async function justifyRow(
     data: {
       entity: { type: "expense", id: created.data.id, key: created.data.key },
       row: { partnerId: facts.data.partnerId, basCode: facts.data.basCode },
+      proposeRule: await vendorRuleProposal(
+        tx,
+        row.data.counterpartyKey,
+        e.partnerId,
+        facts.data.basCode,
+      ),
     },
   };
 }
 
 /**
- * No proof needed (US3): the flag and the reason's category on the row, by hand. Returns whether a rule could be
- * proposed for the counterparty (no active rule hits it yet) — the panel's toast offers *Create rule from this*.
+ * No proof needed (US3; F129 US3): the flag, the reason's category and the partner on the row, by hand — there is
+ * no proof to derive the partner from, so it is typed here, never without one (D73 (b)). Refused on a linked row
+ * (the proof exists — remove the link first); a *no proof · no partner* row takes it again. Returns whether a rule
+ * could be proposed for the counterparty (no active rule hits it yet) — the panel's toast offers *Create rule from
+ * this*; the learned rule carries the partner.
  */
 export async function noProofNeeded(
   tx: TransactionClient,
   caller: CallerIdentity,
   audit: AuditLogger,
   input: NoProofInput,
-): Promise<ServiceResult<{ basCode: string | null; proposeRule: boolean }>> {
+): Promise<
+  ServiceResult<{ basCode: string | null; partnerId: string | null; proposeRule: boolean }>
+> {
   const parsed = noProofSchema.safeParse(input);
   if (!parsed.success)
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
@@ -287,9 +364,13 @@ export async function noProofNeeded(
         retryable: false,
       },
     };
+  const state = (await banking.transactionStates(tx, [v.transactionId])).get(v.transactionId);
+  if (state && LINKED.has(state.state))
+    return { error: violation("This row is linked — remove the link first") };
   const code = v.basCode !== undefined ? v.basCode : NO_PROOF_BAS[v.reason];
   const facts = await banking.categorise(tx, caller, audit, v.transactionId, {
     noDocumentNeeded: true,
+    partnerId: v.partnerId,
     ...(code !== null ? { basCode: code } : {}),
   });
   if (facts.error) return { error: facts.error };
@@ -303,5 +384,7 @@ export async function noProofNeeded(
     recipient: row.recipient,
   };
   const hit = banking.firstHit(banking.orderRules(rules), text);
-  return { data: { basCode: facts.data.basCode, proposeRule: !hit } };
+  return {
+    data: { basCode: facts.data.basCode, partnerId: facts.data.partnerId, proposeRule: !hit },
+  };
 }

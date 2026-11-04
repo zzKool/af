@@ -4,6 +4,7 @@
 // counterparty key. Read only: nothing here writes.
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as partners from "@/modules/partners";
+import { rowFacts } from "./queries";
 import { bankText, firstHit, orderRules, type RuleLike, ruleTarget } from "./rules";
 
 /** A row that could still get a proposal: not categorised by hand, and missing a category or a partner. */
@@ -47,7 +48,19 @@ const OPEN_WHERE = {
   AND: [{ OR: [{ basCode: null }, { partnerId: null }] }],
 };
 
-/** The rows a proposal run looks at: of one import, or these ids, or (nightly) every open one — newest first. */
+const OPEN_SELECT = {
+  id: true,
+  amount: true,
+  currency: true,
+  amountBase: true,
+  partnerId: true,
+  basCode: true,
+} as const;
+
+/**
+ * The rows a proposal run looks at: of one import, or these ids, or (nightly) every open one — newest first. A row
+ * whose category or partner is derived from its proof lacks nothing (F129): it is left out, as a typed one is.
+ */
 export async function proposalRowIds(
   tx: TransactionClient,
   scope: { importId: string } | { transactionIds: string[] } | { all: true },
@@ -61,11 +74,17 @@ export async function proposalRowIds(
         : OPEN_WHERE;
   const rows = await tx.bankTransaction.findMany({
     where,
-    select: { id: true },
+    select: OPEN_SELECT,
     orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
     take: limit,
   });
-  return rows.map((r) => r.id);
+  const facts = await rowFacts(tx, rows);
+  return rows
+    .filter((r) => {
+      const e = facts.effective.get(r.id);
+      return !e || e.basCode === null || e.partnerId === null;
+    })
+    .map((r) => r.id);
 }
 
 /** Every input stage 1 needs for these rows, in four reads (rows, rules, partners, history). */
@@ -74,9 +93,16 @@ export async function proposalInputs(
   ids: readonly string[],
 ): Promise<ProposalInput[]> {
   if (ids.length === 0) return [];
-  const rows = await tx.bankTransaction.findMany({
+  const all = await tx.bankTransaction.findMany({
     where: { id: { in: [...ids] }, ...OPEN_WHERE },
     orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
+  });
+  // the effective facts (F129): what the proof gives the row counts as there
+  const facts = await rowFacts(tx, all);
+  const effective = (id: string) => facts.effective.get(id);
+  const rows = all.filter((r) => {
+    const e = effective(r.id);
+    return !e || e.basCode === null || e.partnerId === null;
   });
   if (rows.length === 0) return [];
 
@@ -103,6 +129,8 @@ export async function proposalInputs(
           partnerId: hit.partnerId,
         }
       : null;
+    const basCode = effective(r.id)?.basCode ?? r.basCode;
+    const partnerId = effective(r.id)?.partnerId ?? r.partnerId;
     return {
       row: {
         id: r.id,
@@ -111,12 +139,12 @@ export async function proposalInputs(
         currency: r.currency,
         counterpartyKey: r.counterpartyKey,
         text: bankText(r),
-        basCode: r.basCode,
-        partnerId: r.partnerId,
+        basCode,
+        partnerId,
         categorisedBy: r.categorisedBy === "rule" ? "rule" : null,
       },
       rule,
-      partnerDefault: r.partnerId ? (defaults.get(r.partnerId) ?? null) : null,
+      partnerDefault: partnerId ? (defaults.get(partnerId) ?? null) : null,
       memory: memory.get(r.counterpartyKey) ?? { bas: [], partner: [] },
     };
   });

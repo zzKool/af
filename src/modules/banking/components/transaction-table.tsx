@@ -16,6 +16,7 @@ import {
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { Tag } from "@/kernel/ui/tags";
 import {
   distinctTransactionsAction,
   transactionDateHierarchyAction,
@@ -53,8 +54,11 @@ const COLUMN_KEYS = [
   "rateSource",
   "basCode",
   "basLabel",
+  "basFrom",
   "partnerId",
   "partnerName",
+  "partnerFrom",
+  "mixed",
   "proposedBasCode",
   "proposedSource",
   "proposedConfidence",
@@ -227,8 +231,12 @@ export function TransactionTable({
         width: "11rem",
         cell: (row) =>
           row.basLabel ? (
-            <span className="block truncate" title={row.basLabel}>
-              {row.basLabel}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 truncate" title={row.basLabel}>
+                {row.basLabel}
+              </span>
+              {/* F129: the proofs disagree — the larger allocation's account shows, the tag says so */}
+              {row.mixed && <Tag>{t("banking.facts.mixed")}</Tag>}
             </span>
           ) : (
             <span className="text-muted-foreground">—</span>
@@ -240,11 +248,32 @@ export function TransactionTable({
         type: "enum",
         defaultHidden: true,
       },
+      {
+        key: "basFrom",
+        header: t("banking.col.basFrom"),
+        type: "enum",
+        width: "7rem",
+        defaultHidden: true,
+      },
       { key: "partnerName", header: t("banking.col.partner"), type: "text", width: "10rem" },
       {
         key: "partnerId",
         header: `${t("banking.col.partner")} (id)`,
         type: "enum",
+        defaultHidden: true,
+      },
+      {
+        key: "partnerFrom",
+        header: t("banking.col.partnerFrom"),
+        type: "enum",
+        width: "7rem",
+        defaultHidden: true,
+      },
+      {
+        key: "mixed",
+        header: t("banking.col.mixed"),
+        type: "boolean",
+        width: "6rem",
         defaultHidden: true,
       },
       // F98 (the owner's answer 3): the current category proposal — code + its family, filterable, sortable
@@ -416,8 +445,10 @@ export function TransactionTable({
             return t(
               `banking.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
             );
-          if (column === "noDocumentNeeded")
+          if (column === "noDocumentNeeded" || column === "mixed")
             return value === "true" ? t("common.yes") : t("common.no");
+          if (column === "basFrom" || column === "partnerFrom")
+            return t(`banking.facts.from.${value as "row" | "proof"}`);
           return value;
         }}
         rowCurrency={(row) => row.currency as Currency}

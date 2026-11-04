@@ -5,6 +5,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
 import * as expenses from "@/modules/expenses";
+import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 
@@ -14,11 +15,21 @@ export async function justifyOptions(tx: TransactionClient, caller: CallerIdenti
     documents: false,
     transactions: false,
   });
-  const partners = await banking.partnerOptions(tx);
+  const partnerList = await banking.partnerOptions(tx);
+  // F129: the roles whose partner exists but is deactivated — the reasons' line says *inactive*, not nothing
+  const system = await partners.systemPartners(tx);
+  const inactiveRoles = partners.SYSTEM_ROLES.filter((r) => system[r] && !system[r]?.isActive);
   return {
     groups: page.groups.map((g) => ({ id: g.id, label: `${g.number} — ${g.description}` })),
     categories: page.categories,
-    partners,
+    partners: partnerList.map((p) => ({
+      id: p.id,
+      name: p.name,
+      defaultBasCode: p.defaultBasCode,
+      types: p.types ?? [],
+      systemRole: p.systemRole ?? null,
+    })),
+    inactiveRoles,
     // per partner, the accounts used before — every module's entries and the rows categorised by hand (F125 PR 2)
     basHistory: settings.mergeBasUsage([
       await expenses.partnerBasUsage(tx),

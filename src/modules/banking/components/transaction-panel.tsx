@@ -49,6 +49,17 @@ const BAS_SOURCE: Record<string, "rule" | "partner" | "history" | "model"> = {
   memory: "history",
   model: "model",
 };
+/** the states the Justify section shows on (F129): still to prove, or flagged without the partner it lacks */
+const JUSTIFY_STATES = new Set<TransactionDetailWire["state"]>([
+  "open",
+  "partial",
+  "no_document_no_partner",
+]);
+/** the states the statement proves: nothing to suggest */
+const NO_DOCUMENT_STATES = new Set<TransactionDetailWire["state"]>([
+  "no_document",
+  "no_document_no_partner",
+]);
 
 const money = (amount: string, currency: string) => formatMoney(amount, currency);
 /** a rate as the bank / ECB gave it, without trailing zeros */
@@ -281,31 +292,29 @@ export function TransactionDetailView({
 
           <div className="flex flex-col">
             {/* justify from the row (F97): the proof, no proof, the receipt lost — for a row still to justify */}
-            {canWrite &&
-              justifyOptions &&
-              (detail.state === "open" || detail.state === "partial") && (
-                <JustifyPanel
-                  row={{
-                    id: tx.id,
-                    bookingDate: tx.bookingDate,
-                    amount: tx.amount,
-                    currency: tx.currency,
-                    amountBase: tx.amountBase,
-                    description: tx.description,
-                    counterpartyKey: tx.counterpartyKey,
-                    bankAccountId: tx.bankAccountId,
-                    accountLabel: detail.accountLabel,
-                  }}
-                  canWrite={canWrite}
-                  options={justifyOptions}
-                  proposals={proposals}
-                  onDone={changed}
-                  onProofRead={changed}
-                  proofKey={proofKey}
-                  noProofKey={noProofKey}
-                  lostKey={lostKey}
-                />
-              )}
+            {canWrite && justifyOptions && JUSTIFY_STATES.has(detail.state) && (
+              <JustifyPanel
+                row={{
+                  id: tx.id,
+                  bookingDate: tx.bookingDate,
+                  amount: tx.amount,
+                  currency: tx.currency,
+                  amountBase: tx.amountBase,
+                  description: tx.description,
+                  counterpartyKey: tx.counterpartyKey,
+                  bankAccountId: tx.bankAccountId,
+                  accountLabel: detail.accountLabel,
+                }}
+                canWrite={canWrite}
+                options={justifyOptions}
+                proposals={proposals}
+                onDone={changed}
+                onProofRead={changed}
+                proofKey={proofKey}
+                noProofKey={noProofKey}
+                lostKey={lostKey}
+              />
+            )}
 
             <DetailsSection title={t("banking.panel.raw")}>
               <DetailsGrid rows={about} />
@@ -324,7 +333,7 @@ export function TransactionDetailView({
                   onChanged={changed}
                 />
                 {/* what this row could justify — the scored candidates, "Link to…" (specs/linking) */}
-                {detail.state !== "no_document" && (
+                {!NO_DOCUMENT_STATES.has(detail.state) && (
                   <SuggestionsSection
                     target={{ bankTransactionId: tx.id }}
                     canWrite={canWrite}
@@ -338,6 +347,56 @@ export function TransactionDetailView({
 
             <DetailsSection title={t("banking.panel.journal")}>
               <div className="flex flex-col gap-2">
+                {/* F129 (D73): what the row shows when nothing is typed — the proof's partner and category, derived on
+                    read; the form below edits the typed value, which wins */}
+                {(detail.effective.partnerFrom === "proof" ||
+                  detail.effective.basFrom === "proof" ||
+                  detail.effective.mixed) && (
+                  <DetailsGrid
+                    rows={[
+                      ...(detail.effective.partnerFrom === "proof"
+                        ? ([
+                            [
+                              t("banking.form.partner"),
+                              <span
+                                key="p"
+                                className="inline-flex flex-wrap items-center gap-1.5"
+                                data-testid="effective-partner"
+                              >
+                                {detail.effective.partnerName}
+                                <Tag>{t("banking.facts.fromProof")}</Tag>
+                              </span>,
+                            ],
+                          ] as [ReactNode, ReactNode][])
+                        : []),
+                      ...(detail.effective.basFrom === "proof"
+                        ? ([
+                            [
+                              t("banking.form.category"),
+                              <span
+                                key="c"
+                                className="inline-flex flex-wrap items-center gap-1.5"
+                                data-testid="effective-category"
+                              >
+                                {detail.effective.basLabel}
+                                <Tag>{t("banking.facts.fromProof")}</Tag>
+                              </span>,
+                            ],
+                          ] as [ReactNode, ReactNode][])
+                        : []),
+                      ...(detail.effective.mixed
+                        ? ([
+                            [
+                              t("banking.col.mixed"),
+                              <span key="m" className="inline-flex" data-testid="effective-mixed">
+                                <Tag>{t("banking.facts.mixed")}</Tag>
+                              </span>,
+                            ],
+                          ] as [ReactNode, ReactNode][])
+                        : []),
+                    ]}
+                  />
+                )}
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {t("banking.panel.base", {
                     base: formatMoney(tx.amountBase, "SEK", { bare: true }),

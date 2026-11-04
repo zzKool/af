@@ -33,7 +33,7 @@ import { DetailsSection } from "@/kernel/ui/details-section";
 import { Tag } from "@/kernel/ui/tags";
 import { createRuleFromTransactionAction } from "@/modules/banking/ui";
 import { getDocumentForReviewAction, uploadDocumentAction } from "@/modules/documents/ui";
-import { PartnerMatchCard } from "@/modules/partners/ui";
+import { isSystemRole, PartnerMatchCard } from "@/modules/partners/ui";
 import {
   type BasOption,
   BasPicker,
@@ -45,7 +45,10 @@ import {
   compareRowToReading,
   type JustifyKind,
   NO_PROOF_REASONS,
+  NO_PROOF_REASONS_INCOMING,
   type NoProofReason,
+  type ProposedPartner,
+  proposedPartnerRole,
   proposeKind,
   type Reading,
   type RowForJustify,
@@ -60,17 +63,37 @@ import { prefillFromProposals } from "../proposals/policy";
 import type { ProposalDto, Suggestion } from "../types";
 import { ConfidenceLabel } from "./confidence-label";
 
+/** A partner as the panel's pickers know it: F129 adds its types and the role a seeded one plays. */
+export type JustifyPartner = {
+  id: string;
+  name: string;
+  defaultBasCode: string | null;
+  types?: string[];
+  systemRole?: string | null;
+};
+
 /** The option lists the card needs — loaded by the page (`justifyOptions`), plain data. */
 export type JustifyOptions = {
   groups: { id: string; label: string }[];
   /** the expense categories (a short code each — the keys need one) */
   categories: BasOption[];
-  partners: { id: string; name: string; defaultBasCode: string | null }[];
+  /** the active partners */
+  partners: JustifyPartner[];
   /** per partner, the accounts used before (F125 PR 2) */
   basHistory?: Record<string, { code: string; count: number }[]>;
+  /** F129: the roles whose partner exists but was deactivated — the reasons' line says so instead of proposing */
+  inactiveRoles?: string[];
 };
 
 const NONE = "__none__";
+/** the word for a reason's proposed partner (F129) */
+const ROLE_KEYS = {
+  bank: "linking.justify.role.bank",
+  tax_agency_se: "linking.justify.role.tax_agency_se",
+  tax_agency_ch: "linking.justify.role.tax_agency_ch",
+  owner: "linking.justify.role.owner",
+  client: "linking.justify.role.client",
+} as const;
 /** a proposal's source as the picker names it */
 const PROPOSAL_SOURCE: Record<string, BasSuggestionSource> = {
   rule: "rule",
@@ -117,6 +140,8 @@ export function JustifyPanel({
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [dragging, setDragging] = useState(false);
   const [reasonsOpen, setReasonsOpen] = useState(false);
+  /** the *no proof* reason picked — the partner line follows it (F129 US3) */
+  const [reason, setReason] = useState<NoProofReason | null>(null);
   const [kind, setKind] = useState<JustifyKind>(() => proposeKind(row, {}));
   const { executeAsync: upload } = useAction(uploadDocumentAction);
   const { executeAsync: readDocument } = useAction(getDocumentForReviewAction);
@@ -230,17 +255,20 @@ export function JustifyPanel({
     if (file) void takeFile(file);
   }
 
-  async function flag(reason: NoProofReason) {
-    setReasonsOpen(false);
-    const r = await noProof({ transactionId: row.id, reason });
+  /** the reason and the partner the statement names → the flag, the account and the partner on the row (D73 (b)) */
+  async function flag(picked: NoProofReason, partnerId: string) {
+    const r = await noProof({ transactionId: row.id, reason: picked, partnerId });
     const error = extractError(r);
     if (error) {
       toast.error(error);
       return;
     }
+    setReasonsOpen(false);
+    setReason(null);
     const data = r?.data && "data" in r.data ? r.data.data : undefined;
     toast.success(t("linking.justify.noProofDone"));
     if (data?.proposeRule) {
+      // the learned rule carries the partner: `createRuleFromTransaction` copies the row's facts
       toast(t("linking.justify.proposeRule", { counterparty: row.counterpartyKey }), {
         action: {
           label: t("linking.justify.proposeRuleAction"),
@@ -248,6 +276,7 @@ export function JustifyPanel({
             void createRule({
               transactionId: row.id,
               noDocumentNeeded: true,
+              partnerId,
               ...(data.basCode ? { basCode: data.basCode } : {}),
             }).then((rr) => {
               const err = extractError(rr);
@@ -263,10 +292,61 @@ export function JustifyPanel({
 
   if (!canWrite) return null;
 
+  const reasons = incoming ? NO_PROOF_REASONS_INCOMING : NO_PROOF_REASONS;
+  const reasonButtons = reasonsOpen ? (
+    <div className="flex flex-wrap gap-1" data-testid="justify-reasons">
+      {reasons.map((candidate) => (
+        <Button
+          key={candidate}
+          size="sm"
+          variant={reason === candidate ? "secondary" : "outline"}
+          disabled={flagging}
+          onClick={() => setReason(candidate)}
+          data-testid={`justify-reason-${candidate}`}
+        >
+          {t(`linking.justify.reason.${candidate}`)}
+        </Button>
+      ))}
+    </div>
+  ) : (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => setReasonsOpen(true)}
+      data-testid="justify-no-proof"
+    >
+      {t("linking.justify.noProof")}
+    </Button>
+  );
+  const partnerLine =
+    reason && options ? (
+      <NoProofPartnerLine
+        key={reason}
+        row={row}
+        reason={reason}
+        options={options}
+        pending={flagging}
+        onDone={(partnerId) => void flag(reason, partnerId)}
+        onCancel={() => {
+          setReason(null);
+          setReasonsOpen(false);
+        }}
+      />
+    ) : reason ? (
+      <p className="text-sm text-muted-foreground">{t("linking.justify.needsOptions")}</p>
+    ) : null;
+
   return (
     <DetailsSection title={t("linking.justify.title")}>
       {incoming ? (
-        <p className="text-sm text-muted-foreground">{t("linking.justify.incoming")}</p>
+        <div className="flex flex-col gap-3" data-testid="justify-panel">
+          <p className="text-sm text-muted-foreground">{t("linking.justify.incoming")}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="grow" />
+            {reasonButtons}
+          </div>
+          {partnerLine}
+        </div>
       ) : phase.kind === "card" ? (
         options ? (
           <CompareCardForm
@@ -365,47 +445,155 @@ export function JustifyPanel({
           <div className="flex flex-wrap items-center gap-2">
             <KindToggle kind={kind} onKind={setKind} />
             <span className="grow" />
-            {reasonsOpen ? (
-              <div className="flex flex-wrap gap-1" data-testid="justify-reasons">
-                {NO_PROOF_REASONS.map((reason) => (
-                  <Button
-                    key={reason}
-                    size="sm"
-                    variant="outline"
-                    disabled={flagging}
-                    onClick={() => void flag(reason)}
-                    data-testid={`justify-reason-${reason}`}
-                  >
-                    {t(`linking.justify.reason.${reason}`)}
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setReasonsOpen(true)}
-                  data-testid="justify-no-proof"
-                >
-                  {t("linking.justify.noProof")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setPhase({ kind: "card", documentId: null, reading: {}, note: null })
-                  }
-                  data-testid="justify-lost"
-                >
-                  {t("linking.justify.lost")}
-                </Button>
-              </>
+            {reasonButtons}
+            {!reasonsOpen && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setPhase({ kind: "card", documentId: null, reading: {}, note: null })
+                }
+                data-testid="justify-lost"
+              >
+                {t("linking.justify.lost")}
+              </Button>
             )}
           </div>
+          {partnerLine}
         </div>
       )}
     </DetailsSection>
+  );
+}
+
+/**
+ * The partner line after a *no proof* reason (F129 US3, D73 (b)): the reason proposes a partner by type — the bank,
+ * the tax agency of the account's currency, the owner as employee — marked as a proposal; *client paid* and *other*
+ * start from the counterparty memory (*remembered*) or empty. *Done* waits for a partner: the statement is the
+ * proof, the partner says of what. A required pick never comes from list order (lessons, F124).
+ */
+function NoProofPartnerLine({
+  row,
+  reason,
+  options,
+  pending,
+  onDone,
+  onCancel,
+}: {
+  row: RowForJustify;
+  reason: NoProofReason;
+  options: JustifyOptions;
+  pending: boolean;
+  onDone: (partnerId: string) => void;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const ids = useId();
+  const proposal: ProposedPartner = proposedPartnerRole(reason, row.currency);
+  const roleWord = (r: Exclude<ProposedPartner, null>) => t(ROLE_KEYS[r]);
+  // a system partner's role → the partner holding it (active); the client and *other* have none by type
+  const systemRole = isSystemRole(proposal) ? proposal : null;
+  const byRole = systemRole ? options.partners.find((p) => p.systemRole === systemRole) : undefined;
+  const roleInactive = !!systemRole && (options.inactiveRoles ?? []).includes(systemRole);
+  const [partnerId, setPartnerId] = useState<string>(byRole?.id ?? NONE);
+  const [remembered, setRemembered] = useState<{ id: string; name: string; count: number } | null>(
+    null,
+  );
+  const { executeAsync: loadMemory } = useAction(counterpartyMemoryAction);
+  // the memory proposes when the reason has no partner by type (client paid, other) or the role's partner is missing
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per row and reason — the proposal must not override a later pick
+  useEffect(() => {
+    if (byRole) return;
+    let live = true;
+    void loadMemory({ bankTransactionId: row.id }).then((r) => {
+      const result = r?.data;
+      const list = result && "data" in result ? result.data : [];
+      const top = list.find((m) => options.partners.some((p) => p.id === m.partnerId));
+      if (!live || !top) return;
+      setRemembered({ id: top.partnerId, name: top.name, count: top.count });
+      setPartnerId((current) => (current === NONE ? top.partnerId : current));
+    });
+    return () => {
+      live = false;
+    };
+  }, [row.id, reason]);
+
+  const picked = options.partners.find((p) => p.id === partnerId);
+  const hint =
+    partnerId !== NONE && byRole && partnerId === byRole.id
+      ? t("linking.justify.partnerLine.proposed", {
+          name: byRole.name,
+          role: roleWord(systemRole as Exclude<ProposedPartner, null>),
+        })
+      : partnerId !== NONE && remembered && partnerId === remembered.id
+        ? t("linking.justify.partnerLine.remembered", {
+            name: remembered.name,
+            count: String(remembered.count),
+          })
+        : roleInactive && partnerId === NONE
+          ? t("linking.justify.partnerLine.inactive", {
+              role: roleWord(systemRole as Exclude<ProposedPartner, null>),
+            })
+          : partnerId === NONE
+            ? t("linking.justify.partnerLine.empty")
+            : null;
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border px-3 py-2 text-sm"
+      data-testid="justify-partner-line"
+    >
+      <div className="text-xs font-medium">
+        {t("linking.justify.partnerLine.title", { reason: t(`linking.justify.reason.${reason}`) })}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <div>
+          <label htmlFor={`${ids}-np-partner`} className="mb-1 block text-xs font-medium">
+            {t("linking.justify.partnerLine.label")}
+          </label>
+          <Select value={partnerId} onValueChange={(v) => setPartnerId(v ?? NONE)}>
+            <SelectTrigger
+              id={`${ids}-np-partner`}
+              className="w-full"
+              data-testid="justify-no-proof-partner"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t("linking.justify.field.noPartner")}</SelectItem>
+              {options.partners.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {hint && (
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="justify-partner-hint">
+              {hint}
+            </p>
+          )}
+        </div>
+        <div className="flex items-end gap-2">
+          <Button
+            size="sm"
+            disabled={pending || partnerId === NONE || !picked}
+            onClick={() => onDone(partnerId)}
+            data-testid="justify-no-proof-done"
+          >
+            {t("linking.justify.partnerLine.done")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onCancel}
+            data-testid="justify-no-proof-cancel"
+          >
+            {t("linking.justify.cancel")}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -465,6 +653,7 @@ function CompareCardForm({
   const ids = useId();
   const card: CompareCard = compareRowToReading(row, reading);
   const { executeAsync: justify, isPending } = useAction(justifyRowAction);
+  const { executeAsync: createRule } = useAction(createRuleFromTransactionAction);
 
   // the fields, pre-filled from the reading, else from the row; the category and the supplier from a HIGH
   // proposal (F98: a rule, the partner's default, the owner's history) — a proposal, until the click saves it
@@ -590,6 +779,29 @@ function CompareCardForm({
     }
     const data = r?.data && "data" in r.data ? r.data.data : undefined;
     toast.success(t("linking.justify.done", { key: data?.entity.key ?? "" }));
+    // D74 (F129): the confirmed vendor ↔ counterparty becomes a rule on one click — applied at the next import
+    const draft = data?.proposeRule;
+    if (draft) {
+      const partnerName = partners.find((p) => p.id === draft.partnerId)?.name ?? "";
+      toast(
+        t("linking.justify.proposeVendorRule", {
+          counterparty: row.counterpartyKey,
+          partner: partnerName,
+        }),
+        {
+          action: {
+            label: t("linking.justify.proposeRuleAction"),
+            onClick: () => {
+              void createRule({ transactionId: row.id, ...draft }).then((rr) => {
+                const err = extractError(rr);
+                if (err) toast.error(err);
+                else toast.success(t("linking.justify.ruleCreated"));
+              });
+            },
+          },
+        },
+      );
+    }
     onDone();
   }
 
@@ -694,7 +906,10 @@ function CompareCardForm({
           selectedId={partnerId === NONE ? "" : partnerId}
           onUseMatch={pickPartner}
           onCreated={(p) => {
-            setExtraPartners((prev) => [{ id: p.id, name: p.name, defaultBasCode: null }, ...prev]);
+            setExtraPartners((prev) => [
+              { id: p.id, name: p.name, defaultBasCode: null, types: ["vendor"], systemRole: null },
+              ...prev,
+            ]);
             pickPartner(p.id);
           }}
         />

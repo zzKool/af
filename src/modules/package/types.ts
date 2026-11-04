@@ -1,6 +1,7 @@
 // DTOs of the package module (specs/accountant-package/spec.md). Plain types, never Prisma; money as decimal
 // strings with two decimals, dates ISO. `PeriodData` is what the collector returns and what the pure generators
 // (CSV, summary.xlsx, notes.md, zip) take — serialisable, so the generators are tested without a database.
+import type { TransactionState } from "@/modules/banking";
 
 export const PACKAGE_BUILD_STATUSES = ["queued", "building", "built", "failed"] as const;
 export type PackageBuildStatus = (typeof PACKAGE_BUILD_STATUSES)[number];
@@ -48,6 +49,7 @@ export const FLAG_KINDS = [
   "missing_document",
   "document_not_ready",
   "unlinked_row",
+  "no_partner",
   "delta",
   "unpaid_invoice",
 ] as const;
@@ -86,8 +88,10 @@ export type BankSheetRow = {
   message: string | null;
   ownNotes: string | null;
   counterpartyKey: string;
+  /** the effective account and partner (F129, D73): typed on the row, else the proof's — banking's `transactionStates` */
   basCode: string | null;
   basLabel: string | null;
+  partnerName: string | null;
   rate: string | null;
   rateSource: string | null;
   amountBase: string | null;
@@ -96,8 +100,10 @@ export type BankSheetRow = {
   allocated: string;
   /** |amount| − allocated, in the row's currency; "0.00" when linked or no document needed */
   delta: string;
-  status: "linked" | "partial" | "open" | "no_document";
+  /** banking's six derived states (F129): justified with a partner, or still to justify */
+  status: TransactionState;
   note: string | null;
+  /** `unlinked` · `delta` · `no_partner` (the flags) · `mixed` (the proofs disagree — a cell, not a flag) */
   flags: string[];
   importFileName: string;
   rowIndex: number;

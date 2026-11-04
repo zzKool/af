@@ -10,9 +10,12 @@
  * Idempotent: safe to run multiple times.
  */
 
+import type { AuditLogger } from "@/kernel/audit/types";
 import { auth } from "@/kernel/auth/auth";
+import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
+import { ensureSystemPartners } from "@/modules/partners";
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("Seed script cannot run in production");
@@ -204,6 +207,27 @@ async function seed() {
       }
       console.log("  ✓ Bank accounts seeded (SEK, CHF, savings)");
     }
+
+    // the four system partners (F129, D73): the bank, Skatteverket, the Swiss FTA, the owner as employee — made
+    // once, found again by their role; the two default rules below name the bank
+    const caller: CallerIdentity = {
+      userId: ownerUserId,
+      tenantId: orgId,
+      role: "owner",
+      source: "seed",
+    };
+    const noAudit: AuditLogger = { log: async () => {} };
+    const system = await ensureSystemPartners(tx, caller, noAudit, {
+      bankName: nordea?.bankName ?? "Nordea",
+    });
+    if (system.error) throw new Error(`system partners: ${system.error.message}`);
+    const bank = await tx.partner.findFirst({
+      where: { systemRole: "bank" },
+      select: { id: true },
+    });
+    console.log(
+      `  ✓ System partners seeded (${system.data.created.length} created, ${system.data.attached.length} attached)`,
+    );
     const rules = [
       {
         name: "Nordea bank fees",
@@ -230,14 +254,22 @@ async function seed() {
       const bas = await tx.basCategory.findUnique({ where: { code: r.basCode } });
       await tx.categorisationRule.upsert({
         where: { tenantId_name: { tenantId: orgId, name: r.name } },
+        // a seed rule made before F129 gets the bank (a partner the owner set stays his)
         update: {},
         create: {
           ...r,
           basCode: bas ? r.basCode : null,
+          partnerId: bank?.id ?? null,
           tenantId: orgId,
           createdBy: ownerUserId,
           source: "seed",
         },
+      });
+    }
+    if (bank) {
+      await tx.categorisationRule.updateMany({
+        where: { name: { in: rules.map((r) => r.name) }, noDocumentNeeded: true, partnerId: null },
+        data: { partnerId: bank.id },
       });
     }
     console.log("  ✓ Categorisation rules seeded (bank fees, savings interest)");

@@ -33,6 +33,7 @@ export type {
   ValidationResult,
 } from "./csv-parser";
 export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
+export { effectiveFactsOf } from "./effective";
 export type { CategoriseOptions, RowRate } from "./facts";
 export {
   baseAmount,
@@ -110,6 +111,7 @@ export {
   regexError,
   ruleInputSchema,
   ruleNearMisses,
+  rulesForKey,
   testRule,
   testRuleSchema,
   updateRule,

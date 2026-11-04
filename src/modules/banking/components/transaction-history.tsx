@@ -12,6 +12,8 @@ import { getTransactionHistoryAction } from "@/modules/banking/banking.actions";
 import type { TransactionHistoryEvent } from "@/modules/banking/types";
 
 type T = ReturnType<typeof useT>;
+/** the audit `source` a data migration writes (`justified_partner`) — a lookup, never a comparison inline */
+const MIGRATION_SOURCES: ReadonlySet<string> = new Set(["migration"]);
 
 /** One event in the UI language; who decided a categorisation (rule, by hand…) follows a dot. */
 export function historyText(t: T, e: TransactionHistoryEvent): string {
@@ -28,7 +30,12 @@ export function historyText(t: T, e: TransactionHistoryEvent): string {
         e.kind === "categorised"
           ? t("banking.history.categorised", { code: e.basCode })
           : t(`banking.history.${e.kind}`);
-      return e.by ? `${what} · ${t(`banking.categorisedBy.${e.by}`)}` : what;
+      // F129: the backfill of the partner on the owner's no-proof rows is the migration's, not a rule's or his
+      return e.by
+        ? `${what} · ${t(`banking.categorisedBy.${e.by}`)}`
+        : MIGRATION_SOURCES.has(e.source)
+          ? `${what} · ${t("banking.history.migration")}`
+          : what;
     }
   }
 }

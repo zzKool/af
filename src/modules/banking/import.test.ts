@@ -15,6 +15,7 @@ import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fi
 import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as linking from "@/modules/linking";
+import * as partners from "@/modules/partners";
 import { createBankAccount, updateBankAccount } from "./bank-accounts";
 import { transactionFacts } from "./facts";
 import { withImplicitRates } from "./implicit-rate";
@@ -392,6 +393,34 @@ describe("US1 — import a month of Nordea rows", () => {
   });
 });
 
+describe("F129 US4 — the first import seeds the four system partners", () => {
+  it("the bank named after the account's format, the two agencies, the owner as employee — audited; a second import makes none", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, sav } = await accounts(caller);
+    await run(caller, async (tx) => {
+      expect(await tx.partner.count()).toBe(0);
+      const r = await importFile(tx, caller, sek, "nordea-2026-07-sek-sample.csv");
+      expect(r.error).toBeUndefined();
+      const system = await partners.systemPartners(tx);
+      expect(system.bank).toMatchObject({ name: "Nordea", types: ["vendor"], isActive: true });
+      expect(system.tax_agency_se).toMatchObject({ name: "Skatteverket", types: ["authority"] });
+      expect(system.tax_agency_ch).toMatchObject({ types: ["authority"], defaultCurrency: "CHF" });
+      expect(system.owner).toMatchObject({ types: ["employee"] });
+      expect(await tx.partner.count()).toBe(4);
+      // the fee rule the first import made names the bank: its row is justified, not merely flagged
+      const fee = await tx.bankTransaction.findFirstOrThrow({
+        where: { counterpartyKey: { contains: "AVGIFTER NORDEA" } },
+      });
+      expect(fee.partnerId).toBe(system.bank?.id);
+      const second = await importFile(tx, caller, sav, "nordea-savings-year.csv");
+      expect(second.error).toBeUndefined();
+      expect(await tx.partner.count()).toBe(4);
+    });
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    await assertAuditLogged(adminPool, caller.tenantId, "create", "partner", bank?.id as string);
+  });
+});
+
 describe("F115 — completeness by balance", () => {
   it("the chain holds inside the June file; the July export that skipped a day reports one gap, the account is complete to June 28", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
@@ -761,11 +790,15 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
       const d = await getTransaction(tx, txId);
       expect(d.data?.state).toBe("partial");
       expect(d.data?.allocated).toBe("400.00");
-      // the read API other modules call gives the same state and facts (lessons audit 23)
-      expect((await transactionStates(tx, [txId])).get(txId)).toEqual({
+      // the read API other modules call gives the same state and facts (lessons audit 23); the invoice's client
+      // is the row's partner on read (F129, D73)
+      expect((await transactionStates(tx, [txId])).get(txId)).toMatchObject({
         state: "partial",
         allocated: "400.00",
         inTransfer: false,
+        partnerFrom: "proof",
+        basCode: null,
+        mixed: false,
       });
     });
     const bigger = await createIssuedInvoice(caller, "700.00");
@@ -803,10 +836,13 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
     expect(ok.error).toBeUndefined();
     await run(caller, async (tx) => {
       expect((await getTransaction(tx, txId)).data?.state).toBe("linked");
-      expect((await transactionStates(tx, [txId])).get(txId)).toEqual({
+      // two invoices of two clients: the larger allocation's client speaks, the proofs disagree — mixed
+      expect((await transactionStates(tx, [txId])).get(txId)).toMatchObject({
         state: "linked",
         allocated: "999.96",
         inTransfer: false,
+        partnerFrom: "proof",
+        mixed: true,
       });
       const list = await listTransactions(tx, {
         page: 1,

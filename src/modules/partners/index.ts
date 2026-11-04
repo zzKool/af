@@ -23,7 +23,12 @@ export {
   createPartner,
   createPartnerSchema,
   deactivatePartner,
+  ensureSystemPartners,
+  partnerTypeSchema,
   reactivatePartner,
+  SYSTEM_PARTNER_NAMES,
+  systemPartner,
+  systemPartners,
   toPartnerDto,
   updatePartner,
   updatePartnerSchema,
@@ -48,3 +53,4 @@ export * from "./queries";
 // global search (F93): the module's palette hits
 export { searchPartnerHits } from "./search";
 export type * from "./types";
+export { isSystemRole, PARTNER_TYPES, SYSTEM_ROLES } from "./types";

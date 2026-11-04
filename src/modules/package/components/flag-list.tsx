@@ -12,6 +12,7 @@ import type { FlagKind, PackageFlag } from "@/modules/package/types";
 const FLAG_ORDER: FlagKind[] = [
   "missing_document",
   "unlinked_row",
+  "no_partner",
   "delta",
   "unpaid_invoice",
   "document_not_ready",
@@ -21,7 +22,9 @@ export function FlagLine({ flag }: { flag: PackageFlag }) {
   const t = useT();
   const figure =
     flag.amount !== undefined && flag.currency
-      ? formatMoney(flag.amount, flag.currency, { signed: flag.kind === "unlinked_row" })
+      ? formatMoney(flag.amount, flag.currency, {
+          signed: flag.kind === "unlinked_row" || flag.kind === "no_partner",
+        })
       : null;
   const subject =
     flag.entity === "bank_transaction" && flag.account && flag.date ? (

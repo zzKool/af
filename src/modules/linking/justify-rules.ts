@@ -1,8 +1,10 @@
 // The compare card's rules (F97, specs/justify/spec.md US1): pure, client-safe — the panel computes the card in the
-// browser from the row and the OCR reading; the service re-reads nothing of it. No module imports.
+// browser from the row and the OCR reading; the service re-reads nothing of it. No module imports beyond a type
+// (the partner roles, from partners' client surface).
 import { Prisma } from "@/generated/prisma/browser";
 import { daysBetween } from "@/kernel/clock/calendar";
 import type { OcrExtractedData } from "@/kernel/ocr/ocr";
+import type { SystemRole } from "@/modules/partners/ui";
 
 const D = Prisma.Decimal;
 
@@ -109,14 +111,24 @@ export function monthOf(bookingDate: string): string {
   return bookingDate.slice(0, 7);
 }
 
-// --- the no-proof reasons (US3): data, the BAS each one proposes ---
+// --- the no-proof reasons (US3; F129 US3: each names a partner too) — data, the BAS and the partner each proposes ---
 
-export type NoProofReason = "fee" | "tax" | "salary" | "interest" | "other";
+export type NoProofReason = "fee" | "tax" | "salary" | "interest" | "client" | "other";
 export const NO_PROOF_REASONS: readonly NoProofReason[] = [
   "fee",
   "tax",
   "salary",
   "interest",
+  "client",
+  "other",
+];
+/** the reasons as an incoming row offers them (a tax repayment, a client's refund, interest): *client paid* first */
+export const NO_PROOF_REASONS_INCOMING: readonly NoProofReason[] = [
+  "client",
+  "tax",
+  "interest",
+  "salary",
+  "fee",
   "other",
 ];
 /** the account each reason proposes (the owner's active set may not hold it — then none is written) */
@@ -125,5 +137,59 @@ export const NO_PROOF_BAS: Record<NoProofReason, string | null> = {
   tax: "251",
   salary: "721",
   interest: "831",
+  client: null,
   other: null,
 };
+
+/** The partner a reason proposes, by type: a system partner's role, the client (the picker), or none (F129 FR-007). */
+export type ProposedPartner = SystemRole | "client" | null;
+const PARTNER_BY_REASON: Record<Exclude<NoProofReason, "tax">, ProposedPartner> = {
+  fee: "bank",
+  interest: "bank",
+  salary: "owner",
+  client: "client",
+  other: null,
+};
+const TAX_AGENCY_BY_CURRENCY: Record<string, SystemRole> = { CHF: "tax_agency_ch" };
+
+/**
+ * Which partner a *no proof* reason proposes (D73 (b)): fee / interest → the bank, tax → the Swiss FTA on a CHF
+ * account else Skatteverket (the owner's Q4: a fact, switchable), salary → the owner as employee, client paid → the
+ * client picker (the memory's partner when it has one), other → none. Pure.
+ */
+export function proposedPartnerRole(
+  reason: NoProofReason,
+  accountCurrency: string,
+): ProposedPartner {
+  if (reason === "tax")
+    return TAX_AGENCY_BY_CURRENCY[accountCurrency.toUpperCase()] ?? "tax_agency_se";
+  return PARTNER_BY_REASON[reason];
+}
+
+// --- D74: a confirmed vendor ↔ counterparty becomes a rule (F129 FR-008) ---
+
+/** The rule the panel proposes after a proof is linked: the counterparty key → the proof's partner (+ the category). */
+export type VendorRuleDraft = {
+  name: string;
+  matchType: "contains";
+  matchField: "counterparty_key";
+  matchPattern: string;
+  partnerId: string;
+  basCode: string | null;
+};
+
+/** `proposeVendorRule(key, partnerId, basCode)`: F97's `createRuleFromTransaction` shape, pure — the next import carries the partner before any proof. */
+export function proposeVendorRule(
+  key: string,
+  partnerId: string,
+  basCode: string | null,
+): VendorRuleDraft {
+  return {
+    name: key,
+    matchType: "contains",
+    matchField: "counterparty_key",
+    matchPattern: key,
+    partnerId,
+    basCode,
+  };
+}

@@ -24,6 +24,7 @@ import * as settings from "@/modules/settings";
 import { accountLabel } from "./bank-accounts";
 import { type BalanceRow, balanceChain, type Completeness } from "./completeness";
 import { iso, toImportDto, toTransactionDto } from "./dto";
+import { type EffectiveFacts, effectiveFactsOf, type ProofFact } from "./effective";
 import { withImplicitRates } from "./implicit-rate";
 import { type LinkFacts, linkFactsOf, type RowForFacts } from "./link-facts";
 import { listRules } from "./rules";
@@ -63,10 +64,14 @@ export const TRANSACTION_COLUMNS = {
   amountBase: { type: "money", sum: true },
   rate: { type: "number" },
   rateSource: { type: "enum" },
+  // the effective category and partner (F129, D73): typed on the row, else the proof's — derived, filtered in memory
   basCode: { type: "enum" },
   basLabel: { type: "text" },
+  basFrom: { type: "enum" },
   partnerId: { type: "enum" },
   partnerName: { type: "text", searchable: true },
+  partnerFrom: { type: "enum" },
+  mixed: { type: "boolean" },
   // F98: the current category proposal (derived, from linking's proposals) — code, source, confidence
   proposedBasCode: { type: "enum" },
   proposedSource: { type: "enum" },
@@ -87,12 +92,18 @@ export const TRANSACTION_DEFAULT_SORT: SortSpec[] = [
   { col: "createdAt", dir: "desc" },
 ];
 
-// `rate` is stored but filtered in memory: a `number` column over a Decimal(18,6) keeps the in-memory semantics
+// `rate` is stored but filtered in memory: a `number` column over a Decimal(18,6) keeps the in-memory semantics;
+// the category and the partner are effective values since F129 (the proof's when none is typed), so they join
 const DERIVED: ReadonlySet<string> = new Set([
   "accountLabel",
   "rate",
+  "basCode",
   "basLabel",
+  "basFrom",
+  "partnerId",
   "partnerName",
+  "partnerFrom",
+  "mixed",
   "proposedBasCode",
   "proposedSource",
   "proposedConfidence",
@@ -106,19 +117,84 @@ const ROW_CAP = 20_000;
 
 // --- the derived state ---
 
+/** A row as the shared read needs it: the link facts' columns and the typed partner / category. */
+export type RowForRowFacts = RowForFacts & { partnerId: string | null; basCode: string | null };
+
+export type RowFacts = LinkFacts & {
+  /** per row, the effective partner and category (typed, else the proof's) and their source */
+  effective: Map<string, EffectiveFacts>;
+};
+
 /**
- * What each transaction has allocated FROM it, in its own currency (allocating kinds — `justifies`, `settles`;
- * a cross-currency link counts by the share of the row's base it took, F114), and which ones sit in a transfer
- * link — one query through linking's read API (lessons audit 22), the Months panel's `linkFactsOf` rule.
+ * The one read every page derives a row's state from (F129 FR-005): the links touching the rows once (Σ allocated
+ * FROM each row in its currency, the transfer legs — `linkFactsOf`, F114), then the facts of what the allocating
+ * links point at, one `factsMany` per target type through linking's registry (banking reads no other module's
+ * table), the owner's partner once (a `settles` link pays him back) → `effectiveFactsOf` per row. The list, the
+ * panel, the Months panel, the sidebar's count and `transactionStates` all read it.
  */
-async function linkFacts(tx: TransactionClient, rows: readonly RowForFacts[]): Promise<LinkFacts> {
-  if (rows.length === 0) return { allocated: new Map(), transfer: new Set() };
+export async function rowFacts(
+  tx: TransactionClient,
+  rows: readonly RowForRowFacts[],
+): Promise<RowFacts> {
+  const effective = new Map<string, EffectiveFacts>();
+  if (rows.length === 0) return { allocated: new Map(), transfer: new Set(), effective };
   const links = await linking.linksTouching(
     tx,
     "bank_transaction",
     rows.map((r) => r.id),
   );
-  return linkFactsOf(links, rows);
+  const facts = linkFactsOf(links, rows);
+
+  // the allocating links FROM the rows, in creation order; their targets' facts by type
+  const rowIds = new Set(rows.map((r) => r.id));
+  const allocating = links
+    .filter(
+      (l) =>
+        l.from.type === "bank_transaction" &&
+        rowIds.has(l.from.id) &&
+        (l.kind === "justifies" || l.kind === "settles"),
+    )
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+  const idsByType = new Map<linking.LinkableType, Set<string>>();
+  for (const l of allocating)
+    idsByType.set(l.to.type, (idsByType.get(l.to.type) ?? new Set()).add(l.to.id));
+  const targetFacts = new Map<string, { partnerId: string | null; basCode: string | null }>();
+  for (const [type, ids] of idsByType) {
+    const linkable = linking.getLinkable(type);
+    // a type without a bulk read (a document, a partner) carries no partner or account to inherit
+    if (!linkable?.factsMany) continue;
+    for (const f of await linkable.factsMany(tx, [...ids]))
+      targetFacts.set(`${type}:${f.id}`, {
+        partnerId: f.partnerId ?? null,
+        basCode: f.basCode ?? null,
+      });
+  }
+  const owner = allocating.some((l) => l.kind === "settles")
+    ? await partners.systemPartner(tx, "owner")
+    : null;
+
+  const proofsByRow = new Map<string, ProofFact[]>();
+  for (const l of allocating) {
+    const target = targetFacts.get(`${l.to.type}:${l.to.id}`);
+    const list = proofsByRow.get(l.from.id) ?? [];
+    list.push({
+      kind: l.kind as ProofFact["kind"],
+      allocatedBase: l.allocatedBase,
+      partnerId: target?.partnerId ?? null,
+      basCode: target?.basCode ?? null,
+    });
+    proofsByRow.set(l.from.id, list);
+  }
+  for (const r of rows)
+    effective.set(
+      r.id,
+      effectiveFactsOf(
+        { partnerId: r.partnerId, basCode: r.basCode },
+        proofsByRow.get(r.id) ?? [],
+        owner?.id ?? null,
+      ),
+    );
+  return { ...facts, effective };
 }
 
 /**
@@ -140,23 +216,63 @@ export async function accountAliasesFor(
   return new Map(rows.map((r) => [r.id, accountLabel(r.bankAccount)]));
 }
 
+/** The account roles whose rows need no partner to be justified: the other statement is the proof (D13 / F65). */
+const NO_PARTNER_ROLES: ReadonlySet<string> = new Set<BankAccountRole>(["savings"]);
+
 /**
- * `no_document` when the flag is set or the row is a transfer leg (the other statement row is its proof — derived
- * from the `transfer` link, never written on the entry: F65); `linked` when Σ ≥ |amount| − tolerance; `partial`
- * when Σ > 0; else `open`.
+ * The one place a row's state is derived (F129 FR-006, D73): a transfer leg is `no_document` (the other statement
+ * row is its proof — from the `transfer` link, never written on the row: F65); a flagged row is `no_document` with
+ * a partner (typed or effective), `no_document_no_partner` without one — unless it sits on a savings account, whose
+ * statement is the proof; else `linked` / `linked_no_partner` when Σ ≥ |amount| − tolerance; `partial` when Σ > 0;
+ * else `open`. Four of the six states are still *to justify* (`needsProof`).
  */
 export function deriveTransactionState(input: {
   amount: string;
   allocated: string;
   inTransfer: boolean;
   noDocumentNeeded: boolean;
+  /** the effective partner (typed, else the proof's) — `effectiveFactsOf` */
+  partnerId: string | null;
+  accountRole: BankAccountRole;
 }): TransactionState {
-  if (input.noDocumentNeeded || input.inTransfer) return "no_document";
+  if (input.inTransfer) return "no_document";
+  const named = input.partnerId !== null || NO_PARTNER_ROLES.has(input.accountRole);
+  if (input.noDocumentNeeded) return named ? "no_document" : "no_document_no_partner";
   const abs = new D(input.amount).abs();
   const allocated = new D(input.allocated);
   if (allocated.lte(0)) return "open";
-  if (isSettled(abs, [allocated])) return "linked";
+  if (isSettled(abs, [allocated])) return named ? "linked" : "linked_no_partner";
   return "partial";
+}
+
+/** `deriveTransactionState` from the shared read's facts for one row. */
+function stateOf(
+  r: { id: string; amount: string; noDocumentNeeded: boolean },
+  facts: RowFacts,
+  accountRole: BankAccountRole,
+): { state: TransactionState; allocated: string; inTransfer: boolean; effective: EffectiveFacts } {
+  const allocated = facts.allocated.get(r.id) ?? "0.00";
+  const inTransfer = facts.transfer.has(r.id);
+  const effective = facts.effective.get(r.id) ?? {
+    partnerId: null,
+    partnerFrom: null,
+    basCode: null,
+    basFrom: null,
+    mixed: false,
+  };
+  return {
+    state: deriveTransactionState({
+      amount: r.amount,
+      allocated,
+      inTransfer,
+      noDocumentNeeded: r.noDocumentNeeded,
+      partnerId: effective.partnerId,
+      accountRole,
+    }),
+    allocated,
+    inTransfer,
+    effective,
+  };
 }
 
 // --- the list ---
@@ -174,19 +290,44 @@ async function loadRows(
     orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
     take: ROW_CAP,
     include: {
-      bankAccount: { select: { accountAlias: true, accountNumber: true, currency: true } },
+      bankAccount: {
+        select: { accountAlias: true, accountNumber: true, currency: true, role: true },
+      },
     },
   });
   const dtos = await withImplicitRates(tx, rows.map(toTransactionDto));
-  const facts = await linkFacts(tx, rows);
-  const partnerIds = [...new Set(rows.flatMap((r) => (r.partnerId ? [r.partnerId] : [])))];
-  const codes = rows.flatMap((r) => (r.basCode ? [r.basCode] : []));
+  const facts = await rowFacts(tx, rows);
+  const effectiveOf = (id: string) => facts.effective.get(id);
+  const partnerIds = [
+    ...new Set(
+      rows.flatMap((r) =>
+        effectiveOf(r.id)?.partnerId ? [effectiveOf(r.id)?.partnerId as string] : [],
+      ),
+    ),
+  ];
+  const codes = rows.flatMap((r) =>
+    effectiveOf(r.id)?.basCode ? [effectiveOf(r.id)?.basCode as string] : [],
+  );
   const names = await partners.partnerNames(tx, partnerIds);
   const labels = await settings.basLabels(tx, codes);
-  const proposals = await linking.currentForRows(tx, rows);
+  // a row whose category or partner is derived lacks nothing: no proposal shows for it (F129)
+  const proposals = await linking.currentForRows(
+    tx,
+    rows.map((r) => ({
+      id: r.id,
+      basCode: effectiveOf(r.id)?.basCode ?? r.basCode,
+      partnerId: effectiveOf(r.id)?.partnerId ?? r.partnerId,
+      categorisedBy: r.categorisedBy,
+    })),
+  );
   const list: TransactionListRow[] = rows.map((r, i) => {
     const dto = dtos[i] as (typeof dtos)[number];
-    const allocated = facts.allocated.get(r.id) ?? "0.00";
+    const derived = stateOf(
+      { id: r.id, amount: dto.amount, noDocumentNeeded: r.noDocumentNeeded },
+      facts,
+      r.bankAccount.role as BankAccountRole,
+    );
+    const eff = derived.effective;
     return {
       id: r.id,
       bankAccountId: r.bankAccountId,
@@ -204,21 +345,19 @@ async function loadRows(
       rate: dto.rate,
       rateSource: dto.rateSource,
       bankImplicitRate: dto.bankImplicitRate,
-      basCode: r.basCode,
-      basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
-      partnerId: r.partnerId,
-      partnerName: r.partnerId ? (names.get(r.partnerId) ?? null) : null,
+      basCode: eff.basCode,
+      basLabel: eff.basCode ? (labels.get(eff.basCode) ?? eff.basCode) : null,
+      basFrom: eff.basFrom,
+      partnerId: eff.partnerId,
+      partnerName: eff.partnerId ? (names.get(eff.partnerId) ?? null) : null,
+      partnerFrom: eff.partnerFrom,
+      mixed: eff.mixed,
       ...proposedColumns(proposals.get(r.id)),
       note: r.note,
       noDocumentNeeded: r.noDocumentNeeded,
       categorisedBy: r.categorisedBy,
-      state: deriveTransactionState({
-        amount: dto.amount,
-        allocated,
-        inTransfer: facts.transfer.has(r.id),
-        noDocumentNeeded: r.noDocumentNeeded,
-      }),
-      allocated,
+      state: derived.state,
+      allocated: derived.allocated,
       createdAt: r.createdAt,
     };
   });
@@ -348,7 +487,8 @@ export async function outgoingRowsInWindow(
   const out: WindowRow[] = [];
   for (const r of rows) {
     const state = states.get(r.id);
-    if (state && (state.state === "linked" || state.state === "no_document")) continue;
+    // nothing left to allocate, or flagged — a partner missing does not make it a candidate again
+    if (state && state.state !== "open" && state.state !== "partial") continue;
     const abs = r.amount.abs();
     out.push({
       id: r.id,
@@ -384,8 +524,9 @@ export async function bookingDates(
 }
 
 /**
- * The derived state of each of `ids` with its allocation and transfer facts — the rule `deriveTransactionState`
- * applies, read in three queries (rows, allocations, transfer links). An unknown id is absent.
+ * The derived state of each of `ids` with the facts it comes from — the allocation, the transfer leg, the effective
+ * partner (with its name) and category (F129) — the rule `deriveTransactionState` applies, through the shared read.
+ * An unknown id is absent.
  */
 export async function transactionStates(
   tx: TransactionClient,
@@ -395,20 +536,43 @@ export async function transactionStates(
   if (unique.length === 0) return new Map();
   const rows = await tx.bankTransaction.findMany({
     where: { id: { in: unique } },
-    select: { id: true, amount: true, currency: true, amountBase: true, noDocumentNeeded: true },
+    select: {
+      id: true,
+      amount: true,
+      currency: true,
+      amountBase: true,
+      noDocumentNeeded: true,
+      partnerId: true,
+      basCode: true,
+      bankAccount: { select: { role: true } },
+    },
   });
-  const facts = await linkFacts(tx, rows);
+  const facts = await rowFacts(tx, rows);
+  const names = await partners.partnerNames(tx, [
+    ...new Set(
+      rows.flatMap((r) => {
+        const id = facts.effective.get(r.id)?.partnerId;
+        return id ? [id] : [];
+      }),
+    ),
+  ]);
   return new Map(
     rows.map((r) => {
-      const allocated = facts.allocated.get(r.id) ?? "0.00";
-      const inTransfer = facts.transfer.has(r.id);
-      const state = deriveTransactionState({
-        amount: r.amount.toFixed(2),
-        allocated,
-        inTransfer,
-        noDocumentNeeded: r.noDocumentNeeded,
-      });
-      return [r.id, { state, allocated, inTransfer }];
+      const d = stateOf(
+        { id: r.id, amount: r.amount.toFixed(2), noDocumentNeeded: r.noDocumentNeeded },
+        facts,
+        r.bankAccount.role as BankAccountRole,
+      );
+      return [
+        r.id,
+        {
+          state: d.state,
+          allocated: d.allocated,
+          inTransfer: d.inTransfer,
+          ...d.effective,
+          partnerName: d.effective.partnerId ? (names.get(d.effective.partnerId) ?? null) : null,
+        },
+      ];
     }),
   );
 }
@@ -429,6 +593,8 @@ export type TransactionDetail = {
   transaction: BankTransactionDto & { bankImplicitRate: string | null };
   accountLabel: string;
   state: TransactionState;
+  /** the effective partner and category with their source (F129): the panel says *from the proof* */
+  effective: EffectiveFacts & { partnerName: string | null; basLabel: string | null };
   allocated: string;
   links: (LinkDto & { otherLabel: string | null })[];
   transfers: TransferProposal[];
@@ -465,10 +631,22 @@ export async function getTransaction(
       error: { code: "NOT_FOUND", message: `Bank transaction not found: ${id}`, retryable: false },
     };
   const [transaction] = await withImplicitRates(tx, [toTransactionDto(row)]);
-  const facts = await linkFacts(tx, [row]);
+  const facts = await rowFacts(tx, [row]);
+  const derived = stateOf(
+    { id, amount: row.amount.toFixed(2), noDocumentNeeded: row.noDocumentNeeded },
+    facts,
+    row.bankAccount.role as BankAccountRole,
+  );
+  const eff = derived.effective;
+  const partnerName = eff.partnerId
+    ? ((await partners.partnerNames(tx, [eff.partnerId])).get(eff.partnerId) ?? null)
+    : null;
+  const basLabel = eff.basCode
+    ? ((await settings.basLabels(tx, [eff.basCode])).get(eff.basCode) ?? eff.basCode)
+    : null;
   const links = await linking.getLinksFor(tx, { type: "bank_transaction", id });
   const transfers = await proposeTransfers(tx, id);
-  const allocated = facts.allocated.get(id) ?? "0.00";
+  const allocated = derived.allocated;
   const withLabels = await mapInOrder(links.data ?? [], async (l) => {
     const other = l.from.type === "bank_transaction" && l.from.id === id ? l.to : l.from;
     const linkable = linking.getLinkable(other.type);
@@ -479,12 +657,8 @@ export async function getTransaction(
     data: {
       transaction: transaction as NonNullable<typeof transaction>,
       accountLabel: accountLabel(row.bankAccount),
-      state: deriveTransactionState({
-        amount: row.amount.toFixed(2),
-        allocated,
-        inTransfer: facts.transfer.has(id),
-        noDocumentNeeded: row.noDocumentNeeded,
-      }),
+      state: derived.state,
+      effective: { ...eff, partnerName, basLabel },
       allocated,
       links: withLabels,
       transfers: transfers.data ?? [],

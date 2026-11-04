@@ -7,7 +7,14 @@ import type { BasOption } from "@/modules/settings";
 import * as settings from "@/modules/settings";
 
 export type CategoryOption = BasOption;
-export type PartnerOption = { id: string; name: string; defaultBasCode: string | null };
+export type PartnerOption = {
+  id: string;
+  name: string;
+  defaultBasCode: string | null;
+  /** F129: the types and the role a seeded partner plays — the *no proof* reasons propose one by its role */
+  types?: string[];
+  systemRole?: string | null;
+};
 
 /** The tenant's active BAS set as the picker takes it (F125: settings' one builder; the picker groups and searches). */
 export async function categoryOptions(
@@ -20,6 +27,12 @@ export async function categoryOptions(
 export async function partnerOptions(tx: TransactionClient): Promise<PartnerOption[]> {
   const all = await partners.getPartners(tx, {});
   return (all.data ?? [])
-    .map((p) => ({ id: p.id, name: p.name, defaultBasCode: p.defaultBasCategoryCode ?? null }))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      defaultBasCode: p.defaultBasCategoryCode ?? null,
+      types: p.types,
+      systemRole: p.systemRole,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

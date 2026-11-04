@@ -20,6 +20,8 @@ vi.mock("@/modules/documents/ui", () => ({
 }));
 vi.mock("@/modules/partners/ui", () => ({
   PartnerMatchCard: () => <div data-testid="partner-match" />,
+  isSystemRole: (v: unknown) =>
+    typeof v === "string" && ["bank", "tax_agency_se", "tax_agency_ch", "owner"].includes(v),
 }));
 
 const calls: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -52,7 +54,23 @@ const options: JustifyOptions = {
     { code: "654", label: "654 · IT-tjänster (It)" },
     { code: "501", label: "501 · Lokalhyra (Lokal)" },
   ],
-  partners: [{ id: "p1", name: "Northwind Cloud AB", defaultBasCode: "654" }],
+  partners: [
+    {
+      id: "p1",
+      name: "Northwind Cloud AB",
+      defaultBasCode: "654",
+      types: ["vendor"],
+      systemRole: null,
+    },
+    { id: "bank", name: "Nordea", defaultBasCode: null, types: ["vendor"], systemRole: "bank" },
+    {
+      id: "skv",
+      name: "Skatteverket",
+      defaultBasCode: null,
+      types: ["authority"],
+      systemRole: "tax_agency_se",
+    },
+  ],
 };
 const documentSuggestion: Suggestion = {
   candidate: {
@@ -196,5 +214,88 @@ describe("JustifyPanel — the card says what it needs", () => {
     await screen.findByTestId("justify-card");
     expect(screen.getByTestId("justify-create")).toBeDisabled();
     expect(screen.getByTestId("justify-missing")).toHaveTextContent("Category");
+  });
+});
+
+describe("JustifyPanel — no proof needed names a partner (F129 US3)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    for (const k of Object.keys(calls)) delete calls[k];
+  });
+
+  it("bank fee: the bank proposed by its role (marked as a proposal), Done live; Done writes the reason and the partner", async () => {
+    rowSuggestions([]);
+    calls.memory = vi.fn(async () => ({ data: { data: [] } }));
+    calls.noProof = vi.fn(async () => ({
+      data: { data: { basCode: "657", partnerId: "bank", proposeRule: false } },
+    }));
+    render(<JustifyPanel row={row} canWrite options={options} noProofKey={1} />);
+    fireEvent.click(await screen.findByTestId("justify-reason-fee"));
+    const line = await screen.findByTestId("justify-partner-line");
+    expect(line).toHaveTextContent("Nordea — proposed (the bank)");
+    expect(screen.getByTestId("justify-no-proof-done")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("justify-no-proof-done"));
+    await waitFor(() =>
+      expect(calls.noProof).toHaveBeenCalledWith({
+        transactionId: ROW,
+        reason: "fee",
+        partnerId: "bank",
+      }),
+    );
+  });
+
+  it("tax on a SEK row proposes Skatteverket; *other* with nothing remembered starts empty — Done waits", async () => {
+    rowSuggestions([]);
+    calls.memory = vi.fn(async () => ({ data: { data: [] } }));
+    render(<JustifyPanel row={row} canWrite options={options} noProofKey={1} />);
+    fireEvent.click(await screen.findByTestId("justify-reason-tax"));
+    expect(await screen.findByTestId("justify-partner-line")).toHaveTextContent(
+      "Skatteverket — proposed (the tax agency)",
+    );
+    fireEvent.click(screen.getByTestId("justify-reason-other"));
+    await waitFor(() =>
+      expect(screen.getByTestId("justify-partner-hint")).toHaveTextContent("Pick the partner"),
+    );
+    expect(screen.getByTestId("justify-no-proof-done")).toBeDisabled();
+    expect(calls.noProof).not.toHaveBeenCalled();
+  });
+
+  it("the memory proposes when the reason has no partner by type (*remembered*); an inactive bank partner says so and proposes nothing", async () => {
+    rowSuggestions([]);
+    calls.memory = vi.fn(async () => ({
+      data: { data: [{ partnerId: "p1", name: "Northwind Cloud AB", count: 3 }] },
+    }));
+    render(<JustifyPanel row={row} canWrite options={options} noProofKey={1} />);
+    fireEvent.click(await screen.findByTestId("justify-reason-other"));
+    await waitFor(() =>
+      expect(screen.getByTestId("justify-partner-hint")).toHaveTextContent(
+        "Northwind Cloud AB — remembered (3 time(s))",
+      ),
+    );
+    expect(screen.getByTestId("justify-no-proof-done")).toBeEnabled();
+    cleanup();
+    calls.memory = vi.fn(async () => ({ data: { data: [] } }));
+    const withoutBank: JustifyOptions = {
+      ...options,
+      partners: options.partners.filter((p) => p.systemRole !== "bank"),
+      inactiveRoles: ["bank"],
+    };
+    render(<JustifyPanel row={row} canWrite options={withoutBank} noProofKey={1} />);
+    fireEvent.click(await screen.findByTestId("justify-reason-fee"));
+    expect(await screen.findByTestId("justify-partner-hint")).toHaveTextContent(
+      "The partner for the bank is inactive",
+    );
+    expect(screen.getByTestId("justify-no-proof-done")).toBeDisabled();
+  });
+
+  it("an incoming row offers the reasons too, *client paid* first; no drop zone, no receipt lost", async () => {
+    render(
+      <JustifyPanel row={{ ...row, amount: "250.00" }} canWrite options={options} noProofKey={1} />,
+    );
+    const reasons = await screen.findByTestId("justify-reasons");
+    const buttons = reasons.querySelectorAll("button");
+    expect(buttons[0]).toHaveTextContent("Client paid");
+    expect(screen.queryByTestId("justify-drop")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("justify-lost")).not.toBeInTheDocument();
   });
 });

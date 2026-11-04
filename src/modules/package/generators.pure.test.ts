@@ -38,6 +38,7 @@ const row = (over: Partial<BankSheetRow>): BankSheetRow => ({
   counterpartyKey: "SKATTEPUNKTEN",
   basCode: "6530",
   basLabel: "Redovisningstjänster",
+  partnerName: "Skattepunkten Office Services AB",
   rate: "1",
   rateSource: "same_currency",
   amountBase: "-1250.00",

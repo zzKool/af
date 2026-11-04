@@ -18,12 +18,14 @@ describe("banking state → family", () => {
     }
   });
 
-  it("open asks for action, partial is under way, linked is done, no_document needs nothing", () => {
+  it("open asks for action, partial is under way, linked is done, no_document needs nothing; justified without a partner asks again (F129)", () => {
     expect(TRANSACTION_STATE_FAMILY).toEqual({
       open: "attention",
       partial: "progress",
       linked: "done",
+      linked_no_partner: "attention",
       no_document: "neutral",
+      no_document_no_partner: "attention",
     });
   });
 });

@@ -759,3 +759,155 @@ describe("partner actions RBAC", () => {
     expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// F129 (D73): the authority type and the four system partners — specs/justify/rework.md US4
+// ─────────────────────────────────────────────────────────────
+describe("system partners (F129 US4)", () => {
+  const run = <T>(
+    caller: CallerIdentity,
+    fn: (tx: import("@/kernel/db/tenant-client").TransactionClient) => Promise<T>,
+  ) => withTenantTransaction(prisma, caller.tenantId, fn);
+
+  it("authority is a fourth type: accepted by create and update, refused when unknown", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const c = owner.callerIdentity;
+    const created = await run(c, (tx) =>
+      partnerService.createPartner(tx, c, noopAudit, {
+        name: "Kantonales Steueramt",
+        types: ["authority"],
+      }),
+    );
+    expect(created.error).toBeUndefined();
+    const read = await run(c, (tx) => partnerService.getPartner(tx, created.data?.id as string));
+    expect(read.data).toMatchObject({ types: ["authority"], systemRole: null });
+    const bad = await run(c, (tx) =>
+      partnerService.createPartner(tx, c, noopAudit, {
+        name: "Nobody",
+        types: ["authority", "cfo"] as unknown as ["authority"],
+      }),
+    );
+    expect(bad.error?.code).toBe("VALIDATION_ERROR");
+    expect(partnerService.partnerTypeSchema.safeParse("authority").success).toBe(true);
+  });
+
+  it("ensureSystemPartners seeds the four once — named, typed, audited — and finds them again by their role", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const c = owner.callerIdentity;
+    const first = await run(c, (tx) =>
+      partnerService.ensureSystemPartners(tx, c, createRealAuditLogger(tx, c), {
+        bankName: "Nordea",
+      }),
+    );
+    expect(first.data).toEqual({
+      created: ["bank", "tax_agency_se", "tax_agency_ch", "owner"],
+      attached: [],
+    });
+    const all = await run(c, (tx) => partnerService.systemPartners(tx));
+    expect(all.bank).toMatchObject({
+      name: "Nordea",
+      types: ["vendor"],
+      systemRole: "bank",
+      isActive: true,
+    });
+    expect(all.tax_agency_se).toMatchObject({
+      name: "Skatteverket",
+      types: ["authority"],
+      defaultCurrency: "SEK",
+      systemRole: "tax_agency_se",
+    });
+    expect(all.tax_agency_ch).toMatchObject({
+      name: "Swiss Federal Tax Administration (FTA)",
+      types: ["authority"],
+      defaultCurrency: "CHF",
+    });
+    // the owner as employee carries the owner member's user name (the test context's)
+    expect(all.owner).toMatchObject({
+      name: "Test owner",
+      types: ["employee"],
+      systemRole: "owner",
+    });
+    expect((await run(c, (tx) => partnerService.systemPartner(tx, "bank")))?.id).toBe(all.bank?.id);
+    await assertAuditLogged(adminPool, c.tenantId, "create", "partner", all.bank?.id as string);
+    // a second run: every role held, nothing made
+    const again = await run(c, (tx) =>
+      partnerService.ensureSystemPartners(tx, c, noopAudit, { bankName: "Nordea" }),
+    );
+    expect(again.data).toEqual({ created: [], attached: [] });
+    expect((await run(c, (tx) => partnerService.getPartners(tx, {}))).data).toHaveLength(4);
+  });
+
+  it("a hand-made partner of the name takes the role instead of a twin (D70), any case; the role is never writable through updatePartner", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const c = owner.callerIdentity;
+    const hand = await run(c, (tx) =>
+      partnerService.createPartner(tx, c, noopAudit, { name: "skatteverket", types: ["vendor"] }),
+    );
+    const r = await run(c, (tx) =>
+      partnerService.ensureSystemPartners(tx, c, createRealAuditLogger(tx, c), {
+        bankName: "Nordea",
+      }),
+    );
+    expect(r.data).toEqual({
+      created: ["bank", "tax_agency_ch", "owner"],
+      attached: ["tax_agency_se"],
+    });
+    const skv = await run(c, (tx) => partnerService.systemPartner(tx, "tax_agency_se"));
+    expect(skv).toMatchObject({ id: hand.data?.id, name: "skatteverket", types: ["vendor"] });
+    await assertAuditLogged(adminPool, c.tenantId, "update", "partner", hand.data?.id as string);
+    // the form cannot move or drop the role: an update that names it is ignored, the name still edits
+    const upd = await run(c, (tx) =>
+      partnerService.updatePartner(
+        tx,
+        c,
+        noopAudit,
+        hand.data?.id as string,
+        {
+          name: "Skatteverket",
+          systemRole: null,
+        } as unknown as Omit<partnerService.UpdatePartnerInput, "id">,
+      ),
+    );
+    expect(upd.error).toBeUndefined();
+    expect(await run(c, (tx) => partnerService.systemPartner(tx, "tax_agency_se"))).toMatchObject({
+      name: "Skatteverket",
+      systemRole: "tax_agency_se",
+    });
+    // a deactivated holder: `systemPartner` says none, `systemPartners` still names it (the reasons say *inactive*)
+    await run(c, (tx) =>
+      partnerService.deactivatePartner(tx, c, noopAudit, hand.data?.id as string),
+    );
+    expect(await run(c, (tx) => partnerService.systemPartner(tx, "tax_agency_se"))).toBeNull();
+    expect((await run(c, (tx) => partnerService.systemPartners(tx))).tax_agency_se).toMatchObject({
+      isActive: false,
+    });
+    // no second partner can take a held role — the partial unique index refuses before any service could
+    const acme = await run(c, (tx) =>
+      partnerService.createPartner(tx, c, noopAudit, { name: "Acme AB", types: ["client"] }),
+    );
+    await expect(
+      adminPool.query(`UPDATE partners SET system_role = 'tax_agency_se' WHERE id = $1`, [
+        acme.data?.id,
+      ]),
+    ).rejects.toThrow(/partners_tenant_system_role_key/);
+  });
+
+  it("RLS: each tenant has its own four", async () => {
+    const a = await createAuthenticatedContext(auth, "owner");
+    const b = await createAuthenticatedContext(auth, "owner");
+    await run(a.callerIdentity, (tx) =>
+      partnerService.ensureSystemPartners(tx, a.callerIdentity, noopAudit, { bankName: "Nordea" }),
+    );
+    expect(
+      await run(b.callerIdentity, (tx) => partnerService.systemPartner(tx, "bank")),
+    ).toBeNull();
+    await run(b.callerIdentity, (tx) =>
+      partnerService.ensureSystemPartners(tx, b.callerIdentity, noopAudit, { bankName: "Nordea" }),
+    );
+    const bankA = await run(a.callerIdentity, (tx) => partnerService.systemPartner(tx, "bank"));
+    const bankB = await run(b.callerIdentity, (tx) => partnerService.systemPartner(tx, "bank"));
+    expect(bankA?.id).not.toBe(bankB?.id);
+    expect(bankA?.tenantId).toBe(a.callerIdentity.tenantId);
+    expect(bankB?.tenantId).toBe(b.callerIdentity.tenantId);
+  });
+});

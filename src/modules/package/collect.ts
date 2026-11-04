@@ -191,6 +191,16 @@ export function selectEntities(
 // --- the flags (R7, FR-004): one builder per kind of row, shared by the collector and `collectFlags` ---
 
 /** A bank row's sheet facts — its state, Σ allocated, the open delta — and its flag, if any (main accounts only). */
+/** the states where the row is covered (nothing left open): the delta is zero */
+const COVERED = new Set<string>([
+  "linked",
+  "linked_no_partner",
+  "no_document",
+  "no_document_no_partner",
+]);
+/** F129 (D73): justified, but no partner typed or derived — the accountant would ask whom it concerns */
+const WITHOUT_PARTNER = new Set<string>(["linked_no_partner", "no_document_no_partner"]);
+
 export function bankRowFacts(
   r: PeriodRow,
   facts: { state: string; allocated: string } | undefined,
@@ -200,7 +210,7 @@ export function bankRowFacts(
   const status = f.state as BankSheetRow["status"];
   const allocated = new D(f.allocated);
   const abs = new D(r.amount).abs();
-  const delta = status === "linked" || status === "no_document" ? new D(0) : abs.minus(allocated);
+  const delta = COVERED.has(status) ? new D(0) : abs.minus(allocated);
   const where = {
     amount: r.amount,
     currency: r.currency,
@@ -211,6 +221,15 @@ export function bankRowFacts(
   if (r.accountRole === "main" && status === "open") {
     flag = {
       kind: "unlinked_row",
+      entity: "bank_transaction",
+      id: r.id,
+      key: rowLabel(r),
+      detail: r.description,
+      ...where,
+    };
+  } else if (r.accountRole === "main" && WITHOUT_PARTNER.has(status)) {
+    flag = {
+      kind: "no_partner",
       entity: "bank_transaction",
       id: r.id,
       key: rowLabel(r),
@@ -395,10 +414,15 @@ export async function collectPeriod(
   await resolveMissingKeys(tx, keys, allLinks);
 
   // --- 6. the bank sheet ---
-  // the accountant's sheet: his chart's Swedish name, the English one beside it (D72)
+  // the accountant's sheet: his chart's Swedish name, the English one beside it (D72); the account and the partner
+  // are the effective ones (F129, D73): typed on the row, else the proof's — banking's `transactionStates`
+  const effectiveCode = (id: string, typed: string | null) => rowStates.get(id)?.basCode ?? typed;
   const labels = await settings.basLabels(
     tx,
-    rows.flatMap((r) => (r.basCode ? [r.basCode] : [])),
+    rows.flatMap((r) => {
+      const code = effectiveCode(r.id, r.basCode);
+      return code ? [code] : [];
+    }),
     "sv+en",
   );
   const linksFrom = new Map<string, LinkDto[]>();
@@ -427,12 +451,16 @@ export async function collectPeriod(
         if (!related.includes(label)) related.push(label);
       } else related.push(key);
     }
-    const { status, allocated, delta, flag } = bankRowFacts(r, rowStates.get(r.id));
+    const state = rowStates.get(r.id);
+    const { status, allocated, delta, flag } = bankRowFacts(r, state);
     const rowFlags: string[] = [];
     if (flag) {
-      rowFlags.push(flag.kind === "unlinked_row" ? "unlinked" : "delta");
+      rowFlags.push(flag.kind === "unlinked_row" ? "unlinked" : flag.kind);
       flags.push(flag);
     }
+    // the proofs disagree on the account or the partner: the larger one shows, the cell says so (not a flag)
+    if (state?.mixed) rowFlags.push("mixed");
+    const code = effectiveCode(r.id, r.basCode);
     return {
       id: r.id,
       account: r.accountLabel,
@@ -449,8 +477,9 @@ export async function collectPeriod(
       message: r.message,
       ownNotes: r.ownNotes,
       counterpartyKey: r.counterpartyKey,
-      basCode: r.basCode,
-      basLabel: r.basCode ? (labels.get(r.basCode) ?? r.basCode) : null,
+      basCode: code,
+      basLabel: code ? (labels.get(code) ?? code) : null,
+      partnerName: state?.partnerName ?? null,
       rate: r.rate,
       rateSource: r.rateSource,
       amountBase: r.amountBase,

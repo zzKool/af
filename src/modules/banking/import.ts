@@ -13,6 +13,7 @@ import { uuid } from "@/kernel/validation/scalars";
 import * as documents from "@/modules/documents";
 import * as linking from "@/modules/linking";
 import * as numbering from "@/modules/numbering";
+import * as partners from "@/modules/partners";
 import { accountLabel } from "./bank-accounts";
 import {
   type BankFormatConfig,
@@ -214,7 +215,13 @@ export async function importCsv(
     });
   }
 
-  // 8. rules on the new rows (the defaults first, when the tenant has none yet)
+  // 8. rules on the new rows — the four system partners first (F129: the bank, the tax agencies, the owner as
+  //    employee, named after this account's format; made once, found again by their role), then the defaults when
+  //    the tenant has none yet (they name the bank)
+  const system = await partners.ensureSystemPartners(tx, caller, audit, {
+    bankName: format.bankName,
+  });
+  if (system.error) throw new RollbackError(system.error);
   const defaults = await ensureDefaultRules(tx, caller, audit);
   if (defaults.error) throw new RollbackError(defaults.error);
   const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });

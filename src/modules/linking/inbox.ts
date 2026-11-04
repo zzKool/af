@@ -1,6 +1,6 @@
-// The inbox read model (specs/linking/spec.md US3): every main-account row that is neither linked, transferred
-// nor "no document needed", each with its top candidates — scored in one pass over candidate pools fetched once
-// per type for the whole date span, not row by row.
+// The inbox read model (specs/linking/spec.md US3): every main-account row still to justify — open, partially
+// linked, or justified without a partner (F129, D73: banking's `needsProof`) — each with its top candidates — scored
+// in one pass over candidate pools fetched once per type for the whole date span, not row by row.
 import { Prisma } from "@/generated/prisma/client";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
@@ -26,7 +26,8 @@ const D = Prisma.Decimal;
 export type InboxRow = {
   row: EntityFacts;
   accountLabel: string;
-  state: "open" | "partial";
+  /** one of banking's *to justify* states (`needsProof`) */
+  state: banking.TransactionState;
   basCode: string | null;
   basLabel: string | null;
   top: Suggestion | null;
@@ -47,7 +48,7 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     sort: [{ col: "bookingDate", dir: "desc" }],
     filters: {
       bankAccountId: { kind: "in", values: accounts },
-      state: { kind: "in", values: ["open", "partial"] },
+      state: { kind: "in", values: banking.TRANSACTION_STATES.filter(banking.needsProof) },
     },
   });
   const candidatesRows = list.rows;
@@ -140,7 +141,7 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     out.push({
       row: f,
       accountLabel: r.accountLabel,
-      state: r.state === "partial" ? "partial" : "open",
+      state: r.state,
       basCode: row?.basCode ?? null,
       basLabel: row?.basLabel ?? null,
       top: ranked[0] ?? null,

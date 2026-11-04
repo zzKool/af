@@ -17,11 +17,15 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import * as linking from "@/modules/linking";
+import * as partners from "@/modules/partners";
 import { createBankAccount } from "./bank-accounts";
+import { categorise } from "./facts";
 import { importCsv } from "./import";
+import { needsProof } from "./months";
 import { rowsToJustifyCount } from "./open-work";
 import { listTransactions } from "./queries";
 import { acceptTransfer } from "./transfer-pairs";
+import { TRANSACTION_STATES } from "./types";
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
 
@@ -112,12 +116,12 @@ async function pair(caller: CallerIdentity) {
   return { ...ids, chfTx: chfTx.id, sekTx: sekTx.id };
 }
 
-/** what the workbench and the dashboard count: the main accounts' open | partial rows, through the full list */
+/** what the workbench and the dashboard count: the main accounts' rows still to justify (`needsProof`), through the full list */
 async function listedToJustify(caller: CallerIdentity, mainIds: string[]) {
   const r = await run(caller, (tx) =>
     listTransactions(tx, {
       filters: {
-        state: { kind: "in", values: ["open", "partial"] },
+        state: { kind: "in", values: TRANSACTION_STATES.filter(needsProof) },
         bankAccountId: { kind: "in", values: mainIds },
       },
       sort: [],
@@ -143,7 +147,7 @@ describe("F72 — rowsToJustifyCount, the sidebar's Banking count", () => {
     expect(count).toBe(11); // 12 rows, AVGIFTER NORDEA categorised "no document" by the default rule
   });
 
-  it("F82 — the dashboard's count: a fully justified row leaves it, a partly justified one stays — the list's number", async () => {
+  it("F82 — the dashboard's count: a fully justified row leaves it once it names a partner (F129), a partly justified one stays — the list's number", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const ids = await setup(caller);
     expect(
@@ -181,9 +185,56 @@ describe("F72 — rowsToJustifyCount, the sidebar's Banking count", () => {
       );
       expect(link.error).toBeUndefined();
     }
+    // a document proof carries no partner: the whole one is *linked · no partner* — still to justify (D73)
+    const stillOpen = await run(caller, rowsToJustifyCount);
+    expect(stillOpen).toBe(await listedToJustify(caller, [ids.sek, ids.chf]));
+    expect(stillOpen).toBe(11);
+    // the owner names the partner on the row (typed wins): justified, out of the count
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    await run(caller, (tx) =>
+      categorise(tx, caller, noopAudit, whole.id, { partnerId: bank?.id as string }),
+    );
     const count = await run(caller, rowsToJustifyCount);
     expect(count).toBe(await listedToJustify(caller, [ids.sek, ids.chf]));
     expect(count).toBe(10); // the 11 of the first test, less the whole one; the half one is partial
+  });
+
+  it("F129 — a row flagged without a partner counts, with one it does not; the savings interest never does", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await setup(caller);
+    expect(
+      (await importFile(caller, ids.sek, "nordea-2026-07-sek-sample.csv")).error,
+    ).toBeUndefined();
+    expect((await importFile(caller, ids.sav, "nordea-savings-year.csv")).error).toBeUndefined();
+    const row = await run(caller, (tx) =>
+      tx.bankTransaction.findFirstOrThrow({
+        where: { bankAccountId: ids.sek, name: { not: "AVGIFTER NORDEA" } },
+        orderBy: [{ bookingDate: "asc" }, { rowIndex: "asc" }],
+      }),
+    );
+    expect(await run(caller, rowsToJustifyCount)).toBe(11);
+    await run(caller, (tx) =>
+      categorise(tx, caller, noopAudit, row.id, { noDocumentNeeded: true }),
+    );
+    expect(await run(caller, rowsToJustifyCount)).toBe(11); // flagged, no partner: still to justify
+    expect(await listedToJustify(caller, [ids.sek, ids.chf])).toBe(11);
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    await run(caller, (tx) =>
+      categorise(tx, caller, noopAudit, row.id, { partnerId: bank?.id as string }),
+    );
+    expect(await run(caller, rowsToJustifyCount)).toBe(10);
+    expect(await listedToJustify(caller, [ids.sek, ids.chf])).toBe(10);
+    // the savings account's interest row (the rule, the bank) and its other rows are never in the count
+    const savings = await run(caller, (tx) =>
+      listTransactions(tx, {
+        filters: { bankAccountId: { kind: "in", values: [ids.sav] } },
+        sort: [],
+        page: 1,
+        pageSize: 100,
+        search: "",
+      }),
+    );
+    expect(savings.rows.map((r) => r.state)).not.toContain("no_document_no_partner");
   });
 
   it("an accepted transfer pair leaves the count; RLS: another tenant counts nothing", async () => {
