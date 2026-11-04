@@ -470,23 +470,28 @@ describe("F74 — the filter popovers speak the UI language", () => {
 function Page({
   initial,
   save,
+  tableKey = "tx",
+  defaultWidth,
 }: {
   initial: Record<string, unknown>;
   save: () => Promise<undefined>;
+  tableKey?: string;
+  /** the page's default panel width (F131) — px or a fraction of the canvas */
+  defaultWidth?: number | `${number}%`;
 }) {
   return (
     <TablePreferencesProvider initial={initial} save={save}>
       <DockedCanvas>
         <main>
           <DataTable
-            tableKey="tx"
+            tableKey={tableKey}
             columns={columns}
             result={{ rows, total: 2 }}
             state={makeState()}
           />
         </main>
         <Sheet open onOpenChange={() => {}}>
-          <SheetContent data-testid="panel">
+          <SheetContent data-testid="panel" defaultWidth={defaultWidth}>
             <SheetTitle>Row</SheetTitle>
           </SheetContent>
         </Sheet>
@@ -539,5 +544,104 @@ describe("F74 — the docked panel remembers open / hidden per table", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide the panel" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
     expect(screen.queryByTestId("columns-reset")).toBeNull(); // the panel is not a column matter
+  });
+});
+
+describe("F131 — the docked panel is resizable; the width is the page's default, then remembered per table", () => {
+  const CANVAS = 1200;
+  let measure: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    localStorage.clear();
+    // jsdom lays nothing out: the canvas row measures 1200 px, everything else 0 (the handle then falls back)
+    measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const width = this.dataset.slot === "details-canvas" ? CANVAS : 0;
+      return {
+        width,
+        height: 0,
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: width,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      };
+    });
+  });
+  afterEach(() => measure.mockRestore());
+
+  const panelWidth = () => (screen.getByTestId("panel") as HTMLElement).style.width;
+  const handle = () => screen.getByRole("separator", { name: "Resize the panel" });
+
+  it('a page without a default keeps the kit\'s CSS width; `defaultWidth="55%"` is 55 % of the canvas', () => {
+    render(<Page initial={{}} save={async () => undefined} />);
+    expect(panelWidth()).toBe("");
+    expect(handle().getAttribute("aria-valuemin")).toBe("340");
+    expect(handle().getAttribute("aria-valuemax")).toBe(String(Math.floor(CANVAS * 0.75)));
+    cleanup();
+    render(<Page initial={{}} save={async () => undefined} defaultWidth="55%" />);
+    expect(panelWidth()).toBe("660px");
+    expect(handle().getAttribute("aria-valuenow")).toBe("660");
+  });
+
+  it("← widens by 40 px and the width is saved with the table's layout; a reload keeps it; double-click resets", async () => {
+    vi.useFakeTimers();
+    const save = vi.fn(async () => undefined);
+    render(<Page initial={{}} save={save} defaultWidth="55%" />);
+    fireEvent.keyDown(handle(), { key: "ArrowLeft" });
+    expect(panelWidth()).toBe("700px");
+    fireEvent.keyDown(handle(), { key: "ArrowRight" });
+    fireEvent.keyDown(handle(), { key: "ArrowRight" });
+    expect(panelWidth()).toBe("620px");
+    vi.advanceTimersByTime(SAVE_DEBOUNCE_MS + 10);
+    expect(save).toHaveBeenLastCalledWith({
+      tableKey: "tx",
+      preferences: { hidden: [], order: [], widths: {}, panelWidth: 620 },
+    });
+    vi.useRealTimers();
+
+    // the reload: the server hands the layout back — the remembered width wins over the page's default
+    cleanup();
+    render(
+      <Page
+        initial={{ tx: { hidden: [], order: [], widths: {}, panelWidth: 620 } }}
+        save={save}
+        defaultWidth="55%"
+      />,
+    );
+    expect(panelWidth()).toBe("620px");
+    fireEvent.doubleClick(handle());
+    expect(panelWidth()).toBe("660px");
+    expect(
+      JSON.parse(localStorage.getItem("af.table.tx.layout") ?? "{}").panelWidth,
+    ).toBeUndefined();
+  });
+
+  it("never narrower than 340 px, never wider than 75 % of the canvas", () => {
+    render(
+      <Page
+        initial={{ tx: { hidden: [], order: [], widths: {}, panelWidth: 5000 } }}
+        save={async () => undefined}
+      />,
+    );
+    expect(panelWidth()).toBe("900px");
+    for (let i = 0; i < 20; i++) fireEvent.keyDown(handle(), { key: "ArrowRight" });
+    expect(panelWidth()).toBe("340px");
+  });
+
+  it("another table's width does not leak, and the width is not a column change (no Reset layout)", () => {
+    render(
+      <Page
+        initial={{ other: { hidden: [], order: [], widths: {}, panelWidth: 500 } }}
+        save={async () => undefined}
+        defaultWidth={420}
+      />,
+    );
+    expect(panelWidth()).toBe("420px");
+    fireEvent.keyDown(handle(), { key: "ArrowLeft" });
+    fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
+    expect(screen.queryByTestId("columns-reset")).toBeNull();
   });
 });

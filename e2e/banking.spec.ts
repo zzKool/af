@@ -111,6 +111,37 @@ test.describe("Banking", () => {
     // D40 money: U+2212 minus, "." decimals, U+202F / no-break spaces (lessons: match with \s)
     await expect(panel.getByTestId("panel-amount")).toHaveText(/^−132\.52\sSEK$/);
     await expect(panel.getByTestId("panel-state")).toHaveText("Open");
+    // F131: the work surface — the three zones; ≈ 55 % of the canvas by default; ← on the handle widens it by
+    // 40 px and the width is remembered with the table (asserted after the next reload, step 3)
+    await expect(panel.getByTestId("zone-row")).toBeVisible();
+    await expect(panel.getByTestId("zone-proof")).toBeVisible();
+    await expect(panel.getByTestId("zone-facts")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "As the bank said" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    const widthOf = (selector: string) =>
+      page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+    const canvas = await widthOf("[data-slot=details-canvas]");
+    const defaultWidth = await widthOf("[data-testid=transaction-panel]");
+    expect(Math.abs(defaultWidth / canvas - 0.55)).toBeLessThan(0.02);
+    if (process.env.E2E_SCREENSHOTS) {
+      const shots = join(__dirname, "..", "specs", "justify", "screenshots");
+      mkdirSync(shots, { recursive: true });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(panel.getByTestId("zone-facts")).toBeVisible();
+      await page.screenshot({ path: join(shots, "work-surface.png") });
+      await page.emulateMedia({ colorScheme: "dark" });
+      // the rows and the nav transition their colours (150 ms): shoot once every transition has ended
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+      await page.screenshot({ path: join(shots, "work-surface-dark.png") });
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.setViewportSize({ width: 1280, height: 720 });
+    }
+    const handle = panel.getByRole("separator", { name: "Resize the panel" });
+    await handle.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect.poll(() => widthOf("[data-testid=transaction-panel]")).toBe(defaultWidth + 40);
     await panel.getByLabel("Category").click();
     await page.getByRole("option", { name: /^654 · IT services/ }).click();
     await expect(page.getByText("Saved").first()).toBeVisible();
@@ -155,6 +186,8 @@ test.describe("Banking", () => {
     await page.getByTestId("import-show-rows").click();
     await page.getByRole("row").filter({ hasText: "TRANSFER TO OWN ACCOUNT" }).click();
     await expect(panel.getByTestId("accept-transfer")).toBeVisible();
+    // F131: the width chosen in step 2 came back with the table's layout (two reloads later)
+    await expect.poll(() => widthOf("[data-testid=transaction-panel]")).toBe(defaultWidth + 40);
     await expect(panel).toContainText("implied 1");
     await panel.getByTestId("accept-transfer").click();
     await expect(page.getByText("Transfer pair linked")).toBeVisible();

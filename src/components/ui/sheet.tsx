@@ -5,13 +5,28 @@
 // the table narrows, nothing is covered — no backdrop, no focus trap, a click on another row does not close it
 // (Escape and the close button do). Outside the shell (tests, print) it falls back to the overlay.
 // When the page's table remembers the panel as hidden (F74), the docked panel is a rail with *Show* instead.
+// Since F131 the docked panel is resizable: a handle on its left edge (drag; ← wider / → narrower by 40 px;
+// double-click resets), 340 px to 75 % of the canvas; the page names the default (`defaultWidth`, px or "55%")
+// and the table's layout remembers the width the user chose (`panelWidth`, beside `panelHidden`).
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 import { PanelRightClose, PanelRightOpen, XIcon } from "lucide-react";
 import type * as React from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
-import { useDetailsDock, useDockedPanelState } from "@/kernel/ui/shell/details-dock";
+import {
+  clampPanelWidth,
+  DEFAULT_PANEL_WIDTH,
+  MAX_PANEL_FRACTION,
+  MIN_PANEL_WIDTH,
+  PANEL_RESIZE_STEP,
+  type PanelWidth,
+  resolvePanelWidth,
+  useDetailsDock,
+  useDockCanvasWidth,
+  useDockedPanelState,
+} from "@/kernel/ui/shell/details-dock";
 import { cn } from "@/lib/utils";
 
 function CloseButton() {
@@ -52,15 +67,105 @@ function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
   return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
 }
 
+// --- the handle on the docked panel's left edge: drag with the pointer (live, committed on release),
+//     ← wider / → narrower on the keyboard (committed at once), double-click back to the page's default
+
+function PanelResizeHandle({
+  width,
+  canvasWidth,
+  onResize,
+  onCommit,
+  onReset,
+}: {
+  /** the width applied, when known (else the kit's CSS default) */
+  width: number | null;
+  canvasWidth: number;
+  /** the pointer moves: the width to show now */
+  onResize: (px: number) => void;
+  /** the pointer released or a key pressed: the width to remember */
+  onCommit: (px: number) => void;
+  onReset: () => void;
+}) {
+  const t = useT();
+  const start = useRef<{ x: number; width: number } | null>(null);
+  /** the panel's current width: the applied one, else measured, else the kit's default */
+  const currentWidth = (el: HTMLElement) =>
+    width ??
+    ((el.closest("[data-slot=sheet-content]") as HTMLElement | null)?.getBoundingClientRect()
+      .width ||
+      DEFAULT_PANEL_WIDTH);
+  const max =
+    canvasWidth > 0
+      ? Math.floor(canvasWidth * MAX_PANEL_FRACTION)
+      : Math.max(MIN_PANEL_WIDTH, width ?? DEFAULT_PANEL_WIDTH);
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be focused or dragged; the separator role is the ARIA way to say "resizer"
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={t("details.resize")}
+      title={t("details.resizeHint")}
+      aria-valuenow={Math.round(width ?? DEFAULT_PANEL_WIDTH)}
+      aria-valuemin={MIN_PANEL_WIDTH}
+      aria-valuemax={max}
+      tabIndex={0}
+      data-slot="details-resize"
+      className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize select-none hover:bg-primary/40 focus-visible:bg-primary/40 focus-visible:outline-none"
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        onReset();
+      }}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        start.current = { x: e.clientX, width: currentWidth(e.currentTarget) };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!start.current) return;
+        // the panel sits on the right: the handle moving left makes it wider
+        onResize(start.current.width + (start.current.x - e.clientX));
+      }}
+      onPointerUp={(e) => {
+        if (!start.current) return;
+        onCommit(start.current.width + (start.current.x - e.clientX));
+        start.current = null;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        const from = currentWidth(e.currentTarget);
+        onCommit(from + (e.key === "ArrowLeft" ? PANEL_RESIZE_STEP : -PANEL_RESIZE_STEP));
+      }}
+    />
+  );
+}
+
 function SheetContent({
   className,
   children,
   side = "right",
+  defaultWidth,
+  resizable = true,
   ...props
-}: SheetPrimitive.Popup.Props & { side?: "right" | "left" }) {
+}: SheetPrimitive.Popup.Props & {
+  side?: "right" | "left";
+  /** the docked panel's default width — px, or a fraction of the canvas ("55%"); the kit's 380 / 400 px when absent */
+  defaultWidth?: PanelWidth;
+  /** the docked panel's resize handle (on by default) */
+  resizable?: boolean;
+}) {
   const t = useT();
   const dock = useDetailsDock();
   const remembered = useDockedPanelState();
+  const canvasWidth = useDockCanvasWidth();
+  // the width while the pointer drags (remembered on release), and the one chosen on a page without a table
+  const [live, setLive] = useState<number | null>(null);
+  const [local, setLocal] = useState<number | null>(null);
   if (dock && side === "right") {
     if (remembered?.hidden) {
       return createPortal(
@@ -81,6 +186,13 @@ function SheetContent({
         dock,
       );
     }
+    const chosen = remembered ? remembered.width : local;
+    const remember = (px: number | null) => {
+      setLive(null);
+      if (remembered) remembered.setWidth(px);
+      else setLocal(px);
+    };
+    const width = resolvePanelWidth(live ?? chosen, defaultWidth, canvasWidth);
     return (
       <SheetPrimitive.Portal container={dock}>
         <SheetPrimitive.Popup
@@ -91,8 +203,19 @@ function SheetContent({
             "relative flex h-full w-[380px] flex-col gap-4 overflow-y-auto border-l bg-surface px-4 py-3.5 outline-none xl:w-[400px]",
             className,
           )}
+          style={width != null ? { width } : undefined}
+          data-panel-width={width ?? undefined}
           {...props}
         >
+          {resizable && (
+            <PanelResizeHandle
+              width={width}
+              canvasWidth={canvasWidth}
+              onResize={(px) => setLive(clampPanelWidth(px, canvasWidth))}
+              onCommit={(px) => remember(clampPanelWidth(px, canvasWidth))}
+              onReset={() => remember(null)}
+            />
+          )}
           {children}
           {remembered && (
             <Button

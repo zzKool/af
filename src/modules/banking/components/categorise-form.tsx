@@ -139,84 +139,87 @@ export function CategoriseForm({
   }
 
   return (
-    <div className="grid gap-3" data-testid="categorise-form">
+    <div className="@container grid gap-3" data-testid="categorise-form">
       {entry.categorisedBy === "rule" && (
         <p className="text-xs text-muted-foreground">{t("banking.form.categorisedByRule")}</p>
       )}
-      <div>
-        <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
-          {t("banking.form.category")}
-        </label>
-        <BasPicker
-          id={`${ids}-cat`}
-          options={categoryList}
-          value={(prefilledBas ?? basCode) === NONE ? "" : (prefilledBas ?? basCode)}
-          onChange={(code) => {
-            const next = code || NONE;
-            setBasCode(next);
-            void save({ basCode: next === NONE ? null : next });
-          }}
-          suggestions={suggestions}
-          direction={direction}
-          allowNone
-          noneLabel={t("banking.form.noCategory")}
-          proposed={!!prefilledBas}
-          disabled={isPending}
-          data-testid="categorise-category"
-        />
-        {prefilledBas && (
-          <p className="mt-1 text-xs text-muted-foreground" data-testid="prefill-hint">
-            {t("banking.form.prefilled")}
-          </p>
-        )}
-      </div>
-      <div>
-        <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
-          {t("banking.form.partner")}
-        </label>
-        <Select
-          value={prefilledPartner ?? partnerId}
-          onValueChange={(v) => {
-            const next = v ?? NONE;
-            setPartnerId(next);
-            const id = next === NONE ? null : next;
-            const proposed = proposedCategory(basCode === NONE ? null : basCode, id, partners);
-            if (proposed) setBasCode(proposed);
-            void save({ partnerId: id, ...(proposed ? { basCode: proposed } : {}) });
-          }}
-          disabled={isPending}
-        >
-          <SelectTrigger
-            id={`${ids}-partner`}
-            className={prefilledPartner ? "w-full border-dashed border-primary" : "w-full"}
-            data-prefilled={prefilledPartner ? "true" : undefined}
+      {/* the work surface (F131): partner · category · note on one line when the panel is wide, stacked when not */}
+      <div className="grid gap-3 @md:grid-cols-3">
+        <div className="min-w-0">
+          <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
+            {t("banking.form.partner")}
+          </label>
+          <Select
+            value={prefilledPartner ?? partnerId}
+            onValueChange={(v) => {
+              const next = v ?? NONE;
+              setPartnerId(next);
+              const id = next === NONE ? null : next;
+              const proposed = proposedCategory(basCode === NONE ? null : basCode, id, partners);
+              if (proposed) setBasCode(proposed);
+              void save({ partnerId: id, ...(proposed ? { basCode: proposed } : {}) });
+            }}
+            disabled={isPending}
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>{t("banking.form.noPartner")}</SelectItem>
-            {partners.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
-          {t("banking.form.note")}
-        </label>
-        <Input
-          id={`${ids}-note`}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onBlur={() => {
-            if ((note.trim() || null) !== (entry.note ?? null))
-              void save({ note: note.trim() || null });
-          }}
-          disabled={isPending}
-        />
+            <SelectTrigger
+              id={`${ids}-partner`}
+              className={prefilledPartner ? "w-full border-dashed border-primary" : "w-full"}
+              data-prefilled={prefilledPartner ? "true" : undefined}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t("banking.form.noPartner")}</SelectItem>
+              {partners.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-0">
+          <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
+            {t("banking.form.category")}
+          </label>
+          <BasPicker
+            id={`${ids}-cat`}
+            options={categoryList}
+            value={(prefilledBas ?? basCode) === NONE ? "" : (prefilledBas ?? basCode)}
+            onChange={(code) => {
+              const next = code || NONE;
+              setBasCode(next);
+              void save({ basCode: next === NONE ? null : next });
+            }}
+            suggestions={suggestions}
+            direction={direction}
+            allowNone
+            noneLabel={t("banking.form.noCategory")}
+            proposed={!!prefilledBas}
+            disabled={isPending}
+            data-testid="categorise-category"
+          />
+          {prefilledBas && (
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="prefill-hint">
+              {t("banking.form.prefilled")}
+            </p>
+          )}
+        </div>
+        <div className="min-w-0">
+          <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
+            {t("banking.form.note")}
+          </label>
+          <Input
+            id={`${ids}-note`}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => {
+              if ((note.trim() || null) !== (entry.note ?? null))
+                void save({ note: note.trim() || null });
+            }}
+            disabled={isPending}
+          />
+        </div>
       </div>
       {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
       <label className="flex items-center gap-2 text-sm">

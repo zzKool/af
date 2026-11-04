@@ -105,3 +105,23 @@ describe("clampWidth / isDefaultLayout", () => {
     expect(isDefaultLayout({ ...EMPTY_LAYOUT, widths: { a: 100 } }, [])).toBe(false);
   });
 });
+
+describe("panelWidth (F131) — the docked panel's width is remembered with the layout, outside the column matter", () => {
+  it("reads a stored width back, rounded; drops anything that is not a positive number", () => {
+    expect(normalizeLayout({ panelWidth: 687.4 }).panelWidth).toBe(687);
+    expect(normalizeLayout({ panelWidth: "wide" }).panelWidth).toBeUndefined();
+    expect(normalizeLayout({ panelWidth: -10 }).panelWidth).toBeUndefined();
+    expect(normalizeLayout({ panelWidth: Number.NaN }).panelWidth).toBeUndefined();
+    expect(normalizeLayout({ panelHidden: true, panelWidth: 500 })).toEqual({
+      hidden: [],
+      order: [],
+      widths: {},
+      panelHidden: true,
+      panelWidth: 500,
+    });
+  });
+
+  it("a remembered width does not make the columns non-default (no Reset layout for it)", () => {
+    expect(isDefaultLayout({ ...EMPTY_LAYOUT, panelWidth: 600 }, [])).toBe(true);
+  });
+});

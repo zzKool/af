@@ -119,6 +119,8 @@ export const en = {
   "details.close": "Close",
   "details.hide": "Hide the panel",
   "details.show": "Show the panel",
+  "details.resize": "Resize the panel",
+  "details.resizeHint": "Drag, or ← wider / → narrower; double-click for the default width",
 
   // --- auth pages (login, register) and the error fallbacks — outside the signed-in shell, the browser's language ---
   "auth.field.name": "Name",
@@ -600,6 +602,14 @@ export const en = {
   "banking.panel.import": "From import",
   "banking.panel.base": "{base} SEK at {rate} ({source})",
   "banking.panel.implicitRate": "bank rate {rate}",
+  "banking.zone.row": "The row",
+  "banking.zone.proof": "The proof",
+  "banking.zone.facts": "The facts",
+  "banking.zone.reference": "ref",
+  "banking.zone.base": "base",
+  "banking.zone.atRate": "at {rate} ({source})",
+  "banking.zone.proofFlagged": "No proof needed — flagged on the row; the partner says who.",
+  "banking.zone.proofStatement": "The statement is the proof — nothing to add.",
   "banking.history.imported": "Imported",
   "banking.history.categorised": "Categorised {code}",
   "banking.history.uncategorised": "Category removed",
