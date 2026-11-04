@@ -49,7 +49,8 @@ export type CompareCard = {
   invoiceNumber: string | null;
 };
 
-const isoDay = (s: string | undefined): string | null =>
+/** The ISO day of a date the OCR read (`2026-07-06` or `2026-07-06T00:00:00Z`); null for anything else. */
+export const isoDay = (s: string | undefined): string | null =>
   s && /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
 const moneyOf = (n: number | undefined): string | null =>
   typeof n === "number" && Number.isFinite(n) && n > 0 ? new D(n).toFixed(2) : null;
@@ -74,8 +75,11 @@ export function proposeKind(
   return reading.merchantName && !reading.vendorName ? "expense" : "supplier_invoice";
 }
 
-/** The row against the reading — the card's facts. Pure. */
-export function compareRowToReading(row: RowForJustify, reading: Reading): CompareCard {
+/** The row against the reading — the card's facts. Pure. Reads the row's money, date and description only. */
+export function compareRowToReading(
+  row: Pick<RowForJustify, "bookingDate" | "amount" | "currency" | "description">,
+  reading: Reading,
+): CompareCard {
   const rowAmount = new D(row.amount).abs().toFixed(2);
   const documentAmount = moneyOf(reading.invoiceTotal);
   const documentCurrency = reading.currency ? reading.currency.toUpperCase() : null;

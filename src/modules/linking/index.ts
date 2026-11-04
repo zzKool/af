@@ -9,6 +9,7 @@ export {
   settlementTolerance,
   sumAllocations,
 } from "./allocation";
+export { CARD_SETTLE_DAYS, type CheckProofInput, checkProof, warningMessage } from "./check-proof";
 export {
   GRAPH_DEFAULT_DEPTH,
   GRAPH_MAX_DEPTH,
@@ -108,6 +109,7 @@ export {
   dateClaim,
   daysBetween,
   type Memory,
+  nameInTexts,
   nameTokens,
   partialTokens,
   type RowFacts,
@@ -131,7 +133,7 @@ export {
   suggestionsForTransaction,
 } from "./suggestions";
 export type * from "./types";
-export { LINK_KINDS } from "./types";
+export { LINK_KINDS, WARNING_CODES } from "./types";
 export {
   AFTER_DUE_DAYS,
   BEFORE_ISSUE_DAYS,

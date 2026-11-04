@@ -52,6 +52,17 @@ Single number literals like `new Prisma.Decimal(7.7)` happen to work because dec
 
 All three take a `Decimal` or a decimal string and return Decimals / booleans. Property tests in `settlement.test.ts`. Modules adopt them one lane at a time — the list is lessons audit 27.
 
+## The FX tolerance per kind of row
+
+`src/kernel/money/fx-tolerance.ts` — `fxTolerance(kind: "card" | "other"): string` (F130, [[review-2026-10-31]] §4, O4): how far the bank's amount may sit from a paper in another currency converted at the ECB rate of the booking date — a decimal share, like the kernel's other figures.
+
+| Kind | Share | Why |
+|---|---|---|
+| `card` | `"0.04"` | a card purchase (`Kortköp`): the card scheme's margin on the ECB rate and a possible fee — the owner's O4 |
+| `other` | `"0.06"` | every other row — the scorer's cross-currency figure (harvest R6, D67), **moved here unchanged** from `linking/scoring.ts` (`CROSS_CURRENCY_TOLERANCE` now reads it; its tests pin the behaviour). Lowering it changes which suggestions are HIGH — a question of its own |
+
+Read by the scorer (a cross-currency candidate beyond it is dropped unless a reference matched), by `crossAllocation` (the row pays the entity whole within it) and by the consistency check `amount_fx` ([[linking]] *Consistency checks*). **Not a seventh tolerance**: the settlement tolerance above stays the rule for *paid* / *settled*; the transfer pair's 5 % on the rate stays banking's own. `fx-tolerance.test.ts`.
+
 ## Currency Formatting
 
 See [[constants]] for `CURRENCIES`, `Currency` type, and precision rules.

@@ -24,6 +24,7 @@ import {
   NO_PROOF_REASONS,
   type NoProofReason,
 } from "./justify-rules";
+import { WARNING_CODES, type WarningCode } from "./types";
 
 const D = Prisma.Decimal;
 
@@ -93,6 +94,11 @@ export const justifySchema = z
     kind: z.enum(["supplier_invoice", "expense"]),
     supplier: justifySupplierSchema.optional(),
     expense: justifyExpenseSchema.optional(),
+    /** the consistency checks the owner confirmed over (F130, `checkProof`) — written on the link's audit row */
+    confirmedWarnings: z
+      .array(z.enum(WARNING_CODES as [WarningCode, ...WarningCode[]]))
+      .max(WARNING_CODES.length)
+      .optional(),
   })
   .refine((v) => (v.kind === "supplier_invoice" ? !!v.supplier : !!v.expense), {
     message: "The entity's fields are missing",
@@ -118,6 +124,27 @@ export type JustifyResult = {
 /** A refused step names itself in the message (US1 scenario 8): *entity: …*, *payment: …*, *row: …*. */
 function step<T>(name: "entity" | "payment" | "row", r: ServiceResult<T>): ServiceResult<T> {
   return r.error ? { error: { ...r.error, message: `${name}: ${r.error.message}` } } : r;
+}
+
+/**
+ * The warnings the owner confirmed over (F130, review 2026-10-31 §4), on the `justifies` link's own audit trail —
+ * he saw them, the trail says so. The owning module wrote the link's `create` row (`recordPayment` / `payExpense`);
+ * this is a second row on the same entity, in the same transaction. No table, no column; the History's reader
+ * ignores a link row that is not a `create` (`banking/history.ts`).
+ */
+async function auditConfirmedWarnings(
+  audit: AuditLogger,
+  linkId: string,
+  codes: readonly WarningCode[] | undefined,
+): Promise<void> {
+  const confirmed = [...new Set(codes ?? [])];
+  if (confirmed.length === 0) return;
+  await audit.log({
+    action: "update",
+    entityType: "link",
+    entityId: linkId,
+    newData: { confirmedWarnings: confirmed },
+  });
 }
 
 /** The row the panel may justify: outgoing, on a main account, with something left to allocate. */
@@ -184,6 +211,7 @@ export async function justifyRow(
       }),
     );
     if (paid.error) return { error: paid.error };
+    await auditConfirmedWarnings(audit, paid.data.linkId, v.confirmedWarnings);
     const facts = step(
       "row",
       await banking.categorise(tx, caller, audit, v.transactionId, {
@@ -219,6 +247,7 @@ export async function justifyRow(
     }),
   );
   if (paid.error) return { error: paid.error };
+  await auditConfirmedWarnings(audit, paid.data.linkId, v.confirmedWarnings);
   const facts = step(
     "row",
     await banking.categorise(tx, caller, audit, v.transactionId, {

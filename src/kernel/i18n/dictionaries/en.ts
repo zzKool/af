@@ -846,6 +846,30 @@ export const en = {
   "linking.justify.incoming":
     "An incoming row is justified by the invoice it pays — pick it under Suggestions.",
   "linking.justify.needsOptions": "The groups and payment sources could not be loaded.",
+  // --- the consistency checks of a proof (F130, review 2026-10-31 §4): one line per warning, the facts in it ---
+  "linking.checks.vendor_counterparty":
+    "The paper names {vendorName}, the bank says {counterpartyKey} — the same supplier?",
+  "linking.checks.amount_fx":
+    "{paper} at {rate} = {converted}; the bank took {bank} ({offPct} %) — more than the {tolerancePct} % margin of a {kind}",
+  "linking.checks.amount_fx.noRate": "No ECB rate for {date} — {paper} is not compared with {bank}",
+  "linking.checks.kind.card": "card purchase",
+  "linking.checks.kind.other": "transfer",
+  "linking.checks.amount_same":
+    "Off by {difference} — the paper shows {paper}, the bank took {bank}",
+  "linking.checks.date.before": "Booked {days} day(s) before {anchor} ({date})",
+  "linking.checks.date.after": "Booked {days} day(s) after {anchor} ({date})",
+  "linking.checks.date.anchor.paper": "the paper's date",
+  "linking.checks.date.anchor.invoice": "the invoice date",
+  "linking.checks.date.anchor.due": "the due date",
+  "linking.checks.billed_to": "Billed to {billedTo}, not to {companyName}",
+  "linking.checks.billed_to.unnamed": "Not addressed to {companyName}",
+  "linking.checks.already_proof.document": "This document already justifies the row of {rowDate}",
+  "linking.checks.already_proof.number":
+    "Invoice number {invoiceNumber} exists already for this supplier — a second one is refused",
+  "linking.checks.already_proof.both":
+    "This document already justifies the row of {rowDate}, and invoice number {invoiceNumber} exists already",
+  "linking.checks.currency_unread":
+    "No currency read — {readingAmount} is not compared with {bank}",
   // --- the payment picker (F97 US2) ---
   "linking.picker.pick": "Pick",
   "linking.picker.change": "Change",
