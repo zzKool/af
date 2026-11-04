@@ -89,6 +89,20 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 **2026-10-29, the first proof on the box** (F124, [[features]]): the owner dropped one card-paid PDF on its row and hit six things in a row — the receipt model on an invoice-shaped bill (D69), a card unlabelled, a greyed button, the same supplier ten times (D70), the dialog's accidental defaults, and a counterparty key that keeps the bill number so nothing learned ever recurs (D71). Every one is a PR; every oddity of B1 goes the same way: a line here, a row in [[features]], a lesson. Still open from it: F98 PR 2 (the model stage — stage 1 proposes only from rules, partner defaults and the owner's own history, so a fresh tenant sees nothing until it has some), and expenses never reaching the Swiss VAT return (no screen sets `vat_registration_id`, [[lessons]] *F124 build*).
 
+### 0b. The justification rework (2026-10-31 → 11-04, [[review-2026-10-31]]) — before B1 resumes
+
+The owner's verdict after the first real proofs: the F97 panel is "spaghetti" — the right verbs in a 380 px box, a reading with one quality word, *Fix the reading* leaving the row, rows *linked* with no partner. The rework is the shape of the screen, the depth of the reading and one rule (D73); the mechanics stay. Decided with the owner 2026-11-03 (O1–O7, D73 · D75), corrected on a second read 2026-11-04 (D73 derives on read — F113 PR C pulled forward; D74 is a rule, not a column). The rows are [[features]] F127–F131, the tasks `specs/justify/tasks.md` T011+.
+
+```
+F127 OCR: every field + its confidence ─┐
+                                        ├─► F129 a justified row names a partner ─► F128 import preview ─► F131 the work surface + the reading dialog
+F130 checkProof + fxTolerance (pure) ───┘      (D73 · D74 · the one migration)        (banking)              (one PR per module: linking · banking · expenses)
+                                                      ▲                                                                   │
+                                            specs/justify/rework.md — the owner's read                          B1 resumes on the new surface
+```
+
+The F97 panel keeps working until F131 lands, so B1 can continue meanwhile; the owner's word on `specs/justify/rework.md` (the backfill of his existing no-proof rows, D74 as a rule) is the one gate — *Open decisions*.
+
 ### 1. B1 — 2023-Q2 end to end, on the owner's box
 
 The acceptance test: one real quarter, from the start of the activity, through every module, ending in a package compared with what the accountant filed. The owner does the entering; the agent fixes what he reports (D51: never on the box, never with his values).
@@ -128,6 +142,7 @@ F03 Members is *later*: the owner will not invite the accountant into the app fo
 
 ## Open decisions (the owner's)
 
+- **The justification rework, F129's spec** — `specs/justify/rework.md` (FULL lane): D74 as a rule rather than a partner column; the migration that seeds the four partners (the bank, Skatteverket, the Swiss FTA, the owner as employee) and backfills `partner_id` on his existing *no proof needed* rows from their account and their rule — the rows it cannot place re-open as *to justify*. Built on his "go" of 2026-11-04; the box deploy, as always, on his word. The seven screen decisions (O1–O7) are taken ([[review-2026-10-31]] §10).
 - **Local AI** (F98 / F99 / F100) — six questions, one batch, in [[local-ai]] §11: the box (CPU-only now, the RAM upgrade after the first eval), the build order (proposals first or the closing run first), the nightly run, *ask your books* in or parked, proposals on documents, what a rejected proposal means. No code before the answers.
 - ~~**BAS at four digits**~~ — **accepted by the owner 2026-10-31** (D68; built as the last PR of F126, `specs/ai/spec-suggest-from-first-entry.md` FR-205; the box deploy waits for his word — irreversible). Was: (proposed D68, 2026-10-27) — store the account the accountant books (`6540`, `6072`, `2898`), not the three-digit main account without its 0 (`654`): BAS's own levels are class (1) · group (2) · main account (4, last digit 0) · sub-account (4, last digit 1–9) ([bas.se](https://www.bas.se/english/framework-and-use-of-the-accounting-plan/)); three digits lose the sub-accounts that carry a tax difference (6071 / 6072, 7321 / 7322). Groups derived by prefix; every stored code `NNN` → `NNN0` (mechanical); one serialised migration, FULL lane, before B1. Spec on the owner's word.
 
@@ -135,7 +150,7 @@ Decided 2026-10-27 (the audit's §8, one batch): **D59** one transaction table �
 
 Decided 2026-10-23 (O6–O8 and two more, chat): **F70 parked** — the base stays SEK in code until a second company needs another, a guard stops new hard-coded SEK (D46 → F85); the reimbursement statement prints *owed* like the app (D47 → F88); both unread columns dropped now, before real data (D48 → F86); expenses get an **optional partner** for spend per merchant (D49 → F87, FULL).
 
-Decided 2026-10-22 (the audit's O3–O5, constitution 1.3): an open expense / supplier invoice's money facts are a draft until its first payment, then locked (D37 → F58, F62); `expense_groups` is a shared reference other modules may FK to (D38); **each tenant has its own base currency**, locked once it has money (D39 → F70). Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: a `justifies` link does not fill in the journal entry's partner (D33); reviewed = filed (D34).
+Decided 2026-10-22 (the audit's O3–O5, constitution 1.3): an open expense / supplier invoice's money facts are a draft until its first payment, then locked (D37 → F58, F62); `expense_groups` is a shared reference other modules may FK to (D38); **each tenant has its own base currency**, locked once it has money (D39 → F70). Decided 2026-10-22: a supplier's invoice number is unique, an exact match is refused (D35); deleting what a document became returns it to the inbox when `created_from` is its only link (D36). Decided 2026-10-21: ~~a `justifies` link does not fill in the journal entry's partner (D33)~~ — reversed by D58, built as D73 (a) in F129; reviewed = filed (D34).
 
 ## How we work
 
