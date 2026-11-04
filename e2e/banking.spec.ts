@@ -122,6 +122,9 @@ test.describe("Banking", () => {
     );
     const widthOf = (selector: string) =>
       page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+    const handle = panel.getByRole("separator", { name: "Resize the panel" });
+    // the journey owns its state: a width remembered by an earlier run goes first (double-click = the default)
+    await handle.dblclick();
     const canvas = await widthOf("[data-slot=details-canvas]");
     const defaultWidth = await widthOf("[data-testid=transaction-panel]");
     expect(Math.abs(defaultWidth / canvas - 0.55)).toBeLessThan(0.02);
@@ -138,7 +141,6 @@ test.describe("Banking", () => {
       await page.emulateMedia({ colorScheme: "light" });
       await page.setViewportSize({ width: 1280, height: 720 });
     }
-    const handle = panel.getByRole("separator", { name: "Resize the panel" });
     await handle.focus();
     await page.keyboard.press("ArrowLeft");
     await expect.poll(() => widthOf("[data-testid=transaction-panel]")).toBe(defaultWidth + 40);

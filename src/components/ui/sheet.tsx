@@ -80,8 +80,8 @@ function PanelResizeHandle({
   /** the width applied, when known (else the kit's CSS default) */
   width: number | null;
   canvasWidth: number;
-  /** the pointer moves: the width to show now */
-  onResize: (px: number) => void;
+  /** the pointer moves: the width to show now; null = back to what is remembered (the drag went nowhere) */
+  onResize: (px: number | null) => void;
   /** the pointer released or a key pressed: the width to remember */
   onCommit: (px: number) => void;
   onReset: () => void;
@@ -131,7 +131,10 @@ function PanelResizeHandle({
       }}
       onPointerUp={(e) => {
         if (!start.current) return;
-        onCommit(start.current.width + (start.current.x - e.clientX));
+        const moved = e.clientX !== start.current.x;
+        // a click that did not move pins nothing (the page's default stays a fraction of the canvas)
+        if (moved) onCommit(start.current.width + (start.current.x - e.clientX));
+        else onResize(null);
         start.current = null;
         e.currentTarget.releasePointerCapture(e.pointerId);
       }}
@@ -211,7 +214,7 @@ function SheetContent({
             <PanelResizeHandle
               width={width}
               canvasWidth={canvasWidth}
-              onResize={(px) => setLive(clampPanelWidth(px, canvasWidth))}
+              onResize={(px) => setLive(px == null ? null : clampPanelWidth(px, canvasWidth))}
               onCommit={(px) => remember(clampPanelWidth(px, canvasWidth))}
               onReset={() => remember(null)}
             />
