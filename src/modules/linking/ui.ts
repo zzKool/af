@@ -10,6 +10,7 @@ export * from "./components/link-graph";
 export * from "./components/links-list";
 export * from "./components/payment-picker";
 export * from "./components/proposal-line";
+export * from "./components/reading-dialog";
 export * from "./components/suggestions-section";
 export * from "./linking.actions";
 export * from "./proposals/proposals.actions";

@@ -16,7 +16,9 @@ import { createPartnerAction, matchPartnersAction } from "@/modules/partners/par
 import type { PartnerMatch } from "@/modules/partners/types";
 import { ocrAddressText, partnerAddressFromOcr } from "./ocr-address";
 
-const BEST_FROM = 60;
+/** the percent from which the best match is offered as *Use match* — and pre-picked by a host that reads `onMatches` */
+export const MATCH_BEST_FROM = 60;
+const BEST_FROM = MATCH_BEST_FROM;
 
 export type VendorFacts = {
   name?: string | null;
@@ -30,11 +32,20 @@ export function PartnerMatchCard({
   selectedId,
   onUseMatch,
   onCreated,
+  onMatches,
+  onNew,
+  newLabel,
 }: {
   vendor: VendorFacts;
   selectedId: string;
   onUseMatch: (partnerId: string) => void;
   onCreated: (partner: { id: string; name: string }) => void;
+  /** F131: the matches as they arrive (best first) — a host that pre-picks a match ≥ the threshold reads them here */
+  onMatches?: (matches: PartnerMatch[]) => void;
+  /** F131: a host with its own (full) partner form — the *New* button opens it instead of the inline name + VAT form */
+  onNew?: () => void;
+  /** the *New* button's word when `onNew` is given (default *New supplier*) */
+  newLabel?: string;
 }) {
   const t = useT();
   const [matches, setMatches] = useState<PartnerMatch[] | null>(null);
@@ -59,7 +70,10 @@ export function PartnerMatchCard({
       address: addressText?.slice(0, 400) ?? undefined,
       type: "vendor",
     }).then((r) => {
-      if (live) setMatches(r?.data?.data ?? []);
+      if (!live) return;
+      const found = r?.data?.data ?? [];
+      setMatches(found);
+      onMatches?.(found);
     });
     return () => {
       live = false;
@@ -177,10 +191,10 @@ export function PartnerMatchCard({
           size="sm"
           variant="outline"
           className="mt-2"
-          onClick={() => setCreating(true)}
+          onClick={() => (onNew ? onNew() : setCreating(true))}
           data-testid="partner-match-new"
         >
-          {t("partners.match.newVendor")}
+          {onNew && newLabel ? newLabel : t("partners.match.newVendor")}
         </Button>
       )}
     </div>

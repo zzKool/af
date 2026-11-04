@@ -19,6 +19,16 @@ import { createExpenseGroupAction } from "@/modules/expenses/expenses.actions";
 import type { GroupOption } from "@/modules/expenses/types";
 import { groupLabel } from "./labels";
 
+// the group a paper's date proposes (review 2026-10-31 §5.2, F131): pure, on the client surface for the reading
+// dialog and the Expenses pickers — the house pattern for a pure helper beside its picker (`bas-picker.tsx`)
+export {
+  type GroupForProposal,
+  type GroupProposal,
+  type GroupProposalReason,
+  monthOfGroupName,
+  proposeGroupForDate,
+} from "../group-proposal";
+
 /** The select value standing for "+ New group…". */
 export const NEW_GROUP = "__new__";
 

@@ -2,6 +2,8 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and stores.
 
+// D53's rule, the one place: the review form and linking's proof facts (F131) judge *billed to* with it
+export { checkBilledTo } from "./billed-to";
 export { generateBusinessKey, getDocumentClassification, getUploadKinds } from "./business-key";
 export type {
   ArchiveOutcome,

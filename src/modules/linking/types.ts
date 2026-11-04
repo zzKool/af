@@ -323,3 +323,21 @@ export type ProofWarning =
 
 /** The partner the dialog matched or the owner picked — what the vendor check compares the paper with. */
 export type ProofPartner = { id: string; name: string; vatNumber: string | null };
+
+/** The facts `checkProof` needs from the server (`proofFacts`, F131): the dialog reads them, the comparison stays pure. */
+export type ProofFacts = {
+  /** the ECB rate reading → row currency on the booking date; null when none is stored or the currencies agree */
+  fxRate: string | null;
+  fxRateDate: string | null;
+  /** D53: true / false when the paper names a customer, null when it names none (or no profile exists) */
+  billedToFits: boolean | null;
+  companyName: string;
+  /** the partners the active rules name for the counterparty key (D74) */
+  rulePartnerIds: string[];
+  /** `memoryForRow`: the partners this key was linked to before, most first */
+  memory: { partnerId: string; name: string; count: number }[];
+  /** the other row this document already justifies, if any */
+  documentJustifiesOther: { rowDate: string } | null;
+  /** the picked supplier holds the invoice number already (D35) */
+  supplierNumberTaken: boolean;
+};

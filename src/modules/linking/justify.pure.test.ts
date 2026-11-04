@@ -3,10 +3,15 @@
 import { describe, expect, it } from "vitest";
 import {
   compareRowToReading,
+  DEFAULT_PAPER,
+  greenChecks,
   isCardPurchase,
   monthOf,
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
+  PAPERS,
+  paperOfPrefixType,
+  prefixTypeOfPaper,
   proposedPartnerRole,
   proposeKind,
   proposeVendorRule,
@@ -145,5 +150,53 @@ describe("F129 — the reasons' partner by type, the vendor rule (D74)", () => {
       basCode: "6540",
     });
     expect(proposeVendorRule("MSFT", "p2", null).basCode).toBeNull();
+  });
+});
+
+describe("F131 — the paper question (D75) and the green checks", () => {
+  it("the paper picks the upload type, Invoice by default (O5); a stored type reads back as its paper", () => {
+    expect(DEFAULT_PAPER).toBe("invoice");
+    expect(PAPERS).toEqual(["invoice", "receipt"]);
+    expect(prefixTypeOfPaper("invoice")).toBe("invoice");
+    expect(prefixTypeOfPaper("receipt")).toBe("expense");
+    expect(paperOfPrefixType("expense")).toBe("receipt");
+    expect(paperOfPrefixType("invoice")).toBe("invoice");
+    expect(paperOfPrefixType(undefined)).toBe("invoice");
+  });
+
+  it("greenChecks: a ✓ line only for what was read and nothing warned about — every claim true", () => {
+    const reading = {
+      vendorName: "Skattepunkten Office Services AB",
+      invoiceTotal: 1297.2,
+      currency: "SEK",
+      invoiceDate: "2026-07-06",
+    };
+    expect(greenChecks(row(), reading, true, [])).toEqual([
+      { code: "amount", kind: "equal" },
+      { code: "days", days: 2 },
+      { code: "vendor" },
+    ]);
+    // a warning takes its line away
+    expect(greenChecks(row(), reading, true, ["amount_same", "date"])).toEqual([
+      { code: "vendor" },
+    ]);
+    // within the tolerance but not equal: the difference is named, never "equal"
+    expect(greenChecks(row(), { ...reading, invoiceTotal: 1297.18 }, false, [])).toEqual([
+      { code: "amount", kind: "within", difference: "-0.02", currency: "SEK" },
+      { code: "days", days: 2 },
+      { code: "vendor" },
+    ]);
+    // another currency inside the FX tolerance: said as such
+    expect(greenChecks(row(), { ...reading, currency: "EUR" }, true, [])[0]).toEqual({
+      code: "amount",
+      kind: "fx",
+      currency: "EUR",
+    });
+    // nothing read, no partner: nothing claimed
+    expect(greenChecks(row(), {}, false, [])).toEqual([]);
+    // a partner picked without a vendor read still claims the vendor line when the check is silent
+    expect(greenChecks(row(), {}, true, [])).toEqual([{ code: "vendor" }]);
+    // an amount without a currency is never claimed (F61-b)
+    expect(greenChecks(row(), { invoiceTotal: 10 }, false, ["currency_unread"])).toEqual([]);
   });
 });
