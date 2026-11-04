@@ -20,10 +20,11 @@ async function snapElement(locator: Locator, name: string) {
   await locator.screenshot({ path: join(SHOTS, `${name}.png`) });
 }
 
-// Justify from the bank row (specs/justify/spec.md US1, US3, SC-001): three rows imported, then on the inbox —
-// the proof dropped on the first (mock OCR → the compare card → Create supplier invoice & link), `n` on the fee
-// row (no proof needed, 657, the rule proposed), `x` on the card row (receipt lost → an expense with the flag) —
-// without leaving Work. The mock reads invented facts: the mechanics are asserted, never the values (D51).
+// Justify from the bank row (specs/justify/spec.md US1, US3, SC-001; F129 US3: a justified row names a partner):
+// three rows imported, then on the inbox — the proof dropped on the first (mock OCR → the compare card → Create
+// supplier invoice & link), `n` on the fee row (no proof needed, 657, the bank proposed as its partner, the rule
+// proposed), `x` on the card row (receipt lost → an expense with the flag, the merchant picked) — without leaving
+// Work. The mock reads invented facts: the mechanics are asserted, never the values (D51).
 const HEADER =
   "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
 
@@ -109,11 +110,17 @@ test.describe("Justify", () => {
       // the row left the inbox (it is linked)
       await expect(inboxRow(`${counterparty} OFFICE`)).toHaveCount(0, { timeout: 20_000 });
 
-      // 4. the fee row: n → bank fee → no document needed, 657, the rule proposed
+      // 4. the fee row: n → bank fee → the bank proposed as the partner (F129, D73) → Done → no document needed,
+      //    657, Nordea, the rule proposed
       await inboxRow(`PRISAVGIFT ${stamp}`).first().click();
       await expect(page.getByTestId("justify-panel")).toBeVisible();
       await page.keyboard.press("n");
       await page.getByTestId("justify-reason-fee").click();
+      const partnerLine = page.getByTestId("justify-partner-line");
+      await expect(partnerLine).toContainText("Nordea — proposed (the bank)");
+      await snap(page, "no-proof-partner");
+      await snapElement(partnerLine, "no-proof-partner-element");
+      await partnerLine.getByTestId("justify-no-proof-done").click();
       await expectToast(page, "no document needed");
       await expect(page.getByText(`Always like this for PRISAVGIFT ${stamp}?`)).toBeVisible();
       await expect(inboxRow(`PRISAVGIFT ${stamp}`)).toHaveCount(0, { timeout: 20_000 });
@@ -130,6 +137,9 @@ test.describe("Justify", () => {
         "true",
       );
       await lost.getByTestId("justify-description").fill(`Coffee ${stamp}`);
+      // the merchant: a justified row names a partner (F129) — without one the row would stay to justify
+      await lost.getByTestId("justify-partner").click();
+      await page.getByRole("option", { name: supplier }).click();
       await lost.getByTestId("justify-category").click();
       await page.getByRole("option", { name: /^580/ }).click();
       await lost.getByTestId("justify-group").click();
@@ -140,14 +150,16 @@ test.describe("Justify", () => {
       await expectToast(page, "created and linked");
       await expect(inboxRow(`CAFE ${stamp}`)).toHaveCount(0, { timeout: 20_000 });
 
-      // 6. the three rows on the list: linked · no document · linked, with their categories
+      // 6. the three rows on the list: linked · no document · linked, with their categories and partners —
+      //    the supplier's name on the row the card linked (F129, D73 (a): derived on read)
       await page.goto("/banking");
-      await expect(
-        page.getByRole("row").filter({ hasText: `${counterparty} OFFICE` }),
-      ).toContainText("Linked");
-      await expect(page.getByRole("row").filter({ hasText: `PRISAVGIFT ${stamp}` })).toContainText(
-        "657",
-      );
+      const officeRow = page.getByRole("row").filter({ hasText: `${counterparty} OFFICE` });
+      await expect(officeRow).toContainText("Linked");
+      await expect(officeRow).toContainText(supplier);
+      const feeRow = page.getByRole("row").filter({ hasText: `PRISAVGIFT ${stamp}` });
+      await expect(feeRow).toContainText("657");
+      await expect(feeRow).toContainText("Nordea");
+      await expect(feeRow).toContainText("No document needed");
       await expect(page.getByRole("row").filter({ hasText: `CAFE ${stamp}` })).toContainText(
         "Linked",
       );

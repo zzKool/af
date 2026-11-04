@@ -53,6 +53,26 @@ Put `AF_TAG` in a file named **`.env`** next to the compose file to make it stic
 
 **The documents** (F107, D61): plain files in the `documents` volume (`STORAGE_DRIVER=fs`, `STORAGE_DIR=/data/documents`, set by the compose), one file per document under its tenant's folder — readable by any tool, `rsync`-able (`docker volume inspect af_documents` gives the host path), backed up by the script below. Azurite is for dev only. **Moving an existing box off Azurite**: keep `AZURE_STORAGE_CONNECTION_STRING` in `.env.prod` for one more deploy — the migrate container copies every document into the folder and repoints the rows (`scripts/migrate-blobs-to-fs.mjs`, idempotent, deletes nothing); check the app and a backup, then drop the variable and the old `blobdata` volume. Azure Blob is the other driver: `STORAGE_DRIVER=blob` + the account's connection string. Both images create `/data/documents` owned by the app user (uid 1001), so a new `documents` volume is writable; a box that created the volume with an older image fixes it once with `docker run --rm -v af_documents:/data alpine chown -R 1001:1001 /data` (the migrate log then says *permission denied* until it is done).
 
+**Data migrations that write the owner's facts** keep their trail in `audit_logs` (`source = 'migration'`). The `justified_partner` migration (F129, D73 — `20261104120000`) is the first that touches his rows: it seeds four partners per tenant (the bank, Skatteverket, the Swiss FTA, the owner as employee — a hand-made one of the name takes the role instead of a twin) and writes `partner_id` on the rows flagged *no proof needed* without one — from their rule's partner, else by account (657 / 831 → the bank, 251 → the tax agency of the account's currency, 721 → the owner; both digit forms); the no-proof rules get the same map. The migrate container's log names its counts (the fixture of `specs/justify/rework.md` US5 prints exactly these):
+
+```
+justified_partner: tenant <id> — 3 partner(s) created, 1 role(s) attached to a hand-made partner
+justified_partner: 7 partner(s) created and 1 role(s) attached over 2 tenant(s); 0 tenant(s) without a member skipped
+justified_partner: 7 row(s) backfilled — 1 by their rule, 6 by their account; 1 row(s) re-open as *no proof · no partner* (0 more on a savings account need none)
+justified_partner: 3 rule(s) given a partner; 0 active no-proof rule(s) left for *Needs a look*
+```
+
+The rows it could not place come back once in the Months panel as *no proof · no partner* and take one `n` each. The trail is the reversal path — **by hand only**, after the snapshot, never by the app:
+
+```sql
+-- the rows the migration placed (their audit row: old {partnerId: null} → new {partnerId, migration: 'justified_partner'})
+UPDATE bank_transactions SET partner_id = NULL
+ WHERE id IN (SELECT entity_id::uuid FROM audit_logs
+               WHERE source = 'migration' AND entity_type = 'bank_transaction'
+                 AND new_data->>'migration' = 'justified_partner');
+-- the same marker on the partners it seeded (entity_type = 'partner', action = 'create') and the rules it gave a partner (entity_type = 'categorisation_rule')
+```
+
 **Backups** (constitution §7: financial records survive the host): `scripts/backup.sh` nightly from cron — a `pg_dump` custom-format dump plus the documents folder as a tarball, kept 30 days, copied off-host when `BACKUP_OFFSITE` points at a mounted remote (a NAS share, an rclone mount, an Azure Blob container mounted with blobfuse):
 
 ```

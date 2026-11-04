@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-04
 
-**Status**: Draft for the owner's read — four questions in one batch at the end (§*Questions for the owner*). The decisions themselves are taken (D73 the owner 2026-11-03, D74 proposed 2026-11-04, [[review-2026-10-31]] §5 after its second read); this page makes them buildable. Built on his "go"; the box deploy, as always, on his word (the migration writes `partner_id` on his rows).
+**Status**: **Built 2026-11-04** (`feat/linking-justified-partner`, one PR; migration `20261104120000_justified_partner`) on the spec's recommended answers to the four questions below (Q1 the names as seeded · Q2 yes · Q3 yes · Q4 yes) — the supervisor relays the owner's word if it differs. The decisions themselves are taken (D73 the owner 2026-11-03, D74 proposed 2026-11-04, [[review-2026-10-31]] §5 after its second read). The box deploy, as always, on his word (the migration writes `partner_id` on his rows; the reversal query is in [[deployment]]). Built as written, with three readings noted in the PR: the audit rows of the seeded partners and the rules carry the same `migration` marker as the rows (the reversal query is scoped by `entity_type`); the `mixed` tag compares the proofs' non-null values only (a plain document beside an expense is not *mixed*); `proposeRule` is proposed after a receipt-lost expense too when it names a partner.
 
 **Input**: [[review-2026-10-31]] §2 rows 2.11–2.12, §5, §8 F129, §11 · [[feature-inventory]] D73 · D74 · D58 (D33 reversed) · `specs/banking/one-table.md` US4 / FR-006 / SC-004 (F113 PR C — the approved rule this spec **builds**, it does not re-decide it) · `specs/justify/spec.md` US3 (F97's *no proof needed* and its rule proposal) · `specs/linking/one-engine.md` (the memory, the rules' shape, F116).
 

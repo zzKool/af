@@ -617,11 +617,17 @@ export async function systemPartner(
   return row ? toPartnerDto(row) : null;
 }
 
-/** Every role's partner, active or not (the reasons' proposal says *inactive* rather than *none*), null when unseeded. */
+/**
+ * Every role's partner, active or not (the reasons' proposal says *inactive* rather than *none*), null when unseeded.
+ * `tenantId` narrows it for a caller outside RLS (the seed runs as the migration role, which sees every tenant).
+ */
 export async function systemPartners(
   tx: TransactionClient,
+  tenantId?: string,
 ): Promise<Record<SystemRole, PartnerDto | null>> {
-  const rows = await tx.partner.findMany({ where: { systemRole: { not: null } } });
+  const rows = await tx.partner.findMany({
+    where: { systemRole: { not: null }, ...(tenantId ? { tenantId } : {}) },
+  });
   const out = Object.fromEntries(SYSTEM_ROLES.map((r) => [r, null])) as Record<
     SystemRole,
     PartnerDto | null
@@ -643,7 +649,7 @@ export async function ensureSystemPartners(
   audit: AuditLogger,
   options: { bankName: string },
 ): Promise<ServiceResult<{ created: SystemRole[]; attached: SystemRole[] }>> {
-  const held = await systemPartners(tx);
+  const held = await systemPartners(tx, caller.tenantId);
   const missing = SYSTEM_ROLES.filter((r) => held[r] === null);
   if (missing.length === 0) return { data: { created: [], attached: [] } };
 
@@ -654,7 +660,7 @@ export async function ensureSystemPartners(
     owner: await ownerName(tx, caller),
   };
   const candidates = await tx.partner.findMany({
-    where: { systemRole: null },
+    where: { tenantId: caller.tenantId, systemRole: null },
     select: { id: true, name: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
@@ -31,9 +31,10 @@ test.describe("Banking", () => {
     await expect(summary).toContainText("1 categorised by rules"); // AVGIFTER NORDEA → 657
     await page.getByTestId("import-show-rows").click();
     await expect(page).toHaveURL(/bankImportId/);
-    await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText(
-      "No document needed",
-    );
+    const feeRow = page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" });
+    await expect(feeRow).toContainText("No document needed");
+    // F129 (D73): the fee rule names the bank — the row is justified with a partner, not merely flagged
+    await expect(feeRow).toContainText("Nordea");
 
     // 2. the OpenAI row: categorise by hand, then "create rule from this"
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
@@ -100,12 +101,40 @@ test.describe("Banking", () => {
     await expect(history.getByRole("listitem").last()).toContainText("Imported");
     await page.keyboard.press("Escape");
 
-    // 4. the rules page lists the learned rule; the list shows the categories on the rows (F113: no journal page);
+    // 4. the rules page lists the learned rule; a no-proof rule without a partner (F129 US6) shows under
+    //    *Needs a look* until it gets one; the list shows the categories on the rows (F113: no journal page);
     //    the imports page the three files
     await page.goto("/banking/rules");
     await expect(page.getByRole("row").filter({ hasText: "OPENAI *CHATGPT SUBS" })).toContainText(
       "learned",
     );
+    const insurance = `E2E Insurance ${Date.now().toString().slice(-5)}`;
+    await page.getByTestId("new-rule").click();
+    const newRule = page.getByTestId("rule-dialog");
+    await newRule.getByLabel("Name", { exact: true }).fill(insurance);
+    await newRule.getByLabel("Pattern").fill(insurance.toUpperCase());
+    await newRule.getByRole("checkbox", { name: /No document needed/ }).click();
+    await newRule.getByRole("button", { name: "Save rule" }).click();
+    await expect(page.getByText("Rule saved")).toBeVisible();
+    await page.keyboard.press("Escape");
+    const nearMiss = page
+      .getByTestId("rule-near-miss")
+      .filter({ hasText: insurance })
+      .filter({ hasText: "sets no proof without a partner" });
+    await expect(nearMiss).toHaveCount(1);
+    if (process.env.E2E_SCREENSHOTS) {
+      const shots = join(__dirname, "..", "specs", "justify", "screenshots");
+      mkdirSync(shots, { recursive: true });
+      await page.screenshot({ path: join(shots, "needs-a-look-no-partner.png"), fullPage: true });
+    }
+    await nearMiss.getByTestId("rule-near-miss-edit").click();
+    const editRule = page.getByTestId("rule-dialog");
+    await expect(editRule.getByLabel("Name", { exact: true })).toHaveValue(insurance);
+    await editRule.getByLabel("Partner").click();
+    await page.getByRole("option", { name: "Nordea" }).click();
+    await editRule.getByRole("button", { name: "Save rule" }).click();
+    await expect(page.getByText("Rule saved")).toBeVisible();
+    await expect(page.getByTestId("rule-near-miss").filter({ hasText: insurance })).toHaveCount(0);
     await page.goto("/banking");
     await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("657");
     await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("831");

@@ -112,8 +112,19 @@ test.describe("Linking", () => {
       await expect(panel.getByTestId("panel-state")).toHaveText("Linked");
       await expect(panel.getByTestId("link-row").filter({ hasText: number })).toBeVisible();
       await expect(panel).toContainText("Fully allocated");
+      // F129 (D73 (a)): the client is the row's partner on read — in the panel's Category section and on the list
+      await expect(panel.getByTestId("effective-partner")).toContainText(client);
+      await expect(panel.getByTestId("effective-partner")).toContainText("from the proof");
       await snap(page, "panel-linked");
+      if (process.env.E2E_SCREENSHOTS) {
+        const justifyShots = join(__dirname, "..", "specs", "justify", "screenshots");
+        mkdirSync(justifyShots, { recursive: true });
+        await page.screenshot({ path: join(justifyShots, "row-derived-partner.png"), fullPage: true });
+      }
       await page.keyboard.press("Escape");
+      const paidRow = page.getByRole("row").filter({ hasText: client.toUpperCase() }).first();
+      await expect(paidRow).toContainText("Linked");
+      await expect(paidRow).toContainText(client);
 
       // 4. the invoice derives paid; its page lists the row; unlink reopens it
       await page.goto(invoiceUrl);

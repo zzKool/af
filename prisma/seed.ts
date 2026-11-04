@@ -221,8 +221,9 @@ async function seed() {
       bankName: nordea?.bankName ?? "Nordea",
     });
     if (system.error) throw new Error(`system partners: ${system.error.message}`);
+    // the seed runs as the migration role (no RLS): every read names the tenant
     const bank = await tx.partner.findFirst({
-      where: { systemRole: "bank" },
+      where: { tenantId: orgId, systemRole: "bank" },
       select: { id: true },
     });
     console.log(
@@ -268,7 +269,12 @@ async function seed() {
     }
     if (bank) {
       await tx.categorisationRule.updateMany({
-        where: { name: { in: rules.map((r) => r.name) }, noDocumentNeeded: true, partnerId: null },
+        where: {
+          tenantId: orgId,
+          name: { in: rules.map((r) => r.name) },
+          noDocumentNeeded: true,
+          partnerId: null,
+        },
         data: { partnerId: bank.id },
       });
     }
