@@ -213,6 +213,35 @@ test.describe("Document review page — owner", () => {
     await expect(page.getByTestId("panel-reverse-charge")).toHaveText("Reverse charge");
   });
 
+  // F127 (review 2026-10-31 §3): DI's confidence beside each typed field, every other field under *Also read*
+  test("the reading shows a confidence label per field and opens Also read", async ({ page }) => {
+    test.setTimeout(90_000);
+    await openOwnDocument(page);
+    // the mock OCR reads it as a receipt (MerchantName · Total · …), each field with its own confidence
+    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
+      timeout: 30_000,
+    });
+    const glyph = page.getByTestId("field-confidence").first();
+    await expect(glyph).toBeVisible();
+    await expect(glyph).toHaveAttribute("aria-label", /^(high|medium|low) confidence$/);
+    await expect(glyph).toHaveAttribute("title", /^confidence 0\.\d{2}$/);
+
+    // collapsed by default; the fields the form does not show, read-only, the arrays as N entries
+    const toggle = page.getByRole("button", { name: /^Also read \(\d+\)$/ });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    const list = page.getByTestId("also-read");
+    await expect(list).toBeVisible();
+    await expect(list).toContainText("TaxDetails");
+    await expect(list).toContainText("1 entry");
+    await expect(list.locator("input")).toHaveCount(0);
+    await expect(list.getByRole("button", { name: /^Copy / }).first()).toBeVisible();
+
+    // the open section passes the page's accessibility check too (a list of dt / dd, named buttons)
+    const scan = await new AxeBuilder({ page }).exclude(".react-pdf__Document").analyze();
+    expect(scan.violations).toEqual([]);
+  });
+
   test("documents list shows each row's derived state as icon + word", async ({ page }) => {
     await openOwnDocument(page);
     await page.goto("/documents");

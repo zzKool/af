@@ -86,6 +86,30 @@ The supplier dialog first shows the **supplier match** ([[partners]] `matchPartn
 - **Mark as Reviewed (n corrections made)** counts the fields that differ from the OCR's reading (`corrections-count.ts`), not the fields read.
 - Screenshots: `specs/documents/screenshots/review-billed-to-reverse-charge.png`, `review-billed-to-mismatch.png` (seed data).
 
+## The reading's confidence per field, and what else was read (F127, 2026-11-04)
+
+[[review-2026-10-31]] §3: the owner saw one quality word for a dozen fields and less than DI Studio shows. Now, on a document read since F127 (`extractedData.fields`, [[ocr-processing]]):
+
+```
+Vendor / Merchant  ·        ← FieldConfidence: the band as a glyph, title "confidence 0.97", accessible name "high confidence"
+Invoice #          ?           · ≥ 0.90   ? 0.70–0.90   ! < 0.70   (confidenceLabel, kernel/ocr/confidence)
+Vendor VAT number  ·        the confidence of the DI field the value was read from (fieldConfidence — VendorName, else VendorAddressRecipient)
+…
+▸ Also read (7)             ← AlsoReadSection, a collapsed DetailsSection: name · the printed text, read-only, a Copy button each
+    AmountDue        1 250,00 SEK     the scalars the mapper does not type, by name
+    CustomerAddress  Kungsgatan 10…
+    PaymentTerm      30 days net
+    Items            1 entry          then every array / object field as N entries, its entries' scalar children
+      Amount         1 000,00         one level down (a nested list is named, not opened) — never flattened
+      Description    Consulting
+    TaxDetails       1 entry
+```
+
+- The glyph sits beside the field's label (`field-confidence.tsx`): a muted mono span, no colour — it is metadata about the reading, not a state. The *Vendor / Merchant* input shows `vendorName ?? merchantName`, so its glyph is the vendor's confidence on an invoice and the merchant's on a receipt; the currency select has none (the code comes from whichever amount carried one). A typed key the document has no field for gets no glyph.
+- *Also read* (`also-read-section.tsx`) is read-only — nothing there is a correction, nothing is saved; `Items` appears although the line-items table shows it, because DI's entries carry what the table does not (`Unit`, `ProductCode`, the text as printed). The order is the scalars by name, then the lists by name: JSONB hands the keys back in its own order, not DI's. The section is not rendered when every field is typed.
+- **A document read before F127** has no `fields` (`parseOcrPayload` → `{}`): no labels, no section — the old reading. *Re-run OCR* (below) fills it; the reading dialog of F131 will show the same labels and list from the same map.
+- Tests: `document-review-client.test.tsx` renders a stored response's fields (invented values) and asserts the glyph's words and title, the list's rows and its read-only state, and the old reading; `e2e/document-review.spec.ts` opens *Also read* on its own upload under the mock and runs axe on the open section. Screenshot: `specs/justify/screenshots/review-field-confidence.png`.
+
 ## Role-Based Access
 
 | Action | Owner | Accountant |
@@ -149,6 +173,7 @@ A **linked** document cannot be reclassified: something became from it (`created
 - `src/app/(app)/documents/[id]/page.tsx` — server component entry
 - `src/modules/documents/components/document-review-client.tsx` — main orchestrator
 - `src/modules/documents/components/document-preview.tsx` — PDF/image viewer
+- `src/modules/documents/components/field-confidence.tsx`, `also-read-section.tsx` — F127: the band glyph per typed field, the collapsed list of every other field DI returned (`kernel/ocr/fields.ts`, `kernel/ocr/confidence.ts`)
 - `src/modules/documents/stores/use-document-review-store.ts` — Zustand corrections store
 
 ## Related

@@ -1782,6 +1782,17 @@ export const en = {
   "documents.review.content": "Document Content",
   "documents.review.rawText": "Extracted Text (read-only)",
   "documents.review.noText": "No text extracted",
+  // F127: DI's confidence per field — the band in words (the accessible name), the figure in the title
+  "documents.review.confidence.high": "high confidence",
+  "documents.review.confidence.medium": "medium confidence",
+  "documents.review.confidence.low": "low confidence",
+  "documents.review.confidenceValue": "confidence {value}",
+  "documents.review.alsoRead": "Also read ({count})",
+  "documents.review.entries": "{count} entries",
+  "documents.review.entries.one": "1 entry",
+  "documents.review.copy": "Copy {name}",
+  "documents.review.copied": "{name} copied",
+  "documents.review.copyFailed": "Could not copy — select the text instead",
   "documents.review.rerunOcr": "Re-run OCR",
   "documents.review.rerunOcrConfirm":
     "The OCR runs again on this document. Your corrections stay; the extracted facts are replaced by the new reading.",
