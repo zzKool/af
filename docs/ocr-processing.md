@@ -22,12 +22,14 @@ The factory function `createOcrService()` selects automatically based on whether
 
 ## Model Selection
 
-Prefix types map to Azure DI prebuilt models (`ocrModelFor(prefixType, mimeType)`); **the type decides (D52), the file refines it (D69, 2026-10-29)**: an *expense* that is a **PDF** is read with the invoice model — a cloud bill, a subscription, an online order paid by card is printed like an invoice, and only that model reads the vendor's name, VAT number and invoice number; the receipt model stays for the photographed till receipt (an image). A type change re-reads only when the model differs, so *expense ↔ invoice* on a PDF swaps the key and keeps the reading.
+Prefix types map to Azure DI prebuilt models (`ocrModelFor(prefixType, mimeType, paper?)`); **the type decides (D52), the file refines it (D69, 2026-10-29), the owner's answer on a bank row wins (D75)**: an *expense* that is a **PDF** is read with the invoice model — a cloud bill, a subscription, an online order paid by card is printed like an invoice, and only that model reads the vendor's name, VAT number and invoice number; the receipt model stays for the photographed till receipt (an image). **On a bank row** the drop zone asks *Invoice / Receipt* ([[linking]]) and sends the answer with the upload: `paper: "invoice" | "receipt"` (`OcrPaper`) picks `prebuilt-invoice` / `prebuilt-receipt` **whatever the file** — a PDF till receipt the owner called *Receipt* is read by the receipt model. The answer is stored nowhere: `uploadDocumentAction` / `classifyDocumentAction` put it in the OCR job's payload (`ProcessDocumentData.paper`), the job hands it to `analyzeDocument(source, prefixType, paper)`, and the reading says what read it (`modelUsed`). On `/documents` nobody is asked, so the file rule stands. A type change re-reads only when the new model differs from **the one that read it** (`modelUsed`, else the rule): *expense ↔ invoice* on a PDF from `/documents` swaps the key and keeps the reading; the dialog's paper switch on a row reads it again with the other model.
 
 | Prefix Type | Model | Fields Extracted |
 |-------------|-------|-----------------|
 | expense (image) | prebuilt-receipt | MerchantName, Total, TotalTax, TransactionDate, Items (Description, Quantity, Price, TotalPrice); the currency from the amounts |
 | expense (PDF) | prebuilt-invoice | as *invoice* below |
+| any file dropped on a bank row as *Receipt* (`paper`) | prebuilt-receipt | as *expense (image)* — D75 |
+| any file dropped on a bank row as *Invoice* (`paper`) | prebuilt-invoice | as *invoice* below — D75 |
 | invoice | prebuilt-invoice | VendorName (else VendorAddressRecipient — the name on the vendor's address block), VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, SubTotal, TotalTax, InvoiceDate, DueDate, InvoiceId, CustomerName (else BillingAddressRecipient) + CustomerTaxId (D53), PaymentDetails, Items (Description folded to one line, Quantity, UnitPrice, Amount, Tax, TaxRate → `taxRate` %); the currency from the amounts |
 | contract | prebuilt-layout | Raw text only |
 | nda | prebuilt-layout | Raw text only |
@@ -142,7 +144,7 @@ Read back by `parseOcrPayload()` in `src/modules/documents/ocr-payload.ts` — t
 
 ## Testing
 
-- Mock service tests: prefix-specific fixtures, quality classification, model selection; the mock's `rawResponse` through `mapAnalyzeResult` reproduces its `data` (`ocr-mapping.pure.test.ts`)
+- Mock service tests: the fixtures picked **by the model `ocrModelFor` chooses** (`mockResponseFor` — an `expense` PDF reads as an invoice like on the box, D69; the paper answer turns it, D75; lessons *F131 build*), quality classification, model selection; the mock's `rawResponse` through `mapAnalyzeResult` reproduces its `data` (`ocr-mapping.pure.test.ts`)
 - Job tests (`jobs/process-document.test.ts`): handler and dead-letter handler called directly — happy path, resume from `processing`, status guards, retryable vs non-retryable errors, audit logging
 - Integration tests (gated): `describe.skipIf(!process.env.AZURE_DI_ENDPOINT)` for real Azure DI
 - Test fixtures: `src/kernel/ocr/__fixtures__/test-invoice.pdf`, `test-receipt.jpg`

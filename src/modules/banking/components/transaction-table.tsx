@@ -2,8 +2,9 @@
 
 // The transactions workbench (D20, D40): DataTable on TRANSACTION_COLUMNS with the derived state as a
 // <StateLabel>, the money in the row's currency (`formatMoney`, signed), Month and Account as quick filters,
-// the balances as the filter bar's context, the docked details panel for the selected row. The title row's
-// actions (Import CSV, Inbox, Imports, Rules) are `header-actions.tsx`.
+// the balances as the filter bar's context, the docked details panel for the selected row — the work surface
+// (F131 §6.2): four columns beside it by default, the rest in the chooser. The title row's actions (Import CSV,
+// Inbox, Imports, Rules) are `header-actions.tsx`.
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
@@ -158,6 +159,10 @@ export function TransactionTable({
     [partners],
   );
 
+  // The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner): four columns by default —
+  // **Date · Amount · Counterparty · State** — in the ≈ 45 % left of the 55 % panel at 1440 px, no sideways scroll.
+  // Account, Description, Category, Partner, Proposed, Note… stay one click away in the column chooser (the
+  // Account quick filter and the balances strip do not need the column); a user's saved layout wins as always.
   const columns = useMemo<DataTableColumn<TransactionRow>[]>(
     () => [
       {
@@ -169,11 +174,41 @@ export function TransactionTable({
         quickFilter: true,
       },
       {
+        key: "amount",
+        header: t("banking.col.amount"),
+        type: "money",
+        width: "8rem",
+        cell: (row) => (
+          <span className={`tabular-nums ${row.amount.startsWith("-") ? "" : "text-state-done"}`}>
+            {formatMoney(row.amount, row.currency, { signed: true })}
+          </span>
+        ),
+      },
+      {
+        key: "counterpartyKey",
+        header: t("banking.col.counterparty"),
+        type: "text",
+        width: "12rem",
+        cell: (row) => (
+          <span className="block truncate" title={row.description}>
+            {row.counterpartyKey}
+          </span>
+        ),
+      },
+      {
+        key: "state",
+        header: t("banking.col.state"),
+        type: "enum",
+        width: "11.5rem",
+        cell: (row) => <TransactionStateLabel state={row.state} />,
+      },
+      {
         key: "accountLabel",
         header: t("banking.col.account"),
         type: "enum",
         width: "9rem",
         quickFilter: true,
+        defaultHidden: true,
       },
       {
         key: "bankAccountId",
@@ -186,27 +221,10 @@ export function TransactionTable({
         header: t("banking.col.description"),
         type: "text",
         width: "18rem",
+        defaultHidden: true,
         cell: (row) => (
           <span className="block truncate" title={row.description}>
             {row.description}
-          </span>
-        ),
-      },
-      {
-        key: "counterpartyKey",
-        header: t("banking.col.counterparty"),
-        type: "text",
-        width: "12rem",
-        defaultHidden: true,
-      },
-      {
-        key: "amount",
-        header: t("banking.col.amount"),
-        type: "money",
-        width: "8rem",
-        cell: (row) => (
-          <span className={`tabular-nums ${row.amount.startsWith("-") ? "" : "text-state-done"}`}>
-            {formatMoney(row.amount, row.currency, { signed: true })}
           </span>
         ),
       },
@@ -229,6 +247,7 @@ export function TransactionTable({
         header: t("banking.col.category"),
         type: "text",
         width: "11rem",
+        defaultHidden: true,
         cell: (row) =>
           row.basLabel ? (
             <span className="flex min-w-0 items-center gap-1.5">
@@ -255,7 +274,13 @@ export function TransactionTable({
         width: "7rem",
         defaultHidden: true,
       },
-      { key: "partnerName", header: t("banking.col.partner"), type: "text", width: "10rem" },
+      {
+        key: "partnerName",
+        header: t("banking.col.partner"),
+        type: "text",
+        width: "10rem",
+        defaultHidden: true,
+      },
       {
         key: "partnerId",
         header: `${t("banking.col.partner")} (id)`,
@@ -282,6 +307,7 @@ export function TransactionTable({
         header: t("banking.col.proposed"),
         type: "enum",
         width: "7.5rem",
+        defaultHidden: true,
         cell: (row) =>
           row.proposedBasCode && row.proposedConfidence !== null ? (
             <ProposedCode
@@ -302,13 +328,6 @@ export function TransactionTable({
         header: `${t("banking.col.proposed")} (${t("banking.col.proposedConfidence")})`,
         type: "number",
         defaultHidden: true,
-      },
-      {
-        key: "state",
-        header: t("banking.col.state"),
-        type: "enum",
-        width: "11.5rem",
-        cell: (row) => <TransactionStateLabel state={row.state} />,
       },
       // F131: the work surface takes ≈ 55 % of the canvas — the note lives in the panel's facts zone; the column
       // stays a click away in the chooser (lessons F71: a module with more columns than the canvas uses the chooser)

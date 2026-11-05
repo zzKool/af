@@ -5,6 +5,7 @@ import { OCR_MAX_RETRIES } from "@/kernel/nav/constants";
 import {
   createOcrService,
   extractBlobPath,
+  type OcrPaper,
   type OcrResult,
   type OcrSource,
 } from "@/kernel/ocr/ocr";
@@ -26,6 +27,12 @@ export interface ProcessDocumentData {
   tenantId: string;
   userId: string;
   documentId: string;
+  /**
+   * What the owner said the paper is when he dropped it on a bank row (D75): the reading model follows the answer,
+   * not the file (`ocrModelFor`). Carried by the job only — the document stores nothing of it; the reading it
+   * produced says its `modelUsed`. Absent from `/documents`, where nobody is asked.
+   */
+  paper?: OcrPaper;
 }
 
 /**
@@ -40,7 +47,12 @@ export interface ProcessDocumentData {
  * Throwing retries the job (OCR_MAX_RETRIES); when retries are exhausted or an attempt expires,
  * pg-boss moves the job to the dead-letter queue and `onDeadLetter` marks the document ocr_failed.
  */
-async function processDocumentHandler({ tenantId, userId, documentId }: ProcessDocumentData) {
+async function processDocumentHandler({
+  tenantId,
+  userId,
+  documentId,
+  paper,
+}: ProcessDocumentData) {
   // 1. Claim: uploaded → processing. Any other status means an earlier attempt got here already.
   const claimed = await withJobContext(tenantId, userId, async (tx) => {
     const document = await tx.document.findUnique({ where: { id: documentId } });
@@ -83,10 +95,15 @@ async function processDocumentHandler({ tenantId, userId, documentId }: ProcessD
 
   // 2b. OCR — outside any transaction.
   const ocrService = createOcrService();
-  const result: OcrResult = await ocrService.analyzeDocument(prepared.source, prepared.prefixType);
+  const result: OcrResult = await ocrService.analyzeDocument(
+    prepared.source,
+    prepared.prefixType,
+    paper,
+  );
   logger.info(
     {
       documentId,
+      paper: paper ?? null,
       modelUsed: result.success ? result.data.modelUsed : "n/a",
       confidence: result.success ? result.data.confidence : 0,
       durationMs: result.success ? result.data.processingTimeMs : 0,

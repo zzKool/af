@@ -181,7 +181,7 @@ describe("JustifyPanel — the proof already in the inbox (T008)", () => {
     });
   });
 
-  it("the paper question: Invoice by default, the upload sends the type the paper picks (D75)", async () => {
+  it("the paper question: Invoice by default, the upload sends the answer itself and the type it picks (D75)", async () => {
     rowSuggestions([]);
     calls.upload = vi.fn(async () => ({ data: { data: { kind: "stored", id: DOC } } }));
     calls.readDocument = vi.fn(async () => ({ data: { data: { status: "processing" } } }));
@@ -195,8 +195,10 @@ describe("JustifyPanel — the proof already in the inbox (T008)", () => {
     const file = new File(["%PDF-1.4"], "proof.pdf", { type: "application/pdf" });
     fireEvent.change(screen.getByTestId("justify-file"), { target: { files: [file] } });
     await waitFor(() => expect(calls.upload).toHaveBeenCalled());
-    expect((calls.upload.mock.calls[0][0] as FormData).get("prefixType")).toBe("invoice");
-    // Receipt picked → the receipt model's type
+    const sent = calls.upload.mock.calls[0][0] as FormData;
+    expect(sent.get("prefixType")).toBe("invoice");
+    expect(sent.get("paper")).toBe("invoice");
+    // Receipt picked → the answer goes with the upload (the receipt model, even on a PDF) and the expense type
     cleanup();
     calls.upload = vi.fn(async () => ({ data: { data: { kind: "stored", id: DOC } } }));
     render(<JustifyPanel row={row} canWrite options={options} />);
@@ -204,7 +206,9 @@ describe("JustifyPanel — the proof already in the inbox (T008)", () => {
     expect(screen.getByTestId("justify-paper-receipt")).toHaveAttribute("aria-checked", "true");
     fireEvent.change(screen.getByTestId("justify-file"), { target: { files: [file] } });
     await waitFor(() => expect(calls.upload).toHaveBeenCalled());
-    expect((calls.upload.mock.calls[0][0] as FormData).get("prefixType")).toBe("expense");
+    const receiptSent = calls.upload.mock.calls[0][0] as FormData;
+    expect(receiptSent.get("prefixType")).toBe("expense");
+    expect(receiptSent.get("paper")).toBe("receipt");
   });
 
   it("the dialog's paper switch re-classifies the document and reads it again, the dialog staying up", async () => {
@@ -231,8 +235,13 @@ describe("JustifyPanel — the proof already in the inbox (T008)", () => {
     fireEvent.click(await screen.findByTestId("justify-use-proof"));
     await screen.findByTestId("reading-dialog");
     (dialogProps.last.onPaper as (p: string) => void)("receipt");
+    // the answer travels with the type: the receipt model reads the PDF again (D75), not the file rule (D69)
     await waitFor(() =>
-      expect(calls.classify).toHaveBeenCalledWith({ documentId: DOC, documentType: "expense" }),
+      expect(calls.classify).toHaveBeenCalledWith({
+        documentId: DOC,
+        documentType: "expense",
+        paper: "receipt",
+      }),
     );
     // while the other model reads, the dialog is still there, told so
     expect(screen.getByTestId("reading-dialog")).toBeInTheDocument();

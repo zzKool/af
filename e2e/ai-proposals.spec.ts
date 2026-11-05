@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { showColumns } from "./fixtures/columns";
 
 // F98 (specs/ai US1, PR 1 — no model): the owner categorises two rows of one counterparty by hand → Settings → AI →
 // Run now → the third row shows a HIGH category proposal, *remembered*, pre-filled in the picker and not saved →
@@ -73,6 +74,7 @@ test.describe("AI proposals — stage 1", () => {
     await expect(page.getByTestId("proposal-line")).toHaveCount(0);
     await expect(page.getByTestId("prefill-hint")).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await showColumns(page, ["Category"]); // in the chooser beside the work surface (F131 §6.2)
     await expect(row("2026-09-28")).toContainText("654");
   });
 });

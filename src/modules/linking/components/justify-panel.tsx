@@ -264,8 +264,10 @@ export function JustifyPanel({
     setPhase({ kind: "uploading" });
     const formData = new FormData();
     formData.append("file", file);
-    // D75: the paper picks the model — Invoice → prebuilt-invoice, Receipt → prebuilt-receipt (kernel/ocr)
+    // D75: the paper picks the model, whatever the file — the answer goes with the upload (`paper`), the type
+    // beside it (Invoice → `invoice`, Receipt → `expense`); kernel/ocr's `ocrModelFor` honours the answer
     formData.append("prefixType", prefixTypeOfPaper(paper));
+    formData.append("paper", paper);
     const r = await upload(formData);
     const error = extractError(r);
     if (error) {
@@ -299,13 +301,14 @@ export function JustifyPanel({
     if (file) void takeFile(file);
   }
 
-  /** D75 in the dialog: the other paper → the document's type changes and the other model reads it again */
+  /** D75 in the dialog: the other paper → the document's type changes and the other model reads it again (the answer picks it, even on a PDF) */
   async function switchPaper(current: CardPhase, next: Paper) {
     if (!current.documentId) return;
     setPaper(next);
     const r = await classify({
       documentId: current.documentId,
       documentType: prefixTypeOfPaper(next),
+      paper: next,
     });
     const error = extractError(r);
     if (error) {

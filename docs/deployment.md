@@ -65,12 +65,15 @@ justified_partner: 3 rule(s) given a partner; 0 active no-proof rule(s) left for
 The rows it could not place come back once in the Months panel as *no proof · no partner* and take one `n` each. The trail is the reversal path — **by hand only**, after the snapshot, never by the app:
 
 ```sql
--- the rows the migration placed (their audit row: old {partnerId: null} → new {partnerId, migration: 'justified_partner'})
-UPDATE bank_transactions SET partner_id = NULL
- WHERE id IN (SELECT entity_id::uuid FROM audit_logs
-               WHERE source = 'migration' AND entity_type = 'bank_transaction'
-                 AND new_data->>'migration' = 'justified_partner');
--- the same marker on the partners it seeded (entity_type = 'partner', action = 'create') and the rules it gave a partner (entity_type = 'categorisation_rule')
+-- the rows the migration placed (their audit row: old {partnerId: null} → new {partnerId, migration: 'justified_partner'}),
+-- and only while the row still carries the partner the migration wrote — a partner the owner typed since stays
+UPDATE bank_transactions bt SET partner_id = NULL
+  FROM audit_logs a
+ WHERE a.source = 'migration' AND a.entity_type = 'bank_transaction'
+   AND a.new_data->>'migration' = 'justified_partner'
+   AND a.tenant_id = bt.tenant_id AND a.entity_id::uuid = bt.id
+   AND bt.partner_id = (a.new_data->>'partnerId')::uuid;
+-- the same marker on the partners it seeded (entity_type = 'partner', action = 'create') and the rules it gave a partner (entity_type = 'categorisation_rule', new_data->>'partnerId' likewise)
 ```
 
 **Backups** (constitution §7: financial records survive the host): `scripts/backup.sh` nightly from cron — a `pg_dump` custom-format dump plus the documents folder as a tarball, kept 30 days, copied off-host when `BACKUP_OFFSITE` points at a mounted remote (a NAS share, an rclone mount, an Azure Blob container mounted with blobfuse):

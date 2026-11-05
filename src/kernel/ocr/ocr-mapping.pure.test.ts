@@ -294,11 +294,13 @@ describe("mapAnalyzeResult — a receipt's `fields` (the receipt model types few
 describe("the mock OCR — a stored response through the same mapper", () => {
   const mock = createMockOcrService();
   const source = { type: "buffer" as const, buffer: Buffer.from("x"), mimeType: "application/pdf" };
+  // the mock answers by the model the kernel picks: an expense is read as a receipt when it is an image (D69)
+  const photo = { type: "buffer" as const, buffer: Buffer.from("x"), mimeType: "image/jpeg" };
 
   it.each(["invoice", "expense"])(
     "%s: `fields` of the real shape, every typed value with a confidence",
     async (type) => {
-      const result = await mock.analyzeDocument(source, type);
+      const result = await mock.analyzeDocument(type === "expense" ? photo : source, type);
       if (!result.success) throw new Error("mock failed");
       const { data } = result;
       expect(data.fields).toBeDefined();
@@ -326,7 +328,7 @@ describe("the mock OCR — a stored response through the same mapper", () => {
 
   it("keeps the readings the journeys rely on", async () => {
     const invoiceRead = await mock.analyzeDocument(source, "invoice");
-    const receiptRead = await mock.analyzeDocument(source, "expense");
+    const receiptRead = await mock.analyzeDocument(photo, "expense");
     if (!invoiceRead.success || !receiptRead.success) throw new Error("mock failed");
     expect(invoiceRead.data).toMatchObject({
       vendorName: "Test Vendor AB",

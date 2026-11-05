@@ -3,7 +3,7 @@
 // (the partner roles, from partners' client surface).
 import { Prisma } from "@/generated/prisma/browser";
 import { daysBetween } from "@/kernel/clock/calendar";
-import type { OcrExtractedData } from "@/kernel/ocr/ocr";
+import type { OcrExtractedData, OcrPaper } from "@/kernel/ocr/ocr";
 import type { SystemRole } from "@/modules/partners/ui";
 
 const D = Prisma.Decimal;
@@ -113,12 +113,17 @@ export function monthOf(bookingDate: string): string {
 
 // --- the paper question (D75, review 2026-10-31 §2 row 2.3; F131) ---
 
-/** What the paper is — asked on every drop, *Invoice* by default (O5); it picks the reading model, never the kind. */
-export type Paper = "invoice" | "receipt";
+/**
+ * What the paper is — asked on every drop, *Invoice* by default (O5); it picks the reading model, never the kind.
+ * The kernel's `OcrPaper`: the drop zone sends the answer itself beside the upload's type (`paper` on
+ * `uploadDocumentAction` / `classifyDocumentAction`), so `ocrModelFor` reads a PDF called *Receipt* with the receipt
+ * model — D69's file rule gives way to the owner's answer on the row only.
+ */
+export type Paper = OcrPaper;
 export const PAPERS: readonly Paper[] = ["invoice", "receipt"];
 export const DEFAULT_PAPER: Paper = "invoice";
 
-/** The upload type the paper sends: *Invoice* → `invoice` (`prebuilt-invoice`), *Receipt* → `expense` (`prebuilt-receipt`). */
+/** The upload type the paper sends beside the answer: *Invoice* → `invoice`, *Receipt* → `expense` (the kind `/documents` shows). */
 export function prefixTypeOfPaper(paper: Paper): "invoice" | "expense" {
   return paper === "invoice" ? "invoice" : "expense";
 }

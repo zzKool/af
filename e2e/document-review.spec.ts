@@ -40,7 +40,8 @@ test.describe("Document review page — owner", () => {
     const key = page.getByTestId("document-review-key");
     await expect(key).toHaveText(/^exp_\d{8}_\d{3}$/);
     const upload = (await key.textContent()) ?? "";
-    // the mock OCR reads it as a receipt; the page follows the reading on its own
+    // the mock OCR answers by the model the kernel picks — a PDF expense is the invoice model's (D69); the page
+    // follows the reading on its own
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
     });
@@ -48,7 +49,8 @@ test.describe("Document review page — owner", () => {
     await page.locator("#prefixType").click();
     await page.getByRole("option", { name: "Invoice" }).click();
 
-    // same date, same number; the invoice model reads it, the page lands on Ready again with the invoice's fields
+    // same date, same number; the same model read it already (a PDF, D69), so no second reading — the page shows
+    // the invoice's fields for the new type
     await expect(key).toHaveText(upload.replace(/^exp_/, "inv_"));
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
@@ -166,8 +168,9 @@ test.describe("Document review page — owner", () => {
     await expect(makeIt.getByTestId("make-it-file")).toBeEnabled();
     await makeIt.getByTestId("make-it-expense").click();
 
-    // the expense dialog, pre-filled once the mock OCR has run (ICA Maxi, 342.50 SEK) — or empty when the
-    // job has not finished yet: the test fills what is missing and the service does the rest
+    // the expense dialog, pre-filled once the mock OCR has run (a PDF: the invoice model's Test Vendor AB,
+    // 1 250.00 SEK — D69) — or empty when the job has not finished yet: the test fills what is missing and the
+    // service does the rest
     const dialog = page.getByTestId("new-expense-dialog");
     await expect(dialog).toBeVisible();
     const pick = async (label: string, option: RegExp | string) => {
@@ -217,7 +220,8 @@ test.describe("Document review page — owner", () => {
   test("the reading shows a confidence label per field and opens Also read", async ({ page }) => {
     test.setTimeout(90_000);
     await openOwnDocument(page);
-    // the mock OCR reads it as a receipt (MerchantName · Total · …), each field with its own confidence
+    // the mock OCR reads the PDF with the invoice model (D69: VendorName · InvoiceTotal · TaxDetails · …), each
+    // field with its own confidence
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
     });

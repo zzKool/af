@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { showColumns } from "./fixtures/columns";
 import { expectToast, trackToasts, withToastReport } from "./fixtures/toasts";
 
 const SHOTS = join(__dirname, "..", "specs", "linking", "screenshots");
@@ -125,6 +126,7 @@ test.describe("Linking", () => {
         });
       }
       await page.keyboard.press("Escape");
+      await showColumns(page, ["Partner"]); // in the chooser beside the work surface (F131 §6.2)
       const paidRow = page.getByRole("row").filter({ hasText: client.toUpperCase() }).first();
       await expect(paidRow).toContainText("Linked");
       await expect(paidRow).toContainText(client);

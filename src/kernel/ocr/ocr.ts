@@ -7,7 +7,7 @@ import DocumentIntelligence, {
   isUnexpected,
 } from "@azure-rest/ai-document-intelligence";
 import { logger } from "@/kernel/logging/logger";
-import { MOCK_RESPONSES } from "./__fixtures__/mock-responses";
+import { MOCK_RESPONSES, mockResponseFor } from "./__fixtures__/mock-responses";
 import {
   extractAddressValue,
   mapDocumentFields,
@@ -26,8 +26,15 @@ export type OcrSource =
   | { type: "url"; url: string; mimeType?: string | null }
   | { type: "buffer"; buffer: Buffer; mimeType: string };
 
+/**
+ * What the owner said the paper is when he dropped it on a bank row (D75): it picks the model over the file rule.
+ * Absent on `/documents`, where nobody is asked and D52 / D69 rule.
+ */
+export type OcrPaper = "invoice" | "receipt";
+export const OCR_PAPERS = ["invoice", "receipt"] as const satisfies readonly OcrPaper[];
+
 export interface OcrService {
-  analyzeDocument(source: OcrSource, prefixType: string): Promise<OcrResult>;
+  analyzeDocument(source: OcrSource, prefixType: string, paper?: OcrPaper): Promise<OcrResult>;
 }
 
 export type OcrResult =
@@ -98,14 +105,26 @@ const MODEL_MAP: Record<string, string> = {
 const isPdf = (mimeType: string | null | undefined) =>
   mimeType?.toLowerCase() === "application/pdf";
 
+const PAPER_MODEL: Record<OcrPaper, string> = {
+  invoice: "prebuilt-invoice",
+  receipt: "prebuilt-receipt",
+};
+
 /**
  * The Document Intelligence model a document is read with: the type decides (D52), the file refines it (D69):
  * an **expense** that is a PDF is an invoice-shaped document paid by card (a cloud bill, a subscription, an online
  * order) — the invoice model reads its vendor, VAT number and invoice number, which the receipt model never
  * does; the receipt model stays for the photographed till receipt (an image). A type change re-reads only when
- * the model differs.
+ * the model differs. **On a bank row the owner's answer wins (D75)**: a `paper` given picks its model whatever
+ * the file — a PDF till receipt he called *Receipt* is read by the receipt model; without one (`/documents`,
+ * where nobody is asked) the file rule stands.
  */
-export function ocrModelFor(prefixType: string, mimeType?: string | null): string {
+export function ocrModelFor(
+  prefixType: string,
+  mimeType?: string | null,
+  paper?: OcrPaper | null,
+): string {
+  if (paper) return PAPER_MODEL[paper];
   if (prefixType === "expense" && isPdf(mimeType)) return "prebuilt-invoice";
   return MODEL_MAP[prefixType] ?? "prebuilt-layout";
 }
@@ -319,8 +338,12 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
   const client = DocumentIntelligence(endpoint, { key: apiKey });
 
   return {
-    async analyzeDocument(source: OcrSource, prefixType: string): Promise<OcrResult> {
-      const modelId = ocrModelFor(prefixType, source.mimeType);
+    async analyzeDocument(
+      source: OcrSource,
+      prefixType: string,
+      paper?: OcrPaper,
+    ): Promise<OcrResult> {
+      const modelId = ocrModelFor(prefixType, source.mimeType, paper);
       if (!(prefixType in MODEL_MAP)) {
         logger.warn(
           { prefixType, modelId },
@@ -380,15 +403,21 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
 
 // --- Mock Implementation ---
 //
-// The mock is a stored DI response per type (`__fixtures__/mock-responses.ts`, invented values) run through the same
-// `mapAnalyzeResult` as the real service — so its `fields`, its typed subset and its `rawResponse` have the real
-// shape by construction, and a field the mapper stops reading goes missing in the mock too (lessons 2026-10-24:
-// the hand-written mock hid that the currency was never read).
+// The mock is a stored DI response per model (`__fixtures__/mock-responses.ts`, invented values), picked by the
+// same `ocrModelFor` as the real service — the type, the file and the paper answer weigh as they do on the box
+// (lessons *F131 build*: a mock answering by the type alone hid that a PDF receipt was read by the invoice model)
+// — and run through the same `mapAnalyzeResult`, so its `fields`, its typed subset and its `rawResponse` have the
+// real shape by construction, and a field the mapper stops reading goes missing in the mock too (lessons
+// 2026-10-24: the hand-written mock hid that the currency was never read).
 
 export function createMockOcrService(): OcrService {
   return {
-    async analyzeDocument(_source: OcrSource, prefixType: string): Promise<OcrResult> {
-      const response = MOCK_RESPONSES[prefixType] ?? MOCK_RESPONSES.contract;
+    async analyzeDocument(
+      source: OcrSource,
+      prefixType: string,
+      paper?: OcrPaper,
+    ): Promise<OcrResult> {
+      const response = mockResponseFor(prefixType, ocrModelFor(prefixType, source.mimeType, paper));
 
       if (!(prefixType in MOCK_RESPONSES)) {
         logger.warn({ prefixType }, "Unknown prefix type in mock OCR — using contract fixture");

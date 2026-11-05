@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { resetColumns, showColumns, visibleColumns } from "./fixtures/columns";
 
 // The owner's monthly routine (specs/banking US1–US4, SEK only — CI has no ECB rates): import the July export
 // through its preview (F128: new / duplicate / no proof needed, Import N) → the fee rule categorised its row → open
@@ -49,7 +50,9 @@ test.describe("Banking", () => {
     await expect(page).toHaveURL(/bankImportId/);
     const feeRow = page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" });
     await expect(feeRow).toContainText("No document needed");
-    // F129 (D73): the fee rule names the bank — the row is justified with a partner, not merely flagged
+    // F129 (D73): the fee rule names the bank — the row is justified with a partner, not merely flagged (the
+    // Partner column is one tick away beside the work surface, F131 §6.2)
+    await showColumns(page, ["Partner"]);
     await expect(feeRow).toContainText("Nordea");
 
     // 1b. the same export again with two new rows (a vendor, August's fee): the preview greys the twelve as
@@ -104,7 +107,16 @@ test.describe("Banking", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("import-dialog")).toBeHidden();
 
-    // 2. the OpenAI row: categorise by hand, then "create rule from this"
+    // 2. the list beside the work surface (F131 §6.2): four columns by default — Date · Amount · Counterparty ·
+    //    State — the rest in the chooser; the journey owns its layout (an earlier run may have shown more)
+    await resetColumns(page);
+    expect(await visibleColumns(page)).toEqual([
+      "bookingDate",
+      "amount",
+      "counterpartyKey",
+      "state",
+    ]);
+    //    the OpenAI row: categorise by hand, then "create rule from this"
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
     const panel = page.getByTestId("transaction-panel");
     await expect(panel).toBeVisible();
@@ -239,6 +251,7 @@ test.describe("Banking", () => {
     await editRule.getByRole("button", { name: "Save rule" }).click();
     await expect(page.getByTestId("rule-near-miss").filter({ hasText: insurance })).toHaveCount(0);
     await page.goto("/banking");
+    await showColumns(page, ["Category"]); // one tick away beside the work surface (F131 §6.2)
     await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("657");
     await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("831");
     // the three imports of this journey are listed (other journeys import too — CI runs two workers)

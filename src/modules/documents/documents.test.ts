@@ -207,6 +207,49 @@ describe("documents service", () => {
       expect(result.error?.code).toBe("FORBIDDEN");
     });
 
+    // D75: the paper question's answer comes with a bank-row drop — a financial paper's thing, stored nowhere
+    it("takes the paper answer with a financial type and refuses it with a relationship one, writing nothing", async () => {
+      const owner = await createAuthenticatedContext(auth, "owner");
+      const tenantId = owner.callerIdentity.tenantId;
+      const upload = (name: string, prefixType: string, paper: "invoice" | "receipt") =>
+        withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          return documentService.uploadDocument(
+            tx,
+            owner.callerIdentity,
+            audit,
+            mockStorage,
+            testClock,
+            pdf(name),
+            name,
+            prefixType,
+            { paper },
+          );
+        });
+
+      const receipt = stored(await upload("paper-receipt.pdf", "expense", "receipt"));
+      expect(receipt.status).toBe("uploaded");
+      const invoice = stored(await upload("paper-invoice.pdf", "invoice", "invoice"));
+      expect(invoice.status).toBe("uploaded");
+      // the answer picks the OCR model in the job, nothing of it is written on the document
+      const rows = await adminPool.query(
+        `SELECT to_jsonb(d) AS row FROM documents d WHERE id = ANY($1::uuid[])`,
+        [[receipt.id, invoice.id]],
+      );
+      for (const { row } of rows.rows) {
+        expect(Object.keys(row).filter((k) => /paper/i.test(k))).toEqual([]);
+        expect(row.ocr_data).toBeNull(); // the reading, once the job ran, says its `modelUsed`
+      }
+
+      const refused = await upload("paper-contract.pdf", "contract", "receipt");
+      expect(refused.error?.code).toBe("VALIDATION_ERROR");
+      const count = await adminPool.query(
+        `SELECT count(*)::int AS n FROM documents WHERE tenant_id = $1 AND file_name = 'paper-contract.pdf'`,
+        [tenantId],
+      );
+      expect(count.rows[0].n).toBe(0);
+    });
+
     it("logs audit trail for upload", async () => {
       const owner = await createAuthenticatedContext(auth, "owner");
       const tenantId = owner.callerIdentity.tenantId;
@@ -1140,6 +1183,45 @@ describe("documents service", () => {
         reread: false,
       });
       expect((await row()).status).toBe("extracted");
+    });
+
+    // D75: on a bank row the paper answer picks the model — the other paper reads a PDF again, the file rule (D69)
+    // notwithstanding; what counts as "the model that read it" is the reading's `modelUsed`
+    it("the paper switch on a row: an invoice-read PDF → Receipt is read again by the receipt model; → Invoice again, not", async () => {
+      const { owner, tenantId, docId, row } = await readExpense("type-paper.pdf");
+      const classify = (kind: string, paper?: "invoice" | "receipt") =>
+        withTenantTransaction(prisma, tenantId, async (tx) => {
+          const audit = createRealAuditLogger(tx, owner.callerIdentity);
+          return documentService.classifyDocument(tx, owner.callerIdentity, audit, docId, kind, {
+            paper,
+          });
+        });
+      const readWith = (modelUsed: string) =>
+        adminPool.query(
+          `UPDATE documents SET status = 'extracted', ocr_data = jsonb_build_object('extractedData', jsonb_build_object('modelUsed', $2::text, 'confidence', 0.9, 'pageCount', 1, 'processingTimeMs', 10), 'quality', 'high') WHERE id = $1`,
+          [docId, modelUsed],
+        );
+      // the row path uploaded it as an Invoice: the invoice model read it
+      await classify("invoice");
+      await readWith("prebuilt-invoice");
+
+      // without the answer (/documents) the file rule holds: a PDF expense is still the invoice model's
+      const byFile = await classify("expense");
+      expect(byFile.data).toMatchObject({ prefixType: "expense", reread: false });
+      expect((await row()).status).toBe("extracted");
+      await classify("invoice");
+      await readWith("prebuilt-invoice");
+
+      // the dialog's radio → Receipt: the answer picks the receipt model, the PDF is read again
+      const toReceipt = await classify("expense", "receipt");
+      expect(toReceipt.data).toMatchObject({ prefixType: "expense", reread: true });
+      expect((await row()).status).toBe("uploaded");
+
+      // the receipt model read it; back to Invoice → the invoice model again, so read again (the reading decides,
+      // not the type's rule, under which both would be the invoice model)
+      await readWith("prebuilt-receipt");
+      const toInvoice = await classify("invoice", "invoice");
+      expect(toInvoice.data).toMatchObject({ prefixType: "invoice", reread: true });
     });
 
     it("a kind with the same model swaps the key but is not read again (contract → nda: layout)", async () => {

@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { showColumns } from "./fixtures/columns";
 import { minimalPdf } from "./fixtures/pdf";
 import { expectToast, trackToasts, withToastReport } from "./fixtures/toasts";
 
@@ -179,7 +180,9 @@ test.describe("Justify", () => {
       // the row left the inbox (it is linked)
       await expect(inboxRow(`${counterparty} OFFICE`)).toHaveCount(0, { timeout: 20_000 });
 
-      // 4. the receipt path: Receipt selected → the receipt model's reading → Becomes expense; a new group in place
+      // 4. the receipt path: Receipt selected → the receipt model reads the PDF (D75 — the answer picks the model;
+      //    the mock answers by the model the kernel picks, so the file rule alone would read it as an invoice:
+      //    Test Vendor AB · 1 250.00 · INV-2026-001) → Becomes expense; a new group in place
       await inboxRow(`ICA ${stamp}`).first().click();
       await expect(page.getByTestId("justify-panel")).toBeVisible();
       await page.getByTestId("justify-paper-receipt").click();
@@ -198,7 +201,11 @@ test.describe("Justify", () => {
         "true",
       );
       await expect(dialog.getByTestId("reading-becomes")).toHaveText("expense");
+      // the receipt model's facts: the merchant, the receipt's total, no VAT number and no invoice number read
+      await expect(dialog.getByTestId("justify-vendor")).toHaveValue("ICA Maxi");
       await expect(dialog.getByTestId("justify-amount")).toHaveValue("342.50");
+      await expect(dialog.getByTestId("justify-vat-number")).toHaveValue("");
+      await expect(dialog.getByTestId("justify-invoice-number")).toHaveCount(0);
       await expect(dialog.getByTestId("reading-payer")).toContainText("Plusgirokonto SEK");
       // the merchant read is no partner: the supplier made above is picked (F129: every exit names one)
       await dialog.getByTestId("justify-partner").click();
@@ -254,6 +261,7 @@ test.describe("Justify", () => {
       // 7. the four rows on the list: linked · linked · no document · linked, with their partners — the supplier's
       //    name on the rows the dialog linked (F129, D73 (a): derived on read)
       await page.goto("/banking");
+      await showColumns(page, ["Partner", "Category"]); // in the chooser beside the work surface (F131 §6.2)
       const officeRow = page.getByRole("row").filter({ hasText: `${counterparty} OFFICE` });
       await expect(officeRow).toContainText("Linked");
       await expect(officeRow).toContainText(supplier);

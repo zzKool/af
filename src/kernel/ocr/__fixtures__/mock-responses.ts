@@ -1,6 +1,7 @@
 // The mock OCR's readings (F108: runs only when `OCR_PROVIDER=mock`), as stored Document Intelligence responses of
-// the real shape (2024-11-30 API) with invented values — `createMockOcrService` runs them through `mapAnalyzeResult`
-// like the real service does, so the mock can never return a shape the mapper does not produce (F127). The typed
+// the real shape (2024-11-30 API) with invented values — `createMockOcrService` picks one **by the model
+// `ocrModelFor` chose** (`mockResponseFor`) and runs it through `mapAnalyzeResult` like the real service does, so
+// the mock can never return a shape the mapper does not produce (F127) nor a model the kernel would not pick. The typed
 // values are the ones the tests and the e2e journeys have always seen (Test Vendor AB · 1 250.00 · INV-2026-001;
 // ICA Maxi · 342.50); the fields beside them are what the prebuilt models return and the mapper does not type —
 // they show under *Also read*.
@@ -194,3 +195,16 @@ export const MOCK_RESPONSES: Record<string, MockResponse> = {
   nda: layout("Non-Disclosure Agreement..."),
   certificate: layout("Certificate of Incorporation..."),
 };
+
+/**
+ * The stored response **by the model** `ocrModelFor` picked — the mock answers like the real service does (D69: an
+ * `expense` PDF is read by the invoice model; D75: the paper answer on a bank row picks the model whatever the
+ * file), never by the type alone (lessons *F131 build*). A layout reading keeps its type's text; an unknown type
+ * gets the contract's.
+ */
+export function mockResponseFor(prefixType: string, modelId: string): MockResponse {
+  if (modelId === "prebuilt-invoice") return invoice;
+  if (modelId === "prebuilt-receipt") return receipt;
+  const byType = MOCK_RESPONSES[prefixType];
+  return byType?.modelId === "prebuilt-layout" ? byType : MOCK_RESPONSES.contract;
+}
