@@ -587,7 +587,7 @@ const localDayFormatter = new Intl.DateTimeFormat("sv-SE", {
   day: "2-digit",
 });
 /** `yyyy-mm-dd` of an instant in the tenant's zone. */
-export const localDayOf = (instant: Date): string => localDayFormatter.format(instant);
+const localDayOf = (instant: Date): string => localDayFormatter.format(instant);
 
 export async function listGroups(tx: TransactionClient): Promise<GroupListRow[]> {
   const groups = await tx.expenseGroup.findMany({
