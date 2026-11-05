@@ -75,3 +75,6 @@ e2e-screenshots/
 
 # The owner's private notes (his box setup, D51) — never committed, never read by agents unless he asks
 /private/
+
+# Local notes beside the docs (the owner's answers, extracted bank texts) — never committed
+*.local.md
