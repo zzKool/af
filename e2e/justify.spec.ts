@@ -26,8 +26,10 @@ async function snapElement(locator: Locator, name: string) {
 // reading dialog: the fields with their glyphs, the new partner from the paper, the checks, the trip group proposed
 // from the paper's date, *Confirm & link*), a *Receipt* dropped on the second (the receipt model's reading, a new
 // group in place), `n` on the fee row (no proof needed, the bank proposed as its partner, the rule proposed), `x` on
-// the last (receipt lost → the dialog without a paper) — without leaving Work. The mock reads invented facts: the
-// mechanics are asserted, never the values (D51).
+// the last (receipt lost → the dialog without a paper) — without leaving Work; a private receipt in the trip group
+// (its group proposed from the date, F131 §5.2) keeps the owner owed something, so the fourth exit *This row refunds
+// me* shows on an outgoing row (§5.1). The mock reads invented facts: the mechanics are asserted, never the values
+// (D51).
 const HEADER =
   "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
 
@@ -66,6 +68,23 @@ test.describe("Justify", () => {
       await page.getByRole("option", { name: /Switzerland|Schweiz/ }).click();
       await page.getByTestId("save-trip").click();
       await expectToast(page, "Trip saved");
+      // a receipt the owner paid privately, dated inside the trip: the dialog proposes the trip group from the
+      // date (§5.2) — the ledger now owes him something, which is what the fourth exit shows on (§5.1)
+      await page.goto("/expenses?new=1");
+      const expenseDialog = page.getByTestId("new-expense-dialog");
+      await expect(expenseDialog).toBeVisible();
+      await expenseDialog.getByLabel("Date", { exact: true }).fill("2025-03-12");
+      await expect(expenseDialog.getByTestId("group-hint")).toHaveText("proposed (the trip)");
+      await expect(expenseDialog.getByLabel("Group", { exact: true })).toContainText(tripName);
+      await expenseDialog.getByLabel("Paid by", { exact: true }).click();
+      await page.getByRole("option", { name: "Private SE" }).click();
+      await page.getByTestId("expense-description").fill(`Train ${stamp}`);
+      await expenseDialog.getByLabel("Category", { exact: true }).click();
+      await page.getByRole("option", { name: /^580/ }).click();
+      await page.getByTestId("expense-amount").fill("420.00");
+      await page.getByTestId("create-expense").click();
+      await expectToast(page, "Tr-01 created");
+      await expect(expenseDialog).not.toBeVisible();
 
       // 2. four rows: an invoice payment, a card purchase (the receipt), a bank fee, a card purchase (lost)
       const today = new Date().toISOString().slice(0, 10);
@@ -206,9 +225,15 @@ test.describe("Justify", () => {
       await expect(page.getByText(`Always like this for PRISAVGIFT ${stamp}?`)).toBeVisible();
       await expect(inboxRow(`PRISAVGIFT ${stamp}`)).toHaveCount(0, { timeout: 20_000 });
 
-      // 6. the card row: x → the dialog without a paper → an expense with the flag, the merchant picked
+      // 6. the card row: the fourth exit shows (an outgoing row, the owner owed the train) and leads to the settle
+      //    page with this row preselected; then x → the dialog without a paper → an expense with the flag, the
+      //    merchant picked
       await inboxRow(`CAFE ${stamp}`).first().click();
       await expect(page.getByTestId("justify-panel")).toBeVisible();
+      await expect(page.getByTestId("justify-refund")).toHaveAttribute(
+        "href",
+        /\/expenses\/settle\?row=[0-9a-f-]{36}$/,
+      );
       await page.keyboard.press("x");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByTestId("reading-title")).toContainText("Receipt lost");

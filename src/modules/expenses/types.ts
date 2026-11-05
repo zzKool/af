@@ -228,6 +228,12 @@ export type GroupOption = {
   number: number;
   description: string;
   kind: "trip" | "batch";
+  /**
+   * a trip group's first and last day (`yyyy-mm-dd`, the tenant's local day — F131 §5.2: the pickers propose the
+   * trip whose days cover the receipt's date); null without a trip
+   */
+  departure?: string | null;
+  return?: string | null;
 };
 /** A payer the pickers offer (F114): a bank account — `kind` says whether a bank row pays it or a settlement refunds it. */
 export type SourceOption = {

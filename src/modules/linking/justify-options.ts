@@ -38,9 +38,12 @@ export async function justifyOptions(tx: TransactionClient, caller: CallerIdenti
       return: trip ? traktamente.toLocal(trip.returnAt).date : null,
     };
   });
+  // F131 §5.1: the fourth exit *This row refunds me* shows only while the owner is owed something (the ledger)
+  const ledger = await expenses.ledgerSnapshot(tx);
   return {
     groups,
     categories: page.categories,
+    openPrivateCount: ledger.total.openCount,
     partners: partnerList.map((p) => ({
       id: p.id,
       name: p.name,

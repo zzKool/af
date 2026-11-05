@@ -1,5 +1,7 @@
 // F87 (US1, US4; FR-003, FR-009): the partner in the new-expense dialog — the default category proposed, never
 // overwriting the owner's choice; the match card from a document; nothing picked without a click; the partner sent.
+// F131 §5.2: the group proposed from the date — the covering trip, else the month's group, else empty — marked with
+// its source, following the date until the owner picks by hand.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
@@ -63,9 +65,53 @@ vi.mock("@/modules/partners/ui", () => ({
     </button>
   ),
 }));
+// the group picker as a native select (the dialog's proposal is under test, not Base UI's listbox); the rule itself
+// stays the real one
+vi.mock("./group-picker", async () => {
+  const real = await vi.importActual<typeof import("./group-picker")>("./group-picker");
+  return {
+    NEW_GROUP: real.NEW_GROUP,
+    forProposal: real.forProposal,
+    proposeGroupForDate: real.proposeGroupForDate,
+    useCreateGroupIfNew: () => ({
+      resolveGroupId: async (id: string) => (id === real.NEW_GROUP ? "created-group" : id),
+      isPending: false,
+    }),
+    GroupPicker: ({
+      groups,
+      value,
+      onChange,
+      hint,
+    }: {
+      groups: { id: string; description: string }[];
+      value: string;
+      onChange: (id: string) => void;
+      hint?: string | null;
+    }) => (
+      <>
+        <select
+          data-testid="group-select"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label="Group"
+        >
+          <option value="">—</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.description}
+            </option>
+          ))}
+          <option value={real.NEW_GROUP}>+ New group…</option>
+        </select>
+        {hint && <p data-testid="group-hint">{hint}</p>}
+      </>
+    ),
+  };
+});
 
 import { defaultSourceId, NewExpenseDialog } from "./new-expense-dialog";
 
+const thisMonth = new Date().toISOString().slice(0, 7);
 const props = {
   open: true,
   onOpenChange: () => {},
@@ -75,6 +121,21 @@ const props = {
       number: 1,
       description: "March",
       kind: "batch" as const,
+    },
+    // the group of today's month — the dialog opens on today's date and proposes it (the month)
+    {
+      id: "00000000-0000-4000-8000-000000000003",
+      number: 3,
+      description: `${thisMonth} receipts`,
+      kind: "batch" as const,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000004",
+      number: 4,
+      description: "Switzerland, March 2026",
+      kind: "trip" as const,
+      departure: "2026-03-02",
+      return: "2026-03-21",
     },
   ],
   categories: [
@@ -184,7 +245,72 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     pick("cerf");
     fireEvent.click(screen.getByTestId("create-expense"));
     await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(1));
-    expect(calls.create.mock.calls[0]?.[0]).toMatchObject({ partnerId: "cerf", basCode: "583" });
+    expect(calls.create.mock.calls[0]?.[0]).toMatchObject({
+      partnerId: "cerf",
+      basCode: "583",
+      // the group the month proposed went with the form
+      groupId: "00000000-0000-4000-8000-000000000003",
+    });
+  });
+});
+
+describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", () => {
+  afterEach(() => {
+    cleanup();
+    calls.create.mockClear();
+  });
+  const group = () => screen.getByTestId("group-select") as HTMLSelectElement;
+  const date = () => screen.getByLabelText("Date");
+
+  it("opens on the month's group, marked as proposed (the month); the date moved into the trip → the trip, marked so", () => {
+    render(<NewExpenseDialog {...props} />);
+    expect(group()).toHaveValue("00000000-0000-4000-8000-000000000003");
+    expect(screen.getByTestId("group-hint")).toHaveTextContent("proposed (the month)");
+    fireEvent.change(date(), { target: { value: "2026-03-10" } });
+    expect(group()).toHaveValue("00000000-0000-4000-8000-000000000004");
+    expect(screen.getByTestId("group-hint")).toHaveTextContent("proposed (the trip)");
+    // a date nothing covers: empty, the hint says so, Create waits
+    fireEvent.change(date(), { target: { value: "2026-09-02" } });
+    expect(group()).toHaveValue("");
+    expect(screen.getByTestId("group-hint")).toHaveTextContent(
+      "No trip covers 2026-09-02 and no group names 2026-09",
+    );
+    fireEvent.change(screen.getByTestId("expense-description"), { target: { value: "Taxi" } });
+    fireEvent.change(screen.getByTestId("expense-amount"), { target: { value: "20.00" } });
+    pick("sas"); // the category
+    expect(screen.getByTestId("create-expense")).toBeDisabled();
+  });
+
+  it("the owner's own pick stands: the proposal stops following the date, and no source is claimed for it", () => {
+    render(<NewExpenseDialog {...props} />);
+    fireEvent.change(group(), { target: { value: "00000000-0000-4000-8000-000000000001" } });
+    expect(screen.queryByTestId("group-hint")).toBeNull();
+    fireEvent.change(date(), { target: { value: "2026-03-10" } });
+    expect(group()).toHaveValue("00000000-0000-4000-8000-000000000001");
+    expect(screen.queryByTestId("group-hint")).toBeNull();
+  });
+
+  it("a document's date drives the proposal; a group the page gave (the group page) is kept, not proposed over", () => {
+    const { unmount } = render(
+      <NewExpenseDialog {...props} initial={{ date: "2026-03-14", amount: "45.00" }} />,
+    );
+    expect(group()).toHaveValue("00000000-0000-4000-8000-000000000004");
+    expect(screen.getByTestId("group-hint")).toHaveTextContent("proposed (the trip)");
+    unmount();
+    render(<NewExpenseDialog {...props} defaultGroupId="00000000-0000-4000-8000-000000000001" />);
+    expect(group()).toHaveValue("00000000-0000-4000-8000-000000000001");
+    expect(screen.queryByTestId("group-hint")).toBeNull();
+    fireEvent.change(date(), { target: { value: "2026-03-10" } });
+    expect(group()).toHaveValue("00000000-0000-4000-8000-000000000001");
+  });
+
+  it("+ New group… without a description: Create waits", () => {
+    render(<NewExpenseDialog {...props} />);
+    fireEvent.change(screen.getByTestId("expense-description"), { target: { value: "Taxi" } });
+    fireEvent.change(screen.getByTestId("expense-amount"), { target: { value: "20.00" } });
+    pick("sas");
+    fireEvent.change(group(), { target: { value: "__new__" } });
+    expect(screen.getByTestId("create-expense")).toBeDisabled();
   });
 });
 

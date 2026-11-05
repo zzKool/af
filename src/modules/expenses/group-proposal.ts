@@ -59,8 +59,9 @@ export function monthOfGroupName(name: string): string | null {
 }
 
 /**
- * `proposeGroupForDate(date, groups)`: the trip whose days cover `date` (several → the shortest, the most specific),
- * else the group whose month is the date's (a stored `month`, else the one its name says), else nothing.
+ * `proposeGroupForDate(date, groups)`: the trip whose days cover `date` (several → the shortest, the most specific;
+ * the same length → the later departure, the trip under way — never list order), else the group whose month is the
+ * date's (a stored `month`, else the one its name says), else nothing.
  */
 export function proposeGroupForDate(
   date: string,
@@ -69,14 +70,15 @@ export function proposeGroupForDate(
   const paperDay = day(date);
   if (!paperDay) return { groupId: null, reason: null };
 
-  let trip: { id: string; span: number } | null = null;
+  let trip: { id: string; span: number; from: string } | null = null;
   for (const g of groups) {
     if (g.kind !== undefined && g.kind !== "trip") continue;
     const from = day(g.departure);
     const to = day(g.return);
     if (!from || !to || paperDay < from || paperDay > to) continue;
     const span = Date.parse(to) - Date.parse(from);
-    if (!trip || span < trip.span) trip = { id: g.id, span };
+    if (!trip || span < trip.span || (span === trip.span && from > trip.from))
+      trip = { id: g.id, span, from };
   }
   if (trip) return { groupId: trip.id, reason: "trip" };
 

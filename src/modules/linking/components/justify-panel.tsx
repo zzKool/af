@@ -3,9 +3,12 @@
 // Justify from the bank row (F97, specs/justify/spec.md; F131 review 2026-10-31 §6.3): one panel, five ways out —
 // drop the proof (the paper question *Invoice / Receipt* (D75) → upload → OCR → the READING DIALOG → *Confirm &
 // link*), pick what exists (the Suggestions below it, *Use it* on an inbox proof → the dialog), no proof needed
-// (the reasons, the partner line), the receipt lost (the dialog without a paper). Rendered by the banking panel and
-// the inbox's right pane for an open outgoing row; the keyboard bumps `proofKey` / `noProofKey` / `lostKey`
-// (p · n · x). The F97 compare card, *Create as* and *Fix the reading →* retired with the dialog (review §7).
+// (the reasons, the partner line), the receipt lost (the dialog without a paper), and — while the owner is owed
+// something — *This row refunds me* (§5.1: the settle page run from the row, `/expenses/settle?row=`). Rendered by
+// the banking panel and the inbox's right pane for an open outgoing row; the keyboard bumps `proofKey` /
+// `noProofKey` / `lostKey` (p · n · x). The F97 compare card, *Create as* and *Fix the reading →* retired with the
+// dialog (review §7).
+import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { type ChangeEvent, type DragEvent, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -84,6 +87,8 @@ export type JustifyOptions = {
   basHistory?: Record<string, { code: string; count: number }[]>;
   /** F129: the roles whose partner exists but was deactivated — the reasons' line says so instead of proposing */
   inactiveRoles?: string[];
+  /** F131 §5.1: the private expenses still open on the ledger — *This row refunds me* shows while there are any */
+  openPrivateCount?: number;
 };
 
 const NONE = "__none__";
@@ -532,6 +537,19 @@ export function JustifyPanel({
                 data-testid="justify-lost"
               >
                 {t("linking.justify.lost")}
+              </Button>
+            )}
+            {!reasonsOpen && (options?.openPrivateCount ?? 0) > 0 && (
+              // the fourth exit (review §5.1): the settle page with this row preselected — the FIFO over the open
+              // private expenses, the settlement and its statement written there as today
+              <Button
+                size="sm"
+                variant="outline"
+                nativeButton={false}
+                render={<Link href={`/expenses/settle?row=${row.id}`} />}
+                data-testid="justify-refund"
+              >
+                {t("linking.justify.refundsMe")}
               </Button>
             )}
           </div>

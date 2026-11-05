@@ -6,6 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("next/link", () => ({
+  default: ({
+    children,
+    href,
+    ...rest
+  }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() } }));
 vi.mock("@/modules/linking/linking.actions", () => ({
   counterpartyMemoryAction: "memory",
@@ -353,5 +364,42 @@ describe("JustifyPanel — no proof needed names a partner (F129 US3)", () => {
     expect(buttons[0]).toHaveTextContent("Client paid");
     expect(screen.queryByTestId("justify-drop")).not.toBeInTheDocument();
     expect(screen.queryByTestId("justify-lost")).not.toBeInTheDocument();
+  });
+});
+
+describe("JustifyPanel — the fourth exit, *This row refunds me* (F131 §5.1)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    for (const k of Object.keys(calls)) delete calls[k];
+  });
+
+  it("an outgoing row while the owner is owed something: a link to the settle page with the row preselected", async () => {
+    rowSuggestions([]);
+    render(<JustifyPanel row={row} canWrite options={{ ...options, openPrivateCount: 2 }} />);
+    await screen.findByTestId("justify-drop");
+    expect(screen.getByTestId("justify-refund")).toHaveAttribute(
+      "href",
+      `/expenses/settle?row=${ROW}`,
+    );
+    expect(screen.getByTestId("justify-refund")).toHaveTextContent("This row refunds me");
+  });
+
+  it("nothing open on the ledger, or an incoming row: no such exit", async () => {
+    rowSuggestions([]);
+    const { unmount } = render(
+      <JustifyPanel row={row} canWrite options={{ ...options, openPrivateCount: 0 }} />,
+    );
+    await screen.findByTestId("justify-drop");
+    expect(screen.queryByTestId("justify-refund")).not.toBeInTheDocument();
+    unmount();
+    render(
+      <JustifyPanel
+        row={{ ...row, amount: "250.00" }}
+        canWrite
+        options={{ ...options, openPrivateCount: 2 }}
+      />,
+    );
+    await screen.findByTestId("justify-panel");
+    expect(screen.queryByTestId("justify-refund")).not.toBeInTheDocument();
   });
 });

@@ -1,12 +1,13 @@
 "use client";
 
-// New expense (US1): the group (or a new one inline), kind, date, description, the partner (F87 — optional, its
-// default category proposed, never overwriting; from a document the match card offers the OCR merchant's vendor),
-// category, amount, currency, who paid, the receipt from the inbox (or "no receipt"), a note. The key and the base
-// come from the service.
+// New expense (US1): the group — proposed from the date (F131 §5.2: the trip whose days cover it, else the month's
+// group, else empty with *+ New group…*; it follows the date until the owner picks by hand) or a new one inline —,
+// kind, date, description, the partner (F87 — optional, its default category proposed, never overwriting; from a
+// document the match card offers the OCR merchant's vendor), category, amount, currency, who paid, the receipt from
+// the inbox (or "no receipt"), a note. The key and the base come from the service.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,7 +55,14 @@ import {
   partnerBasSuggestions,
 } from "@/modules/settings/ui";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
-import { GroupPicker, initialGroupId, useCreateGroupIfNew } from "./group-picker";
+import {
+  forProposal,
+  GroupPicker,
+  type GroupProposalReason,
+  NEW_GROUP,
+  proposeGroupForDate,
+  useCreateGroupIfNew,
+} from "./group-picker";
 import { PartnerPicker, useVendors } from "./partner-picker";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
@@ -117,10 +125,24 @@ export function NewExpenseDialog({
   const ids = useId();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
-  const [groupId, setGroupId] = useState(initialGroupId(groups, defaultGroupId));
-  const [newGroup, setNewGroup] = useState("");
   const [kind, setKind] = useState<ExpenseKind>("receipt");
   const [date, setDate] = useState(today);
+  // the group the date proposes (F131 §5.2): the covering trip, else the month's group — a fact, never the first of
+  // the list (lessons *F124 build*); a group the page gave (the group page's *Add expense*) stands instead
+  const groupProposal = useMemo(
+    () => proposeGroupForDate(date, groups.map(forProposal)),
+    [date, groups],
+  );
+  const [groupId, setGroupId] = useState(defaultGroupId ?? groupProposal.groupId ?? "");
+  const [groupTouched, setGroupTouched] = useState(false);
+  const [newGroup, setNewGroup] = useState("");
+  // the date edited → the proposal follows, until the owner picked a group himself
+  useEffect(() => {
+    if (defaultGroupId || groupTouched) return;
+    setGroupId(groupProposal.groupId ?? "");
+  }, [defaultGroupId, groupTouched, groupProposal]);
+  const groupReason: GroupProposalReason | null =
+    !defaultGroupId && groupId && groupId === groupProposal.groupId ? groupProposal.reason : null;
   const [description, setDescription] = useState("");
   // no category until one is chosen (F124 (5): the first of the list — 501 Lokalhyra — looked like a proposal);
   // a partner's default fills the empty slot (FR-003), the button waits for one
@@ -151,7 +173,8 @@ export function NewExpenseDialog({
     }
     if (opened.current) return;
     opened.current = true;
-    setGroupId(initialGroupId(groups, defaultGroupId));
+    setGroupTouched(false);
+    setGroupId(defaultGroupId ?? groupProposal.groupId ?? "");
     setPartnerId(null);
     setCategory((c) =>
       c.source === "partner"
@@ -182,7 +205,7 @@ export function NewExpenseDialog({
         ),
       );
     setAckNote("");
-  }, [open, defaultGroupId, groups, sources, initial, categories]);
+  }, [open, defaultGroupId, groupProposal, sources, initial, categories]);
 
   // the duplicate check (specs/documents US3): the same bytes, or a similar expense of the same merchant
   const checkKey = open
@@ -310,9 +333,19 @@ export function NewExpenseDialog({
             label={t("expenses.form.group")}
             groups={groups}
             value={groupId}
-            onChange={setGroupId}
+            onChange={(id) => {
+              setGroupTouched(true);
+              setGroupId(id);
+            }}
             newDescription={newGroup}
             onNewDescription={setNewGroup}
+            hint={
+              groupReason
+                ? t(`expenses.form.groupProposed.${groupReason}`)
+                : !groupId && !defaultGroupId
+                  ? t("expenses.form.groupNone", { date, month: date.slice(0, 7) })
+                  : null
+            }
           />
           <div>
             <label htmlFor={`${ids}-kind`} className="mb-1 block text-xs font-medium">
@@ -507,7 +540,13 @@ export function NewExpenseDialog({
             <Button
               type="submit"
               disabled={
-                isPending || creatingGroup || !basCode || !sourceId || (blocked && !ackNote.trim())
+                isPending ||
+                creatingGroup ||
+                !groupId ||
+                (groupId === NEW_GROUP && !newGroup.trim()) ||
+                !basCode ||
+                !sourceId ||
+                (blocked && !ackNote.trim())
               }
               data-testid="create-expense"
             >

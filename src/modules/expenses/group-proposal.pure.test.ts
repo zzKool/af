@@ -48,6 +48,38 @@ describe("proposeGroupForDate", () => {
     expect(proposeGroupForDate("2026-05-10", [long, trip]).groupId).toBe("long");
   });
 
+  it("two covering trips of the same length: the later departure wins (the trip under way), whatever the list order", () => {
+    const earlier: GroupForProposal = {
+      id: "earlier",
+      name: "Berlin",
+      kind: "trip",
+      departure: "2026-03-01",
+      return: "2026-03-10",
+    };
+    const later: GroupForProposal = {
+      id: "later",
+      name: "Geneva",
+      kind: "trip",
+      departure: "2026-03-05",
+      return: "2026-03-14",
+    };
+    expect(proposeGroupForDate("2026-03-08", [earlier, later]).groupId).toBe("later");
+    expect(proposeGroupForDate("2026-03-08", [later, earlier]).groupId).toBe("later");
+    // before the later one left, only the earlier covers the date
+    expect(proposeGroupForDate("2026-03-03", [later, earlier]).groupId).toBe("earlier");
+  });
+
+  it("the month fallback is the date's month, the trip's month name never standing in for a receipt outside its days", () => {
+    const march: GroupForProposal = { id: "march", name: "2026-03 receipts", kind: "batch" };
+    // the day after the return: the trip is over, the month's group takes the receipt
+    expect(proposeGroupForDate("2026-03-22", [trip, march])).toEqual({
+      groupId: "march",
+      reason: "month",
+    });
+    // a batch group named like a month proposes nothing for another month
+    expect(proposeGroupForDate("2026-04-02", [trip, march]).groupId).toBeNull();
+  });
+
   it("no trip: the group whose name (or stored month) is the paper's month — not the first of the list", () => {
     expect(proposeGroupForDate("2026-07-08", [first, july, trip])).toEqual({
       groupId: "july",

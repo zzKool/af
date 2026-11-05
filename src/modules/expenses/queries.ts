@@ -573,13 +573,27 @@ export type GroupListRow = ExpenseGroupDto & {
   openBase: string;
   perCurrency: { currency: string; amount: string }[];
   hasTrip: boolean;
+  /** the trip's first and last local day (F131 §5.2) — what the pickers propose a trip group from; null without one */
+  departure: string | null;
+  return: string | null;
 };
+
+// the trip's instants are Stockholm local times stored as instants ([[traktamente]]); its days are read back in
+// that zone, like the kernel clock's `today()` — a departure at 00:30 local is that day, not the UTC one before
+const localDayFormatter = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Stockholm",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+/** `yyyy-mm-dd` of an instant in the tenant's zone. */
+export const localDayOf = (instant: Date): string => localDayFormatter.format(instant);
 
 export async function listGroups(tx: TransactionClient): Promise<GroupListRow[]> {
   const groups = await tx.expenseGroup.findMany({
     include: {
       expenses: { include: { paidFromAccount: PAYER_SELECT } },
-      trip: { select: { id: true } },
+      trip: { select: { id: true, departureAt: true, returnAt: true } },
     },
     orderBy: { number: "desc" },
   });
@@ -608,6 +622,8 @@ export async function listGroups(tx: TransactionClient): Promise<GroupListRow[]>
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([currency, amount]) => ({ currency, amount: amount.toFixed(2) })),
       hasTrip: g.trip !== null,
+      departure: g.trip ? localDayOf(g.trip.departureAt) : null,
+      return: g.trip ? localDayOf(g.trip.returnAt) : null,
     };
   });
 }
