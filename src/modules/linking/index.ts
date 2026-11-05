@@ -49,6 +49,15 @@ export {
   proposeVendorRule,
 } from "./justify";
 export { justifyOptions } from "./justify-options";
+export {
+  DEFAULT_PAPER,
+  type GreenCheck,
+  greenChecks,
+  PAPERS,
+  type Paper,
+  paperOfPrefixType,
+  prefixTypeOfPaper,
+} from "./justify-rules";
 export { ALLOCATING_KINDS, isKindAllowed, needsOwnFlow, OWN_PAYMENT_FLOW } from "./kinds";
 export type { Linkable } from "./linkable";
 export {
@@ -68,12 +77,14 @@ export {
   getLinksForAction,
   getLinksWithLabelsAction,
   graphAction,
+  proofFactsAction,
   removeLinkAction,
   searchLinkablesAction,
   suggestionsForEntityAction,
   suggestionsForTransactionAction,
 } from "./linking.actions";
 export { memoryForKeys, memoryForRow, rememberedPartners } from "./memory";
+export { type ProofFactsInput, proofFacts } from "./proof-facts";
 export {
   currentDocumentProposals,
   decideDocumentProposal,

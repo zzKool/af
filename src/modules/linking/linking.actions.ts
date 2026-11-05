@@ -9,6 +9,7 @@ import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
 import { justifyRow, justifySchema, noProofNeeded, noProofSchema } from "./justify";
 import * as linkingService from "./linking";
 import { memoryForRow } from "./memory";
+import { proofFacts } from "./proof-facts";
 import { linksWithLabels } from "./queries";
 import * as suggestions from "./suggestions";
 import { LINK_KINDS, type LinkableType } from "./types";
@@ -176,6 +177,39 @@ export const justifyRowAction = ownerAction
   .action(async ({ ctx, parsedInput }) =>
     justifyRow(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
+
+/**
+ * The facts `checkProof` needs from the server (F131, review 2026-10-31 §4): the ECB rate of the booking date,
+ * D53's *billed to* verdict, the rules' partners for the key (D74), the memory, the duplicate facts (D35). A read —
+ * anyone who may read the row; the dialog calls it again when the currency, the partner or the number changes.
+ */
+export const proofFactsAction = authedAction
+  .schema(
+    z.object({
+      transactionId: uuid,
+      documentId: uuid.nullable().optional(),
+      readingCurrency: z.string().trim().max(3).nullable().optional(),
+      invoiceNumber: z.string().trim().max(100).nullable().optional(),
+      partnerId: uuid.nullable().optional(),
+      customerName: z.string().trim().max(300).nullable().optional(),
+      customerTaxId: z.string().trim().max(40).nullable().optional(),
+    }),
+  )
+  .metadata({ name: "proofFacts" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "bank_transaction")) return forbidden;
+    const facts = await proofFacts(ctx.tx, ctx.callerIdentity, parsedInput);
+    if (!facts) {
+      return {
+        error: {
+          code: "NOT_FOUND" as const,
+          message: "Bank transaction not found",
+          retryable: false,
+        },
+      };
+    }
+    return { data: facts };
+  });
 
 export const noProofNeededAction = ownerAction
   .schema(noProofSchema)

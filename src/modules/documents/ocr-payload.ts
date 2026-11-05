@@ -3,7 +3,7 @@
 import { z } from "zod/v4";
 import type { Prisma } from "@/generated/prisma/client";
 import { CURRENCIES, type Currency } from "@/kernel/nav/constants";
-import type { OcrExtractedData } from "@/kernel/ocr/ocr";
+import type { OcrExtractedData, OcrField, OcrFieldMap } from "@/kernel/ocr/ocr";
 
 /** What the services read from `documents.ocr_data`; `rawResponse` stays in the column. */
 export type OcrPayload = {
@@ -35,12 +35,37 @@ export function ocrPayloadToJson(payload: OcrPayloadWrite): Prisma.InputJsonObje
   return isJsonObject(json) ? json : {};
 }
 
+/**
+ * `extractedData.fields` as stored (F127): the entries that have DI's shape — `{ type, value, confidence, content }`
+ * — with a confidence that is a number or null and a content that is a string or null. A document read before F127
+ * has no `fields` → `{}` (no labels, no *Also read*); *Re-run OCR* fills it. Never throws.
+ */
+export function parseOcrFields(value: unknown): OcrFieldMap {
+  if (!isRecord(value)) return {};
+  const out: OcrFieldMap = {};
+  for (const [name, entry] of Object.entries(value)) {
+    if (!isRecord(entry) || typeof entry.type !== "string" || !("value" in entry)) continue;
+    const field: OcrField = {
+      type: entry.type,
+      value: entry.value as OcrField["value"],
+      confidence:
+        typeof entry.confidence === "number" && Number.isFinite(entry.confidence)
+          ? entry.confidence
+          : null,
+      content: typeof entry.content === "string" ? entry.content : null,
+    };
+    out[name] = field;
+  }
+  return out;
+}
+
 /** `ocr_data` → the payload, or null when the OCR has not run (the column is null or not an object). */
 export function parseOcrPayload(ocrData: Prisma.JsonValue | null): OcrPayload | null {
   if (!isRecord(ocrData)) return null;
+  const stored = ocrData.extractedData;
   return {
-    extractedData: isRecord(ocrData.extractedData)
-      ? (ocrData.extractedData as unknown as OcrExtractedData)
+    extractedData: isRecord(stored)
+      ? ({ ...stored, fields: parseOcrFields(stored.fields) } as unknown as OcrExtractedData)
       : null,
     quality: typeof ocrData.quality === "string" ? ocrData.quality : null,
   };

@@ -111,6 +111,73 @@ export function monthOf(bookingDate: string): string {
   return bookingDate.slice(0, 7);
 }
 
+// --- the paper question (D75, review 2026-10-31 §2 row 2.3; F131) ---
+
+/** What the paper is — asked on every drop, *Invoice* by default (O5); it picks the reading model, never the kind. */
+export type Paper = "invoice" | "receipt";
+export const PAPERS: readonly Paper[] = ["invoice", "receipt"];
+export const DEFAULT_PAPER: Paper = "invoice";
+
+/** The upload type the paper sends: *Invoice* → `invoice` (`prebuilt-invoice`), *Receipt* → `expense` (`prebuilt-receipt`). */
+export function prefixTypeOfPaper(paper: Paper): "invoice" | "expense" {
+  return paper === "invoice" ? "invoice" : "expense";
+}
+
+/** The paper a stored document's type says — the dialog's radio for a document that was uploaded before (*Use it*). */
+export function paperOfPrefixType(prefixType: string | null | undefined): Paper {
+  return prefixType === "expense" ? "receipt" : "invoice";
+}
+
+// --- the green checks (review §6.3: *✓ amount equal · ✓ 2 days · ✓ vendor = counterparty*) ---
+
+export type GreenCheck =
+  /** the same currency, equal to the cent */
+  | { code: "amount"; kind: "equal" }
+  /** the same currency, inside the settlement tolerance — the difference is named (every claim is true) */
+  | { code: "amount"; kind: "within"; difference: string; currency: string }
+  /** another currency, inside the FX tolerance at the ECB rate */
+  | { code: "amount"; kind: "fx"; currency: string }
+  | { code: "days"; days: number }
+  | { code: "vendor" };
+
+/**
+ * The checks worth a ✓ line once `checkProof` found nothing to say about them: the amount (read, same currency and
+ * equal — or another currency within the tolerance), the days between the paper and the booking (a date read), the
+ * vendor against the counterparty (a vendor read or a partner picked). Pure; the warnings are `checkProof`'s codes.
+ */
+export function greenChecks(
+  row: Pick<RowForJustify, "bookingDate" | "amount" | "currency" | "description">,
+  reading: Reading,
+  partnerPicked: boolean,
+  warningCodes: readonly string[],
+): GreenCheck[] {
+  const card = compareRowToReading(row, reading);
+  const warned = new Set(warningCodes);
+  const out: GreenCheck[] = [];
+  if (
+    card.documentAmount &&
+    card.documentCurrency &&
+    !warned.has("amount_same") &&
+    !warned.has("amount_fx") &&
+    !warned.has("currency_unread")
+  ) {
+    if (card.currencyDiffers)
+      out.push({ code: "amount", kind: "fx", currency: card.documentCurrency });
+    else if (card.equal) out.push({ code: "amount", kind: "equal" });
+    else
+      out.push({
+        code: "amount",
+        kind: "within",
+        difference: card.delta ?? "0.00",
+        currency: row.currency,
+      });
+  }
+  if (card.days !== null && !warned.has("date")) out.push({ code: "days", days: card.days });
+  if ((card.vendorName || partnerPicked) && !warned.has("vendor_counterparty"))
+    out.push({ code: "vendor" });
+  return out;
+}
+
 // --- the no-proof reasons (US3; F129 US3: each names a partner too) — data, the BAS and the partner each proposes ---
 
 export type NoProofReason = "fee" | "tax" | "salary" | "interest" | "client" | "other";

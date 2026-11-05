@@ -1,6 +1,7 @@
 "use client";
 
 import type { CompanyIdentity } from "@/modules/documents/billed-to";
+import { AlsoReadSection } from "@/modules/documents/components/also-read-section";
 import { DocumentClassificationSection } from "@/modules/documents/components/document-classification-section";
 import { FinancialFieldsSection } from "@/modules/documents/components/financial-fields-section";
 import { LineItemsSection } from "@/modules/documents/components/line-items-section";
@@ -70,6 +71,12 @@ export function DocumentReviewForm({
       ) : (
         <RelationshipFieldsSection rawText={resolvedData.rawText} />
       )}
+
+      {/* F127: every field DI returned that the form does not show — read-only; nothing on a reading without `fields` */}
+      <AlsoReadSection
+        fields={data.extractedData?.fields}
+        modelUsed={data.extractedData?.modelUsed}
+      />
     </div>
   );
 }

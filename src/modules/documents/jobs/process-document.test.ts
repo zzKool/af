@@ -267,6 +267,7 @@ describe("processDocument job", () => {
         modelUsed: "prebuilt-invoice",
         pageCount: 1,
         processingTimeMs: 1200,
+        fields: {}, // F127: a reading without `fields` reads back as the old reading — an empty map
       },
       quality: "high",
     });

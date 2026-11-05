@@ -1,0 +1,296 @@
+{
+  "apiVersion": "2024-11-30",
+  "modelId": "prebuilt-invoice",
+  "content": "FAKTURA\nSkattepunkten Office Services AB\nStorgatan 12\n111 51 Stockholm\nMomsreg.nr SE559911223301\nFakturanummer 2026-071\nFakturadatum 2026-07-06\nFörfallodatum 2026-08-05\nEr referens PO-4471\nKund\nDev AB\nKungsgatan 10\n411 19 Göteborg\nBeskrivning Antal Enhet À-pris Moms Belopp\nKontorsstädning juli 2026 1 st 1 037,76 25% 1 037,76\nFönsterputs 2 st 120,00 25% 240,00\nNetto 1 277,76\nMoms 25 % 319,44\nAtt betala 1 597,20 SEK\nBetalningsvillkor 30 dagar\nBankgiro 123-4567\nIBAN SE4550000000058398257466 BIC ESSESESS\nSida 1 av 1",
+  "pages": [
+    {
+      "pageNumber": 1
+    }
+  ],
+  "documents": [
+    {
+      "docType": "invoice",
+      "confidence": 1,
+      "fields": {
+        "VendorName": {
+          "type": "string",
+          "valueString": "Skattepunkten Office Services AB",
+          "content": "Skattepunkten Office Services AB",
+          "confidence": 0.94
+        },
+        "VendorAddress": {
+          "type": "address",
+          "valueAddress": {
+            "houseNumber": "12",
+            "road": "Storgatan",
+            "postalCode": "111 51",
+            "city": "Stockholm",
+            "streetAddress": "Storgatan 12"
+          },
+          "content": "Storgatan 12\n111 51 Stockholm",
+          "confidence": 0.91
+        },
+        "VendorTaxId": {
+          "type": "string",
+          "valueString": "SE559911223301",
+          "content": "SE559911223301",
+          "confidence": 0.9
+        },
+        "CustomerName": {
+          "type": "string",
+          "valueString": "Dev AB",
+          "content": "Dev AB",
+          "confidence": 0.89
+        },
+        "CustomerAddress": {
+          "type": "address",
+          "valueAddress": {
+            "houseNumber": "10",
+            "road": "Kungsgatan",
+            "postalCode": "411 19",
+            "city": "Göteborg",
+            "streetAddress": "Kungsgatan 10"
+          },
+          "content": "Kungsgatan 10\n411 19 Göteborg",
+          "confidence": 0.87
+        },
+        "InvoiceId": {
+          "type": "string",
+          "valueString": "2026-071",
+          "content": "2026-071",
+          "confidence": 0.81
+        },
+        "InvoiceDate": {
+          "type": "date",
+          "valueDate": "2026-07-06",
+          "content": "2026-07-06",
+          "confidence": 0.95
+        },
+        "DueDate": {
+          "type": "date",
+          "valueDate": "2026-08-05",
+          "content": "2026-08-05",
+          "confidence": 0.93
+        },
+        "PurchaseOrder": {
+          "type": "string",
+          "valueString": "PO-4471",
+          "content": "PO-4471",
+          "confidence": 0.62
+        },
+        "ServiceStartDate": {
+          "type": "date",
+          "content": "juli 2026",
+          "confidence": 0.41
+        },
+        "SubTotal": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 1277.76,
+            "currencyCode": "SEK",
+            "currencySymbol": "kr"
+          },
+          "content": "1 277,76",
+          "confidence": 0.96
+        },
+        "TotalTax": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 319.44,
+            "currencyCode": "SEK",
+            "currencySymbol": "kr"
+          },
+          "content": "319,44",
+          "confidence": 0.96
+        },
+        "InvoiceTotal": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 1597.2,
+            "currencyCode": "SEK",
+            "currencySymbol": "kr"
+          },
+          "content": "1 597,20 SEK",
+          "confidence": 0.99
+        },
+        "AmountDue": {
+          "type": "currency",
+          "valueCurrency": {
+            "amount": 1597.2,
+            "currencyCode": "SEK",
+            "currencySymbol": "kr"
+          },
+          "content": "1 597,20 SEK",
+          "confidence": 0.97
+        },
+        "PaymentTerm": {
+          "type": "string",
+          "valueString": "30 dagar",
+          "content": "30 dagar",
+          "confidence": 0.9
+        },
+        "PaymentDetails": {
+          "type": "array",
+          "valueArray": [
+            {
+              "type": "object",
+              "valueObject": {
+                "IBAN": {
+                  "type": "string",
+                  "valueString": "SE4550000000058398257466",
+                  "content": "SE4550000000058398257466",
+                  "confidence": 0.95
+                },
+                "SWIFT": {
+                  "type": "string",
+                  "valueString": "ESSESESS",
+                  "content": "ESSESESS",
+                  "confidence": 0.95
+                }
+              }
+            }
+          ]
+        },
+        "TaxDetails": {
+          "type": "array",
+          "valueArray": [
+            {
+              "type": "object",
+              "valueObject": {
+                "Amount": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 319.44,
+                    "currencyCode": "SEK",
+                    "currencySymbol": "kr"
+                  },
+                  "content": "319,44",
+                  "confidence": 0.92
+                },
+                "Rate": {
+                  "type": "string",
+                  "valueString": "25 %",
+                  "content": "25 %",
+                  "confidence": 0.92
+                },
+                "NetAmount": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 1277.76,
+                    "currencyCode": "SEK",
+                    "currencySymbol": "kr"
+                  },
+                  "content": "1 277,76",
+                  "confidence": 0.9
+                }
+              }
+            }
+          ]
+        },
+        "Items": {
+          "type": "array",
+          "valueArray": [
+            {
+              "type": "object",
+              "valueObject": {
+                "Description": {
+                  "type": "string",
+                  "valueString": "Kontorsstädning\njuli 2026",
+                  "content": "Kontorsstädning\njuli 2026",
+                  "confidence": 0.93
+                },
+                "Quantity": {
+                  "type": "number",
+                  "valueNumber": 1,
+                  "content": "1",
+                  "confidence": 0.95
+                },
+                "Unit": {
+                  "type": "string",
+                  "valueString": "st",
+                  "content": "st",
+                  "confidence": 0.88
+                },
+                "UnitPrice": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 1037.76,
+                    "currencyCode": "SEK",
+                    "currencySymbol": "kr"
+                  },
+                  "content": "1 037,76",
+                  "confidence": 0.96
+                },
+                "TaxRate": {
+                  "type": "string",
+                  "valueString": "25%",
+                  "content": "25%",
+                  "confidence": 0.94
+                },
+                "Amount": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 1037.76,
+                    "currencyCode": "SEK",
+                    "currencySymbol": "kr"
+                  },
+                  "content": "1 037,76",
+                  "confidence": 0.96
+                }
+              }
+            },
+            {
+              "type": "object",
+              "valueObject": {
+                "Description": {
+                  "type": "string",
+                  "valueString": "Fönsterputs",
+                  "content": "Fönsterputs",
+                  "confidence": 0.93
+                },
+                "Quantity": {
+                  "type": "number",
+                  "valueNumber": 2,
+                  "content": "2",
+                  "confidence": 0.95
+                },
+                "Unit": {
+                  "type": "string",
+                  "valueString": "st",
+                  "content": "st",
+                  "confidence": 0.88
+                },
+                "UnitPrice": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 120,
+                    "currencyCode": "SEK",
+                    "currencySymbol": "kr"
+                  },
+                  "content": "120,00",
+                  "confidence": 0.96
+                },
+                "TaxRate": {
+                  "type": "string",
+                  "valueString": "25%",
+                  "content": "25%",
+                  "confidence": 0.94
+                },
+                "Amount": {
+                  "type": "currency",
+                  "valueCurrency": {
+                    "amount": 240,
+                    "currencyCode": "SEK",
+                    "currencySymbol": "kr"
+                  },
+                  "content": "240,00",
+                  "confidence": 0.96
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
