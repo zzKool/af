@@ -168,7 +168,7 @@ export function ReadingPartnerBlock({
       )}
       {!creating && (
         <div>
-          <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
+          <label htmlFor={`${ids}-partner`} className="sr-only">
             {t("linking.reading.partnerLabel")}
           </label>
           <Select
