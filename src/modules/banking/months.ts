@@ -2,15 +2,11 @@
 // justified and how many still need proof; per account × month, proven / open / not imported; the banner's month.
 // Read only — bank rows with their flag, the links touching them (through linking's index), the
 // imports' periods and which packages are built (through package's index). No table, nothing stored.
-import { Prisma } from "@/generated/prisma/browser";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
-import type { LinkDto } from "@/modules/linking";
-import * as linking from "@/modules/linking";
 import * as accountantPackage from "@/modules/package";
 import { accountLabel } from "./bank-accounts";
 import { type Completeness, monthComplete } from "./completeness";
-import { linkFactsOf } from "./link-facts";
-import { accountCompleteness, deriveTransactionState } from "./queries";
+import { accountCompleteness, deriveTransactionState, rowFacts } from "./queries";
 import type {
   BankAccountRole,
   BankMonthCell,
@@ -18,8 +14,6 @@ import type {
   BankMonthsOverview,
   TransactionState,
 } from "./types";
-
-const D = Prisma.Decimal;
 
 /** Months the panel shows at least (a year back from today's month). */
 export const MONTHS_WINDOW = 12;
@@ -38,9 +32,17 @@ export function monthRange(from: string, to: string): string[] {
   return out;
 }
 
-/** A row still needs proof when nothing (or not enough) justifies it — the two states the workbench shows as open. */
+/** The states still to justify (F129, D73): nothing or not enough justifies the row, or it names no partner. */
+const TO_JUSTIFY: ReadonlySet<TransactionState> = new Set<TransactionState>([
+  "open",
+  "partial",
+  "linked_no_partner",
+  "no_document_no_partner",
+]);
+
+/** A row still needs proof when nothing (or not enough) justifies it, or when it is justified but names no partner. */
 export function needsProof(state: TransactionState): boolean {
-  return state === "open" || state === "partial";
+  return TO_JUSTIFY.has(state);
 }
 
 // --- pure assembly ---
@@ -165,13 +167,14 @@ export async function bankMonths(
       currency: true,
       amountBase: true,
       noDocumentNeeded: true,
+      partnerId: true,
+      basCode: true,
     },
   });
   const built = await accountantPackage.builtPeriods(tx, months);
 
-  const ids = rows.map((r) => r.id);
-  const links = await linking.linksTouching(tx, "bank_transaction", ids);
-  const facts = linkFactsOf(links, rows);
+  const facts = await rowFacts(tx, rows);
+  const roleOf = new Map(accounts.map((a) => [a.id, a.role as BankAccountRole]));
   const completeness = await accountCompleteness(tx);
 
   const covered = new Map<string, Set<string>>();
@@ -199,6 +202,8 @@ export async function bankMonths(
         allocated: facts.allocated.get(r.id) ?? "0.00",
         inTransfer: facts.transfer.has(r.id),
         noDocumentNeeded: r.noDocumentNeeded,
+        partnerId: facts.effective.get(r.id)?.partnerId ?? null,
+        accountRole: roleOf.get(r.bankAccountId) ?? "main",
       }),
     })),
     covered,

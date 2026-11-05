@@ -16,24 +16,48 @@ interface OcrService {
 
 Two implementations:
 - **Azure DI** (`createAzureOcrService`) — calls Azure Document Intelligence REST API
-- **Mock** (`createMockOcrService`) — returns prefix-specific fixture data for development/testing
+- **Mock** (`createMockOcrService`) — a stored DI response per prefix type (`__fixtures__/mock-responses.ts`, invented values) run through the same `mapAnalyzeResult` as the real service (F127): its typed facts, its `fields` and its `rawResponse` have the real shape by construction, and a field the mapper stops reading goes missing in the mock too
 
 The factory function `createOcrService()` selects automatically based on whether `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` environment variables are set.
 
 ## Model Selection
 
-Prefix types map to Azure DI prebuilt models (`ocrModelFor(prefixType, mimeType)`); **the type decides (D52), the file refines it (D69, 2026-10-29)**: an *expense* that is a **PDF** is read with the invoice model — a cloud bill, a subscription, an online order paid by card is printed like an invoice, and only that model reads the vendor's name, VAT number and invoice number; the receipt model stays for the photographed till receipt (an image). A type change re-reads only when the model differs, so *expense ↔ invoice* on a PDF swaps the key and keeps the reading.
+Prefix types map to Azure DI prebuilt models (`ocrModelFor(prefixType, mimeType, paper?)`); **the type decides (D52), the file refines it (D69, 2026-10-29), the owner's answer on a bank row wins (D75)**: an *expense* that is a **PDF** is read with the invoice model — a cloud bill, a subscription, an online order paid by card is printed like an invoice, and only that model reads the vendor's name, VAT number and invoice number; the receipt model stays for the photographed till receipt (an image). **On a bank row** the drop zone asks *Invoice / Receipt* ([[linking]]) and sends the answer with the upload: `paper: "invoice" | "receipt"` (`OcrPaper`) picks `prebuilt-invoice` / `prebuilt-receipt` **whatever the file** — a PDF till receipt the owner called *Receipt* is read by the receipt model. The answer is stored nowhere: `uploadDocumentAction` / `classifyDocumentAction` put it in the OCR job's payload (`ProcessDocumentData.paper`), the job hands it to `analyzeDocument(source, prefixType, paper)`, and the reading says what read it (`modelUsed`). On `/documents` nobody is asked, so the file rule stands. A type change re-reads only when the new model differs from **the one that read it** (`modelUsed`, else the rule): *expense ↔ invoice* on a PDF from `/documents` swaps the key and keeps the reading; the dialog's paper switch on a row reads it again with the other model.
 
 | Prefix Type | Model | Fields Extracted |
 |-------------|-------|-----------------|
 | expense (image) | prebuilt-receipt | MerchantName, Total, TotalTax, TransactionDate, Items (Description, Quantity, Price, TotalPrice); the currency from the amounts |
 | expense (PDF) | prebuilt-invoice | as *invoice* below |
+| any file dropped on a bank row as *Receipt* (`paper`) | prebuilt-receipt | as *expense (image)* — D75 |
+| any file dropped on a bank row as *Invoice* (`paper`) | prebuilt-invoice | as *invoice* below — D75 |
 | invoice | prebuilt-invoice | VendorName (else VendorAddressRecipient — the name on the vendor's address block), VendorTaxId, VendorAddress (→ `vendorAddress`: street, postal code, city, ISO-2 country, the printed text — `extractAddressValue`), InvoiceTotal, SubTotal, TotalTax, InvoiceDate, DueDate, InvoiceId, CustomerName (else BillingAddressRecipient) + CustomerTaxId (D53), PaymentDetails, Items (Description folded to one line, Quantity, UnitPrice, Amount, Tax, TaxRate → `taxRate` %); the currency from the amounts |
 | contract | prebuilt-layout | Raw text only |
 | nda | prebuilt-layout | Raw text only |
 | certificate | prebuilt-layout | Raw text only |
 
 Unknown/custom prefix types (from tenant configuration in Story 3.4) fall back to `prebuilt-layout` with a warning log.
+
+**Every field, with its confidence (F127, [[review-2026-10-31]] §3).** `prebuilt-invoice` returns ~30 fields; the typed subset above keeps ~15 and, until F127, the rest — and every per-field confidence — was dropped (`rawResponse` is stored whole and read by nothing). Now `mapAnalyzeResult` also keeps the whole `documents[0].fields` map as `OcrExtractedData.fields` (`kernel/ocr/fields.ts`), one entry per field DI returned, nothing added:
+
+```
+fields.<Name> = { type, value, confidence, content }
+  type        DI's own field type — string · date · time · phoneNumber · number · integer · currency · address · array · object · …
+  value       by type: string / date / time → string · number / integer → number · currency → { amount, currencyCode }
+              · address → the flattened address the typed mapping also builds (street, postalCode, city, country, text)
+              · array → the entries, each an { type, value, confidence, content } · object → a map of them · null when DI read the text but resolved no value
+  confidence  DI's confidence of this field; null when it gave none (arrays, objects)
+  content     the field's text as printed (line breaks kept)
+
+Items · TaxDetails · PaymentDetails stay arrays (their entries are maps) — never flattened. A layout reading has no `fields`.
+```
+
+The typed subset is still read as before, from the same map, and every reader of it is unchanged. `fields` adds ~30 entries plus the lines to the JSONB per document — what DI returned, no padding; `rawResponse` stays as it was. `TYPED_SOURCES` (`fields.ts`) names, per model, the DI field each typed key is read from (`vendorName` ← `VendorName`, else `VendorAddressRecipient`; a receipt's `invoiceTotal` ← `Total`), so that:
+
+- `fieldConfidence(reading, key)` gives the confidence of the field a typed value came from (the first source present with a value — the mapper's fallback order); null on a reading without `fields`.
+- `alsoReadFields(reading)` lists what the mapper does not type: the other scalars (`AmountDue`, `PurchaseOrder`, `PaymentTerm`, `CustomerAddress`, …) and every array / object field, as the review page's *Also read* ([[document-review]]). The currency is not a typed source: it is taken from whichever amount carries a code, so `AmountDue` shows under *Also read* even though its code may have supplied the currency.
+- `confidenceLabel(confidence)` (`kernel/ocr/confidence.ts`, pure) bands it: **high** ≥ 0.90 · **medium** 0.70–0.90 · **low** < 0.70 · null without a confidence. The screen draws `·` · `?` · `!`; the words are the accessible name. The document-level `quality` (below) is unchanged and still drives the title's tag.
+
+No migration: `fields` rides in the `ocr_data` JSONB. **A document read before F127 has no `fields`** — `parseOcrPayload` hands it back as `{}`, the review page shows neither labels nor *Also read* for it (the old reading); ***Re-run OCR*** on the review page (exists, FR-021) reads it again and fills it. Tested on stored responses of the real shape with per-field confidences and an `Items` array (`__fixtures__/azure-invoice-sek.json`, `ocr-mapping.pure.test.ts`); the bands at their boundaries (`confidence.pure.test.ts`).
 
 **The currency** (2026-10-24): Azure DI has no document-level currency field — each amount carries its own `valueCurrency.currencyCode`. `extractCurrencyCode` takes the first ISO code among the totals, then the lines; none → unknown (never SEK, F61-b). **Reverse charge** (D54): `mentionsReverseCharge(content)` on the document's text (en / fr / sv / de / it / es) sets `reverseCharge` — a flag, no VAT computed. The mapping is the pure `mapAnalyzeResult`, tested on stored responses of the real shape with invented values (`__fixtures__/azure-*.json`, `ocr-mapping.pure.test.ts`).
 
@@ -94,19 +118,19 @@ A retry re-runs the whole handler: phase 1 sees `processing` and skips, phase 2 
 
 ```typescript
 {
-  extractedData: OcrExtractedData,   // Structured fields for Story 5.3 review form
+  extractedData: OcrExtractedData,   // the typed facts + `fields` (every DI field with its confidence, F127)
   rawResponse: AnalyzeResult,        // Full Azure DI response (Bokföringslagen provenance)
   quality: "high" | "low" | "none",  // Classification for UI treatment
 }
 ```
 
-Read back by `parseOcrPayload()` in `src/modules/documents/ocr-payload.ts` — the one place that turns the column into `{ extractedData, quality }` (null when the OCR has not run); `getDocumentOcrData()` (`review.ts`), the review page, the library and the inbox all go through it. `rawResponse` is never read by the app.
+Read back by `parseOcrPayload()` in `src/modules/documents/ocr-payload.ts` — the one place that turns the column into `{ extractedData, quality }` (null when the OCR has not run); `getDocumentOcrData()` (`review.ts`), the review page, the library and the inbox all go through it. It normalises `extractedData.fields` on the way (`parseOcrFields`): the entries of DI's shape are kept, a missing or malformed `fields` reads as `{}` — so a row written before F127 and a row written after read the same way. `rawResponse` is never read by the app.
 
 ## Environment Variables
 
 | Variable | Required | Notes |
 |----------|----------|-------|
-| `OCR_PROVIDER` | No | `azure` (default) or `mock`. **The mock runs only when named** (F108, audit 2026-10-27 B3): it invents readings ("Test Vendor AB · 1 250.00 · INV-2026-001", quality *high*) that the inbox, the scorer and *Make it…* would treat as read facts |
+| `OCR_PROVIDER` | No | `azure` (default) or `mock`. **The mock runs only when named** (F108, audit 2026-10-27 B3): it invents readings ("Test Vendor AB · 1 250.00 · INV-2026-001", quality *high*) that the inbox, the scorer and *Make it…* would treat as read facts. In a cloud session `scripts/dev-env.sh` writes no `OCR_PROVIDER` into `.env.local` and its `next start` reuses that file — add `OCR_PROVIDER=mock` to `.env.local` before an e2e that uploads, or every journey lands on *OCR failed* ([[lessons]] *F127 build*) |
 | `AZURE_DI_ENDPOINT` | With `azure` | Missing → `resolveOcrProvider` returns `none` and every OCR job fails **non-retryable** with the reason (`OCR is not configured (AZURE_DI_KEY not set) — set …`): the document lands on *OCR failed*, the reason is in the audit log and in the app log at `error` |
 | `AZURE_DI_KEY` | With `azure` | Same |
 
@@ -120,7 +144,7 @@ Read back by `parseOcrPayload()` in `src/modules/documents/ocr-payload.ts` — t
 
 ## Testing
 
-- Mock service tests: prefix-specific fixtures, quality classification, model selection
+- Mock service tests: the fixtures picked **by the model `ocrModelFor` chooses** (`mockResponseFor` — an `expense` PDF reads as an invoice like on the box, D69; the paper answer turns it, D75; lessons *F131 build*), quality classification, model selection; the mock's `rawResponse` through `mapAnalyzeResult` reproduces its `data` (`ocr-mapping.pure.test.ts`)
 - Job tests (`jobs/process-document.test.ts`): handler and dead-letter handler called directly — happy path, resume from `processing`, status guards, retryable vs non-retryable errors, audit logging
 - Integration tests (gated): `describe.skipIf(!process.env.AZURE_DI_ENDPOINT)` for real Azure DI
 - Test fixtures: `src/kernel/ocr/__fixtures__/test-invoice.pdf`, `test-receipt.jpg`

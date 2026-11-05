@@ -40,7 +40,8 @@ test.describe("Document review page — owner", () => {
     const key = page.getByTestId("document-review-key");
     await expect(key).toHaveText(/^exp_\d{8}_\d{3}$/);
     const upload = (await key.textContent()) ?? "";
-    // the mock OCR reads it as a receipt; the page follows the reading on its own
+    // the mock OCR answers by the model the kernel picks — a PDF expense is the invoice model's (D69); the page
+    // follows the reading on its own
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
     });
@@ -48,7 +49,8 @@ test.describe("Document review page — owner", () => {
     await page.locator("#prefixType").click();
     await page.getByRole("option", { name: "Invoice" }).click();
 
-    // same date, same number; the invoice model reads it, the page lands on Ready again with the invoice's fields
+    // same date, same number; the same model read it already (a PDF, D69), so no second reading — the page shows
+    // the invoice's fields for the new type
     await expect(key).toHaveText(upload.replace(/^exp_/, "inv_"));
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
@@ -166,8 +168,9 @@ test.describe("Document review page — owner", () => {
     await expect(makeIt.getByTestId("make-it-file")).toBeEnabled();
     await makeIt.getByTestId("make-it-expense").click();
 
-    // the expense dialog, pre-filled once the mock OCR has run (ICA Maxi, 342.50 SEK) — or empty when the
-    // job has not finished yet: the test fills what is missing and the service does the rest
+    // the expense dialog, pre-filled once the mock OCR has run (a PDF: the invoice model's Test Vendor AB,
+    // 1 250.00 SEK — D69) — or empty when the job has not finished yet: the test fills what is missing and the
+    // service does the rest
     const dialog = page.getByTestId("new-expense-dialog");
     await expect(dialog).toBeVisible();
     const pick = async (label: string, option: RegExp | string) => {
@@ -211,6 +214,36 @@ test.describe("Document review page — owner", () => {
     await expect(page.getByTestId("expense-panel")).toBeVisible();
     await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-\w+-\d+/);
     await expect(page.getByTestId("panel-reverse-charge")).toHaveText("Reverse charge");
+  });
+
+  // F127 (review 2026-10-31 §3): DI's confidence beside each typed field, every other field under *Also read*
+  test("the reading shows a confidence label per field and opens Also read", async ({ page }) => {
+    test.setTimeout(90_000);
+    await openOwnDocument(page);
+    // the mock OCR reads the PDF with the invoice model (D69: VendorName · InvoiceTotal · TaxDetails · …), each
+    // field with its own confidence
+    await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
+      timeout: 30_000,
+    });
+    const glyph = page.getByTestId("field-confidence").first();
+    await expect(glyph).toBeVisible();
+    await expect(glyph).toHaveAttribute("aria-label", /^(high|medium|low) confidence$/);
+    await expect(glyph).toHaveAttribute("title", /^confidence 0\.\d{2}$/);
+
+    // collapsed by default; the fields the form does not show, read-only, the arrays as N entries
+    const toggle = page.getByRole("button", { name: /^Also read \(\d+\)$/ });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    const list = page.getByTestId("also-read");
+    await expect(list).toBeVisible();
+    await expect(list).toContainText("TaxDetails");
+    await expect(list).toContainText("1 entry");
+    await expect(list.locator("input")).toHaveCount(0);
+    await expect(list.getByRole("button", { name: /^Copy / }).first()).toBeVisible();
+
+    // the open section passes the page's accessibility check too (a list of dt / dd, named buttons)
+    const scan = await new AxeBuilder({ page }).exclude(".react-pdf__Document").analyze();
+    expect(scan.violations).toEqual([]);
   });
 
   test("documents list shows each row's derived state as icon + word", async ({ page }) => {

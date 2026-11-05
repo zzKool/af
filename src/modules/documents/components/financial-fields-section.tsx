@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/select";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
+import { fieldConfidence, type OcrTypedKey } from "@/kernel/ocr/fields";
 import { StateIcon } from "@/kernel/ui/state-label";
 import { type CompanyIdentity, checkBilledTo } from "@/modules/documents/billed-to";
+import { FieldConfidence } from "@/modules/documents/components/field-confidence";
 import type { OcrExtractedData } from "@/modules/documents/documents.actions";
 
 type FinancialFieldsSectionProps = {
@@ -71,16 +73,29 @@ export function FinancialFieldsSection({
     return "";
   };
 
+  // F127: DI's confidence of the field the value was read from — beside the label, nothing on an old reading
+  const confidence = (...keys: OcrTypedKey[]) => (
+    <FieldConfidence
+      confidence={keys.reduce<number | null>(
+        (found, key) => found ?? fieldConfidence(extractedData, key),
+        null,
+      )}
+    />
+  );
+
   return (
     <div className="space-y-4">
       <h2 className="text-sm font-medium">{t("documents.review.financial")}</h2>
 
       {/* Vendor/Merchant */}
       <div className="space-y-1">
-        <Label htmlFor="vendorName">
-          {t("documents.review.vendor")}
-          {statusIndicator("vendorName")}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="vendorName">
+            {t("documents.review.vendor")}
+            {statusIndicator("vendorName")}
+          </Label>
+          {confidence("vendorName", "merchantName")}
+        </div>
         <Input
           id="vendorName"
           defaultValue={String(resolvedData.vendorName ?? resolvedData.merchantName ?? "")}
@@ -92,10 +107,13 @@ export function FinancialFieldsSection({
 
       {/* Date */}
       <div className="space-y-1">
-        <Label htmlFor="invoiceDate">
-          {isInvoice ? t("documents.review.invoiceDate") : t("documents.review.transactionDate")}
-          {statusIndicator("invoiceDate")}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="invoiceDate">
+            {isInvoice ? t("documents.review.invoiceDate") : t("documents.review.transactionDate")}
+            {statusIndicator("invoiceDate")}
+          </Label>
+          {confidence(isInvoice ? "invoiceDate" : "transactionDate")}
+        </div>
         <Input
           id="invoiceDate"
           type="date"
@@ -110,10 +128,13 @@ export function FinancialFieldsSection({
       {/* Due date (invoice only) */}
       {isInvoice && (
         <div className="space-y-1">
-          <Label htmlFor="dueDate">
-            {t("documents.review.dueDate")}
-            {statusIndicator("dueDate")}
-          </Label>
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="dueDate">
+              {t("documents.review.dueDate")}
+              {statusIndicator("dueDate")}
+            </Label>
+            {confidence("dueDate")}
+          </div>
           <Input
             id="dueDate"
             type="date"
@@ -127,10 +148,13 @@ export function FinancialFieldsSection({
       {/* Invoice number */}
       {isInvoice && (
         <div className="space-y-1">
-          <Label htmlFor="invoiceNumber">
-            {t("documents.review.invoiceNumber")}
-            {statusIndicator("invoiceNumber")}
-          </Label>
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="invoiceNumber">
+              {t("documents.review.invoiceNumber")}
+              {statusIndicator("invoiceNumber")}
+            </Label>
+            {confidence("invoiceNumber")}
+          </div>
           <Input
             id="invoiceNumber"
             defaultValue={String(resolvedData.invoiceNumber ?? "")}
@@ -148,10 +172,13 @@ export function FinancialFieldsSection({
       {/* Vendor VAT number (invoice only) */}
       {isInvoice && (
         <div className="space-y-1">
-          <Label htmlFor="vendorTaxId">
-            {t("documents.review.vendorTaxId")}
-            {statusIndicator("vendorTaxId")}
-          </Label>
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="vendorTaxId">
+              {t("documents.review.vendorTaxId")}
+              {statusIndicator("vendorTaxId")}
+            </Label>
+            {confidence("vendorTaxId")}
+          </div>
           <Input
             id="vendorTaxId"
             defaultValue={String(resolvedData.vendorTaxId ?? "")}
@@ -178,10 +205,13 @@ export function FinancialFieldsSection({
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="customerName">
-                {t("documents.review.customerName")}
-                {statusIndicator("customerName")}
-              </Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="customerName">
+                  {t("documents.review.customerName")}
+                  {statusIndicator("customerName")}
+                </Label>
+                {confidence("customerName")}
+              </div>
               <Input
                 id="customerName"
                 defaultValue={String(resolvedData.customerName ?? "")}
@@ -190,10 +220,13 @@ export function FinancialFieldsSection({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="customerTaxId">
-                {t("documents.review.customerTaxId")}
-                {statusIndicator("customerTaxId")}
-              </Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="customerTaxId">
+                  {t("documents.review.customerTaxId")}
+                  {statusIndicator("customerTaxId")}
+                </Label>
+                {confidence("customerTaxId")}
+              </div>
               <Input
                 id="customerTaxId"
                 defaultValue={String(resolvedData.customerTaxId ?? "")}
@@ -207,10 +240,13 @@ export function FinancialFieldsSection({
 
       {/* Amount */}
       <div className="space-y-1">
-        <Label htmlFor="invoiceTotal">
-          {isInvoice ? t("documents.review.invoiceTotal") : t("documents.review.amount")}
-          {statusIndicator("invoiceTotal")}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="invoiceTotal">
+            {isInvoice ? t("documents.review.invoiceTotal") : t("documents.review.amount")}
+            {statusIndicator("invoiceTotal")}
+          </Label>
+          {confidence("invoiceTotal")}
+        </div>
         <Input
           id="invoiceTotal"
           type="number"
@@ -224,10 +260,13 @@ export function FinancialFieldsSection({
 
       {/* Subtotal */}
       <div className="space-y-1">
-        <Label htmlFor="subtotal">
-          {t("documents.review.subtotal")}
-          {statusIndicator("subtotal")}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="subtotal">
+            {t("documents.review.subtotal")}
+            {statusIndicator("subtotal")}
+          </Label>
+          {confidence("subtotal")}
+        </div>
         <Input
           id="subtotal"
           type="number"
@@ -240,10 +279,13 @@ export function FinancialFieldsSection({
 
       {/* VAT */}
       <div className="space-y-1">
-        <Label htmlFor="totalTax">
-          {t("documents.review.vat")}
-          {statusIndicator("totalTax")}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="totalTax">
+            {t("documents.review.vat")}
+            {statusIndicator("totalTax")}
+          </Label>
+          {confidence("totalTax")}
+        </div>
         <Input
           id="totalTax"
           type="number"

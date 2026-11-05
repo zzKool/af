@@ -15,10 +15,12 @@ import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fi
 import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
 import * as linking from "@/modules/linking";
+import * as partners from "@/modules/partners";
 import { createBankAccount, updateBankAccount } from "./bank-accounts";
 import { transactionFacts } from "./facts";
 import { withImplicitRates } from "./implicit-rate";
 import { deleteImport, importCsv } from "./import";
+import { previewImport } from "./import-preview";
 import {
   accountAliasesFor,
   accountCompleteness,
@@ -392,6 +394,34 @@ describe("US1 — import a month of Nordea rows", () => {
   });
 });
 
+describe("F129 US4 — the first import seeds the four system partners", () => {
+  it("the bank named after the account's format, the two agencies, the owner as employee — audited; a second import makes none", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek, sav } = await accounts(caller);
+    await run(caller, async (tx) => {
+      expect(await tx.partner.count()).toBe(0);
+      const r = await importFile(tx, caller, sek, "nordea-2026-07-sek-sample.csv");
+      expect(r.error).toBeUndefined();
+      const system = await partners.systemPartners(tx);
+      expect(system.bank).toMatchObject({ name: "Nordea", types: ["vendor"], isActive: true });
+      expect(system.tax_agency_se).toMatchObject({ name: "Skatteverket", types: ["authority"] });
+      expect(system.tax_agency_ch).toMatchObject({ types: ["authority"], defaultCurrency: "CHF" });
+      expect(system.owner).toMatchObject({ types: ["employee"] });
+      expect(await tx.partner.count()).toBe(4);
+      // the fee rule the first import made names the bank: its row is justified, not merely flagged
+      const fee = await tx.bankTransaction.findFirstOrThrow({
+        where: { counterpartyKey: { contains: "AVGIFTER NORDEA" } },
+      });
+      expect(fee.partnerId).toBe(system.bank?.id);
+      const second = await importFile(tx, caller, sav, "nordea-savings-year.csv");
+      expect(second.error).toBeUndefined();
+      expect(await tx.partner.count()).toBe(4);
+    });
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    await assertAuditLogged(adminPool, caller.tenantId, "create", "partner", bank?.id as string);
+  });
+});
+
 describe("F115 — completeness by balance", () => {
   it("the chain holds inside the June file; the July export that skipped a day reports one gap, the account is complete to June 28", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
@@ -761,11 +791,15 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
       const d = await getTransaction(tx, txId);
       expect(d.data?.state).toBe("partial");
       expect(d.data?.allocated).toBe("400.00");
-      // the read API other modules call gives the same state and facts (lessons audit 23)
-      expect((await transactionStates(tx, [txId])).get(txId)).toEqual({
+      // the read API other modules call gives the same state and facts (lessons audit 23); the invoice's client
+      // is the row's partner on read (F129, D73)
+      expect((await transactionStates(tx, [txId])).get(txId)).toMatchObject({
         state: "partial",
         allocated: "400.00",
         inTransfer: false,
+        partnerFrom: "proof",
+        basCode: null,
+        mixed: false,
       });
     });
     const bigger = await createIssuedInvoice(caller, "700.00");
@@ -803,10 +837,13 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
     expect(ok.error).toBeUndefined();
     await run(caller, async (tx) => {
       expect((await getTransaction(tx, txId)).data?.state).toBe("linked");
-      expect((await transactionStates(tx, [txId])).get(txId)).toEqual({
+      // two invoices of two clients: the larger allocation's client speaks, the proofs disagree — mixed
+      expect((await transactionStates(tx, [txId])).get(txId)).toMatchObject({
         state: "linked",
         allocated: "999.96",
         inTransfer: false,
+        partnerFrom: "proof",
+        mixed: true,
       });
       const list = await listTransactions(tx, {
         page: 1,
@@ -821,8 +858,296 @@ describe("US4 / US5 — derived state and the allocation invariant", () => {
   });
 });
 
+describe("F128 — the import preview (review 2026-10-31 §6.1): the file read against its account, nothing written", () => {
+  const HEADER =
+    "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
+  const preview = (
+    tx: TransactionClient,
+    caller: CallerIdentity,
+    bankAccountId: string,
+    name: string,
+    bytes = fixture(name),
+  ) => previewImport(tx, caller, { bankAccountId, fileName: name, bytes });
+  const counts = (caller: CallerIdentity) =>
+    run(caller, async (tx) => ({
+      rows: await tx.bankTransaction.count(),
+      imports: await tx.bankImport.count(),
+      documents: await tx.document.count(),
+      rules: await tx.categorisationRule.count(),
+      partners: await tx.partner.count(),
+    }));
+
+  it("the July sample on a fresh account: every row new, the fee row 'no proof needed' by the default rule naming the bank — and nothing written", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    const before = await counts(caller);
+    const r = await run(caller, (tx) => preview(tx, caller, sek, "nordea-2026-07-sek-sample.csv"));
+    expect(r.error).toBeUndefined();
+    const p = r.data!;
+    expect(p).toMatchObject({
+      accountLabel: "Plusgirokonto SEK",
+      currency: "SEK",
+      recordCount: 12,
+      duplicateCount: 0,
+      willImport: 12,
+      ruleHits: 1,
+      invoicesFound: 0,
+      periodFrom: "2026-07-03",
+      periodTo: "2026-07-28",
+    });
+    expect(p.rows).toHaveLength(12);
+    expect(p.rows.every((row) => !row.duplicate)).toBe(true);
+    // the tenant has no rule yet: the two defaults the first import would create run in dry run, the bank named
+    // after the account's format (the import creates the partner under that name, F129)
+    const fee = p.rows.find((row) => row.counterparty === "AVGIFTER NORDEA");
+    expect(fee).toMatchObject({
+      willBe: "no_proof",
+      amount: "-7.70",
+      rule: { ruleName: "Nordea bank fees", noDocumentNeeded: true, partnerName: "Nordea" },
+    });
+    expect(fee?.rule?.basCode).toBe("657");
+    expect(fee?.rule?.basLabel).toMatch(/^657 · /);
+    expect(p.rows.filter((row) => row.willBe === "new")).toHaveLength(11);
+    // the chain is reported as the import would (the fixture's balances are invented — the shape is what counts)
+    expect(Array.isArray(p.balanceGaps)).toBe(true);
+    expect(p.completeTo === null || /^\d{4}-\d{2}-\d{2}$/.test(p.completeTo)).toBe(true);
+    // a read: no row, no import, no document, no rule, no partner
+    expect(await counts(caller)).toEqual(before);
+    expect(before).toMatchObject({ rows: 0, imports: 0, rules: 0, partners: 0 });
+  });
+
+  it("after the import, a second preview of the same file marks every row duplicate; a later export only its new rows", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    await run(caller, (tx) => importFile(tx, caller, sek, "nordea-2026-07-sek-sample.csv"));
+    const before = await counts(caller);
+    const again = await run(caller, (tx) =>
+      preview(tx, caller, sek, "nordea-2026-07-sek-sample.csv"),
+    );
+    expect(again.data).toMatchObject({ recordCount: 12, duplicateCount: 12, willImport: 0 });
+    expect(again.data?.rows.every((row) => row.duplicate && row.willBe === "duplicate")).toBe(true);
+    // a duplicate is not re-judged: no rule, no invoice on it
+    expect(again.data?.rows.every((row) => row.rule === null && row.invoice === null)).toBe(true);
+
+    const text = new TextDecoder("ISO-8859-1").decode(fixture("nordea-2026-07-sek-sample.csv"));
+    const lines = text.split(/\r?\n/).filter((l) => l !== "");
+    const later = Buffer.from(
+      [
+        lines[0],
+        "2026/08/02;-85,00;;;AVGIFTER NORDEA;Priset for juli;;;;SEK;",
+        ...lines.slice(1, 4),
+      ].join("\n"),
+      "latin1",
+    );
+    const third = await run(caller, (tx) => preview(tx, caller, sek, "august.csv", later));
+    expect(third.data).toMatchObject({ recordCount: 4, duplicateCount: 3, willImport: 1 });
+    expect(third.data?.rows.map((row) => row.willBe)).toEqual([
+      "no_proof",
+      "duplicate",
+      "duplicate",
+      "duplicate",
+    ]);
+    // the rule now exists in the database (the first import made it) and names the bank partner
+    expect(third.data?.rows[0]?.rule).toMatchObject({
+      ruleName: "Nordea bank fees",
+      partnerName: "Nordea",
+    });
+    expect(await counts(caller)).toEqual(before);
+  });
+
+  it("a rule hit shows the rule, its partner and the category it would write — the partner's default when the rule sets none", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    const settings = await import("@/modules/settings");
+    await run(caller, (tx) => settings.activateBasCategories(tx, caller, noopAudit, ["654"]));
+    const openai = await run(caller, (tx) =>
+      partners.createPartner(tx, caller, noopAudit, {
+        name: "OpenAI",
+        types: ["vendor"],
+        shortCode: "OAI",
+        defaultCurrency: "SEK",
+        defaultBasCategoryCode: "654",
+      }),
+    );
+    expect(openai.error).toBeUndefined();
+    const rule = await run(caller, (tx) =>
+      createRule(tx, caller, noopAudit, {
+        name: "OpenAI subscription",
+        matchType: "contains",
+        matchPattern: "OPENAI",
+        matchField: "counterparty_key",
+        partnerId: openai.data?.id as string,
+        priority: 100,
+      }),
+    );
+    expect(rule.error).toBeUndefined();
+    const r = await run(caller, (tx) => preview(tx, caller, sek, "nordea-2026-07-sek-sample.csv"));
+    const row = r.data?.rows.find((x) => x.counterparty.includes("OPENAI"));
+    expect(row).toMatchObject({
+      willBe: "category",
+      rule: {
+        ruleName: "OpenAI subscription",
+        noDocumentNeeded: false,
+        basCode: "654",
+        partnerId: openai.data?.id,
+        partnerName: "OpenAI",
+      },
+    });
+    expect(row?.rule?.basLabel).toMatch(/^654 · /);
+    // the tenant has a rule, so the defaults are not assumed: the fee row is plain 'new' until the import makes them
+    expect(r.data?.rows.find((x) => x.counterparty === "AVGIFTER NORDEA")?.willBe).toBe("new");
+    expect(r.data?.ruleHits).toBe(1);
+  });
+
+  it("an incoming row whose text carries an open issued invoice's number pays it (proposed) — the scorer's claim; a paid invoice is no longer named", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    const inv = await issuedInvoice(caller, "25000.00");
+    const file = (date: string, amount: string) =>
+      Buffer.from(
+        [
+          HEADER,
+          `${date};${amount};${inv.client.toUpperCase()};;${inv.client.toUpperCase()};Payment ${inv.number};${inv.number};;;SEK;`,
+          "2026/07/06;-99,00;;;Some Vendor AB;;;;;SEK;",
+        ].join("\n"),
+        "latin1",
+      );
+    const before = await counts(caller);
+    const r = await run(caller, (tx) =>
+      preview(tx, caller, sek, "in.csv", file("2026/07/05", "25000,00")),
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.data).toMatchObject({ invoicesFound: 1, willImport: 2 });
+    const [paying, vendor] = r.data?.rows ?? [];
+    expect(paying).toMatchObject({
+      willBe: "invoice",
+      invoice: {
+        invoiceId: inv.id,
+        number: inv.number,
+        partnerName: inv.client,
+        confidence: "HIGH",
+      },
+    });
+    expect(vendor).toMatchObject({ willBe: "new", invoice: null });
+    expect(await counts(caller)).toEqual(before); // nothing stored for the proposal (D60)
+
+    // an outgoing row with the number in its text names nothing (an invoice is paid by money in)
+    const out = await run(caller, (tx) =>
+      preview(
+        tx,
+        caller,
+        sek,
+        "out.csv",
+        Buffer.from(
+          [HEADER, `2026/07/05;-25000,00;;;Refund;;${inv.number};;;SEK;`].join("\n"),
+          "latin1",
+        ),
+      ),
+    );
+    expect(out.data?.rows[0]).toMatchObject({ willBe: "new", invoice: null });
+
+    // import the payment and link it (what the row's Suggestions + Enter does): the invoice is settled —
+    // a later row carrying the same number is plain 'new'
+    const imported = await run(caller, (tx) =>
+      importFile(tx, caller, sek, "in.csv", file("2026/07/05", "25000,00")),
+    );
+    const rowId = imported.data?.transactionIds[0] as string;
+    const link = await run(caller, (tx) =>
+      linking.createLink(tx, caller, noopAudit, {
+        from: { type: "bank_transaction", id: rowId },
+        to: { type: "invoice", id: inv.id },
+        kind: "justifies",
+        allocatedAmount: "25000.00",
+        currency: "SEK",
+      }),
+    );
+    expect(link.error).toBeUndefined();
+    const later = await run(caller, (tx) =>
+      preview(tx, caller, sek, "later.csv", file("2026/08/05", "25000,00")),
+    );
+    expect(later.data?.rows[0]).toMatchObject({ willBe: "new", invoice: null });
+    expect(later.data?.invoicesFound).toBe(0);
+  });
+
+  it("the balance chain line is the import's: the July export that skipped a day previews one gap and 'complete to June 28' — before anything is written", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    const june = await run(caller, (tx) => preview(tx, caller, sek, "nordea-chain-2026-06.csv"));
+    expect(june.data).toMatchObject({ completeTo: "2026-06-28", balanceGaps: [], willImport: 5 });
+    await run(caller, (tx) => importFile(tx, caller, sek, "nordea-chain-2026-06.csv"));
+    const before = await counts(caller);
+    const july = await run(caller, (tx) =>
+      preview(tx, caller, sek, "nordea-chain-2026-07-gap.csv"),
+    );
+    expect(july.error).toBeUndefined();
+    expect(july.data?.completeTo).toBe("2026-06-28");
+    expect(july.data?.balanceGaps).toEqual([
+      {
+        from: "2026-06-28",
+        to: "2026-07-10",
+        expected: "10590.00",
+        actual: "10390.00",
+        difference: "-200.00",
+      },
+    ]);
+    expect(await counts(caller)).toEqual(before);
+    // the same chain the import then reports (F115)
+    const written = await run(caller, (tx) =>
+      importFile(tx, caller, sek, "nordea-chain-2026-07-gap.csv"),
+    );
+    expect(written.data?.completeTo).toBe("2026-06-28");
+    expect(written.data?.balanceGaps).toEqual(july.data?.balanceGaps);
+  });
+
+  it("refuses as the import does (F109): a bad row names the rows, a CHF file into the SEK account, an unknown account; the accountant may not preview", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    const bad = await run(caller, (tx) =>
+      preview(
+        tx,
+        caller,
+        sek,
+        "bad.csv",
+        Buffer.from(
+          [
+            HEADER,
+            "2026/07/08;abc;;;Some Vendor AB;;;;;SEK;",
+            "2026/07/09;-10,00;;;Other;;;;;SEK;",
+          ].join("\n"),
+          "latin1",
+        ),
+      ),
+    );
+    expect(bad.error?.code).toBe("VALIDATION_ERROR");
+    expect(bad.error?.message).toMatch(/1 row could not be read — Row 1: .*nothing was imported/);
+    const chf = await run(caller, (tx) => preview(tx, caller, sek, "nordea-transfer-pair-chf.csv"));
+    expect(chf.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    expect(chf.error?.message).toMatch(
+      /Currency CHF in file does not match account Plusgirokonto SEK/,
+    );
+    const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
+    const foreign = await run(other, (tx) =>
+      preview(tx, other, sek, "nordea-2026-07-sek-sample.csv"),
+    );
+    expect(foreign.error?.code).toBe("NOT_FOUND");
+    const accountant = await run(caller, (tx) =>
+      preview(tx, { ...caller, role: "accountant" }, sek, "nordea-2026-07-sek-sample.csv"),
+    );
+    expect(accountant.error?.code).toBe("FORBIDDEN");
+  });
+});
+
 /** An issued SEK invoice of `total` for a fresh client (through the invoices module). */
 async function createIssuedInvoice(caller: CallerIdentity, total: string): Promise<string> {
+  return (await issuedInvoice(caller, total)).id;
+}
+
+/** The issued invoice with its number and its client's name — what the import preview names (F128). */
+async function issuedInvoice(
+  caller: CallerIdentity,
+  total: string,
+  currency: "SEK" | "CHF" = "SEK",
+): Promise<{ id: string; number: string; client: string }> {
   const invoices = await import("@/modules/invoices");
   const partners = await import("@/modules/partners");
   return run(caller, async (tx) => {
@@ -831,12 +1156,13 @@ async function createIssuedInvoice(caller: CallerIdentity, total: string): Promi
       name: `Client ${short}`,
       types: ["client"],
       shortCode: short,
-      defaultCurrency: "SEK",
+      defaultCurrency: currency,
     });
     const draft = await invoices.createDraft(tx, caller, noopAudit, "2026-07-01", {
       type: "invoice",
       partnerId: partner.data?.id as string,
       issueDate: "2026-07-01",
+      currency,
       lines: [{ description: "Work", quantity: "1", unit: "day", unitPrice: total, vatRate: "0" }],
     });
     if (draft.error) throw new Error(draft.error.message);
@@ -844,6 +1170,6 @@ async function createIssuedInvoice(caller: CallerIdentity, total: string): Promi
       id: draft.data.id,
     });
     if (issued.error) throw new Error(issued.error.message);
-    return issued.data.id;
+    return { id: issued.data.id, number: issued.data.number as string, client: `Client ${short}` };
   });
 }

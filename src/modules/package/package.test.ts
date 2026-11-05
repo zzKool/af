@@ -111,6 +111,8 @@ type Fixture = {
   supplierKey: string;
   rows: Record<string, string>;
   settlementNumber: string;
+  /** the owner as employee — the partner a refund row shows (F129) */
+  ownerName: string;
 };
 
 /** The fixture month of harvest §6 (a): June 2026 on the owner's accounts. */
@@ -305,9 +307,12 @@ async function juneFixture(): Promise<Fixture> {
     if (transfer.error) throw new Error(transfer.error.message);
     const feeEntry = (await banking.transactionFacts(tx, [rows.fee])).get(rows.fee);
     await settings.activateBasCategories(tx, caller, noopAudit, ["657"]);
+    // the fee names the bank (F129, D73): the first import seeded it
+    const bank = await partners.systemPartner(tx, "bank");
     const fee = await banking.categorise(tx, caller, noopAudit, feeEntry?.id as string, {
       basCode: "657",
       noDocumentNeeded: true,
+      partnerId: bank?.id as string,
     });
     if (fee.error) throw new Error(fee.error.message);
     // the refund settles the train (FIFO: 1 290.00 SEK = 120.00 CHF), the hotel stays open
@@ -330,7 +335,15 @@ async function juneFixture(): Promise<Fixture> {
     async (path) => Buffer.from(`%PDF ${path}`),
   );
   void expenseIds;
-  return { invoiceId: inv.id, invoiceNumber: inv.number, supplierKey, rows, settlementNumber };
+  const ownerName = (await run(caller, (tx) => partners.systemPartner(tx, "owner")))?.name ?? "";
+  return {
+    invoiceId: inv.id,
+    invoiceNumber: inv.number,
+    supplierKey,
+    rows,
+    settlementNumber,
+    ownerName,
+  };
 }
 
 const build = (period: string, caller: CallerIdentity = owner.caller) =>
@@ -378,6 +391,17 @@ describe("SC-001 — the fixture month", () => {
     ]);
     expect(data.bank[0]?.related).toEqual(["transfer ↔ Plusgirokonto CHF 2026-06-05 1000.00 CHF"]);
     expect(data.bank[2]?.related).toEqual([f.supplierKey]);
+    // SC-004 (one-table, F129): the uncategorised row justified by the supplier invoice prints its account and
+    // its supplier — derived on read, nothing written on the row
+    expect(data.bank[2]).toMatchObject({
+      basCode: "653",
+      partnerName: "Skattepunkten Office Services AB",
+      flags: [],
+    });
+    expect(data.bank[2]?.basLabel).toMatch(/^653 · /);
+    // the fee the owner flagged with the bank; the refund settles the owner's expenses: his partner, the expense's account
+    expect(data.bank[4]).toMatchObject({ basCode: "657", partnerName: "Nordea" });
+    expect(data.bank[6]).toMatchObject({ basCode: "580", partnerName: f.ownerName });
     expect(data.bank[6]?.related).toEqual([
       `Reimb_${f.settlementNumber}_2026-06-28.pdf`,
       `settles ${f.settlementNumber}`,

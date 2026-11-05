@@ -29,6 +29,11 @@ const mockSource: OcrSource = {
   buffer: Buffer.from("fake"),
   mimeType: "application/pdf",
 };
+const imageSource: OcrSource = {
+  type: "buffer",
+  buffer: Buffer.from("fake"),
+  mimeType: "image/jpeg",
+};
 
 // --- Mock OCR service tests ---
 
@@ -45,14 +50,28 @@ describe("createMockOcrService", () => {
     expect(result.quality).toBe("high");
   });
 
-  it("returns receipt fixture for 'expense' prefix", async () => {
-    const result = await mock.analyzeDocument(mockSource, "expense");
+  it("returns receipt fixture for an 'expense' image — the model the kernel picks, not the type alone", async () => {
+    const result = await mock.analyzeDocument(imageSource, "expense");
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.merchantName).toBe("ICA Maxi");
     expect(result.data.invoiceTotal).toBe(342.5);
     expect(result.data.modelUsed).toBe("prebuilt-receipt");
     expect(result.quality).toBe("high");
+  });
+
+  it("an 'expense' PDF reads with the invoice fixture, like the box does (D69); the paper answer turns it (D75)", async () => {
+    const byFile = await mock.analyzeDocument(mockSource, "expense");
+    if (!byFile.success) throw new Error("mock failed");
+    expect(byFile.data.modelUsed).toBe("prebuilt-invoice");
+    expect(byFile.data.vendorName).toBe("Test Vendor AB");
+    expect(byFile.data.merchantName).toBeUndefined();
+
+    const byPaper = await mock.analyzeDocument(mockSource, "expense", "receipt");
+    if (!byPaper.success) throw new Error("mock failed");
+    expect(byPaper.data.modelUsed).toBe("prebuilt-receipt");
+    expect(byPaper.data.merchantName).toBe("ICA Maxi");
+    expect(byPaper.data.invoiceNumber).toBeUndefined();
   });
 
   it("returns layout fixture for 'contract' prefix", async () => {
@@ -173,6 +192,21 @@ describe("ocrModelFor — the type decides (D52), the file refines it (D69)", ()
     expect(ocrModelFor("invoice", "image/jpeg")).toBe("prebuilt-invoice");
     expect(ocrModelFor("contract", "application/pdf")).toBe("prebuilt-layout");
     expect(ocrModelFor("unknown", "application/pdf")).toBe("prebuilt-layout");
+  });
+
+  // D75 (the owner, 2026-11-03): on a bank row the paper question picks the model, even for a PDF
+  it("the paper answer wins over the file rule: a PDF called Receipt is read by the receipt model", () => {
+    expect(ocrModelFor("expense", "application/pdf", "receipt")).toBe("prebuilt-receipt");
+    expect(ocrModelFor("expense", "image/jpeg", "receipt")).toBe("prebuilt-receipt");
+    expect(ocrModelFor("invoice", "application/pdf", "invoice")).toBe("prebuilt-invoice");
+    // an image called Invoice (a photographed bill) is read by the invoice model too
+    expect(ocrModelFor("expense", "image/jpeg", "invoice")).toBe("prebuilt-invoice");
+  });
+
+  it("no paper → today's rule, on /documents where nobody is asked", () => {
+    expect(ocrModelFor("expense", "application/pdf", undefined)).toBe("prebuilt-invoice");
+    expect(ocrModelFor("expense", "application/pdf", null)).toBe("prebuilt-invoice");
+    expect(ocrModelFor("expense", "image/jpeg", null)).toBe("prebuilt-receipt");
   });
 });
 

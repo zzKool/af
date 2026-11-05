@@ -93,8 +93,33 @@ vi.mock("@/kernel/i18n/formatted-date", () => ({
   FormattedDate: ({ date }: { date: Date }) => <span>{new Date(date).toISOString()}</span>,
 }));
 
+import invoiceSek from "@/kernel/ocr/__fixtures__/azure-invoice-sek.json";
+import { mapDocumentFields } from "@/kernel/ocr/fields";
 import { DocumentReviewClient } from "@/modules/documents/components/document-review-client";
 import type { DocumentReviewData } from "@/modules/documents/documents.actions";
+
+// F127: a stored DI response's fields (invented values), as the mapper keeps them — the shape the page reads
+const sekFields = mapDocumentFields(
+  (invoiceSek as unknown as { documents: { fields: Parameters<typeof mapDocumentFields>[0] }[] })
+    .documents[0].fields,
+);
+const sekReading = {
+  vendorName: "Skattepunkten Office Services AB",
+  vendorTaxId: "SE559911223301",
+  invoiceNumber: "2026-071",
+  invoiceDate: "2026-07-06",
+  dueDate: "2026-08-05",
+  invoiceTotal: 1597.2,
+  subtotal: 1277.76,
+  totalTax: 319.44,
+  currency: "SEK",
+  customerName: "Dev AB",
+  fields: sekFields,
+  confidence: 1,
+  modelUsed: "prebuilt-invoice",
+  pageCount: 1,
+  processingTimeMs: 900,
+};
 
 function makeReviewData(overrides?: Partial<DocumentReviewData>): DocumentReviewData {
   return {
@@ -409,5 +434,86 @@ describe("DocumentReviewClient", () => {
       />,
     );
     expect(screen.queryByText("Line Items")).not.toBeInTheDocument();
+  });
+
+  // --- F127: a confidence label per typed field, *Also read* for the rest (review 2026-10-31 §3) ---
+  const glyphBeside = (inputId: string) => {
+    const input = document.getElementById(inputId);
+    if (!input) throw new Error(`no input #${inputId}`);
+    return input.closest("div.space-y-1")?.querySelector("[data-testid='field-confidence']");
+  };
+
+  it("shows DI's confidence beside each typed field: the band in words, the figure in the title", () => {
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({
+          prefixType: "invoice",
+          documentType: "financial",
+          extractedData: sekReading,
+          resolvedData: sekReading,
+        })}
+      />,
+    );
+    const invoiceNumber = glyphBeside("invoiceNumber");
+    expect(invoiceNumber).toHaveAttribute("aria-label", "medium confidence");
+    expect(invoiceNumber).toHaveAttribute("title", "confidence 0.81");
+    expect(invoiceNumber).toHaveTextContent("?");
+    expect(glyphBeside("vendorName")).toHaveAttribute("aria-label", "high confidence");
+    expect(glyphBeside("invoiceTotal")).toHaveAttribute("title", "confidence 0.99");
+    // no colour: the glyph is a muted span, never a state
+    expect(invoiceNumber?.className).not.toMatch(/state-|text-(red|green|amber)/);
+    // a typed key this invoice has no field for gets no glyph (the billed-to VAT number)
+    expect(glyphBeside("customerTaxId")).toBeNull();
+  });
+
+  it("Also read (N) lists the fields the form does not show, collapsed, read-only, copyable", async () => {
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({
+          prefixType: "invoice",
+          documentType: "financial",
+          extractedData: sekReading,
+          resolvedData: sekReading,
+        })}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: "Also read (8)" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const list = screen.getByTestId("also-read");
+    // a scalar the mapper does not type: name · the printed text
+    expect(list).toHaveTextContent("AmountDue");
+    expect(list).toHaveTextContent("1 597,20 SEK");
+    expect(list).toHaveTextContent("PurchaseOrder");
+    // the arrays as N entries with their entries' scalar children one level down — never flattened
+    expect(list).toHaveTextContent("Items");
+    expect(list).toHaveTextContent("2 entries");
+    expect(list).toHaveTextContent("Unit");
+    expect(list).toHaveTextContent("TaxDetails");
+    expect(list).toHaveTextContent("1 entry");
+    // the typed scalars are the form's, not this list's
+    for (const typed of ["VendorName", "InvoiceId", "InvoiceTotal"]) {
+      expect(list.querySelector(`dt[title='${typed}']`)).toBeNull();
+    }
+    // nothing editable, every value copyable
+    expect(list.querySelector("input")).toBeNull();
+    expect(screen.getByRole("button", { name: "Copy AmountDue" })).toBeInTheDocument();
+  });
+
+  it("a document read before F127 (no `fields`) shows no label and no Also read — the old reading", () => {
+    const old = { ...sekReading, fields: {} };
+    render(
+      <DocumentReviewClient
+        data={makeReviewData({
+          prefixType: "invoice",
+          documentType: "financial",
+          extractedData: old,
+          resolvedData: old,
+        })}
+      />,
+    );
+    expect(screen.queryAllByTestId("field-confidence")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /Also read/ })).not.toBeInTheDocument();
   });
 });

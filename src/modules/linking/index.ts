@@ -9,6 +9,7 @@ export {
   settlementTolerance,
   sumAllocations,
 } from "./allocation";
+export { CARD_SETTLE_DAYS, type CheckProofInput, checkProof, warningMessage } from "./check-proof";
 export {
   GRAPH_DEFAULT_DEPTH,
   GRAPH_MAX_DEPTH,
@@ -26,8 +27,10 @@ export type {
   JustifyResult,
   NoProofInput,
   NoProofReason,
+  ProposedPartner,
   Reading,
   RowForJustify,
+  VendorRuleDraft,
 } from "./justify";
 export {
   compareRowToReading,
@@ -37,11 +40,24 @@ export {
   monthOf,
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
+  NO_PROOF_REASONS_INCOMING,
   noProofNeeded,
   noProofSchema,
+  PARTNER_REQUIRED,
+  proposedPartnerRole,
   proposeKind,
+  proposeVendorRule,
 } from "./justify";
 export { justifyOptions } from "./justify-options";
+export {
+  DEFAULT_PAPER,
+  type GreenCheck,
+  greenChecks,
+  PAPERS,
+  type Paper,
+  paperOfPrefixType,
+  prefixTypeOfPaper,
+} from "./justify-rules";
 export { ALLOCATING_KINDS, isKindAllowed, needsOwnFlow, OWN_PAYMENT_FLOW } from "./kinds";
 export type { Linkable } from "./linkable";
 export {
@@ -61,12 +77,14 @@ export {
   getLinksForAction,
   getLinksWithLabelsAction,
   graphAction,
+  proofFactsAction,
   removeLinkAction,
   searchLinkablesAction,
   suggestionsForEntityAction,
   suggestionsForTransactionAction,
 } from "./linking.actions";
 export { memoryForKeys, memoryForRow, rememberedPartners } from "./memory";
+export { type ProofFactsInput, proofFacts } from "./proof-facts";
 export {
   currentDocumentProposals,
   decideDocumentProposal,
@@ -108,6 +126,7 @@ export {
   dateClaim,
   daysBetween,
   type Memory,
+  nameInTexts,
   nameTokens,
   partialTokens,
   type RowFacts,
@@ -131,7 +150,7 @@ export {
   suggestionsForTransaction,
 } from "./suggestions";
 export type * from "./types";
-export { LINK_KINDS } from "./types";
+export { LINK_KINDS, WARNING_CODES } from "./types";
 export {
   AFTER_DUE_DAYS,
   BEFORE_ISSUE_DAYS,

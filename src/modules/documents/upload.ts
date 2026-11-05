@@ -12,9 +12,10 @@ import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { logger } from "@/kernel/logging/logger";
+import type { OcrPaper } from "@/kernel/ocr/ocr";
 import { validateFile } from "@/kernel/storage/file-validation";
 import type { StorageService } from "@/kernel/storage/storage";
-import { generateBusinessKey } from "@/modules/documents/business-key";
+import { generateBusinessKey, getDocumentClassification } from "@/modules/documents/business-key";
 import { createdFromTargets } from "@/modules/linking";
 
 // MUST NOT import from next/* or src/components/*
@@ -67,11 +68,28 @@ export async function uploadDocument(
   fileBuffer: Buffer,
   fileName: string,
   prefixType: string,
-  options: { force?: boolean } = {},
+  options: {
+    force?: boolean;
+    /**
+     * The paper question's answer on a bank row (D75: *Invoice* / *Receipt* picks the reading model, whatever the
+     * file). Stored nowhere — the action hands it to the OCR job; a proof is a financial paper, so it comes only
+     * with a financial type.
+     */
+    paper?: OcrPaper;
+  } = {},
 ): Promise<ServiceResult<UploadResult>> {
   if (!can(caller, "create", "financial_document")) {
     return {
       error: { code: "FORBIDDEN", message: "Requires owner role", retryable: false },
+    };
+  }
+  if (options.paper && getDocumentClassification(prefixType) !== "financial") {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `The paper question (${options.paper}) belongs to a financial document, not to "${prefixType}"`,
+        retryable: false,
+      },
     };
   }
 

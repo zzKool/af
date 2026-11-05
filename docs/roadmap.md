@@ -89,7 +89,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 
 **2026-10-29, the first proof on the box** (F124, [[features]]): the owner dropped one card-paid PDF on its row and hit six things in a row — the receipt model on an invoice-shaped bill (D69), a card unlabelled, a greyed button, the same supplier ten times (D70), the dialog's accidental defaults, and a counterparty key that keeps the bill number so nothing learned ever recurs (D71). Every one is a PR; every oddity of B1 goes the same way: a line here, a row in [[features]], a lesson. Still open from it: F98 PR 2 (the model stage — stage 1 proposes only from rules, partner defaults and the owner's own history, so a fresh tenant sees nothing until it has some), and expenses never reaching the Swiss VAT return (no screen sets `vat_registration_id`, [[lessons]] *F124 build*).
 
-### 0b. The justification rework (2026-10-31 → 11-04, [[review-2026-10-31]]) — before B1 resumes
+### 0b. The justification rework (2026-10-31 → 11-05, [[review-2026-10-31]]) — **built**, B1 resumes on the new surface
 
 The owner's verdict after the first real proofs: the F97 panel is "spaghetti" — the right verbs in a 380 px box, a reading with one quality word, *Fix the reading* leaving the row, rows *linked* with no partner. The rework is the shape of the screen, the depth of the reading and one rule (D73); the mechanics stay. Decided with the owner 2026-11-03 (O1–O7, D73 · D75), corrected on a second read 2026-11-04 (D73 derives on read — F113 PR C pulled forward; D74 is a rule, not a column). The rows are [[features]] F127–F131, the tasks `specs/justify/tasks.md` T011+.
 
@@ -101,7 +101,11 @@ F130 checkProof + fxTolerance (pure) ───┘      (D73 · D74 · the one mi
                                             specs/justify/rework.md — the owner's read                          B1 resumes on the new surface
 ```
 
-The F97 panel keeps working until F131 lands, so B1 can continue meanwhile; the owner's word on `specs/justify/rework.md` (the backfill of his existing no-proof rows, D74 as a rule) is the one gate — *Open decisions*.
+**Built 2026-11-04 → 05, one night, eleven PRs by parallel builders, an independent read-only review in between** (docs #350 · the spec #351 · ~~F130~~ #352 · ~~F127~~ #353 · dev-env #354 · ~~F129~~ #355 · ~~F128~~ #356 · ~~F131~~ #357 the reading dialog · #358 the work surface · #359 the refund from the row + the trip group · #360 the review's follow-ups · this page #361). Every PR green on CI; merged by the owner in that order.
+
+**The owner's side, before the next `up -d` on the box** ([[deployment]]): snapshot the VM; the F129 migration seeds the four partners for the tenant and **backfills `partner_id`** on the existing *no proof needed* rows (by their rule, else by their account: fees / interest → the bank, 251 → the tax agency of the account's currency, 721 → the owner) — its log names the counts; every touched row carries an audit line *migration · justified_partner*, and the reversal query is in [[deployment]]. What it cannot place comes back once in the Months panel as *No proof · no partner* and takes one `n`. Then B1 continues — the row, the drop, the dialog, *Confirm & link*.
+
+Left from the review for later, as rows in `specs/justify/tasks.md` T020+: the trip created in place from the dialog (§5.2), the FIFO picker inside the panel (§5.1), the cross-currency invoice in the import preview, a `PartnerCreateForm` in `partners/ui` replacing the dialog's inline copy, a `heading` prop on `JustifyPanel` instead of the host's CSS reach, a `month` fact on groups, `systemPartner` taking the tenant for the migration role, the migration log naming the partner per attached role, the Justify click no longer typing what the proof derives (closes F113 PR C), F132 the client fixture name.
 
 ### 1. B1 — 2023-Q2 end to end, on the owner's box
 
@@ -142,7 +146,7 @@ F03 Members is *later*: the owner will not invite the accountant into the app fo
 
 ## Open decisions (the owner's)
 
-- **The justification rework, F129's spec** — `specs/justify/rework.md` (FULL lane): D74 as a rule rather than a partner column; the migration that seeds the four partners (the bank, Skatteverket, the Swiss FTA, the owner as employee) and backfills `partner_id` on his existing *no proof needed* rows from their account and their rule — the rows it cannot place re-open as *to justify*. Built on his "go" of 2026-11-04; the box deploy, as always, on his word. The seven screen decisions (O1–O7) are taken ([[review-2026-10-31]] §10).
+- ~~**The justification rework, F129's spec**~~ — read and built 2026-11-04 → 05 on the owner's "go" (D73 · D74 · D75, the spec's Q1–Q4 as recommended). Left to him: **the box deploy** (the F129 migration backfills `partner_id` on his rows — *Next up 0b* says what to expect), and one small screen question: the banking list beside the 55 % surface shows **Date · Amount · Counterparty · State** by default (§6.2 as drawn) — say if he wants Partner or Category back in the default set.
 - **Local AI** (F98 / F99 / F100) — six questions, one batch, in [[local-ai]] §11: the box (CPU-only now, the RAM upgrade after the first eval), the build order (proposals first or the closing run first), the nightly run, *ask your books* in or parked, proposals on documents, what a rejected proposal means. No code before the answers.
 - ~~**BAS at four digits**~~ — **accepted by the owner 2026-10-31** (D68; built as the last PR of F126, `specs/ai/spec-suggest-from-first-entry.md` FR-205; the box deploy waits for his word — irreversible). Was: (proposed D68, 2026-10-27) — store the account the accountant books (`6540`, `6072`, `2898`), not the three-digit main account without its 0 (`654`): BAS's own levels are class (1) · group (2) · main account (4, last digit 0) · sub-account (4, last digit 1–9) ([bas.se](https://www.bas.se/english/framework-and-use-of-the-accounting-plan/)); three digits lose the sub-accounts that carry a tax difference (6071 / 6072, 7321 / 7322). Groups derived by prefix; every stored code `NNN` → `NNN0` (mechanical); one serialised migration, FULL lane, before B1. Spec on the owner's word.
 

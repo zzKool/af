@@ -1,10 +1,23 @@
-import { expect, test } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { expect, type Page, test } from "@playwright/test";
 import { expectToast, trackToasts, withToastReport } from "./fixtures/toasts";
 
+const SHOTS = join(__dirname, "..", "specs", "justify", "screenshots");
+
+/** `E2E_SCREENSHOTS=1`: the journey leaves the PR's screenshots behind (definition of done §4.5). */
+async function snap(page: Page, name: string) {
+  if (!process.env.E2E_SCREENSHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: join(SHOTS, `${name}.png`) });
+}
+
 // The owner's trip (specs/expenses US1–US5, specs/traktamente US1–US3; SEK only — CI has no ECB rates):
-// a trip group → three private receipts → the trip panel writes the per-diem (2025 rates are seeded) →
-// a refund row imported into banking → the settle page proposes FIFO, confirms ST25-001 → the settlements page
-// and the statement → the rate table under settings.
+// a trip group → three private receipts → the trip panel writes the per-diem (2025 rates are seeded) → the new
+// expense dialog proposes the trip group from a date inside it (F131 §5.2) → a refund row imported into banking →
+// *This row refunds me* on the row (F131 §5.1) → the settle page with the row locked proposes FIFO, confirms
+// ST25-001 → back on the row, linked → the settlements page and the statement → the rate table under settings.
 const HEADER =
   "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
 
@@ -99,6 +112,18 @@ test.describe("Expenses", () => {
         page.getByRole("row").filter({ hasText: "Traktamente CH 19.5 days" }),
       ).toBeVisible();
 
+      // 3b. F131 §5.2: a receipt dated inside the trip — the dialog proposes the trip group from the date, marked
+      //     as a proposal (a day only this journey's trip covers: the Justify journey's trip starts on 03-10)
+      await page.goto("/expenses");
+      await page.getByTestId("open-new-expense").click();
+      await expect(dialog).toBeVisible();
+      await dialog.getByLabel("Date", { exact: true }).fill("2025-03-04");
+      await expect(dialog.getByTestId("group-hint")).toHaveText("proposed (the trip)");
+      await expect(dialog.getByLabel("Group", { exact: true })).toContainText(groupName);
+      await snap(page, "expense-group-proposed");
+      await page.keyboard.press("Escape");
+      await expect(dialog).not.toBeVisible();
+
       // 4. the refund row (−9 700 SEK) into banking
       await page.goto("/banking");
       await page.getByTestId("open-import").click();
@@ -117,10 +142,27 @@ test.describe("Expenses", () => {
       });
       await page.keyboard.press("Escape");
 
-      // 5. settle: the FIFO proposal covers the three receipts (dated before the per diem), confirm
-      await page.goto("/expenses/settle");
-      await page.getByTestId("pick-transaction").click();
-      await page.getByRole("option", { name: new RegExp(`Zikrija ${stamp}`) }).click();
+      // 5. settle, run from the row (F131 §5.1): the row's panel offers *This row refunds me* (the ledger has
+      //    something open) → the settle page with the row preselected and locked → the FIFO proposal covers the
+      //    three receipts (dated before the per diem), confirm
+      await page.goto(`/banking?q=${encodeURIComponent(`Zikrija ${stamp}`)}`);
+      await page
+        .getByRole("row")
+        .filter({ hasText: `Zikrija ${stamp}` })
+        .first()
+        .click();
+      await expect(page.getByTestId("transaction-panel")).toBeVisible();
+      const refundExit = page.getByTestId("justify-refund");
+      await expect(refundExit).toHaveAttribute("href", /\/expenses\/settle\?row=[0-9a-f-]{36}$/);
+      const refundRowId = (await refundExit.getAttribute("href"))?.split("row=")[1] ?? "";
+      await refundExit.click();
+      await expect(page).toHaveURL(/\/expenses\/settle\?row=/);
+      await expect(page.getByTestId("locked-transaction")).toContainText(`Zikrija ${stamp}`);
+      await expect(page.getByTestId("pick-transaction")).toHaveCount(0);
+      await expect(page.getByTestId("change-transaction")).toHaveAttribute(
+        "href",
+        "/expenses/settle",
+      );
       await expect(page.getByTestId("settle-summary")).toBeVisible();
       // the proposal lands asynchronously — wait for its ticks before adjusting them
       await expect(page.getByTestId("settle-selected")).not.toContainText("Selected: 0.00");
@@ -137,13 +179,18 @@ test.describe("Expenses", () => {
       await expect(page.getByTestId("settle-hint")).toHaveText("Exact match");
       // D40 on-screen money: U+202F thousands, "." decimals (the printed statement keeps its own format)
       await expect(page.getByTestId("settle-selected")).toContainText(/9\u202F700\.00/);
+      await snap(page, "refund-from-row");
       await page.getByTestId("open-confirm").click();
       await expect(page.getByTestId("confirm-state")).toContainText(
         /Partial — 1\u202F065\.00 SEK stays open/,
       );
       await page.getByTestId("confirm-settlement").click();
       await expectToast(page, "Settlement ST25-");
-      await expect(page).toHaveURL(/\/expenses\/settlements$/);
+      // run from the row: back on it — justified by the settlement (the statement is its proof, the owner its partner)
+      await expect(page).toHaveURL(new RegExp(`/banking\\?open=${refundRowId}$`));
+      await expect(page.getByTestId("transaction-panel")).toBeVisible();
+      await expect(page.getByTestId("panel-state")).toHaveText("Linked");
+      await page.goto("/expenses/settlements");
       const settlement = page.getByTestId("settlement-row").first();
       await expect(settlement).toContainText(/ST25-\d{3}/);
       await expect(settlement).toContainText(/9\u202F700\.00/);

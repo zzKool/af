@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-27
 
-**Status**: Approved by the owner 2026-10-27 · PR A built (`feat/banking-one-table`) · PR B and PR C after B1 (D65)
+**Status**: Approved by the owner 2026-10-27 · PR A built (`feat/banking-one-table`) · **PR C built 2026-11-04 as part of F129** (`feat/linking-justified-partner`, D73 (a): `banking/effective.ts` + `rowFacts`, the list, the panel, the package and `transactionStates` read it; SC-004 in `package.test.ts`; the one-line-per-allocation edge case read as one line + `mixed`, the split on the *Links* sheet) · PR B after B1
 
 **Input**: D59 (the owner, 2026-10-27, [[audit-2026-10-27]] §2.3): "`journal_entries` duplicates `bank_transactions` field by field and bolts on the owner's facts. Put the base, rate, BAS, partner, note and the no-proof flag on the bank row; the journal becomes a read of the same rows; manual journal entries go — periodisation is the accountant's (D1)."
 

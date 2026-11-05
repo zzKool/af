@@ -63,6 +63,8 @@ export async function expensePageOptions(
       number: g.number,
       description: g.description,
       kind: g.kind,
+      departure: g.departure,
+      return: g.return,
     })),
     categories,
     basHistory: settings.mergeBasUsage([

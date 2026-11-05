@@ -221,7 +221,10 @@ describe("justifyRow (US1)", () => {
     await run(caller, async (tx) => {
       const e = await expenses.getExpenseDetail(tx, lost.data?.entity.id as string);
       expect(e.data?.expense.documentMissing).toBe(true);
-      expect((await banking.transactionStates(tx, [s.row])).get(s.row)?.state).toBe("linked");
+      // the expense names no merchant: covered, but no partner typed or derived — still to justify (F129, D73)
+      expect((await banking.transactionStates(tx, [s.row])).get(s.row)?.state).toBe(
+        "linked_no_partner",
+      );
     });
   });
 
@@ -284,6 +287,86 @@ describe("justifyRow (US1)", () => {
     });
   });
 
+  it("F130: the warnings the owner confirmed over go on the justifies link's audit trail; an unknown code is refused", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    const base = {
+      transactionId: s.row,
+      documentId: s.documentId,
+      kind: "supplier_invoice" as const,
+      supplier: {
+        groupId: s.groupId,
+        partnerId: s.supplierId,
+        invoiceNumber: "2026-071",
+        invoiceDate: "2026-07-06",
+        currency: "SEK" as const,
+        amountNet: "1297.20",
+        amountTotal: "1297.20",
+        basCode: "654",
+      },
+    };
+    // the boundary: only the seven codes
+    const bad = await run(caller, (tx) =>
+      justifyRow(tx, caller, noopAudit, {
+        ...base,
+        confirmedWarnings: ["looks_wrong" as unknown as "date"],
+      }),
+    );
+    expect(bad.error?.code).toBe("VALIDATION_ERROR");
+
+    const r = await run(caller, (tx) =>
+      justifyRow(tx, caller, realAudit(tx, caller), {
+        ...base,
+        confirmedWarnings: ["vendor_counterparty", "date", "vendor_counterparty"],
+      }),
+    );
+    expect(r.error).toBeUndefined();
+    const linkId = await run(caller, async (tx) => {
+      const links = await getLinksFor(tx, { type: "bank_transaction", id: s.row });
+      return links.data?.find((l) => l.kind === "justifies")?.id as string;
+    });
+    expect(linkId).toBeTruthy();
+    const trail = await adminPool.query(
+      `SELECT action, new_data FROM audit_logs WHERE entity_type = 'link' AND entity_id = $1 ORDER BY created_at`,
+      [linkId],
+    );
+    expect(trail.rows.map((a) => a.action)).toEqual(["create", "update"]);
+    // once each, in the order given — the link's own create row untouched
+    expect(trail.rows[1].new_data).toEqual({ confirmedWarnings: ["vendor_counterparty", "date"] });
+    expect(trail.rows[0].new_data.kind).toBe("justifies");
+
+    // nothing confirmed: no second row
+    const [cardRow] = await run(caller, (tx) =>
+      importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-09", amount: "-99.00", details: "Kortköp 260708 KIOSK" },
+      ]),
+    );
+    const plain = await run(caller, (tx) =>
+      justifyRow(tx, caller, realAudit(tx, caller), {
+        transactionId: cardRow as string,
+        kind: "expense",
+        confirmedWarnings: [],
+        expense: {
+          groupId: s.groupId,
+          date: "2026-07-08",
+          description: "Kiosk",
+          basCode: "580",
+          amount: "99.00",
+          currency: "SEK",
+        },
+      }),
+    );
+    expect(plain.error).toBeUndefined();
+    const plainLinks = await run(caller, (tx) =>
+      getLinksFor(tx, { type: "bank_transaction", id: cardRow as string }),
+    );
+    const plainTrail = await adminPool.query(
+      `SELECT action FROM audit_logs WHERE entity_type = 'link' AND entity_id = $1`,
+      [plainLinks.data?.[0]?.id],
+    );
+    expect(plainTrail.rows.map((a) => a.action)).toEqual(["create"]);
+  });
+
   it("the accountant cannot; another tenant sees nothing", async () => {
     const s = await scene(owner.caller);
     const { callerIdentity: other } = await createAuthenticatedContext(auth, "owner");
@@ -305,55 +388,222 @@ describe("justifyRow (US1)", () => {
   });
 });
 
-describe("noProofNeeded (US3)", () => {
-  it("the reason's account, the flag, and the rule proposal when no rule hits", async () => {
+describe("noProofNeeded (US3; F129 US3: a partner, always)", () => {
+  it("the reason's account, the flag and the partner, and the rule proposal when no rule hits", async () => {
     const caller = owner.caller;
-    const [fee, ranta] = await run(caller, (tx) =>
+    const [fee, tax] = await run(caller, (tx) =>
       importRows(tx, caller, owner.accounts.sek, "SEK", [
         { date: "2026-07-09", amount: "-40.00", name: "PRISAVGIFT BANK" },
         { date: "2026-07-09", amount: "-12.00", name: "SKATTEVERKET" },
       ]),
     );
+    // the first import seeded the four partners (F129 US4): the bank is the fee's partner
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    const skv = await run(caller, (tx) => partners.systemPartner(tx, "tax_agency_se"));
+    expect(bank?.name).toBe("Nordea");
     const r = await run(caller, (tx) =>
       noProofNeeded(tx, caller, realAudit(tx, caller), {
         transactionId: fee as string,
         reason: "fee",
+        partnerId: bank?.id as string,
       }),
     );
-    expect(r.data).toEqual({ basCode: "657", proposeRule: true });
+    expect(r.data).toEqual({ basCode: "657", partnerId: bank?.id, proposeRule: true });
     await run(caller, async (tx) => {
       const facts = (await banking.transactionFacts(tx, [fee as string])).get(fee as string);
       expect(facts).toMatchObject({
         noDocumentNeeded: true,
         basCode: "657",
+        partnerId: bank?.id,
         categorisedBy: "manual",
       });
-      expect((await banking.transactionStates(tx, [fee as string])).get(fee as string)?.state).toBe(
-        "no_document",
-      );
+      expect(
+        (await banking.transactionStates(tx, [fee as string])).get(fee as string),
+      ).toMatchObject({
+        state: "no_document",
+        partnerId: bank?.id,
+        partnerFrom: "row",
+        partnerName: "Nordea",
+      });
     });
-    // the reason's account is not in the active set → the owner's own code, or none
-    const tax = await run(caller, (tx) =>
+    // the reason's account is not in the active set → the owner's own code, or none; the partner is written all the same
+    const taxed = await run(caller, (tx) =>
       noProofNeeded(tx, caller, noopAudit, {
-        transactionId: ranta as string,
+        transactionId: tax as string,
         reason: "tax",
         basCode: null,
+        partnerId: skv?.id as string,
       }),
     );
-    expect(tax.data).toEqual({ basCode: null, proposeRule: true });
-    // a counterparty a rule already hits proposes nothing
-    await run(caller, (tx) =>
-      banking.createRule(tx, caller, noopAudit, {
-        name: "Bank fees",
-        matchType: "contains",
-        matchPattern: "PRISAVGIFT",
-        basCode: "657",
+    expect(taxed.data).toEqual({ basCode: null, partnerId: skv?.id, proposeRule: true });
+    // a counterparty a rule already hits proposes nothing; the learned rule carries the partner (`createRuleFromTransaction`)
+    const learned = await run(caller, (tx) =>
+      banking.createRuleFromTransaction(tx, caller, noopAudit, {
+        transactionId: fee as string,
         noDocumentNeeded: true,
+        basCode: "657",
       }),
     );
+    expect(learned.data).toMatchObject({ partnerId: bank?.id, noDocumentNeeded: true });
     const again = await run(caller, (tx) =>
-      noProofNeeded(tx, caller, noopAudit, { transactionId: fee as string, reason: "fee" }),
+      noProofNeeded(tx, caller, noopAudit, {
+        transactionId: fee as string,
+        reason: "fee",
+        partnerId: bank?.id as string,
+      }),
     );
     expect(again.data?.proposeRule).toBe(false);
+  });
+
+  it("US3-5: without a partner the call is refused and nothing is written — the row stays open", async () => {
+    const caller = owner.caller;
+    const [fee] = await run(caller, (tx) =>
+      importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-09", amount: "-40.00", name: "PRISAVGIFT BANK" },
+      ]),
+    );
+    const r = await run(caller, (tx) =>
+      noProofNeeded(tx, caller, noopAudit, {
+        transactionId: fee as string,
+        reason: "fee",
+      } as unknown as Parameters<typeof noProofNeeded>[3]),
+    );
+    expect(r.error?.code).toBe("VALIDATION_ERROR");
+    expect(r.error?.message).toMatch(/A partner is required/);
+    await run(caller, async (tx) => {
+      const facts = (await banking.transactionFacts(tx, [fee as string])).get(fee as string);
+      expect(facts).toMatchObject({
+        noDocumentNeeded: false,
+        partnerId: null,
+        categorisedBy: null,
+      });
+      expect((await banking.transactionStates(tx, [fee as string])).get(fee as string)?.state).toBe(
+        "open",
+      );
+    });
+  });
+
+  it("US3-6: refused on a linked row (the proof exists); a *no proof · no partner* row takes it again", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    const bank = await run(caller, (tx) => partners.systemPartner(tx, "bank"));
+    const linked = await run(caller, (tx) =>
+      justifyRow(tx, caller, noopAudit, {
+        transactionId: s.row,
+        documentId: s.documentId,
+        kind: "supplier_invoice",
+        supplier: {
+          groupId: s.groupId,
+          partnerId: s.supplierId,
+          invoiceNumber: "2026-071",
+          invoiceDate: "2026-07-06",
+          currency: "SEK",
+          amountNet: "1037.76",
+          vatAmount: "259.44",
+          amountTotal: "1297.20",
+          basCode: "654",
+        },
+      }),
+    );
+    expect(linked.error).toBeUndefined();
+    const refused = await run(caller, (tx) =>
+      noProofNeeded(tx, caller, noopAudit, {
+        transactionId: s.row,
+        reason: "other",
+        partnerId: bank?.id as string,
+      }),
+    );
+    expect(refused.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    expect(refused.error?.message).toMatch(/linked — remove the link first/);
+
+    // a row flagged by hand without a partner (as the categorise form can): *no proof · no partner* — `n` places it
+    const [misc] = await run(caller, (tx) =>
+      importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-09", amount: "-99.00", name: "MISC" },
+      ]),
+    );
+    await run(caller, (tx) =>
+      banking.categorise(tx, caller, noopAudit, misc as string, { noDocumentNeeded: true }),
+    );
+    await run(caller, async (tx) => {
+      expect(
+        (await banking.transactionStates(tx, [misc as string])).get(misc as string)?.state,
+      ).toBe("no_document_no_partner");
+    });
+    const placed = await run(caller, (tx) =>
+      noProofNeeded(tx, caller, noopAudit, {
+        transactionId: misc as string,
+        reason: "other",
+        basCode: null,
+        partnerId: bank?.id as string,
+      }),
+    );
+    expect(placed.error).toBeUndefined();
+    await run(caller, async (tx) => {
+      expect(
+        (await banking.transactionStates(tx, [misc as string])).get(misc as string)?.state,
+      ).toBe("no_document");
+    });
+  });
+});
+
+describe("justifyRow's rule proposal (F129 US6, D74)", () => {
+  it("names the key and the proof's partner with the category when no active rule names that partner; null once one does", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    const input = (transactionId: string, invoiceNumber: string) => ({
+      transactionId,
+      kind: "supplier_invoice" as const,
+      supplier: {
+        groupId: s.groupId,
+        partnerId: s.supplierId,
+        invoiceNumber,
+        invoiceDate: "2026-07-06",
+        currency: "SEK" as const,
+        amountNet: "1037.76",
+        vatAmount: "259.44",
+        amountTotal: "1297.20",
+        basCode: "654",
+      },
+    });
+    const first = await run(caller, (tx) =>
+      justifyRow(tx, caller, noopAudit, { ...input(s.row, "2026-071"), documentId: s.documentId }),
+    );
+    expect(first.error).toBeUndefined();
+    expect(first.data?.proposeRule).toEqual({
+      name: "SKATTEPUNKTEN OFFICE",
+      matchType: "contains",
+      matchField: "counterparty_key",
+      matchPattern: "SKATTEPUNKTEN OFFICE",
+      partnerId: s.supplierId,
+      basCode: "654",
+    });
+    // accepting it: the rule is created from the draft, applied to the row at once
+    const draft = first.data?.proposeRule;
+    const rule = await run(caller, (tx) =>
+      banking.createRuleFromTransaction(tx, caller, noopAudit, { transactionId: s.row, ...draft }),
+    );
+    expect(rule.data).toMatchObject({
+      ruleSource: "learned",
+      partnerId: s.supplierId,
+      basCode: "654",
+      matchPattern: "SKATTEPUNKTEN OFFICE",
+    });
+    expect(
+      (await run(caller, (tx) => banking.rulesForKey(tx, "SKATTEPUNKTEN OFFICE"))).map(
+        (r) => r.partnerId,
+      ),
+    ).toEqual([s.supplierId]);
+    // the next justify of the same key proposes nothing
+    const [second] = await run(caller, (tx) =>
+      importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-09", amount: "-1297.20", name: "SKATTEPUNKTEN OFFICE" },
+      ]),
+    );
+    const next = await run(caller, (tx) =>
+      justifyRow(tx, caller, noopAudit, input(second as string, "2026-072")),
+    );
+    expect(next.error).toBeUndefined();
+    expect(next.data?.proposeRule).toBeNull();
   });
 });

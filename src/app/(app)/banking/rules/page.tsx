@@ -8,6 +8,7 @@ import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
 import {
   categoryOptions,
+  listRules,
   listRulesPage,
   partnerOptions,
   RULE_COLUMN_KEYS,
@@ -35,8 +36,27 @@ export default async function BankRulesPage({
     const partners = await partnerOptions(tx);
     const accounts = await ruleAccountOptions(tx);
     const nearMisses = await ruleNearMisses(tx);
+    // F129: *Needs a look* edits a no-proof rule without a partner in place — every rule, a handful
+    const rules = nearMisses.some((m) => m.reason === "no_partner")
+      ? (await listRules(tx)).map((r) => ({
+          id: r.id,
+          name: r.name,
+          matchType: r.matchType,
+          matchPattern: r.matchPattern,
+          matchField: r.matchField,
+          basCode: r.basCode,
+          partnerId: r.partnerId,
+          noDocumentNeeded: r.noDocumentNeeded,
+          priority: r.priority,
+          bankAccountId: r.bankAccountId,
+          sign: r.sign,
+          expectedAmount: r.expectedAmount,
+          tolerancePct: r.tolerancePct,
+          cadence: r.cadence,
+        }))
+      : [];
     const prefs = await getUserPreferences(tx, auth);
-    return { result, categories, partners, accounts, nearMisses, prefs };
+    return { result, categories, partners, accounts, nearMisses, rules, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const canWrite = can(auth, "update", "bank_transaction");
@@ -55,7 +75,14 @@ export default async function BankRulesPage({
         )
       }
     >
-      <RuleNearMisses misses={data.nearMisses} />
+      <RuleNearMisses
+        misses={data.nearMisses}
+        rules={data.rules}
+        categories={data.categories}
+        partners={data.partners}
+        accounts={data.accounts}
+        canWrite={canWrite}
+      />
       <RulesTable
         result={{
           ...data.result,

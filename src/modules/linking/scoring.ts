@@ -6,8 +6,11 @@
 // payment window (`window.ts`; nothing outside), currency −10 unless a reference matched. A pair whose only claim
 // is its date is no suggestion. HIGH = (reference ∧ ≥ 60 ∧ amount ≤ 5 %) ∨ ≥ 80, MEDIUM ≥ 50, else LOW. A side
 // whose currency is not known (null, F61-b) is never compared on the amount and never penalised.
-import { Prisma } from "@/generated/prisma/client";
+// Client-safe (the browser Prisma entry for Decimal): the consistency checks of a proof (`check-proof.ts`, F130)
+// reuse the name matching in the reading dialog.
+import { Prisma } from "@/generated/prisma/browser";
 import { daysBetween } from "@/kernel/clock/calendar";
+import { fxTolerance } from "@/kernel/money/fx-tolerance";
 import type { Confidence, EntityFacts, LinkableType, MatchResult } from "./types";
 import { inWindow } from "./window";
 
@@ -38,8 +41,11 @@ export const WEIGHTS = {
   currencyPenalty: -10,
 } as const;
 
-/** The SEK bases may differ by this much before a cross-currency candidate is dropped (harvest R6). */
-export const CROSS_CURRENCY_TOLERANCE = "0.06";
+/**
+ * The SEK bases may differ by this much before a cross-currency candidate is dropped (harvest R6) — the kernel's
+ * figure for a row that is not a card purchase (`fxTolerance`, F130); kept under its own name for the readers.
+ */
+export const CROSS_CURRENCY_TOLERANCE = fxTolerance("other");
 /** HIGH candidates closer than this are ambiguous for bulk apply (harvest R18). */
 export const AMBIGUITY_GAP = 10;
 
@@ -133,6 +139,25 @@ export function nameTokens(name: string): string[] {
 function tokenHit(token: string, rowWords: readonly string[]): boolean {
   return rowWords.some(
     (w) => w === token || w.startsWith(token) || (w.length >= 6 && token.startsWith(w)),
+  );
+}
+
+/**
+ * A partner's or a vendor's name in a row's texts — the scorer's name claim (F116 FR-003), shared with the vendor
+ * check of a proof (F130): the whole name (≥ 3 characters) in the joined text, or one of its tokens as a row word
+ * (`tokenHit`). `MSFT` never finds *Microsoft*: four letters, no common prefix — a confirmed pair becomes a rule
+ * (D74), not a looser match here.
+ */
+export function nameInTexts(
+  name: string | null | undefined,
+  texts: readonly (string | null | undefined)[],
+): boolean {
+  if (!name) return false;
+  const haystack = normalise(texts.filter((t): t is string => !!t).join(" "));
+  const whole = normalise(name);
+  return (
+    (whole.length >= 3 && haystack.includes(whole)) ||
+    nameTokens(name).some((t) => tokenHit(t, words(haystack)))
   );
 }
 
@@ -244,7 +269,6 @@ export function scoreMatch(
   let score = 0;
   let reference = false;
   const haystack = normalise(row.texts.filter(Boolean).join(" "));
-  const rowWords = words(haystack);
 
   // 1. the entity's number / key in the row's text
   const ref = entity.reference ? normalise(entity.reference) : "";
@@ -262,10 +286,7 @@ export function scoreMatch(
 
   // 2. the partner's name in the row's text — whole, or one of its tokens (Nordea truncates, F116 FR-003); a
   //    reference too (every text field, v1 skipped `sender`)
-  const name = entity.partnerName ? normalise(entity.partnerName) : "";
-  const nameHit =
-    (name.length >= 3 && haystack.includes(name)) ||
-    nameTokens(entity.partnerName ?? "").some((t) => tokenHit(t, rowWords));
+  const nameHit = nameInTexts(entity.partnerName, row.texts);
   if (nameHit) {
     score += WEIGHTS.partnerName;
     reasons.push(NAME_LABEL[entity.type] ?? "Partner name match");

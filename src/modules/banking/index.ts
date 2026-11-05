@@ -33,6 +33,7 @@ export type {
   ValidationResult,
 } from "./csv-parser";
 export { dedupHash, headerError, parse, parseColumnMapping, validateFormat } from "./csv-parser";
+export { effectiveFactsOf } from "./effective";
 export type { CategoriseOptions, RowRate } from "./facts";
 export {
   baseAmount,
@@ -50,8 +51,10 @@ export {
   formatConfig,
   importCsv,
   importCsvSchema,
+  parseForAccount,
   planImport,
 } from "./import";
+export { previewImport, previewVerdict } from "./import-preview";
 export { linkFactsOf, type RowForFacts } from "./link-facts";
 export { bankTransactionLinkable } from "./linkable";
 export type { MonthsInput } from "./months";
@@ -110,6 +113,7 @@ export {
   regexError,
   ruleInputSchema,
   ruleNearMisses,
+  rulesForKey,
   testRule,
   testRuleSchema,
   updateRule,

@@ -17,9 +17,11 @@ import {
 } from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
 import { assertAuditLogged } from "@/kernel/test-utils/config-crud-helpers";
+import * as partners from "@/modules/partners";
 import { createBankAccount } from "./bank-accounts";
 import { categorise, transactionFacts } from "./facts";
 import { importCsv } from "./import";
+import { transactionStates } from "./queries";
 import * as rules from "./rules";
 
 const FIXTURES = join(__dirname, "..", "..", "..", "specs", "banking", "fixtures");
@@ -443,6 +445,119 @@ describe("US2 — rules that categorise", () => {
       ]);
       const e = await entryOf(tx, (await openaiOf(tx)).id);
       expect(e?.basCode).toBeNull();
+    });
+  });
+});
+
+describe("F129 — the defaults name the bank, rulesForKey, a no-proof rule without a partner under Needs a look", () => {
+  it("the first import seeds the four partners and the two defaults carry the bank; the fee row is no document with Nordea", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { summary } = await july(caller);
+    await run(caller, async (tx) => {
+      const bank = await partners.systemPartner(tx, "bank");
+      expect(bank).toMatchObject({ name: "Nordea", systemRole: "bank" });
+      const defaults = await tx.categorisationRule.findMany({ orderBy: { priority: "desc" } });
+      expect(defaults.map((r) => [r.name, r.partnerId])).toEqual([
+        ["Nordea bank fees", bank?.id],
+        ["Savings interest", bank?.id],
+      ]);
+      const fee = await tx.bankTransaction.findFirstOrThrow({
+        where: { counterpartyKey: { contains: "AVGIFTER NORDEA" } },
+      });
+      expect(fee).toMatchObject({ noDocumentNeeded: true, basCode: "657", partnerId: bank?.id });
+      const state = (await transactionStates(tx, [fee.id])).get(fee.id);
+      expect(state).toMatchObject({
+        state: "no_document",
+        partnerName: "Nordea",
+        partnerFrom: "row",
+      });
+      expect(summary.categorised).toBeGreaterThan(0);
+      // a second import of the same file makes nothing more
+      const again = await partners.ensureSystemPartners(tx, caller, noopAudit, {
+        bankName: "Nordea",
+      });
+      expect(again.data).toEqual({ created: [], attached: [] });
+      expect(await tx.partner.count()).toBe(4);
+    });
+  });
+
+  it("rulesForKey: the active rules whose text matches the key alone, in run order — the account and sign conditions are not read", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await july(caller);
+    const microsoft = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+      name: "Microsoft Ireland Operations Ltd",
+      types: ["vendor"],
+    });
+    const old = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+      name: "Old Vendor",
+      types: ["vendor"],
+    });
+    await run(caller, async (tx) => {
+      const make = (name: string, extra: Partial<rules.RuleInput>) =>
+        rules.createRule(tx, caller, noopAudit, {
+          name,
+          matchType: "contains",
+          matchPattern: "MSFT",
+          partnerId: microsoft.id,
+          ...extra,
+        });
+      expect((await make("MSFT → Microsoft", { priority: 50 })).error).toBeUndefined();
+      expect(
+        (await make("MSFT → old", { partnerId: old.id, isActive: false })).error,
+      ).toBeUndefined();
+      // a CHF-only rule for the key: the text matches, the account condition is the import's business
+      expect(
+        (await make("MSFT on the card", { priority: 90, bankAccountId: sek, sign: "out" })).error,
+      ).toBeUndefined();
+      const hits = await rules.rulesForKey(tx, "MSFT * E0100ZW7M8");
+      expect(hits.map((r) => r.name)).toEqual(["MSFT on the card", "MSFT → Microsoft"]);
+      expect(hits.every((r) => r.partnerId === microsoft.id)).toBe(true);
+      expect(await rules.rulesForKey(tx, "OPENAI *CHATGPT SUBS")).toEqual([]);
+    });
+  });
+
+  it("Needs a look: an active rule that sets no proof without a partner, once, with its row count; a partner clears it", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    await july(caller);
+    await run(caller, async (tx) => {
+      const insurance = await rules.createRule(tx, caller, noopAudit, {
+        name: "Insurance",
+        matchType: "contains",
+        matchPattern: "OPENAI",
+        basCode: "631",
+        noDocumentNeeded: true,
+      });
+      expect(insurance.error).toBeUndefined();
+      await rules.applyRules(tx, caller, noopAudit, { dryRun: false });
+      const misses = await rules.ruleNearMisses(tx);
+      const entry = misses.filter((m) => m.reason === "no_partner");
+      expect(entry).toEqual([
+        {
+          transactionId: null,
+          bookingDate: null,
+          amount: null,
+          currency: null,
+          description: null,
+          ruleId: insurance.data?.id,
+          ruleName: "Insurance",
+          reason: "no_partner",
+          expected: null,
+          rows: 1,
+        },
+      ]);
+      // the row it flagged is *no proof · no partner* — still to justify
+      const row = await openaiOf(tx);
+      expect((await transactionStates(tx, [row.id])).get(row.id)?.state).toBe(
+        "no_document_no_partner",
+      );
+      // the defaults (the bank) and an inactive rule are not listed
+      const bank = await partners.systemPartner(tx, "bank");
+      const fixed = await rules.updateRule(tx, caller, noopAudit, {
+        id: insurance.data?.id as string,
+        partnerId: bank?.id,
+      });
+      expect(fixed.error).toBeUndefined();
+      expect((await rules.ruleNearMisses(tx)).filter((m) => m.reason === "no_partner")).toEqual([]);
     });
   });
 });

@@ -7,8 +7,18 @@ import DocumentIntelligence, {
   isUnexpected,
 } from "@azure-rest/ai-document-intelligence";
 import { logger } from "@/kernel/logging/logger";
+import { MOCK_RESPONSES, mockResponseFor } from "./__fixtures__/mock-responses";
+import {
+  extractAddressValue,
+  mapDocumentFields,
+  type OcrAddress,
+  type OcrFieldMap,
+} from "./fields";
 
 // MUST NOT import from next/* or src/components/*
+
+export type { OcrAddress, OcrCurrencyValue, OcrField, OcrFieldMap, OcrFieldValue } from "./fields";
+export { extractAddressValue } from "./fields";
 
 // --- Types ---
 
@@ -16,8 +26,15 @@ export type OcrSource =
   | { type: "url"; url: string; mimeType?: string | null }
   | { type: "buffer"; buffer: Buffer; mimeType: string };
 
+/**
+ * What the owner said the paper is when he dropped it on a bank row (D75): it picks the model over the file rule.
+ * Absent on `/documents`, where nobody is asked and D52 / D69 rule.
+ */
+export type OcrPaper = "invoice" | "receipt";
+export const OCR_PAPERS = ["invoice", "receipt"] as const satisfies readonly OcrPaper[];
+
 export interface OcrService {
-  analyzeDocument(source: OcrSource, prefixType: string): Promise<OcrResult>;
+  analyzeDocument(source: OcrSource, prefixType: string, paper?: OcrPaper): Promise<OcrResult>;
 }
 
 export type OcrResult =
@@ -50,21 +67,18 @@ export interface OcrExtractedData {
   transactionDate?: string;
   paymentDetails?: { iban?: string; swift?: string; bankName?: string }[];
   items?: OcrLineItem[];
+  /**
+   * Every field DI returned (F127): `{ type, value, confidence, content }` per field, arrays kept as arrays. The
+   * typed keys above are read from the same map; the review page labels them with their field's confidence and
+   * lists the rest under *Also read*. Absent on a layout reading and on documents read before F127 (`ocr-payload`
+   * hands those back as `{}`; *Re-run OCR* fills it).
+   */
+  fields?: OcrFieldMap;
   confidence: number;
   modelUsed: string;
   pageCount: number;
   rawText?: string;
   processingTimeMs: number;
-}
-
-/** A postal address as OCR read it. `country` only when Azure gave an ISO alpha-2 code. */
-export interface OcrAddress {
-  street?: string;
-  postalCode?: string;
-  city?: string;
-  country?: string;
-  /** the address as printed on the document (the field's content), lines joined by ", " */
-  text?: string;
 }
 
 export interface OcrLineItem {
@@ -91,14 +105,26 @@ const MODEL_MAP: Record<string, string> = {
 const isPdf = (mimeType: string | null | undefined) =>
   mimeType?.toLowerCase() === "application/pdf";
 
+const PAPER_MODEL: Record<OcrPaper, string> = {
+  invoice: "prebuilt-invoice",
+  receipt: "prebuilt-receipt",
+};
+
 /**
  * The Document Intelligence model a document is read with: the type decides (D52), the file refines it (D69):
  * an **expense** that is a PDF is an invoice-shaped document paid by card (a cloud bill, a subscription, an online
  * order) — the invoice model reads its vendor, VAT number and invoice number, which the receipt model never
  * does; the receipt model stays for the photographed till receipt (an image). A type change re-reads only when
- * the model differs.
+ * the model differs. **On a bank row the owner's answer wins (D75)**: a `paper` given picks its model whatever
+ * the file — a PDF till receipt he called *Receipt* is read by the receipt model; without one (`/documents`,
+ * where nobody is asked) the file rule stands.
  */
-export function ocrModelFor(prefixType: string, mimeType?: string | null): string {
+export function ocrModelFor(
+  prefixType: string,
+  mimeType?: string | null,
+  paper?: OcrPaper | null,
+): string {
+  if (paper) return PAPER_MODEL[paper];
   if (prefixType === "expense" && isPdf(mimeType)) return "prebuilt-invoice";
   return MODEL_MAP[prefixType] ?? "prebuilt-layout";
 }
@@ -167,24 +193,6 @@ function extractNumberValue(field?: DocumentFieldOutput): number | undefined {
   if (field?.type === "number") return field.valueNumber;
   if (field?.type === "integer") return field.valueInteger;
   return undefined;
-}
-
-/** An `address` field → its parts and its printed text; undefined when the field is missing or empty. */
-export function extractAddressValue(field?: DocumentFieldOutput): OcrAddress | undefined {
-  if (field?.type !== "address") return undefined;
-  const v = field.valueAddress;
-  const clean = (s?: string) => (s?.trim() ? s.trim() : undefined);
-  const road = [v?.road, v?.houseNumber].map(clean).filter(Boolean).join(" ");
-  const country = clean(v?.countryRegion)?.toUpperCase();
-  const address: OcrAddress = {
-    street: clean(v?.streetAddress) ?? clean(road),
-    postalCode: clean(v?.postalCode),
-    city: clean(v?.city),
-    country: country && /^[A-Z]{2}$/.test(country) ? country : undefined,
-    text: clean(field.content?.replace(/\s*\n\s*/g, ", ")),
-  };
-  const kept = Object.fromEntries(Object.entries(address).filter(([, x]) => x !== undefined));
-  return Object.keys(kept).length ? (kept as OcrAddress) : undefined;
 }
 
 function extractArrayValue(field?: DocumentFieldOutput): DocumentFieldOutput[] | undefined {
@@ -310,6 +318,8 @@ export function mapAnalyzeResult(
     paymentDetails: isReceipt ? undefined : extractPaymentDetails(fields),
     // Line items
     items: extractLineItems(fields),
+    // Every field as DI returned it (F127) — the typed keys above are read from the same map
+    fields: fields ? mapDocumentFields(fields) : undefined,
     // Metadata
     confidence,
     modelUsed: modelId,
@@ -328,8 +338,12 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
   const client = DocumentIntelligence(endpoint, { key: apiKey });
 
   return {
-    async analyzeDocument(source: OcrSource, prefixType: string): Promise<OcrResult> {
-      const modelId = ocrModelFor(prefixType, source.mimeType);
+    async analyzeDocument(
+      source: OcrSource,
+      prefixType: string,
+      paper?: OcrPaper,
+    ): Promise<OcrResult> {
+      const modelId = ocrModelFor(prefixType, source.mimeType, paper);
       if (!(prefixType in MODEL_MAP)) {
         logger.warn(
           { prefixType, modelId },
@@ -388,108 +402,34 @@ export function createAzureOcrService(endpoint: string, apiKey: string): OcrServ
 }
 
 // --- Mock Implementation ---
-
-const MOCK_FIXTURES: Record<string, { data: OcrExtractedData; quality: "high" | "low" | "none" }> =
-  {
-    invoice: {
-      data: {
-        vendorName: "Test Vendor AB",
-        vendorTaxId: "SE556677889901",
-        vendorAddress: {
-          street: "Storgatan 1",
-          postalCode: "111 22",
-          city: "Stockholm",
-          country: "SE",
-          text: "Storgatan 1, 111 22 Stockholm, Sweden",
-        },
-        invoiceTotal: 1250.0,
-        subtotal: 1000.0,
-        totalTax: 250.0,
-        invoiceDate: "2026-03-14",
-        currency: "SEK",
-        invoiceNumber: "INV-2026-001",
-        customerName: "Dev AB",
-        paymentDetails: [{ iban: "SE1234567890123456", swift: "NDEASESS" }],
-        items: [
-          {
-            description: "Consulting",
-            quantity: 10,
-            unitPrice: 100,
-            amount: 1000,
-          },
-        ],
-        confidence: 0.95,
-        modelUsed: "prebuilt-invoice",
-        pageCount: 1,
-        rawText: "Invoice from Test Vendor AB...",
-        processingTimeMs: 1200,
-      },
-      quality: "high",
-    },
-    expense: {
-      data: {
-        merchantName: "ICA Maxi",
-        invoiceTotal: 342.5,
-        subtotal: 274.0,
-        totalTax: 68.5,
-        transactionDate: "2026-03-14",
-        currency: "SEK",
-        items: [{ description: "Groceries", amount: 342.5 }],
-        confidence: 0.92,
-        modelUsed: "prebuilt-receipt",
-        pageCount: 1,
-        rawText: "ICA Maxi Kvitto...",
-        processingTimeMs: 800,
-      },
-      quality: "high",
-    },
-    contract: {
-      data: {
-        confidence: 0.8,
-        modelUsed: "prebuilt-layout",
-        pageCount: 2,
-        rawText: "Service Agreement between...",
-        processingTimeMs: 600,
-      },
-      quality: "none",
-    },
-    nda: {
-      data: {
-        confidence: 0.8,
-        modelUsed: "prebuilt-layout",
-        pageCount: 2,
-        rawText: "Non-Disclosure Agreement...",
-        processingTimeMs: 600,
-      },
-      quality: "none",
-    },
-    certificate: {
-      data: {
-        confidence: 0.8,
-        modelUsed: "prebuilt-layout",
-        pageCount: 2,
-        rawText: "Certificate of Incorporation...",
-        processingTimeMs: 600,
-      },
-      quality: "none",
-    },
-  };
+//
+// The mock is a stored DI response per model (`__fixtures__/mock-responses.ts`, invented values), picked by the
+// same `ocrModelFor` as the real service — the type, the file and the paper answer weigh as they do on the box
+// (lessons *F131 build*: a mock answering by the type alone hid that a PDF receipt was read by the invoice model)
+// — and run through the same `mapAnalyzeResult`, so its `fields`, its typed subset and its `rawResponse` have the
+// real shape by construction, and a field the mapper stops reading goes missing in the mock too (lessons
+// 2026-10-24: the hand-written mock hid that the currency was never read).
 
 export function createMockOcrService(): OcrService {
   return {
-    async analyzeDocument(_source: OcrSource, prefixType: string): Promise<OcrResult> {
-      const fixture = MOCK_FIXTURES[prefixType] ?? MOCK_FIXTURES.contract;
+    async analyzeDocument(
+      source: OcrSource,
+      prefixType: string,
+      paper?: OcrPaper,
+    ): Promise<OcrResult> {
+      const response = mockResponseFor(prefixType, ocrModelFor(prefixType, source.mimeType, paper));
 
-      if (!(prefixType in MOCK_FIXTURES)) {
+      if (!(prefixType in MOCK_RESPONSES)) {
         logger.warn({ prefixType }, "Unknown prefix type in mock OCR — using contract fixture");
       }
 
-      return {
-        success: true,
-        data: structuredClone(fixture.data),
-        rawResponse: { analyzeResult: { documents: [{ fields: {} }] } },
-        quality: fixture.quality,
-      };
+      const analyzeResult = structuredClone(response.analyzeResult);
+      const { data, quality } = mapAnalyzeResult(
+        analyzeResult as unknown as AnalyzeOperationOutput["analyzeResult"],
+        response.modelId,
+        response.processingTimeMs,
+      );
+      return { success: true, data, rawResponse: analyzeResult, quality };
     },
   };
 }
@@ -563,4 +503,4 @@ export function extractBlobPath(blobUrl: string): string {
 }
 
 // Exported for testing
-export { classifyQuality, MOCK_FIXTURES, MODEL_MAP };
+export { classifyQuality, MODEL_MAP };

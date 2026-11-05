@@ -6,6 +6,7 @@ import type { FlagKind, PackageFlag, PeriodData } from "./types";
 export const FLAG_TITLES: Record<FlagKind, string> = {
   missing_document: "Missing documents",
   unlinked_row: "Unlinked bank lines",
+  no_partner: "Bank lines without a partner",
   delta: "Deltas beyond tolerance",
   unpaid_invoice: "Invoices issued but unpaid",
   document_not_ready: "Documents not rendered yet",
@@ -14,6 +15,7 @@ export const FLAG_TITLES: Record<FlagKind, string> = {
 const FLAG_ORDER: FlagKind[] = [
   "missing_document",
   "unlinked_row",
+  "no_partner",
   "delta",
   "unpaid_invoice",
   "document_not_ready",

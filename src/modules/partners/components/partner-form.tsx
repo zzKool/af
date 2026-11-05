@@ -19,6 +19,7 @@ import { CURRENCIES, SUPPORTED_LOCALES } from "@/kernel/nav/constants";
 import { DetailsSection } from "@/kernel/ui/details-section";
 import { updatePartnerAction } from "@/modules/partners/partners.actions";
 import { type BasOption, BasPicker } from "@/modules/settings/ui";
+import { PARTNER_TYPES, type SystemRole } from "../types";
 
 type ExternalIdentifier = { label: string; value: string };
 
@@ -37,6 +38,8 @@ export type PartnerData = {
   email: string | null;
   phone: string | null;
   address: unknown;
+  /** F129: read-only — the migration / `ensureSystemPartners` set it; the page shows it as a tag */
+  systemRole?: SystemRole | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -177,7 +180,7 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
           <div>
             <Label>{t("partners.col.types")}</Label>
             <div className="flex gap-3 pt-2">
-              {(["client", "vendor", "employee"] as const).map((type) => (
+              {PARTNER_TYPES.map((type) => (
                 <label key={type} className="flex items-center gap-1.5 text-sm">
                   <input
                     type="checkbox"

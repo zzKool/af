@@ -137,7 +137,7 @@ export function PartnerDetailTabs({
         tags={
           <>
             <PartnerStateLabel isActive={isActive} />
-            <PartnerTypeTags types={types} />
+            <PartnerTypeTags types={types} systemRole={partner.systemRole ?? null} />
           </>
         }
         actions={
@@ -190,7 +190,10 @@ export function PartnerDetailTabs({
           <DetailsGrid
             rows={[
               [t("partners.col.status"), <PartnerStateLabel key="s" isActive={isActive} />],
-              [t("partners.col.types"), <PartnerTypeTags key="t" types={types} />],
+              [
+                t("partners.col.types"),
+                <PartnerTypeTags key="t" types={types} systemRole={partner.systemRole ?? null} />,
+              ],
               [
                 t("partners.overview.activeContracts"),
                 <span key="c" className="tabular-nums">

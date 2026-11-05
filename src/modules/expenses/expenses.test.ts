@@ -36,6 +36,7 @@ import {
   updateExpense,
 } from "./expenses";
 import { createGroup, deleteGroup } from "./groups";
+import { expensePageOptions } from "./page-data";
 import {
   candidateDocuments,
   distinctExpenseValues,
@@ -988,6 +989,49 @@ describe("US5 — the list, the groups, the ledger", () => {
         openCount: 3,
       });
       expect(ledger.awaitingLinkCount).toBe(1);
+    });
+  });
+
+  it("a trip group carries its first and last day in the tenant's zone — what the pickers propose from (F131 §5.2)", async () => {
+    const g = await group213();
+    // 00:30 and 23:30 Stockholm time (CET): the UTC day before / the same UTC day — the local days are 03-02 and 03-21
+    await run(owner.caller, (tx) =>
+      tx.trip.create({
+        data: {
+          tenantId: owner.caller.tenantId,
+          groupId: g.id,
+          departureAt: new Date("2026-03-01T23:30:00.000Z"),
+          returnAt: new Date("2026-03-21T22:30:00.000Z"),
+          countryCode: "CH",
+          createdBy: owner.caller.userId,
+        },
+      }),
+    );
+    const batch = await run(owner.caller, (tx) =>
+      createGroup(tx, owner.caller, noopAudit, { description: "2026-03 receipts" }),
+    );
+    await run(owner.caller, async (tx) => {
+      const groups = await listGroups(tx);
+      expect(groups.find((x) => x.id === g.id)).toMatchObject({
+        hasTrip: true,
+        departure: "2026-03-02",
+        return: "2026-03-21",
+      });
+      expect(groups.find((x) => x.id === batch.data?.id)).toMatchObject({
+        hasTrip: false,
+        departure: null,
+        return: null,
+      });
+      // the option list the dialogs load carries the same days
+      const options = await expensePageOptions(tx, owner.caller, {
+        documents: false,
+        transactions: false,
+      });
+      expect(options.groups.find((x) => x.id === g.id)).toMatchObject({
+        kind: "trip",
+        departure: "2026-03-02",
+        return: "2026-03-21",
+      });
     });
   });
 

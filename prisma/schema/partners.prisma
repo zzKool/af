@@ -20,6 +20,10 @@ model Partner {
   email                String?
   phone                String?
   address              Json?
+  /// F129 (D73): the role a seeded partner plays for the *no proof needed* reasons — bank · tax_agency_se ·
+  /// tax_agency_ch · owner (CHECK) — one per tenant (partial unique index); set by the migration and
+  /// `ensureSystemPartners`, never by a form; the name, types and the rest stay the owner's
+  systemRole           String?  @map("system_role") @db.VarChar(20)
   isActive             Boolean  @default(true) @map("is_active")
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -38,6 +42,7 @@ model Partner {
   @@unique([tenantId, id], map: "partners_tenant_id_id_key")
   @@unique([tenantId, orgNumber], map: "idx_partners_tenant_org") // created as a partial index (WHERE org_number IS NOT NULL) in the migration
   @@unique([tenantId, shortCode], map: "idx_partners_tenant_short_code") // partial index (WHERE short_code IS NOT NULL)
+  @@unique([tenantId, systemRole], map: "partners_tenant_system_role_key") // partial index (WHERE system_role IS NOT NULL)
   @@map("partners")
 }
 

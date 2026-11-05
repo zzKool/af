@@ -13,6 +13,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { MATCH_TOLERANCE_PCT } from "@/kernel/money/settlement";
 import { basCode, uuid } from "@/kernel/validation/scalars";
+import type { SystemRole } from "@/modules/partners";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { categorise, transactionFacts, uncategorisedTransactions } from "./facts";
@@ -667,8 +668,9 @@ export async function applyRules(
 
 /**
  * The rules page's *Needs a look* (F116 FR-007): uncategorised rows whose text matched a rule but whose account,
- * sign or amount did not — the rule that almost fired and why; and rows a rule with a cadence categorised off its
- * rhythm. Newest first, capped.
+ * sign or amount did not — the rule that almost fired and why; rows a rule with a cadence categorised off its
+ * rhythm; and (F129 FR-009) an active rule that sets *no proof* without a partner — its rows stay to justify
+ * (D73), one entry per rule with the count of rows it categorised, after the row entries. Newest first, capped.
  */
 export async function ruleNearMisses(tx: TransactionClient, limit = 100): Promise<RuleNearMiss[]> {
   const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
@@ -694,6 +696,7 @@ export async function ruleNearMisses(tx: TransactionClient, limit = 100): Promis
           near.reason === "amount" && near.rule.expectedAmount
             ? `${near.rule.expectedAmount.toFixed(2)} ± ${near.rule.tolerancePct.toFixed(2)} %`
             : null,
+        rows: null,
       });
     }
   }
@@ -720,16 +723,58 @@ export async function ruleNearMisses(tx: TransactionClient, limit = 100): Promis
         ruleName: r.name,
         reason: "cadence",
         expected: null,
+        rows: null,
       });
     }
   }
-  return out
+  const rowEntries = out
     .sort(
       (a, b) =>
-        b.bookingDate.localeCompare(a.bookingDate) ||
-        a.transactionId.localeCompare(b.transactionId),
+        (b.bookingDate ?? "").localeCompare(a.bookingDate ?? "") ||
+        (a.transactionId ?? "").localeCompare(b.transactionId ?? ""),
     )
     .slice(0, limit);
+  // F129: a no-proof rule without a partner leaves its rows *no proof · no partner* — one entry per rule, after the rows
+  const noPartner = ordered.filter((r) => r.noDocumentNeeded && !r.partnerId);
+  const ruleEntries: RuleNearMiss[] = [];
+  for (const r of noPartner) {
+    ruleEntries.push({
+      transactionId: null,
+      bookingDate: null,
+      amount: null,
+      currency: null,
+      description: null,
+      ruleId: r.id,
+      ruleName: r.name,
+      reason: "no_partner",
+      expected: null,
+      rows: await tx.bankTransaction.count({ where: { ruleId: r.id } }),
+    });
+  }
+  return [...rowEntries, ...ruleEntries];
+}
+
+/**
+ * The active rules whose text matches a counterparty key alone (F129 FR-008, D74): what the vendor ↔ counterparty
+ * check reads — a rule naming the proof's partner for the key is the memory the owner confirmed. Text match only, in
+ * `orderRules` order; the account, sign and amount conditions are the import's business, not the key's.
+ */
+export async function rulesForKey(
+  tx: TransactionClient,
+  key: string,
+): Promise<CategorisationRuleDto[]> {
+  const text: RuleText = {
+    counterpartyKey: key,
+    name: null,
+    additionalDetails: null,
+    message: null,
+    sender: null,
+    recipient: null,
+  };
+  const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
+  return orderRules(rules)
+    .filter((r) => matchRule(r, text))
+    .map(toRuleDto);
 }
 
 /** How many of the newest uncategorised transactions a pattern would hit (the dialog's "Test"). */
@@ -788,31 +833,37 @@ export async function createRuleFromTransaction(
   return created;
 }
 
-/** The two universal rules, created on a tenant's first import when it has none (spec US2-8). */
-export const DEFAULT_RULES: RuleInput[] = [
-  {
-    name: "Nordea bank fees",
-    description: "AVGIFTER NORDEA — the statement is the proof",
-    matchType: "contains",
-    matchPattern: "AVGIFTER NORDEA",
-    matchField: "counterparty_key",
-    basCode: "657",
-    noDocumentNeeded: true,
-    priority: 100,
-    isActive: true,
-  },
-  {
-    name: "Savings interest",
-    description: "Ränta / Interest — the yearly interest row of the savings account",
-    matchType: "regex",
-    matchPattern: "^(R[äa]nta|Interest)\\b",
-    matchField: "details",
-    basCode: "831",
-    noDocumentNeeded: true,
-    priority: 90,
-    isActive: true,
-  },
-];
+/**
+ * The two universal rules, created on a tenant's first import when it has none (spec US2-8). Both set *no proof*,
+ * so both name a partner by its role (F129, D73): the bank — resolved to the tenant's own partner when they are made.
+ */
+export const DEFAULT_RULES: (Omit<RuleInput, "partnerId"> & { partnerRole: SystemRole | null })[] =
+  [
+    {
+      name: "Nordea bank fees",
+      description: "AVGIFTER NORDEA — the statement is the proof",
+      matchType: "contains",
+      matchPattern: "AVGIFTER NORDEA",
+      matchField: "counterparty_key",
+      basCode: "657",
+      partnerRole: "bank",
+      noDocumentNeeded: true,
+      priority: 100,
+      isActive: true,
+    },
+    {
+      name: "Savings interest",
+      description: "Ränta / Interest — the yearly interest row of the savings account",
+      matchType: "regex",
+      matchPattern: "^(R[äa]nta|Interest)\\b",
+      matchField: "details",
+      basCode: "831",
+      partnerRole: "bank",
+      noDocumentNeeded: true,
+      priority: 90,
+      isActive: true,
+    },
+  ];
 
 export async function ensureDefaultRules(
   tx: TransactionClient,
@@ -822,9 +873,17 @@ export async function ensureDefaultRules(
   const n = await tx.categorisationRule.count();
   if (n > 0) return { data: { created: 0 } };
   let created = 0;
-  for (const r of DEFAULT_RULES) {
+  for (const { partnerRole, ...r } of DEFAULT_RULES) {
     const cat = await settings.getBasCategory(tx, r.basCode ?? "");
-    const res = await createRule(tx, caller, audit, cat ? r : { ...r, basCode: null }, "manual");
+    // the role's partner — seeded by `ensureSystemPartners` before this (the import calls both); none → no partner
+    const partner = partnerRole ? await partners.systemPartner(tx, partnerRole) : null;
+    const res = await createRule(
+      tx,
+      caller,
+      audit,
+      { ...r, basCode: cat ? r.basCode : null, partnerId: partner?.id ?? null },
+      "manual",
+    );
     if (res.error) return { error: res.error };
     created++;
   }

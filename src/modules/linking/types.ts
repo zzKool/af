@@ -122,6 +122,8 @@ export type EntityFacts = {
   keywords?: string[];
   /** the partner the entity belongs to — what the counterparty memory counts (F116) */
   partnerId?: string | null;
+  /** the BAS account the entity carries (an expense, a supplier invoice) — what a row it justifies shows on read (F129, D73) */
+  basCode?: string | null;
   /** ISO due date of an entity with terms — its payment window and the date claim run to it (F116) */
   dueDate?: string | null;
   /** a bank row's counterparty key — the identity its memory is kept under (F116) */
@@ -233,3 +235,109 @@ export type ProposalDto = {
   model: string | null;
   createdAt: string;
 } & ParsedPayload;
+
+// --- the consistency checks of a proof (F130, review 2026-10-31 §4; `check-proof.ts`) ---
+
+/** The seven checks, one code each — what a confirmed warning is written as on the link's audit row. */
+export type WarningCode =
+  | "vendor_counterparty"
+  | "amount_fx"
+  | "amount_same"
+  | "date"
+  | "billed_to"
+  | "already_proof"
+  | "currency_unread";
+export const WARNING_CODES: readonly WarningCode[] = [
+  "vendor_counterparty",
+  "amount_fx",
+  "amount_same",
+  "date",
+  "billed_to",
+  "already_proof",
+  "currency_unread",
+];
+
+/** Which date a date warning counts from: the paper's date (a card row), the invoice date or the due date. */
+export type DateAnchor = "paper" | "invoice" | "due";
+
+/**
+ * One warning: a code and the facts its sentence needs (`warningMessage`) — the numbers and the names, never a
+ * verdict. Amounts are 2-dp decimal strings as the DTOs carry them; dates ISO days.
+ */
+export type ProofWarning =
+  | {
+      code: "vendor_counterparty";
+      facts: { vendorName: string; counterpartyKey: string };
+    }
+  | {
+      code: "amount_fx";
+      facts: {
+        readingAmount: string;
+        readingCurrency: string;
+        rowAmount: string;
+        rowCurrency: string;
+        bookingDate: string;
+        /** the ECB rate of the booking date, reading → row currency; null = none stored, nothing compared */
+        rate: string | null;
+        /** the reading at that rate, in the row's currency */
+        converted: string | null;
+        /** (bank − converted) / converted × 100, one decimal, signed (`"3.5"`, `"-2.1"`) */
+        offPct: string | null;
+        /** the share that applied, in percent (`"4"` on a card row, `"6"` elsewhere) */
+        tolerancePct: string;
+        kind: "card" | "other";
+      };
+    }
+  | {
+      code: "amount_same";
+      facts: {
+        readingAmount: string;
+        rowAmount: string;
+        currency: string;
+        /** bank − paper, signed */
+        difference: string;
+      };
+    }
+  | {
+      code: "date";
+      facts: {
+        days: number;
+        when: "before" | "after";
+        anchor: DateAnchor;
+        anchorDate: string;
+        bookingDate: string;
+      };
+    }
+  | {
+      code: "billed_to";
+      facts: { companyName: string; billedTo: string | null };
+    }
+  | {
+      code: "already_proof";
+      facts: { rowDate: string | null; invoiceNumber: string | null };
+    }
+  | {
+      code: "currency_unread";
+      facts: { readingAmount: string; rowAmount: string; rowCurrency: string };
+    };
+
+/** The partner the dialog matched or the owner picked — what the vendor check compares the paper with. */
+export type ProofPartner = { id: string; name: string; vatNumber: string | null };
+
+/** The facts `checkProof` needs from the server (`proofFacts`, F131): the dialog reads them, the comparison stays pure. */
+export type ProofFacts = {
+  /** the ECB rate reading → row currency on the booking date; null when none is stored or the currencies agree */
+  fxRate: string | null;
+  fxRateDate: string | null;
+  /** D53: true / false when the paper names a customer, null when it names none (or no profile exists) */
+  billedToFits: boolean | null;
+  companyName: string;
+  /** the partners the active rules name for the counterparty key (D74) */
+  rulePartnerIds: string[];
+  /** `memoryForRow`: the partners this key was linked to before, most first */
+  memory: { partnerId: string; name: string; count: number }[];
+  /** the other row this document already justifies, if any */
+  documentJustifiesOther: { rowDate: string } | null;
+  /** the picked supplier holds the invoice number already (D35) */
+  supplierNumberTaken: boolean;
+};

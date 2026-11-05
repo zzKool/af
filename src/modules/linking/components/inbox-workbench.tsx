@@ -333,7 +333,7 @@ export function InboxWorkbench({
                             {moneyText(signedAmount(r), r.row.currency, { signed: true }) ??
                               signedAmount(r)}
                           </span>
-                          {r.state === "partial" && <TransactionStateLabel state="partial" />}
+                          {r.state !== "open" && <TransactionStateLabel state={r.state} />}
                         </div>
                         <div className="truncate text-muted-foreground" title={r.row.texts[5]}>
                           {r.row.texts[5]} · {r.accountLabel}

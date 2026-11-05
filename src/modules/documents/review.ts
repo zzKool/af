@@ -6,7 +6,12 @@ import { can, documentSubject } from "@/kernel/auth/can";
 import type { Clock } from "@/kernel/clock/clock";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
-import { extractBlobPath, type OcrExtractedData, ocrModelFor } from "@/kernel/ocr/ocr";
+import {
+  extractBlobPath,
+  type OcrExtractedData,
+  type OcrPaper,
+  ocrModelFor,
+} from "@/kernel/ocr/ocr";
 import type { StorageService } from "@/kernel/storage/storage";
 import { getDocumentClassification } from "@/modules/documents/business-key";
 import * as linking from "@/modules/linking";
@@ -271,7 +276,10 @@ export type ClassifyResult = {
  * The type drives the reading (D52). Before the owner reviewed the document (and while it became nothing — a linked
  * document keeps its kind), a type change also
  * - swaps the provisional key's prefix, same date and number: `exp_20261020_001` ↔ `inv_20261020_001`;
- * - re-reads the document when the new kind has another model (receipt ↔ invoice ↔ layout); corrections stay.
+ * - re-reads the document when the new kind has another model (receipt ↔ invoice ↔ layout) than the one that read
+ *   it (the reading's `modelUsed`; the file rule when no reading says); corrections stay. On a bank row the paper
+ *   answer picks the new model (D75, `options.paper`) — a PDF switched to *Receipt* is read again by the receipt
+ *   model; on `/documents` the file rule stands (D69).
  * After the review it is a label change only: the owner checked the facts.
  */
 export async function classifyDocument(
@@ -280,6 +288,7 @@ export async function classifyDocument(
   audit: AuditLogger,
   documentId: string,
   newPrefixType: string,
+  options: { paper?: OcrPaper } = {},
 ): Promise<ServiceResult<ClassifyResult>> {
   // Owner-only
   if (!can(caller, "update", "financial_document")) {
@@ -308,6 +317,7 @@ export async function classifyDocument(
       businessKey: true,
       reviewedAt: true,
       mimeType: true,
+      ocrData: true,
     },
   });
   if (!doc) {
@@ -340,10 +350,15 @@ export async function classifyDocument(
   const businessKey = followsType
     ? (reprefixUploadKey(doc.businessKey, newPrefixType) ?? doc.businessKey)
     : doc.businessKey;
+  // the model that read it — the reading says (a PDF receipt read by the receipt model on a row, D75); a failed
+  // or pre-F127 reading falls back to the rule the type and the file give
+  const modelThatRead =
+    parseOcrPayload(doc.ocrData)?.extractedData?.modelUsed ??
+    ocrModelFor(doc.prefixType, doc.mimeType);
   const reread =
     followsType &&
     REREAD_FROM.has(doc.status) &&
-    ocrModelFor(doc.prefixType, doc.mimeType) !== ocrModelFor(newPrefixType, doc.mimeType);
+    modelThatRead !== ocrModelFor(newPrefixType, doc.mimeType, options.paper);
 
   await tx.document.update({
     where: { id: documentId },

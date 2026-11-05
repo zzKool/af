@@ -127,7 +127,7 @@ export const matchPartnersAction = ownerAction
       name: z.string().max(200).optional(),
       vatNumber: z.string().max(40).optional(),
       address: z.string().max(400).optional(),
-      type: z.enum(["client", "vendor", "employee"]).optional(),
+      type: partnerService.partnerTypeSchema.optional(),
     }),
   )
   .metadata({ name: "matchPartners" })

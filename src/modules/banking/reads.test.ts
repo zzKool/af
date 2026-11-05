@@ -11,15 +11,26 @@ import { auth } from "@/kernel/auth/auth";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenant-client";
-import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
+import {
+  cleanupTestData,
+  createAuthenticatedContext,
+  createTestDocument,
+} from "@/kernel/db/test-fixtures";
 import type { StorageService } from "@/kernel/storage/storage";
+import * as expenses from "@/modules/expenses";
+import * as linking from "@/modules/linking";
+import * as partners from "@/modules/partners";
+import * as settings from "@/modules/settings";
+import * as supplierInvoices from "@/modules/supplier-invoices";
 import { createBankAccount } from "./bank-accounts";
 import { categorise, transactionFacts } from "./facts";
 import { transactionHistory } from "./history";
 import { importCsv } from "./import";
 import {
   bookingDates,
+  distinctTransactionValues,
   firstBookingDate,
+  getTransaction,
   listTransactions,
   outgoingMainRows,
   transactionStates,
@@ -270,17 +281,33 @@ describe("lessons audit 23 — banking's read API", () => {
       transactionStates(tx, [plain.id, flagged.id, chfTx, sekTx, chfTx, unknown]),
     );
     expect(states.size).toBe(4);
-    expect(states.get(plain.id)).toEqual({ state: "open", allocated: "0.00", inTransfer: false });
-    expect(states.get(flagged.id)).toEqual({
-      state: "no_document",
+    const nothing = {
+      partnerId: null,
+      partnerFrom: null,
+      partnerName: null,
+      basCode: null,
+      basFrom: null,
+      mixed: false,
+    };
+    expect(states.get(plain.id)).toEqual({
+      state: "open",
       allocated: "0.00",
       inTransfer: false,
+      ...nothing,
+    });
+    // flagged by hand without a partner: no proof · no partner (F129, D73)
+    expect(states.get(flagged.id)).toEqual({
+      state: "no_document_no_partner",
+      allocated: "0.00",
+      inTransfer: false,
+      ...nothing,
     });
     for (const leg of [chfTx, sekTx])
       expect(states.get(leg)).toEqual({
         state: "no_document",
         allocated: "0.00",
         inTransfer: true,
+        ...nothing,
       });
 
     // the same states the workbench list derives
@@ -292,5 +319,210 @@ describe("lessons audit 23 — banking's read API", () => {
 
     const { callerIdentity: stranger } = await createAuthenticatedContext(auth, "owner");
     expect((await run(stranger, (tx) => transactionStates(tx, [plain.id, chfTx]))).size).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// F129 (D73 (a) = one-table US4): the proof's partner and account on read, whatever the link path
+// ─────────────────────────────────────────────────────────────
+describe("F129 — effective partner and category, derived on read", () => {
+  /** the July sample on the SEK account, a supplier with its invoice of the SKATTEPUNKTEN row's amount, a group */
+  async function scene(caller: CallerIdentity) {
+    const ids = await setup(caller);
+    await importFile(caller, ids.sek, "nordea-2026-07-sek-sample.csv");
+    return run(caller, async (tx) => {
+      await settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["654", "653"]);
+      await settings.updateBasPreference(tx, caller, auditFor(tx, caller), "654", {
+        shortCode: "IT",
+      });
+      const supplier = await partners.createPartner(tx, caller, auditFor(tx, caller), {
+        name: "Skattepunkten Office Services AB",
+        types: ["vendor"],
+        defaultCurrency: "SEK",
+      });
+      const group = await expenses.createGroup(tx, caller, auditFor(tx, caller), {
+        description: "July 2026",
+      });
+      const row = await tx.bankTransaction.findFirstOrThrow({
+        where: { bankAccountId: ids.sek, counterpartyKey: { startsWith: "SKATTEPUNKTEN" } },
+      });
+      const si = await supplierInvoices.createSupplierInvoice(tx, caller, auditFor(tx, caller), {
+        groupId: group.data?.id as string,
+        partnerId: supplier.data?.id as string,
+        invoiceNumber: "2026-071",
+        invoiceDate: "2026-07-06",
+        currency: "SEK",
+        amountNet: row.amount.abs().mul("0.8").toFixed(2),
+        vatAmount: row.amount.abs().mul("0.2").toFixed(2),
+        amountTotal: row.amount.abs().toFixed(2),
+        basCode: "654",
+        documentMissing: true,
+      });
+      if (si.error) throw new Error(si.error.message);
+      return { ...ids, supplierId: supplier.data?.id as string, row: row.id, si: si.data.id };
+    });
+  }
+
+  it("US1-1: a row paid through the supplier's own path shows its partner and account from the proof; nothing written, no categorisation in the trail", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const s = await scene(caller);
+    const updateRows = async () =>
+      Number(
+        (
+          await adminPool.query(
+            `SELECT count(*) FROM audit_logs WHERE tenant_id = $1 AND entity_type = 'bank_transaction' AND action = 'update'`,
+            [caller.tenantId],
+          )
+        ).rows[0]?.count,
+      );
+    const updatesBefore = await updateRows();
+    // the payment picker's path (D37): the module writes the link
+    const paid = await run(caller, (tx) =>
+      supplierInvoices.recordPayment(tx, caller, auditFor(tx, caller), {
+        invoiceId: s.si,
+        bankTransactionId: s.row,
+      }),
+    );
+    expect(paid.error).toBeUndefined();
+    await run(caller, async (tx) => {
+      const list = await listTransactions(tx, {
+        page: 1,
+        pageSize: 50,
+        sort: [],
+        filters: { bankAccountId: { kind: "in", values: [s.sek] } },
+      });
+      const row = list.rows.find((r) => r.id === s.row);
+      expect(row).toMatchObject({
+        state: "linked",
+        partnerId: s.supplierId,
+        partnerName: "Skattepunkten Office Services AB",
+        partnerFrom: "proof",
+        basCode: "654",
+        basFrom: "proof",
+        mixed: false,
+      });
+      expect(row?.basLabel).toMatch(/^654 · /);
+      const detail = await getTransaction(tx, s.row);
+      expect(detail.data?.effective).toMatchObject({
+        partnerId: s.supplierId,
+        partnerName: "Skattepunkten Office Services AB",
+        partnerFrom: "proof",
+        basCode: "654",
+        basFrom: "proof",
+      });
+      expect(detail.data?.state).toBe("linked");
+      // the typed facts are untouched
+      const stored = await tx.bankTransaction.findUniqueOrThrow({ where: { id: s.row } });
+      expect(stored).toMatchObject({ partnerId: null, basCode: null, categorisedBy: null });
+      const history = await transactionHistory(tx, s.row);
+      expect(history.data?.map((e) => e.kind)).toEqual(["linked", "imported"]);
+      expect((await transactionStates(tx, [s.row])).get(s.row)).toMatchObject({
+        state: "linked",
+        partnerId: s.supplierId,
+        partnerName: "Skattepunkten Office Services AB",
+        basCode: "654",
+        partnerFrom: "proof",
+        basFrom: "proof",
+      });
+      // the panel's Partner header filter and its distinct values run on the effective value
+      const filtered = await listTransactions(tx, {
+        page: 1,
+        pageSize: 50,
+        sort: [],
+        filters: { partnerId: { kind: "in", values: [s.supplierId] } },
+      });
+      expect(filtered.rows.map((r) => r.id)).toEqual([s.row]);
+      const distinct = await distinctTransactionValues(tx, "partnerId", {
+        page: 1,
+        pageSize: 50,
+        sort: [],
+        filters: {},
+      });
+      expect(distinct.find((d) => d.value === s.supplierId)?.count).toBe(1);
+    });
+    // SC-002: the derivation writes nothing — no bank_transaction update row when a link is made or removed
+    expect(await updateRows()).toBe(updatesBefore);
+    const removed = await run(caller, (tx) =>
+      supplierInvoices.removePayment(tx, caller, auditFor(tx, caller), {
+        invoiceId: s.si,
+        linkId: paid.data?.linkId as string,
+      }),
+    );
+    expect(removed.error).toBeUndefined();
+    expect(await updateRows()).toBe(updatesBefore);
+    await run(caller, async (tx) => {
+      expect((await transactionStates(tx, [s.row])).get(s.row)).toMatchObject({
+        state: "open",
+        partnerId: null,
+        basCode: null,
+      });
+    });
+  });
+
+  it("US1-2: a typed category wins (6530), the partner stays derived; the Suggestions path (applySuggestion) derives the same", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const s = await scene(caller);
+    const applied = await run(caller, (tx) =>
+      linking.applySuggestion(tx, caller, auditFor(tx, caller), {
+        bankTransactionId: s.row,
+        to: { type: "supplier_invoice", id: s.si },
+      }),
+    );
+    expect(applied.error).toBeUndefined();
+    await run(caller, async (tx) => {
+      const typed = await categorise(tx, caller, auditFor(tx, caller), s.row, { basCode: "653" });
+      expect(typed.error).toBeUndefined();
+      const list = await listTransactions(tx, { page: 1, pageSize: 50, sort: [], filters: {} });
+      expect(list.rows.find((r) => r.id === s.row)).toMatchObject({
+        state: "linked",
+        basCode: "653",
+        basFrom: "row",
+        partnerId: s.supplierId,
+        partnerFrom: "proof",
+      });
+    });
+  });
+
+  it("US1-5: a plain document proof carries no partner — linked · no partner until the owner picks one; RLS", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const s = await scene(caller);
+    const doc = await createTestDocument(adminPool, caller.tenantId, caller.userId, {
+      status: "extracted",
+    });
+    const row = await run(caller, (tx) =>
+      tx.bankTransaction.findUniqueOrThrow({ where: { id: s.row } }),
+    );
+    await adminPool.query(`UPDATE documents SET corrections = $2 WHERE id = $1`, [
+      doc.id,
+      JSON.stringify({ invoiceTotal: Number(row.amount.abs().toFixed(2)), currency: "SEK" }),
+    ]);
+    const link = await run(caller, (tx) =>
+      linking.createLink(tx, caller, auditFor(tx, caller), {
+        from: { type: "bank_transaction", id: s.row },
+        to: { type: "document", id: doc.id },
+        kind: "justifies",
+        allocatedAmount: row.amount.abs().toFixed(2),
+        currency: "SEK",
+      }),
+    );
+    expect(link.error).toBeUndefined();
+    await run(caller, async (tx) => {
+      expect((await transactionStates(tx, [s.row])).get(s.row)).toMatchObject({
+        state: "linked_no_partner",
+        partnerId: null,
+        partnerFrom: null,
+        basCode: null,
+      });
+      const picked = await categorise(tx, caller, auditFor(tx, caller), s.row, {
+        partnerId: s.supplierId,
+      });
+      expect(picked.error).toBeUndefined();
+      expect((await transactionStates(tx, [s.row])).get(s.row)).toMatchObject({
+        state: "linked",
+        partnerFrom: "row",
+      });
+    });
+    const { callerIdentity: stranger } = await createAuthenticatedContext(auth, "owner");
+    expect((await run(stranger, (tx) => transactionStates(tx, [s.row]))).size).toBe(0);
   });
 });

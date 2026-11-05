@@ -151,6 +151,35 @@ describe("processDocument job", () => {
     );
   });
 
+  // D75: the paper answer travels in the job's payload and reaches the OCR beside the type; absent, nothing is sent
+  it("hands the payload's paper to the OCR with the document's type (a bank-row drop); none from /documents", async () => {
+    mockFindUnique
+      .mockResolvedValueOnce({ ...baseDocument, prefixType: "expense" })
+      .mockResolvedValueOnce({ ...baseDocument, prefixType: "expense", status: "processing" });
+    mockUpdate.mockResolvedValue({});
+    mockAnalyzeDocument.mockResolvedValue(successOcrResult);
+
+    await processDocumentJob.handler({ ...data, paper: "receipt" }, ctx);
+    expect(mockAnalyzeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ mimeType: "application/pdf" }),
+      "expense",
+      "receipt",
+    );
+
+    vi.clearAllMocks();
+    mockFindUnique
+      .mockResolvedValueOnce({ ...baseDocument, prefixType: "expense" })
+      .mockResolvedValueOnce({ ...baseDocument, prefixType: "expense", status: "processing" });
+    mockUpdate.mockResolvedValue({});
+    mockAnalyzeDocument.mockResolvedValue(successOcrResult);
+    await run();
+    expect(mockAnalyzeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ mimeType: "application/pdf" }),
+      "expense",
+      undefined,
+    );
+  });
+
   it("OCR failure (non-retryable): uploaded → processing → ocr_failed", async () => {
     mockFindUnique
       .mockResolvedValueOnce(baseDocument)
@@ -267,6 +296,7 @@ describe("processDocument job", () => {
         modelUsed: "prebuilt-invoice",
         pageCount: 1,
         processingTimeMs: 1200,
+        fields: {}, // F127: a reading without `fields` reads back as the old reading — an empty map
       },
       quality: "high",
     });
@@ -408,6 +438,7 @@ describe("the OCR source: bytes unless the blob is in real Azure Storage", () =>
     expect(mockAnalyzeDocument).toHaveBeenCalledWith(
       expect.objectContaining({ type: "buffer" }),
       "invoice",
+      undefined, // no paper from /documents (D75 is the row's)
     );
   });
 
@@ -429,6 +460,7 @@ describe("the OCR source: bytes unless the blob is in real Azure Storage", () =>
     expect(mockAnalyzeDocument).toHaveBeenCalledWith(
       expect.objectContaining({ type: "url" }),
       "invoice",
+      undefined,
     );
   });
 });

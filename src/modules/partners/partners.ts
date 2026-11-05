@@ -3,11 +3,21 @@ import type { Partner, Prisma } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { tenantMembers, userName } from "@/kernel/auth/users";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError } from "@/kernel/errors/app-error";
+import { CURRENCIES, type Currency } from "@/kernel/nav/constants";
 import { uuid } from "@/kernel/validation/scalars";
 import { getBasCategory, isBasActivated } from "@/modules/settings";
-import type { ExternalIdentifier, PartnerAddress, PartnerDto, PartnerSummaryDto } from "./types";
+import type {
+  ExternalIdentifier,
+  PartnerAddress,
+  PartnerDto,
+  PartnerSummaryDto,
+  PartnerType,
+  SystemRole,
+} from "./types";
+import { isSystemRole, PARTNER_TYPES, SYSTEM_ROLES } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -15,7 +25,7 @@ type ServiceResult<T> = { data: T; error?: never } | { data?: never; error: AppE
 
 // --- Zod Schemas ---
 
-const partnerTypeSchema = z.enum(["client", "vendor", "employee"]);
+export const partnerTypeSchema = z.enum(PARTNER_TYPES as [PartnerType, ...PartnerType[]]);
 
 const externalIdentifierSchema = z.object({
   label: z.string().min(1).max(50),
@@ -141,6 +151,7 @@ export function toPartnerDto(row: Partner): PartnerDto {
     email: row.email,
     phone: row.phone,
     address: toAddress(row.address),
+    systemRole: isSystemRole(row.systemRole) ? row.systemRole : null,
     isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -551,9 +562,159 @@ export async function searchPartners(
       types: true,
       defaultCurrency: true,
       defaultBasCategoryCode: true,
+      systemRole: true,
     },
     orderBy: { name: "asc" },
     take: Math.min(limit, 20),
   });
-  return { data: partners };
+  return {
+    data: partners.map((p) => ({
+      ...p,
+      systemRole: isSystemRole(p.systemRole) ? p.systemRole : null,
+    })),
+  };
 }
+
+// --- the system partners (F129, D73): the bank, the two tax agencies, the owner as employee ---
+
+/** The currency of a tax agency's country: the ISO code that starts with the country (`SE` → SEK, `CH` → CHF). */
+const currencyOfCountry = (country: "SE" | "CH"): Currency | null =>
+  CURRENCIES.find((c) => c.startsWith(country)) ?? null;
+/** What each role is seeded as: the type and the default currency; the bank's name is the format's, the owner's his. */
+const SYSTEM_PARTNER_SEED: Readonly<
+  Record<SystemRole, { types: PartnerType[]; defaultCurrency: Currency | null }>
+> = {
+  bank: { types: ["vendor"], defaultCurrency: null },
+  tax_agency_se: { types: ["authority"], defaultCurrency: currencyOfCountry("SE") },
+  tax_agency_ch: { types: ["authority"], defaultCurrency: currencyOfCountry("CH") },
+  owner: { types: ["employee"], defaultCurrency: null },
+};
+/** The names the migration and this service seed under; the owner renames them on /partners whenever he likes. */
+export const SYSTEM_PARTNER_NAMES = {
+  tax_agency_se: "Skatteverket",
+  tax_agency_ch: "Swiss Federal Tax Administration (FTA)",
+} as const;
+/** A hand-made partner whose folded name is one of these takes the role instead of a twin (D70). */
+const ROLE_ALIASES: Readonly<Record<SystemRole, readonly string[]>> = {
+  bank: [],
+  tax_agency_se: ["skatteverket"],
+  tax_agency_ch: [
+    "swiss federal tax administration (fta)",
+    "swiss federal tax administration",
+    "fta",
+    "estv",
+    "afc",
+  ],
+  owner: [],
+};
+
+/** The active partner holding `role`, or null (none seeded yet, or the owner deactivated it). */
+export async function systemPartner(
+  tx: TransactionClient,
+  role: SystemRole,
+): Promise<PartnerDto | null> {
+  const row = await tx.partner.findFirst({ where: { systemRole: role, isActive: true } });
+  return row ? toPartnerDto(row) : null;
+}
+
+/**
+ * Every role's partner, active or not (the reasons' proposal says *inactive* rather than *none*), null when unseeded.
+ * `tenantId` narrows it for a caller outside RLS (the seed runs as the migration role, which sees every tenant).
+ */
+export async function systemPartners(
+  tx: TransactionClient,
+  tenantId?: string,
+): Promise<Record<SystemRole, PartnerDto | null>> {
+  const rows = await tx.partner.findMany({
+    where: { systemRole: { not: null }, ...(tenantId ? { tenantId } : {}) },
+  });
+  const out = Object.fromEntries(SYSTEM_ROLES.map((r) => [r, null])) as Record<
+    SystemRole,
+    PartnerDto | null
+  >;
+  for (const row of rows) if (isSystemRole(row.systemRole)) out[row.systemRole] = toPartnerDto(row);
+  return out;
+}
+
+/**
+ * The four partners once per tenant (F129 US4): the bank (`bankName` — the format of the tenant's statement
+ * accounts), Skatteverket, the Swiss FTA, the owner as employee (the owner member's user name). Idempotent: a role
+ * held is left alone; a hand-made partner whose folded name says it is the one takes the role (D70 would refuse
+ * the twin); the rest are created, audited. Called by the first import (before the default rules, which name the
+ * bank) and by the seed — never by the tenant hook: the kernel imports no module.
+ */
+export async function ensureSystemPartners(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  options: { bankName: string },
+): Promise<ServiceResult<{ created: SystemRole[]; attached: SystemRole[] }>> {
+  const held = await systemPartners(tx, caller.tenantId);
+  const missing = SYSTEM_ROLES.filter((r) => held[r] === null);
+  if (missing.length === 0) return { data: { created: [], attached: [] } };
+
+  const names: Record<SystemRole, string> = {
+    bank: options.bankName.trim() || "Bank",
+    tax_agency_se: SYSTEM_PARTNER_NAMES.tax_agency_se,
+    tax_agency_ch: SYSTEM_PARTNER_NAMES.tax_agency_ch,
+    owner: await ownerName(tx, caller),
+  };
+  const candidates = await tx.partner.findMany({
+    where: { tenantId: caller.tenantId, systemRole: null },
+    select: { id: true, name: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const created: SystemRole[] = [];
+  const attached: SystemRole[] = [];
+  for (const role of missing) {
+    const folded = new Set([foldPartnerName(names[role]), ...ROLE_ALIASES[role]]);
+    const existing = candidates.find((c) => folded.has(foldPartnerName(c.name)));
+    if (existing) {
+      await tx.partner.update({ where: { id: existing.id }, data: { systemRole: role } });
+      await audit.log({
+        action: "update",
+        entityType: "partner",
+        entityId: existing.id,
+        oldData: { systemRole: null },
+        newData: { systemRole: role },
+      });
+      candidates.splice(candidates.indexOf(existing), 1);
+      attached.push(role);
+      continue;
+    }
+    const seed = SYSTEM_PARTNER_SEED[role];
+    const partner = await tx.partner.create({
+      data: {
+        tenantId: caller.tenantId,
+        name: names[role],
+        types: seed.types,
+        defaultCurrency: seed.defaultCurrency,
+        systemRole: role,
+        createdBy: caller.userId,
+        source: caller.source,
+      },
+    });
+    await audit.log({
+      action: "create",
+      entityType: "partner",
+      entityId: partner.id,
+      newData: toAuditData(partner),
+    });
+    created.push(role);
+  }
+  return { data: { created, attached } };
+}
+
+/** The owner as employee is named after the tenant's owner member — the caller when he is one, else the oldest owner. */
+async function ownerName(tx: TransactionClient, caller: CallerIdentity): Promise<string> {
+  const members = await tenantMembers(tx, caller.tenantId);
+  const owners = members.filter((m) => isOwnerMembership(m.role));
+  const userId =
+    owners.find((m) => m.userId === caller.userId)?.userId ?? owners[0]?.userId ?? caller.userId;
+  const name = (await userName(tx, userId))?.trim();
+  return name || "Owner";
+}
+
+/** The Better Auth membership role of an owner — one lookup, never a comparison in the module (the guard). */
+const OWNER_MEMBERSHIPS: ReadonlySet<string> = new Set(["owner"]);
+const isOwnerMembership = (role: string) => OWNER_MEMBERSHIPS.has(role);

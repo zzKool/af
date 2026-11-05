@@ -6,9 +6,9 @@ import { useT } from "@/kernel/i18n/use-t";
 import { StateLabel } from "@/kernel/ui/state-label";
 import { Tag } from "@/kernel/ui/tags";
 import { partnerState, partnerStateFamily } from "../state-family";
-import type { PartnerType } from "../types";
+import { isSystemRole, PARTNER_TYPES, type PartnerType, SYSTEM_ROLES } from "../types";
 
-export const PARTNER_TYPES: readonly PartnerType[] = ["client", "vendor", "employee"];
+export { isSystemRole, PARTNER_TYPES, SYSTEM_ROLES };
 
 export function isPartnerType(value: string): value is PartnerType {
   return (PARTNER_TYPES as readonly string[]).includes(value);
@@ -24,13 +24,25 @@ export function PartnerStateLabel({ isActive }: { isActive: boolean }) {
   );
 }
 
-export function PartnerTypeTags({ types }: { types: readonly string[] }) {
+export function PartnerTypeTags({
+  types,
+  systemRole = null,
+}: {
+  types: readonly string[];
+  /** F129: the role a seeded partner plays — a grey tag beside the types, never a field */
+  systemRole?: string | null;
+}) {
   const t = useT();
   return (
     <span className="inline-flex flex-wrap gap-1">
       {types.filter(isPartnerType).map((type) => (
         <Tag key={type}>{t(`partners.type.${type}`)}</Tag>
       ))}
+      {isSystemRole(systemRole) && (
+        <span data-testid="partner-role" data-partner-role={systemRole} className="inline-flex">
+          <Tag>{t(`partners.role.${systemRole}`)}</Tag>
+        </span>
+      )}
     </span>
   );
 }

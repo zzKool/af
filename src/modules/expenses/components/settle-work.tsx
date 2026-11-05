@@ -4,6 +4,9 @@
 // *full* tick when the owner accepted less base than the claim — a cross-currency refund), the refund transaction
 // right (picker with the coverage hint), the summary with the derived difference, the confirm dialog. The arithmetic
 // is the server's (`settlement-math.ts`, the one tolerance), in Decimal — never Number. Σ base never exceeds the row.
+// Run from the row (F131 §5.1, the fourth exit *This row refunds me*): `?row=<id>` preselects and locks the refund
+// row — *Change* clears it — and *Confirm* returns to that row on `/banking`.
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -75,17 +78,25 @@ export function SettleWork({
   sources,
   ledgerOpen,
   ledgerCount,
+  lockedTransactionId = null,
 }: {
   open: OpenRow[];
   transactions: TransactionOption[];
   sources: SourceOption[];
   ledgerOpen: string;
   ledgerCount: number;
+  /** `?row=<id>` — the refund row the owner came from: preselected, not changeable while the param is set */
+  lockedTransactionId?: string | null;
 }) {
   const t = useT();
   const ids = useId();
   const router = useRouter();
-  const [txId, setTxId] = useState(NONE);
+  // the row the owner came from locks the picker only when it can be a refund row (outgoing, a main account, not
+  // settling anything yet) — else the picker stays open and a line says why
+  const locked = lockedTransactionId
+    ? (transactions.find((x) => x.id === lockedTransactionId) ?? null)
+    : null;
+  const [txId, setTxId] = useState(locked?.id ?? NONE);
   const [sourceId, setSourceId] = useState(
     [...new Set(open.map((e) => e.paidFromAccountId))].length === 1
       ? open[0]?.paidFromAccountId
@@ -187,7 +198,8 @@ export function SettleWork({
     setTicked(new Set());
     setAlloc({});
     setTxId(NONE);
-    router.push("/expenses/settlements");
+    // run from the row: back to it — it is justified now (the statement is its proof, the owner its partner)
+    router.push(locked ? `/banking?open=${locked.id}` : "/expenses/settlements");
     router.refresh();
   }
 
@@ -286,22 +298,52 @@ export function SettleWork({
   const right = (
     <div className="flex flex-col gap-3" data-testid="settle-transaction">
       <div>
-        <label htmlFor={`${ids}-tx`} className="mb-1 block text-xs font-medium">
-          {t("expenses.settle.pickTransaction")}
-        </label>
-        <Select value={txId} onValueChange={(v) => setTxId(v ?? NONE)}>
-          <SelectTrigger id={`${ids}-tx`} className="w-full" data-testid="pick-transaction">
-            <SelectValue placeholder={t("expenses.settle.transaction")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>—</SelectItem>
-            {transactions.map((x) => (
-              <SelectItem key={x.id} value={x.id}>
-                {x.bookingDate} · {money(x.amount, x.currency)} · {x.description} · {x.accountLabel}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {locked ? (
+          <>
+            <div className="mb-1 text-xs font-medium">{t("expenses.settle.fromRow")}</div>
+            <div
+              className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+              data-testid="locked-transaction"
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {locked.bookingDate} · {money(locked.amount, locked.currency)} ·{" "}
+                {locked.description} · {locked.accountLabel}
+              </span>
+              <Link
+                href="/expenses/settle"
+                className="shrink-0 text-xs text-primary underline-offset-2 hover:underline"
+                data-testid="change-transaction"
+              >
+                {t("expenses.settle.change")}
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <label htmlFor={`${ids}-tx`} className="mb-1 block text-xs font-medium">
+              {t("expenses.settle.pickTransaction")}
+            </label>
+            <Select value={txId} onValueChange={(v) => setTxId(v ?? NONE)}>
+              <SelectTrigger id={`${ids}-tx`} className="w-full" data-testid="pick-transaction">
+                <SelectValue placeholder={t("expenses.settle.transaction")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>—</SelectItem>
+                {transactions.map((x) => (
+                  <SelectItem key={x.id} value={x.id}>
+                    {x.bookingDate} · {money(x.amount, x.currency)} · {x.description} ·{" "}
+                    {x.accountLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+        {lockedTransactionId && !locked && (
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="row-not-settleable">
+            {t("expenses.settle.rowNotSettleable")}
+          </p>
+        )}
         {transactions.length === 0 && (
           <p className="mt-1 text-xs text-muted-foreground">
             {t("expenses.settle.noTransactions")}

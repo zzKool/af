@@ -8,7 +8,7 @@ import { prisma } from "@/kernel/db/client";
 import { enqueue } from "@/kernel/jobs/queue";
 import { listQuerySchema } from "@/kernel/list-query/schema";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
-import { extractBlobPath } from "@/kernel/ocr/ocr";
+import { extractBlobPath, OCR_PAPERS } from "@/kernel/ocr/ocr";
 import { createStorageService } from "@/kernel/storage/storage";
 import * as documentService from "@/modules/documents/documents";
 import { processDocumentJob } from "@/modules/documents/jobs/process-document";
@@ -44,6 +44,8 @@ const uploadSchema = zfd.formData({
   prefixType: zfd.text(z.string().min(1)),
   /** "Upload anyway" on the duplicate card (owner): store a second copy of bytes the tenant already holds */
   force: zfd.text(z.enum(["true", "false"]).optional()),
+  /** the paper question on a bank row (D75): *Invoice* / *Receipt* picks the reading model — the job carries it, nothing stores it */
+  paper: zfd.text(z.enum(OCR_PAPERS).optional()),
 });
 
 let _storage: ReturnType<typeof createStorageService> | null = null;
@@ -57,7 +59,7 @@ export const uploadDocumentAction = authedAction
   .schema(uploadSchema)
   .metadata({ name: "uploadDocument" })
   .action(async ({ ctx, parsedInput }) => {
-    const { file, prefixType, force } = parsedInput;
+    const { file, prefixType, force, paper } = parsedInput;
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     const result = await documentService.uploadDocument(
@@ -69,7 +71,7 @@ export const uploadDocumentAction = authedAction
       fileBuffer,
       file.name,
       prefixType,
-      { force: force === "true" },
+      { force: force === "true", paper },
     );
 
     // FR-009: the card names the uploader; `users` is read outside the tenant transaction
@@ -92,7 +94,7 @@ export const uploadDocumentAction = authedAction
       ctx.onCommit(async () => {
         await enqueue(
           processDocumentJob,
-          { tenantId, userId, documentId },
+          { tenantId, userId, documentId, ...(paper ? { paper } : {}) },
           { singletonKey: documentId },
         );
       });
@@ -140,27 +142,32 @@ export const updateDocumentCorrectionsAction = authedAction
 const classifySchema = z.object({
   documentId: uuid,
   documentType: z.enum(["expense", "invoice", "contract", "nda", "certificate"]),
+  /** the reading dialog's paper switch (D75): the other paper's model reads the document again, whatever the file */
+  paper: z.enum(OCR_PAPERS).optional(),
 });
 
 export const classifyDocumentAction = authedAction
   .schema(classifySchema)
   .metadata({ name: "classifyDocument" })
   .action(async ({ ctx, parsedInput }) => {
+    const { paper } = parsedInput;
     const result = await documentService.classifyDocument(
       ctx.tx,
       ctx.callerIdentity,
       ctx.audit,
       parsedInput.documentId,
       parsedInput.documentType,
+      { paper },
     );
-    // the type drives the reading (D52): the new kind's model reads it again, queued after the commit
+    // the type drives the reading (D52), the paper answer on a row (D75): the other model reads it again, queued
+    // after the commit
     if (result.data?.reread) {
       const { tenantId, userId } = ctx.callerIdentity;
       const documentId = parsedInput.documentId;
       ctx.onCommit(async () => {
         await enqueue(
           processDocumentJob,
-          { tenantId, userId, documentId },
+          { tenantId, userId, documentId, ...(paper ? { paper } : {}) },
           { singletonKey: documentId },
         );
       });
