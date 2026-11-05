@@ -51,8 +51,10 @@ export {
   formatConfig,
   importCsv,
   importCsvSchema,
+  parseForAccount,
   planImport,
 } from "./import";
+export { previewImport, previewVerdict } from "./import-preview";
 export { linkFactsOf, type RowForFacts } from "./link-facts";
 export { bankTransactionLinkable } from "./linkable";
 export type { MonthsInput } from "./months";

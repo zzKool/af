@@ -310,7 +310,15 @@ export function TransactionTable({
         width: "11.5rem",
         cell: (row) => <TransactionStateLabel state={row.state} />,
       },
-      { key: "note", header: t("banking.col.note"), type: "text", width: "10rem" },
+      // F131: the work surface takes ≈ 55 % of the canvas — the note lives in the panel's facts zone; the column
+      // stays a click away in the chooser (lessons F71: a module with more columns than the canvas uses the chooser)
+      {
+        key: "note",
+        header: t("banking.col.note"),
+        type: "text",
+        width: "10rem",
+        defaultHidden: true,
+      },
       {
         key: "noDocumentNeeded",
         header: t("banking.col.noDocument"),

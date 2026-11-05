@@ -79,30 +79,56 @@ export function describeHeaderError(config: BankFormatConfig, firstLine: string)
   return headerError(header, config);
 }
 
-// --- the import ---
+// --- the file against its account: what the import and its preview (F128) share, nothing written ---
 
-export async function importCsv(
+/** The account a file goes into, with its format — Prisma rows, kept inside the module (the DTOs are in types.ts). */
+type AccountRow = Prisma.BankAccountGetPayload<{ include: { bankFormat: true } }>;
+export type AccountForImport = Omit<AccountRow, "bankFormat"> & {
+  bankFormat: NonNullable<AccountRow["bankFormat"]>;
+};
+
+export type ParsedFile = {
+  account: AccountForImport;
+  /** `accountLabel(account)` */
+  label: string;
+  /** every row parsed, in file order (a file with a bad row never gets here — F109) */
+  rows: ParsedRow[];
+  /** the rows not yet in the account, and how many already are (`planImport`) */
+  fresh: ParsedRow[];
+  duplicates: number;
+  /** min / max booking date over the whole file */
+  periodFrom: string | null;
+  periodTo: string | null;
+  /** the base rate of every date a fresh row carries */
+  rates: Map<string, RowRate>;
+};
+
+/**
+ * Steps 0–4 of the import, as a read: the account and its format, the parse (all or nothing — a row the parser
+ * could not read refuses the whole file, every bad row named, F109), the file's currency against the account's,
+ * the dedup plan per account, and a base rate for every new booking date (*No exchange rate for … — run the ECB
+ * sync* before anything would be written). The import writes from it; the preview shows it (F128).
+ */
+export async function parseForAccount(
   tx: TransactionClient,
-  caller: CallerIdentity,
-  audit: AuditLogger,
-  storage: StorageService,
   input: { bankAccountId: string; fileName: string; bytes: Buffer },
-): Promise<ServiceResult<ImportSummary>> {
+): Promise<ServiceResult<ParsedFile>> {
   const parsed = importCsvSchema.safeParse(input);
   if (!parsed.success)
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
   if (!input.bytes || input.bytes.length === 0)
     return { error: invalid("File is empty (0 bytes)") };
 
-  const account = await tx.bankAccount.findUnique({
+  const found = await tx.bankAccount.findUnique({
     where: { id: parsed.data.bankAccountId },
     include: { bankFormat: true },
   });
-  if (!account) return { error: notFound("Bank account", parsed.data.bankAccountId) };
-  const label = accountLabel(account);
-  if (!account.bankFormat) {
+  if (!found) return { error: notFound("Bank account", parsed.data.bankAccountId) };
+  const label = accountLabel(found);
+  if (!found.bankFormat) {
     return { error: invalid(`${label} is a private instrument — it has no statement to import`) };
   }
+  const account: AccountForImport = { ...found, bankFormat: found.bankFormat };
   const config = formatConfig(account.bankFormat);
   const format = account.bankFormat;
   if (!config)
@@ -168,12 +194,32 @@ export async function importCsv(
     rates.set(date, r.data);
   }
 
+  return {
+    data: { account, label, rows: result.rows, fresh, duplicates, periodFrom, periodTo, rates },
+  };
+}
+
+// --- the import ---
+
+export async function importCsv(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  storage: StorageService,
+  input: { bankAccountId: string; fileName: string; bytes: Buffer },
+): Promise<ServiceResult<ImportSummary>> {
+  const parsedFile = await parseForAccount(tx, input);
+  if (parsedFile.error) return { error: parsedFile.error };
+  const { account, label, rows, fresh, duplicates, periodFrom, periodTo, rates } = parsedFile.data;
+  const format = account.bankFormat;
+  const fileName = input.fileName.trim();
+
   // 5. the statement as a document (even when every row was a duplicate — the package needs the file);
   //    the blob goes out first: if a later step throws, the row rolls back and the blob is an orphan at worst
   const stored = await documents.storeGeneratedDocument(tx, caller, audit, storage, {
     bytes: input.bytes,
     businessKey: numbering.bankStatementKey(label, periodFrom, periodTo),
-    fileName: parsed.data.fileName,
+    fileName,
     mimeType: "text/csv",
     prefixType: "bank_statement",
   });
@@ -184,9 +230,9 @@ export async function importCsv(
     data: {
       tenantId: caller.tenantId,
       bankAccountId: account.id,
-      fileName: parsed.data.fileName,
+      fileName,
       documentId: stored.data.id,
-      recordCount: result.rows.length,
+      recordCount: rows.length,
       importedCount: fresh.length,
       duplicateCount: duplicates,
       errorCount: 0, // a file with a bad row never gets here (F109); the columns stay for the history

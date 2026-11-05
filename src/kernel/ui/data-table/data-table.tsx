@@ -158,8 +158,13 @@ export function DataTable<Row extends { id: string }>({
   const router = useRouter();
   const { query, isPending } = state;
   const tableLayout = useTableLayout(tableKey, allColumns);
-  // the page's docked details panel remembers open / hidden with this table's layout (F74)
-  useDockedPanel(tableLayout.panelHidden, tableLayout.setPanelHidden);
+  // the page's docked details panel remembers open / hidden (F74) and its width (F131) with this table's layout
+  useDockedPanel({
+    hidden: tableLayout.panelHidden,
+    setHidden: tableLayout.setPanelHidden,
+    width: tableLayout.panelWidth,
+    setWidth: tableLayout.setPanelWidth,
+  });
   const { hidden, layout } = tableLayout;
   const columns = useMemo(
     () => orderColumns(allColumns, layout.order).filter((c) => !hidden.has(c.key)),

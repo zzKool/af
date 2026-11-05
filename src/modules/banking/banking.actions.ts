@@ -13,6 +13,7 @@ import { toTransactionDetailWire, toTransactionWire } from "@/modules/banking/de
 import { categorise, categoriseSchema } from "@/modules/banking/facts";
 import { transactionHistory } from "@/modules/banking/history";
 import { deleteImport, importCsv } from "@/modules/banking/import";
+import { previewImport } from "@/modules/banking/import-preview";
 import {
   accountBalances,
   distinctImportValues,
@@ -180,6 +181,23 @@ const importSchema = zfd.formData({
   ),
   bankAccountId: zfd.text(uuid),
 });
+
+/**
+ * The dialog's preview step (F128): the file read against the account — new / duplicate / the rule that would
+ * hit / the invoice an incoming row pays / the balance chain — nothing written. The same FormData as the import;
+ * the same refusals (F109) before *Import* is offered.
+ */
+export const previewImportAction = ownerAction
+  .schema(importSchema)
+  .metadata({ name: "previewBankImport" })
+  .action(async ({ ctx, parsedInput }) => {
+    const bytes = Buffer.from(await parsedInput.file.arrayBuffer());
+    return previewImport(ctx.tx, ctx.callerIdentity, {
+      bankAccountId: parsedInput.bankAccountId,
+      fileName: parsedInput.file.name,
+      bytes,
+    });
+  });
 
 export const importCsvAction = ownerAction
   .schema(importSchema)

@@ -3,8 +3,9 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 // The owner's monthly routine (specs/banking US1–US4, SEK only — CI has no ECB rates): import the July export
-// → the fee rule categorised its row → open the OpenAI row, categorise it, create a rule from it → import the
-// savings file (interest rule) and the matching SEK leg → accept the transfer pair → the categories on the list, imports page.
+// through its preview (F128: new / duplicate / no proof needed, Import N) → the fee rule categorised its row → open
+// the OpenAI row, categorise it, create a rule from it → import the savings file (interest rule) and the matching
+// SEK leg → accept the transfer pair → the categories on the list, imports page.
 const FIXTURES = join(__dirname, "..", "specs", "banking", "fixtures");
 const HEADER =
   "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
@@ -24,6 +25,21 @@ test.describe("Banking", () => {
     });
     await expect(page.getByText("Pre-selected from the file name")).toBeVisible();
     await expect(page.getByTestId("import-account")).toContainText("Plusgirokonto SEK");
+    // F128: the preview before anything is written — every row with its *Will be*, the header line, Import N
+    const preview = page.getByTestId("import-preview");
+    await expect(preview).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("import-preview-header")).toContainText(
+      "12 rows · 2026-07-03 → 2026-07-28",
+    );
+    const previewRows = page.getByTestId("import-preview-row");
+    await expect(previewRows).toHaveCount(12);
+    await expect(
+      previewRows.filter({ hasText: "AVGIFTER NORDEA" }).getByTestId("import-will-be"),
+    ).toHaveText("no proof needed · Nordea bank fees · Nordea"); // the seed's default rule, the bank its partner
+    await expect(
+      previewRows.filter({ hasText: "OPENAI" }).getByTestId("import-will-be"),
+    ).toHaveText("new");
+    await expect(page.getByTestId("import-run")).toHaveText("Import 12");
     await page.getByTestId("import-run").click();
     const summary = page.getByTestId("import-summary");
     await expect(summary).toBeVisible({ timeout: 20_000 });
@@ -36,6 +52,58 @@ test.describe("Banking", () => {
     // F129 (D73): the fee rule names the bank — the row is justified with a partner, not merely flagged
     await expect(feeRow).toContainText("Nordea");
 
+    // 1b. the same export again with two new rows (a vendor, August's fee): the preview greys the twelve as
+    //     duplicates, the fee row is *no proof needed* by the rule, Import 2 — then Escape: nothing is written.
+    //     The screenshot of the preview comes from here.
+    await expect(page.getByText("12 imported · 0 duplicates · 0 errors")).toBeHidden({
+      timeout: 15_000,
+    }); // the import's toast, gone before the picture
+    await page.getByTestId("open-import").click();
+    await page.getByTestId("import-file").setInputFiles({
+      name: "PLUSGIROKONTO FTG 123 45 67-8 - 2026-08-02 09.00.00.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.concat([
+        readFileSync(join(FIXTURES, "nordea-2026-07-sek-sample.csv")),
+        Buffer.from(
+          [
+            "2026/08/02;-85,00;;;AVGIFTER NORDEA;Priset for juli;;;;SEK;",
+            "2026/07/29;-1297,20;;822-3877;SKATTEPUNKTEN OFFICE;Skattepunkten Office Services AB;2026-071;Ex-Acc;;SEK;",
+            "",
+          ].join("\n"),
+          "latin1",
+        ),
+      ]),
+    });
+    await expect(preview).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("import-preview-header")).toContainText("14 rows");
+    await expect(page.getByTestId("import-preview-header")).toContainText("12 duplicates");
+    await expect(
+      page.locator('[data-testid="import-preview-row"][data-will-be="duplicate"]'),
+    ).toHaveCount(12);
+    const augustFee = page.locator('[data-testid="import-preview-row"][data-will-be="no_proof"]');
+    await expect(augustFee).toHaveCount(1);
+    await expect(augustFee).toContainText("AVGIFTER NORDEA");
+    await expect(augustFee.getByTestId("import-will-be")).toHaveText(
+      "no proof needed · Nordea bank fees · Nordea",
+    );
+    await expect(
+      previewRows.filter({ hasText: "SKATTEPUNKTEN OFFICE" }).getByTestId("import-will-be"),
+    ).toHaveText("new");
+    await expect(
+      previewRows.filter({ hasText: "OPENAI" }).getByTestId("import-will-be"),
+    ).toHaveText("duplicate — already imported");
+    await expect(page.getByTestId("import-run")).toHaveText("Import 2");
+    if (process.env.E2E_SCREENSHOTS) {
+      const shots = join(__dirname, "..", "specs", "justify", "screenshots");
+      mkdirSync(shots, { recursive: true });
+      await previewRows.last().scrollIntoViewIfNeeded(); // the new rows sit at the bottom of the file
+      await page.getByTestId("import-dialog").screenshot({
+        path: join(shots, "import-preview.png"),
+      });
+    }
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("import-dialog")).toBeHidden();
+
     // 2. the OpenAI row: categorise by hand, then "create rule from this"
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
     const panel = page.getByTestId("transaction-panel");
@@ -43,6 +111,39 @@ test.describe("Banking", () => {
     // D40 money: U+2212 minus, "." decimals, U+202F / no-break spaces (lessons: match with \s)
     await expect(panel.getByTestId("panel-amount")).toHaveText(/^−132\.52\sSEK$/);
     await expect(panel.getByTestId("panel-state")).toHaveText("Open");
+    // F131: the work surface — the three zones; ≈ 55 % of the canvas by default; ← on the handle widens it by
+    // 40 px and the width is remembered with the table (asserted after the next reload, step 3)
+    await expect(panel.getByTestId("zone-row")).toBeVisible();
+    await expect(panel.getByTestId("zone-proof")).toBeVisible();
+    await expect(panel.getByTestId("zone-facts")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "As the bank said" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    const widthOf = (selector: string) =>
+      page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+    const handle = panel.getByRole("separator", { name: "Resize the panel" });
+    // the journey owns its state: a width remembered by an earlier run goes first (double-click = the default)
+    await handle.dblclick();
+    const canvas = await widthOf("[data-slot=details-canvas]");
+    const defaultWidth = await widthOf("[data-testid=transaction-panel]");
+    expect(Math.abs(defaultWidth / canvas - 0.55)).toBeLessThan(0.02);
+    if (process.env.E2E_SCREENSHOTS) {
+      const shots = join(__dirname, "..", "specs", "justify", "screenshots");
+      mkdirSync(shots, { recursive: true });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(panel.getByTestId("zone-facts")).toBeVisible();
+      await page.screenshot({ path: join(shots, "work-surface.png") });
+      await page.emulateMedia({ colorScheme: "dark" });
+      // the rows and the nav transition their colours (150 ms): shoot once every transition has ended
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+      await page.screenshot({ path: join(shots, "work-surface-dark.png") });
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.setViewportSize({ width: 1280, height: 720 });
+    }
+    await handle.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect.poll(() => widthOf("[data-testid=transaction-panel]")).toBe(defaultWidth + 40);
     await panel.getByLabel("Category").click();
     await page.getByRole("option", { name: /^654 · IT services/ }).click();
     await expect(page.getByText("Saved").first()).toBeVisible();
@@ -87,6 +188,8 @@ test.describe("Banking", () => {
     await page.getByTestId("import-show-rows").click();
     await page.getByRole("row").filter({ hasText: "TRANSFER TO OWN ACCOUNT" }).click();
     await expect(panel.getByTestId("accept-transfer")).toBeVisible();
+    // F131: the width chosen in step 2 came back with the table's layout (two reloads later)
+    await expect.poll(() => widthOf("[data-testid=transaction-panel]")).toBe(defaultWidth + 40);
     await expect(panel).toContainText("implied 1");
     await panel.getByTestId("accept-transfer").click();
     await expect(page.getByText("Transfer pair linked")).toBeVisible();

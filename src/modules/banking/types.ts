@@ -1,7 +1,7 @@
 // Public DTOs of the banking module. Plain types only — never Prisma types (constitution §2).
 // Decimals travel as strings ("-20000.00"), dates as ISO strings ("2026-07-08").
 
-import type { LinkableType, LinkKind } from "@/modules/linking";
+import type { Confidence, LinkableType, LinkKind } from "@/modules/linking";
 import type { BaseRateResult } from "@/modules/rates";
 import type { BalanceGap } from "./completeness";
 import type { BankFormatConfig } from "./csv-parser";
@@ -146,6 +146,74 @@ export type ImportSummary = BankImportDto & {
   /** rules applied on the new rows */
   categorised: number;
   /** the account's balance chain after this import (F115): how far it proves the account, the gaps it found */
+  completeTo: string | null;
+  balanceGaps: BalanceGap[];
+};
+
+/**
+ * The *Will be* word of a previewed row (F128, review 2026-10-31 §6.1) — one place derives it:
+ * `duplicate` (already in the account — Import skips it) · `invoice` (an open issued invoice's number is in the
+ * row's text — Suggestions will find it; a link on a click only, D60) · `no_proof` (a rule sets *no document
+ * needed*) · `category` (a rule sets a category or a partner) · `new` (nothing more is known yet).
+ */
+export type ImportPreviewVerdict = "duplicate" | "invoice" | "no_proof" | "category" | "new";
+
+/** What the first rule to hit a parsed row would write — the import's dry run on the file (F128). */
+export type ImportPreviewRuleHit = {
+  ruleName: string;
+  noDocumentNeeded: boolean;
+  basCode: string | null;
+  /** `657 · Bank charges` — settings' label, null when the code is not in the tenant's BAS set */
+  basLabel: string | null;
+  partnerId: string | null;
+  partnerName: string | null;
+};
+
+/** An open issued invoice whose number is a token of an incoming row's text — the scorer's reference claim (F128). */
+export type ImportPreviewInvoice = {
+  invoiceId: string;
+  number: string;
+  partnerName: string | null;
+  /** the confidence linking's scorer gives the pair today — what *Suggestions* will show after Import */
+  confidence: Confidence;
+};
+
+export type ImportPreviewRow = {
+  /** 0-based position among the data rows of the file */
+  rowIndex: number;
+  /** ISO booking date */
+  date: string;
+  /** signed, 2 dp, in the account's currency */
+  amount: string;
+  currency: string;
+  /** the derived description (name → details → sender → recipient) */
+  counterparty: string;
+  /** the Message column, verbatim */
+  reference: string | null;
+  duplicate: boolean;
+  rule: ImportPreviewRuleHit | null;
+  invoice: ImportPreviewInvoice | null;
+  willBe: ImportPreviewVerdict;
+};
+
+/** The import dialog's preview (F128): the file read against its account, nothing written. */
+export type ImportPreview = {
+  bankAccountId: string;
+  accountLabel: string;
+  currency: string;
+  fileName: string;
+  rows: ImportPreviewRow[];
+  recordCount: number;
+  duplicateCount: number;
+  /** the rows *Import* will write = recordCount − duplicateCount */
+  willImport: number;
+  /** rows a rule would categorise or flag */
+  ruleHits: number;
+  /** incoming rows whose text names an open issued invoice */
+  invoicesFound: number;
+  periodFrom: string | null;
+  periodTo: string | null;
+  /** the account's balance chain with this file's new rows in (F115) — reported, never a refusal */
   completeTo: string | null;
   balanceGaps: BalanceGap[];
 };

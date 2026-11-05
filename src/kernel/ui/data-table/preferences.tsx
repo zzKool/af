@@ -115,6 +115,9 @@ export type TableLayoutState = {
   /** the docked details panel of this table's page collapsed to its rail — remembered like the columns */
   panelHidden: boolean;
   setPanelHidden(hidden: boolean): void;
+  /** the docked details panel's width the user dragged to (F131), px; null = the page's default */
+  panelWidth: number | null;
+  setPanelWidth(px: number | null): void;
 };
 
 /** The layout of one table: server copy first, else the browser's, else the columns' defaults. */
@@ -161,12 +164,22 @@ export function useTableLayout<
         ...EMPTY_LAYOUT,
         hidden: defaultHidden,
         ...(layout.panelHidden ? { panelHidden: true as const } : {}),
+        ...(layout.panelWidth ? { panelWidth: layout.panelWidth } : {}),
       }),
     isDefault: isDefaultLayout(layout, defaultHidden),
     panelHidden: layout.panelHidden === true,
     setPanelHidden: (h) => {
       const { panelHidden: _, ...rest } = layout;
       commit(h ? { ...rest, panelHidden: true } : rest);
+    },
+    panelWidth: layout.panelWidth ?? null,
+    setPanelWidth: (px) => {
+      const { panelWidth: _, ...rest } = layout;
+      commit(
+        px != null && Number.isFinite(px) && px > 0
+          ? { ...rest, panelWidth: Math.round(px) }
+          : rest,
+      );
     },
   };
 }

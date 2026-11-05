@@ -11,6 +11,8 @@ export type TableLayout = {
   widths: Record<string, number>;
   /** the docked details panel collapsed to its rail on this table's page (F74) — absent = open */
   panelHidden?: true;
+  /** the docked details panel's width on this table's page, px (F131) — absent = the page's default */
+  panelWidth?: number;
 };
 
 export const MIN_COLUMN_WIDTH = 48;
@@ -37,6 +39,9 @@ export function normalizeLayout(raw: unknown): TableLayout {
     order: [...new Set(strings(r.order))],
     widths,
     ...(r.panelHidden === true ? { panelHidden: true as const } : {}),
+    ...(typeof r.panelWidth === "number" && Number.isFinite(r.panelWidth) && r.panelWidth > 0
+      ? { panelWidth: Math.round(r.panelWidth) }
+      : {}),
   };
 }
 
@@ -99,7 +104,7 @@ export function dropColumn<C extends { key: string; header?: unknown }>(
   return moveColumn(columns, order, key, to - from);
 }
 
-/** True when the columns are as a default table shows them (the panel's open / hidden is not a column matter). */
+/** True when the columns are as a default table shows them (the panel's open / hidden / width is not a column matter). */
 export function isDefaultLayout(layout: TableLayout, defaultHidden: readonly string[]): boolean {
   const h = [...layout.hidden].sort().join("|");
   const d = [...defaultHidden].sort().join("|");
