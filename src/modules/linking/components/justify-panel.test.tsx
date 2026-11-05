@@ -382,6 +382,19 @@ describe("JustifyPanel — the fourth exit, *This row refunds me* (F131 §5.1)",
       `/expenses/settle?row=${ROW}`,
     );
     expect(screen.getByTestId("justify-refund")).toHaveTextContent("This row refunds me");
+    cleanup();
+    // the reasons open (the inbox's `n` keeps them open on the next rows): the exit stays — it is not a reason
+    render(
+      <JustifyPanel
+        row={row}
+        canWrite
+        options={{ ...options, openPrivateCount: 2 }}
+        noProofKey={1}
+      />,
+    );
+    await screen.findByTestId("justify-reasons");
+    expect(screen.getByTestId("justify-refund")).toBeInTheDocument();
+    expect(screen.queryByTestId("justify-lost")).not.toBeInTheDocument();
   });
 
   it("nothing open on the ledger, or an incoming row: no such exit", async () => {

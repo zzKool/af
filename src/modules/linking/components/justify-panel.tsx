@@ -539,9 +539,10 @@ export function JustifyPanel({
                 {t("linking.justify.lost")}
               </Button>
             )}
-            {!reasonsOpen && (options?.openPrivateCount ?? 0) > 0 && (
+            {(options?.openPrivateCount ?? 0) > 0 && (
               // the fourth exit (review §5.1): the settle page with this row preselected — the FIFO over the open
-              // private expenses, the settlement and its statement written there as today
+              // private expenses, the settlement and its statement written there as today; it stays while the
+              // reasons are open (the inbox's `n` keeps them open on the next rows) — it is not one of them
               <Button
                 size="sm"
                 variant="outline"
