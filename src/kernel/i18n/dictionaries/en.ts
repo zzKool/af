@@ -624,7 +624,7 @@ export const en = {
   "banking.days.year": "Year",
   "banking.days.dayByDay": "Day by day",
   "banking.days.money": "In / out",
-  "banking.days.day": "{date}: in {in}, out {out} · {rows} rows, {toJustify} to justify",
+  "banking.days.day": "{date}: in {in}, out {out} (base currency) · {rows} rows, {toJustify} to justify",
   "banking.meta.need": "{count} need you",
   "banking.meta.done": "{count} done",
   "banking.meta.noProof": "{count} need no proof",

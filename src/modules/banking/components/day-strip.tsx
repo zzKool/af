@@ -132,8 +132,8 @@ export function DayStrip({
             const on = d === selectedDay;
             const label = t("banking.days.day", {
               date: d,
-              in: formatMoney(inB.toFixed(2), "SEK"),
-              out: formatMoney(outB.toFixed(2), "SEK"),
+              in: formatMoney(inB.toFixed(2), null),
+              out: formatMoney(outB.toFixed(2), null),
               rows,
               toJustify,
             });

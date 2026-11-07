@@ -247,22 +247,15 @@ export function TransactionTable({
         header: t("banking.col.amount"),
         type: "money",
         width: "8rem",
-        // D76: the amount in mono, bold; in a foreign currency the base under it
+        // D76: the amount in mono, bold (the base amount is the work surface's)
         cell: (row) => (
-          <span className="flex flex-col items-end">
-            <span
-              className={cn(
-                "font-mono font-semibold tabular-nums",
-                !row.amount.startsWith("-") && "text-state-done",
-              )}
-            >
-              {formatMoney(row.amount, row.currency, { signed: true })}
-            </span>
-            {row.currency !== "SEK" && (
-              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                {formatMoney(row.amountBase, "SEK", { signed: true })}
-              </span>
+          <span
+            className={cn(
+              "font-mono font-semibold tabular-nums",
+              !row.amount.startsWith("-") && "text-state-done",
             )}
+          >
+            {formatMoney(row.amount, row.currency, { signed: true })}
           </span>
         ),
       },
