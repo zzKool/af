@@ -1,5 +1,6 @@
-// The work surface (F131, review 2026-10-31 §6.2): the detail view shows three zones — the row · the proof ·
-// the facts — with *As the bank said* and *History* as collapsed footers; the row line carries the bank's facts;
+// The work surface (F131, review 2026-10-31 §6.2; D76): the detail view shows the row as a hero and three
+// numbered steps — proof · partner · category — with *As the bank said* and *History* as collapsed footers; the
+// row line carries the bank's facts;
 // the panel opens at the work surface's default width. Invented rows (D51). The linking components the zones
 // host are stubbed: this file tests the arrangement, their own tests test them.
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
@@ -167,18 +168,20 @@ afterEach(() => {
   sheetProps.length = 0;
 });
 
-describe("the work surface — three zones and two collapsed footers", () => {
-  it("an open row: the row · the proof (the Justify panel, the candidates) · the facts, in that order", async () => {
+describe("the work surface — the hero, three steps and two collapsed footers (D76)", () => {
+  it("an open row: 1 · Proof (the Justify panel, the candidates) · 2 · Partner · 3 · Category (the form), each marked", async () => {
     renderView(makeDetail());
-    const zones = await screen.findAllByRole("region");
-    expect(zones.map((z) => z.getAttribute("data-testid"))).toEqual([
-      "zone-row",
-      "zone-proof",
-      "zone-facts",
+    await screen.findByTestId("zone-proof");
+    const steps = [...document.querySelectorAll("[data-step]")];
+    expect(steps.map((z) => [z.getAttribute("data-step"), z.getAttribute("data-status")])).toEqual([
+      ["proof", "missing"],
+      ["partner", "missing"],
+      ["category", "missing"],
     ]);
-    expect(screen.getByRole("heading", { name: "The row" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The proof" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The facts" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^1 · Proof/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^2 · Partner/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^3 · Category/ })).toBeInTheDocument();
+    expect(screen.getByTestId("panel-verdict")).toHaveTextContent("3 of 3 still missing.");
 
     const proof = screen.getByTestId("zone-proof");
     expect(within(proof).getByTestId("justify-panel")).toBeInTheDocument();
@@ -199,7 +202,7 @@ describe("the work surface — three zones and two collapsed footers", () => {
     expect(within(row).getByTestId("row-reference")).toHaveTextContent("2026-071");
     // D40 money: U+2212 minus, U+202F thousands, the code after
     expect(within(row).getByTestId("row-base")).toHaveTextContent(/−1\s297\.20 SEK at 1 \(/);
-    // the title line: date · amount · state; the account as a tag with the bank's text
+    // the hero: the amount large, the state with its sentence
     expect(screen.getByTestId("panel-amount")).toHaveTextContent(/^−1\s297\.20 SEK$/);
     expect(screen.getByTestId("panel-state")).toHaveTextContent("Open");
   });
@@ -214,8 +217,8 @@ describe("the work surface — three zones and two collapsed footers", () => {
     fireEvent.click(raw);
     expect(raw).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("nordea-2026-07.csv")).toBeVisible();
-    // the footers come after the zones
-    const zones = screen.getAllByRole("region");
+    // the footers come after the steps
+    const zones = [...document.querySelectorAll("[data-step]")];
     expect(
       zones[zones.length - 1]?.compareDocumentPosition(raw) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

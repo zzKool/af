@@ -64,10 +64,15 @@ const PAGE = "flex min-h-full flex-col gap-4 px-5 pt-3.5 pb-5";
 export function ListPage({
   children,
   className,
+  ground = false,
   ...header
-}: PageHeaderProps & { children: ReactNode }) {
+}: PageHeaderProps & {
+  children: ReactNode;
+  /** D76: the page sits on the dotted ground with its own cards — the shell's canvas card turns off */
+  ground?: boolean;
+}) {
   return (
-    <div className={cn(PAGE, className)}>
+    <div className={cn(PAGE, className)} data-ground={ground ? "" : undefined}>
       <PageHeader {...header} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>

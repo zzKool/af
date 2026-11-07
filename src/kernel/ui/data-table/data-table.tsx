@@ -18,7 +18,7 @@ import {
   Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ import { PAGE_SIZE_OPTIONS } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import { useDockedPanel } from "@/kernel/ui/shell/details-dock";
+import type { StateFamily } from "@/kernel/ui/state-label";
 import { cn } from "@/lib/utils";
 import { describeFilter } from "./filter-bar";
 import { CheckboxFilter } from "./filters/checkbox-filter";
@@ -89,6 +90,10 @@ export interface DataTableProps<Row extends { id: string }> {
   rowActions?: (row: Row) => RowAction[];
   /** Right-aligned context in the filter bar (a balance, an as-of date). */
   context?: ReactNode;
+  /** D76: a 3 px bar on the row's left edge in its state family's colour (neutral / null = none) */
+  rowAccent?: (row: Row) => StateFamily | null;
+  /** D76: the row open in the details panel — highlighted, a 4 px primary bar */
+  activeRowId?: string | null;
 }
 
 const RIGHT_TYPES: ColumnType[] = ["number", "money"];
@@ -153,6 +158,8 @@ export function DataTable<Row extends { id: string }>({
   rowHeight = 32,
   rowActions,
   context,
+  rowAccent,
+  activeRowId = null,
 }: DataTableProps<Row>) {
   const t = useT();
   const router = useRouter();
@@ -166,6 +173,14 @@ export function DataTable<Row extends { id: string }>({
     setWidth: tableLayout.setPanelWidth,
   });
   const { hidden, layout } = tableLayout;
+  // the row open in the panel stays in view when it changes (the panel's ↑ ↓, a link that opens a row)
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!activeRowId) return;
+    bodyRef.current
+      ?.querySelector("tr[data-active]")
+      ?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [activeRowId]);
   const columns = useMemo(
     () => orderColumns(allColumns, layout.order).filter((c) => !hidden.has(c.key)),
     [allColumns, layout.order, hidden],
@@ -353,6 +368,7 @@ export function DataTable<Row extends { id: string }>({
       </div>
 
       <div
+        ref={bodyRef}
         className={cn("relative overflow-auto border-b border-subtle", isPending && "opacity-60")}
         aria-busy={isPending}
       >
@@ -494,6 +510,8 @@ export function DataTable<Row extends { id: string }>({
                 <TableRow
                   key={row.id}
                   data-state={isSelected ? "selected" : undefined}
+                  data-accent={rowAccent?.(row) ?? undefined}
+                  data-active={activeRowId === row.id ? "" : undefined}
                   style={{ height: rowHeight }}
                   className={cn("border-b border-subtle", clickable && "cursor-pointer")}
                   onClick={(e) => {
@@ -548,7 +566,7 @@ export function DataTable<Row extends { id: string }>({
                     );
                   })}
                   <TableCell
-                    className="sticky right-0 w-9 bg-surface px-1 py-0 text-right [tr:hover_&]:bg-hover [tr[data-state=selected]_&]:bg-selection"
+                    className="sticky right-0 w-9 bg-surface px-1 py-0 text-right [tr:hover_&]:bg-hover [tr[data-state=selected]_&]:bg-selection [tr[data-active]_&]:bg-selection"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {rowActions && (

@@ -54,7 +54,7 @@ export function MonthsPanel({
     <section
       aria-label={t("banking.months.title")}
       data-testid="months-panel"
-      className="rounded-md border bg-surface p-3"
+      className="rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
     >
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         <h2 className="text-[13px] font-semibold">{t("banking.months.title")}</h2>
