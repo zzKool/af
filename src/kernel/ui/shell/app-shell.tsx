@@ -6,7 +6,8 @@
 //   │ 68px │ breadcrumb · page (main, the scroll container) │ details dock │
 //   └──────┴──────────────────────────────────────────────────────────────────────────────┘
 // The page content is server-rendered children; the shell only arranges it. Pages move from the one
-// canvas card to their own cards on the ground screen by screen (docs/roadmap.md, the Pulse phases).
+// canvas card to their own cards on the ground screen by screen (docs/roadmap.md, the Pulse phases): a page that
+// renders `data-ground` (ListPage's `ground`) turns the canvas card off, and the docked panel becomes a card.
 import type { ReactNode } from "react";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { RunSearch } from "@/kernel/search/types";
@@ -49,7 +50,8 @@ export function AppShell({
             search={search}
             saveTheme={saveTheme}
           />
-          <div className="mx-3 mb-3 flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-subtle bg-surface shadow-card">
+          {/* a page on the ground (`ListPage ground`, D76) turns the card off: its own cards sit on the dots */}
+          <div className="group/canvas mx-3 mb-3 flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-subtle bg-surface shadow-card has-[[data-ground]]:overflow-visible has-[[data-ground]]:border-transparent has-[[data-ground]]:bg-transparent has-[[data-ground]]:shadow-none">
             <DockedCanvas>
               {/* main is the intentional scroll container — sticky table headers depend on it */}
               <main className="min-h-0 min-w-0 flex-1 overflow-auto">

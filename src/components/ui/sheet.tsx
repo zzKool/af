@@ -174,7 +174,7 @@ function SheetContent({
       return createPortal(
         <div
           data-slot="details-rail"
-          className="flex h-full w-10 flex-col items-center border-l bg-surface pt-3"
+          className="flex h-full w-10 flex-col items-center border-l bg-surface pt-3 group-has-[[data-ground]]/canvas:ml-3 group-has-[[data-ground]]/canvas:rounded-2xl group-has-[[data-ground]]/canvas:border group-has-[[data-ground]]/canvas:border-subtle group-has-[[data-ground]]/canvas:shadow-card"
         >
           <Button
             variant="ghost"
@@ -203,7 +203,8 @@ function SheetContent({
           data-side="right"
           data-docked=""
           className={cn(
-            "relative flex h-full w-[380px] flex-col gap-4 overflow-y-auto border-l bg-surface px-4 py-3.5 outline-none xl:w-[400px]",
+            // on a ground page (D76) the docked panel is a card of its own beside the page's cards
+            "relative flex h-full w-[380px] flex-col gap-4 overflow-y-auto border-l bg-surface px-4 py-3.5 outline-none xl:w-[400px] group-has-[[data-ground]]/canvas:ml-3 group-has-[[data-ground]]/canvas:rounded-2xl group-has-[[data-ground]]/canvas:border group-has-[[data-ground]]/canvas:border-subtle group-has-[[data-ground]]/canvas:shadow-card",
             className,
           )}
           style={width != null ? { width } : undefined}

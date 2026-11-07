@@ -1,14 +1,15 @@
 "use client";
 
-// The transactions workbench (D20, D40): DataTable on TRANSACTION_COLUMNS with the derived state as a
-// <StateLabel>, the money in the row's currency (`formatMoney`, signed), Month and Account as quick filters,
-// the balances as the filter bar's context, the docked details panel for the selected row — the work surface
-// (F131 §6.2): four columns beside it by default, the rest in the chooser. The title row's actions (Import CSV,
-// Inbox, Imports, Rules) are `header-actions.tsx`.
+// The transactions workbench (D20, D40, D76 Pulse): on the ground — the account cards (balance, completeness, the
+// month's bar), the Months panel, then the list in its card: the segments *All · Needs you · Done · No proof
+// needed* with their counts, the DataTable on TRANSACTION_COLUMNS — each row with a bar in its state's colour,
+// the three dots (proof · partner · category) and the derived state as a <StateLabel>, the money in the row's
+// currency (`formatMoney`, signed), Month and Account as quick filters, a ⋮ per row — and the docked work surface
+// for the selected row (F131 §6.2), highlighted in the list. The title row's actions are `header-actions.tsx`.
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
-import type { ListResult } from "@/kernel/list-query/types";
+import type { InFilter, ListResult } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
 import {
@@ -18,21 +19,25 @@ import {
   useListQuery,
 } from "@/kernel/ui/data-table";
 import { Tag } from "@/kernel/ui/tags";
+import { cn } from "@/lib/utils";
 import {
   distinctTransactionsAction,
   transactionDateHierarchyAction,
 } from "@/modules/banking/banking.actions";
 import type { TransactionColumn } from "@/modules/banking/queries";
+import { transactionStateFamily } from "@/modules/banking/state-family";
+import { rowSteps } from "@/modules/banking/steps";
 import type {
-  AccountBalance,
   BankMonthsOverview,
   TransactionListRow,
   TransactionState,
 } from "@/modules/banking/types";
 import { type JustifyOptions, ProposedCode } from "@/modules/linking/ui";
+import { type AccountCardBalance, AccountCards } from "./account-cards";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
+import { DayStrip } from "./day-strip";
 import type { AccountOption } from "./import-dialog";
-import { MonthsPanel } from "./months-panel";
+import { StepDots, StepDotsLegend } from "./step-dots";
 import { TransactionPanel } from "./transaction-panel";
 import { TransactionStateLabel } from "./transaction-state";
 
@@ -71,6 +76,15 @@ const COLUMN_KEYS = [
   "bankImportId",
   "createdAt",
 ] as const;
+/** the list's segments (D76): which derived states each one shows — *Needs you* = the four still to justify */
+export const SEGMENTS = {
+  all: [],
+  need: ["open", "partial", "linked_no_partner", "no_document_no_partner"],
+  done: ["linked"],
+  noProof: ["no_document"],
+} as const satisfies Record<string, readonly TransactionState[]>;
+type Segment = keyof typeof SEGMENTS;
+
 const DEFAULT_SORT = [
   { col: "bookingDate", dir: "desc" as const },
   { col: "createdAt", dir: "desc" as const },
@@ -87,9 +101,10 @@ export function TransactionTable({
   canWrite,
   initialSelectedId,
   months,
+  stateCounts = {},
 }: {
   result: ListResult<TransactionRow>;
-  balances: (Omit<AccountBalance, "lastImportAt"> & { lastImportAt: string | null })[];
+  balances: AccountCardBalance[];
   accounts: AccountOption[];
   categories: CategoryOption[];
   partners: PartnerOption[];
@@ -102,6 +117,8 @@ export function TransactionTable({
   initialSelectedId?: string | null;
   /** the Months panel (F69) — omitted, no panel */
   months?: BankMonthsOverview;
+  /** rows per derived state under every filter but the state's own — the segments' counts */
+  stateCounts?: Partial<Record<TransactionState, number>>;
 }) {
   const t = useT();
   const router = useRouter();
@@ -143,6 +160,11 @@ export function TransactionTable({
     !dateFilter.empty
       ? dateFilter.months[0]
       : null;
+  // D76: the day strip's day — the date filter on exactly one day
+  const selectedDay =
+    dateFilter?.kind === "dates" && dateFilter.days?.length === 1 && !dateFilter.months?.length
+      ? dateFilter.days[0]
+      : null;
 
   const accountLabels = useMemo(
     () => Object.fromEntries(accounts.map((a) => [a.id, a.label])),
@@ -159,8 +181,9 @@ export function TransactionTable({
     [partners],
   );
 
-  // The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner): four columns by default —
-  // **Date · Amount · Counterparty · State** — in the ≈ 45 % left of the 55 % panel at 1440 px, no sideways scroll.
+  // The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner; D76 the Pulse board): five
+  // columns by default — **Date · Counterparty (who + the bank text) · proof · partner · category · State · Amount** —
+  // in the ≈ 45 % left of the 55 % panel at 1440 px, no sideways scroll.
   // Account, Description, Category, Partner, Proposed, Note… stay one click away in the column chooser (the
   // Account quick filter and the balances strip do not need the column); a user's saved layout wins as always.
   const columns = useMemo<DataTableColumn<TransactionRow>[]>(
@@ -169,18 +192,12 @@ export function TransactionTable({
         key: "bookingDate",
         header: t("banking.col.bookingDate"),
         type: "date",
-        width: "6.5rem",
+        width: "6rem",
         alwaysVisible: true,
         quickFilter: true,
-      },
-      {
-        key: "amount",
-        header: t("banking.col.amount"),
-        type: "money",
-        width: "8rem",
         cell: (row) => (
-          <span className={`tabular-nums ${row.amount.startsWith("-") ? "" : "text-state-done"}`}>
-            {formatMoney(row.amount, row.currency, { signed: true })}
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {row.bookingDate}
           </span>
         ),
       },
@@ -188,19 +205,59 @@ export function TransactionTable({
         key: "counterpartyKey",
         header: t("banking.col.counterparty"),
         type: "text",
-        width: "12rem",
+        width: "11rem",
+        // D76: who in bold (the partner when there is one, else the bank's key), the bank's text under it
         cell: (row) => (
-          <span className="block truncate" title={row.description}>
-            {row.counterpartyKey}
+          <span className="flex min-w-0 flex-col" title={row.description}>
+            <span className="truncate font-semibold">{row.partnerName ?? row.counterpartyKey}</span>
+            <span className="truncate font-mono text-[11px] text-muted-foreground">
+              {row.description}
+            </span>
           </span>
+        ),
+      },
+      {
+        key: "steps",
+        header: t("banking.col.steps"),
+        type: "text",
+        width: "5rem",
+        sortable: false,
+        filterable: false,
+        // D76: proof · partner · category as three dots (derived, display only — no server column)
+        cell: (row) => (
+          <StepDots
+            steps={rowSteps({
+              state: row.state,
+              partnerId: row.partnerId,
+              basCode: row.basCode,
+              proposedBasCode: row.proposedBasCode,
+            })}
+          />
         ),
       },
       {
         key: "state",
         header: t("banking.col.state"),
         type: "enum",
-        width: "11.5rem",
-        cell: (row) => <TransactionStateLabel state={row.state} />,
+        width: "8.5rem",
+        cell: (row) => <TransactionStateLabel state={row.state} variant="chip" />,
+      },
+      {
+        key: "amount",
+        header: t("banking.col.amount"),
+        type: "money",
+        width: "8rem",
+        // D76: the amount in mono, bold (the base amount is the work surface's)
+        cell: (row) => (
+          <span
+            className={cn(
+              "font-mono font-semibold tabular-nums",
+              !row.amount.startsWith("-") && "text-state-done",
+            )}
+          >
+            {formatMoney(row.amount, row.currency, { signed: true })}
+          </span>
+        ),
       },
       {
         key: "accountLabel",
@@ -412,85 +469,165 @@ export function TransactionTable({
     [t],
   );
 
-  // each account's latest balance, right of the filters; a click = the Account filter on that account
-  const balancesContext = (
-    <div className="flex flex-wrap items-center gap-1" data-testid="account-balances">
-      {balances.map((b) => {
-        const active = activeAccounts.length === 1 && activeAccounts[0] === b.label;
-        return (
-          <button
-            type="button"
-            key={b.bankAccountId}
-            aria-pressed={active}
-            title={
-              b.balanceDate
-                ? t("banking.balances.asOf", { date: b.balanceDate })
-                : t("banking.balances.never")
-            }
-            className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs hover:bg-hover ${active ? "bg-selection" : ""}`}
-            onClick={() =>
-              state.setFilter("accountLabel", active ? null : { kind: "in", values: [b.label] })
-            }
-          >
-            <span className="text-muted-foreground">{b.label}</span>
-            <span className="tabular-nums">
-              {b.balance ? formatMoney(b.balance, b.currency) : "—"}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+  // the segments (D76): the state filter as four buttons, each with its count under the other filters
+  const stateFilter = state.query.filters.state;
+  const stateValues = stateFilter?.kind === "in" ? stateFilter.values : [];
+  const sameSet = (a: readonly string[], b: readonly (string | null)[]) =>
+    a.length === b.length && a.every((v) => b.includes(v));
+  const activeSegment = (Object.keys(SEGMENTS) as Segment[]).find((k) =>
+    sameSet(SEGMENTS[k], stateValues),
+  );
+  const countOf = (k: Segment) =>
+    k === "all"
+      ? Object.values(stateCounts).reduce((n, c) => n + (c ?? 0), 0)
+      : SEGMENTS[k].reduce((n, st) => n + (stateCounts[st] ?? 0), 0);
+  const segments = (
+    <>
+      <fieldset
+        className="m-0 inline-flex min-w-0 gap-0.5 rounded-[10px] border border-subtle bg-surface-2 p-[3px]"
+        data-testid="state-segments"
+      >
+        <legend className="sr-only">{t("banking.segments.label")}</legend>
+        {(Object.keys(SEGMENTS) as Segment[]).map((k) => {
+          const on = activeSegment === k;
+          return (
+            <button
+              type="button"
+              key={k}
+              aria-pressed={on}
+              onClick={() =>
+                state.setFilter(
+                  "state",
+                  k === "all"
+                    ? null
+                    : ({ kind: "in", values: [...SEGMENTS[k]] } satisfies InFilter),
+                )
+              }
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-[7px] px-3 text-[12.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                on
+                  ? "bg-action font-semibold text-action-fg"
+                  : "text-muted-foreground hover:bg-hover hover:text-foreground",
+              )}
+            >
+              {t(`banking.segments.${k}`)}
+              <span className="text-[11px] tabular-nums opacity-80">{countOf(k)}</span>
+            </button>
+          );
+        })}
+      </fieldset>
+    </>
   );
 
+  // the bars count the Month filter's month, else the newest month with rows
+  const cardsMonth =
+    selectedMonth ??
+    selectedDay?.slice(0, 7) ??
+    [...(months?.months ?? [])].reverse().find((m) => m.justified + m.toJustify > 0)?.month ??
+    null;
+
+  // the open row's place in the page, for the work surface's ↑ ↓
+  const index = selectedId ? result.rows.findIndex((r) => r.id === selectedId) : -1;
+  const nav =
+    index >= 0
+      ? {
+          index,
+          total: result.rows.length,
+          prev: index > 0 ? () => setSelectedId(result.rows[index - 1]?.id ?? null) : undefined,
+          next:
+            index < result.rows.length - 1
+              ? () => setSelectedId(result.rows[index + 1]?.id ?? null)
+              : undefined,
+        }
+      : undefined;
+
   return (
-    <div className="flex flex-col gap-3">
-      {months && (
-        <MonthsPanel
+    <div className="flex flex-col gap-4">
+      <AccountCards
+        compact={!!selectedId}
+        balances={balances}
+        months={months}
+        month={cardsMonth}
+        activeLabels={activeAccounts.filter((v): v is string => v !== null)}
+        onToggle={(label) => {
+          const active = activeAccounts.length === 1 && activeAccounts[0] === label;
+          state.setFilter("accountLabel", active ? null : { kind: "in", values: [label] });
+        }}
+      />
+      {/* a row open: the strip folds away, the list stays near the top (the cards go to one line) */}
+      {months && !selectedId && (
+        <DayStrip
           overview={months}
+          month={cardsMonth ?? months.to}
           selectedMonth={selectedMonth}
+          selectedDay={selectedDay}
           onSelectMonth={(month) =>
             state.setFilter("bookingDate", month ? { kind: "dates", months: [month] } : null)
           }
+          onSelectDay={(day) =>
+            state.setFilter(
+              "bookingDate",
+              day
+                ? { kind: "dates", days: [day] }
+                : { kind: "dates", months: [cardsMonth ?? months.to] },
+            )
+          }
         />
       )}
-      <DataTable
-        tableKey="bank-transactions"
-        columns={columns}
-        result={result}
-        state={state}
-        filterSource={filterSource}
-        valueLabel={(column, value) => {
-          if (value === null) return t("common.blanks");
-          if (column === "state") return t(`banking.state.${value as TransactionState}`);
-          if (column === "bankAccountId") return accountLabels[value] ?? value;
-          if (column === "basCode") return categoryLabels[value] ?? value;
-          if (column === "partnerId") return partnerLabels[value] ?? value;
-          if (column === "bankImportId") return importLabels[value] ?? value;
-          if (column === "categorisedBy")
-            return t(`banking.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
-          if (column === "rateSource")
-            return t(
-              `banking.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
-            );
-          if (column === "noDocumentNeeded" || column === "mixed")
-            return value === "true" ? t("common.yes") : t("common.no");
-          if (column === "basFrom" || column === "partnerFrom")
-            return t(`banking.facts.from.${value as "row" | "proof"}`);
-          return value;
-        }}
-        rowCurrency={(row) => row.currency as Currency}
-        sumCurrency={result.rows[0]?.currency as Currency | undefined}
-        onRowClick={(row) => setSelectedId(row.id)}
-        searchPlaceholder={t("banking.search")}
-        context={balancesContext}
-        emptyState={
-          Object.keys(state.query.filters).length || state.query.search
-            ? t("banking.emptyFiltered")
-            : t("banking.empty")
-        }
-      />
+      <section
+        className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 pt-3.5 pb-2 shadow-card"
+        aria-label={t("banking.list")}
+      >
+        <DataTable
+          lead={segments}
+          toolbar={<StepDotsLegend />}
+          tableKey="bank-transactions"
+          columns={columns}
+          result={result}
+          state={state}
+          filterSource={filterSource}
+          valueLabel={(column, value) => {
+            if (value === null) return t("common.blanks");
+            if (column === "state") return t(`banking.state.${value as TransactionState}`);
+            if (column === "bankAccountId") return accountLabels[value] ?? value;
+            if (column === "basCode") return categoryLabels[value] ?? value;
+            if (column === "partnerId") return partnerLabels[value] ?? value;
+            if (column === "bankImportId") return importLabels[value] ?? value;
+            if (column === "categorisedBy")
+              return t(`banking.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
+            if (column === "rateSource")
+              return t(
+                `banking.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
+              );
+            if (column === "noDocumentNeeded" || column === "mixed")
+              return value === "true" ? t("common.yes") : t("common.no");
+            if (column === "basFrom" || column === "partnerFrom")
+              return t(`banking.facts.from.${value as "row" | "proof"}`);
+            return value;
+          }}
+          rowCurrency={(row) => row.currency as Currency}
+          sumCurrency={result.rows[0]?.currency as Currency | undefined}
+          onRowClick={(row) => setSelectedId(row.id)}
+          searchPlaceholder={t("banking.search")}
+          rowAccent={(row) => transactionStateFamily(row.state)}
+          activeRowId={selectedId}
+          rowActions={(row) => [
+            { label: t("banking.rowActions.open"), onClick: () => setSelectedId(row.id) },
+            {
+              label: t("banking.rowActions.sameCounterparty"),
+              onClick: () => state.setSearch(row.counterpartyKey),
+            },
+          ]}
+          emptyState={
+            Object.keys(state.query.filters).length || state.query.search
+              ? t("banking.emptyFiltered")
+              : t("banking.empty")
+          }
+        />
+      </section>
       <TransactionPanel
         transactionId={selectedId}
+        nav={nav}
         onClose={() => setSelectedId(null)}
         categories={categories}
         partners={partners}

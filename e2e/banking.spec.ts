@@ -107,14 +107,16 @@ test.describe("Banking", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("import-dialog")).toBeHidden();
 
-    // 2. the list beside the work surface (F131 §6.2): four columns by default — Date · Amount · Counterparty ·
-    //    State — the rest in the chooser; the journey owns its layout (an earlier run may have shown more)
+    // 2. the list beside the work surface (F131 §6.2, D76): five columns by default — Date · Counterparty · the
+    //    three dots · State · Amount — the rest in the chooser; the journey owns its layout (an earlier run may
+    //    have shown more)
     await resetColumns(page);
     expect(await visibleColumns(page)).toEqual([
       "bookingDate",
-      "amount",
       "counterpartyKey",
+      "steps",
       "state",
+      "amount",
     ]);
     //    the OpenAI row: categorise by hand, then "create rule from this"
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
@@ -139,7 +141,7 @@ test.describe("Banking", () => {
     await handle.dblclick();
     const canvas = await widthOf("[data-slot=details-canvas]");
     const defaultWidth = await widthOf("[data-testid=transaction-panel]");
-    expect(Math.abs(defaultWidth / canvas - 0.55)).toBeLessThan(0.02);
+    expect(Math.abs(defaultWidth / canvas - 0.38)).toBeLessThan(0.02);
     if (process.env.E2E_SCREENSHOTS) {
       const shots = join(__dirname, "..", "specs", "justify", "screenshots");
       mkdirSync(shots, { recursive: true });
@@ -168,35 +170,43 @@ test.describe("Banking", () => {
     await expect(page.getByText("Rule saved")).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // 3. the savings file (interest rule) and the SEK leg of the move → transfer pair
+    // 3. the savings file (interest rule) and the SEK leg of the move, dropped together (D76 phase 2b: several
+    //    files at once, each to its own account, imported one after the other) → transfer pair
     await page.goto("/banking");
     await page.getByTestId("open-import").click();
-    await page.getByTestId("import-file").setInputFiles({
-      name: "SPARKONTO FÖRETAG 1234 56 78901 - 2026-12-31 10.00.00.csv",
-      mimeType: "text/csv",
-      buffer: readFileSync(join(FIXTURES, "nordea-savings-year.csv")),
-    });
-    await expect(page.getByTestId("import-account")).toContainText("Sparkonto");
-    await page.getByTestId("import-run").click();
-    await expect(page.getByTestId("import-summary")).toContainText("2 imported");
-    await expect(page.getByTestId("import-summary")).toContainText("1 categorised by rules"); // Ranta → 831
-    await page.keyboard.press("Escape");
-
-    await page.goto("/banking");
-    await page.getByTestId("open-import").click();
-    await page.getByTestId("import-file").setInputFiles({
-      name: "PLUSGIROKONTO FTG 123 45 67-8 - 2026-01-05 08.00.00.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(
-        [HEADER, "2025/12/31;-50000,00;;1234 56 78901;TRANSFER TO OWN ACCOUNT;;;;100,00;SEK;"].join(
-          "\n",
+    await page.getByTestId("import-file").setInputFiles([
+      {
+        name: "SPARKONTO FÖRETAG 1234 56 78901 - 2026-12-31 10.00.00.csv",
+        mimeType: "text/csv",
+        buffer: readFileSync(join(FIXTURES, "nordea-savings-year.csv")),
+      },
+      {
+        name: "PLUSGIROKONTO FTG 123 45 67-8 - 2026-01-05 08.00.00.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(
+          [
+            HEADER,
+            "2025/12/31;-50000,00;;1234 56 78901;TRANSFER TO OWN ACCOUNT;;;;100,00;SEK;",
+          ].join("\n"),
+          "latin1",
         ),
-        "latin1",
-      ),
+      },
+    ]);
+    const savingsCard = page.getByTestId("import-file-card").filter({ hasText: "SPARKONTO" });
+    const legCard = page.getByTestId("import-file-card").filter({ hasText: "PLUSGIROKONTO" });
+    await expect(savingsCard.getByTestId("import-account")).toContainText("Sparkonto");
+    await expect(legCard.getByTestId("import-account")).toContainText("Plusgirokonto SEK");
+    await expect(page.getByTestId("import-run")).toHaveText("Import 3 from 2 files", {
+      timeout: 20_000,
     });
-    await expect(page.getByTestId("import-account")).toContainText("Plusgirokonto SEK");
     await page.getByTestId("import-run").click();
-    await expect(page.getByTestId("import-summary")).toContainText("1 imported");
+    await expect(savingsCard.getByTestId("import-summary")).toContainText("2 imported");
+    // Ranta → 831
+    await expect(savingsCard.getByTestId("import-summary")).toContainText("1 categorised by rules");
+    await expect(legCard.getByTestId("import-summary")).toContainText("1 imported");
+    await expect(page.getByTestId("import-summary-total")).toContainText(
+      "2 files · 3 imported · 0 duplicates · 0 errors",
+    );
     await page.getByTestId("import-show-rows").click();
     await page.getByRole("row").filter({ hasText: "TRANSFER TO OWN ACCOUNT" }).click();
     await expect(panel.getByTestId("accept-transfer")).toBeVisible();

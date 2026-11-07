@@ -14,6 +14,7 @@ import {
   accountLabel,
   bankMonths,
   categoryOptions,
+  distinctTransactionValues,
   getBankAccounts,
   listImports,
   listTransactions,
@@ -25,7 +26,8 @@ import { TransactionTable, WorkbenchActions } from "@/modules/banking/ui";
 import { justifyOptions } from "@/modules/linking";
 import { getUserPreferences } from "@/modules/settings";
 
-// The transactions workbench — the URL is the query, the derived state computed server-side (D20).
+// The transactions workbench — the URL is the query, the derived state computed server-side (D20); on the ground
+// with its own cards (D76).
 export default async function BankingPage({
   searchParams,
 }: {
@@ -40,6 +42,8 @@ export default async function BankingPage({
   const today = createClock().today();
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const result = await listTransactions(tx, query);
+    // D76: the segments' counts — every filter but the state's own
+    const stateCounts = await distinctTransactionValues(tx, "state", query);
     const balances = await accountBalances(tx);
     const accounts = await getBankAccounts(tx, auth);
     const categories = await categoryOptions(tx, auth);
@@ -52,6 +56,7 @@ export default async function BankingPage({
     return {
       months,
       result,
+      stateCounts,
       balances,
       accounts: accounts.data ?? [],
       categories,
@@ -71,10 +76,33 @@ export default async function BankingPage({
     currency: a.currency,
   }));
 
+  const count = (states: readonly string[]) =>
+    data.stateCounts.reduce((n, c) => n + (c.value && states.includes(c.value) ? c.count : 0), 0);
+  const need = count(["open", "partial", "linked_no_partner", "no_document_no_partner"]);
+  const done = count(["linked"]);
+  const noProof = count(["no_document"]);
+
   return (
     <ListPage
+      ground
       title={t("banking.title")}
-      meta={t("banking.meta.transactions", { count: data.result.total })}
+      // D76: the situation in one line — the rows under the filters, how many need the owner, how many are done
+      meta={
+        <>
+          {t("banking.meta.transactions", { count: data.result.total })}
+          {need > 0 && (
+            <>
+              {" · "}
+              <strong className="font-semibold text-state-attention">
+                {t("banking.meta.need", { count: need })}
+              </strong>
+            </>
+          )}
+          {" · "}
+          {t("banking.meta.done", { count: done })}
+          {noProof > 0 && ` · ${t("banking.meta.noProof", { count: noProof })}`}
+        </>
+      }
       actions={<WorkbenchActions accounts={accountOptions} canWrite={canWrite} />}
       banner={
         pending && (
@@ -104,6 +132,9 @@ export default async function BankingPage({
         canWrite={canWrite}
         initialSelectedId={typeof params.open === "string" ? params.open : null}
         months={hasRows ? data.months : undefined}
+        stateCounts={Object.fromEntries(
+          data.stateCounts.flatMap((c) => (c.value ? [[c.value, c.count]] : [])),
+        )}
       />
     </ListPage>
   );

@@ -485,6 +485,18 @@ export type BankMonthCell = {
 /** One bar: rows justified (linked / no document needed, each with a partner) and to justify (the four other states); derived, never stored. */
 export type BankMonth = { month: string; justified: number; toJustify: number; built: boolean };
 
+export type BankDayCell = {
+  /** yyyy-mm-dd */
+  date: string;
+  bankAccountId: string;
+  rows: number;
+  toJustify: number;
+  /** Σ of the positive amounts, base currency */
+  inBase: string;
+  /** Σ of the negative amounts as a positive number, base currency */
+  outBase: string;
+};
+
 export type BankMonthsOverview = {
   from: string;
   to: string;
@@ -501,6 +513,11 @@ export type BankMonthsOverview = {
     gaps: number;
   }[];
   cells: BankMonthCell[];
+  /**
+   * D76, the day-by-day strip: per day and account with rows — how many, how many still to justify, the money in
+   * and out in the base currency (strings, Decimal-formatted). Oldest first.
+   */
+  days: BankDayCell[];
   /** the newest closed month with bank rows and no built package — *N transactions without proof — package YYYY-MM not built* */
   banner: { month: string; withoutProof: number } | null;
 };

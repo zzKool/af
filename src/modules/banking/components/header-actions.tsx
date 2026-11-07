@@ -4,6 +4,7 @@
 //   /banking          Inbox · Imports · Rules · [Import CSV]   (?new=1 opens the import dialog, F73)
 //   /banking/imports  [Import CSV]                            (?new=1 too)
 //   /banking/rules    Apply rules (dry run → confirm) · [New rule]
+import { ListChecks, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -27,6 +28,7 @@ export function ImportCsvButton({ accounts }: { accounts: AccountOption[] }) {
   return (
     <>
       <Button onClick={() => setOpen(true)} data-testid="open-import">
+        <Upload aria-hidden />
         {t("banking.import.button")}
       </Button>
       <ImportDialog open={open} onOpenChange={setOpen} accounts={accounts} />
@@ -50,6 +52,7 @@ export function WorkbenchActions({
         render={<Link href="/banking/inbox" />}
         data-testid="go-inbox"
       >
+        <ListChecks aria-hidden />
         {t("banking.nav.inbox")}
       </Button>
       <Button variant="outline" nativeButton={false} render={<Link href="/banking/imports" />}>
