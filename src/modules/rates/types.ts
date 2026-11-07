@@ -52,3 +52,30 @@ export type RateGap = {
   /** the ECB weekdays without a rate, inside the window */
   missingDays: string[];
 };
+
+/** One currency against the base over a span (F136, FR-011): `1 currency = rate × base`, oldest first. */
+export type CurrencySeries = {
+  currency: string;
+  points: { date: string; rate: string }[];
+};
+
+/** A month of the coverage grid (F136, FR-012). */
+export type MonthCoverage = {
+  /** yyyy-mm */
+  month: string;
+  /** the month's weekdays up to today */
+  weekdays: number;
+  /** of them, the days of an FR-009 gap (any pair) */
+  missing: number;
+  /** the month lies before the first stored rate */
+  beforeFirst: boolean;
+};
+
+/** A currency's rate on a picked day (F136, FR-013): `1 currency = rate × base`, the day it comes from. */
+export type RateOnDay = {
+  currency: string;
+  /** null: no stored rate within the nearest-day cap */
+  rate: string | null;
+  source: "same_currency" | RateLookupSource | null;
+  rateDate: string | null;
+};

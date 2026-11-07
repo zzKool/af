@@ -51,7 +51,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Destructive actions go through `ConfirmDialog`.
 
 ## Shell (only F39's builder and later shell PRs)
-- [ ] Rail (left, full height): + New · Dashboard · Work · *Records* Banking, Documents · *Sales* Partners, Invoices · *Costs* Supplier invoices, Expenses, Subscriptions · *Close* Package, Declarations · Settings and open / close at the foot. 232 px with labels and amber counts, 68 px icons collapsed; navy in light.
+- [ ] Rail (left, full height): + New · Dashboard · Work · *Records* Banking, Documents, Exchange rates · *Sales* Partners, Invoices · *Costs* Supplier invoices, Expenses, Subscriptions · *Close* Package, Declarations · Settings and open / close at the foot. 232 px with labels and amber counts, 68 px icons collapsed; navy in light.
 - [ ] Top bar 56 px right of the rail: logo (`public/brand/af-logo.svg`, `-dark` in dark) · search pill `Ctrl K` (the palette, F93 — `Ctrl P` opens it too) · tenant · sun / moon (saves the D43 preference) · avatar. The nav constants are a shared file — one PR at a time. Strings go to `en.ts` only (D62); the other dictionaries fall back.
 - [ ] A new page: its nav item gets a `group` (where it falls in the monthly loop); a named sub-page goes in `SUB_PAGES` (`kernel/ui/shell/routes.ts`) so the breadcrumb and the search know it.
 - [ ] Landmark names stay English (`Main navigation`, `Breadcrumb`) — the e2e and screen readers rely on them.

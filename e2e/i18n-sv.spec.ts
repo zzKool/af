@@ -59,7 +59,9 @@ test.describe("Swedish UI", () => {
     await expect(page.getByRole("heading", { name: "Bankkonton" })).toBeVisible();
     await page.goto("/settings/vat-registrations");
     await expect(page.getByRole("heading", { name: "Momsregistreringar" })).toBeVisible();
+    // F136: the rates live in the menu; the old settings address sends there
     await page.goto("/settings/rates");
+    await expect(page).toHaveURL(/\/rates$/);
     await expect(page.getByRole("heading", { name: "Valutakurser" })).toBeVisible();
     await expect(page.getByTestId("rates-fetch")).toHaveText("Hämta nu");
     await snap(page, "sv-rates");

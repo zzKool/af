@@ -276,7 +276,7 @@ export async function dashboardOverview(
         kind: "rate_gaps",
         count: missingDays.size,
         priority: "low",
-        href: "/settings/rates",
+        href: "/rates",
       });
     }
   }

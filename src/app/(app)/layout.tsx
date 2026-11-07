@@ -12,6 +12,7 @@ import { ThemeSync } from "@/kernel/ui/theme-sync";
 import { rowsToJustifyCount } from "@/modules/banking";
 import { inboxOpenCount } from "@/modules/documents";
 import { overdueInvoiceCount } from "@/modules/invoices";
+import { rateGaps } from "@/modules/rates";
 import { updateUserThemeAction, upsertTablePreferenceAction } from "@/modules/settings";
 import { overdueSupplierInvoiceCount } from "@/modules/supplier-invoices";
 import { globalSearchAction } from "./search.actions";
@@ -67,6 +68,8 @@ export default async function AppLayout({
           const documents = await inboxOpenCount(tx, auth);
           const invoices = await overdueInvoiceCount(tx, today);
           const supplierInvoices = await overdueSupplierInvoiceCount(tx, today);
+          // F136: the ECB days without a rate in any pair, each once — the dashboard's rate-gap count
+          const rateDays = new Set((await rateGaps(tx, today)).flatMap((g) => g.missingDays)).size;
           return {
             // Work (F97 US4): the rows to justify and the documents to review, one number
             "/banking/inbox": banking + documents,
@@ -74,6 +77,7 @@ export default async function AppLayout({
             "/documents": documents,
             "/invoices": invoices,
             "/supplier-invoices": supplierInvoices,
+            "/rates": rateDays,
           };
         })
       : Promise.resolve({}),

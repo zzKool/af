@@ -25,10 +25,6 @@ const ALLOWED: Record<string, { count: number; why: string }> = {
     count: 2,
     why: "one withTenantTransaction per membership (each its own client); then the pool beside the sidebar counts' own withTenantTransaction (F72)",
   },
-  "src/app/(app)/settings/rates/page.tsx": {
-    count: 1,
-    why: "the global rate table on the pool beside its own withTenantTransaction",
-  },
   "src/app/(app)/links/[type]/[id]/page.tsx": {
     count: 1,
     why: "awaits the route's params and searchParams, before any transaction",

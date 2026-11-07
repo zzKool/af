@@ -21,3 +21,14 @@ Already tracked elsewhere — no task here:
 - ~~`getDay` / `setDate` on local time in `countWeekdaysBetween`, `weekdaysInclusive`, `rateStatus` → **F67** (audit 28)~~ — T008
 - ~~the fetched pairs a constant apart from `CURRENCIES`~~ — T009; `rate_source` VarChar in three modules → **F67** (audit 30)
 - the base currency as a constant at the callers → **F70** (D39)
+
+## Phase 2: The rates page (F136, D76 phase 3)
+
+From the board *Exchange rates* (D77) and the owner's words of 2026-11-07 (spec US5). One PR, `feat/rates-page`; shared files: the nav constants (one item), `en.ts`.
+
+- [x] T010 `history.ts`: `crossSeries` and `monthCoverage` (pure, tested), `rateHistory` and `rateCoverage` (DB). FR-011, FR-012
+- [x] T011 `ratesOnDayAction` — the base from `tenantProfile` (D39), the nearest-day source per currency. FR-013
+- [x] T012 `/rates` page on the ground: the currency cards, the chart (hand-drawn SVG, no chart library), the month grid with *Fetch now*, the day picker. US5
+- [x] T013 The rail: *Exchange rates* under *Records* with the missing-day count; `/settings/rates` → `/rates`; the settings card and the dashboard's *rate gap* link go to `/rates`. US5
+- [x] T014 e2e `rates.spec.ts` (replaces `settings-rates.spec.ts`; the sv journey follows the redirect), `/rates` in `screenshots.spec.ts`; `docs/ecb-rates.md` *The page*. *Done 2026-11-08 (`feat/rates-page`): the chart's transfer marks (the owner: "don't spend too much time on it") and the ECB-vs-bank FX block in the banking panel are left for a next PR.*
+
