@@ -3,6 +3,7 @@
 // Keys are `<module>.<area>.<name>`; `{name}` placeholders are filled by translate()/useT().
 export const en = {
   "common.save": "Save",
+  "common.close": "Close",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
   "common.add": "Add",
@@ -537,7 +538,19 @@ export const en = {
   "banking.import.button": "Import CSV",
   "banking.import.title": "Import a Nordea export",
   "banking.import.description":
-    "One file per account. Check the rows first — nothing is written until Import. Rows already imported are skipped; the file is kept for the accountant package.",
+    "One or several files — each goes to its account. Check the rows first — nothing is written until Import. Rows already imported are skipped; every file is kept for the accountant package.",
+  "banking.import.drop": "Drop one or several Nordea CSVs here, or choose them",
+  "banking.import.remove": "Remove {file}",
+  "banking.import.showFileRows": "Show the {count} rows",
+  "banking.import.hideRows": "Hide the rows",
+  "banking.import.runFiles": "Import {count} from {files} files",
+  "banking.import.doneMany":
+    "{files} files · {imported} imported · {duplicates} duplicates · {errors} errors",
+  "banking.import.tally.new": "{count} new",
+  "banking.import.tally.category": "{count} categorised by a rule",
+  "banking.import.tally.no_proof": "{count} no proof needed",
+  "banking.import.tally.invoice": "{count} pay an invoice",
+  "banking.import.tally.duplicate": "{count} duplicates",
   "banking.import.file": "CSV file",
   "banking.import.account": "Account",
   "banking.import.detected": "Pre-selected from the file name",

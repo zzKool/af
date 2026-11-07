@@ -9,3 +9,7 @@ The look decided on 2026-11-07 from the Design canvas *AF — UI redesign*. The 
 ## Phase 2a — the banking list and the work surface (F134)
 
 `screenshots/phase2a-*.png`: the e2e journey's invented July rows on a local test database (D51), 1440 × 1000 — the ground page with the account cards and the Months card, the list's card with the segments, the bars and the three dots; a row open (the hero, the sentence, the three steps); *Needs you* selected.
+
+## Phase 2b — several CSVs at once (F135)
+
+`screenshots/phase2b-import-*.png`: two invented Nordea files dropped together (the e2e fixtures in `specs/banking/fixtures/`) — one card per file with its account and tally, *Import 14 from 2 files*.
