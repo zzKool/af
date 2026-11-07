@@ -90,6 +90,8 @@ export interface DataTableProps<Row extends { id: string }> {
   rowActions?: (row: Row) => RowAction[];
   /** Right-aligned context in the filter bar (a balance, an as-of date). */
   context?: ReactNode;
+  /** D76: at the start of the filter bar, before the search (banking: the state segments) */
+  lead?: ReactNode;
   /** D76: a 3 px bar on the row's left edge in its state family's colour (neutral / null = none) */
   rowAccent?: (row: Row) => StateFamily | null;
   /** D76: the row open in the details panel — highlighted, a 4 px primary bar */
@@ -158,6 +160,7 @@ export function DataTable<Row extends { id: string }>({
   rowHeight = 32,
   rowActions,
   context,
+  lead,
   rowAccent,
   activeRowId = null,
 }: DataTableProps<Row>) {
@@ -280,6 +283,7 @@ export function DataTable<Row extends { id: string }>({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
+        {lead}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -295,7 +299,7 @@ export function DataTable<Row extends { id: string }>({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={searchPlaceholder ?? t("table.filterRows")}
-            className="h-8 w-60 pl-7"
+            className="h-8 w-60 rounded-lg border-subtle bg-surface-2 pl-7"
             aria-label={t("table.search")}
           />
         </form>
@@ -312,7 +316,7 @@ export function DataTable<Row extends { id: string }>({
                 data-filter-button={column.key}
                 data-active={f ? true : undefined}
                 className={cn(
-                  "inline-flex h-8 max-w-72 items-center gap-1 rounded-md border bg-surface px-2.5 text-[13px] hover:bg-hover",
+                  "inline-flex h-8 max-w-72 items-center gap-1 rounded-full border border-subtle bg-surface-2 px-3 text-[12.5px] hover:bg-hover",
                   f && "border-primary bg-selection hover:bg-selection",
                 )}
               >
@@ -400,8 +404,9 @@ export function DataTable<Row extends { id: string }>({
                     key={column.key}
                     aria-sort={sort ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                     style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+                    // D76: small uppercase headers; the sort and filter marks show on hover, focus or when set
                     className={cn(
-                      "relative h-8 px-2 font-semibold",
+                      "group/th relative h-10 px-3 text-[10.5px] font-medium tracking-[0.1em] text-muted-foreground uppercase",
                       right && "text-right",
                       dragging === column.key && "opacity-50",
                     )}
@@ -432,7 +437,7 @@ export function DataTable<Row extends { id: string }>({
                         <button
                           type="button"
                           className={cn(
-                            "flex items-center gap-1 truncate hover:text-foreground",
+                            "flex items-center gap-1 truncate tracking-[inherit] uppercase hover:text-foreground",
                             column.sortable === false && "cursor-default",
                           )}
                           onClick={(e) => cycleSort(column, e.shiftKey)}
@@ -446,7 +451,7 @@ export function DataTable<Row extends { id: string }>({
                                 <ChevronDown className="size-3.5" />
                               )
                             ) : (
-                              <ChevronsUpDown className="size-3.5 text-muted-foreground/60" />
+                              <ChevronsUpDown className="size-3.5 text-muted-foreground/60 opacity-0 group-hover/th:opacity-100 group-focus-within/th:opacity-100" />
                             ))}
                         </button>
                       )}
@@ -458,7 +463,9 @@ export function DataTable<Row extends { id: string }>({
                           <PopoverTrigger
                             className={cn(
                               "rounded p-0.5 text-muted-foreground/60 hover:text-foreground",
-                              active && "text-primary",
+                              active
+                                ? "text-primary"
+                                : "opacity-0 group-hover/th:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100",
                             )}
                             aria-label={t("table.filterColumn", { column: String(column.header) })}
                             data-active={active || undefined}
@@ -550,7 +557,7 @@ export function DataTable<Row extends { id: string }>({
                         key={column.key}
                         style={width ? { width, minWidth: width, maxWidth: width } : undefined}
                         className={cn(
-                          "px-2 py-1",
+                          "px-3 py-2.5",
                           right && "text-right",
                           column.truncate === false
                             ? "whitespace-normal"

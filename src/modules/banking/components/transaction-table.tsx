@@ -35,8 +35,8 @@ import type {
 import { type JustifyOptions, ProposedCode } from "@/modules/linking/ui";
 import { type AccountCardBalance, AccountCards } from "./account-cards";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
+import { DayStrip } from "./day-strip";
 import type { AccountOption } from "./import-dialog";
-import { MonthsPanel } from "./months-panel";
 import { StepDots, StepDotsLegend } from "./step-dots";
 import { TransactionPanel } from "./transaction-panel";
 import { TransactionStateLabel } from "./transaction-state";
@@ -160,6 +160,11 @@ export function TransactionTable({
     !dateFilter.empty
       ? dateFilter.months[0]
       : null;
+  // D76: the day strip's day — the date filter on exactly one day
+  const selectedDay =
+    dateFilter?.kind === "dates" && dateFilter.days?.length === 1 && !dateFilter.months?.length
+      ? dateFilter.days[0]
+      : null;
 
   const accountLabels = useMemo(
     () => Object.fromEntries(accounts.map((a) => [a.id, a.label])),
@@ -176,8 +181,9 @@ export function TransactionTable({
     [partners],
   );
 
-  // The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner): four columns by default —
-  // **Date · Amount · Counterparty · State** — in the ≈ 45 % left of the 55 % panel at 1440 px, no sideways scroll.
+  // The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner; D76 the Pulse board): five
+  // columns by default — **Date · Counterparty (who + the bank text) · proof · partner · category · State · Amount** —
+  // in the ≈ 45 % left of the 55 % panel at 1440 px, no sideways scroll.
   // Account, Description, Category, Partner, Proposed, Note… stay one click away in the column chooser (the
   // Account quick filter and the balances strip do not need the column); a user's saved layout wins as always.
   const columns = useMemo<DataTableColumn<TransactionRow>[]>(
@@ -186,18 +192,12 @@ export function TransactionTable({
         key: "bookingDate",
         header: t("banking.col.bookingDate"),
         type: "date",
-        width: "6.5rem",
+        width: "6rem",
         alwaysVisible: true,
         quickFilter: true,
-      },
-      {
-        key: "amount",
-        header: t("banking.col.amount"),
-        type: "money",
-        width: "8rem",
         cell: (row) => (
-          <span className={`tabular-nums ${row.amount.startsWith("-") ? "" : "text-state-done"}`}>
-            {formatMoney(row.amount, row.currency, { signed: true })}
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {row.bookingDate}
           </span>
         ),
       },
@@ -205,30 +205,64 @@ export function TransactionTable({
         key: "counterpartyKey",
         header: t("banking.col.counterparty"),
         type: "text",
-        width: "12rem",
+        width: "11rem",
+        // D76: who in bold (the partner when there is one, else the bank's key), the bank's text under it
         cell: (row) => (
-          <span className="block truncate" title={row.description}>
-            {row.counterpartyKey}
+          <span className="flex min-w-0 flex-col" title={row.description}>
+            <span className="truncate font-semibold">{row.partnerName ?? row.counterpartyKey}</span>
+            <span className="truncate font-mono text-[11px] text-muted-foreground">
+              {row.description}
+            </span>
           </span>
+        ),
+      },
+      {
+        key: "steps",
+        header: t("banking.col.steps"),
+        type: "text",
+        width: "5rem",
+        sortable: false,
+        filterable: false,
+        // D76: proof · partner · category as three dots (derived, display only — no server column)
+        cell: (row) => (
+          <StepDots
+            steps={rowSteps({
+              state: row.state,
+              partnerId: row.partnerId,
+              basCode: row.basCode,
+              proposedBasCode: row.proposedBasCode,
+            })}
+          />
         ),
       },
       {
         key: "state",
         header: t("banking.col.state"),
         type: "enum",
-        width: "15rem",
-        // D76: the three dots (proof · partner · category) before the state's word
+        width: "8.5rem",
+        cell: (row) => <TransactionStateLabel state={row.state} variant="chip" />,
+      },
+      {
+        key: "amount",
+        header: t("banking.col.amount"),
+        type: "money",
+        width: "8rem",
+        // D76: the amount in mono, bold; in a foreign currency the base under it
         cell: (row) => (
-          <span className="flex min-w-0 items-center gap-2.5">
-            <StepDots
-              steps={rowSteps({
-                state: row.state,
-                partnerId: row.partnerId,
-                basCode: row.basCode,
-                proposedBasCode: row.proposedBasCode,
-              })}
-            />
-            <TransactionStateLabel state={row.state} />
+          <span className="flex flex-col items-end">
+            <span
+              className={cn(
+                "font-mono font-semibold tabular-nums",
+                !row.amount.startsWith("-") && "text-state-done",
+              )}
+            >
+              {formatMoney(row.amount, row.currency, { signed: true })}
+            </span>
+            {row.currency !== "SEK" && (
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                {formatMoney(row.amountBase, "SEK", { signed: true })}
+              </span>
+            )}
           </span>
         ),
       },
@@ -455,7 +489,7 @@ export function TransactionTable({
       ? Object.values(stateCounts).reduce((n, c) => n + (c ?? 0), 0)
       : SEGMENTS[k].reduce((n, st) => n + (stateCounts[st] ?? 0), 0);
   const segments = (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <>
       <fieldset
         className="m-0 inline-flex min-w-0 gap-0.5 rounded-[10px] border border-subtle bg-surface-2 p-[3px]"
         data-testid="state-segments"
@@ -489,13 +523,13 @@ export function TransactionTable({
           );
         })}
       </fieldset>
-      <StepDotsLegend />
-    </div>
+    </>
   );
 
   // the bars count the Month filter's month, else the newest month with rows
   const cardsMonth =
     selectedMonth ??
+    selectedDay?.slice(0, 7) ??
     [...(months?.months ?? [])].reverse().find((m) => m.justified + m.toJustify > 0)?.month ??
     null;
 
@@ -517,6 +551,7 @@ export function TransactionTable({
   return (
     <div className="flex flex-col gap-4">
       <AccountCards
+        compact={!!selectedId}
         balances={balances}
         months={months}
         month={cardsMonth}
@@ -526,12 +561,23 @@ export function TransactionTable({
           state.setFilter("accountLabel", active ? null : { kind: "in", values: [label] });
         }}
       />
-      {months && (
-        <MonthsPanel
+      {/* a row open: the strip folds away, the list stays near the top (the cards go to one line) */}
+      {months && !selectedId && (
+        <DayStrip
           overview={months}
+          month={cardsMonth ?? months.to}
           selectedMonth={selectedMonth}
+          selectedDay={selectedDay}
           onSelectMonth={(month) =>
             state.setFilter("bookingDate", month ? { kind: "dates", months: [month] } : null)
+          }
+          onSelectDay={(day) =>
+            state.setFilter(
+              "bookingDate",
+              day
+                ? { kind: "dates", days: [day] }
+                : { kind: "dates", months: [cardsMonth ?? months.to] },
+            )
           }
         />
       )}
@@ -539,8 +585,9 @@ export function TransactionTable({
         className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 pt-3.5 pb-2 shadow-card"
         aria-label={t("banking.list")}
       >
-        {segments}
         <DataTable
+          lead={segments}
+          toolbar={<StepDotsLegend />}
           tableKey="bank-transactions"
           columns={columns}
           result={result}

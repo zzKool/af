@@ -29,7 +29,10 @@ export function MonthsPanel({
   overview,
   selectedMonth,
   onSelectMonth,
+  embedded = false,
 }: {
+  /** D76: inside the day strip's card (its year view) — no card, no testid of its own */
+  embedded?: boolean;
   overview: BankMonthsOverview;
   /** the month the table's Month filter holds alone, if any */
   selectedMonth: string | null;
@@ -53,11 +56,13 @@ export function MonthsPanel({
   return (
     <section
       aria-label={t("banking.months.title")}
-      data-testid="months-panel"
-      className="rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+      data-testid={embedded ? "months-year" : "months-panel"}
+      className={cn(
+        !embedded && "rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card",
+      )}
     >
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <h2 className="text-[13px] font-semibold">{t("banking.months.title")}</h2>
+        {!embedded && <h2 className="text-[13px] font-semibold">{t("banking.months.title")}</h2>}
         <Legend colour="bg-state-done" label={t("banking.months.justified")} />
         <Legend colour="bg-state-attention" label={t("banking.months.toJustify")} />
         <span className="text-border" aria-hidden>

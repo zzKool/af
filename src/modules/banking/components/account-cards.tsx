@@ -23,7 +23,10 @@ export function AccountCards({
   month,
   activeLabels,
   onToggle,
+  compact = false,
 }: {
+  /** a row is open: one line of small cards, the list stays near the top (D76) */
+  compact?: boolean;
   balances: AccountCardBalance[];
   /** the Months overview — the per-account month cells and the chain's completeness; absent before any row */
   months?: BankMonthsOverview;
@@ -36,7 +39,11 @@ export function AccountCards({
   const t = useT();
   return (
     <div
-      className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3"
+      className={cn(
+        compact
+          ? "flex flex-wrap gap-2"
+          : "grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3",
+      )}
       data-testid="account-balances"
     >
       {/* the statement accounts only: a private instrument (D60) has no statement and no balance */}
@@ -53,6 +60,37 @@ export function AccountCards({
           const toJustify = cell?.toJustify ?? 0;
           const justified = rows - toJustify;
           const pct = (n: number) => (rows ? `${(n / rows) * 100}%` : "0%");
+          if (compact)
+            return (
+              <button
+                type="button"
+                key={b.bankAccountId}
+                aria-pressed={active}
+                onClick={() => onToggle(b.label)}
+                data-testid={`account-card-${b.bankAccountId}`}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-xl border border-subtle bg-surface px-3 py-1.5 text-left text-[12.5px] shadow-xs outline-none hover:border-border focus-visible:ring-2 focus-visible:ring-ring",
+                  active && "ring-2 ring-primary",
+                )}
+              >
+                <span className="font-semibold">{b.label}</span>
+                <span className="font-mono tabular-nums">
+                  {b.balance ? formatMoney(b.balance, b.currency) : "—"}
+                </span>
+                {month && rows > 0 && (
+                  <span
+                    className="flex h-[5px] w-10 overflow-hidden rounded-full bg-tag"
+                    aria-hidden
+                  >
+                    <i className="block h-full bg-state-done" style={{ width: pct(justified) }} />
+                    <i
+                      className="block h-full bg-state-attention"
+                      style={{ width: pct(toJustify) }}
+                    />
+                  </span>
+                )}
+              </button>
+            );
           return (
             <button
               type="button"

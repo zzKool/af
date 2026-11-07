@@ -303,7 +303,7 @@ describe("the work surface — the hero, three steps and two collapsed footers (
     expect(within(proof).getByTestId("proof-none-needed")).toHaveTextContent("No proof needed");
   });
 
-  it("the panel asks the kit for the work surface's width (55 % of the canvas)", async () => {
+  it("the panel asks the kit for the work surface's width (38 % of the canvas, D76)", async () => {
     detail = makeDetail();
     render(
       <TransactionPanel
@@ -315,7 +315,7 @@ describe("the work surface — the hero, three steps and two collapsed footers (
       />,
     );
     await screen.findByTestId("zone-row");
-    expect(WORK_SURFACE_WIDTH).toBe("55%");
-    expect(sheetProps[0]?.defaultWidth).toBe("55%");
+    expect(WORK_SURFACE_WIDTH).toBe("38%");
+    expect(sheetProps[0]?.defaultWidth).toBe("38%");
   });
 });

@@ -76,11 +76,33 @@ export default async function BankingPage({
     currency: a.currency,
   }));
 
+  const count = (states: readonly string[]) =>
+    data.stateCounts.reduce((n, c) => n + (c.value && states.includes(c.value) ? c.count : 0), 0);
+  const need = count(["open", "partial", "linked_no_partner", "no_document_no_partner"]);
+  const done = count(["linked"]);
+  const noProof = count(["no_document"]);
+
   return (
     <ListPage
       ground
       title={t("banking.title")}
-      meta={t("banking.meta.transactions", { count: data.result.total })}
+      // D76: the situation in one line — the rows under the filters, how many need the owner, how many are done
+      meta={
+        <>
+          {t("banking.meta.transactions", { count: data.result.total })}
+          {need > 0 && (
+            <>
+              {" · "}
+              <strong className="font-semibold text-state-attention">
+                {t("banking.meta.need", { count: need })}
+              </strong>
+            </>
+          )}
+          {" · "}
+          {t("banking.meta.done", { count: done })}
+          {noProof > 0 && ` · ${t("banking.meta.noProof", { count: noProof })}`}
+        </>
+      }
       actions={<WorkbenchActions accounts={accountOptions} canWrite={canWrite} />}
       banner={
         pending && (

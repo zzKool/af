@@ -2,6 +2,8 @@
 // justified and how many still need proof; per account × month, proven / open / not imported; the banner's month.
 // Read only — bank rows with their flag, the links touching them (through linking's index), the
 // imports' periods and which packages are built (through package's index). No table, nothing stored.
+
+import { Prisma } from "@/generated/prisma/browser";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as accountantPackage from "@/modules/package";
 import { accountLabel } from "./bank-accounts";
@@ -9,6 +11,7 @@ import { type Completeness, monthComplete } from "./completeness";
 import { accountCompleteness, deriveTransactionState, rowFacts } from "./queries";
 import type {
   BankAccountRole,
+  BankDayCell,
   BankMonthCell,
   BankMonthCellState,
   BankMonthsOverview,
@@ -51,7 +54,14 @@ export type MonthsInput = {
   months: readonly string[];
   accounts: readonly { id: string; label: string; role: BankAccountRole; currency: string }[];
   /** each bank row of the window: its account, booking month and derived state */
-  rows: readonly { bankAccountId: string; month: string; state: TransactionState }[];
+  rows: readonly {
+    bankAccountId: string;
+    month: string;
+    state: TransactionState;
+    /** D76 the day strip: the booking day and the base amount (rows without them count in the months only) */
+    date?: string;
+    amountBase?: string;
+  }[];
   /** per account, the months an import covers (its period_from → period_to) */
   covered: ReadonlyMap<string, ReadonlySet<string>>;
   /** per account, the balance chain (F115): a month is *proven* only when the chain covers it whole */
@@ -92,6 +102,35 @@ export function assembleMonths(input: MonthsInput): BankMonthsOverview {
     }
   }
 
+  // D76: the day strip — per day × account, the rows, those to justify, the money in and out (base)
+  const Decimal = Prisma.Decimal;
+  type Dec = InstanceType<typeof Decimal>;
+  const perDay = new Map<string, { rows: number; toJustify: number; in: Dec; out: Dec }>();
+  for (const r of input.rows) {
+    if (!r.date) continue;
+    const k = key(r.bankAccountId, r.date);
+    const d = perDay.get(k) ?? { rows: 0, toJustify: 0, in: new Decimal(0), out: new Decimal(0) };
+    d.rows += 1;
+    if (needsProof(r.state)) d.toJustify += 1;
+    const amount = new Decimal(r.amountBase ?? "0");
+    if (amount.isNegative()) d.out = d.out.plus(amount.abs());
+    else d.in = d.in.plus(amount);
+    perDay.set(k, d);
+  }
+  const days: BankDayCell[] = [...perDay.entries()]
+    .map(([k, d]) => {
+      const [bankAccountId, date] = k.split("|") as [string, string];
+      return {
+        date,
+        bankAccountId,
+        rows: d.rows,
+        toJustify: d.toJustify,
+        inBase: d.in.toFixed(2),
+        outBase: d.out.toFixed(2),
+      };
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
   const months = input.months.map((month) => {
     const inMonth = cells.filter((c) => c.month === month);
     const rows = inMonth.reduce((s, c) => s + c.rows, 0);
@@ -117,6 +156,7 @@ export function assembleMonths(input: MonthsInput): BankMonthsOverview {
       };
     }),
     cells,
+    days,
     banner: pending ? { month: pending.month, withoutProof: pending.toJustify } : null,
   };
 }
@@ -197,6 +237,8 @@ export async function bankMonths(
     rows: rows.map((r) => ({
       bankAccountId: r.bankAccountId,
       month: iso(r.bookingDate).slice(0, 7),
+      date: iso(r.bookingDate),
+      amountBase: r.amountBase.toFixed(2),
       state: deriveTransactionState({
         amount: r.amount.toFixed(2),
         allocated: facts.allocated.get(r.id) ?? "0.00",

@@ -1,8 +1,9 @@
 "use client";
 
 import { ArrowDown, ArrowUp } from "lucide-react";
+import Link from "next/link";
 // The work surface (F131, review 2026-10-31 §6.2 / O1; D76 Pulse): the docked details panel of the banking list,
-// wide (≈ 55 % of the canvas by default, resizable, remembered per table — the kit's `SheetContent`). On top the
+// wide (38 % of the canvas by default, resizable, remembered per table — the kit's `SheetContent`). On top the
 // row as a hero — who, the bank text, the amount large, the date and account, the state with one sentence of what
 // is left (`rowVerdict`), ↑ ↓ through the page — then **three numbered steps**, each marked done / proposed /
 // missing / not needed (`rowSteps`, the list's three dots): **1 · Proof** (the Justify panel: drop · use what is
@@ -55,8 +56,9 @@ import { TransactionStateLabel } from "./transaction-state";
 
 type Detail = TransactionDetailWire;
 
-/** the work surface's default share of the canvas (O1, 2026-11-03) — the list keeps the rest */
-export const WORK_SURFACE_WIDTH = "55%" as const;
+/** the work surface's default share of the canvas (O1, 2026-11-03: 55 %; D76 the Pulse board: 38 %, the list's
+ *  five columns beside it at 1440 px) — the list keeps the rest; a width the owner drags is remembered */
+export const WORK_SURFACE_WIDTH = "38%" as const;
 
 /** a proposal's source as the BAS picker names it (F125) */
 const BAS_SOURCE: Record<string, "rule" | "partner" | "history" | "model"> = {
@@ -695,6 +697,30 @@ export function TransactionDetailView({
             </DetailsSection>
             <TransactionHistory transactionId={tx.id} refreshKey={version} />
           </div>
+
+          {/* D76: the panel's foot, always in view — the inbox for the rows with candidates, the next row */}
+          {nav && (
+            <div className="sticky -bottom-3.5 -mx-4 mt-auto flex items-center gap-2 border-t border-subtle bg-surface px-4 py-3">
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/banking/inbox" />}
+              >
+                {t("banking.panel.openReconcile")}
+              </Button>
+              <Button
+                size="sm"
+                className="ml-auto"
+                disabled={!nav.next}
+                onClick={nav.next}
+                data-testid="panel-next"
+              >
+                {t("banking.panel.nextRow")}
+                <ArrowDown aria-hidden />
+              </Button>
+            </div>
+          )}
 
           {canWrite && (
             <RuleDialog

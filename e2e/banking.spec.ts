@@ -107,14 +107,16 @@ test.describe("Banking", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("import-dialog")).toBeHidden();
 
-    // 2. the list beside the work surface (F131 §6.2): four columns by default — Date · Amount · Counterparty ·
-    //    State — the rest in the chooser; the journey owns its layout (an earlier run may have shown more)
+    // 2. the list beside the work surface (F131 §6.2, D76): five columns by default — Date · Counterparty · the
+    //    three dots · State · Amount — the rest in the chooser; the journey owns its layout (an earlier run may
+    //    have shown more)
     await resetColumns(page);
     expect(await visibleColumns(page)).toEqual([
       "bookingDate",
-      "amount",
       "counterpartyKey",
+      "steps",
       "state",
+      "amount",
     ]);
     //    the OpenAI row: categorise by hand, then "create rule from this"
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
@@ -139,7 +141,7 @@ test.describe("Banking", () => {
     await handle.dblclick();
     const canvas = await widthOf("[data-slot=details-canvas]");
     const defaultWidth = await widthOf("[data-testid=transaction-panel]");
-    expect(Math.abs(defaultWidth / canvas - 0.55)).toBeLessThan(0.02);
+    expect(Math.abs(defaultWidth / canvas - 0.38)).toBeLessThan(0.02);
     if (process.env.E2E_SCREENSHOTS) {
       const shots = join(__dirname, "..", "specs", "justify", "screenshots");
       mkdirSync(shots, { recursive: true });

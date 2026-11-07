@@ -1,5 +1,5 @@
-// The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner): a fresh user sees four
-// columns — Date · Amount · Counterparty · State — in that order; Account, Description, Category, Partner, Proposed
+// The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner; D76 the Pulse board): a fresh
+// user sees five columns — Date · Counterparty · proof · partner · category · State · Amount — in that order; Account, Description, Category, Partner, Proposed
 // and Note wait in the column chooser; a saved layout wins. Invented rows (D51). The panel and the Months panel are
 // not the point here and are stubbed.
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -24,6 +24,7 @@ vi.mock("@/modules/linking/ui", () => ({
 }));
 vi.mock("./transaction-panel", () => ({ TransactionPanel: () => null }));
 vi.mock("./months-panel", () => ({ MonthsPanel: () => null }));
+vi.mock("./day-strip", () => ({ DayStrip: () => null }));
 
 const { TransactionTable } = await import("./transaction-table");
 
@@ -90,13 +91,16 @@ function renderTable(initial: Record<string, unknown> = {}) {
 afterEach(cleanup);
 
 describe("TransactionTable — the four columns beside the work surface (F131 §6.2)", () => {
-  it("shows Date · Amount · Counterparty · State by default, in that order, nothing else", () => {
+  it("shows Date · Counterparty · the three dots · State · Amount by default, in that order, nothing else", () => {
     renderTable();
-    expect(headers()).toEqual(["bookingDate", "amount", "counterpartyKey", "state"]);
-    // the counterparty cell is the key; the bank's full line is its tooltip
-    const cell = screen.getByText("SKATTEPUNKTEN OFFICE");
-    expect(cell).toHaveAttribute("title", "Kortköp 260708 SKATTEPUNKTEN OFFICE");
-    expect(screen.queryByText("Skattepunkten AB")).not.toBeInTheDocument();
+    expect(headers()).toEqual(["bookingDate", "counterpartyKey", "steps", "state", "amount"]);
+    // D76: who in bold — the partner when there is one — with the bank's text under it (and as the tooltip)
+    const who = screen.getByText("Skattepunkten AB");
+    expect(who.parentElement).toHaveAttribute("title", "Kortköp 260708 SKATTEPUNKTEN OFFICE");
+    expect(screen.getByText("Kortköp 260708 SKATTEPUNKTEN OFFICE")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: /^Proof: missing · Partner: done · Category: done$/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("6540 IT-tjänster")).not.toBeInTheDocument();
   });
 
@@ -107,12 +111,19 @@ describe("TransactionTable — the four columns beside the work surface (F131 §
     for (const name of ["Account", "Description", "Category", "Partner", "Proposed", "Note"]) {
       expect(menu.querySelector(`[aria-label="${name}"]`)).toHaveAttribute("aria-checked", "false");
     }
-    for (const name of ["Date", "Amount", "Counterparty", "State"]) {
+    for (const name of ["Date", "Amount", "Counterparty", "State", "Checks"]) {
       expect(menu.querySelector(`[aria-label="${name}"]`)).toHaveAttribute("aria-checked", "true");
     }
     fireEvent.click(menu.querySelector('[aria-label="Partner"]') as Element);
-    expect(headers()).toEqual(["bookingDate", "amount", "counterpartyKey", "state", "partnerName"]);
-    expect(screen.getByText("Skattepunkten AB")).toBeInTheDocument();
+    expect(headers()).toEqual([
+      "bookingDate",
+      "counterpartyKey",
+      "steps",
+      "state",
+      "amount",
+      "partnerName",
+    ]);
+    expect(screen.getAllByText("Skattepunkten AB")).toHaveLength(2);
   });
 
   it("a saved layout wins over the defaults (its hidden list is the whole list, its order first)", () => {
@@ -127,6 +138,6 @@ describe("TransactionTable — the four columns beside the work surface (F131 §
     expect(shown.slice(0, 2)).toEqual(["description", "bookingDate"]);
     expect(shown).not.toContain("amount");
     expect(shown).toContain("partnerName");
-    expect(screen.getByText("Skattepunkten AB")).toBeInTheDocument();
+    expect(screen.getAllByText("Skattepunkten AB").length).toBeGreaterThan(0);
   });
 });
