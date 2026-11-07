@@ -41,7 +41,11 @@ export { getTablePreferenceAction, upsertTablePreferenceAction } from "./table-p
 export type * from "./types";
 export type { UserPreferences } from "./user-preferences";
 export { updateUserLocale } from "./user-preferences";
-export { getUserPreferencesAction, updateUserLocaleAction } from "./user-preferences.actions";
+export {
+  getUserPreferencesAction,
+  updateUserLocaleAction,
+  updateUserThemeAction,
+} from "./user-preferences.actions";
 export type {
   RateSchedule,
   VatRegistrationDto,

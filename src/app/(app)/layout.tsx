@@ -12,7 +12,7 @@ import { ThemeSync } from "@/kernel/ui/theme-sync";
 import { rowsToJustifyCount } from "@/modules/banking";
 import { inboxOpenCount } from "@/modules/documents";
 import { overdueInvoiceCount } from "@/modules/invoices";
-import { upsertTablePreferenceAction } from "@/modules/settings";
+import { updateUserThemeAction, upsertTablePreferenceAction } from "@/modules/settings";
 import { overdueSupplierInvoiceCount } from "@/modules/supplier-invoices";
 import { globalSearchAction } from "./search.actions";
 
@@ -85,13 +85,14 @@ export default async function AppLayout({
       <ThemeSync theme={parseTheme(userPref?.theme)} />
       <LocaleProvider initialLocale={userPref?.locale ?? null} browserLocale={browser}>
         <TablePreferencesProvider initial={tableLayouts} save={upsertTablePreferenceAction}>
-          {/* the D40 shell: top bar · sidebar · canvas (breadcrumb, page, docked details panel) */}
+          {/* the D76 shell: rail · top bar · canvas (breadcrumb, page, docked details panel) */}
           <AppShell
             role={role}
             tenants={tenants}
             userLabel={user?.name || user?.email || ""}
             counts={counts}
             search={globalSearchAction}
+            saveTheme={updateUserThemeAction}
           >
             {children}
           </AppShell>

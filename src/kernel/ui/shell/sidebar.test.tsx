@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
-const shell = vi.hoisted(() => ({ collapsed: false }));
+const shell = vi.hoisted(() => ({ collapsed: false, toggle: () => {} }));
 let pathname = "/dashboard";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 vi.mock("@/kernel/ui/shell/shell-context", () => ({ useShell: () => shell }));
@@ -27,13 +27,28 @@ describe("Sidebar — counts of open work (F72)", () => {
     expect(screen.getByRole("link", { name: "Invoices" }).textContent).toBe("Invoices");
   });
 
-  it("collapsed: a dot, the count in the tooltip", () => {
+  it("collapsed (D76): the number on the icon's corner, aria-hidden — the name stays the label, the tooltip has both", () => {
     shell.collapsed = true;
     render(<Sidebar role={OWNER} counts={{ "/banking": 3 }} />);
     const banking = screen.getByRole("link", { name: "Banking" });
     expect(banking).toHaveAttribute("title", "Banking (3)");
-    expect(banking.textContent).toBe("Banking"); // the label, visually hidden — no number in the link
+    expect(banking.textContent).toBe("Banking3"); // the label (visually hidden) + the badge (aria-hidden)
     expect(screen.getByRole("link", { name: "Partners" })).toHaveAttribute("title", "Partners");
+  });
+
+  it("the rail's foot opens and closes it (D76): named by its visible text, aria-expanded follows", () => {
+    render(<Sidebar role={OWNER} />);
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    cleanup();
+    shell.collapsed = true;
+    render(<Sidebar role={OWNER} />);
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   it("no counts given (the accountant) — nothing extra", () => {

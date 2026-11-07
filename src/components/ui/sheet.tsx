@@ -247,7 +247,7 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "fixed inset-y-0 z-50 flex w-full flex-col gap-4 overflow-y-auto bg-surface p-4 shadow-lg ring-1 ring-border duration-200 outline-none sm:max-w-xl data-open:animate-in data-closed:animate-out",
+          "fixed inset-y-0 z-50 flex w-full flex-col gap-4 overflow-y-auto bg-surface p-4 shadow-pop ring-1 ring-border duration-200 outline-none sm:max-w-xl data-open:animate-in data-closed:animate-out",
           side === "right"
             ? "right-0 data-open:slide-in-from-right data-closed:slide-out-to-right"
             : "left-0 data-open:slide-in-from-left data-closed:slide-out-to-left",

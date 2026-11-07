@@ -5,18 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-// D40 buttons: 32 px (26 px `sm` inside panels and banners), 4 px radius. primary (`default`) — at most one per
-// title row or dialog; secondary (`outline` / `secondary`: surface + border); link; icon (`ghost` + an
-// `icon*` size, always an aria-label); destructive — behind a ConfirmDialog.
+// D76 buttons: 32 px (26 px `sm` inside panels and banners), 8 px radius. primary (`default`) — the ink button,
+// near-black in light and near-white in dark, at most one per title row or dialog; secondary (`outline` /
+// `secondary`: surface + border + a hairline shadow); link (blue); icon (`ghost` + an `icon*` size, always an
+// aria-label); destructive — behind a ConfirmDialog.
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-[13px] font-medium whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-primary font-semibold text-primary-foreground hover:bg-primary-hover aria-expanded:bg-primary-hover",
-        outline: "border-border bg-surface text-foreground hover:bg-hover aria-expanded:bg-hover",
-        secondary: "border-border bg-surface text-foreground hover:bg-hover aria-expanded:bg-hover",
+          "bg-action font-semibold text-action-fg hover:bg-action-hover aria-expanded:bg-action-hover",
+        outline:
+          "border-border bg-surface text-foreground shadow-xs hover:bg-hover aria-expanded:bg-hover",
+        secondary:
+          "border-border bg-surface text-foreground shadow-xs hover:bg-hover aria-expanded:bg-hover",
         ghost:
           "text-muted-foreground hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground",
         destructive:
