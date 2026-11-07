@@ -53,7 +53,7 @@ function ComboboxPopup({
         <ComboboxPrimitive.Popup
           data-slot="combobox-popup"
           className={cn(
-            "flex max-h-[min(28rem,var(--available-height))] w-[max(var(--anchor-width),24rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-border data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+            "flex max-h-[min(28rem,var(--available-height))] w-[max(var(--anchor-width),24rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-pop ring-1 ring-border data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
             className,
           )}
           {...props}

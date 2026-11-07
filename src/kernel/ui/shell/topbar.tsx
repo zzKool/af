@@ -1,8 +1,8 @@
 "use client";
 
-// The top bar (D40), 44 px on the app background: sidebar toggle · logo · search (Ctrl K, F93) · tenant · avatar.
-// The breadcrumb lives in the canvas (breadcrumb.tsx).
-import { LogOut, PanelLeft, SlidersHorizontal } from "lucide-react";
+// The top bar (D76), 56 px on the dotted ground, right of the rail: logo · search (Ctrl K, F93) · tenant ·
+// sun / moon · avatar. The rail's open / close button lives at the rail's foot; the breadcrumb in the canvas.
+import { LogOut, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import {
   DropdownMenu,
@@ -18,35 +18,31 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { useT } from "@/kernel/i18n/use-t";
 import type { RunSearch } from "@/kernel/search/types";
 import { SearchPalette } from "@/kernel/ui/shell/search-palette";
-import { useShell } from "@/kernel/ui/shell/shell-context";
 import { TenantSwitcher } from "@/kernel/ui/shell/tenant-switcher";
+import { type SaveTheme, ThemeToggle } from "@/kernel/ui/shell/theme-toggle";
 
 export function Topbar({
   role,
   tenants,
   userLabel,
   search,
+  saveTheme,
 }: {
   role: CallerIdentity["role"];
   tenants: { id: string; name: string }[];
   userLabel: string;
   /** F93: the global search, composed by the app layout */
   search?: RunSearch;
+  /** D43 / D76: the settings module's theme action, composed by the app layout */
+  saveTheme?: SaveTheme;
 }) {
-  const t = useT();
-  const { collapsed, toggle } = useShell();
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 bg-app pr-3 pl-3">
-      <button
-        type="button"
-        onClick={toggle}
-        className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground"
-        aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
-        aria-expanded={!collapsed}
+    <header className="flex h-14 shrink-0 items-center gap-3 px-4">
+      <Link
+        href="/dashboard"
+        className="flex h-9 shrink-0 items-center rounded-md px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="AF — Dashboard"
       >
-        <PanelLeft className="size-4" />
-      </button>
-      <Link href="/dashboard" className="flex h-8 items-center px-1" aria-label="AF — Dashboard">
         {/* the logo swaps file in dark mode, never colour (D40); by the `dark:` variant, so a theme picked in
             My Preferences (D43) swaps it too — a <picture> media query would only follow the OS */}
         {/* biome-ignore lint/performance/noImgElement: a static SVG in public/, nothing for next/image to optimise */}
@@ -66,10 +62,11 @@ export function Topbar({
           className="hidden h-6 w-auto dark:block"
         />
       </Link>
-      <div className="flex flex-1 justify-center px-4">
+      <div className="flex min-w-0 flex-1 px-4">
         <SearchPalette role={role} search={search} />
       </div>
       <TenantSwitcher tenants={tenants} />
+      <ThemeToggle save={saveTheme} />
       <UserMenu userLabel={userLabel} />
     </header>
   );
@@ -92,7 +89,7 @@ function UserMenu({ userLabel }: { userLabel: string }) {
   const t = useT();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="ml-1 flex size-7 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+      <DropdownMenuTrigger className="flex size-9 items-center justify-center rounded-full bg-action text-[12px] font-semibold text-action-fg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         {/* named by the hidden text, the initials are decoration (axe 4.14 label-content-name-mismatch) */}
         <span className="sr-only">{`${t("shell.account")}: ${userLabel}`}</span>
         <span aria-hidden>{initials(userLabel)}</span>

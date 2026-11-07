@@ -147,13 +147,13 @@ export function SearchPalette({
         type="button"
         onClick={() => setOpen(true)}
         aria-keyshortcuts="Control+K Meta+K"
-        className="relative flex h-8 w-full max-w-[520px] items-center gap-2 rounded-md border bg-surface pr-14 pl-2.5 text-left text-[13px] text-muted-foreground outline-none hover:border-primary/60 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/30"
+        className="relative flex h-10 w-full max-w-[640px] items-center gap-2.5 rounded-xl border border-subtle bg-surface pr-14 pl-3.5 text-left text-[13px] text-muted-foreground shadow-xs outline-none hover:border-primary/60 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/30"
       >
         <Search className="size-4 shrink-0" aria-hidden />
         <span className="truncate">{t("shell.search.placeholder")}</span>
         <kbd
           aria-hidden
-          className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-app px-1 font-sans text-[11px]"
+          className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm border bg-surface-2 px-1.5 font-sans text-[11px]"
         >
           Ctrl K
         </kbd>

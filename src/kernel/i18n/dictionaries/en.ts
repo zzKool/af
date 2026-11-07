@@ -41,6 +41,7 @@ export const en = {
   "nav.collapse": "Collapse sidebar",
   "nav.expand": "Expand sidebar",
   "nav.main": "Main navigation",
+  "shell.theme.toggle": "Switch between light and dark",
   "shell.search.placeholder": "Search pages, keys, names, amounts",
   "shell.search.label": "Search",
   "shell.search.empty": "Nothing matches",
