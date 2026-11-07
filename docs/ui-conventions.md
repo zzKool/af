@@ -1,6 +1,6 @@
 # UI conventions
 
-Version 3 · 2026-10-22 · Decisions D19, D20 and **D40 (the visual direction, F39)** in [[feature-inventory]]. Applies to every page; the repo skill `.claude/skills/af-design` is the checklist form of this page — every UI PR follows it. *Visual direction* below is **built in the shell and the kernel kit** since F39 (2026-10-22, see *Where it lives* at the end of that section); the modules inherit it — what each module still adopts on its own (its states, its on-screen money, its keys and row actions) is F71 in [[features]]. Before v3, Version 2 (2026-10-20) — the layout and the DataTable, unchanged below. **Built** (phase-0 item 8): the shell (`kernel/ui/shell`: sidebar, topbar, `ListPage` / `EntityPage` / `WorkPage` / `PageHeader`), the `DataTable` (`kernel/ui/data-table`) and the `ListQuery` contract (`kernel/list-query`), first used by [[partners]]. Column order / width / visibility persist per user since 2026-10-21 (`kernel/ui/data-table/preferences.tsx` + `table_preferences`). Still to come: virtualised body. The documents library migrated onto it on 2026-10-20 (the legacy table is gone). The list page's **side panel** is `components/ui/sheet.tsx` (first used by the banking workbench and the journal, then the expenses list) — since F39 it docks into the canvas (*Details panel* below); forms that interrupt (import, rule, manual entry, new expense, new group) use `components/ui/dialog.tsx`. The first **work page** is `/expenses/settle` (`WorkPage`: the open expenses left, the refund row and the confirmation right).
+Version 4 · 2026-11-07 · Decisions D19, D20, **D40 (the layout, F39)** and **D76 (the Pulse look, F133 — replaces D40's look)** in [[feature-inventory]]. Applies to every page; the repo skill `.claude/skills/af-design` is the checklist form of this page — every UI PR follows it. *Visual direction* below is **built in the shell and the kernel kit** since F39 (2026-10-22, see *Where it lives* at the end of that section); the modules inherit it — what each module still adopts on its own (its states, its on-screen money, its keys and row actions) is F71 in [[features]]. Before v3, Version 2 (2026-10-20) — the layout and the DataTable, unchanged below. **Built** (phase-0 item 8): the shell (`kernel/ui/shell`: sidebar, topbar, `ListPage` / `EntityPage` / `WorkPage` / `PageHeader`), the `DataTable` (`kernel/ui/data-table`) and the `ListQuery` contract (`kernel/list-query`), first used by [[partners]]. Column order / width / visibility persist per user since 2026-10-21 (`kernel/ui/data-table/preferences.tsx` + `table_preferences`). Still to come: virtualised body. The documents library migrated onto it on 2026-10-20 (the legacy table is gone). The list page's **side panel** is `components/ui/sheet.tsx` (first used by the banking workbench and the journal, then the expenses list) — since F39 it docks into the canvas (*Details panel* below); forms that interrupt (import, rule, manual entry, new expense, new group) use `components/ui/dialog.tsx`. The first **work page** is `/expenses/settle` (`WorkPage`: the open expenses left, the refund row and the confirmation right).
 
 ## Layout — full width, dense, app not website
 
@@ -31,47 +31,50 @@ Rules
 - Dark mode via tokens from day one; no hardcoded colours.
 - Sidebar hides by role; the server enforces (both required, constitution §6).
 
-## Visual direction — "Lakehouse" (D40, F39)
+## Visual direction — "Pulse" (D76, F133; D40's layout kept)
 
-Chosen by the owner on 2026-10-22 from four mockups (A Ledger · B Workbench · C Paper · **D Lakehouse**), on the Design canvas *AF — F39 UI directions*. D is **inspired by** the 2026 Databricks workspace UI the owner works in daily — the pattern language (top-bar search, grouped icon sidebar, content canvas, underline tabs, a details panel of collapsible sections, icon-plus-word statuses) — never its logo, red, names or assets. Not the shadcn default look.
+Chosen by the owner on 2026-11-07 from the Design canvas *AF — UI redesign* (the *Pulse* boards, light and dark), after he found D40's Lakehouse look "too flat … lacks profondeur … you don't really know where to look". **D76 replaces D40's look, not its layout**: the shell's places, the page anatomy, states vs tags, the docked details panel, the money format and the DataTable rules below are D40's and stay. What changes: a dotted ground with raised cards, a rail (navy in light), Geist, an ink primary button, a sun / moon in the top bar. Built screen by screen in seven phases (*[[roadmap]]* — *The Pulse phases*); phase 1 (F133) is the look and the shell, every page still sits in the one canvas card until its phase.
 
 ### Brand
-- Logo: `public/brand/af-logo.svg` (full, 1143 × 252) and `public/brand/af-sign.svg` (the sign, 167 × 252); `-dark` variants recolour the navy for dark mode. Full logo in the top bar at 24 px high; the sign is the favicon / app icon and the collapsed-sidebar mark. Never re-type the paths; never recolour beyond the two variants.
-- Brand colours: navy `#2C3241`, crimson `#CD1F3D`. Crimson appears in the logo and the **+ New** button only — it is not the action colour and not an error colour.
+- Logo: `public/brand/af-logo.svg` (full, 1143 × 252) and `public/brand/af-sign.svg` (the sign, 167 × 252); `-dark` variants recolour the navy for dark mode. Full logo in the top bar at 24 px high, on the ground right of the rail; the sign is the favicon / app icon. Never re-type the paths; never recolour beyond the two variants.
+- Brand colours: navy `#2C3241` (the light rail is its deeper `#1B2230`), crimson `#CD1F3D`. Crimson is the logo and the **+ New** button only — not the action colour, not an error colour.
 
 ### Tokens (CSS variables on `:root`, redefined for dark — from the OS unless the user forced light, or forced dark (D43) — mapped onto the shadcn names in `globals.css`)
 
-Light / dark: System (the default) follows the OS; My Preferences can force Light or Dark (D43) — `<html data-theme="light|dark">`, set in the first HTML from the `af-theme` cookie. Colour through tokens and the `dark:` variant only; never `@media (prefers-color-scheme)` or a `<picture>` media query in a component (they ignore the user's choice). The two dark token blocks in `globals.css` stay equal (`kernel/ui/theme.pure.test.ts`).
+Light / dark: System (the default) follows the OS; My Preferences — or the top bar's sun / moon, which saves the same preference — can force Light or Dark (D43) — `<html data-theme="light|dark">`, set in the first HTML from the `af-theme` cookie. Colour through tokens and the `dark:` variant only; never `@media (prefers-color-scheme)` or a `<picture>` media query in a component (they ignore the user's choice). The two dark token blocks in `globals.css` stay equal (`kernel/ui/theme.pure.test.ts`).
 
 | token | light | dark | use |
 |---|---|---|---|
-| `--app` | `#F6F7F9` | `#1F2428` | top bar, sidebar, page behind the canvas |
-| `--surface` | `#FFFFFF` | `#16191C` | the content canvas, panels, popovers, inputs |
-| `--border` | `#D8DEE4` | `#2F3940` | canvas edge, inputs, buttons, table header rule |
-| `--border-subtle` | `#EBEEF1` | `#232B31` | table row separators, count badges |
-| `--text` | `#11171C` | `#E8ECF0` | everything readable |
-| `--text-muted` | `#5A6C7A` | `#9AABB9` | labels, secondary text, section labels (≥ 4.5:1 on every ground, `--tag` and `--hover` included) |
-| `--primary` | `#2272B4` | `#4299E0` | primary buttons, links, dates-as-links, active tab rule, focus ring |
-| `--primary-hover` | `#0E538B` | `#8ACAFF` | hover of the above; active nav text |
-| `--primary-fg` | `#FFFFFF` | `#0B0F12` | text on primary |
-| `--hover` | `#EEF2F5` | `#232A30` | row and item hover |
-| `--selection` | `#EDF5FC` | `#132C44` | selected row, active filter button (a `--primary` link on it ≥ 4.5:1) |
-| `--nav-active` | `#E2EBF3` | `#2A3540` | the current sidebar item |
-| `--brand` / `--brand-tint` | `#CD1F3D` / `#FBE9EC` | `#EC4A64` / `#2B151B` | **+ New** only |
-| `--state-done` | `#277C43` | `#6CC08A` | done icons; positive amounts |
-| `--state-progress` | `#2272B4` | `#6FB4F0` | in-progress icons |
-| `--state-attention` | `#B26B00` | `#F0B65A` | attention icons, *to justify* bars |
+| `--app` | `#EEF1F5` | `#090C10` | the ground (with a 22 px dot grid, `--dot`) behind the rail, the top bar and the cards |
+| `--surface` | `#FFFFFF` | `#11161C` | cards, the canvas card, panels, popovers, inputs |
+| `--surface-2` | `#F6F8FA` | `#151B22` | an inset inside a card (a card in a card, a sub-panel, a key chip's ground) |
+| `--border` | `#DBE1E7` | `#27303A` | inputs, buttons, table header rule |
+| `--border-subtle` | `#EAEEF2` | `#1C232B` | card edges, row separators |
+| `--text` | `#0D1520` | `#EEF2F5` | everything readable |
+| `--text-muted` | `#566472` | `#8D9AA7` | labels, secondary text (≥ 4.5:1 on every ground: `--app`, `--surface`, `--surface-2`, `--tag`, `--hover`, `--selection`) |
+| `--primary` | `#1B64A3` | `#7CC4FF` | links, dates-as-links, active tab rule, focus ring, in-progress — **not** the primary button any more |
+| `--primary-hover` | `#134D80` | `#A9D6FF` | hover of the above |
+| `--action` / `--action-fg` / `--action-hover` | `#0D1520` / `#FFF` / `#27313D` | `#EEF2F5` / `#090C10` / `#FFF` | the **primary button** — ink on the ground, inverted in dark |
+| `--hover` | `#F1F4F7` | `#1A212A` | row and item hover |
+| `--selection` | `#E8F1FB` | `#122536` | selected row, active filter button |
+| `--brand` / `--brand-fg` | `#CD1F3D` / `#FFF` | `#D63A55` / `#FFF` | **+ New** only (white on it ≥ 4.5:1) |
+| `--state-done` | `#19753F` | `#3FB76F` | done icons and bars; positive amounts |
+| `--state-progress` | `#1B64A3` | `#7CC4FF` | in-progress icons and bars |
+| `--state-attention` | `#985600` | `#F2B04A` | attention icons, *to justify* bars |
 | `--state-neutral` | `#8396A5` | `#8396A5` | neutral icons |
-| `--destructive` | `#C82D4C` | `#F28B9E` | delete / irreversible only |
-| `--tag` | `#EBEEF1` | `#26303A` | metadata tags, code chips, info banner |
+| `--destructive` | `#C21E41` | `#FF5470` | delete / irreversible only |
+| `--tag` | `#EDF0F4` | `#1C232B` | metadata tags, code chips, info banner |
+| `--rail` · `--rail-fg` · `--rail-fg-active` · `--rail-hover` · `--rail-active` · `--rail-group` | `#1B2230` · `#A3AFBF` · `#FFF` · white 8 % · white 13 % · `#8794A5` | the ground · `#8D9AA7` · `#EEF2F5` · `#151B22` · `#1A212A` + a 1 px `--border` ring · `#8D9AA7` | the rail only |
+| `--rail-badge` / `--rail-badge-fg` | `#F2B04A` / `#0B0F14` | same | the rail's counts of open work (amber, light on navy) |
+| `--cur-sek` · `--cur-chf` · `--cur-eur` · `--cur-usd` | `#0B847A` · `#CC4F2B` · `#1F6FB2` · `#9C6B00` | `#4FD1C5` · `#FF7A59` · `#7CC4FF` · `#E8C15A` | one colour per currency in charts, tickers and exposure bars (the rates and home phases); never for a state |
+| `--elev-card` → `shadow-card` | three soft layers | an inner top light + a deep drop | cards and the canvas card |
+| `--elev-pop` → `shadow-pop` | | | popovers, menus, selects, dialogs, sheets |
 
-Four values were darkened a shade from the mockup by F39 so every text pair reaches 4.5:1 (the e2e's axe scan caught `--text-muted` on `--hover` at 4.43): `--text-muted` light, `--selection` both, `--brand-tint` dark.
-
-Radius: 4 px controls, tags and buttons; 6–8 px panels and cards; 10 px the canvas's top-left corner. No shadows except popovers and dialogs. No gradients.
+Radius: 4 px tags, chips and checks · 8 px controls (buttons, inputs, menu items) · 10 px menus and popovers · 14 px panels · **20 px cards** and the canvas card. Gradients: the ground's dot grid only (a card's top light lives in its shadow, not a gradient).
 
 ### Type
-- **System font stack**, nothing to load: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`. Mono for keys and file names: `ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace`. This drops `next/font` (Geist) — no font download in any environment.
-- Scale: page title 20 / 600 · panel title 15 / 600 · body, table, labels 13 / 400 · table headers and section heads 13 / 600 · secondary 12 / 400 · the selected amount in the details panel 22 / 600.
+- **Geist** for everything, **Geist Mono** for keys, file names and figures in a ticker — from the `geist` package through `next/font/local` (`app/layout.tsx`): the files ship in the image, nothing is fetched at build or at run time (D51's *the box sends out only*), the system stack shows while they load. D40 had dropped Geist for the system stack; D76 brings it back for the look.
+- Scale: page title 20 / 600 · panel title 15 / 600 · body, table, labels 13 / 400 · table headers and section heads 13 / 600 · secondary 12 / 400 · the rail 13.5 / 400 (600 active) · rail group labels 10.5 / 500 uppercase, 0.12 em · the selected amount in the details panel 22 / 600.
 - `font-variant-numeric: tabular-nums` on every figure (amounts, dates, counts, rates). Business keys (`VA26-INV-007`, `SI-2026-031`, `Ex12-6540-003_2026-07-28_`) render as a mono **code chip** (`--tag` background, 4 px radius).
 
 ### Numbers
@@ -92,27 +95,28 @@ One format in every UI language: thousands with a narrow no-break space (U+202F)
 - A **count** is a round grey badge (`--border-subtle`, 11 px / 600): tab counts, sidebar counts of open items.
 
 ### Shell
-- **Top bar** (44 px, `--app`): sidebar toggle · full logo · centred search (520 px, `Ctrl P`) · tenant switcher · avatar. Replaces today's topbar (the breadcrumb moves into the canvas).
-- **Sidebar** (190 px, collapses to 56 px icons only; `--app`): **+ New** (brand tint: upload document, import CSV, new invoice / supplier invoice / expense) · groups with 12 px muted labels, lucide icons at 16 px, a count badge for open work · **Settings** pinned to the bottom. The **order follows the owner's monthly loop** — import the bank statement, then attach a document to each line:
+- **Rail** (left, full height; 232 px open with labels, 68 px of icons collapsed — the choice per browser): **+ New** (crimson, white: upload document, import CSV, new invoice / supplier invoice / expense) · Dashboard · Work · groups with uppercase labels (a short rule when collapsed) · lucide icons at 20 px in 38 px rows (42 px squares collapsed), 12 px corners · an **amber count** of open work right of the label, on the icon's corner when collapsed · **Settings** and the **open / close** button (*Collapse sidebar* / *Expand sidebar*) at the foot. Navy in light, the ground in dark. The **order follows the owner's monthly loop**:
 
   ```
-  Dashboard
-  Records   Banking · Documents · Journal
+  + New
+  Dashboard · Work
+  Records   Banking · Documents
   Sales     Partners · Invoices
-  Costs     Supplier invoices · Expenses
+  Costs     Supplier invoices · Expenses · Subscriptions
   Close     Package · Declarations
   ─────
-  Settings
+  Settings · Collapse
   ```
-  The group labels are i18n keys (`nav.group.*`). This is the nav-constants change in F39's builder PR.
-- **Content canvas**: `--surface`, 1 px `--border` on top and left, 10 px top-left radius, flush right and bottom.
+  The group labels are i18n keys (`nav.group.*`). The rates page joins *Records* and the group *Close* becomes *Plan and close* in their phases (nav constants, one PR at a time).
+- **Top bar** (56 px, on the ground right of the rail): full logo · the search pill (40 px, 12 px corners, up to 640 px, `Ctrl K`) · tenant switcher · **sun / moon** (flips light ↔ dark and saves it as the user's choice — D43; *System* is picked again in My Preferences) · avatar (ink, 36 px).
+- **Content canvas**: one raised card — `--surface`, `--border-subtle` edge, 20 px corners, `shadow-card`, 12 px from the window's right and bottom edges. A page moves to its own cards on the ground in its phase.
 
 ### Page anatomy (list and entity pages)
 1. **Breadcrumb** — links in `--primary`, `›` separators, the current page not repeated. Names, never ids (`Partners › Valtech Switzerland SA`, not `353ec92f`).
 2. **Title row** — 28 px icon tile (`--tag`) · title 20 / 600 · copy button when the title is a key · tags · spacer · ⋮ more · secondary buttons · **one primary** (a split button `Import CSV ▾` when the primary has variants). The title appears once (today's partner page shows it twice).
 3. **Underline tabs** — 13 px, the active one `--text` / 600 with a 2 px `--primary` rule, counts as badges.
 4. **Info banner** (optional) — `--tag` background, ⓘ icon, one sentence, one link, at most one small button on the right. For what the owner should do next on this page (*July 2026: 4 transactions have no proof yet — package 2026-07 not built. Open package*), not for errors (those are toasts or inline).
-5. **Summary panel** (optional) — a bordered 6 px card above the table; on banking the **Months** panel (F69): bars per month (*justified* `--state-done` stacked under *to justify* `--state-attention`) and an account × month square grid (done / attention / not imported `--tag`). Clicking a month sets the Month filter.
+5. **Summary panel** (optional) — a card above the table; on banking the **Months** panel (F69): bars per month (*justified* `--state-done` stacked under *to justify* `--state-attention`) and an account × month square grid (done / attention / not imported `--tag`). Clicking a month sets the Month filter.
 6. **Filter bar** — `Filter rows…` (the table's free-text search) · one **filter button per active or common column** (`Month: July 2026 ▾`; an active one has `--primary` border on `--selection`) · `Clear filters` link · right-aligned context (balance, as-of date). The buttons open the **same typed filter popovers as the column headers** (D20 unchanged); they replace today's removable chips.
 7. **DataTable** — see below; headers 13 / 600 on `--surface` with a 1 px `--border` rule, rows separated by `--border-subtle`, hover `--hover`, selected `--selection`; the date (or key) cell is the row's link in `--primary`; a ⋮ row-actions button last; the column chooser icon in the header's last cell.
 8. **Footer** — row count · Σ of money columns · `‹ Previous` / `Next ›`.
@@ -121,17 +125,17 @@ One format in every UI language: thousands with a narrow no-break space (U+202F)
 Docked on the right of the canvas (a 1 px `--border` left edge), **not** an overlay sheet: the table narrows. Opens on row selection; × and Escape close the row. Since F74 a **Hide** button beside × collapses the panel to a 40 px rail with **Show**, and the choice is remembered per table (the page's DataTable keeps it in its layout, `panelHidden` in `table_preferences`): a hidden panel stays a rail when another row is picked and after a reload, until *Show*. **Resizable** since F131 ([[review-2026-10-31]] §6.2, O1): a handle on the panel's left edge — drag it, or focus it and press ← (wider) / → (narrower) by 40 px, double-click for the page's default; never under 340 px, never over 75 % of the canvas (the list keeps a quarter). **The default is the page's** (`defaultWidth` on `SheetContent`: px, or a fraction of the canvas): the banking workbench's work surface opens at **55 %** of the canvas; every other page keeps the kit's 380 px (400 px from `xl`). The width the user drags to is remembered **per table** like *Hide* (`panelWidth` in the same layout, `table_preferences` — a JSON column, no migration): the next row and the next reload open at it, until the double-click. Hide / Show and × / Escape are unchanged; the width is not a column change (*Reset layout* leaves it). Section titles from the kernel's keys: `details.about`, `details.proof`, `details.history`. Content, top to bottom: the row's title (description / key) and its amount 22 / 600 with its state · collapsible sections with a chevron header — **About this <thing>** (a key–value grid: label column 110 px `--text-muted`), **Proof** (links and suggestions: the suggested target as a link, its reasons, `Link` primary + `Dismiss`; with nothing linked: `Upload document · Link to… · No document needed`), the module's **form** (category, partner…), **History** (collapsed by default). Small buttons (26 px) inside the panel. Dialogs stay for interrupting forms (import, rule, new expense) — unchanged.
 
 ### Buttons
-32 px, 4 px radius: **primary** (`--primary`, 600) — at most one per title row or dialog; **secondary** (surface, `--border`); **link** (no border, `--primary`); **icon** (28 px, no border, `--text-muted`, hover `--hover`, always an `aria-label`); **destructive** (`--destructive`, behind a confirm). 26 px small variant inside panels and banners.
+32 px, 8 px radius: **primary** (`--action`: ink in light, near-white in dark, 600) — at most one per title row or dialog; **secondary** (surface, `--border`, a hairline shadow); **link** (no border, `--primary`); **icon** (28 px, no border, `--text-muted`, hover `--hover`, always an `aria-label`); **destructive** (`--destructive`, behind a confirm). 26 px small variant inside panels and banners.
 
 ### Light / dark
-Light is the default; dark follows the OS (`prefers-color-scheme`) — no theme setting until someone asks (constitution: no setting for a single use). Every colour comes from a token; the logo swaps to its `-dark` file.
+System by default: light, dark from the OS (`prefers-color-scheme`); the user can force either in My Preferences or with the top bar's sun / moon (D43). Every colour comes from a token; the logo swaps to its `-dark` file. Check both before a PR.
 
-### Where it lives (built by F39)
+### Where it lives (built by F39, restyled by F133)
 
 | Piece | File | Notes |
 |---|---|---|
-| Tokens, type, dark | `app/globals.css` | the table above as CSS variables; shadcn names map onto them (`--background` = `--surface`, `--muted-foreground` = `--text-muted`, `--accent` = `--hover`…); utilities `bg-app`, `bg-surface`, `border-subtle`, `bg-hover`, `bg-selection`, `bg-nav-active`, `text-brand` / `bg-brand-tint`, `text-state-*`, `bg-tag`; `dark:` = the OS setting (`@custom-variant dark` on the media query, no class); radius scale 4 px controls, 8 px cards / dialogs |
-| Shell | `kernel/ui/shell/app-shell.tsx` (+ `topbar`, `sidebar`, `breadcrumb`, `details-dock`, `shell-context`, `routes`, `icons`) | the top bar's search is the **Ctrl K palette** (F93, [[search]]: `search-palette.tsx`, `Ctrl K` / `⌘ K` and `Ctrl P` / `⌘ P`) — pages by name in the UI language (`routes.ts` `destinationsFor`) and entities through the `search` action the app layout passes in; the avatar menu holds My preferences and Log out; the sidebar's groups come from `NAV_ITEMS[].group` (`NAV_GROUPS`), **+ New** from `NEW_ITEMS` (each opens the page whose primary makes the thing; the hrefs carry `?new=1`, and the page opens that primary's dialog — `use-new-param.ts`, `useNewParam(canCreate)`, closing drops the param, F73); the collapsed state is per browser; **counts of open work** (F72) — `counts` keyed by nav path, loaded by the app layout (`app/(app)/layout.tsx`, the owner only, one cheap read per module: banking `rowsToJustifyCount`, documents `inboxOpenCount`, invoices `overdueInvoiceCount`, supplier invoices `overdueSupplierInvoiceCount`), a `<CountBadge>` right of the label (a dot when collapsed, the count in the tooltip); the link's accessible name stays the label |
+| Tokens, type, dark | `app/globals.css`, `app/layout.tsx` (Geist) | the table above as CSS variables; shadcn names map onto them (`--background` = `--surface`, `--muted-foreground` = `--text-muted`, `--accent` = `--hover`…); utilities `bg-app`, `bg-surface`, `bg-surface-2`, `border-subtle`, `bg-hover`, `bg-selection`, `bg-action` / `text-action-fg`, `bg-brand` / `text-brand-fg`, `bg-rail` and `*-rail-*`, `text-state-*`, `bg-tag`, `*-cur-sek|chf|eur|usd`, `shadow-card`, `shadow-pop`; `dark:` = the OS unless forced (D43); radius scale 4 · 8 · 10 · 14 · 20 px; the dot grid on `body` |
+| Shell | `kernel/ui/shell/app-shell.tsx` (+ `topbar`, `sidebar` (the rail), `theme-toggle`, `breadcrumb`, `details-dock`, `shell-context`, `routes`, `icons`) | the sun / moon (`theme-toggle.tsx`) saves through the settings module's `updateUserThemeAction`, passed in by the app layout as `saveTheme` (the kernel knows no module); a refused save puts the old theme back; the top bar's search is the **Ctrl K palette** (F93, [[search]]: `search-palette.tsx`, `Ctrl K` / `⌘ K` and `Ctrl P` / `⌘ P`) — pages by name in the UI language (`routes.ts` `destinationsFor`) and entities through the `search` action the app layout passes in; the avatar menu holds My preferences and Log out; the sidebar's groups come from `NAV_ITEMS[].group` (`NAV_GROUPS`), **+ New** from `NEW_ITEMS` (each opens the page whose primary makes the thing; the hrefs carry `?new=1`, and the page opens that primary's dialog — `use-new-param.ts`, `useNewParam(canCreate)`, closing drops the param, F73); the collapsed state is per browser; **counts of open work** (F72) — `counts` keyed by nav path, loaded by the app layout (`app/(app)/layout.tsx`, the owner only, one cheap read per module: banking `rowsToJustifyCount`, documents `inboxOpenCount`, invoices `overdueInvoiceCount`, supplier invoices `overdueSupplierInvoiceCount`), an amber count right of the label (on the icon's corner when collapsed, the count in the tooltip too), aria-hidden; the link's accessible name stays the label |
 | Breadcrumb | `kernel/ui/shell/routes.ts` `crumbsFor` | named ancestors only (`NAV_ITEMS` + `SUB_PAGES`); ids, `new` and route groups are skipped. A page's own `back` link shows only where the trail is empty (the link graph) |
 | Page anatomy | `kernel/ui/shell/page.tsx` | `PageHeader` = section icon tile · title 20 / 600 · `tags` · `meta` · `actions` · `tabs` · `banner`; `ListPage` / `EntityPage` / `WorkPage` with the 20 / 14 px canvas padding |
 | Details panel | `components/ui/sheet.tsx` + `details-dock.tsx` | a right-side `SheetContent` inside the shell portals into the dock (380–400 px by default, `--border` left edge, no backdrop, non-modal, a row click does not close it; Escape and × do); outside the shell (tests) the old overlay. Open / hidden per table (F74) and width per table (F131): the DataTable registers its layout's `panelHidden` / `panelWidth` with the dock (`useDockedPanel`, the first table on the page); hidden = a rail with *Show* instead of the panel; *Hide* sits beside ×. The width: `SheetContent defaultWidth` (px or `"55%"`), the handle `role="separator"` (`details.resize`, `aria-valuenow` in px, ← / → `PANEL_RESIZE_STEP` = 40, double-click resets), `resolvePanelWidth(stored, default, canvasWidth)` / `clampPanelWidth` (pure, `details-dock.tsx`: 340 px … 75 % of the canvas the `DockedCanvas` measures with a `ResizeObserver`); a page without a registered table resizes for the session only. Sections: `kernel/ui/details-section.tsx` (`DetailsSection`, `DetailsGrid`) |
@@ -142,7 +146,7 @@ Light is the default; dark follows the OS (`prefers-color-scheme`) — no theme 
 | Searchable picker | `components/ui/combobox.tsx` (F125) | Base UI's `Combobox` styled like the Select: a trigger showing the value, a popup with a search on top, grouped options, `data-highlighted` / `data-disabled` items, popup at least 24 rem wide. The one domain picker on it today is `BasPicker` (`modules/settings/ui`, below); partners, groups and documents move to it as they are next touched (audit C3) |
 | BAS picker | `modules/settings/components/bas-picker.tsx` `BasPicker` (F125) | every BAS field in the app: search on number (prefix), English, Swedish and short code (accents off, words in any order); groups **Suggested** (each with its source: *proposed for this row* · *from a rule* · *the supplier's default* · *used before for this supplier* · *AI proposal* — the last only when a model proposed it) → **Favourites** (only while nothing is typed) → the chart by class, the cost classes first where a cost is picked (`direction`); English name first, Swedish as the second line (F95); `requireAlias` shows an account without a short code disabled with the reason; `allowNone`, `fallbackLabel` (a code no longer active), `proposed` (drawn dashed). Options from settings' one builder `basPickerOptions` |
 | Dialogs taller than the screen | `components/ui/dialog.tsx` | the content scrolls (`max-h: 100dvh − 2rem`), the footer sticks to its bottom — before F125 a dialog taller than a laptop screen hid its primary button off-screen |
-| Kit primitives | `components/ui/*` | buttons 32 / 26 px, 4 px; underline tabs for `default` and `line`; inputs and selects on `--surface`, 13 px; tables 32 px rows with `--border-subtle` separators. `SelectValue` shows the item's label (collected from the `<SelectItem>` children, or `items`), else the placeholder, else nothing — never the raw value; items rendered by a child component need `items` |
+| Kit primitives | `components/ui/*` | buttons 32 / 26 px, 8 px, the primary on `--action`; cards 20 px with `shadow-card`; popovers, menus, selects, dialogs, sheets on `shadow-pop`; underline tabs for `default` and `line`; inputs and selects on `--surface`, 13 px; tables 32 px rows with `--border-subtle` separators. `SelectValue` shows the item's label (collected from the `<SelectItem>` children, or `items`), else the placeholder, else nothing — never the raw value; items rendered by a child component need `items` |
 
 ## DataTable — Excel-style headers, server-side
 

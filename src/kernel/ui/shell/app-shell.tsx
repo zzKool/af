@@ -1,10 +1,12 @@
 "use client";
 
-// The app shell (D40 "Lakehouse"):
-//   ┌ top bar 44 px (app bg) ─────────────────────────────────────────────┐
-//   ├ sidebar (app bg) ┬ canvas (surface, border top+left, 10 px corner) ─┤
-//   │                  │ breadcrumb · page (main, the scroll container) │ details dock │
-// The page content is server-rendered children; the shell only arranges it.
+// The app shell (D76 "Pulse"):
+//   ┌ rail ┬ top bar 56 px (dotted ground): logo · search · tenant · sun/moon · avatar ──────┐
+//   │ 232 /├ canvas — one raised card (surface, 20 px corners, card shadow), 12 px from the edges ┤
+//   │ 68px │ breadcrumb · page (main, the scroll container) │ details dock │
+//   └──────┴──────────────────────────────────────────────────────────────────────────────┘
+// The page content is server-rendered children; the shell only arranges it. Pages move from the one
+// canvas card to their own cards on the ground screen by screen (docs/roadmap.md, the Pulse phases).
 import type { ReactNode } from "react";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { RunSearch } from "@/kernel/search/types";
@@ -12,6 +14,7 @@ import { Breadcrumb } from "@/kernel/ui/shell/breadcrumb";
 import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
 import { ShellProvider } from "@/kernel/ui/shell/shell-context";
 import { type NavCounts, Sidebar } from "@/kernel/ui/shell/sidebar";
+import type { SaveTheme } from "@/kernel/ui/shell/theme-toggle";
 import { Topbar } from "@/kernel/ui/shell/topbar";
 
 export function AppShell({
@@ -20,6 +23,7 @@ export function AppShell({
   userLabel,
   counts,
   search,
+  saveTheme,
   children,
 }: {
   role: CallerIdentity["role"];
@@ -29,15 +33,23 @@ export function AppShell({
   counts?: NavCounts;
   /** F93: the global search action, composed by the app layout (the kernel knows no module) */
   search?: RunSearch;
+  /** D43 / D76: the top bar's sun / moon saves through the settings module, composed by the app layout */
+  saveTheme?: SaveTheme;
   children: ReactNode;
 }) {
   return (
     <ShellProvider>
-      <div className="flex h-screen flex-col bg-app">
-        <Topbar role={role} tenants={tenants} userLabel={userLabel} search={search} />
-        <div className="flex min-h-0 flex-1">
-          <Sidebar role={role} counts={counts} />
-          <div className="flex min-w-0 flex-1 overflow-hidden rounded-tl-[10px] border-t border-l bg-surface">
+      <div className="flex h-screen">
+        <Sidebar role={role} counts={counts} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar
+            role={role}
+            tenants={tenants}
+            userLabel={userLabel}
+            search={search}
+            saveTheme={saveTheme}
+          />
+          <div className="mx-3 mb-3 flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-subtle bg-surface shadow-card">
             <DockedCanvas>
               {/* main is the intentional scroll container — sticky table headers depend on it */}
               <main className="min-h-0 min-w-0 flex-1 overflow-auto">

@@ -1,10 +1,12 @@
 "use client";
 
-// The sidebar (D40): + New · Dashboard · the groups of the monthly loop · Settings pinned to the bottom.
-// 190 px, collapses to 56 px icons from the top bar's toggle. Hidden by role here, enforced by the server.
-// `counts` (F72): open work per nav path, loaded with the app layout — a <CountBadge> right of the label when > 0
-// (a dot when collapsed). The link's accessible name stays the label (e2e and screen readers find "Banking").
-import { Plus } from "lucide-react";
+// The rail (D76): + New · Dashboard · Work · the groups of the monthly loop · Settings and the open / close
+// button at the bottom. Navy in light, the dark ground in dark. 232 px with labels, group names and counts;
+// 68 px of icons when collapsed (remembered in this browser). Hidden by role here, enforced by the server.
+// `counts` (F72): open work per nav path — an amber number right of the label, on the icon's corner when
+// collapsed. The link's accessible name stays the label (e2e and screen readers find "Banking"); the number
+// is aria-hidden, the collapsed tooltip carries it.
+import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -19,11 +21,17 @@ import { NAV_GROUPS, NAV_ITEMS, type NavItem, NEW_ITEMS } from "@/kernel/nav/con
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 import { SHELL_ICONS } from "@/kernel/ui/shell/icons";
 import { useShell } from "@/kernel/ui/shell/shell-context";
-import { CountBadge } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 
 /** open work per nav path (`/banking` → rows to justify, …); absent or 0 = no badge */
 export type NavCounts = Partial<Record<string, number>>;
+
+/** one rail button: 42 px square collapsed, 38 px high with its label open */
+const railItem = (collapsed: boolean) =>
+  cn(
+    "relative flex shrink-0 items-center rounded-xl text-[13.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+    collapsed ? "size-[42px] justify-center" : "h-[38px] gap-3 px-3",
+  );
 
 export function Sidebar({
   role,
@@ -34,7 +42,7 @@ export function Sidebar({
 }) {
   const t = useT();
   const pathname = usePathname();
-  const { collapsed } = useShell();
+  const { collapsed, toggle } = useShell();
   const items = filterNavItems(NAV_ITEMS, role);
   const newItems = NEW_ITEMS.filter((n) => n.roles.includes(role));
 
@@ -62,28 +70,27 @@ export function Sidebar({
         title={collapsed ? (count > 0 ? `${label} (${count})` : label) : undefined}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-colors",
+          railItem(collapsed),
           active
-            ? "bg-nav-active font-semibold text-primary-hover"
-            : "text-foreground hover:bg-hover",
-          collapsed && "relative justify-center px-0",
+            ? "bg-rail-active font-semibold text-rail-fg-active dark:ring-1 dark:ring-border dark:ring-inset"
+            : "text-rail-fg hover:bg-rail-hover hover:text-rail-fg-active",
         )}
       >
-        {Icon && <Icon className="size-4 shrink-0" aria-hidden />}
+        {Icon && <Icon className="size-5 shrink-0" aria-hidden />}
         {/* the name comes from this text, not an aria-label (axe 4.14 label-content-name-mismatch); the
             count stays out of it (aria-hidden) so the link is named exactly its label */}
         <span className={collapsed ? "sr-only" : "truncate"}>{label}</span>
-        {count > 0 &&
-          (collapsed ? (
-            <span
-              className="absolute top-1 right-1.5 size-1.5 rounded-full bg-muted-foreground"
-              aria-hidden
-            />
-          ) : (
-            <span className="ml-auto" aria-hidden>
-              <CountBadge count={count} />
-            </span>
-          ))}
+        {count > 0 && (
+          <span
+            className={cn(
+              "inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rail-badge px-1 text-[10px] font-bold text-rail-badge-fg tabular-nums",
+              collapsed ? "absolute top-0.5 right-0.5" : "ml-auto",
+            )}
+            aria-hidden
+          >
+            {count}
+          </span>
+        )}
       </Link>
     );
   };
@@ -91,20 +98,20 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex h-full shrink-0 flex-col bg-app transition-[width] duration-150",
-        collapsed ? "w-14 px-2" : "w-[190px] px-2.5",
+        "flex h-full shrink-0 flex-col bg-rail py-4 transition-[width] duration-150",
+        collapsed ? "w-[68px] items-center" : "w-[232px] px-3",
       )}
     >
       {newItems.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "mt-1 mb-3 flex h-8 items-center gap-2 rounded-md bg-brand-tint px-2.5 text-[13px] font-semibold text-brand outline-none hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring",
-              collapsed ? "w-9 justify-center px-0" : "w-fit pr-3.5",
+              railItem(collapsed),
+              "mb-3 bg-brand font-semibold text-brand-fg hover:brightness-110",
             )}
             aria-label={t("nav.new")}
           >
-            <Plus className="size-4" aria-hidden />
+            <Plus className="size-5" aria-hidden />
             {!collapsed && t("nav.new")}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
@@ -123,22 +130,46 @@ export function Sidebar({
 
       {/* the aria-label stays English: the e2e (and screen-reader landmarks) name it "Main navigation" */}
       <nav
-        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto"
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto",
+          collapsed && "items-center",
+        )}
         aria-label="Main navigation"
       >
         {top.map(link)}
         {groups.map(({ g, items: groupItems }) => (
-          <div key={g} className="mt-3 flex flex-col gap-0.5">
+          <div key={g} className={cn("flex flex-col gap-0.5", collapsed && "items-center")}>
             {collapsed ? (
-              <div className="mx-2 mb-1 border-t border-subtle" aria-hidden />
+              <div className="my-2 h-px w-6 bg-rail-hover" aria-hidden />
             ) : (
-              <div className="px-2.5 pb-1 text-xs text-muted-foreground">{t(`nav.group.${g}`)}</div>
+              <div className="px-3 pt-3 pb-0.5 text-[10.5px] font-medium tracking-[0.12em] text-rail-group uppercase">
+                {t(`nav.group.${g}`)}
+              </div>
             )}
             {groupItems.map(link)}
           </div>
         ))}
-        <div className="mt-auto flex flex-col gap-0.5 border-t border-subtle pt-2 pb-2">
+        <div className={cn("mt-auto flex flex-col gap-0.5 pt-2", collapsed && "items-center")}>
           {bottom.map(link)}
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
+            title={collapsed ? t("nav.expand") : undefined}
+            className={cn(
+              railItem(collapsed),
+              "text-rail-fg hover:bg-rail-hover hover:text-rail-fg-active",
+            )}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-5 shrink-0" aria-hidden />
+            ) : (
+              <PanelLeftClose className="size-5 shrink-0" aria-hidden />
+            )}
+            <span className={collapsed ? "sr-only" : "truncate"}>
+              {collapsed ? t("nav.expand") : t("nav.collapse")}
+            </span>
+          </button>
         </div>
       </nav>
     </aside>

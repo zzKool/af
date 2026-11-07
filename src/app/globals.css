@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* D40 "Lakehouse" (docs/ui-conventions.md *Visual direction*): light by default, dark from the OS — unless the
-   user picked one in My Preferences (D43): then <html data-theme="light|dark"> forces it (kernel/ui/theme.ts).
+/* D76 "Pulse" (docs/ui-conventions.md *Visual direction*, replaces D40's look): a dotted ground, raised cards, a
+   navy rail in light. The OS decides light or dark — unless the user picked one in My Preferences or with the
+   top bar's sun / moon (D43): then <html data-theme="light|dark"> forces it (kernel/ui/theme.ts).
    `dark:` = the OS says dark and the user did not force light, or the user forced dark. */
 @custom-variant dark {
   @media (prefers-color-scheme: dark) {
@@ -67,44 +68,87 @@
   --color-state-neutral: var(--state-neutral);
   --color-tag: var(--tag);
 
-  /* system stack — nothing to download (D40); mono for keys and file names */
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+  /* D76: the second surface (insets, a card inside a card), the dark action button, the rail, the currencies */
+  --color-surface-2: var(--surface-2);
+  --color-action: var(--action);
+  --color-action-fg: var(--action-fg);
+  --color-action-hover: var(--action-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-rail: var(--rail);
+  --color-rail-fg: var(--rail-fg);
+  --color-rail-fg-active: var(--rail-fg-active);
+  --color-rail-hover: var(--rail-hover);
+  --color-rail-active: var(--rail-active);
+  --color-rail-group: var(--rail-group);
+  --color-rail-badge: var(--rail-badge);
+  --color-rail-badge-fg: var(--rail-badge-fg);
+  --color-cur-sek: var(--cur-sek);
+  --color-cur-chf: var(--cur-chf);
+  --color-cur-eur: var(--cur-eur);
+  --color-cur-usd: var(--cur-usd);
+  --shadow-card: var(--elev-card);
+  --shadow-pop: var(--elev-pop);
 
-  /* 4 px controls · 6–8 px panels · 10 px the canvas corner */
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 8px;
-  --radius-2xl: 10px;
-  --radius-3xl: 12px;
+  /* Geist and Geist Mono (D76), self-hosted from the `geist` package by next/font/local — nothing fetched at
+     build or at run time; the system stack while they load. Mono for keys, file names and figures in a ticker. */
+  --font-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* 4 px tags and checks · 8 px controls · 10 px menus and popovers · 14 px panels · 20 px cards */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
   --radius-4xl: 9999px;
 }
 
 :root {
-  /* four values differ from the D40 mockup by a shade so every text pair reaches 4.5:1 (axe, F39):
-     --text-muted on --tag / --hover, --primary on --selection, the dark + New on its tint */
-  --app: #f6f7f9;
+  /* every text pair reaches 4.5:1 on --app, --surface, --surface-2, --tag, --hover and --selection (axe) */
+  --app: #eef1f5;
   --surface: #ffffff;
-  --border: #d8dee4;
-  --border-subtle: #ebeef1;
-  --text: #11171c;
-  --text-muted: #5a6c7a;
-  --primary: #2272b4;
-  --primary-hover: #0e538b;
+  --surface-2: #f6f8fa;
+  --border: #dbe1e7;
+  --border-subtle: #eaeef2;
+  --text: #0d1520;
+  --text-muted: #566472;
+  --primary: #1b64a3;
+  --primary-hover: #134d80;
   --primary-fg: #ffffff;
-  --hover: #eef2f5;
-  --selection: #edf5fc;
-  --nav-active: #e2ebf3;
+  --action: #0d1520;
+  --action-hover: #27313d;
+  --action-fg: #ffffff;
+  --hover: #f1f4f7;
+  --selection: #e8f1fb;
+  --nav-active: #e8f1fb;
   --brand: #cd1f3d;
+  --brand-fg: #ffffff;
   --brand-tint: #fbe9ec;
-  --state-done: #277c43;
-  --state-progress: #2272b4;
-  --state-attention: #b26b00;
+  --state-done: #19753f;
+  --state-progress: #1b64a3;
+  --state-attention: #985600;
   --state-neutral: #8396a5;
-  --destructive: #c82d4c;
-  --tag: #ebeef1;
+  --destructive: #c21e41;
+  --tag: #edf0f4;
+  --rail: #1b2230;
+  --rail-fg: #a3afbf;
+  --rail-fg-active: #ffffff;
+  --rail-hover: rgb(255 255 255 / 0.08);
+  --rail-active: rgb(255 255 255 / 0.13);
+  --rail-group: #8794a5;
+  --rail-badge: #f2b04a;
+  --rail-badge-fg: #0b0f14;
+  --cur-sek: #0b847a;
+  --cur-chf: #cc4f2b;
+  --cur-eur: #1f6fb2;
+  --cur-usd: #9c6b00;
+  --dot: rgb(15 23 32 / 0.06);
+  --elev-card:
+    0 1px 1px rgb(15 23 32 / 0.04), 0 2px 4px -1px rgb(15 23 32 / 0.04),
+    0 16px 32px -20px rgb(15 23 32 / 0.22);
+  --elev-pop: 0 2px 6px rgb(15 23 32 / 0.08), 0 18px 40px -12px rgb(15 23 32 / 0.28);
 
   --background: var(--surface);
   --foreground: var(--text);
@@ -126,7 +170,7 @@
   --chart-3: var(--state-attention);
   --chart-4: var(--state-neutral);
   --chart-5: var(--primary-hover);
-  --radius: 4px;
+  --radius: 8px;
   --sidebar: var(--app);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--primary);
@@ -142,51 +186,91 @@
    Keep the two blocks equal — theme.pure.test.ts compares them. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --app: #1f2428;
-    --surface: #16191c;
-    --border: #2f3940;
-    --border-subtle: #232b31;
-    --text: #e8ecf0;
-    --text-muted: #9aabb9;
-    --primary: #4299e0;
-    --primary-hover: #8acaff;
-    --primary-fg: #0b0f12;
-    --hover: #232a30;
-    --selection: #132c44;
-    --nav-active: #2a3540;
-    --brand: #ec4a64;
+    --app: #090c10;
+    --surface: #11161c;
+    --surface-2: #151b22;
+    --border: #27303a;
+    --border-subtle: #1c232b;
+    --text: #eef2f5;
+    --text-muted: #8d9aa7;
+    --primary: #7cc4ff;
+    --primary-hover: #a9d6ff;
+    --primary-fg: #090c10;
+    --action: #eef2f5;
+    --action-hover: #ffffff;
+    --action-fg: #090c10;
+    --hover: #1a212a;
+    --selection: #122536;
+    --nav-active: #122536;
+    --brand: #d63a55;
+    --brand-fg: #ffffff;
     --brand-tint: #2b151b;
-    --state-done: #6cc08a;
-    --state-progress: #6fb4f0;
-    --state-attention: #f0b65a;
+    --state-done: #3fb76f;
+    --state-progress: #7cc4ff;
+    --state-attention: #f2b04a;
     --state-neutral: #8396a5;
-    --destructive: #f28b9e;
-    --tag: #26303a;
+    --destructive: #ff5470;
+    --tag: #1c232b;
+    --rail: #090c10;
+    --rail-fg: #8d9aa7;
+    --rail-fg-active: #eef2f5;
+    --rail-hover: #151b22;
+    --rail-active: #1a212a;
+    --rail-group: #8d9aa7;
+    --rail-badge: #f2b04a;
+    --rail-badge-fg: #0b0f14;
+    --cur-sek: #4fd1c5;
+    --cur-chf: #ff7a59;
+    --cur-eur: #7cc4ff;
+    --cur-usd: #e8c15a;
+    --dot: rgb(255 255 255 / 0.045);
+    --elev-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+    --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 48px -16px rgb(0 0 0 / 0.7);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --app: #1f2428;
-  --surface: #16191c;
-  --border: #2f3940;
-  --border-subtle: #232b31;
-  --text: #e8ecf0;
-  --text-muted: #9aabb9;
-  --primary: #4299e0;
-  --primary-hover: #8acaff;
-  --primary-fg: #0b0f12;
-  --hover: #232a30;
-  --selection: #132c44;
-  --nav-active: #2a3540;
-  --brand: #ec4a64;
+  --app: #090c10;
+  --surface: #11161c;
+  --surface-2: #151b22;
+  --border: #27303a;
+  --border-subtle: #1c232b;
+  --text: #eef2f5;
+  --text-muted: #8d9aa7;
+  --primary: #7cc4ff;
+  --primary-hover: #a9d6ff;
+  --primary-fg: #090c10;
+  --action: #eef2f5;
+  --action-hover: #ffffff;
+  --action-fg: #090c10;
+  --hover: #1a212a;
+  --selection: #122536;
+  --nav-active: #122536;
+  --brand: #d63a55;
+  --brand-fg: #ffffff;
   --brand-tint: #2b151b;
-  --state-done: #6cc08a;
-  --state-progress: #6fb4f0;
-  --state-attention: #f0b65a;
+  --state-done: #3fb76f;
+  --state-progress: #7cc4ff;
+  --state-attention: #f2b04a;
   --state-neutral: #8396a5;
-  --destructive: #f28b9e;
-  --tag: #26303a;
+  --destructive: #ff5470;
+  --tag: #1c232b;
+  --rail: #090c10;
+  --rail-fg: #8d9aa7;
+  --rail-fg-active: #eef2f5;
+  --rail-hover: #151b22;
+  --rail-active: #1a212a;
+  --rail-group: #8d9aa7;
+  --rail-badge: #f2b04a;
+  --rail-badge-fg: #0b0f14;
+  --cur-sek: #4fd1c5;
+  --cur-chf: #ff7a59;
+  --cur-eur: #7cc4ff;
+  --cur-usd: #e8c15a;
+  --dot: rgb(255 255 255 / 0.045);
+  --elev-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+  --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 48px -16px rgb(0 0 0 / 0.7);
   color-scheme: dark;
 }
 
@@ -200,6 +284,9 @@
   body {
     @apply bg-app text-foreground;
     font-size: 13px;
+    /* the dotted ground the cards sit on (D76) */
+    background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+    background-size: 22px 22px;
   }
   /* every figure in tabular figures (amounts, dates, counts, rates) */
   .tabular-nums,
