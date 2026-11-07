@@ -7,7 +7,11 @@
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { cn } from "@/lib/utils";
-import type { AccountBalance, BankMonthsOverview } from "@/modules/banking/types";
+import {
+  type AccountBalance,
+  type BankMonthsOverview,
+  STATEMENT_ROLES,
+} from "@/modules/banking/types";
 
 export type AccountCardBalance = Omit<AccountBalance, "lastImportAt"> & {
   lastImportAt: string | null;
@@ -37,7 +41,7 @@ export function AccountCards({
     >
       {/* the statement accounts only: a private instrument (D60) has no statement and no balance */}
       {balances
-        .filter((b) => b.role !== "owner_private")
+        .filter((b) => STATEMENT_ROLES.includes(b.role))
         .map((b) => {
           const active = activeLabels.length === 1 && activeLabels[0] === b.label;
           const account = months?.accounts.find((a) => a.id === b.bankAccountId);
