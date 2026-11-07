@@ -295,3 +295,23 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* D76: a table row's state as a bar on its left edge (DataTable `rowAccent`), the row open in the panel
+   (`activeRowId`) highlighted with a wider primary bar. Neutral rows carry no bar. */
+@layer components {
+  tr[data-accent="done"] > td:first-child {
+    box-shadow: inset 3px 0 0 var(--state-done);
+  }
+  tr[data-accent="progress"] > td:first-child {
+    box-shadow: inset 3px 0 0 var(--state-progress);
+  }
+  tr[data-accent="attention"] > td:first-child {
+    box-shadow: inset 3px 0 0 var(--state-attention);
+  }
+  tr[data-active] > td {
+    background: var(--selection);
+  }
+  tr[data-active] > td:first-child {
+    box-shadow: inset 4px 0 0 var(--primary);
+  }
+}
