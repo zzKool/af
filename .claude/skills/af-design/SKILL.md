@@ -15,7 +15,8 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 ## Every page
 - [ ] No `max-w-*` on the page; canvas padding 20 px sideways, 14 px top.
 - [ ] Breadcrumb with **names, never ids**; the title appears **once**.
-- [ ] Title row: icon tile · title 20/600 · tags · ⋮ · secondary buttons · **one** primary (split `▾` when it has variants).
+- [ ] The Pulse board of the page is the reference (D77): build from it, check the screenshots against it; a rule here that disagrees is rewritten in the same PR.
+- [ ] Title row: title 26/700 (no icon tile) · tags · ⋮ · secondary buttons · **one** primary (split `▾` when it has variants); the meta line under it = the page's situation in one line.
 - [ ] Tabs are underline tabs with count badges.
 - [ ] A banner only for "what to do next here", one sentence, one link.
 - [ ] Every string through `useT()` / `translator()` — en, fr, sv in the same PR.
@@ -24,7 +25,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Colours only through tokens (`--app`, `--surface`, `--surface-2`, `--border`, `--border-subtle`, `--text`, `--text-muted`, `--primary`, `--action`, `--selection`, `--state-*`, `--tag`, `--destructive`, `--brand`, `--rail-*`, `--cur-*`). No hex in a component, no Tailwind palette colours (`text-green-600`), no gradients (the ground's dots are the one), shadows only `shadow-card` (cards) and `shadow-pop` (popovers, menus, dialogs).
 - [ ] Crimson (`--brand`) only in the logo and **+ New**. The primary button is ink (`--action`); links and in-progress are `--primary` blue; errors are `--destructive`; a currency's colour (`--cur-*`) only for that currency in a chart or ticker, never a state.
 - [ ] Geist / Geist Mono through `next/font/local` (`app/layout.tsx`, the `geist` package) — nothing fetched; mono for keys, file names and tickers. Never `next/font/google`.
-- [ ] Sizes from the scale: 20/600 title · 15/600 panel title · 13 body · 13/600 headers · 12 secondary.
+- [ ] Sizes from the scale: 26/700 title · 15/600 panel title · 13 body · 10.5/500 uppercase table headers · 13/600 section heads · 12 secondary.
 - [ ] Contrast ≥ 4.5:1 for any text, in light **and** dark.
 
 ## Numbers and dates
