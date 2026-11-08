@@ -49,12 +49,19 @@ export function parseChart(svRows, enRows) {
     const a = row[0];
     if (typeof a === "number" && a >= 10 && a <= 99) {
       const code = String(a);
-      group = { code, classNum: Number(code[0]), name: clean(row[1]), nameEn: enGroups.get(code) ?? null };
+      group = {
+        code,
+        classNum: Number(code[0]),
+        name: clean(row[1]),
+        nameEn: enGroups.get(code) ?? null,
+      };
       groups.push(group);
       continue;
     }
     if (!group) continue;
-    const mainCode = String(a ?? "").replace("#", "").trim();
+    const mainCode = String(a ?? "")
+      .replace("#", "")
+      .trim();
     if (/^\d{4}$/.test(mainCode)) {
       main = mainCode;
       if (!accounts.has(mainCode))
@@ -69,7 +76,9 @@ export function parseChart(svRows, enRows) {
           parentCode: null,
         });
     }
-    const subCode = String(row[2] ?? "").replace("#", "").trim();
+    const subCode = String(row[2] ?? "")
+      .replace("#", "")
+      .trim();
     if (/^\d{4}$/.test(subCode) && !accounts.has(subCode)) {
       const parent = main && main.slice(0, 3) === subCode.slice(0, 3) ? main : null;
       accounts.set(subCode, {
@@ -944,6 +953,120 @@ const SUGGESTED_ALIASES = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// 6b. English for the accounts BAS's English chart does not name (F149, the owner 2026-11-08): translated by the
+//     agent, marked ` **` on screen so they are never taken for BAS's own wording
+// ─────────────────────────────────────────────────────────────
+const EN_TRANSLATED = {
+  1090: "Other intangible fixed assets",
+  1092: "Site leasehold rights",
+  1098: "Accumulated write-downs of other intangible fixed assets",
+  1099: "Accumulated amortisation of other intangible fixed assets",
+  1212: "Building and land equipment (for production)",
+  1214: "Computers (for production)",
+  1216: "Work vehicles",
+  1217: "Finance-leased machinery",
+  1224: "Computers (not for production)",
+  1226: "Cars and other means of transport (not for production)",
+  1227: "Finance-leased equipment",
+  1686: "Receivables for payment cards and vouchers",
+  2127: "Tax allocation reserve 2027",
+  2137: "Tax allocation reserve 2027 – no. 2",
+  4010: "Purchases of goods for resale in Sweden",
+  4060: "Purchases of goods for resale in Sweden, reverse charge",
+  4065: "Purchases of goods for resale in Sweden, reverse charge, 25 % VAT",
+  4066: "Purchases of goods for resale in Sweden, reverse charge, 12 % VAT",
+  4067: "Purchases of goods for resale in Sweden, reverse charge, 6 % VAT",
+  4070: "Purchases of goods for resale from another EU country",
+  4075: "Purchases of goods for resale from another EU country, 25 % VAT",
+  4076: "Purchases of goods for resale from another EU country, 12 % VAT",
+  4077: "Purchases of goods for resale from another EU country, 6 % VAT",
+  4078: "Purchases of goods for resale from another EU country, VAT exempt",
+  4080: "Imports of goods for resale",
+  4085: "Imports of goods for resale, 25 % VAT",
+  4086: "Imports of goods for resale, 12 % VAT",
+  4087: "Imports of goods for resale, 6 % VAT",
+  4090: "Discounts received (goods for resale)",
+  4091: "Cash discounts received (goods for resale)",
+  4092: "Volume discounts received, incl. bonuses (goods for resale)",
+  4099: "Other reductions of purchase prices (goods for resale)",
+  4300: "Purchases of raw materials and supplies in Sweden (control account)",
+  4310: "Purchases of raw materials and supplies in Sweden",
+  4610: "Purchases of services and subcontracting",
+  4670: "Purchases of contract manufacturing",
+  4739: "Other reductions of purchase prices (raw materials and supplies)",
+  4800: "Other production costs (control account)",
+  4810: "Energy costs (raw materials and supplies)",
+  4820: "Fuel costs (raw materials and supplies)",
+  4830: "Travel costs (raw materials and supplies)",
+  4840: "Equipment hire costs (raw materials and supplies)",
+  4890: "Other production costs (raw materials and supplies)",
+  5019: "Other premises rent costs",
+  5069: "Other cleaning and maintenance costs",
+  5139: "Other heating costs",
+  5169: "Other cleaning and waste disposal costs",
+  5621: "Fuel for lorries and buses",
+  5622: "Insurance and tax for lorries and buses",
+  5623: "Repairs and maintenance of lorries and buses",
+  5625: "Leasing of lorries and buses",
+  5626: "Congestion tax for lorries and buses",
+  5629: "Other costs for lorries and buses",
+  5631: "Fuel for forklift trucks",
+  5632: "Insurance and tax for forklift trucks",
+  5633: "Repairs and maintenance of forklift trucks",
+  5635: "Leasing of forklift trucks",
+  5639: "Other costs for forklift trucks",
+  5641: "Fuel for work machines",
+  5642: "Insurance and tax for work machines",
+  5643: "Repairs and maintenance of work machines",
+  5645: "Leasing of work machines",
+  5646: "Congestion tax for work machines",
+  5649: "Other costs for work machines",
+  5651: "Fuel for tractors",
+  5652: "Insurance and tax for tractors",
+  5653: "Repairs and maintenance of tractors",
+  5655: "Leasing of tractors",
+  5656: "Congestion tax for tractors",
+  5659: "Other costs for tractors",
+  5671: "Fuel for ships and aircraft",
+  5672: "Insurance and tax for ships and aircraft",
+  5673: "Repairs and maintenance of ships and aircraft",
+  5675: "Leasing of ships and aircraft",
+  5679: "Other costs for ships and aircraft",
+  5680: "Rail vehicle costs",
+  5681: "Fuel for rail vehicles",
+  5682: "Insurance and tax for rail vehicles",
+  5683: "Repairs and maintenance of rail vehicles",
+  5685: "Leasing of rail vehicles",
+  5689: "Other costs for rail vehicles",
+  5691: "Fuel for other means of transport",
+  5692: "Insurance and tax for other means of transport",
+  5693: "Repairs and maintenance of other means of transport",
+  5695: "Leasing of other means of transport",
+  5696: "Congestion tax for other means of transport",
+  5699: "Other costs for other means of transport",
+  5711: "Freight costs",
+  5712: "Freight insurance",
+  5721: "Customs costs",
+  5722: "Forwarding costs",
+  5729: "Other customs and forwarding costs etc.",
+  5981: "Sponsorship, deductible",
+  5982: "Sponsorship, non-deductible",
+  6059: "Other sales commission costs",
+  6219: "Other telecommunication costs",
+  6290: "Other telecom, data and postage costs",
+  6391: "Other risk costs, deductible",
+  6392: "Other risk costs, non-deductible",
+  6700: "Specific to non-profit associations and foundations (control account)",
+  6710: "Grants given",
+  7731: "Write-downs of plant and machinery",
+  7732: "Write-downs of equipment, tools and installations",
+  7733: "Write-downs of other tangible fixed assets",
+  7781: "Reversal of write-downs of plant and machinery",
+  7782: "Reversal of write-downs of equipment, tools and installations",
+  7783: "Reversal of write-downs of other tangible fixed assets",
+};
+
+// ─────────────────────────────────────────────────────────────
 // 7. Generate SQL INSERT statements
 // ─────────────────────────────────────────────────────────────
 function escSql(val) {
@@ -974,7 +1097,7 @@ function main() {
         const nameFr = k ? (FRENCH_NAMES[k] ?? null) : null;
         const isCommon = k ? COMMON_SOLO_AB.has(k) : false;
         const alias = k ? (SUGGESTED_ALIASES[k] ?? null) : null;
-        return `  (${escSql(a.code)}, ${escSql(a.name)}, ${escSql(a.nameEn)}, ${escSql(nameFr)}, ${escSql(a.className)}, ${a.classNum}, ${isCommon}, ${escSql(alias)}, ${escSql(a.groupCode)}, ${escSql(a.kind)}, ${escSql(a.parentCode)})`;
+        return `  (${escSql(a.code)}, ${escSql(a.name)}, ${escSql(a.nameEn ?? (EN_TRANSLATED[a.code] ? `${EN_TRANSLATED[a.code]} **` : null))}, ${escSql(nameFr)}, ${escSql(a.className)}, ${a.classNum}, ${isCommon}, ${escSql(alias)}, ${escSql(a.groupCode)}, ${escSql(a.kind)}, ${escSql(a.parentCode)})`;
       })
       .join(",\n")};`,
     "",

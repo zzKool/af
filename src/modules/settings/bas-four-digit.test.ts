@@ -40,6 +40,19 @@ describe("the four-digit chart (D68)", () => {
     expect(found.rows.map((r) => r.code)).toEqual(named);
   });
 
+  it("every account has an English name — the ones BAS does not give are the agent's, marked ` **` (F149)", async () => {
+    expect(
+      await one(`SELECT count(*)::int AS n FROM bas_categories WHERE name_en IS NULL`),
+    ).toEqual({ n: 0 });
+    const marked = await one(
+      `SELECT count(*)::int AS n FROM bas_categories WHERE name_en LIKE '% **'`,
+    );
+    expect(marked.n).toBeGreaterThan(0);
+    expect(await one(`SELECT name_en FROM bas_categories WHERE code = '1214'`)).toEqual({
+      name_en: "Computers (for production) **",
+    });
+  });
+
   it("no column keeps a three-digit code", async () => {
     for (const [table, column] of [
       ["bank_transactions", "bas_code"],
