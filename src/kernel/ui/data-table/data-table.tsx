@@ -676,87 +676,89 @@ function ColumnsMenu<Row>({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64">
         <div className="flex flex-col gap-1" data-testid="columns-menu">
-          {toggleable.map((c, i) => {
-            const name = typeof c.header === "string" ? c.header : c.key;
-            return (
-              <div
-                key={c.key}
-                className={cn(
-                  "flex items-center gap-2 rounded-sm text-sm",
-                  dragged === c.key && "opacity-40",
-                  over === c.key && dragged !== c.key && "bg-hover ring-1 ring-action/40",
-                )}
-                data-testid="columns-menu-item"
-                data-column={c.key}
-                onDragOver={(e) => {
-                  if (dragged && dragged !== c.key) {
-                    e.preventDefault();
-                    setOver(c.key);
-                  }
-                }}
-                onDragLeave={() => setOver((o) => (o === c.key ? null : o))}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const key = dragged ?? e.dataTransfer.getData("text/plain");
-                  if (key && key !== c.key) drop(key, c.key);
-                  setDragged(null);
-                  setOver(null);
-                }}
-              >
-                <span
-                  draggable
-                  className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                  aria-hidden
-                  title={t("table.dragToReorder")}
-                  data-testid="columns-menu-grip"
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("text/plain", c.key);
-                    setDragged(c.key);
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {toggleable.map((c, i) => {
+              const name = typeof c.header === "string" ? c.header : c.key;
+              return (
+                <li
+                  key={c.key}
+                  className={cn(
+                    "flex items-center gap-2 rounded-sm text-sm",
+                    dragged === c.key && "opacity-40",
+                    over === c.key && dragged !== c.key && "bg-hover ring-1 ring-action/40",
+                  )}
+                  data-testid="columns-menu-item"
+                  data-column={c.key}
+                  onDragOver={(e) => {
+                    if (dragged && dragged !== c.key) {
+                      e.preventDefault();
+                      setOver(c.key);
+                    }
                   }}
-                  onDragEnd={() => {
+                  onDragLeave={() => setOver((o) => (o === c.key ? null : o))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const key = dragged ?? e.dataTransfer.getData("text/plain");
+                    if (key && key !== c.key) drop(key, c.key);
                     setDragged(null);
                     setOver(null);
                   }}
                 >
-                  <GripVertical className="size-3.5" />
-                </span>
-                {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
-                <label className="flex min-w-0 flex-1 items-center gap-2">
-                  <Checkbox
-                    aria-label={name}
-                    disabled={c.alwaysVisible}
-                    checked={!hidden.has(c.key)}
-                    onCheckedChange={() => {
-                      const next = new Set(hidden);
-                      if (next.has(c.key)) next.delete(c.key);
-                      else next.add(c.key);
-                      setHidden(next);
+                  <span
+                    draggable
+                    className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                    aria-hidden
+                    title={t("table.dragToReorder")}
+                    data-testid="columns-menu-grip"
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", c.key);
+                      setDragged(c.key);
                     }}
-                  />
-                  <span className="truncate">{c.header}</span>
-                </label>
-                <button
-                  type="button"
-                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label={t("table.moveUp", { column: String(name) })}
-                  disabled={i === 0}
-                  onClick={() => move(c.key, -1)}
-                >
-                  <ArrowUp className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label={t("table.moveDown", { column: String(name) })}
-                  disabled={i === toggleable.length - 1}
-                  onClick={() => move(c.key, 1)}
-                >
-                  <ArrowDown className="size-3.5" />
-                </button>
-              </div>
-            );
-          })}
+                    onDragEnd={() => {
+                      setDragged(null);
+                      setOver(null);
+                    }}
+                  >
+                    <GripVertical className="size-3.5" />
+                  </span>
+                  {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
+                  <label className="flex min-w-0 flex-1 items-center gap-2">
+                    <Checkbox
+                      aria-label={name}
+                      disabled={c.alwaysVisible}
+                      checked={!hidden.has(c.key)}
+                      onCheckedChange={() => {
+                        const next = new Set(hidden);
+                        if (next.has(c.key)) next.delete(c.key);
+                        else next.add(c.key);
+                        setHidden(next);
+                      }}
+                    />
+                    <span className="truncate">{c.header}</span>
+                  </label>
+                  <button
+                    type="button"
+                    className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    aria-label={t("table.moveUp", { column: String(name) })}
+                    disabled={i === 0}
+                    onClick={() => move(c.key, -1)}
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    aria-label={t("table.moveDown", { column: String(name) })}
+                    disabled={i === toggleable.length - 1}
+                    onClick={() => move(c.key, 1)}
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
           {!isDefault && (
             <Button
               size="sm"
