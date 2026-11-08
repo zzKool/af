@@ -15,10 +15,12 @@ test.describe("Documents page", () => {
     await expect(uploadZone).toBeVisible();
   });
 
-  test("document type selector is visible", async ({ page }) => {
+  test("no type to pick (D78): the zone takes anything", async ({ page }) => {
     await page.goto("/documents");
-    const selector = page.getByLabel("Document type");
-    await expect(selector).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upload document" })).toContainText(
+      "No type to pick",
+    );
+    await expect(page.getByLabel("Document type")).toHaveCount(0);
   });
 });
 
