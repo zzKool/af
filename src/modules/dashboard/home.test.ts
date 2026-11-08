@@ -1,0 +1,92 @@
+// The home's read on the real modules (F138, FR-006 – FR-008): an invented world (D51) on 2026-07-15 — a CHF main
+// account with balances in June and July, a SEK main account with one in July, rates every weekday → the cash in
+// SEK with its month, the tickers, the year's counts, the owner's close (the accountant gets none).
+import { Pool } from "pg";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRateLimit } from "@/kernel/actions/rate-limit";
+import { cleanupTestData } from "@/kernel/db/test-fixtures";
+import { importRows, type Owner, run, setupOwner } from "@/modules/expenses/__fixtures__/harness";
+import { homeData } from "./home";
+
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+vi.mock("@/kernel/logging/logger", () => ({
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+const ADMIN_DATABASE_URL =
+  process.env.DATABASE_TEST_MIGRATION_URL || "postgresql://af:test@localhost:5433/af_test";
+let adminPool: Pool;
+let nordeaFormatId: string;
+let owner: Owner;
+const TODAY = "2026-07-15";
+
+beforeAll(async () => {
+  adminPool = new Pool({ connectionString: ADMIN_DATABASE_URL });
+  const r = await adminPool.query(`SELECT id FROM bank_formats WHERE name = 'Nordea CSV (Sweden)'`);
+  nordeaFormatId = r.rows[0].id;
+});
+beforeEach(async () => {
+  await cleanupTestData(adminPool);
+  await adminPool.query("TRUNCATE ecb_rates");
+  resetRateLimit();
+  // 1 EUR = 11 SEK and 0.88 CHF → 1 CHF = 12.5 SEK, every day from 1 April
+  for (
+    let d = new Date("2026-04-01T00:00:00Z");
+    d <= new Date(`${TODAY}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    await adminPool.query(
+      `INSERT INTO ecb_rates (date, currency_pair, rate) VALUES ($1, 'EUR/SEK', 11), ($1, 'EUR/CHF', 0.88), ($1, 'EUR/USD', 1.1)`,
+      [d.toISOString().slice(0, 10)],
+    );
+  }
+  owner = await setupOwner(adminPool, nordeaFormatId);
+});
+afterAll(async () => {
+  await adminPool.end();
+});
+
+async function world() {
+  await run(owner.caller, async (tx) => {
+    // newest first, as Nordea exports: the first row of a day carries the day's last balance
+    await importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
+      { date: "2026-07-10", amount: "-200.00", name: "INVENTED SHOP", balance: "9800.00" },
+      { date: "2026-06-20", amount: "-100.00", name: "INVENTED CAFE", balance: "8000.00" },
+      { date: "2026-06-20", amount: "8100.00", name: "INVENTED CLIENT", balance: "8100.00" },
+    ]);
+    await importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
+      { date: "2026-07-02", amount: "5000.00", name: "INVENTED TRANSFER", balance: "5000.00" },
+    ]);
+  });
+}
+
+describe("homeData (F138)", () => {
+  it("the cash in SEK today and its month, each account's share, the CHF exposure", async () => {
+    await world();
+    const h = await run(owner.caller, (tx) => homeData(tx, owner.caller, TODAY, null));
+    // 9 800 × 12.5 + 5 000 = 127 500; end of June 8 000 × 12.5 = 100 000
+    expect(h.cash.base).toBe("SEK");
+    expect(h.cash.total).toBe("127500.00");
+    expect(h.cash.monthDelta).toBe("27500.00");
+    expect(h.cash.series.at(-2)).toEqual({ day: "2026-06-30", total: "100000.00" });
+    expect(h.cash.series[0]?.total).toBeNull();
+    expect(h.cash.accounts.find((a) => a.currency === "CHF")).toMatchObject({
+      balance: "9800.00",
+      inBase: "122500.00",
+      share: 96,
+    });
+    expect(h.cash.exposure).toEqual([{ currency: "CHF", onePercent: "1225.00" }]);
+  });
+
+  it("the tickers against SEK, the year's rows, the owner's close", async () => {
+    await world();
+    const h = await run(owner.caller, (tx) => homeData(tx, owner.caller, TODAY, null));
+    expect(h.currencies.map((c) => [c.currency, c.now, c.change])).toEqual([
+      ["CHF", "12.500000", 0],
+      ["EUR", "11.000000", 0],
+      ["USD", "10.000000", 0],
+    ]);
+    expect(h.year).toEqual({ year: "2026", justified: 0, toJustify: 4 });
+    expect(h.work?.close.month).toBe("2026-06");
+  });
+});

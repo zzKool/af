@@ -42,6 +42,7 @@ import type {
   TransferProposal,
   WindowRow,
 } from "./types";
+import { STATEMENT_ROLES } from "./types";
 
 export { getBankAccounts, getBankFormats } from "./bank-accounts";
 export { listRules } from "./rules";
@@ -876,6 +877,59 @@ export async function accountBalances(tx: TransactionClient): Promise<AccountBal
     });
   }
   return out;
+}
+
+/**
+ * The statement accounts' balances at the end of each of `days` (F138, the home's cash line): per account the
+ * balance of the latest booking date on or before the day that has one — the rule of `accountBalances`, the file's
+ * first row of that date — null before the account's first balance. Pure on the rows it reads: one query.
+ */
+export async function balanceHistory(
+  tx: TransactionClient,
+  days: readonly string[],
+): Promise<
+  Array<
+    Omit<AccountBalance, "balance" | "balanceDate" | "lastImportAt"> & {
+      balances: (string | null)[];
+    }
+  >
+> {
+  const accounts = await tx.bankAccount.findMany({
+    where: { role: { in: [...STATEMENT_ROLES] } },
+    orderBy: [{ role: "asc" }, { currency: "asc" }],
+  });
+  const rows = await tx.bankTransaction.findMany({
+    where: { bankAccountId: { in: accounts.map((a) => a.id) }, balance: { not: null } },
+    orderBy: [{ bookingDate: "asc" }, { rowIndex: "desc" }],
+    select: { bankAccountId: true, bookingDate: true, balance: true },
+  });
+  // per account, per booking date: the last row in this order = the file's first row of that date
+  const byAccount = new Map<string, Array<{ day: string; balance: string }>>();
+  for (const r of rows) {
+    const list = byAccount.get(r.bankAccountId) ?? [];
+    const day = iso(r.bookingDate) as string;
+    const entry = { day, balance: r.balance?.toFixed(2) ?? "0.00" };
+    if (list.at(-1)?.day === day) list[list.length - 1] = entry;
+    else list.push(entry);
+    byAccount.set(r.bankAccountId, list);
+  }
+  return accounts.map((a) => {
+    const list = byAccount.get(a.id) ?? [];
+    return {
+      bankAccountId: a.id,
+      label: accountLabel(a),
+      currency: a.currency,
+      role: a.role as BankAccountRole,
+      balances: days.map((d) => {
+        let found: string | null = null;
+        for (const e of list) {
+          if (e.day > d) break;
+          found = e.balance;
+        }
+        return found;
+      }),
+    };
+  });
 }
 
 // --- the accountant package's raw rows (specs/accountant-package/spec.md FR-002) ---

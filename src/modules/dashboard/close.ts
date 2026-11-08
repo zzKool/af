@@ -21,6 +21,7 @@ import {
   type CloseAccount,
   type CloseStep,
   type CloseStepKind,
+  type DashboardOverview,
   type InvoiceReminder,
   type MonthlyClose,
   type PastClose,
@@ -194,6 +195,8 @@ export async function workData(
   caller: CallerIdentity,
   today: string,
   month: string | null,
+  /** the dashboard's overview when the caller already has it (the home) — read once */
+  overview?: DashboardOverview,
 ): Promise<WorkData> {
   const thisMonth = monthOf(today);
   const builds = await packageModule.listBuilds(tx);
@@ -301,8 +304,8 @@ export async function workData(
       return { month: m, builtOn: f.builtOn, percent: closeSteps(f).percent };
     });
 
-  const overview = await dashboardOverview(tx, caller, today, null);
-  const alsoWaiting: ActionItem[] = overview.items.filter((i) => !CLOSE_KINDS.has(i.kind));
+  const items = (overview ?? (await dashboardOverview(tx, caller, today, null))).items;
+  const alsoWaiting: ActionItem[] = items.filter((i) => !CLOSE_KINDS.has(i.kind));
 
   return { close, past, streak: closeStreak(thisMonth, built), alsoWaiting };
 }

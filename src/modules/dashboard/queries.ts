@@ -9,5 +9,7 @@ export {
   workData,
 } from "./close";
 export { getDashboardData } from "./dashboard";
+export { cashDays, cashSummary, homeData, TICKER_DAYS, ticker } from "./home";
+export { homeSentence } from "./home-text";
 export { dashboardOverview, previousMonth, previousQuarter } from "./overview";
 export { leftSentence } from "./work-text";

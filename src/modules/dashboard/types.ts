@@ -123,3 +123,54 @@ export type WorkData = {
   /** the dashboard's items that are not steps of the close */
   alsoWaiting: ActionItem[];
 };
+
+// --- Home: the year at a glance (F138, spec US5 / FR-006 – FR-008) ---
+
+/** A statement account's balance and its weight in the cash. */
+export type CashAccount = {
+  label: string;
+  currency: string;
+  /** the latest balance, in the account's currency; null before its first */
+  balance: string | null;
+  /** the same in the base at today's rate (the nearest-day rule); null without a balance or a rate */
+  inBase: string | null;
+  /** 0–100, its share of the total */
+  share: number;
+};
+
+/** Cash · all statement accounts, in the tenant's base (D39). Decimal strings. */
+export type CashSummary = {
+  base: string;
+  /** the total today, in base */
+  total: string;
+  /** today's total minus last month's last day's; null when that day had no balance at all */
+  monthDelta: string | null;
+  /** the total at the end of each of the last twelve months, then today; null before any balance */
+  series: Array<{ day: string; total: string | null }>;
+  accounts: CashAccount[];
+  /** what a 1 % move of each foreign currency against the base is worth on what is held in it, largest first */
+  exposure: Array<{ currency: string; onePercent: string }>;
+  /** an account in a currency with no rate today: the total leaves it out (and says so) */
+  incomplete: boolean;
+};
+
+/** One currency against the base over the last 90 days (the rates page's cross, FR-011 of rates). */
+export type CurrencyTicker = {
+  currency: string;
+  /** 1 currency = now × base; null with no rate in the window */
+  now: string | null;
+  /** % change over the window, 1 dp; null with fewer than two points */
+  change: number | null;
+  /** the window's rates, oldest first */
+  points: string[];
+};
+
+export type HomeData = {
+  overview: DashboardOverview;
+  cash: CashSummary;
+  currencies: CurrencyTicker[];
+  /** this year's bank rows, justified and to justify (the Months panel's counts) */
+  year: { year: string; justified: number; toJustify: number };
+  /** the owner's close — null for the accountant */
+  work: WorkData | null;
+};
