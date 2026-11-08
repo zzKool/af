@@ -8,12 +8,13 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { SplitButton } from "@/kernel/ui/split-button";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
+import { cn } from "@/lib/utils";
 import { getDocumentDownloadUrlAction } from "@/modules/documents/ui";
 import {
   convertQuoteAction,
@@ -162,6 +163,16 @@ export function InvoiceActions({
           </Button>
         ) : (
           <span className="text-xs text-muted-foreground" data-testid="pdf-pending">
+            {/* F145: the stored PDF is not there yet — the same page, made now */}
+            <a
+              href={`/invoices/${id}/pdf`}
+              target="_blank"
+              rel="noopener"
+              className={cn(buttonVariants({ variant: "outline" }), "mr-2")}
+              data-testid="open-pdf"
+            >
+              {t("invoices.action.downloadPdf")}
+            </a>
             {t("invoices.action.pdfPending")}
             {/* V12 / F110: the polls ran out — the render may still queue, or it failed for good (the History
                 says which). One click queues it again (exclusive per invoice: never doubled) and polls again. */}
@@ -184,6 +195,17 @@ export function InvoiceActions({
             )}
           </span>
         ))}
+      {draft && (
+        <a
+          href={`/invoices/${id}/pdf`}
+          target="_blank"
+          rel="noopener"
+          className={buttonVariants({ variant: "outline" })}
+          data-testid="preview-pdf"
+        >
+          {t("invoices.pdf.preview")}
+        </a>
+      )}
       {canWrite && draft && (
         <>
           <Button

@@ -359,7 +359,7 @@ export const fr: PartialDictionary = {
   "invoice.payment.title": "Paiement",
   "invoice.payment.termsDefault":
     "Paiement dû dans les {days} jours à compter de la date de facturation.",
-  "invoice.payment.pleaseReference": "Veuillez indiquer le numéro de facture {number}.",
+  "invoice.payment.pleaseReference": "Merci de mentionner le numéro de facture lors du paiement:",
   "invoice.payment.bankDetails": "Coordonnées bancaires",
   "invoice.payment.bank": "Banque",
   "invoice.payment.accountHolder": "Titulaire du compte",
@@ -368,6 +368,7 @@ export const fr: PartialDictionary = {
   "invoice.payment.bicSwift": "BIC/SWIFT",
   "invoice.company.orgNumber": "N° org.",
   "invoice.company.vatNumber": "N° TVA",
+  "invoice.company.consultant": "Consultant",
   "invoice.client.vatNumber": "N° TVA client",
   "invoice.notes": "Notes",
   "invoice.vat.reverseCharge":

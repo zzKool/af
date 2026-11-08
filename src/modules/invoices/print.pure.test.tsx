@@ -95,9 +95,9 @@ describe("the printed invoice — French (fixture expectedPrintFr)", () => {
     expect(html).toContain("31 janvier 2026");
     expect(html).toContain("02 mars 2026");
     expect(html).toContain("Date d'échéance");
-    expect(html).toContain("Période 2026 January");
-    expect(html).toContain("Bon de commande 4500000000");
-    expect(html).toContain("N° Fournisseur 000000");
+    expect(html).toContain("Période: 2026 January");
+    expect(html).toContain("Bon de commande: 4500000000");
+    expect(html).toContain("N° Fournisseur: 000000");
     expect(html).toContain("N° org.: 559000-0000");
     expect(html).toContain("N° TVA: CHE-000.000.000 TVA");
   });
@@ -115,11 +115,13 @@ describe("the printed invoice — French (fixture expectedPrintFr)", () => {
 
   it("payment box and bank details of the invoice currency", () => {
     expect(html).toContain("Paiement dû dans les 30 jours à compter de la date de facturation.");
-    expect(html).toContain("Veuillez indiquer le numéro de facture VA26-INV-001.");
-    expect(html).toContain("Banque Nordea");
-    expect(html).toContain("Titulaire du compte AnalyticsFab AB");
-    expect(html).toContain("IBAN SE00 0000 0000 0000 0000 0001");
-    expect(html).toContain("BIC/SWIFT NDEASESS");
+    expect(html).toContain(
+      "Merci de mentionner le numéro de facture lors du paiement: VA26-INV-001",
+    );
+    expect(html).toContain("Banque: Nordea");
+    expect(html).toContain("Titulaire du compte: AnalyticsFab AB");
+    expect(html).toContain("IBAN: SE00 0000 0000 0000 0000 0001");
+    expect(html).toContain("BIC/SWIFT: NDEASESS");
     expect(html).toContain("AnalyticsFab AB • invoices@example.com • https://example.com");
     expect(html).not.toContain("Autoliquidation");
   });
@@ -133,7 +135,7 @@ describe("the printed invoice — variants", () => {
     expect(html).toContain("Due Date");
     expect(html).toContain("20 Days");
     expect(html).toContain("CHF 25'944.00");
-    expect(html).toContain("Please reference invoice number VA26-INV-001.");
+    expect(html).toContain("Please mention the invoice number with your payment: VA26-INV-001");
   });
 
   it("VAT column appears when a line differs; two rates → two rows ascending; 0 % → no VAT row", () => {
@@ -211,6 +213,30 @@ describe("the printed invoice — variants", () => {
     const html = text({ ...base, status: "draft", number: null, numberHint: "VA26-INV-004" });
     expect(html).toContain("BROUILLON");
     expect(html).toContain("sera VA26-INV-004");
+  });
+
+  it("F145, the owner's shape: logo on top, the consultant, the country written out, no discount row at 0", () => {
+    const doc = {
+      ...base,
+      parties: {
+        ...base.parties,
+        tenant: {
+          ...base.parties.tenant,
+          logoUrl: "data:image/png;base64,AAAA",
+          consultant: "Alex Example",
+        },
+      },
+    };
+    const raw = renderToStaticMarkup(<InvoiceSheet mode="print" doc={doc} />);
+    expect(raw).toContain('data-testid="sheet-logo"');
+    expect(raw.indexOf("sheet-logo")).toBeLessThan(raw.indexOf("sheet-number"));
+    const html = text(doc);
+    expect(html).toContain("Consultant: Alex Example");
+    expect(html).toContain("Suisse");
+    expect(html).not.toContain("Remise");
+    expect(text({ ...base, discountAmount: "100.00", discountPercent: "5" })).toContain(
+      "Remise (5%)",
+    );
   });
 
   it("formatting helpers", () => {

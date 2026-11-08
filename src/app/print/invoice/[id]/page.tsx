@@ -23,6 +23,7 @@ export default async function PrintInvoicePage({ params, searchParams }: Params)
     parties: ctx.parties,
     treatment: ctx.treatment,
     relatedNumber: ctx.relatedNumber,
+    numberHint: ctx.numberHint,
   });
   return (
     <main className="bg-white">

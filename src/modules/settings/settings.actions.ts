@@ -10,6 +10,13 @@ const updateProfileSchema = z.object({
   address: z.string().optional().nullable(),
   email: z.string().trim().email().max(254).optional().nullable().or(z.literal("")),
   website: z.string().trim().max(200).optional().nullable(),
+  // F145: the invoice logo as a data URL — the PDF renderer needs no second request for it
+  logoUrl: z
+    .string()
+    .max(400_000)
+    .regex(/^data:image\/(png|jpeg|svg\+xml|webp);base64,[A-Za-z0-9+/=]+$/)
+    .optional()
+    .nullable(),
   phone: z.string().trim().max(30).optional().nullable(),
   currency: z.enum(["SEK", "CHF", "EUR", "USD"]).optional(),
 });

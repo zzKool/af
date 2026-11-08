@@ -30,6 +30,7 @@ export default async function CompanySettingsPage() {
           phone: profile.phone ?? "",
           currency: profile.currency,
         }}
+        initialLogo={profile.logoUrl}
       />
     </div>
   );

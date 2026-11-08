@@ -67,6 +67,8 @@ export type PrintedParties = {
     logoUrl: string | null;
     vatNumber: string | null;
     vatCountry: string | null;
+    /** F145: who did the work — the contract's assigned employee ("Consultant: …"); absent on older snapshots */
+    consultant?: string | null;
   };
   partner: {
     name: string;

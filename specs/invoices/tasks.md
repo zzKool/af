@@ -73,5 +73,12 @@
 - [x] T041 UI: the editor's `onDraft` and the EN / FR / SV toggle (the header's language select goes); `InvoiceStudio` (client · Ready to send? · When will it be paid? · the details panel; the sheet on `bg-surface-2`), `ReminderCard`; `/invoices/[id]` on the ground (`EntityPage ground`), the issued page's sheet and panel as cards. Tests: `invoice-studio.test.tsx`; e2e `invoices.spec.ts` (ready lines, no history, FR → *Facture* → EN)
 - [x] T042 Docs: F143, [[invoices]] *The studio*, roadmap 7a, screenshots in the PR. Left (nice): click the days worked, travel days without expense
 
+## F145 — `feat/invoices-sheet-shape` (D79, the owner's invoice shape, LIGHT)
+
+- [x] T043 The sheet in the owner's shape: logo on top, title line, company block with e-mail / org / VAT / *Consultant*, the client with the country written out and the facts list, grey header, 4 columns (VAT % only when rates differ), totals without a 0 discount row, grey total, grey payment box with the bold number and *Coordonnées bancaires:*, footer; `invoice.payment.pleaseReference` reworded (en/fr/sv), `invoice.company.consultant`. `consultant.ts` (the contract's assigned employee) into `printed_parties.tenant.consultant` (nullish — older snapshots read). Tests: `print.pure.test.tsx` (labels, F145 case), print-identity re-baselined (D79)
+- [x] T044 The editor in the same shape: fields in place, VAT rate once in the totals, *+ Discount* / *+ Note*, language + VAT registration in the toolbar, light controls on the paper in dark mode
+- [x] T045 *Preview PDF* (drafts) and the on-demand PDF beside *PDF is being generated…* — `/invoices/[id]/pdf`, the reason when Chromium fails; *Invoice logo* in Settings → Company (data URL ≤ 300 KB; the audit keeps the size, not the bytes). e2e `invoices.spec.ts`
+- [x] T046 Docs: D79, F145, [[invoices]] *The sheet*, screenshots `f145-editor-light.png`, `f145-pdf.png`
+
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.

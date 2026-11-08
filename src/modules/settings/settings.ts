@@ -18,6 +18,8 @@ export type UpdateTenantProfileInput = {
   address?: string | null;
   email?: string | null;
   website?: string | null;
+  /** F145: the logo printed on top of invoices — an image as a data URL (PNG, JPEG, SVG, WebP; ≤ 300 KB) */
+  logoUrl?: string | null;
   phone?: string | null;
   currency?: string;
 };
@@ -56,6 +58,11 @@ function toProfile(t: {
   };
 }
 
+/** The audit keeps that the logo changed, not its bytes. */
+function withoutLogoBytes<T extends { logoUrl: string | null }>(t: T): T {
+  return t.logoUrl ? { ...t, logoUrl: `[image, ${t.logoUrl.length} chars]` } : t;
+}
+
 export async function updateTenantProfile(
   tx: TransactionClient,
   caller: CallerIdentity,
@@ -78,6 +85,7 @@ export async function updateTenantProfile(
       ...(input.address !== undefined && { address: input.address }),
       ...(input.email !== undefined && { email: input.email }),
       ...(input.website !== undefined && { website: input.website }),
+      ...(input.logoUrl !== undefined && { logoUrl: input.logoUrl }),
       ...(input.phone !== undefined && { phone: input.phone }),
       ...(input.currency !== undefined && { currency: input.currency }),
     },
@@ -87,8 +95,8 @@ export async function updateTenantProfile(
     action: "update",
     entityType: "tenant",
     entityId: caller.tenantId,
-    oldData: toAuditData(old),
-    newData: toAuditData(tenant),
+    oldData: toAuditData(withoutLogoBytes(old)),
+    newData: toAuditData(withoutLogoBytes(tenant)),
   });
 
   // Sync name to Organization model to prevent Org ↔ Tenant name desync.

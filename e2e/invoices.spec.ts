@@ -59,6 +59,12 @@ test.describe("Invoices", () => {
       await expect(page.getByText("Saved")).toBeVisible();
       await expect(page.getByTestId("line-net").first()).toContainText("24");
 
+      // F145: no discount row unless there is one; the PDF is there on demand, even for a draft
+      await expect(page.getByTestId("sheet-discount")).toHaveCount(0);
+      const preview = await page.request.get(`${page.url()}/pdf`);
+      expect(preview.headers()["content-type"]).toContain("application/pdf");
+      await expect(page.getByTestId("preview-pdf")).toBeVisible();
+
       // F143, the studio: ready to send re-checked on the draft, the client's history, the page's language
       const ready = page.getByTestId("invoice-ready");
       await expect(ready.locator('[data-key="lines"]')).toHaveAttribute("data-state", "ok");
@@ -104,5 +110,21 @@ test.describe("Invoices", () => {
       await expect(page).toHaveURL(/\/invoices\/new\?type=invoice&partner=/);
       await expect(page.getByLabel("Client")).toContainText(client);
     });
+  });
+
+  // F145: the invoice logo is picked in Settings and printed on top of the sheet
+  test("the company logo: pick it in Settings", async ({ page }) => {
+    await page.goto("/settings/company");
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page
+      .getByTestId("company-logo")
+      .locator('input[type="file"]')
+      .setInputFiles({ name: "invented-logo.png", mimeType: "image/png", buffer: png });
+    await expect(page.getByTestId("company-logo").locator("img")).toBeVisible();
+    await page.getByTestId("company-logo").getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("company-logo").locator("img")).toHaveCount(0);
   });
 });
