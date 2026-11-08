@@ -44,10 +44,10 @@ Dockerfile                        runner stage: apk chromium + fonts, CHROMIUM_P
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CHROMIUM_PATH` | image: `/usr/bin/chromium-browser`; else a system Chrome or Playwright's browser | the executable |
+| `CHROMIUM_PATH` | image: `/usr/bin/chromium-browser`; else a system Chrome / Edge (Linux, macOS, Windows) or Playwright's browser | the executable |
 | `INTERNAL_BASE_URL` | `http://127.0.0.1:${PORT}` | where Chromium reaches this app |
 
-Local dev on Windows: set `CHROMIUM_PATH` to Chrome (`C:\Program Files\Google\Chrome\Application\chrome.exe`) or run `npx playwright install chromium` once (the e2e suite needs it anyway).
+Local dev on Windows: nothing to set — Edge is always installed and found (`Program Files (x86)\Microsoft\Edge\Application\msedge.exe`), Chrome too when it is there. Firefox cannot print for the app (the renderer drives Chromium). Otherwise `CHROMIUM_PATH`, or `npx playwright install chromium` once (the e2e suite needs it anyway).
 
 ## Testing
 
