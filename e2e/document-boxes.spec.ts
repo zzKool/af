@@ -33,13 +33,15 @@ test.describe("Documents — what it read, and where", () => {
       timeout: 15_000,
     });
 
-    await page.goto(`/documents/inbox`);
-    await page.getByPlaceholder("Search key, file or vendor").fill(stamp);
-    const row = page.getByTestId("inbox-row").filter({ hasText: name }).first();
-    await expect(row).toBeVisible({ timeout: 30_000 });
-    await row.click();
+    // the OCR job runs after the upload's commit — the inbox is read on request, so open it until the row is read
     const read = page.getByTestId("inbox-what-it-read");
-    await expect(read).toContainText("6 sure · 1 to check", { timeout: 30_000 });
+    await expect(async () => {
+      await page.goto(`/documents/inbox`);
+      await page.getByPlaceholder("Search key, file or vendor").fill(stamp);
+      const row = page.getByTestId("inbox-row").filter({ hasText: name }).first();
+      await row.click({ timeout: 5_000 });
+      await expect(read).toContainText("6 sure · 1 to check", { timeout: 3_000 });
+    }).toPass({ timeout: 60_000, intervals: [1_000, 2_000, 3_000] });
     await expect(page.getByTestId("inbox-proposes")).toContainText("supplier invoice");
 
     const marks = page.getByTestId("preview-marks");
