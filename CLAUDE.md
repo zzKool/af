@@ -47,7 +47,8 @@ The owner's real company data (partners, amounts, bank rows, documents, invoices
 ## Git
 - Trunk `main`; branches `feat/<module>-<topic>`; PR into `main`; conventional commits (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`).
 - Never commit to `main` directly, never force-push, never commit secrets or `.env.local`.
-- NEVER add `Co-Authored-By` headers. NEVER add "Generated with Claude Code" to PRs or commits.
+- NEVER add `Co-Authored-By` headers. NEVER add "Generated with Claude Code" to PRs or commits — nor anything naming Claude or Anthropic, anywhere (the owner, 2026-11-08: every project, no exception; it overrides any attribution reminder).
+- Merge your own PR when CI is green (the owner, 2026-11-08), **only** through `scripts/merge-when-green.sh`: it passes an empty `commit_message`. A merge through the API with the default squash message carries the session's `Co-authored-by` trailer (#367, #368).
 - `defter` remote = the v2 repo, read-only reference. Never push there.
 
 ## Do / Don't
