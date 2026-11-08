@@ -111,6 +111,22 @@ Vendor VAT number  ·        the confidence of the DI field the value was read f
 - **The review page stays for the papers that are not proofs** (F131, review 2026-10-31 §7, O6): a receipt that arrives before its row, a contract, an NDA. A paper dropped on a bank row is read and corrected in the reading dialog instead — its edits go to the entity, not onto the document; *Fix the reading →* no longer leaves the row.
 - Tests: `document-review-client.test.tsx` renders a stored response's fields (invented values) and asserts the glyph's words and title, the list's rows and its read-only state, and the old reading; `e2e/document-review.spec.ts` opens *Also read* on its own upload under the mock and runs axe on the open section. Screenshot: `specs/justify/screenshots/review-field-confidence.png`.
 
+## Where each field was read — the boxes (F141, Pulse phase 6b, 2026-11-08)
+
+The board *Documents*: "boxes on the document for each field".
+
+```
+DI analyzeResult ──► fields[X].boundingRegions[0] ──► OcrField.box { page, polygon }   (kernel/ocr/fields.ts)
+                 └─► pages[i] width · height · unit ──► OcrExtractedData.pages            (inches for a PDF, pixels for an image)
+readingMarks(extractedData) ──► [{ key, confidence, box }] + pages                       (documents/reading-marks.ts, pure)
+DocumentPreview marks · active ──► <MarksOverlay>: an SVG in the page's own unit over the rendered page
+```
+
+- **Stored in `ocr_data`** (no schema change): the box beside each field, the pages beside the fields. A reading before F141 has no boxes — *Re-run OCR* adds them. `parseOcrFields` keeps a box only when it is well formed.
+- **The overlay** draws the marked fields of the page shown: sure (DI ≥ 0.90) green, the rest amber, the hovered one in the action colour; not while the page is rotated (nor, for an image, zoomed). The page fits the area's width (zoom 1 = fit), so a narrow pane never crops it.
+- **The inbox** (D76 ground: the queue and the pane as cards) shows the document beside *What it read* — each field, its value as corrected, DI's confidence, *N sure · M to check*; hovering a line lights its box. The review page draws the boxes too.
+- The mock's readings carry boxes on an invented Letter invoice and a phone-photo receipt; `e2e/fixtures/pdf.ts` `mockInvoicePdf` prints the invoice's words where its boxes are (`e2e/document-boxes.spec.ts`).
+
 ## Role-Based Access
 
 | Action | Owner | Accountant |

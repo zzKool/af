@@ -25,6 +25,7 @@ import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
+import { cn } from "@/lib/utils";
 import {
   archiveDocumentsAction,
   classifyDocumentAction,
@@ -36,11 +37,13 @@ import {
 import { documentFileUrl } from "@/modules/documents/file";
 import type { InboxState, InboxTab } from "@/modules/documents/inbox";
 import { ASK_KINDS, readingProposes } from "@/modules/documents/proposes";
-import type { InboxData, InboxItem } from "@/modules/documents/queries";
+import type { InboxData, InboxFacts, InboxItem } from "@/modules/documents/queries";
+import { type MarkedKey, sureCount } from "@/modules/documents/reading-marks";
 import { NewExpenseDialog } from "@/modules/expenses/ui";
 import { SuggestionsSection } from "@/modules/linking/ui";
 import { NewSupplierInvoiceDialog } from "@/modules/supplier-invoices/ui";
 import { DocumentStateLabel } from "./document-state-label";
+import { FieldConfidence } from "./field-confidence";
 import { initialFromFacts, type MakeItOptions } from "./make-it-section";
 
 const DocumentPreview = dynamic(() => import("@/modules/documents/components/document-preview"), {
@@ -489,9 +492,12 @@ export function InboxWorkbench({
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        {/* left: the queue */}
-        <section className="min-w-0 rounded-md border" aria-label={t("documents.inbox.title")}>
+      <div className="grid items-start gap-[18px] xl:grid-cols-[22rem_minmax(0,1fr)]">
+        {/* left: the queue — D76: a card on the ground */}
+        <section
+          className="min-w-0 overflow-hidden rounded-2xl border border-subtle bg-surface shadow-card"
+          aria-label={t("documents.inbox.title")}
+        >
           {rows.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground" data-testid="inbox-empty">
               {t(
@@ -573,7 +579,10 @@ export function InboxWorkbench({
         </section>
 
         {/* right: the open document */}
-        <section className="min-w-0" aria-label={t("documents.inbox.pane")}>
+        <section
+          className="min-w-0 rounded-2xl border border-subtle bg-surface p-5 shadow-card"
+          aria-label={t("documents.inbox.pane")}
+        >
           {open ? (
             <InboxPane
               key={open.id}
@@ -647,6 +656,67 @@ export function InboxWorkbench({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** A mark's value as the inbox facts hold it (as corrected), for the list. */
+function markValue(row: InboxItem, key: MarkedKey): string {
+  const v = row.facts[key as keyof InboxFacts];
+  if (v === undefined || v === null) return "";
+  if (key === "invoiceTotal" || key === "subtotal" || key === "totalTax")
+    return formatMoney(String(v), row.facts.currency ?? null);
+  return String(v);
+}
+
+/**
+ * F141, the board *Documents*: what the reading found — each field, its value, DI's confidence — *N sure · M to
+ * check*; hovering a line lights its box on the preview.
+ */
+function WhatItRead({
+  row,
+  active,
+  onActive,
+}: {
+  row: InboxItem;
+  active: string | null;
+  onActive: (key: string | null) => void;
+}) {
+  const t = useT();
+  const marks = row.reading?.marks ?? [];
+  const { sure, check } = sureCount(marks);
+  return (
+    <section className="flex flex-col gap-1.5" data-testid="inbox-what-it-read">
+      <h3 className="flex items-baseline gap-2 text-sm font-semibold">
+        {t("documents.read.title")}
+        <span className="text-xs font-normal text-muted-foreground">
+          {t("documents.read.count", { sure, check })}
+        </span>
+      </h3>
+      <ul className="flex flex-col">
+        {marks.map((m) => (
+          <li key={m.key}>
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-hover",
+                active === m.key && "bg-surface-2",
+              )}
+              onMouseEnter={() => onActive(m.key)}
+              onMouseLeave={() => onActive(null)}
+              onFocus={() => onActive(m.key)}
+              onBlur={() => onActive(null)}
+              data-mark={m.key}
+            >
+              <span className="w-32 shrink-0 text-xs text-muted-foreground">
+                {t(`documents.read.field.${m.key}` as MessageKey)}
+              </span>
+              <span className="min-w-0 flex-1 truncate tabular-nums">{markValue(row, m.key)}</span>
+              <FieldConfidence confidence={m.confidence} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -732,6 +802,8 @@ function InboxPane({
   const t = useT();
   // F106: the bytes come from the authenticated route — a pure path from the id, nothing to fetch first
   const fileUrl = documentFileUrl(row.id);
+  // F141: the field *What it read* hovers — its box stands out on the preview
+  const [activeMark, setActiveMark] = useState<string | null>(null);
 
   const f = row.facts;
   const facts: [MessageKey, ReactNode][] = [
@@ -872,28 +944,43 @@ function InboxPane({
         </div>
       </div>
 
-      <DetailsSection title={t("documents.review.financial")}>
-        <div data-testid="inbox-facts">
-          <DetailsGrid rows={facts.filter(([, v]) => v).map(([label, v]) => [t(label), v])} />
+      {/* F141, the board *Documents*: the document with its boxes beside what it read */}
+      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div
+          className="overflow-hidden rounded-xl border border-subtle bg-surface-2 2xl:sticky 2xl:top-4"
+          style={{ height: "70vh" }}
+          data-testid="inbox-preview"
+        >
+          <DocumentPreview
+            fileUrl={fileUrl}
+            mimeType={row.mimeType}
+            marks={row.reading}
+            active={activeMark}
+          />
         </div>
-      </DetailsSection>
+        <div className="flex min-w-0 flex-col gap-4">
+          {row.reading && row.reading.marks.length > 0 && (
+            <WhatItRead row={row} active={activeMark} onActive={setActiveMark} />
+          )}
 
-      {canLink && (
-        <SuggestionsSection
-          target={{ endpoint: { type: "document", id: row.id } }}
-          canWrite={canWrite}
-          onLinked={onLinked}
-          openSearchKey={openSearchKey}
-          applyRequest={applyRequest}
-          limit={3}
-        />
-      )}
+          <DetailsSection title={t("documents.review.financial")}>
+            <div data-testid="inbox-facts">
+              <DetailsGrid rows={facts.filter(([, v]) => v).map(([label, v]) => [t(label), v])} />
+            </div>
+          </DetailsSection>
 
-      <DetailsSection title={t("documents.preview.label")}>
-        <div className="overflow-hidden rounded-lg border bg-background" style={{ height: "60vh" }}>
-          <DocumentPreview fileUrl={fileUrl} mimeType={row.mimeType} />
+          {canLink && (
+            <SuggestionsSection
+              target={{ endpoint: { type: "document", id: row.id } }}
+              canWrite={canWrite}
+              onLinked={onLinked}
+              openSearchKey={openSearchKey}
+              applyRequest={applyRequest}
+              limit={3}
+            />
+          )}
         </div>
-      </DetailsSection>
+      </div>
     </div>
   );
 }

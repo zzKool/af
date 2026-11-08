@@ -53,10 +53,21 @@ export function parseOcrFields(value: unknown): OcrFieldMap {
           ? entry.confidence
           : null,
       content: typeof entry.content === "string" ? entry.content : null,
+      ...(parseBox(entry.box) ? { box: parseBox(entry.box) } : {}),
     };
     out[name] = field;
   }
   return out;
+}
+
+/** A stored box (F141): a page number and an even list of at least four numbers, else nothing. */
+function parseBox(value: unknown): OcrField["box"] {
+  if (!isRecord(value) || typeof value.page !== "number" || !Array.isArray(value.polygon))
+    return null;
+  const polygon = value.polygon.filter(
+    (n): n is number => typeof n === "number" && Number.isFinite(n),
+  );
+  return polygon.length >= 4 && polygon.length % 2 === 0 ? { page: value.page, polygon } : null;
 }
 
 /** `ocr_data` → the payload, or null when the OCR has not run (the column is null or not an object). */

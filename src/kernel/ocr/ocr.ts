@@ -13,11 +13,20 @@ import {
   mapDocumentFields,
   type OcrAddress,
   type OcrFieldMap,
+  type OcrPage,
 } from "./fields";
 
 // MUST NOT import from next/* or src/components/*
 
-export type { OcrAddress, OcrCurrencyValue, OcrField, OcrFieldMap, OcrFieldValue } from "./fields";
+export type {
+  OcrAddress,
+  OcrBox,
+  OcrCurrencyValue,
+  OcrField,
+  OcrFieldMap,
+  OcrFieldValue,
+  OcrPage,
+} from "./fields";
 export { extractAddressValue } from "./fields";
 
 // --- Types ---
@@ -74,6 +83,8 @@ export interface OcrExtractedData {
    * hands those back as `{}`; *Re-run OCR* fills it).
    */
   fields?: OcrFieldMap;
+  /** the pages as DI measured them (F141): the unit the fields' boxes are in; absent before F141 */
+  pages?: OcrPage[];
   confidence: number;
   modelUsed: string;
   pageCount: number;
@@ -272,6 +283,21 @@ function extractLineItems(fields?: Record<string, DocumentFieldOutput>): OcrLine
  * Azure DI's `analyzeResult` → the facts the app keeps. Pure, so it is tested on a stored response of the real shape
  * (`__fixtures__/azure-*.json`, invented values) rather than on the mock's own fixture.
  */
+/** DI's pages → their size and unit (F141); pages without a size are left out. */
+function pagesOf(
+  pages: NonNullable<AnalyzeOperationOutput["analyzeResult"]>["pages"] | undefined,
+): OcrPage[] | undefined {
+  const out = (pages ?? [])
+    .filter((p) => typeof p.width === "number" && typeof p.height === "number" && p.width > 0)
+    .map((p) => ({
+      page: p.pageNumber,
+      width: p.width as number,
+      height: p.height as number,
+      unit: p.unit ?? "inch",
+    }));
+  return out.length > 0 ? out : undefined;
+}
+
 export function mapAnalyzeResult(
   analyzeResult: AnalyzeOperationOutput["analyzeResult"],
   modelId: string,
@@ -323,6 +349,7 @@ export function mapAnalyzeResult(
     items: extractLineItems(fields),
     // Every field as DI returned it (F127) — the typed keys above are read from the same map
     fields: fields ? mapDocumentFields(fields) : undefined,
+    pages: pagesOf(analyzeResult?.pages),
     // Metadata
     confidence,
     modelUsed: modelId,

@@ -2,6 +2,7 @@
 // `documents.ts` and the ListQuery read model of the library (D20): stored columns in SQL, the OCR facts
 // (vendor, amount, date — as corrected) and "linked" (a created_from or justifies link points at it) joined in
 // memory over that set, then the derived filters, search, sort and page (cap 20 000).
+
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
@@ -34,6 +35,7 @@ import {
   parseOcrPayload,
   resolveDocumentData,
 } from "./ocr-payload";
+import { type ReadingMarks, readingMarks } from "./reading-marks";
 import { type DocumentState, documentState } from "./state-family";
 
 export {
@@ -253,6 +255,8 @@ export type InboxListRow = {
   quality: string | null;
   /** the OCR facts as corrected that the *Make it…* dialogs pre-fill from (no line items, no raw text) */
   facts: InboxFacts;
+  /** F141: what the reading found and where — the fields' confidences and boxes, the pages' size; null before OCR */
+  reading: ReadingMarks | null;
   reviewedAt: Date | null;
   archivedAt: Date | null;
   createdAt: Date;
@@ -413,6 +417,7 @@ export async function listInbox(
           resolved[k],
         ]),
       ) as InboxFacts,
+      reading: payload?.extractedData ? readingMarks(payload.extractedData) : null,
       reviewedAt: d.reviewedAt,
       archivedAt: d.archivedAt,
       createdAt: d.createdAt,
