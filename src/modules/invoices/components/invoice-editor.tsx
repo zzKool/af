@@ -5,7 +5,7 @@
 // totals from the pure arithmetic. The editor never decides the layout — it fills the sheet's slots.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { SUPPORTED_UI_LANGUAGES, translator } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
+import { cn } from "@/lib/utils";
 import { updateDraftAction } from "@/modules/invoices/invoices.actions";
 import { formatVatPercent, invoiceTotals, TotalsError } from "@/modules/invoices/totals";
 import type { InvoiceDto, PrintedParties, PrintedReference } from "@/modules/invoices/types";
@@ -65,6 +66,18 @@ type HeaderState = {
   printedReferences: PrintedReference[];
 };
 
+/** What the studio reads of the draft being edited (F143). */
+export type EditorDraft = {
+  language: string;
+  periodLabel: string;
+  issueDate: string;
+  printedReferences: PrintedReference[];
+  lines: { description: string; quantity: string; unitPrice: string; vatRate: string }[];
+  registration: Registration | null;
+  treatment: ReturnType<typeof vatTreatmentFor>["treatment"];
+  total: string | null;
+};
+
 let keySeq = 0;
 const newKey = () => `n${++keySeq}`;
 
@@ -75,7 +88,10 @@ export function InvoiceEditor({
   relatedNumber,
   registrations,
   partnerForVat,
+  onDraft,
 }: {
+  /** F143: the draft as the owner types it — the studio's *Ready to send?* reads it live */
+  onDraft?: (draft: EditorDraft) => void;
   invoice: EditorInvoice;
   parties: PrintedParties;
   numberHint: string | null;
@@ -125,6 +141,25 @@ export function InvoiceEditor({
       (a, b) => Number(a) - Number(b),
     );
   }, [registration, lines]);
+
+  // F143: hand the draft up as it changes (the studio's checklist)
+  useEffect(() => {
+    onDraft?.({
+      language: header.language,
+      periodLabel: header.periodLabel,
+      issueDate: header.issueDate,
+      printedReferences: header.printedReferences,
+      lines: lines.map((l) => ({
+        description: l.description,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        vatRate: l.vatRate,
+      })),
+      registration,
+      treatment: vat.treatment,
+      total: null,
+    });
+  }, [header, lines, registration, vat.treatment, onDraft]);
 
   // live totals — the same arithmetic the server stores
   const totals = useMemo(() => {
@@ -272,7 +307,34 @@ export function InvoiceEditor({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        {/* F143, the board *Invoice studio*: the page changes language, the numbers do not */}
+        <fieldset
+          aria-label={tUi("invoices.form.language")}
+          className="m-0 inline-flex min-w-0 rounded-full border border-subtle bg-surface p-0.5"
+          data-testid="invoice-language"
+        >
+          {SUPPORTED_UI_LANGUAGES.map((l) => (
+            <button
+              key={l}
+              type="button"
+              aria-pressed={header.language === l}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold uppercase",
+                header.language === l
+                  ? "bg-action text-action-fg"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => {
+                if (header.language === l) return;
+                setH("language", l);
+                queueMicrotask(() => void persist());
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </fieldset>
         <span>
           {saveState === "saving" && "…"}
           {saveState === "saved" && tUi("invoices.saved")}
@@ -285,29 +347,6 @@ export function InvoiceEditor({
         slots={{
           headerTools: (
             <div className="mt-2 flex justify-end gap-2 print:hidden">
-              <Select
-                value={header.language}
-                onValueChange={(v) => {
-                  if (v) {
-                    setH("language", v);
-                    queueMicrotask(() => void persist());
-                  }
-                }}
-              >
-                <SelectTrigger
-                  className="h-7 w-20 text-xs"
-                  aria-label={tUi("invoices.form.language")}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPPORTED_UI_LANGUAGES.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Select
                 value={header.vatRegistrationId || "__none__"}
                 onValueChange={(v) => {

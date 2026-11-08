@@ -349,6 +349,14 @@ export const sv: PartialDictionary = {
   "invoice.totals.discount": "Rabatt",
   "invoice.totals.vat": "Moms",
   "invoice.totals.total": "Totalt",
+  "invoice.reminder.subject": "Betalningspåminnelse — faktura {number}",
+  "invoice.reminder.greeting": "Hej {client},",
+  "invoice.reminder.line1":
+    "Vår faktura {number} daterad {issueDate} förföll till betalning {dueDate}; {open} återstår.",
+  "invoice.reminder.line2":
+    "Vänligen betala snarast, eller meddela oss om betalningen redan är gjord.",
+  "invoice.reminder.thanks": "Tack på förhand.",
+  "invoice.reminder.closing": "Vänliga hälsningar,",
   "invoice.payment.title": "Betalning",
   "invoice.payment.termsDefault": "Betalning ska ske inom {days} dagar från fakturadatum.",
   "invoice.payment.pleaseReference": "Vänligen ange fakturanummer {number}.",

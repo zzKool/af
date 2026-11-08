@@ -97,6 +97,17 @@ The list shows every invoice with its derived state — *Draft, Issued, Sent, Pa
 - A SEK invoice: base = amounts, rate 1, `rate_source = same_currency`.
 - Language without a dictionary (sv until it exists): printed in English, flagged in the sheet.
 
+### User Story 6 - The invoice studio (Priority: P2, Pulse phase 7 — F143)
+
+The owner writes the month's invoice beside what he must know before sending it: is it complete, and when will the money come. Once it is late, the reminder is already written.
+
+**Acceptance Scenarios**:
+
+1. **Given** a draft, **When** its page opens, **Then** the sheet sits beside the client card, *Ready to send? n of N* and *When will it be paid?*; the checklist re-reads the draft as the owner types (a line with 0 days → *to do*).
+2. **Given** a draft in EN, **When** the owner picks FR, **Then** the page is in French at once (title *Facture*) and saved; the amounts do not move.
+3. **Given** a client with three paid invoices paid 28, 30 and 31 days after their issue, **When** a draft for it opens on 2026-08-01, **Then** *When will it be paid?* says 28–31 days and 2026-08-29 to 2026-09-01; with none paid it says there is nothing to go by.
+4. **Given** an issued invoice due 2026-07-31 with CHF 9'600.00 open, **When** its page opens on 2026-08-03 or later, **Then** *n day(s) late — a reminder is ready* offers the subject and body in the document's language with the number, the dates and the open amount — *Copy*, *Open in mail* (to the client's e-mail); before the third day, paid, or a quote: nothing.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -122,6 +133,11 @@ The list shows every invoice with its derived state — *Draft, Issued, Sent, Pa
 - **Invoice** (`type` quote | invoice | credit_note): partner, contract, VAT registration, dates (issue, due / valid until), period label and optional dates, currency, language, printed references, lines, discount, totals, `vat_by_rate`, base-currency figures, declaration period, numbers and stamps, `related_invoice_id` (credit note → original; invoice → source quote), `pdf_document_id`, printed snapshot (`printed_parties` JSON: tenant and partner identity, VAT number, bank details as printed).
 - **Invoice line**: order, description, quantity, unit (`rate_unit`), unit price, line discount %, net, VAT rate, VAT amount, period dates, `rate_source_id`.
 - **Derived read model**: state, remaining, credited, converted — computed in queries from links and related documents.
+
+- **FR-016** *Ready to send?* (`ready.ts`, pure): client short code, lines (description, quantity > 0, price > 0), period (invoices; a warning), the printed references the client asks for (only when there are some), VAT (a registration chosen, else a warning), the bank account printed (its currency matches, has an IBAN), the issue day's ECB rate (or the base currency). Each *ok* / *warn* / *todo*; nothing stored.
+- **FR-017** *When will it be paid?*: the client's newest 12 paid invoices (`clientPaymentHistory`), each paid on the latest booking date of the bank rows that justify it (`linking.paidOnDates`); min / max / average days from issue; the expectation is today + min … today + max.
+- **FR-018** The reminder (`reminder.ts`, pure): offered from `due_date + 3` while an issued invoice has something open; subject and body from `invoice.reminder.*` in the document's language (en, fr, sv — printed strings keep their translations, D62); the app never sends mail.
+- **FR-019** The page language toggle replaces the language select of the sheet's header (EN / FR / SV, `aria-pressed`); a change saves the draft at once.
 
 ## Success Criteria *(mandatory)*
 

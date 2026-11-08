@@ -348,6 +348,14 @@ export const fr: PartialDictionary = {
   "invoice.totals.discount": "Remise",
   "invoice.totals.vat": "TVA",
   "invoice.totals.total": "Total",
+  "invoice.reminder.subject": "Rappel de paiement — facture {number}",
+  "invoice.reminder.greeting": "Bonjour {client},",
+  "invoice.reminder.line1":
+    "Notre facture {number} du {issueDate} était payable au {dueDate} ; {open} reste ouvert.",
+  "invoice.reminder.line2":
+    "Pourriez-vous procéder au paiement, ou nous indiquer s'il a déjà été effectué ?",
+  "invoice.reminder.thanks": "Nous vous remercions par avance.",
+  "invoice.reminder.closing": "Meilleures salutations,",
   "invoice.payment.title": "Paiement",
   "invoice.payment.termsDefault":
     "Paiement dû dans les {days} jours à compter de la date de facturation.",
