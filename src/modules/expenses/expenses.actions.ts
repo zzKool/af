@@ -11,6 +11,7 @@ import * as expenseService from "@/modules/expenses/expenses";
 import * as groups from "@/modules/expenses/groups";
 import { renderStatementJob } from "@/modules/expenses/jobs/render-statement";
 import { vendorOptions } from "@/modules/expenses/page-data";
+import { phoneSummary } from "@/modules/expenses/phone";
 import {
   candidateDocuments,
   distinctExpenseValues,
@@ -292,3 +293,9 @@ export const cancelSettlementAction = ownerAction
   .action(async ({ ctx, parsedInput }) =>
     settlements.cancelSettlement(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.id),
   );
+
+/** The phone page's summary after a save (F142): what the company owes, the receipts still missing. Owner only. */
+export const phoneSummaryAction = ownerAction
+  .schema(z.object({}))
+  .metadata({ name: "phoneSummary" })
+  .action(async ({ ctx }) => ({ data: await phoneSummary(ctx.tx, ctx.callerIdentity) }));

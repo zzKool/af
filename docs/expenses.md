@@ -106,3 +106,19 @@ Screenshots (F71): `specs/expenses/screenshots/{list,panel,groups,group,settle,s
 Seed: the two private instruments (`Private SE`, `Private CH` — bank accounts with `role = owner_private`), `Tr` / `Rep` / `Lokal` / `IT` short codes, the 2025 normalbelopp subset (`prisma/seed.ts`).
 
 Related: [[traktamente]], [[banking]], [[journal]], [[linking]], [[numbering]], [[documents]], [[feature-inventory]] §3.7, the `bas-accounting` skill.
+
+## The phone — snap a receipt (F142, Pulse phase 6c, 2026-11-08)
+
+`/m`, outside the shell (route group `(phone)`: one column, big targets), added to the home screen through `app/manifest.ts` (start `/m`, standalone). Reached over the owner's own network — nothing about how is in the repo (D51).
+
+```
+1 · Take a photo / Pick a file ──► uploadDocument (untyped, D78: a photo → the receipt model) ──► poll the reading
+2 · Check what was read: from · date · amount + currency · group (the trip the date falls in) · cost account
+    Who paid?  [My own card · Private CH] [My own card · Private SE] [The company card · …]  ── one tap = createExpense
+3 · Saved: Ex3-Kund-01 · the company owes you N SEK in total · receipts still missing · Snap the next one
+```
+
+- The reading is polled every 1.2 s for up to 45 s (`getDocumentForReviewAction`); not read in time → the fields are typed by hand. A duplicate photo reuses the stored document.
+- `phoneSummary(tx)` (`phone.ts`): `ledgerSnapshot`'s open total and the five newest expenses without a document; `phoneSummaryAction` refreshes it after a save.
+- Owner only (`requireCaller(create, expense)`); e2e `phone.spec.ts` (iPhone-sized viewport, `e2e/fixtures/invented-receipt.png`).
+
