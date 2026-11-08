@@ -32,6 +32,24 @@ export type OcrFieldValue =
   | OcrFieldMap
   | null;
 
+/**
+ * Where DI found a field (F141, D78 board *Documents*): its first bounding region — the page (1-based) and the
+ * polygon's corners `[x1, y1, x2, y2, …]` in the page's own unit (`OcrPage.unit`: inches for a PDF, pixels for an
+ * image). The review and the inbox draw a box there.
+ */
+export interface OcrBox {
+  page: number;
+  polygon: number[];
+}
+
+/** A page as DI measured it — the box polygons are in its unit. */
+export interface OcrPage {
+  page: number;
+  width: number;
+  height: number;
+  unit: string;
+}
+
 /** One field as DI returned it. `type` is DI's (`string` · `date` · `currency` · `address` · `array` · `object` · …). */
 export interface OcrField {
   type: string;
@@ -43,6 +61,8 @@ export interface OcrField {
   confidence: number | null;
   /** the field's text as printed */
   content: string | null;
+  /** where it was printed (F141); absent on a reading before F141 — *Re-run OCR* adds it */
+  box?: OcrBox | null;
 }
 
 export type OcrFieldMap = Record<string, OcrField>;
@@ -110,12 +130,25 @@ function fieldValue(field: DocumentFieldOutput): OcrFieldValue {
   }
 }
 
+/** DI's first bounding region of a field → its box; null when DI gave none or a malformed one. */
+export function boxOf(field: Pick<DocumentFieldOutput, "boundingRegions">): OcrBox | null {
+  const region = field.boundingRegions?.[0];
+  if (!region || typeof region.pageNumber !== "number" || !Array.isArray(region.polygon))
+    return null;
+  const polygon = region.polygon.filter((n) => typeof n === "number" && Number.isFinite(n));
+  return polygon.length >= 4 && polygon.length % 2 === 0
+    ? { page: region.pageNumber, polygon }
+    : null;
+}
+
 function toOcrField(field: DocumentFieldOutput): OcrField {
+  const box = boxOf(field);
   return {
     type: field.type,
     value: fieldValue(field),
     confidence: typeof field.confidence === "number" ? field.confidence : null,
     content: typeof field.content === "string" ? field.content : null,
+    ...(box ? { box } : {}),
   };
 }
 
@@ -192,6 +225,17 @@ export function fieldConfidence(reading: Reading, key: OcrTypedKey): number | nu
   for (const name of TYPED_SOURCES[reading.modelUsed]?.[key] ?? []) {
     const field = fields[name];
     if (field && field.value !== null) return field.confidence;
+  }
+  return null;
+}
+
+/** Where the field a typed value was read from was printed (F141) — the same fall-through as `fieldConfidence`. */
+export function fieldBox(reading: Reading, key: OcrTypedKey): OcrBox | null {
+  const fields = reading?.fields;
+  if (!fields) return null;
+  for (const name of TYPED_SOURCES[reading.modelUsed]?.[key] ?? []) {
+    const field = fields[name];
+    if (field && field.value !== null) return field.box ?? null;
   }
   return null;
 }

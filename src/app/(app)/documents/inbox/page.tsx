@@ -53,6 +53,7 @@ export default async function DocumentInboxPage() {
 
   return (
     <ListPage
+      ground
       title={t("documents.inbox.title")}
       meta={t("documents.inbox.meta", { count: data.inbox.counts.total })}
       back={<Link href="/documents">← {t("documents.title")}</Link>}

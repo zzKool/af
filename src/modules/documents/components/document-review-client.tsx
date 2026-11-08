@@ -27,6 +27,7 @@ import {
   type OcrLineItem,
   updateDocumentCorrectionsAction,
 } from "@/modules/documents/documents.actions";
+import { readingMarks } from "@/modules/documents/reading-marks";
 import { useDocumentReviewStore } from "@/modules/documents/stores/use-document-review-store";
 
 const MAX_RETRIES = 3;
@@ -164,7 +165,12 @@ export function DocumentReviewClient({
             className="overflow-hidden rounded-lg border bg-background"
             style={{ height: "calc(100vh - 200px)" }}
           >
-            <DocumentPreview fileUrl={data.fileUrl} mimeType={data.mimeType} />
+            <DocumentPreview
+              fileUrl={data.fileUrl}
+              mimeType={data.mimeType}
+              // F141: a box where each field was read
+              marks={data.extractedData ? readingMarks(data.extractedData) : null}
+            />
           </div>
         </div>
 

@@ -7,7 +7,15 @@ import invoiceSek from "./__fixtures__/azure-invoice-sek.json";
 import invoice from "./__fixtures__/azure-invoice-usd.json";
 import receipt from "./__fixtures__/azure-receipt-chf.json";
 import { MOCK_RESPONSES } from "./__fixtures__/mock-responses";
-import { alsoReadFields, fieldConfidence, fieldEntries, fieldText, type OcrField } from "./fields";
+import {
+  alsoReadFields,
+  boxOf,
+  fieldBox,
+  fieldConfidence,
+  fieldEntries,
+  fieldText,
+  type OcrField,
+} from "./fields";
 import {
   createMockOcrService,
   extractTaxRate,
@@ -390,5 +398,49 @@ describe("the mock OCR — a stored response through the same mapper", () => {
     expect(result.data.fields).toBeUndefined();
     expect(result.data.pageCount).toBe(2);
     expect(result.quality).toBe("none");
+  });
+});
+
+describe("F141 — where each field was printed, and the pages' size", () => {
+  it("a field's first bounding region becomes its box; the pages keep their size and unit", () => {
+    const { data } = mapAnalyzeResult(
+      {
+        pages: [{ pageNumber: 1, width: 8.5, height: 11, unit: "inch" }],
+        documents: [
+          {
+            docType: "invoice",
+            confidence: 0.9,
+            fields: {
+              InvoiceTotal: {
+                type: "currency",
+                valueCurrency: { amount: 1269, currencyCode: "SEK" },
+                content: "1 269,00",
+                confidence: 0.97,
+                boundingRegions: [{ pageNumber: 1, polygon: [5, 8, 7, 8, 7, 8.3, 5, 8.3] }],
+              },
+              VendorName: { type: "string", valueString: "Invented AB", confidence: 0.9 },
+            },
+          },
+        ],
+      } as never,
+      "prebuilt-invoice",
+      10,
+    );
+    expect(data.pages).toEqual([{ page: 1, width: 8.5, height: 11, unit: "inch" }]);
+    expect(data.fields?.InvoiceTotal?.box).toEqual({
+      page: 1,
+      polygon: [5, 8, 7, 8, 7, 8.3, 5, 8.3],
+    });
+    expect(data.fields?.VendorName && "box" in data.fields.VendorName).toBe(false);
+    expect(fieldBox(data, "invoiceTotal")).toEqual({
+      page: 1,
+      polygon: [5, 8, 7, 8, 7, 8.3, 5, 8.3],
+    });
+    expect(fieldBox(data, "vendorName")).toBeNull();
+  });
+
+  it("a malformed region is no box", () => {
+    expect(boxOf({ boundingRegions: [{ pageNumber: 1, polygon: [1, 2, 3] }] } as never)).toBeNull();
+    expect(boxOf({} as never)).toBeNull();
   });
 });

@@ -34,6 +34,11 @@ const sek = (amount: number, confidence: number, content: string): Field => ({
 });
 const obj = (valueObject: Record<string, Field>): Field => ({ type: "object", valueObject });
 const arr = (valueArray: Field[]): Field => ({ type: "array", valueArray });
+/** F141: where DI found the field — a rectangle on page 1, in the page's unit (DI's polygon: four corners) */
+const at = (field: Field, x: number, y: number, w: number, h: number): Field => ({
+  ...field,
+  boundingRegions: [{ pageNumber: 1, polygon: [x, y, x + w, y, x + w, y + h, x, y + h] }],
+});
 
 export type MockResponse = {
   modelId: string;
@@ -49,13 +54,14 @@ const invoice: MockResponse = {
     apiVersion: "2024-11-30",
     modelId: "prebuilt-invoice",
     content: "Invoice from Test Vendor AB...",
-    pages: [{ pageNumber: 1 }],
+    // an A4-ish PDF page, in inches (DI's unit for a PDF)
+    pages: [{ pageNumber: 1, width: 8.5, height: 11, unit: "inch" }],
     documents: [
       {
         docType: "invoice",
         confidence: 0.95,
         fields: {
-          VendorName: str("Test Vendor AB", 0.97),
+          VendorName: at(str("Test Vendor AB", 0.97), 0.8, 0.7, 2.6, 0.35),
           VendorAddressRecipient: str("Test Vendor AB", 0.91),
           VendorAddress: {
             type: "address",
@@ -68,7 +74,7 @@ const invoice: MockResponse = {
             content: "Storgatan 1\n111 22 Stockholm\nSweden",
             confidence: 0.93,
           },
-          VendorTaxId: str("SE556677889901", 0.95),
+          VendorTaxId: at(str("SE556677889901", 0.95), 0.8, 1.15, 2.2, 0.22),
           CustomerName: str("Dev AB", 0.96),
           CustomerAddress: {
             type: "address",
@@ -81,13 +87,13 @@ const invoice: MockResponse = {
             content: "Kungsgatan 10\n411 19 Göteborg\nSweden",
             confidence: 0.88,
           },
-          InvoiceId: str("INV-2026-001", 0.81),
-          InvoiceDate: date("2026-03-14", 0.99, "14 March 2026"),
+          InvoiceId: at(str("INV-2026-001", 0.81), 5.4, 1.4, 1.9, 0.26),
+          InvoiceDate: at(date("2026-03-14", 0.99, "14 March 2026"), 5.4, 1.75, 1.9, 0.26),
           PurchaseOrder: str("PO-7731", 0.64),
           PaymentTerm: str("30 days net", 0.9),
-          SubTotal: sek(1000, 0.97, "1 000,00"),
-          TotalTax: sek(250, 0.97, "250,00"),
-          InvoiceTotal: sek(1250, 0.98, "1 250,00 SEK"),
+          SubTotal: at(sek(1000, 0.97, "1 000,00"), 6.0, 7.6, 1.6, 0.25),
+          TotalTax: at(sek(250, 0.97, "250,00"), 6.0, 7.95, 1.6, 0.25),
+          InvoiceTotal: at(sek(1250, 0.98, "1 250,00 SEK"), 5.6, 8.4, 2.0, 0.34),
           AmountDue: sek(1250, 0.96, "1 250,00 SEK"),
           PaymentDetails: arr([
             obj({
@@ -122,13 +128,14 @@ const receipt: MockResponse = {
     apiVersion: "2024-11-30",
     modelId: "prebuilt-receipt",
     content: "ICA Maxi Kvitto...",
-    pages: [{ pageNumber: 1 }],
+    // a phone photo, in pixels (DI's unit for an image)
+    pages: [{ pageNumber: 1, width: 600, height: 1200, unit: "pixel" }],
     documents: [
       {
         docType: "receipt.retailMeal",
         confidence: 0.92,
         fields: {
-          MerchantName: str("ICA Maxi", 0.97),
+          MerchantName: at(str("ICA Maxi", 0.97), 150, 80, 300, 60),
           MerchantAddress: {
             type: "address",
             valueAddress: {
@@ -148,7 +155,7 @@ const receipt: MockResponse = {
             confidence: 0.78,
           },
           ReceiptType: str("Supplies", 0.9),
-          TransactionDate: date("2026-03-14", 0.98, "2026-03-14"),
+          TransactionDate: at(date("2026-03-14", 0.98, "2026-03-14"), 60, 260, 220, 36),
           TransactionTime: {
             type: "time",
             valueTime: "17:42:00",
@@ -157,7 +164,7 @@ const receipt: MockResponse = {
           },
           Subtotal: sek(274, 0.95, "274,00"),
           TotalTax: sek(68.5, 0.95, "68,50"),
-          Total: sek(342.5, 0.98, "342,50"),
+          Total: at(sek(342.5, 0.98, "342,50"), 360, 900, 180, 44),
           TaxDetails: arr([
             obj({
               Amount: sek(68.5, 0.9, "68,50"),
