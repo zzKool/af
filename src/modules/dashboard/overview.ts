@@ -168,7 +168,8 @@ export async function dashboardOverview(
         kind: "rows_to_justify",
         count: rowsToJustify,
         priority: "high",
-        href: "/banking/inbox",
+        // F139: the month's rows on the match stage
+        href: "/banking/reconcile",
       });
     }
     // the inbox's "need attention" (pending + ready) — the same number the inbox's title says (SC-005)

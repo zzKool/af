@@ -4,13 +4,14 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import "./linkables"; // make sure every module's linkable is registered before a link is validated
-import { uuid } from "@/kernel/validation/scalars";
+import { basCode, uuid } from "@/kernel/validation/scalars";
 import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
 import { justifyRow, justifySchema, noProofNeeded, noProofSchema } from "./justify";
 import * as linkingService from "./linking";
 import { memoryForRow } from "./memory";
 import { proofFacts } from "./proof-facts";
 import { linksWithLabels } from "./queries";
+import { acceptMatch } from "./reconcile";
 import * as suggestions from "./suggestions";
 import { LINK_KINDS, type LinkableType } from "./types";
 
@@ -168,6 +169,29 @@ export const bulkApplyHighAction = ownerAction
       parsedInput.bankTransactionIds,
     ),
   }));
+
+/**
+ * Reconcile's *Accept* (F139 FR-002): the candidate applied and the fields the owner confirmed on the stage — one
+ * transaction. Owner only.
+ */
+export const acceptMatchAction = ownerAction
+  .schema(
+    z.object({
+      bankTransactionId: uuid,
+      to: endpointSchema,
+      allocatedAmount: z
+        .string()
+        .regex(/^\d+(\.\d{1,2})?$/)
+        .nullable()
+        .optional(),
+      partnerId: uuid.nullable().optional(),
+      basCode: basCode.nullable().optional(),
+    }),
+  )
+  .metadata({ name: "acceptMatch" })
+  .action(async ({ ctx, parsedInput }) =>
+    acceptMatch(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
 
 // --- Justify from the bank row (F97): one click, one transaction — owner only ---
 

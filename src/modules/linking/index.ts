@@ -119,6 +119,24 @@ export {
 export * from "./proposals/proposals.actions";
 export * from "./queries";
 export {
+  type AcceptMatchInput,
+  acceptMatch,
+  bankFxCost,
+  type DoneLink,
+  defaultReconcileMonth,
+  doneToday,
+  type FxView,
+  RECONCILE_GROUPS,
+  type ReconcileData,
+  type ReconcileGroup,
+  type ReconcileRow,
+  reconcileData,
+  reconcileGroup,
+  type StageField,
+  stageFields,
+  twinsOf,
+} from "./reconcile";
+export {
   AMBIGUITY_GAP,
   amountTier,
   CROSS_CURRENCY_TOLERANCE,

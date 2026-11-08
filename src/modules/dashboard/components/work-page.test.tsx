@@ -62,7 +62,7 @@ describe("MonthlyCloseView", () => {
     expect(card.getAttribute("data-step")).toBe("justified");
     expect(card.textContent).toContain("6 bank row(s) of July 2026 still need");
     expect(within(card).getByRole("link", { name: "Continue — 6 left" }).getAttribute("href")).toBe(
-      "/banking",
+      "/banking/reconcile?month=2026-07",
     );
   });
 

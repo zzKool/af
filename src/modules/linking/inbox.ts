@@ -32,13 +32,22 @@ export type InboxRow = {
   basLabel: string | null;
   top: Suggestion | null;
   suggestions: Suggestion[];
+  /** the list's row: its text, effective partner, the category proposal (F139's stage reads them) */
+  list: banking.TransactionListRow;
+  /** the partner the counterparty memory names first (F116), null when it names none */
+  rememberedPartnerId: string | null;
 };
 
 export const INBOX_LIMIT = 300;
 const TIER: Record<Confidence, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
 /** The rows needing attention with their candidates, best first (HIGH > MEDIUM > LOW > none, then newest). */
-export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Promise<InboxRow[]> {
+export async function inboxRows(
+  tx: TransactionClient,
+  limit = INBOX_LIMIT,
+  /** booking dates from – to (both included), the reconcile page's month (F139) */
+  span?: { from: string; to: string },
+): Promise<InboxRow[]> {
   // main accounts first, then the page: filtering after paging let newer savings rows crowd main ones out (audit 32)
   const accounts = await banking.listMainAccountIds(tx);
   if (accounts.length === 0) return [];
@@ -49,6 +58,7 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     filters: {
       bankAccountId: { kind: "in", values: accounts },
       state: { kind: "in", values: banking.TRANSACTION_STATES.filter(banking.needsProof) },
+      ...(span ? { bookingDate: { kind: "dates" as const, from: span.from, to: span.to } } : {}),
     },
   });
   const candidatesRows = list.rows;
@@ -139,6 +149,8 @@ export async function inboxRows(tx: TransactionClient, limit = INBOX_LIMIT): Pro
     const ranked = rank(scored).slice(0, SUGGESTIONS_SHOWN);
     const row = rowsById.get(r.id);
     out.push({
+      list: r,
+      rememberedPartnerId: rememberedPartners(memoryOf(f), 1)[0] ?? null,
       row: f,
       accountLabel: r.accountLabel,
       state: r.state,

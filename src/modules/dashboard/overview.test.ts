@@ -250,7 +250,7 @@ describe("the owner's dashboard", () => {
     expect(byKind.rows_to_justify).toMatchObject({
       count: 1,
       priority: "high",
-      href: "/banking/inbox",
+      href: "/banking/reconcile",
     });
     expect(byKind.supplier_invoices_overdue).toMatchObject({
       count: 1,

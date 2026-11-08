@@ -37,7 +37,7 @@ describe("closeSteps — the owner's four steps and the package (FR-004)", () =>
       "expenses:todo",
       "closed:waiting",
     ]);
-    expect(steps[2]).toMatchObject({ done: 35, total: 41, href: "/banking" });
+    expect(steps[2]).toMatchObject({ done: 35, total: 41, href: "/banking/reconcile" });
     // 1 + 1 + 35/41 + 0 + 0 = 2.85 → 57 %
     expect(percent).toBe(57);
   });

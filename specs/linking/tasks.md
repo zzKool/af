@@ -47,3 +47,9 @@
 - [x] T023 PR C1 `feat/banking-rules-engine` (built 2026-10-28) — FR-007: the migration (`20261028090000_rule_conditions`), `conditionMiss` / `firstNearMiss` / `offCadence` / `ruleNearMisses`, the dialog's *Only when…*, the rules page's *Needs a look*; `rule-conditions.pure.test.ts`, the DB case in `rules.test.ts`.
 - [x] T024 PR C2 `feat/subscriptions-as-rules` (built 2026-10-28) — FR-008: `to-rule.ts` (`toRule`, `ruleFromSubscription`), *Make it a rule* on the panel, `MATCH_TOLERANCE_PCT` shared; tests in `subscriptions.test.ts`.
 
+
+## Part 8 — Reconcile, the match stage (F139, D76 phase 5, `specs/linking/reconcile.md`)
+
+- [x] T025 `reconcile.ts`: `reconcileGroup`, `stageFields`, `twinsOf`, `bankFxCost` (pure) and `reconcileData` (FR-001); `inboxRows` takes a span and hands the list row and the remembered partner on. Pure + DB tests.
+- [x] T026 `acceptMatch` + `acceptMatchAction` (FR-002), DB test.
+- [x] T027 The page `/banking/reconcile`: the queue, the stage, *Accept N*, *Done today* with *Undo*, the keyboard (FR-003); Work's step 3 and the dashboard's item point to it; `SUB_PAGES`; component test; e2e; screenshots; `docs/linking.md` *Reconcile*.
