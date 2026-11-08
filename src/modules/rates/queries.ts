@@ -3,3 +3,11 @@
 // (ListQuery, distinct values for DataTable headers) happens with the partners reference slice.
 
 export { getRate, rateGaps, rateToBase } from "./ecb-rates";
+export {
+  crossSeries,
+  firstRateDay,
+  monthCoverage,
+  rateCoverage,
+  rateHistory,
+  ratesOnDay,
+} from "./history";

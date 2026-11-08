@@ -11,6 +11,7 @@ describe("filterNavItems", () => {
       "Work",
       "Banking",
       "Documents",
+      "Exchange rates",
       "Partners",
       "Invoices",
       "Supplier invoices",
@@ -28,6 +29,7 @@ describe("filterNavItems", () => {
     expect(labels).toEqual([
       "Dashboard",
       "Banking",
+      "Exchange rates",
       "Invoices",
       "Supplier invoices",
       "Expenses",

@@ -69,6 +69,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     enabled: true,
     group: "records",
   },
+  // F136 (D76 phase 3): the ECB rates in the menu, not in Settings — the owner reads them every month
+  {
+    path: "/rates",
+    label: "Exchange rates",
+    labelKey: "nav.rates",
+    icon: "TrendingUp",
+    roles: ["owner", "accountant"],
+    enabled: true,
+    group: "records",
+  },
   {
     path: "/reconciliation",
     label: "Reconciliation",

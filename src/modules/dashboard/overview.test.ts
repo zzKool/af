@@ -294,7 +294,7 @@ describe("the owner's dashboard", () => {
       href: "/expenses?f.hasDocument=in:false",
     });
     // ECB days without a rate: 07-07 … 07-09, missing in SEK and CHF alike, counted once each
-    expect(byKind.rate_gaps).toMatchObject({ count: 3, href: "/settings/rates" });
+    expect(byKind.rate_gaps).toMatchObject({ count: 3, href: "/rates" });
     // built, and the live preview still flags three things: the June row, the receipts of 9160 and the train
     expect(byKind.package_flags).toMatchObject({
       count: 3,
@@ -473,7 +473,7 @@ describe("the owner's dashboard", () => {
       ).items.find((i) => i.kind === "rate_gaps");
 
     // Tue 07-14: Friday's CHF rate is 4 days old — still borrowed today, refused tomorrow; Monday is missing
-    expect(await rateItem("2026-07-14")).toMatchObject({ count: 1, href: "/settings/rates" });
+    expect(await rateItem("2026-07-14")).toMatchObject({ count: 1, href: "/rates" });
     expect((await rates.getRate(db, "2026-07-14", "EUR/CHF"))?.actualDate).toBe("2026-07-10");
     // Wed 07-15: refused — the item stands, with Monday and Tuesday
     expect(await rateItem(TODAY)).toMatchObject({ count: 2 });

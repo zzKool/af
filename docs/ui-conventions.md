@@ -100,14 +100,14 @@ One format in every UI language: thousands with a narrow no-break space (U+202F)
   ```
   + New
   Dashboard · Work
-  Records   Banking · Documents
+  Records   Banking · Documents · Exchange rates
   Sales     Partners · Invoices
   Costs     Supplier invoices · Expenses · Subscriptions
   Close     Package · Declarations
   ─────
   Settings · Collapse
   ```
-  The group labels are i18n keys (`nav.group.*`). The rates page joins *Records* and the group *Close* becomes *Plan and close* in their phases (nav constants, one PR at a time).
+  The group labels are i18n keys (`nav.group.*`). The rates page joined *Records* (F136); the group *Close* becomes *Plan and close* in its phase (nav constants, one PR at a time).
 - **Top bar** (56 px, on the ground right of the rail): full logo · the search pill (40 px, 12 px corners, up to 640 px, `Ctrl K`) · tenant switcher · **sun / moon** (flips light ↔ dark and saves it as the user's choice — D43; *System* is picked again in My Preferences) · avatar (ink, 36 px).
 - **Content canvas**: one raised card — `--surface`, `--border-subtle` edge, 20 px corners, `shadow-card`, 12 px from the window's right and bottom edges. A page moves to its own cards on the ground in its phase.
 

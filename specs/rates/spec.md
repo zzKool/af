@@ -60,6 +60,17 @@ Settings → Exchange rates (`/settings/rates`, owner and accountant): per pair 
 6. **Given** the first day of a backfill with nothing earlier **Then** the next later day within 4.
 7. **Given** no stored day within 4 calendar days on either side **Then** null — every caller refuses with *No exchange rate for <day> — run the ECB sync*.
 
+### User Story 5 - The rates page in the menu (Priority: P1, D76 phase 3, F136)
+
+`/rates` — **Exchange rates** under *Records* in the rail (owner and accountant; the table is global). The owner asked (2026-11-07): the rates "should not be in settings, but visible directly from the menu", with "more than the last 30 days" — "do I have the last year?" — and "a chart of all currencies against my base one". Built from the board *Exchange rates* (D77: the board is the reference). Top to bottom on the ground: one **card per currency** (base per unit now, its inverse, the change over 30 days and a year, the year's range); the **chart** — every currency against the base, one line each (`--cur-*`), the range 30 days · 90 days · 1 year · all, a line toggled off by its chip; **Do I have every day?** — a month grid from the first stored day to this month (complete · days missing · before the first rate), the gaps in one sentence and *Fetch now*; **The rate on a given day** — pick a day, each currency's rate with the day it comes from (the nearest-day rule, US4). The rail's count is the distinct missing days (FR-009). `/settings/rates` sends to `/rates`.
+
+**Acceptance Scenarios**:
+
+1. **Given** stored rates **When** the owner opens *Exchange rates* **Then** one card per non-base currency, the chart, the grid and the day picker; *Fetch now* for the owner only.
+2. **Given** a Sunday in the day picker **Then** each currency shows Friday's rate and says it comes from Friday.
+3. **Given** ten weekdays missing since the last run **Then** the grid's current month shows them missing, the sentence names the first missing day, the rail shows 10.
+4. **Given** an empty table **Then** the cards say *no rate yet*, the chart is empty, the sentence asks for a fetch.
+
 ### Edge Cases
 
 - `ecb_rates` is global (no tenant, no RLS) and immutable: PostgreSQL RULEs turn UPDATE / DELETE into nothing; duplicates are caught on the primary key `(date, currency_pair)` (RULEs forbid `ON CONFLICT`).
@@ -79,6 +90,10 @@ Settings → Exchange rates (`/settings/rates`, owner and accountant): per pair 
 - **FR-008** `scripts/fetch-rates.ts [yyyy-mm-dd | lastN]` through `fetchRatesArgToOptions(arg, today)`; a day after today (the Stockholm day) is refused.
 - **FR-009** `rateGaps(db, today, { windowDays = 30 })` (F81, replaced `detectGaps` on EUR/SEK): per fetched pair, **inner** gaps (≥ 3 missing weekdays between two stored days — Fri → Mon and a TARGET closure are not gaps) and the **trailing** gap (no rate since the pair's newest day, once it is `NEAREST_RATE_MAX_DAYS` old — the day before `getRate` refuses; a pair never stored = the whole window), each with its missing weekdays inside the window. The dashboard's *rate gap* item counts the distinct days missing in any pair.
 - **FR-010** Module contract: services take a db handle and return plain results; the rates module never reads a tenant table; Azure-free; the job and the script run the same `fetchDailyRates`.
+
+- **FR-011** (F136) `rateHistory(db, from, to)`: the stored rows of the fetched pairs between two days, oldest first; `crossSeries(rows, base)` (pure) turns them into one series per currency ≠ base — `X/base = EUR/base ÷ EUR/X` on each day both legs are stored (EUR/EUR = 1), 6 dp — the same cross as `rateToBase`.
+- **FR-012** (F136) `rateCoverage(db, today)`: the months from the first stored day to today's month, each with its weekdays and the missing days of FR-009's gaps over the whole span (`rateGaps` with the window from the first day) — so a TARGET closure is not missing, a run that did not happen is; `monthCoverage` (pure) does the counting.
+- **FR-013** (F136) `ratesOnDayAction({ date })` (anyone signed in): `rateToBase(date, X, base)` for each currency ≠ base, with its source and `rateDate`; the base is the tenant's (`tenants.currency`, D39 — read through the kernel's `tenantProfile`, never a constant).
 
 ## Success Criteria *(mandatory)*
 

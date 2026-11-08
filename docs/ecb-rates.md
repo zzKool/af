@@ -97,3 +97,26 @@ DTOs in `modules/rates/types.ts` as plain strings (`RateLookupResult`, `EcbRateF
 
 - [[clock-and-rates]] — Clock interface, `ecb_rates` table schema
 - [[decimal-currency]] — Decimal boundary rules
+
+## The page — *Exchange rates* in the menu (F136, D76 phase 3)
+
+`/rates`, under *Records* in the rail (owner and accountant; `/settings/rates` sends here). Built from the board *Exchange rates* (D77). The base is the tenant's (`tenants.currency` through the kernel's `tenantProfile`, D39) — never a constant.
+
+```
+┌ Exchange rates · "SEK for one unit of each currency …"                    [Fetch now] ┐
+│ [CHF/SEK 11.02 ▲▼ 30 d · 1 y · year range] [EUR/SEK …] [USD/SEK …]                   │
+│ ┌ SEK exchange rate  ● CHF ● EUR ● USD              30 days · 90 days · 1 year · All ┐ │
+│ │  one line per currency (hand-drawn SVG, a crosshair with the day's rates)          │ │
+│ └────────────────────────────────────────────────────────────────────────────────────┘ │
+│ ┌ Do I have every day? ── years × months ──┐ ┌ The rate on a given day ─────────────┐ │
+│ │ complete · N missing · before the first  │ │ day → CHF / EUR / USD, and the day   │ │
+│ │ "N ECB days are missing, from …"         │ │ each rate comes from (nearest rule)  │ │
+│ └──────────────────────────────────────────┘ └──────────────────────────────────────┘ │
+│ ┌ The ECB pairs (the old settings table: newest day, rate, the last 30 days) ──────┐  │
+```
+
+- **Series** — `rateHistory(db, from, to)` (the stored rows, at most five years back) → `crossSeries(rows, base, CURRENCIES)`: `X/base = EUR/base ÷ EUR/X` on each day both legs are stored, 6 dp — the cross `rateToBase` uses. The cards compute now / 30 days / 1 year / the year's range from it, in the browser.
+- **Coverage** — `rateCoverage(db, today)`: `rateGaps` over the whole span from the first stored day (inner gaps ≥ 3 weekdays and the trailing gap — a TARGET closure is not missing), counted per month by `monthCoverage`; the grid starts in January of the first year.
+- **A day** — `ratesOnDayAction({ date })` → `ratesOnDay`: `rateToBase` per currency, with `ecb_nearest` and the day borrowed, or nothing within the 4-day cap.
+- **The rail's count** — the distinct missing days of the last 30 (the dashboard's *rate gap* count, which now links here).
+

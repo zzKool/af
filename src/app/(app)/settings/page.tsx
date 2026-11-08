@@ -48,12 +48,6 @@ const SECTIONS: Section[] = [
     roles: ["owner"],
   },
   {
-    label: "settings.rates.title",
-    description: "settings.rates.description",
-    href: "/settings/rates",
-    roles: ["owner", "accountant"],
-  },
-  {
     label: "settings.ai.title",
     description: "settings.ai.description",
     href: "/settings/ai",
