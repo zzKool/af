@@ -268,7 +268,9 @@ test.describe("Banking", () => {
     await expect(page.getByTestId("rule-near-miss").filter({ hasText: insurance })).toHaveCount(0);
     await page.goto("/banking");
     await showColumns(page, ["Category"]); // one tick away beside the work surface (F131 §6.2)
-    await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("6570");
+    await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText(
+      "6570",
+    );
     await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("8310");
     // the three imports of this journey are listed (other journeys import too — CI runs two workers)
     await page.goto("/banking/imports");
