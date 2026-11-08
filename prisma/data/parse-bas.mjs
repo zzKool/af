@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
- * parse-bas.mjs — Parse BAS kontoplan XLSX files and output SQL INSERT statements.
+ * parse-bas.mjs — the BAS chart at four digits (D68, F148) from the two BAS files → SQL for the migration.
  *
- * Input files (gitignored, proprietary BAS data):
- *   - BAS_kontoplan_2026.xlsx — Swedish 2026 kontoplan
- *   - Chart-of-accounts-BAS-2025.xlsx — English 2025 translation
+ * Input files (gitignored — BAS's licensed data, never committed):
+ *   - prisma/data/BAS_kontoplan_2026.xlsx       — the Swedish chart (main accounts + sub-accounts, groups)
+ *   - prisma/data/Chart-of-accounts-BAS-2025.xlsx — the English translation (names, groups, classes)
  *
- * Output: SQL INSERT statements for bas_categories table to stdout.
+ * Output (stdout): INSERTs for `bas_groups` (the two-digit account groups) and `bas_categories` (every main account
+ * `NNN0` and sub-account `NNNx` the Swedish file lists, at four digits). The curated tables below (French names,
+ * the quick-start set, the suggested short codes) are keyed by the three digits of a main account and land on `NNN0`.
  *
- * Usage: node prisma/data/parse-bas.mjs > prisma/migrations/<name>/bas_seed.sql
+ * Usage: node prisma/data/parse-bas.mjs > /tmp/bas_chart.sql   (pasted into the migration between its markers)
  */
 
 import { dirname, join } from "node:path";
@@ -16,87 +18,77 @@ import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const clean = (v) =>
+  String(v ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-// ─────────────────────────────────────────────────────────────
-// 1. Parse English 2025 file — extract 3-digit main account groups
-// ─────────────────────────────────────────────────────────────
-const enWb = XLSX.readFile(join(__dirname, "Chart-of-accounts-BAS-2025.xlsx"));
-const enData = XLSX.utils.sheet_to_json(enWb.Sheets[enWb.SheetNames[0]], {
-  header: 1,
-});
-
-// Map: 3-digit code → { nameEn, isCommon (■ marker) }
-const englishMap = new Map();
-for (const row of enData) {
-  const code = String(row[2] || "").trim();
-  if (!/^\d{3}$/.test(code)) continue;
-  const marker = String(row[1] || "").trim();
-  englishMap.set(code, {
-    nameEn: String(row[3] || "")
-      .trim()
-      .replace(/\s+/g, " "),
-    isCommonBas: marker === "■",
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-// 2. Parse Swedish 2026 file — extract class headers and 4-digit accounts
-// ─────────────────────────────────────────────────────────────
-const svWb = XLSX.readFile(join(__dirname, "BAS_kontoplan_2026.xlsx"));
-const svData = XLSX.utils.sheet_to_json(svWb.Sheets[svWb.SheetNames[0]], {
-  header: 1,
-});
-
-// Parse 2-digit class/group headers
-const classHeaders = new Map();
-for (const row of svData) {
-  const c0 = row[0];
-  if (typeof c0 === "number" && c0 >= 10 && c0 <= 89) {
-    classHeaders.set(c0, String(row[1] || "").trim());
+/** The parse, pure — rows of the two sheets (header: 1) in, groups and accounts out. Tested on invented rows. */
+export function parseChart(svRows, enRows) {
+  // English: classes (1 digit), groups (2), main accounts (3 → NNN0), accounts (4) with their ■ marks
+  const enGroups = new Map();
+  const enMain = new Map();
+  const enAccount = new Map();
+  for (const row of enRows) {
+    const main = row[2];
+    if (typeof main === "number" || /^\d+$/.test(String(main ?? ""))) {
+      const code = String(main);
+      if (code.length === 2) enGroups.set(code, clean(row[3]));
+      if (code.length === 3) enMain.set(`${code}0`, clean(row[3]));
+    }
+    const acc = String(row[6] ?? "").trim();
+    if (/^\d{4}$/.test(acc)) enAccount.set(acc, clean(row[7]));
   }
-}
 
-// Parse 4-digit accounts, bucket into 3-digit groups
-// Take the first 4-digit account name per 3-digit bucket as canonical Swedish name
-const swedishGroups = new Map();
-for (const row of svData) {
-  const raw = String(row[0] || "").trim();
-  const code4 = raw.replace("#", "");
-  if (!/^\d{4}$/.test(code4)) continue;
-
-  const code3 = code4.substring(0, 3);
-  const name = String(row[1] || "").trim();
-
-  if (!swedishGroups.has(code3)) {
-    // Find the 2-digit class header for this code
-    const twoDigit = Number.parseInt(code4.substring(0, 2), 10);
-    const className = classHeaders.get(twoDigit) || "";
-    const classNum = Number.parseInt(code4[0], 10);
-    // Normalize whitespace (XLSX may contain line breaks within cells)
-    const cleanName = name.replace(/\s+/g, " ").trim();
-
-    swedishGroups.set(code3, { name: cleanName, className, classNum });
+  // Swedish: the group headings, the main accounts (column A) and their sub-accounts (column C)
+  const groups = [];
+  const accounts = new Map();
+  let group = null;
+  let main = null;
+  for (const row of svRows) {
+    const a = row[0];
+    if (typeof a === "number" && a >= 10 && a <= 99) {
+      const code = String(a);
+      group = { code, classNum: Number(code[0]), name: clean(row[1]), nameEn: enGroups.get(code) ?? null };
+      groups.push(group);
+      continue;
+    }
+    if (!group) continue;
+    const mainCode = String(a ?? "").replace("#", "").trim();
+    if (/^\d{4}$/.test(mainCode)) {
+      main = mainCode;
+      if (!accounts.has(mainCode))
+        accounts.set(mainCode, {
+          code: mainCode,
+          name: clean(row[1]),
+          nameEn: enAccount.get(mainCode) ?? enMain.get(mainCode) ?? null,
+          groupCode: group.code,
+          className: group.name,
+          classNum: group.classNum,
+          kind: "main",
+          parentCode: null,
+        });
+    }
+    const subCode = String(row[2] ?? "").replace("#", "").trim();
+    if (/^\d{4}$/.test(subCode) && !accounts.has(subCode)) {
+      const parent = main && main.slice(0, 3) === subCode.slice(0, 3) ? main : null;
+      accounts.set(subCode, {
+        code: subCode,
+        name: clean(row[3]),
+        nameEn: enAccount.get(subCode) ?? null,
+        groupCode: group.code,
+        className: group.name,
+        classNum: group.classNum,
+        kind: "sub",
+        parentCode: parent,
+      });
+    }
   }
+  return {
+    groups,
+    accounts: [...accounts.values()].sort((x, y) => x.code.localeCompare(y.code)),
+  };
 }
-
-// ─────────────────────────────────────────────────────────────
-// 3. Merge: Swedish 2026 is the primary, English 2025 provides translations
-// ─────────────────────────────────────────────────────────────
-const merged = [];
-for (const [code, sv] of swedishGroups) {
-  const en = englishMap.get(code);
-  merged.push({
-    code,
-    name: sv.name,
-    nameEn: en?.nameEn || null,
-    className: sv.className,
-    classNum: sv.classNum,
-    isCommonBas: en?.isCommonBas || false,
-  });
-}
-
-// Sort by code
-merged.sort((a, b) => a.code.localeCompare(b.code));
 
 // ─────────────────────────────────────────────────────────────
 // 4. French translations — AI-generated from Plan Comptable / IFRS terminology
@@ -959,32 +951,38 @@ function escSql(val) {
   return `'${String(val).replace(/'/g, "''")}'`;
 }
 
-const lines = [
-  "-- BAS categories seed data",
-  `-- Generated from BAS kontoplan 2026 (Swedish) + BAS 2025 (English) + AI French translations`,
-  `-- Total entries: ${merged.length}`,
-  "",
-  "INSERT INTO bas_categories (code, name, name_en, name_fr, class_name, class_num, is_common, suggested_alias) VALUES",
-];
+function main() {
+  const read = (name) => {
+    const wb = XLSX.readFile(join(__dirname, name));
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+  };
+  const { groups, accounts } = parseChart(
+    read("BAS_kontoplan_2026.xlsx"),
+    read("Chart-of-accounts-BAS-2025.xlsx"),
+  );
+  const three = (a) => (a.kind === "main" ? a.code.slice(0, 3) : null);
+  const lines = [
+    "-- generated by prisma/data/parse-bas.mjs from BAS kontoplan 2026 (Swedish) + BAS 2025 (English)",
+    `-- ${groups.length} groups, ${accounts.length} accounts (${accounts.filter((a) => a.kind === "main").length} main, ${accounts.filter((a) => a.kind === "sub").length} sub)`,
+    "INSERT INTO bas_groups (code, class_num, name, name_en) VALUES",
+    `${groups.map((g) => `  (${escSql(g.code)}, ${g.classNum}, ${escSql(g.name)}, ${escSql(g.nameEn)})`).join(",\n")};`,
+    "",
+    "INSERT INTO bas_categories (code, name, name_en, name_fr, class_name, class_num, is_common, suggested_alias, group_code, kind, parent_code) VALUES",
+    `${accounts
+      .map((a) => {
+        const k = three(a);
+        const nameFr = k ? (FRENCH_NAMES[k] ?? null) : null;
+        const isCommon = k ? COMMON_SOLO_AB.has(k) : false;
+        const alias = k ? (SUGGESTED_ALIASES[k] ?? null) : null;
+        return `  (${escSql(a.code)}, ${escSql(a.name)}, ${escSql(a.nameEn)}, ${escSql(nameFr)}, ${escSql(a.className)}, ${a.classNum}, ${isCommon}, ${escSql(alias)}, ${escSql(a.groupCode)}, ${escSql(a.kind)}, ${escSql(a.parentCode)})`;
+      })
+      .join(",\n")};`,
+    "",
+  ];
+  process.stdout.write(lines.join("\n"));
+  process.stderr.write(
+    `\n✅ ${groups.length} groups, ${accounts.length} accounts — ${groups.filter((g) => !g.nameEn).length} groups and ${accounts.filter((a) => !a.nameEn).length} accounts without an English name\n`,
+  );
+}
 
-const values = merged.map((row) => {
-  const isCommon = COMMON_SOLO_AB.has(row.code);
-  const alias = SUGGESTED_ALIASES[row.code] || null;
-  const nameFr = FRENCH_NAMES[row.code] || null;
-  return `  (${escSql(row.code)}, ${escSql(row.name)}, ${escSql(row.nameEn)}, ${escSql(nameFr)}, ${escSql(row.className)}, ${row.classNum}, ${isCommon}, ${escSql(alias)})`;
-});
-
-lines.push(`${values.join(",\n")};`);
-lines.push("");
-
-process.stdout.write(lines.join("\n"));
-
-// Summary to stderr
-process.stderr.write(
-  `\n✅ Generated ${merged.length} BAS category entries\n` +
-    `   Swedish (2026): ${swedishGroups.size} 3-digit groups from ${svData.length} rows\n` +
-    `   English (2025): ${englishMap.size} 3-digit groups from ${enData.length} rows\n` +
-    `   French translations: ${Object.values(FRENCH_NAMES).filter((v) => v !== null).length} non-null entries\n` +
-    `   Common (solo AB): ${COMMON_SOLO_AB.size} curated entries\n` +
-    `   Suggested aliases: ${Object.keys(SUGGESTED_ALIASES).length} entries\n`,
-);
+if (process.argv[1] === fileURLToPath(import.meta.url)) main();

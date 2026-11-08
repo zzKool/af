@@ -99,7 +99,7 @@ const dinner = (groupId: string, extra: Partial<ExpenseInput> = {}): ExpenseInpu
   groupId,
   date: "2026-03-10",
   description: "Restaurant Le Cerf",
-  basCode: "583",
+  basCode: "5830",
   amount: "120.00",
   currency: "CHF",
   paidFromAccountId: owner.sources.privateCh.id,
@@ -168,7 +168,7 @@ describe("FR-001 — who can be an expense's partner", () => {
         groupId: g,
         date: "2026-03-12",
         description: "Per diem CH",
-        basCode: "580",
+        basCode: "5800",
         amount: "580.00",
       }),
     );
@@ -190,7 +190,7 @@ describe("FR-010 / SC-001 — nothing else changes with a partner", () => {
   it("the same key, base and status with and without a partner; the duplicate matches are the same", async () => {
     const g = await group();
     const cerf = await vendor(owner.caller, "Restaurant Le Cerf", {
-      defaultBasCategoryCode: "583",
+      defaultBasCategoryCode: "5830",
     });
     const without = await run(owner.caller, (tx) =>
       createExpense(tx, owner.caller, noopAudit, dinner(g)),
@@ -423,12 +423,12 @@ describe("F125 PR 2 — the partner's history for the BAS picker", () => {
   it("expenses and the rows categorised by hand count per partner and account; a rule's never", async () => {
     const cerf = await vendor(owner.caller, "Le Cerf");
     const g = await group();
-    for (const basCode of ["583", "583", "580"])
+    for (const basCode of ["5830", "5830", "5800"])
       await run(owner.caller, (tx) =>
         createExpense(tx, owner.caller, noopAudit, dinner(g, { partnerId: cerf, basCode })),
       );
     await run(owner.caller, (tx) =>
-      createExpense(tx, owner.caller, noopAudit, dinner(g, { basCode: "690" })),
+      createExpense(tx, owner.caller, noopAudit, dinner(g, { basCode: "6900" })),
     ); // no partner: not counted
     const [byHand, byRule] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.sek, "SEK", [
@@ -437,11 +437,11 @@ describe("F125 PR 2 — the partner's history for the BAS picker", () => {
       ]),
     );
     await adminPool.query(
-      `UPDATE bank_transactions SET partner_id = $1, bas_code = '583', categorised_by = 'manual' WHERE id = $2`,
+      `UPDATE bank_transactions SET partner_id = $1, bas_code = '5830', categorised_by = 'manual' WHERE id = $2`,
       [cerf, byHand],
     );
     await adminPool.query(
-      `UPDATE bank_transactions SET partner_id = $1, bas_code = '657', categorised_by = 'rule' WHERE id = $2`,
+      `UPDATE bank_transactions SET partner_id = $1, bas_code = '6570', categorised_by = 'rule' WHERE id = $2`,
       [cerf, byRule],
     );
     const { partnerBasUsage } = await import("./partner-bas-usage");
@@ -451,18 +451,18 @@ describe("F125 PR 2 — the partner's history for the BAS picker", () => {
     expect(
       own.filter((u) => u.partnerId === cerf).sort((a, b) => a.basCode.localeCompare(b.basCode)),
     ).toEqual([
-      { partnerId: cerf, basCode: "580", count: 1 },
-      { partnerId: cerf, basCode: "583", count: 2 },
+      { partnerId: cerf, basCode: "5800", count: 1 },
+      { partnerId: cerf, basCode: "5830", count: 2 },
     ]);
-    expect(rows).toEqual([{ partnerId: cerf, basCode: "583", count: 1 }]);
+    expect(rows).toEqual([{ partnerId: cerf, basCode: "5830", count: 1 }]);
     // the page options merge them
     const { expensePageOptions } = await import("./page-data");
     const options = await run(owner.caller, (tx) =>
       expensePageOptions(tx, owner.caller, { documents: false, transactions: false }),
     );
     expect(options.basHistory[cerf]).toEqual([
-      { code: "583", count: 3 },
-      { code: "580", count: 1 },
+      { code: "5830", count: 3 },
+      { code: "5800", count: 1 },
     ]);
   });
 });

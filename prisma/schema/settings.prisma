@@ -2,21 +2,49 @@
 // Models follow the mandatory template (id, tenantId, createdAt, updatedAt, createdBy, source);
 // enums are PostgreSQL-level; RLS uses current_setting('app.tenant_id')::uuid. See prisma/schema/README.md.
 
+/// D68 (F148): a BAS account at four digits — a main account `NNN0` or a sub-account `NNN1`–`NNN9` under it
 model BasCategory {
-  code           String   @id @db.VarChar(4) // "501" — 3-digit BAS group code (natural key, not UUID)
-  name           String // "Lokalkostnader" — Swedish canonical
-  nameEn         String?  @map("name_en") // "Premises costs" — from English 2025 file
-  nameFr         String?  @map("name_fr") // "Frais de locaux" — AI-generated, Plan Comptable/IFRS
-  className      String   @map("class_name") // "LOKALKOSTNADER" — stored uppercase per BAS standard
-  classNum       Int      @map("class_num") // 5 — first digit of code
-  isCommon       Boolean  @default(false) @map("is_common")
-  suggestedAlias String?  @map("suggested_alias") @db.VarChar(10) // "Lokal" — curated short label
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  code           String         @id @db.VarChar(4) // "6540" — the four-digit BAS account (natural key, not UUID)
+  name           String // "IT-tjänster" — Swedish canonical
+  nameEn         String?        @map("name_en") // "IT services" — from the English file
+  nameFr         String?        @map("name_fr") // AI-generated, main accounts only
+  className      String         @map("class_name") // "ÖVRIGA EXTERNA TJÄNSTER" — the group's Swedish heading
+  classNum       Int            @map("class_num") // 6 — first digit of code
+  isCommon       Boolean        @default(false) @map("is_common")
+  suggestedAlias String?        @map("suggested_alias") @db.VarChar(10) // "Lokal" — curated short label
+  groupCode      String         @map("group_code") @db.VarChar(2) // "65" — the account group
+  kind           BasAccountKind
+  parentCode     String?        @map("parent_code") @db.VarChar(4) // a sub-account's main account
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
 
+  group       BasGroup              @relation(fields: [groupCode], references: [code], onDelete: Restrict)
+  parent      BasCategory?          @relation("BasParent", fields: [parentCode], references: [code], onDelete: Restrict)
+  subAccounts BasCategory[]         @relation("BasParent")
   preferences TenantBasPreference[]
   partners    Partner[]
 
+  @@index([groupCode])
   @@map("bas_categories")
+}
+
+/// D68 (F148): BAS's account groups — two digits (`65` Other external services), read-only reference data
+model BasGroup {
+  code      String        @id @db.VarChar(2)
+  classNum  Int           @map("class_num")
+  name      String // Swedish heading
+  nameEn    String?       @map("name_en")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  accounts  BasCategory[]
+
+  @@map("bas_groups")
+}
+
+/// D68: a main account (`NNN0`) or a sub-account under it
+enum BasAccountKind {
+  main
+  sub
+
+  @@map("bas_account_kind")
 }
 
 /// F126: a *Use for* note the model drafted (the owner has not read it yet) or the owner's own

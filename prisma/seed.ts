@@ -236,7 +236,7 @@ async function seed() {
         matchType: "contains" as const,
         matchPattern: "AVGIFTER NORDEA",
         matchField: "counterparty_key" as const,
-        basCode: "657",
+        basCode: "6570",
         noDocumentNeeded: true,
         priority: 100,
       },
@@ -246,7 +246,7 @@ async function seed() {
         matchType: "regex" as const,
         matchPattern: "^(R[äa]nta|Interest)\\b",
         matchField: "details" as const,
-        basCode: "831",
+        basCode: "8310",
         noDocumentNeeded: true,
         priority: 90,
       },
@@ -285,15 +285,15 @@ async function seed() {
       ...(await tx.basCategory.findMany({ where: { isCommon: true }, select: { code: true } })).map(
         (c) => c.code,
       ),
-      "501",
-      "570",
-      "653",
-      "654",
-      "657",
-      "631",
-      "721",
-      "831",
-      "263",
+      "5010",
+      "5700",
+      "6530",
+      "6540",
+      "6570",
+      "6310",
+      "7210",
+      "8310",
+      "2630",
     ]);
     const known = new Set(
       (
@@ -312,7 +312,7 @@ async function seed() {
         data: toActivate.map((code) => ({
           tenantId: orgId,
           basCode: code,
-          isFavorite: ["654", "657", "570", "501"].includes(code),
+          isFavorite: ["6540", "6570", "5700", "5010"].includes(code),
           createdBy: ownerUserId,
           source: "seed",
         })),
@@ -322,11 +322,11 @@ async function seed() {
 
     // the owner's aliases on the categories his expense keys use (Ex213-Tr-01, Ex213-Rep-01)
     for (const [code, shortCode] of [
-      ["580", "Tr"],
-      ["583", "Rep"],
-      ["501", "Lokal"],
-      ["653", "Acc"],
-      ["654", "IT"],
+      ["5800", "Tr"],
+      ["5830", "Rep"],
+      ["5010", "Lokal"],
+      ["6530", "Acc"],
+      ["6540", "IT"],
     ] as const) {
       if (!known.has(code) && !(await tx.basCategory.findUnique({ where: { code } }))) continue;
       await tx.tenantBasPreference.upsert({

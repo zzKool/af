@@ -67,7 +67,7 @@ model Expense {
   kind              ExpenseKind   @default(receipt)
   date              DateTime      @db.Date
   description       String        @db.VarChar(200)
-  /// 3-digit BAS group (bas_categories.code), validated at write
+  /// four-digit BAS account (bas_categories.code, D68), validated at write
   basCode           String        @map("bas_code") @db.VarChar(4)
   /// the receipt's amount, positive, in its currency
   amount            Decimal       @db.Decimal(15, 2)

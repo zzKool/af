@@ -199,8 +199,8 @@ async function juneFixture(): Promise<Fixture> {
     status: "extracted",
   });
   const { supplierKey, expenseIds } = await run(caller, async (tx) => {
-    await settings.activateBasCategories(tx, caller, noopAudit, ["653"]);
-    await settings.updateBasPreference(tx, caller, noopAudit, "653", { shortCode: "Acc" });
+    await settings.activateBasCategories(tx, caller, noopAudit, ["6530"]);
+    await settings.updateBasPreference(tx, caller, noopAudit, "6530", { shortCode: "Acc" });
     const trip = await expenses.createGroup(tx, caller, noopAudit, {
       description: "Zürich trip",
       kind: "trip",
@@ -217,7 +217,7 @@ async function juneFixture(): Promise<Fixture> {
       amountNet: "1000.00",
       vatAmount: "250.00",
       amountTotal: "1250.00",
-      basCode: "653",
+      basCode: "6530",
       documentId: supplierDoc.id,
     });
     if (si.error) throw new Error(si.error.message);
@@ -226,7 +226,7 @@ async function juneFixture(): Promise<Fixture> {
       groupId: trip.data?.id as string,
       date: "2026-06-03",
       description: "Train Zürich",
-      basCode: "580",
+      basCode: "5800",
       amount: "120.00",
       currency: "CHF",
       paidFromAccountId: owner.sources.privateCh.id,
@@ -241,7 +241,7 @@ async function juneFixture(): Promise<Fixture> {
       groupId: trip.data?.id as string,
       date: "2026-06-04",
       description: "Hotel Zürich",
-      basCode: "583",
+      basCode: "5830",
       amount: "50.00",
       currency: "CHF",
       paidFromAccountId: owner.sources.privateCh.id,
@@ -306,11 +306,11 @@ async function juneFixture(): Promise<Fixture> {
     });
     if (transfer.error) throw new Error(transfer.error.message);
     const feeEntry = (await banking.transactionFacts(tx, [rows.fee])).get(rows.fee);
-    await settings.activateBasCategories(tx, caller, noopAudit, ["657"]);
+    await settings.activateBasCategories(tx, caller, noopAudit, ["6570"]);
     // the fee names the bank (F129, D73): the first import seeded it
     const bank = await partners.systemPartner(tx, "bank");
     const fee = await banking.categorise(tx, caller, noopAudit, feeEntry?.id as string, {
-      basCode: "657",
+      basCode: "6570",
       noDocumentNeeded: true,
       partnerId: bank?.id as string,
     });
@@ -394,14 +394,14 @@ describe("SC-001 — the fixture month", () => {
     // SC-004 (one-table, F129): the uncategorised row justified by the supplier invoice prints its account and
     // its supplier — derived on read, nothing written on the row
     expect(data.bank[2]).toMatchObject({
-      basCode: "653",
+      basCode: "6530",
       partnerName: "Skattepunkten Office Services AB",
       flags: [],
     });
-    expect(data.bank[2]?.basLabel).toMatch(/^653 · /);
+    expect(data.bank[2]?.basLabel).toMatch(/^6530 · /);
     // the fee the owner flagged with the bank; the refund settles the owner's expenses: his partner, the expense's account
-    expect(data.bank[4]).toMatchObject({ basCode: "657", partnerName: "Nordea" });
-    expect(data.bank[6]).toMatchObject({ basCode: "580", partnerName: f.ownerName });
+    expect(data.bank[4]).toMatchObject({ basCode: "6570", partnerName: "Nordea" });
+    expect(data.bank[6]).toMatchObject({ basCode: "5800", partnerName: f.ownerName });
     expect(data.bank[6]?.related).toEqual([
       `Reimb_${f.settlementNumber}_2026-06-28.pdf`,
       `settles ${f.settlementNumber}`,
@@ -698,14 +698,14 @@ describe("F83 — periodFlags: the flags without the package (the dashboard's it
         amountNet: "400.00",
         vatAmount: "100.00",
         amountTotal: "500.00",
-        basCode: "653",
+        basCode: "6530",
       });
       if (si.error) throw new Error(si.error.message);
       const card = await expenses.createExpense(tx, caller, noopAudit, {
         groupId: batch.data?.id as string,
         date: "2026-04-14",
         description: "Invented software",
-        basCode: "580",
+        basCode: "5800",
         amount: "150.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.afSek.id,

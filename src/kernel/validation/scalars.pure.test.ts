@@ -44,11 +44,11 @@ describe("kernel/validation scalars", () => {
     expect(message(positiveRate, "0")).toBe("The rate must be positive");
   });
 
-  it("basCode: 3 or 4 digits", () => {
-    expect(ok(basCode, "193")).toBe(true);
+  it("basCode: four digits (D68)", () => {
     expect(ok(basCode, "1930")).toBe(true);
+    expect(ok(basCode, "193")).toBe(false);
     expect(ok(basCode, "19")).toBe(false);
     expect(ok(basCode, "19300")).toBe(false);
-    expect(message(basCode, "abc")).toBe("A BAS code is 3 or 4 digits");
+    expect(message(basCode, "abc")).toBe("A BAS account is 4 digits");
   });
 });

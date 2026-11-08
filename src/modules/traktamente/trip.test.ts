@@ -126,7 +126,7 @@ describe("US3 — the per-diem expense", () => {
     );
 
     const written = await run(owner.caller, (tx) =>
-      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "5800" }),
     );
     expect(written.error).toBeUndefined();
     expect(written.data?.expense).toMatchObject({
@@ -160,7 +160,7 @@ describe("US3 — the per-diem expense", () => {
       await run(owner.caller, (tx) =>
         createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
           groupId: g.id,
-          basCode: "580",
+          basCode: "5800",
         }),
       )
     ).data!;
@@ -168,7 +168,7 @@ describe("US3 — the per-diem expense", () => {
       await run(owner.caller, (tx) =>
         createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
           groupId: g.id,
-          basCode: "580",
+          basCode: "5800",
         }),
       )
     ).data!;
@@ -182,7 +182,7 @@ describe("US3 — the per-diem expense", () => {
       await run(owner.caller, (tx) =>
         createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
           groupId: g.id,
-          basCode: "580",
+          basCode: "5800",
         }),
       )
     ).data!;
@@ -212,7 +212,7 @@ describe("US3 — the per-diem expense", () => {
       upsertTrip(tx, owner.caller, noopAudit, { ...ownerTrip(g.id), lunches: 1 }),
     );
     const refused = await run(owner.caller, (tx) =>
-      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "5800" }),
     );
     expect(refused.error?.message).toMatch(/is settled — a correction is a new per-diem expense/);
   });
@@ -288,7 +288,7 @@ describe("US3 — the per-diem expense", () => {
     expect(saved.data?.computeError?.message).toBe("No travel allowance rate for CH in 2025");
     expect(saved.data?.trip.computed).toBeNull();
     const refused = await run(owner.caller, (tx) =>
-      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "5800" }),
     );
     expect(refused.error?.details).toEqual({ rule: "missing_rate", countryCode: "CH", year: 2025 });
 
@@ -305,7 +305,7 @@ describe("US3 — the per-diem expense", () => {
       expect(preview.data).toMatchObject({ days: 0, total: "0.00", reason: "no overnight stay" });
       const none = await createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
         groupId: g.id,
-        basCode: "580",
+        basCode: "5800",
       });
       expect(none.error?.message).toMatch(/Nothing is tax-free: no overnight stay/);
       const tooMany = await upsertTrip(tx, owner.caller, noopAudit, {
@@ -329,7 +329,7 @@ describe("US3 — the per-diem expense", () => {
       run(owner.caller, (tx) =>
         createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
           groupId: g.id,
-          basCode: "580",
+          basCode: "5800",
         }),
       );
     const first = (await write()).data!;
@@ -374,7 +374,7 @@ describe("US3 — the per-diem expense", () => {
       await run(owner.caller, (tx) =>
         createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, {
           groupId: g.id,
-          basCode: "580",
+          basCode: "5800",
         }),
       )
     ).data!;
@@ -404,7 +404,7 @@ describe("US3 — the per-diem expense", () => {
       upsertTrip(tx, owner.caller, noopAudit, { ...ownerTrip(g.id), lunches: 2 }),
     );
     await run(owner.caller, (tx) =>
-      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "580" }),
+      createOrReplacePerDiemExpense(tx, owner.caller, noopAudit, { groupId: g.id, basCode: "5800" }),
     );
     await renderPerDiem(data, render);
     expect(render).toHaveBeenCalledTimes(2);

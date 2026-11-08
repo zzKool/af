@@ -76,7 +76,7 @@ describe("bas_categories reference table", () => {
 
   it("spot-check: code 501 = Lokalhyra", async () => {
     const categories = await basService.getBasCategories(prisma);
-    const c501 = categories.find((c) => c.code === "501");
+    const c501 = categories.find((c) => c.code === "5010");
     expect(c501).toBeDefined();
     expect(c501?.name).toBe("Lokalhyra");
     expect(c501?.nameEn).toBe("Rent");
@@ -85,7 +85,7 @@ describe("bas_categories reference table", () => {
 
   it("spot-check: code 899 = Resultat", async () => {
     const categories = await basService.getBasCategories(prisma);
-    const c899 = categories.find((c) => c.code === "899");
+    const c899 = categories.find((c) => c.code === "8990");
     expect(c899).toBeDefined();
     expect(c899?.name).toBe("Resultat");
     expect(c899?.nameEn).toBe("Result");
@@ -121,14 +121,14 @@ describe("bas_categories reference table", () => {
 
   it("immutability: UPDATE blocked (silently dropped by RULE)", async () => {
     // Get original name
-    const before = await adminPool.query("SELECT name FROM bas_categories WHERE code = '501'");
+    const before = await adminPool.query("SELECT name FROM bas_categories WHERE code = '5010'");
     const originalName = before.rows[0].name;
 
     // Attempt update via admin (bypasses GRANT but not RULE)
-    await adminPool.query("UPDATE bas_categories SET name = 'HACKED' WHERE code = '501'");
+    await adminPool.query("UPDATE bas_categories SET name = 'HACKED' WHERE code = '5010'");
 
     // Verify name unchanged (RULE silently drops)
-    const after = await adminPool.query("SELECT name FROM bas_categories WHERE code = '501'");
+    const after = await adminPool.query("SELECT name FROM bas_categories WHERE code = '5010'");
     expect(after.rows[0].name).toBe(originalName);
   });
 
@@ -136,7 +136,7 @@ describe("bas_categories reference table", () => {
     const before = await adminPool.query("SELECT COUNT(*) FROM bas_categories");
     const beforeCount = Number.parseInt(before.rows[0].count, 10);
 
-    await adminPool.query("DELETE FROM bas_categories WHERE code = '501'");
+    await adminPool.query("DELETE FROM bas_categories WHERE code = '5010'");
 
     const after = await adminPool.query("SELECT COUNT(*) FROM bas_categories");
     expect(Number.parseInt(after.rows[0].count, 10)).toBe(beforeCount);
@@ -210,7 +210,7 @@ describe("bas preferences service", () => {
     // Activate first
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
-      return basService.activateBasCategories(tx, owner.callerIdentity, audit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, audit, ["5010"]);
     });
 
     // Deactivate
@@ -219,7 +219,7 @@ describe("bas preferences service", () => {
       owner.callerIdentity.tenantId,
       async (tx) => {
         const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return basService.deactivateBasCategory(tx, owner.callerIdentity, audit, "501");
+        return basService.deactivateBasCategory(tx, owner.callerIdentity, audit, "5010");
       },
     );
 
@@ -241,7 +241,7 @@ describe("bas preferences service", () => {
 
     // First activation
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
     });
 
     // Second activation — same code
@@ -249,7 +249,7 @@ describe("bas preferences service", () => {
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+        return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
       },
     );
 
@@ -276,7 +276,7 @@ describe("bas preferences service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
     });
 
     const result = await withTenantTransaction(
@@ -284,7 +284,7 @@ describe("bas preferences service", () => {
       owner.callerIdentity.tenantId,
       async (tx) => {
         const audit = createRealAuditLogger(tx, owner.callerIdentity);
-        return basService.updateBasPreference(tx, owner.callerIdentity, audit, "501", {
+        return basService.updateBasPreference(tx, owner.callerIdentity, audit, "5010", {
           isFavorite: true,
         });
       },
@@ -298,14 +298,14 @@ describe("bas preferences service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
     });
 
     const result = await withTenantTransaction(
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "501", {
+        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "5010", {
           shortCode: "Lokal",
         });
       },
@@ -317,7 +317,7 @@ describe("bas preferences service", () => {
     const prefs = await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
       return basService.getTenantBasPreferences(tx, owner.callerIdentity);
     });
-    const p501 = prefs.data?.find((p) => p.basCode === "501");
+    const p501 = prefs.data?.find((p) => p.basCode === "5010");
     expect(p501?.shortCode).toBe("Lokal");
   });
 
@@ -325,14 +325,14 @@ describe("bas preferences service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
     });
 
     const result = await withTenantTransaction(
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "501", {
+        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "5010", {
           translations: { en: "Rent", sv: "Hyra", fr: "Loyer" },
         });
       },
@@ -345,14 +345,14 @@ describe("bas preferences service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
     });
 
     const result = await withTenantTransaction(
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "501", {
+        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "5010", {
           // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
           translations: { invalid: 123 } as any,
         });
@@ -370,7 +370,7 @@ describe("bas preferences service", () => {
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "501", {
+        return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "5010", {
           isFavorite: true,
         });
       },
@@ -391,7 +391,10 @@ describe("RLS isolation", () => {
 
     // Activate for tenant A
     await withTenantTransaction(prisma, ownerA.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, ownerA.callerIdentity, noopAudit, ["501", "620"]);
+      return basService.activateBasCategories(tx, ownerA.callerIdentity, noopAudit, [
+        "5010",
+        "6200",
+      ]);
     });
 
     await assertRlsIsolation(
@@ -412,7 +415,7 @@ describe("audit logging", () => {
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
-      return basService.activateBasCategories(tx, owner.callerIdentity, audit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, audit, ["5010"]);
     });
 
     await assertAuditLogged(
@@ -428,12 +431,12 @@ describe("audit logging", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]);
     });
 
     await withTenantTransaction(prisma, owner.callerIdentity.tenantId, async (tx) => {
       const audit = createRealAuditLogger(tx, owner.callerIdentity);
-      return basService.updateBasPreference(tx, owner.callerIdentity, audit, "501", {
+      return basService.updateBasPreference(tx, owner.callerIdentity, audit, "5010", {
         isFavorite: true,
       });
     });
@@ -458,7 +461,7 @@ describe("full CRUD cycle", () => {
 
     // Activate
     const activateResult = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["620"]);
+      return basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["6200"]);
     });
     expect(activateResult.data?.activated).toBe(1);
 
@@ -467,11 +470,11 @@ describe("full CRUD cycle", () => {
       return basService.getTenantBasPreferences(tx, owner.callerIdentity);
     });
     expect(readResult.data?.length).toBe(1);
-    expect(readResult.data?.[0].basCode).toBe("620");
+    expect(readResult.data?.[0].basCode).toBe("6200");
 
     // Update
     const updateResult = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "620", {
+      return basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "6200", {
         isFavorite: true,
         shortCode: "Tele",
       });
@@ -480,7 +483,7 @@ describe("full CRUD cycle", () => {
 
     // Deactivate
     const deactivateResult = await withTenantTransaction(prisma, tenantId, async (tx) => {
-      return basService.deactivateBasCategory(tx, owner.callerIdentity, noopAudit, "620");
+      return basService.deactivateBasCategory(tx, owner.callerIdentity, noopAudit, "6200");
     });
     expect(deactivateResult.data?.deactivated).toBe(true);
 
@@ -509,7 +512,7 @@ describe("bas preferences actions", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     mockHeaders = owner.headers;
 
-    const result = await activateBasCategoriesAction({ codes: ["501"] });
+    const result = await activateBasCategoriesAction({ codes: ["5010"] });
     expect(result?.serverError).toBeUndefined();
   });
 
@@ -521,7 +524,7 @@ describe("bas preferences actions", () => {
     });
     mockHeaders = member.headers;
 
-    const result = await activateBasCategoriesAction({ codes: ["501"] });
+    const result = await activateBasCategoriesAction({ codes: ["5010"] });
     expect(result?.serverError).toBeDefined();
     expect(result?.serverError).toMatchObject({ code: "FORBIDDEN" });
   });
@@ -542,15 +545,15 @@ describe("isBasActivated", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;
     const asked = () =>
-      withTenantTransaction(prisma, tenantId, (tx) => basService.isBasActivated(tx, "501"));
+      withTenantTransaction(prisma, tenantId, (tx) => basService.isBasActivated(tx, "5010"));
 
     expect(await asked()).toBe(false);
     await withTenantTransaction(prisma, tenantId, (tx) =>
-      basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["501"]),
+      basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["5010"]),
     );
     expect(await asked()).toBe(true);
     await withTenantTransaction(prisma, tenantId, (tx) =>
-      basService.deactivateBasCategory(tx, owner.callerIdentity, noopAudit, "501"),
+      basService.deactivateBasCategory(tx, owner.callerIdentity, noopAudit, "5010"),
     );
     expect(await asked()).toBe(false);
   });
@@ -559,10 +562,10 @@ describe("isBasActivated", () => {
     const a = await createAuthenticatedContext(auth, "owner");
     const b = await createAuthenticatedContext(auth, "owner");
     await withTenantTransaction(prisma, a.callerIdentity.tenantId, (tx) =>
-      basService.activateBasCategories(tx, a.callerIdentity, noopAudit, ["620"]),
+      basService.activateBasCategories(tx, a.callerIdentity, noopAudit, ["6200"]),
     );
     const seenByB = await withTenantTransaction(prisma, b.callerIdentity.tenantId, (tx) =>
-      basService.isBasActivated(tx, "620"),
+      basService.isBasActivated(tx, "6200"),
     );
     expect(seenByB).toBe(false);
   });
@@ -584,31 +587,31 @@ describe("basPickerOptions (F125, F95)", () => {
           "153",
           "654",
         ]);
-        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "654", {
+        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "6540", {
           isFavorite: true,
           shortCode: "It",
         });
         // the owner's own English wins over the chart's
-        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "657", {
+        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "6570", {
           translations: { en: "Bank fees" },
         });
         return basPickerOptions(tx);
       },
     );
-    const mine = options.filter((o) => ["153", "654", "657"].includes(o.code));
-    expect(mine.map((o) => o.code)).toEqual(["153", "654", "657"]);
+    const mine = options.filter((o) => ["1530", "6540", "6570"].includes(o.code));
+    expect(mine.map((o) => o.code)).toEqual(["1530", "6540", "6570"]);
     expect(mine[0]).toMatchObject({
-      code: "153",
+      code: "1530",
       name: "Contractual receivables",
       nameSv: "Kontraktsfordringar",
       alias: "Kund",
       classNum: 1,
       favourite: false,
-      label: "153 · Contractual receivables (Kund)",
+      label: "1530 · Contractual receivables (Kund)",
     });
     expect(mine[1]).toMatchObject({ name: "IT services", alias: "It", favourite: true });
     expect(mine[2]).toMatchObject({ name: "Bank fees", nameSv: "Bankkostnader", alias: null });
-    expect(mine[2]?.label).toBe("657 · Bank fees");
+    expect(mine[2]?.label).toBe("6570 · Bank fees");
   });
 });
 
@@ -619,19 +622,22 @@ describe("basLabels (D72: English on screen, Swedish + English for the accountan
       prisma,
       owner.callerIdentity.tenantId,
       async (tx) => {
-        await basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, ["657", "654"]);
-        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "657", {
+        await basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, [
+          "6570",
+          "6540",
+        ]);
+        await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "6570", {
           translations: { en: "Bank fees" },
         });
         return {
-          en: await basService.basLabels(tx, ["654", "657", "654"]),
-          both: await basService.basLabels(tx, ["654", "657"], "sv+en"),
+          en: await basService.basLabels(tx, ["6540", "6570", "6540"]),
+          both: await basService.basLabels(tx, ["6540", "6570"], "sv+en"),
         };
       },
     );
-    expect(en.get("654")).toBe("654 · IT services");
-    expect(en.get("657")).toBe("657 · Bank fees");
-    expect(both.get("654")).toBe("654 · IT-tjänster (IT services)");
-    expect(both.get("657")).toBe("657 · Bankkostnader (Bank fees)");
+    expect(en.get("6540")).toBe("6540 · IT services");
+    expect(en.get("6570")).toBe("6570 · Bank fees");
+    expect(both.get("6540")).toBe("6540 · IT-tjänster (IT services)");
+    expect(both.get("6570")).toBe("6570 · Bankkostnader (Bank fees)");
   });
 });

@@ -109,7 +109,7 @@ describe("US2 — rules that categorise", () => {
         name: "OpenAI subscription",
         matchType: "contains",
         matchPattern: "OPENAI",
-        basCode: "654",
+        basCode: "6540",
         partnerId: partner.id,
       });
       expect(created.error).toBeUndefined();
@@ -127,7 +127,7 @@ describe("US2 — rules that categorise", () => {
       expect(applied.data?.applied).toBe(1);
       expect(applied.data?.tested).toBeGreaterThan(5);
       const after = await entryOf(tx, (await openaiOf(tx)).id);
-      expect(after?.basCode).toBe("654");
+      expect(after?.basCode).toBe("6540");
       expect(after?.partnerId).toBe(partner.id);
       expect(after?.categorisedBy).toBe("rule");
       expect(after?.ruleId).toBe(created.data?.id);
@@ -157,7 +157,7 @@ describe("US2 — rules that categorise", () => {
         name: "OpenAI at 150",
         matchType: "contains",
         matchPattern: "OPENAI",
-        basCode: "654",
+        basCode: "6540",
         bankAccountId: sek,
         sign: "out",
         expectedAmount: "150.00",
@@ -190,7 +190,7 @@ describe("US2 — rules that categorise", () => {
         expectedAmount: "132.52",
       });
       await rules.applyRules(tx, caller, noopAudit, { dryRun: false });
-      expect((await entryOf(tx, (await openaiOf(tx)).id))?.basCode).toBe("654");
+      expect((await entryOf(tx, (await openaiOf(tx)).id))?.basCode).toBe("6540");
       expect(await rules.ruleNearMisses(tx)).toEqual([]);
 
       // bound to another account: a near miss of its own kind
@@ -198,7 +198,7 @@ describe("US2 — rules that categorise", () => {
         name: "Anthropic on CHF",
         matchType: "contains",
         matchPattern: "ANTHROPIC",
-        basCode: "654",
+        basCode: "6540",
         bankAccountId: chf.data?.id,
       });
       expect((await rules.ruleNearMisses(tx)).map((m) => [m.ruleName, m.reason])).toEqual([
@@ -219,7 +219,7 @@ describe("US2 — rules that categorise", () => {
         name: "Private",
         matchType: "contains",
         matchPattern: "X",
-        basCode: "654",
+        basCode: "6540",
         bankAccountId: priv.id,
       });
       expect(refused.error?.code).toBe("VALIDATION_ERROR");
@@ -232,7 +232,7 @@ describe("US2 — rules that categorise", () => {
     const partner = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
       name: "Anthropic",
       types: ["supplier"],
-      defaultBasCategoryCode: "654",
+      defaultBasCategoryCode: "6540",
     });
     await run(caller, async (tx) => {
       await rules.createRule(tx, caller, noopAudit, {
@@ -247,7 +247,7 @@ describe("US2 — rules that categorise", () => {
       });
       const e = await entryOf(tx, t.id);
       expect(e?.partnerId).toBe(partner.id);
-      expect(e?.basCode).toBe("654");
+      expect(e?.basCode).toBe("6540");
       expect(e?.categorisedBy).toBe("rule");
     });
   });
@@ -259,19 +259,19 @@ describe("US2 — rules that categorise", () => {
       const t = await openaiOf(tx);
       const e = await entryOf(tx, t.id);
       const byHand = await categorise(tx, caller, noopAudit, e?.id as string, {
-        basCode: "657",
+        basCode: "6570",
       });
       expect(byHand.data?.categorisedBy).toBe("manual");
       await rules.createRule(tx, caller, noopAudit, {
         name: "OpenAI",
         matchType: "contains",
         matchPattern: "OPENAI",
-        basCode: "654",
+        basCode: "6540",
       });
       const applied = await rules.applyRules(tx, caller, noopAudit, { dryRun: false });
       expect(applied.data?.applied).toBe(0);
       const after = await entryOf(tx, t.id);
-      expect(after?.basCode).toBe("657");
+      expect(after?.basCode).toBe("6570");
       expect(after?.categorisedBy).toBe("manual");
     });
   });
@@ -284,7 +284,7 @@ describe("US2 — rules that categorise", () => {
         name: "OpenAI",
         matchType: "contains",
         matchPattern: "OPENAI",
-        basCode: "654",
+        basCode: "6540",
       });
       const ruleId = created.data?.id as string;
       const t = await openaiOf(tx);
@@ -310,16 +310,16 @@ describe("US2 — rules that categorise", () => {
         target,
       ]);
       expect(first.data?.applied).toBe(1);
-      expect((await entryOf(tx, t.id))?.basCode).toBe("654");
+      expect((await entryOf(tx, t.id))?.basCode).toBe("6540");
       expect(await hits()).toBe(1);
       // the same rule on the same row again: nothing changes, nothing counted
       await rules.applyToTransactions(tx, caller, noopAudit, await ruleRows(), [target]);
       expect(await hits()).toBe(1);
       // a row set by hand: the rule matches, `categorise` refuses to overwrite, nothing counted
-      await categorise(tx, caller, noopAudit, e?.id as string, { basCode: "657" });
+      await categorise(tx, caller, noopAudit, e?.id as string, { basCode: "6570" });
       await rules.applyToTransactions(tx, caller, noopAudit, await ruleRows(), [target]);
       expect(await hits()).toBe(1);
-      expect((await entryOf(tx, t.id))?.basCode).toBe("657");
+      expect((await entryOf(tx, t.id))?.basCode).toBe("6570");
     });
   });
 
@@ -330,7 +330,7 @@ describe("US2 — rules that categorise", () => {
       const t = await openaiOf(tx);
       const e = await entryOf(tx, t.id);
       // the owner first sets the category by hand, then "create rule from this"
-      await categorise(tx, caller, noopAudit, e?.id as string, { basCode: "654" });
+      await categorise(tx, caller, noopAudit, e?.id as string, { basCode: "6540" });
       const learned = await rules.createRuleFromTransaction(tx, caller, realAudit(tx, caller), {
         transactionId: t.id,
       });
@@ -340,7 +340,7 @@ describe("US2 — rules that categorise", () => {
         matchType: "contains",
         matchPattern: "OPENAI *CHATGPT SUBS",
         matchField: "counterparty_key",
-        basCode: "654",
+        basCode: "6540",
         priority: 100,
         ruleSource: "learned",
       });
@@ -397,7 +397,7 @@ describe("US2 — rules that categorise", () => {
         name: "Bad regex",
         matchType: "regex",
         matchPattern: "(unclosed",
-        basCode: "657",
+        basCode: "6570",
       });
       expect(regex.error?.code).toBe("VALIDATION_ERROR");
       const nothing = await rules.createRule(tx, caller, noopAudit, {
@@ -434,7 +434,7 @@ describe("US2 — rules that categorise", () => {
         name: "Their OpenAI",
         matchType: "contains",
         matchPattern: "OPENAI",
-        basCode: "654",
+        basCode: "6540",
       }),
     );
     await july(caller);
@@ -464,7 +464,7 @@ describe("F129 — the defaults name the bank, rulesForKey, a no-proof rule with
       const fee = await tx.bankTransaction.findFirstOrThrow({
         where: { counterpartyKey: { contains: "AVGIFTER NORDEA" } },
       });
-      expect(fee).toMatchObject({ noDocumentNeeded: true, basCode: "657", partnerId: bank?.id });
+      expect(fee).toMatchObject({ noDocumentNeeded: true, basCode: "6570", partnerId: bank?.id });
       const state = (await transactionStates(tx, [fee.id])).get(fee.id);
       expect(state).toMatchObject({
         state: "no_document",
@@ -524,7 +524,7 @@ describe("F129 — the defaults name the bank, rulesForKey, a no-proof rule with
         name: "Insurance",
         matchType: "contains",
         matchPattern: "OPENAI",
-        basCode: "631",
+        basCode: "6310",
         noDocumentNeeded: true,
       });
       expect(insurance.error).toBeUndefined();

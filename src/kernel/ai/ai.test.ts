@@ -30,7 +30,7 @@ const ENV = {
 };
 
 const schema = z
-  .object({ basCode: z.enum(["654", "583"]), confidence: z.number().min(0).max(1) })
+  .object({ basCode: z.enum(["6540", "5830"]), confidence: z.number().min(0).max(1) })
   .strict();
 
 /** a llama-server /v1/chat/completions response (shape as served; values invented) */
@@ -89,13 +89,13 @@ describe("complete — the OpenAI-compatible endpoint", () => {
   it("sends the schema as response_format, temperature 0, the key; parses and types the answer", async () => {
     const fetchImpl = vi.fn(
       async (_url: string | URL | Request, _init?: RequestInit) =>
-        new Response(JSON.stringify(chatResponse('{"basCode":"654","confidence":0.82}'))),
+        new Response(JSON.stringify(chatResponse('{"basCode":"6540","confidence":0.82}'))),
     );
     const ai = createAiService(ENV, fetchImpl as unknown as typeof fetch);
     const r = await ai.complete(call);
     expect(r).toMatchObject({
       ok: true,
-      data: { basCode: "654", confidence: 0.82 },
+      data: { basCode: "6540", confidence: 0.82 },
       model: "af-local",
       promptVersion: "v1",
       tokens: { prompt: 1612, completion: 21, cached: 1498 },
@@ -126,7 +126,7 @@ describe("complete — the OpenAI-compatible endpoint", () => {
   it("a fenced JSON block is accepted; prose is not", async () => {
     const fenced = async () =>
       new Response(
-        JSON.stringify(chatResponse('```json\n{"basCode":"583","confidence":0.6}\n```')),
+        JSON.stringify(chatResponse('```json\n{"basCode":"5830","confidence":0.6}\n```')),
       );
     expect((await createAiService(ENV, fenced as unknown as typeof fetch).complete(call)).ok).toBe(
       true,
@@ -173,7 +173,7 @@ describe("complete — the OpenAI-compatible endpoint", () => {
 
   it("never logs the prompt or the answer (D51)", async () => {
     const fetchImpl = async () =>
-      new Response(JSON.stringify(chatResponse('{"basCode":"654","confidence":0.82}')));
+      new Response(JSON.stringify(chatResponse('{"basCode":"6540","confidence":0.82}')));
     await createAiService(ENV, fetchImpl as unknown as typeof fetch).complete(call);
     const text = JSON.stringify(logged);
     expect(text).not.toContain("CLOUDHOST");
@@ -196,10 +196,10 @@ describe("off and mock", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
   it("the mock answers only the tasks it knows, through the same schema", async () => {
-    const mock = createMockAiService({ "test.bas": { basCode: "583", confidence: 0.7 } });
+    const mock = createMockAiService({ "test.bas": { basCode: "5830", confidence: 0.7 } });
     expect(await mock.complete(call)).toMatchObject({
       ok: true,
-      data: { basCode: "583" },
+      data: { basCode: "5830" },
       model: "mock",
     });
     expect(await mock.complete({ ...call, task: "other" })).toMatchObject({
@@ -241,8 +241,8 @@ describe("schema", () => {
     const js = jsonSchemaOf(schema);
     expect(js.$schema).toBeUndefined();
     expect(js.required).toEqual(["basCode", "confidence"]);
-    expect(parseAnswer(schema, '{"basCode":"654","confidence":1}').ok).toBe(true);
-    expect(parseAnswer(schema, '{"basCode":"654","confidence":1.5}').ok).toBe(false);
-    expect(parseAnswer(schema, '{"basCode":"654","confidence":1,"extra":1}').ok).toBe(false);
+    expect(parseAnswer(schema, '{"basCode":"6540","confidence":1}').ok).toBe(true);
+    expect(parseAnswer(schema, '{"basCode":"6540","confidence":1.5}').ok).toBe(false);
+    expect(parseAnswer(schema, '{"basCode":"6540","confidence":1,"extra":1}').ok).toBe(false);
   });
 });

@@ -17,11 +17,11 @@ const opt = (code: string, name: string, nameSv: string, alias: string | null, f
   }) satisfies BasOption;
 
 const OPTIONS = [
-  opt("153", "Contractual receivables", "Kontraktsfordringar", "Kund"),
-  opt("501", "Premises rent", "Lokalhyra", "Lokal", true),
-  opt("653", "Accounting services", "Redovisningstjänster", "Acc"),
-  opt("654", "IT services", "IT-tjänster", "IT"),
-  opt("657", "Bank charges", "Bankkostnader", null),
+  opt("1530", "Contractual receivables", "Kontraktsfordringar", "Kund"),
+  opt("5010", "Premises rent", "Lokalhyra", "Lokal", true),
+  opt("6530", "Accounting services", "Redovisningstjänster", "Acc"),
+  opt("6540", "IT services", "IT-tjänster", "IT"),
+  opt("6570", "Bank charges", "Bankkostnader", null),
 ];
 
 function open(testId = "bas") {
@@ -33,9 +33,9 @@ describe("BasPicker", () => {
 
   it("shows the account in English with the short code; empty shows the placeholder", () => {
     const { rerender } = render(
-      <BasPicker options={OPTIONS} value="654" onChange={vi.fn()} data-testid="bas" />,
+      <BasPicker options={OPTIONS} value="6540" onChange={vi.fn()} data-testid="bas" />,
     );
-    expect(screen.getByTestId("bas")).toHaveTextContent("654IT servicesIT");
+    expect(screen.getByTestId("bas")).toHaveTextContent("6540IT servicesIT");
     rerender(
       <BasPicker
         options={OPTIONS}
@@ -54,7 +54,7 @@ describe("BasPicker", () => {
         options={OPTIONS}
         value=""
         onChange={vi.fn()}
-        suggestions={[{ code: "654", source: "partner" }]}
+        suggestions={[{ code: "6540", source: "partner" }]}
         direction="cost"
         data-testid="bas"
       />,
@@ -62,13 +62,13 @@ describe("BasPicker", () => {
     open();
     const suggested = await screen.findByText("Suggested");
     expect(suggested).toBeInTheDocument();
-    const it654 = screen.getByTestId("bas-option-654");
+    const it654 = screen.getByTestId("bas-option-6540");
     expect(it654).toHaveTextContent("the supplier's default");
     expect(it654).not.toHaveTextContent("IT-tjänster");
     expect(it654).toHaveAttribute("title", "IT-tjänster");
     // the favourite comes next, then the cost classes
     const labels = screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"));
-    expect(labels.slice(0, 2)).toEqual(["654 · IT services (IT)", "501 · Premises rent (Lokal)"]);
+    expect(labels.slice(0, 2)).toEqual(["6540 · IT services (IT)", "5010 · Premises rent (Lokal)"]);
   });
 
   it("typing narrows on a word in either language; a pick returns the code", async () => {
@@ -78,24 +78,24 @@ describe("BasPicker", () => {
     const search = await screen.findByPlaceholderText(/Search a number/);
     fireEvent.change(search, { target: { value: "redovisning" } });
     await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
-    fireEvent.click(screen.getByTestId("bas-option-653"));
-    expect(onChange).toHaveBeenCalledWith("653");
+    fireEvent.click(screen.getByTestId("bas-option-6530"));
+    expect(onChange).toHaveBeenCalledWith("6530");
   });
 
   it("the owner's Use for note is the second line, and a word of it finds the account (F126)", async () => {
     const withNote = OPTIONS.map((o) =>
-      o.code === "654" ? { ...o, useFor: "Software licences and cloud subscriptions" } : o,
+      o.code === "6540" ? { ...o, useFor: "Software licences and cloud subscriptions" } : o,
     );
     render(<BasPicker options={withNote} value="" onChange={vi.fn()} data-testid="bas" />);
     open();
-    expect(await screen.findByTestId("bas-option-654")).toHaveTextContent(
+    expect(await screen.findByTestId("bas-option-6540")).toHaveTextContent(
       "Software licences and cloud subscriptions",
     );
     fireEvent.change(screen.getByPlaceholderText(/Search a number/), {
       target: { value: "licences" },
     });
     await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
-    expect(screen.getByTestId("bas-option-654")).toBeInTheDocument();
+    expect(screen.getByTestId("bas-option-6540")).toBeInTheDocument();
   });
 
   it("where the field keys an entry, an account without a short code is shown disabled with the reason", async () => {
@@ -103,7 +103,7 @@ describe("BasPicker", () => {
       <BasPicker options={OPTIONS} value="" onChange={vi.fn()} requireAlias data-testid="bas" />,
     );
     open();
-    const fee = await screen.findByTestId("bas-option-657");
+    const fee = await screen.findByTestId("bas-option-6570");
     expect(fee).toHaveAttribute("data-disabled");
     expect(within(fee).getByText(/no short code/)).toBeInTheDocument();
   });
@@ -113,7 +113,7 @@ describe("BasPicker", () => {
     render(
       <BasPicker
         options={OPTIONS}
-        value="654"
+        value="6540"
         onChange={onChange}
         allowNone
         noneLabel="No category"
@@ -129,12 +129,12 @@ describe("BasPicker", () => {
     render(
       <BasPicker
         options={OPTIONS}
-        value="580"
+        value="5800"
         onChange={vi.fn()}
-        fallbackLabel="580 · Travel expenses"
+        fallbackLabel="5800 · Travel expenses"
         data-testid="bas"
       />,
     );
-    expect(screen.getByTestId("bas")).toHaveTextContent("580Travel expenses");
+    expect(screen.getByTestId("bas")).toHaveTextContent("5800Travel expenses");
   });
 });

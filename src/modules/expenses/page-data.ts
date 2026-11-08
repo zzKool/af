@@ -27,7 +27,7 @@ export type ExpensePageOptions = {
 };
 
 /**
- * The tenant's active BAS set as the picker takes it (F125: settings' one builder — `654 · IT services (It)`, the
+ * The tenant's active BAS set as the picker takes it (F125: settings' one builder — `6540 · IT services (It)`, the
  * alias the key needs, the class, the favourite). The picker groups, searches and disables what has no alias.
  */
 export async function expenseCategoryOptions(

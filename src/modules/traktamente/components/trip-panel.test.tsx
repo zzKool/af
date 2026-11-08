@@ -67,8 +67,8 @@ const trip: TripView = {
 };
 
 const categories = [
-  { code: "580", label: "580 Resekostnader (Tr)" },
-  { code: "590", label: "590 Övrigt (Ov)" },
+  { code: "5800", label: "5800 Resekostnader (Tr)" },
+  { code: "5900", label: "5900 Övrigt (Ov)" },
 ];
 
 function panel(props: Partial<Parameters<typeof TripPanel>[0]> = {}, locale = "sv-SE") {
@@ -79,7 +79,7 @@ function panel(props: Partial<Parameters<typeof TripPanel>[0]> = {}, locale = "s
         trip={trip}
         countries={[{ countryCode: "CH", name: "Switzerland", dayAmount: "1402", year: 2026 }]}
         categories={categories}
-        perDiemExpense={{ id: "e1", key: "Ex213-Ov-01", amount: "4200.00", basCode: "590" }}
+        perDiemExpense={{ id: "e1", key: "Ex213-Ov-01", amount: "4200.00", basCode: "5900" }}
         canWrite
         locale={null}
         {...props}
@@ -97,10 +97,10 @@ describe("TripPanel", () => {
 
   it("T002: once the per-diem expense exists its category is shown, not offered — and the recompute keeps it", async () => {
     panel();
-    expect(screen.getByTestId("per-diem-category")).toHaveTextContent("590 Övrigt (Ov)");
+    expect(screen.getByTestId("per-diem-category")).toHaveTextContent("5900 Övrigt (Ov)");
     expect(screen.queryByRole("combobox", { name: /kategori|category/i })).toBeNull();
     await act(async () => fireEvent.click(screen.getByTestId("write-per-diem")));
-    expect(executeAsync).toHaveBeenCalledWith({ groupId: GROUP, basCode: "590" });
+    expect(executeAsync).toHaveBeenCalledWith({ groupId: GROUP, basCode: "5900" });
   });
 
   it("T002: before the expense exists the category is a choice, the travel category preselected", () => {

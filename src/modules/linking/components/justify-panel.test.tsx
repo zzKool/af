@@ -70,14 +70,14 @@ const row = {
 const options: JustifyOptions = {
   groups: [{ id: "g1", label: "2 — Licences" }],
   categories: [
-    { code: "654", label: "654 · IT-tjänster (It)" },
-    { code: "501", label: "501 · Lokalhyra (Lokal)" },
+    { code: "6540", label: "6540 · IT-tjänster (It)" },
+    { code: "5010", label: "5010 · Lokalhyra (Lokal)" },
   ],
   partners: [
     {
       id: "p1",
       name: "Northwind Cloud AB",
-      defaultBasCode: "654",
+      defaultBasCode: "6540",
       types: ["vendor"],
       systemRole: null,
     },
@@ -284,7 +284,7 @@ describe("JustifyPanel — the receipt lost opens the dialog without a paper", (
         row={row}
         canWrite
         options={options}
-        proposals={[basProposal("654", true)]}
+        proposals={[basProposal("6540", true)]}
         lostKey={1}
       />,
     );
@@ -303,7 +303,7 @@ describe("JustifyPanel — no proof needed names a partner (F129 US3)", () => {
     rowSuggestions([]);
     calls.memory = vi.fn(async () => ({ data: { data: [] } }));
     calls.noProof = vi.fn(async () => ({
-      data: { data: { basCode: "657", partnerId: "bank", proposeRule: false } },
+      data: { data: { basCode: "6570", partnerId: "bank", proposeRule: false } },
     }));
     render(<JustifyPanel row={row} canWrite options={options} noProofKey={1} />);
     fireEvent.click(await screen.findByTestId("justify-reason-fee"));

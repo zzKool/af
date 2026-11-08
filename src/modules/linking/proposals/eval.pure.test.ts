@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest";
 import { type EvalOutcome, formatEval, summariseEval } from "./eval";
 
 const O: EvalOutcome[] = [
-  { truth: "654", stage1: { source: "rule", code: "654", confidence: 1 }, model: null },
-  { truth: "654", stage1: { source: "memory", code: "659", confidence: 0.8 }, model: null },
-  { truth: "501", stage1: null, model: { code: "501", confidence: 0.9, ms: 2_000 } },
-  { truth: "657", stage1: null, model: { code: "654", confidence: 0.6, ms: 4_000 } },
-  { truth: "657", stage1: null, model: { code: "657", confidence: 0.3, ms: 3_000 } }, // LOW: not shown
+  { truth: "6540", stage1: { source: "rule", code: "6540", confidence: 1 }, model: null },
+  { truth: "6540", stage1: { source: "memory", code: "6590", confidence: 0.8 }, model: null },
+  { truth: "5010", stage1: null, model: { code: "5010", confidence: 0.9, ms: 2_000 } },
+  { truth: "6570", stage1: null, model: { code: "6540", confidence: 0.6, ms: 4_000 } },
+  { truth: "6570", stage1: null, model: { code: "6570", confidence: 0.3, ms: 3_000 } }, // LOW: not shown
   { truth: "580", stage1: null, model: { error: "timeout" } },
 ];
 
@@ -27,7 +27,7 @@ describe("summariseEval", () => {
       { family: "high", n: 3, agree: 2 },
       { family: "medium", n: 1, agree: 0 },
     ]);
-    expect(r.byCode.find((c) => c.code === "657")).toEqual({ code: "657", n: 2, agree: 0 });
+    expect(r.byCode.find((c) => c.code === "6570")).toEqual({ code: "6570", n: 2, agree: 0 });
     expect(r.model).toEqual({ asked: 4, failed: 1, p50Ms: 3_000, p95Ms: 4_000 });
   });
 

@@ -221,7 +221,7 @@ describe("US1 — import a month of Nordea rows", () => {
       );
       for (const t of rows) {
         const e = entries.get(t.id);
-        expect(e?.basCode).toBe("657");
+        expect(e?.basCode).toBe("6570");
         expect(e?.noDocumentNeeded).toBe(true);
         expect(e?.categorisedBy).toBe("rule");
       }
@@ -626,7 +626,7 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
       const [innRow] = await withImplicitRates(tx, [entries.get(inn.id) as BankTransactionDto]);
       expect(innRow?.bankImplicitRate).toBeNull(); // same currency: nothing to record
       // the interest row hit the default rule (regex on the details)
-      expect(entries.get(interest.id)?.basCode).toBe("831");
+      expect(entries.get(interest.id)?.basCode).toBe("8310");
       expect(entries.get(interest.id)?.noDocumentNeeded).toBe(true);
       // paired: the facts are as before, the state derives from the link
       expect(await facts(tx)).toEqual(before);
@@ -655,7 +655,7 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
         matchType: "contains",
         matchPattern: "CHANGE CHFSEK",
         matchField: "details",
-        basCode: "657",
+        basCode: "6570",
       }),
     );
     expect(rule.error).toBeUndefined();
@@ -666,7 +666,7 @@ describe("US3 — the CHANGE CHFSEK transfer pair", () => {
       const [chfEntry] = await withImplicitRates(tx, [
         (await transactionFacts(tx, [chfTx])).get(chfTx) as BankTransactionDto,
       ]);
-      expect(chfEntry?.basCode).toBe("657");
+      expect(chfEntry?.basCode).toBe("6570");
       expect(chfEntry?.categorisedBy).toBe("rule");
       expect(chfEntry?.ruleId).toBe(rule.data?.id);
       expect(chfEntry?.bankImplicitRate).toBe("11.887"); // the pair's own fact is untouched
@@ -905,8 +905,8 @@ describe("F128 — the import preview (review 2026-10-31 §6.1): the file read a
       amount: "-7.70",
       rule: { ruleName: "Nordea bank fees", noDocumentNeeded: true, partnerName: "Nordea" },
     });
-    expect(fee?.rule?.basCode).toBe("657");
-    expect(fee?.rule?.basLabel).toMatch(/^657 · /);
+    expect(fee?.rule?.basCode).toBe("6570");
+    expect(fee?.rule?.basLabel).toMatch(/^6570 · /);
     expect(p.rows.filter((row) => row.willBe === "new")).toHaveLength(11);
     // the chain is reported as the import would (the fixture's balances are invented — the shape is what counts)
     expect(Array.isArray(p.balanceGaps)).toBe(true);
@@ -959,14 +959,14 @@ describe("F128 — the import preview (review 2026-10-31 §6.1): the file read a
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { sek } = await accounts(caller);
     const settings = await import("@/modules/settings");
-    await run(caller, (tx) => settings.activateBasCategories(tx, caller, noopAudit, ["654"]));
+    await run(caller, (tx) => settings.activateBasCategories(tx, caller, noopAudit, ["6540"]));
     const openai = await run(caller, (tx) =>
       partners.createPartner(tx, caller, noopAudit, {
         name: "OpenAI",
         types: ["vendor"],
         shortCode: "OAI",
         defaultCurrency: "SEK",
-        defaultBasCategoryCode: "654",
+        defaultBasCategoryCode: "6540",
       }),
     );
     expect(openai.error).toBeUndefined();
@@ -988,12 +988,12 @@ describe("F128 — the import preview (review 2026-10-31 §6.1): the file read a
       rule: {
         ruleName: "OpenAI subscription",
         noDocumentNeeded: false,
-        basCode: "654",
+        basCode: "6540",
         partnerId: openai.data?.id,
         partnerName: "OpenAI",
       },
     });
-    expect(row?.rule?.basLabel).toMatch(/^654 · /);
+    expect(row?.rule?.basLabel).toMatch(/^6540 · /);
     // the tenant has a rule, so the defaults are not assumed: the fee row is plain 'new' until the import makes them
     expect(r.data?.rows.find((x) => x.counterparty === "AVGIFTER NORDEA")?.willBe).toBe("new");
     expect(r.data?.ruleHits).toBe(1);

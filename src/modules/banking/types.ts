@@ -163,7 +163,7 @@ export type ImportPreviewRuleHit = {
   ruleName: string;
   noDocumentNeeded: boolean;
   basCode: string | null;
-  /** `657 · Bank charges` — settings' label, null when the code is not in the tenant's BAS set */
+  /** `6570 · Bank charges` — settings' label, null when the code is not in the tenant's BAS set */
   basLabel: string | null;
   partnerId: string | null;
   partnerName: string | null;

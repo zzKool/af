@@ -226,12 +226,12 @@ describe("acceptMatch (F139 FR-002)", () => {
         bankTransactionId: w.card,
         to: { type: "document", id: w.documentId },
         partnerId: vendor.data?.id,
-        basCode: "654",
+        basCode: "6540",
       }),
     );
     expect(link.error).toBeUndefined();
     const row = await run(owner.caller, (tx) => banking.getTransaction(tx, w.card));
-    expect(row.data?.transaction).toMatchObject({ partnerId: vendor.data?.id, basCode: "654" });
+    expect(row.data?.transaction).toMatchObject({ partnerId: vendor.data?.id, basCode: "6540" });
 
     const done = await run(owner.caller, (tx) =>
       doneToday(tx, new Date().toISOString().slice(0, 10)),

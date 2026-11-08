@@ -122,7 +122,7 @@ async function history(
   await run(caller, async (tx) => {
     for (const id of [ids.inv1, ids.inv2]) {
       const r = await banking.categorise(tx, caller, auditFor(tx, caller), id, {
-        basCode: "654",
+        basCode: "6540",
         partnerId,
       });
       expect(r.error).toBeUndefined();
@@ -154,7 +154,7 @@ describe("F98 — stage-1 proposals", () => {
       ["bas", "memory", "high", true],
       ["partner", "memory", "high", true],
     ]);
-    expect(list[0]).toMatchObject({ payload: { basCode: "654" }, confidence: 0.8 });
+    expect(list[0]).toMatchObject({ payload: { basCode: "6540" }, confidence: 0.8 });
     expect(list[1]).toMatchObject({ payload: { partnerId: cloud.id } });
   });
 
@@ -184,7 +184,7 @@ describe("F98 — stage-1 proposals", () => {
         matchType: "contains",
         matchPattern: "BYTEFORM",
         matchField: "counterparty_key",
-        basCode: "659",
+        basCode: "6590",
         isActive: true,
       }),
     );
@@ -218,7 +218,7 @@ describe("F98 — stage-1 proposals", () => {
     expect(r.error).toBeUndefined();
     expect(r.data).toMatchObject({ proposeRule: true });
     expect(r.data?.transaction).toMatchObject({
-      basCode: "654",
+      basCode: "6540",
       partnerId: cloud.id,
       categorisedBy: "manual",
     });
@@ -252,10 +252,10 @@ describe("F98 — stage-1 proposals", () => {
       acceptProposals(tx, caller, auditFor(tx, caller), {
         transactionId: ids.inv3,
         proposalIds: [bas.id],
-        overrideBasCode: "659",
+        overrideBasCode: "6590",
       }),
     );
-    expect(r.data?.transaction.basCode).toBe("659");
+    expect(r.data?.transaction.basCode).toBe("6590");
     expect(r.data?.transaction.partnerId).toBeNull();
   });
 
@@ -312,7 +312,7 @@ describe("F98 — stage-1 proposals", () => {
     await proposeForRows({ tenantId: caller.tenantId, userId: caller.userId, all: true });
     const [bas] = (await run(caller, (tx) => currentProposals(tx, [ids.inv3]))).get(ids.inv3) ?? [];
     await run(caller, (tx) =>
-      banking.categorise(tx, caller, auditFor(tx, caller), ids.inv3, { basCode: "659" }),
+      banking.categorise(tx, caller, auditFor(tx, caller), ids.inv3, { basCode: "6590" }),
     );
     const r = await run(caller, (tx) =>
       acceptProposals(tx, caller, auditFor(tx, caller), {
@@ -358,7 +358,7 @@ describe("F98 — stage-1 proposals", () => {
             targetId: ids.inv3,
             bankTransactionId: ids.inv3,
             kind: "bas",
-            payload: { basCode: "654", alternatives: [] },
+            payload: { basCode: "6540", alternatives: [] },
             source: "memory",
             confidence: "0.80",
             factsHash: "x",
@@ -407,18 +407,18 @@ describe("F98 — stage-1 proposals", () => {
 
 describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
   const ANSWER = {
-    basCode: "659",
+    basCode: "6590",
     confidence: 0.86,
     reason: "Looks like a subscription for software",
     alternatives: [
-      { basCode: "654", why: "IT services" },
-      { basCode: "659", why: "the same" },
+      { basCode: "6540", why: "IT services" },
+      { basCode: "6590", why: "the same" },
     ],
   };
   const mock = (answer: unknown = ANSWER) =>
     createMockAiService({ "linking.bas-proposal": answer });
 
-  async function activate(caller: CallerIdentity, codes = ["654", "659", "501"]) {
+  async function activate(caller: CallerIdentity, codes = ["6540", "6590", "5010"]) {
     await run(caller, (tx) =>
       settings.activateBasCategories(tx, caller, auditFor(tx, caller), codes),
     );
@@ -443,7 +443,7 @@ describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
       prefilled: true,
       confidence: 0.86,
       reason: "Looks like a subscription for software",
-      payload: { basCode: "659", alternatives: [{ basCode: "654", why: "IT services" }] },
+      payload: { basCode: "6590", alternatives: [{ basCode: "6540", why: "IT services" }] },
     });
     const row = await run(caller, (tx) =>
       tx.bankTransaction.findUnique({ where: { id: ids.byteform } }),
@@ -480,7 +480,7 @@ describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
     await activate(caller);
     const scope = { tenantId: caller.tenantId, userId: caller.userId, all: true as const };
     await proposeForRows(scope, mock());
-    await activate(caller, ["657"]);
+    await activate(caller, ["6570"]);
     expect((await proposeForRows(scope, mock())).model.asked).toBe(4);
   });
 
@@ -499,7 +499,7 @@ describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
     };
     const note = (useFor: string) =>
       run(caller, (tx) =>
-        settings.updateBasPreference(tx, caller, auditFor(tx, caller), "659", { useFor }),
+        settings.updateBasPreference(tx, caller, auditFor(tx, caller), "6590", { useFor }),
       );
     await note("software subscriptions billed monthly");
     const scope = { tenantId: caller.tenantId, userId: caller.userId, all: true as const };
@@ -572,11 +572,11 @@ describe("the eval (F98 PR 2, US5)", () => {
     });
     await history(caller, ids, cloud.id); // inv1, inv2 → 654 by hand
     await run(caller, (tx) =>
-      settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["654", "659"]),
+      settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["6540", "6590"]),
     );
     const seen: string[] = [];
     const spy = createMockAiService({
-      "linking.bas-proposal": { basCode: "654", confidence: 0.9, reason: "x", alternatives: [] },
+      "linking.bas-proposal": { basCode: "6540", confidence: 0.9, reason: "x", alternatives: [] },
     });
     const ai = {
       ...spy,

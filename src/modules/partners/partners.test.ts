@@ -52,11 +52,11 @@ afterAll(async () => {
   await adminPool.end();
 });
 
-/** Helper: activate BAS code "501" for a tenant to use in FK validation tests */
+/** Helper: activate BAS code "5010" for a tenant to use in FK validation tests */
 async function activateBasForTenant(
   tenantId: string,
   caller: CallerIdentity,
-  code = "501",
+  code = "5010",
 ): Promise<void> {
   await withTenantTransaction(prisma, tenantId, async (tx) => {
     await basService.activateBasCategories(tx, caller, noopAudit, [code]);
@@ -82,7 +82,7 @@ describe("partner service", () => {
         types: ["client", "vendor"],
         defaultCurrency: "SEK",
         defaultLanguage: "sv-SE",
-        defaultBasCategoryCode: "501",
+        defaultBasCategoryCode: "5010",
         externalIdentifiers: [{ label: "Supplier Number", value: "SUP-44821" }],
         email: "info@acme.se",
         phone: "+46701234567",
@@ -106,7 +106,7 @@ describe("partner service", () => {
     expect(partners.data?.[0].name).toBe("Acme AB");
     expect(partners.data?.[0].types).toEqual(["client", "vendor"]);
     expect(partners.data?.[0].defaultCurrency).toBe("SEK");
-    expect(partners.data?.[0].defaultBasCategoryCode).toBe("501");
+    expect(partners.data?.[0].defaultBasCategoryCode).toBe("5010");
   });
 
   it("JSON columns round-trip: identifiers and address, undefined address keys dropped", async () => {
@@ -274,13 +274,13 @@ describe("partner validation", () => {
   it("valid global BAS category but tenant has NOT activated it → VALIDATION_ERROR", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const tenantId = owner.callerIdentity.tenantId;
-    // BAS code "501" exists globally but we don't activate it for this tenant
+    // BAS code "5010" exists globally but we don't activate it for this tenant
 
     const result = await withTenantTransaction(prisma, tenantId, async (tx) => {
       return partnerService.createPartner(tx, owner.callerIdentity, noopAudit, {
         name: "Test",
         types: ["client"],
-        defaultBasCategoryCode: "501",
+        defaultBasCategoryCode: "5010",
       });
     });
 
@@ -295,7 +295,7 @@ describe("partner validation", () => {
     // Activate "501" only for tenant A
     await activateBasForTenant(ownerA.callerIdentity.tenantId, ownerA.callerIdentity);
 
-    // Tenant B tries to use "501" — not activated for tenant B
+    // Tenant B tries to use "5010" — not activated for tenant B
     const result = await withTenantTransaction(
       prisma,
       ownerB.callerIdentity.tenantId,
@@ -303,7 +303,7 @@ describe("partner validation", () => {
         return partnerService.createPartner(tx, ownerB.callerIdentity, noopAudit, {
           name: "Test",
           types: ["client"],
-          defaultBasCategoryCode: "501",
+          defaultBasCategoryCode: "5010",
         });
       },
     );

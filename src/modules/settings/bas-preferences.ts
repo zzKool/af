@@ -30,7 +30,7 @@ export const USE_FOR_MAX = 300;
  *
  * Architectural exception: bas_categories has no tenant_id and no RLS.
  * It's a read-only reference table (immutability enforced via PostgreSQL RULEs).
- * Natural key: BasCategory.code (3-digit BAS code) is the @id, not a UUID.
+ * Natural key: BasCategory.code (the four-digit BAS account, D68) is the @id, not a UUID.
  * Updated yearly from bas.se XLSX files via prisma/data/parse-bas.mjs.
  */
 export async function getBasCategories(tx: TransactionClient) {
@@ -40,7 +40,7 @@ export async function getBasCategories(tx: TransactionClient) {
   return categories;
 }
 
-/** One BAS group by its 3-digit code (reference data) — null when unknown. Used to validate `bas_code` columns. */
+/** One BAS account by its four-digit code (reference data) — null when unknown. Used to validate `bas_code` columns. */
 export async function getBasCategory(
   tx: TransactionClient,
   code: string,
@@ -85,8 +85,8 @@ export async function basAlias(tx: TransactionClient, code: string): Promise<str
 
 /**
  * Labels for a set of BAS codes, for list rows, filters and panels. D72 (the owner, 2026-10-31): **English on
- * screen** — the owner's own English name, else the chart's (`657 · Bank charges`); the accountant's package reads
- * `"sv+en"` — his chart's Swedish name with the English one beside it (`657 · Bankkostnader (Bank charges)`).
+ * screen** — the owner's own English name, else the chart's (`6570 · Bank charges`); the accountant's package reads
+ * `"sv+en"` — his chart's Swedish name with the English one beside it (`6570 · Bankkostnader (Bank charges)`).
  */
 export async function basLabels(
   tx: TransactionClient,

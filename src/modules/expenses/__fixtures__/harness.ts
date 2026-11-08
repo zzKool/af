@@ -103,9 +103,9 @@ export async function setupOwner(adminPool: Pool, nordeaFormatId: string): Promi
       bankFormatId: nordeaFormatId,
       role: "savings",
     });
-    await settings.activateBasCategories(tx, caller, noopAudit, ["580", "583", "657"]);
-    await settings.updateBasPreference(tx, caller, noopAudit, "580", { shortCode: "Tr" });
-    await settings.updateBasPreference(tx, caller, noopAudit, "583", { shortCode: "Rep" });
+    await settings.activateBasCategories(tx, caller, noopAudit, ["5800", "5830", "6570"]);
+    await settings.updateBasPreference(tx, caller, noopAudit, "5800", { shortCode: "Tr" });
+    await settings.updateBasPreference(tx, caller, noopAudit, "5830", { shortCode: "Rep" });
     return { sek: sek.data!.id, chf: chf.data!.id, sav: sav.data!.id };
   });
   // the owner's group numbers start where the Excel left off

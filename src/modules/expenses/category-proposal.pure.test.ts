@@ -8,29 +8,29 @@ import {
   proposeFromAi,
 } from "./category-proposal";
 
-const CODES = ["580", "583", "653", "690"];
-const start: CategoryState = { code: "580", source: null };
+const CODES = ["5800", "5830", "6530", "6900"];
+const start: CategoryState = { code: "5800", source: null };
 
 describe("proposeCategory", () => {
   it("US1-1: no category chosen → the partner's default, marked from partner", () => {
-    expect(proposeCategory(start, "583", CODES)).toEqual({ code: "583", source: "partner" });
+    expect(proposeCategory(start, "5830", CODES)).toEqual({ code: "5830", source: "partner" });
   });
 
   it("US1-2: the owner chose a category → a partner with another default leaves it", () => {
-    const chosen = chooseCategory("690");
-    expect(proposeCategory(chosen, "583", CODES)).toEqual({ code: "690", source: "owner" });
+    const chosen = chooseCategory("6900");
+    expect(proposeCategory(chosen, "5830", CODES)).toEqual({ code: "6900", source: "owner" });
   });
 
   it("US1-3: from A's default, switching to B → B's default; clearing the partner keeps it", () => {
-    const fromA = proposeCategory(start, "583", CODES);
-    const fromB = proposeCategory(fromA, "653", CODES);
-    expect(fromB).toEqual({ code: "653", source: "partner" });
-    expect(proposeCategory(fromB, null, CODES)).toEqual({ code: "653", source: "partner" });
+    const fromA = proposeCategory(start, "5830", CODES);
+    const fromB = proposeCategory(fromA, "6530", CODES);
+    expect(fromB).toEqual({ code: "6530", source: "partner" });
+    expect(proposeCategory(fromB, null, CODES)).toEqual({ code: "6530", source: "partner" });
   });
 
   it("US1-4: a partner without a default leaves the category untouched", () => {
     expect(proposeCategory(start, null, CODES)).toBe(start);
-    const fromA = proposeCategory(start, "583", CODES);
+    const fromA = proposeCategory(start, "5830", CODES);
     expect(proposeCategory(fromA, undefined, CODES)).toBe(fromA);
   });
 
@@ -67,29 +67,29 @@ describe("proposeCategory", () => {
 });
 
 describe("proposeFromAi (F126)", () => {
-  const codes = ["501", "654", "659"];
+  const codes = ["5010", "6540", "6590"];
   it("fills an empty, untouched field only, with a code the tenant has", () => {
-    expect(proposeFromAi({ code: "", source: null }, "659", codes)).toEqual({
-      code: "659",
+    expect(proposeFromAi({ code: "", source: null }, "6590", codes)).toEqual({
+      code: "6590",
       source: "ai",
     });
     expect(proposeFromAi({ code: "", source: null }, "999", codes)).toEqual({
       code: "",
       source: null,
     });
-    expect(proposeFromAi({ code: "654", source: "owner" }, "659", codes)).toEqual({
-      code: "654",
+    expect(proposeFromAi({ code: "6540", source: "owner" }, "6590", codes)).toEqual({
+      code: "6540",
       source: "owner",
     });
-    expect(proposeFromAi({ code: "654", source: "partner" }, "659", codes)).toEqual({
-      code: "654",
+    expect(proposeFromAi({ code: "6540", source: "partner" }, "6590", codes)).toEqual({
+      code: "6540",
       source: "partner",
     });
   });
 
   it("a partner picked afterwards replaces it with its default; the owner's pick is his", () => {
-    const ai = proposeFromAi({ code: "", source: null }, "659", codes);
-    expect(proposeCategory(ai, "654", codes)).toEqual({ code: "654", source: "partner" });
-    expect(chooseCategory("501")).toEqual({ code: "501", source: "owner" });
+    const ai = proposeFromAi({ code: "", source: null }, "6590", codes);
+    expect(proposeCategory(ai, "6540", codes)).toEqual({ code: "6540", source: "partner" });
+    expect(chooseCategory("5010")).toEqual({ code: "5010", source: "owner" });
   });
 });

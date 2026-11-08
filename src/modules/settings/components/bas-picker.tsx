@@ -90,7 +90,11 @@ export function BasPicker({
   const t = useT();
   const [query, setQuery] = useState("");
   const groupLabel = (g: BasGroup) =>
-    g.kind === "class" ? t(`settings.basPicker.class.${g.key}`) : t(`settings.basPicker.${g.kind}`);
+    g.kind === "class"
+      ? t(`settings.basPicker.class.${g.key}`)
+      : g.kind === "group"
+        ? `${g.key} · ${g.name ?? ""}`.trim()
+        : t(`settings.basPicker.${g.kind}`);
 
   const selected: BasOption | null = useMemo(() => {
     if (!value) return null;
@@ -194,7 +198,7 @@ export function BasPicker({
                       {item.code ? (
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="flex min-w-0 items-baseline gap-2">
-                            <span className="w-9 shrink-0 tabular-nums text-muted-foreground">
+                            <span className="w-10 shrink-0 tabular-nums text-muted-foreground">
                               {item.code}
                             </span>
                             <span className="min-w-0 flex-1 truncate">
@@ -207,7 +211,7 @@ export function BasPicker({
                             )}
                           </span>
                           {(item.suggestion || blocked || item.useFor) && (
-                            <span className="ml-11 flex min-w-0 flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+                            <span className="ml-12 flex min-w-0 flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                               {item.suggestion && (
                                 <span className="text-primary">{sourceText(item.suggestion)}</span>
                               )}

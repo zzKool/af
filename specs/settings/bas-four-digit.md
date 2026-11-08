@@ -1,6 +1,6 @@
 # Feature Specification: four-digit BAS with its own levels (D68, F126 last PR)
 
-**Created**: 2026-10-31 · **Status**: decided — the owner accepted D68 ("Yes, four digits", 2026-10-31) and asked for BAS's own grouping in Settings → BAS and in the picker (2026-10-31, pointing at bas.se's chart PDF and its *Framework and use* page). Waits for the two BAS Excel files on the build machine.
+**Created**: 2026-10-31 · **Status**: decided — the owner accepted D68 ("Yes, four digits", 2026-10-31) and asked for BAS's own grouping in Settings → BAS and in the picker (2026-10-31, pointing at bas.se's chart PDF and its *Framework and use* page). **Built 2026-11-08 (F148)** from the two files the owner attached (BAS kontoplan 2026 v2, Chart of accounts BAS 2025). Notes from the build: the files list `…00` accounts (`6500 Övriga externa tjänster (gruppkonto)`) as main accounts — they stay rows (stored codes point at them, `650` → `6500`); groups are not collapsible one by one in the picker (they are sub-headings), they are in Settings.
 
 ## BAS's levels (bas.se, *Framework and use of the accounting plan*)
 

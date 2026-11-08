@@ -136,7 +136,7 @@ model BankTransaction {
   /// never `bank` (CHECK) — the row is the bank
   rateSource        RateSource @map("rate_source")
   rateDate          DateTime? @map("rate_date") @db.Date
-  /// the owner's facts (D3): 3-digit BAS group (bas_categories.code), validated at write
+  /// the owner's facts (D3): four-digit BAS account (bas_categories.code, D68), validated at write
   basCode           String?  @map("bas_code") @db.VarChar(4)
   partnerId         String?  @map("partner_id") @db.Uuid
   note              String?
@@ -231,7 +231,7 @@ model CategorisationRule {
   matchType        RuleMatchType  @map("match_type")
   matchPattern     String         @map("match_pattern") @db.VarChar(500)
   matchField       RuleMatchField @default(counterparty_key) @map("match_field")
-  /// 3-digit BAS group (bas_categories.code), validated at write
+  /// four-digit BAS account (bas_categories.code, D68), validated at write
   basCode          String?        @map("bas_code") @db.VarChar(4)
   /// validated UUID through the partners module
   partnerId        String?        @map("partner_id") @db.Uuid

@@ -120,8 +120,8 @@ describe("proposeKind", () => {
 describe("the small rules", () => {
   it("the row's month and the reasons' accounts", () => {
     expect(monthOf("2026-07-08")).toBe("2026-07");
-    expect(NO_PROOF_BAS.fee).toBe("657");
-    expect(NO_PROOF_BAS.interest).toBe("831");
+    expect(NO_PROOF_BAS.fee).toBe("6570");
+    expect(NO_PROOF_BAS.interest).toBe("8310");
     expect(NO_PROOF_BAS.other).toBeNull();
   });
 });

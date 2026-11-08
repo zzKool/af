@@ -1,6 +1,7 @@
 // The BAS picker's rules (F125), pure and client-safe: what a query matches, and how the list is grouped — the
 // suggestions first (each with its source), then the owner's favourites, then the chart by class in the order the
-// context reads it (a cost: the cost classes first). Every account appears once.
+// context reads it (a cost: the cost classes first) — inside a class by BAS's own account groups (D68, `65 · Other
+// external services`). Every account appears once.
 import type { BasOption, BasSuggestion } from "../types";
 
 /** Which way the money goes where the picker is used — decides which BAS classes lead. */
@@ -18,7 +19,9 @@ const CLASS_ORDER: Record<BasDirection, BasClassGroup[]> = {
 export type BasGroup =
   | { kind: "suggested"; key: "suggested"; items: BasPickItem[] }
   | { kind: "favourites"; key: "favourites"; items: BasPickItem[] }
-  | { kind: "class"; key: BasClassGroup; items: BasPickItem[] };
+  | { kind: "class"; key: BasClassGroup; items: BasPickItem[] }
+  /** D68 (F148): BAS's account group inside a class — `65 · Other external services` */
+  | { kind: "group"; key: string; name: string | null; items: BasPickItem[] };
 
 /** An option as the list shows it: the suggestion that put it on top, when one did. */
 export type BasPickItem = BasOption & { suggestion?: BasSuggestion };
@@ -34,7 +37,7 @@ export function aliasOf(o: Pick<BasOption, "alias" | "label">): string | null {
   return /\(([^()]+)\)\s*$/.exec(o.label)?.[1] ?? null;
 }
 
-/** The name: the option's own, else its label without the `654 · ` prefix and the `(Alias)` suffix. */
+/** The name: the option's own, else its label without the `6540 · ` prefix and the `(Alias)` suffix. */
 export function nameOf(o: Pick<BasOption, "code" | "name" | "label">): string {
   if (o.name) return o.name;
   return o.label
@@ -50,7 +53,7 @@ export function classGroupOf(o: Pick<BasOption, "code" | "classNum">): BasClassG
 }
 
 /**
- * A query matches an account when the code starts with it (`65`, `654`) or every word of it appears in the English
+ * A query matches an account when the code starts with it (`65`, `6540`) or every word of it appears in the English
  * name, the Swedish name, the short code or the owner's *Use for* note — in any order (`it serv`, `tjänster it`, `acc`).
  */
 export function matchesBas(o: BasOption, query: string): boolean {
@@ -58,7 +61,9 @@ export function matchesBas(o: BasOption, query: string): boolean {
   if (!q) return true;
   if (/^\d+$/.test(q)) return o.code.startsWith(q);
   const hay = foldText(
-    [o.code, nameOf(o), o.nameSv ?? "", aliasOf(o) ?? "", o.useFor ?? ""].join(" "),
+    [o.code, nameOf(o), o.nameSv ?? "", aliasOf(o) ?? "", o.useFor ?? "", o.groupName ?? ""].join(
+      " ",
+    ),
   );
   return q.split(" ").every((w) => hay.includes(w));
 }
@@ -87,7 +92,17 @@ export function groupBasOptions(
   if (favourites.length) groups.push({ kind: "favourites", key: "favourites", items: favourites });
   for (const key of CLASS_ORDER[opts.direction ?? "any"]) {
     const items = visible.filter((o) => !taken.has(o.code) && classGroupOf(o) === key);
-    if (items.length) groups.push({ kind: "class", key, items });
+    if (!items.length) continue;
+    // D68: the chart's own groups when the options carry them (`65 · Other external services`), in code order
+    if (items.every((o) => o.groupCode)) {
+      const byGroup = new Map<string, BasPickItem[]>();
+      for (const o of [...items].sort((a, b) => a.code.localeCompare(b.code))) {
+        const g = o.groupCode as string;
+        byGroup.set(g, [...(byGroup.get(g) ?? []), o]);
+      }
+      for (const [code, list] of byGroup)
+        groups.push({ kind: "group", key: code, name: list[0]?.groupName ?? null, items: list });
+    } else groups.push({ kind: "class", key, items });
   }
   return groups;
 }

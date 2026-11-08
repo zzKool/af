@@ -46,7 +46,7 @@ describe("toHistoryEvents", () => {
           action: "update",
           oldData: entry({}),
           newData: entry({
-            basCode: "657",
+            basCode: "6570",
             partnerId: OTHER,
             noDocumentNeeded: true,
             categorisedBy: "rule",
@@ -56,7 +56,7 @@ describe("toHistoryEvents", () => {
       SELF,
     );
     expect(events.map((e) => e.kind)).toEqual(["categorised", "partner", "no_document"]);
-    expect(events[0]).toMatchObject({ basCode: "657", by: "rule" });
+    expect(events[0]).toMatchObject({ basCode: "6570", by: "rule" });
   });
 
   it("a cleared category and a lifted no-document flag are events too", () => {
@@ -65,7 +65,7 @@ describe("toHistoryEvents", () => {
         row({
           entityType: "bank_transaction",
           action: "update",
-          oldData: entry({ basCode: "657", noDocumentNeeded: true, categorisedBy: "rule" }),
+          oldData: entry({ basCode: "6570", noDocumentNeeded: true, categorisedBy: "rule" }),
           newData: entry({ categorisedBy: "manual" }),
         }),
       ],
@@ -114,7 +114,7 @@ describe("toHistoryEvents", () => {
           action: "update",
           createdAt: at(5),
           oldData: entry({}),
-          newData: entry({ basCode: "657", partnerId: OTHER, categorisedBy: "manual" }),
+          newData: entry({ basCode: "6570", partnerId: OTHER, categorisedBy: "manual" }),
         }),
         row({
           entityType: "link",

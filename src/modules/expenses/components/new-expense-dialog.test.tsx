@@ -33,8 +33,8 @@ vi.mock("./duplicate-panel", () => ({
 vi.mock("./partner-picker", () => ({
   useVendors: () => ({
     vendors: [
-      { id: "cerf", name: "Restaurant Le Cerf", defaultBasCategoryCode: "583" },
-      { id: "sas", name: "SAS", defaultBasCategoryCode: "580" },
+      { id: "cerf", name: "Restaurant Le Cerf", defaultBasCategoryCode: "5830" },
+      { id: "sas", name: "SAS", defaultBasCategoryCode: "5800" },
       { id: "taxi", name: "Taxi Neuchâtel", defaultBasCategoryCode: null },
     ],
     add: vi.fn(),
@@ -139,9 +139,9 @@ const props = {
     },
   ],
   categories: [
-    { code: "580", label: "580 · Travel (Tr)" },
-    { code: "583", label: "583 · Representation (Rep)" },
-    { code: "690", label: "690 · Other (Ov)" },
+    { code: "5800", label: "5800 · Travel (Tr)" },
+    { code: "5830", label: "5830 · Representation (Rep)" },
+    { code: "6900", label: "6900 · Other (Ov)" },
   ],
   sources: [
     {
@@ -171,14 +171,14 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(category()).toHaveTextContent("—");
     expect(screen.queryByTestId("category-from-partner")).toBeNull();
     pick("cerf");
-    expect(category()).toHaveTextContent(/583\s*Representation/);
+    expect(category()).toHaveTextContent(/5830\s*Representation/);
     expect(screen.getByTestId("category-from-partner")).toBeInTheDocument();
     pick("sas");
-    expect(category()).toHaveTextContent(/580\s*Travel/);
+    expect(category()).toHaveTextContent(/5800\s*Travel/);
     pick("taxi"); // no default
-    expect(category()).toHaveTextContent(/580\s*Travel/);
+    expect(category()).toHaveTextContent(/5800\s*Travel/);
     pick(""); // cleared: the proposal stays
-    expect(category()).toHaveTextContent(/580\s*Travel/);
+    expect(category()).toHaveTextContent(/5800\s*Travel/);
   });
 
   it("F124 (5): the payer a document proposes is the company account in its currency, never the first of the list", () => {
@@ -233,7 +233,7 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(screen.getByTestId("expense-partner")).toHaveValue("");
     fireEvent.click(screen.getByTestId("partner-match-use"));
     expect(screen.getByTestId("expense-partner")).toHaveValue("cerf");
-    expect(category()).toHaveTextContent(/583\s*Representation/);
+    expect(category()).toHaveTextContent(/5830\s*Representation/);
     // the description stays the merchant's (US4-4)
     expect(screen.getByTestId("expense-description")).toHaveValue("RESTAURANT LE CERF SA");
   });
@@ -247,7 +247,7 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(1));
     expect(calls.create.mock.calls[0]?.[0]).toMatchObject({
       partnerId: "cerf",
-      basCode: "583",
+      basCode: "5830",
       // the group the month proposed went with the form
       groupId: "00000000-0000-4000-8000-000000000003",
     });
@@ -316,15 +316,15 @@ describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", (
 
 describe("NewExpenseDialog — the AI's account for the receipt (F126)", () => {
   afterEach(cleanup);
-  const ai = { code: "690", reason: "Small office supplies", prefill: true };
+  const ai = { code: "6900", reason: "Small office supplies", prefill: true };
 
   it("HIGH fills the empty field, marked as the AI's; a partner's default replaces it", () => {
     render(<NewExpenseDialog {...props} initial={{ currency: "CHF", basProposal: ai }} />);
-    expect(category()).toHaveTextContent(/690\s*Other/);
+    expect(category()).toHaveTextContent(/6900\s*Other/);
     expect(screen.getByTestId("expense-category")).toHaveAttribute("data-prefilled", "true");
     expect(screen.getByTestId("category-from-ai")).toBeInTheDocument();
     pick("cerf");
-    expect(category()).toHaveTextContent(/583\s*Representation/);
+    expect(category()).toHaveTextContent(/5830\s*Representation/);
     expect(screen.queryByTestId("category-from-ai")).toBeNull();
   });
 

@@ -57,7 +57,7 @@ async function sub(name: string, startDate: string) {
         name,
         partnerId: p.id,
         becomes: "expense",
-        basCode: "580",
+        basCode: "5800",
         newGroup: { description: name },
         paidFromAccountId: owner.sources.afSek.id,
         cadence: "monthly",

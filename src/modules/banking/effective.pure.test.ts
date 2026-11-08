@@ -64,10 +64,10 @@ describe("effectiveFactsOf", () => {
       basFrom: null,
       mixed: false,
     });
-    expect(effectiveFactsOf({ partnerId: TYPED, basCode: "657" }, [], null)).toEqual({
+    expect(effectiveFactsOf({ partnerId: TYPED, basCode: "6570" }, [], null)).toEqual({
       partnerId: TYPED,
       partnerFrom: "row",
-      basCode: "657",
+      basCode: "6570",
       basFrom: "row",
       mixed: false,
     });
@@ -115,19 +115,19 @@ describe("effectiveFactsOf", () => {
 
   it("example 7: two settles links — the owner as employee, the larger expense's account, mixed", () => {
     expect(
-      effectiveFactsOf(none, [settles("999.70", "580"), settles("400.00", "583")], OWNER),
+      effectiveFactsOf(none, [settles("999.70", "5800"), settles("400.00", "5830")], OWNER),
     ).toEqual({
       partnerId: OWNER,
       partnerFrom: "proof",
-      basCode: "580",
+      basCode: "5800",
       basFrom: "proof",
       mixed: true,
     });
     // no owner partner seeded: the refund's partner is unknown, the category still follows the expense
-    expect(effectiveFactsOf(none, [settles("999.70", "580")], null)).toMatchObject({
+    expect(effectiveFactsOf(none, [settles("999.70", "5800")], null)).toMatchObject({
       partnerId: null,
       partnerFrom: null,
-      basCode: "580",
+      basCode: "5800",
       basFrom: "proof",
     });
   });
@@ -144,7 +144,7 @@ describe("effectiveFactsOf", () => {
 
   it("property: the partner is the typed one, one of the proofs' (the owner's for settles) or null; the same for the account", () => {
     const id = fc.constantFrom(SKATTEPUNKTEN, OPENAI, TYPED, null);
-    const code = fc.constantFrom("6540", "6530", "580", null);
+    const code = fc.constantFrom("6540", "6530", "5800", null);
     const proof = fc.record({
       kind: fc.constantFrom<"justifies" | "settles">("justifies", "settles"),
       allocatedBase: fc.option(

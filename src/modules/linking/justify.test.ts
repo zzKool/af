@@ -70,14 +70,14 @@ afterAll(async () => {
 /** A supplier, a group and the row the proof will justify. */
 async function scene(caller: CallerIdentity) {
   return run(caller, async (tx) => {
-    await settings.activateBasCategories(tx, caller, noopAudit, ["654"]);
-    await settings.updateBasPreference(tx, caller, noopAudit, "654", { shortCode: "IT" });
+    await settings.activateBasCategories(tx, caller, noopAudit, ["6540"]);
+    await settings.updateBasPreference(tx, caller, noopAudit, "6540", { shortCode: "IT" });
     const supplier = await partners.createPartner(tx, caller, noopAudit, {
       name: "Skattepunkten Office Services AB",
       shortCode: "SKP",
       types: ["vendor"],
       defaultCurrency: "SEK",
-      defaultBasCategoryCode: "654",
+      defaultBasCategoryCode: "6540",
     });
     const group = await expenses.createGroup(tx, caller, noopAudit, { description: "July 2026" });
     if (supplier.error || group.error)
@@ -123,13 +123,13 @@ describe("justifyRow (US1)", () => {
           amountNet: "1037.76",
           vatAmount: "259.44",
           amountTotal: "1297.20",
-          basCode: "654",
+          basCode: "6540",
         },
       }),
     );
     expect(r.error).toBeUndefined();
     expect(r.data?.entity.type).toBe("supplier_invoice");
-    expect(r.data?.row).toEqual({ partnerId: s.supplierId, basCode: "654" });
+    expect(r.data?.row).toEqual({ partnerId: s.supplierId, basCode: "6540" });
 
     await run(caller, async (tx) => {
       const si = await supplierInvoices.getSupplierInvoiceDetail(
@@ -151,7 +151,7 @@ describe("justifyRow (US1)", () => {
       const facts = (await banking.transactionFacts(tx, [s.row])).get(s.row);
       expect(facts).toMatchObject({
         partnerId: s.supplierId,
-        basCode: "654",
+        basCode: "6540",
         categorisedBy: "manual",
       });
       const state = (await banking.transactionStates(tx, [s.row])).get(s.row);
@@ -178,7 +178,7 @@ describe("justifyRow (US1)", () => {
           groupId: s.groupId,
           date: "2026-07-08",
           description: "SBB train",
-          basCode: "580",
+          basCode: "5800",
           amount: "45.00",
           currency: "CHF",
         },
@@ -211,7 +211,7 @@ describe("justifyRow (US1)", () => {
           groupId: s.groupId,
           date: "2026-07-08",
           description: "Office supplies, receipt lost",
-          basCode: "580",
+          basCode: "5800",
           amount: "1297.20",
           currency: "SEK",
         },
@@ -243,7 +243,7 @@ describe("justifyRow (US1)", () => {
         currency: "SEK" as const,
         amountNet: "1297.20",
         amountTotal: "1297.20",
-        basCode: "654",
+        basCode: "6540",
       },
     };
     expect(
@@ -302,7 +302,7 @@ describe("justifyRow (US1)", () => {
         currency: "SEK" as const,
         amountNet: "1297.20",
         amountTotal: "1297.20",
-        basCode: "654",
+        basCode: "6540",
       },
     };
     // the boundary: only the seven codes
@@ -350,7 +350,7 @@ describe("justifyRow (US1)", () => {
           groupId: s.groupId,
           date: "2026-07-08",
           description: "Kiosk",
-          basCode: "580",
+          basCode: "5800",
           amount: "99.00",
           currency: "SEK",
         },
@@ -378,7 +378,7 @@ describe("justifyRow (US1)", () => {
           groupId: s.groupId,
           date: "2026-07-08",
           description: "x",
-          basCode: "580",
+          basCode: "5800",
           amount: "1.00",
           currency: "SEK",
         },
@@ -408,12 +408,12 @@ describe("noProofNeeded (US3; F129 US3: a partner, always)", () => {
         partnerId: bank?.id as string,
       }),
     );
-    expect(r.data).toEqual({ basCode: "657", partnerId: bank?.id, proposeRule: true });
+    expect(r.data).toEqual({ basCode: "6570", partnerId: bank?.id, proposeRule: true });
     await run(caller, async (tx) => {
       const facts = (await banking.transactionFacts(tx, [fee as string])).get(fee as string);
       expect(facts).toMatchObject({
         noDocumentNeeded: true,
-        basCode: "657",
+        basCode: "6570",
         partnerId: bank?.id,
         categorisedBy: "manual",
       });
@@ -441,7 +441,7 @@ describe("noProofNeeded (US3; F129 US3: a partner, always)", () => {
       banking.createRuleFromTransaction(tx, caller, noopAudit, {
         transactionId: fee as string,
         noDocumentNeeded: true,
-        basCode: "657",
+        basCode: "6570",
       }),
     );
     expect(learned.data).toMatchObject({ partnerId: bank?.id, noDocumentNeeded: true });
@@ -501,7 +501,7 @@ describe("noProofNeeded (US3; F129 US3: a partner, always)", () => {
           amountNet: "1037.76",
           vatAmount: "259.44",
           amountTotal: "1297.20",
-          basCode: "654",
+          basCode: "6540",
         },
       }),
     );
@@ -563,7 +563,7 @@ describe("justifyRow's rule proposal (F129 US6, D74)", () => {
         amountNet: "1037.76",
         vatAmount: "259.44",
         amountTotal: "1297.20",
-        basCode: "654",
+        basCode: "6540",
       },
     });
     const first = await run(caller, (tx) =>
@@ -576,7 +576,7 @@ describe("justifyRow's rule proposal (F129 US6, D74)", () => {
       matchField: "counterparty_key",
       matchPattern: "SKATTEPUNKTEN OFFICE",
       partnerId: s.supplierId,
-      basCode: "654",
+      basCode: "6540",
     });
     // accepting it: the rule is created from the draft, applied to the row at once
     const draft = first.data?.proposeRule;
@@ -586,7 +586,7 @@ describe("justifyRow's rule proposal (F129 US6, D74)", () => {
     expect(rule.data).toMatchObject({
       ruleSource: "learned",
       partnerId: s.supplierId,
-      basCode: "654",
+      basCode: "6540",
       matchPattern: "SKATTEPUNKTEN OFFICE",
     });
     expect(

@@ -44,7 +44,7 @@ test.describe("AI proposals — stage 1", () => {
       await row(date).click();
       await expect(panel).toBeVisible();
       await panel.getByLabel("Category").click();
-      await page.getByRole("option", { name: /^654 · / }).click();
+      await page.getByRole("option", { name: /^6540 · / }).click();
       await expect(page.getByText("Saved").first()).toBeVisible();
       await page.keyboard.press("Escape");
     }
@@ -62,7 +62,7 @@ test.describe("AI proposals — stage 1", () => {
       await expect(page.getByTestId("proposal-line")).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 60_000 });
     const line = page.getByTestId("proposal-line");
-    await expect(line.getByTestId("proposal-bas-value")).toContainText("654");
+    await expect(line.getByTestId("proposal-bas-value")).toContainText("6540");
     await expect(line).toContainText("remembered");
     await expect(line).toContainText("High");
     await expect(page.getByTestId("prefill-hint")).toBeVisible();
@@ -75,6 +75,6 @@ test.describe("AI proposals — stage 1", () => {
     await expect(page.getByTestId("prefill-hint")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await showColumns(page, ["Category"]); // in the chooser beside the work surface (F131 §6.2)
-    await expect(row("2026-09-28")).toContainText("654");
+    await expect(row("2026-09-28")).toContainText("6540");
   });
 });

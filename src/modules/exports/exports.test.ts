@@ -212,8 +212,8 @@ async function quarter(): Promise<Fixture> {
     );
     if (creditIssued.error) throw new Error(creditIssued.error.message);
     // CH input VAT: the accountant's CHF invoice (97.20) and a hotel receipt (3.80 at 3.8 %)
-    await settings.activateBasCategories(tx, caller, noopAudit, ["653"]);
-    await settings.updateBasPreference(tx, caller, noopAudit, "653", { shortCode: "Acc" });
+    await settings.activateBasCategories(tx, caller, noopAudit, ["6530"]);
+    await settings.updateBasPreference(tx, caller, noopAudit, "6530", { shortCode: "Acc" });
     const vendor = await partners.createPartner(tx, caller, noopAudit, {
       name: "Skattepunkten",
       types: ["vendor"],
@@ -231,7 +231,7 @@ async function quarter(): Promise<Fixture> {
       amountNet: "1200.00",
       vatAmount: "97.20",
       amountTotal: "1297.20",
-      basCode: "653",
+      basCode: "6530",
       vatRegistrationId: regId,
     });
     if (si.error) throw new Error(si.error.message);
@@ -239,7 +239,7 @@ async function quarter(): Promise<Fixture> {
       groupId: batch.data?.id as string,
       date: "2026-05-12",
       description: "Hotel Zürich",
-      basCode: "583",
+      basCode: "5830",
       amount: "103.80",
       currency: "CHF",
       vatAmount: "3.80",
@@ -461,14 +461,14 @@ describe("the declaration record (D23)", () => {
         description: "2026-07",
         kind: "batch",
       });
-      await settings.activateBasCategories(tx, caller, noopAudit, ["264"]);
-      await settings.updateBasPreference(tx, caller, noopAudit, "264", { shortCode: "Vat" });
+      await settings.activateBasCategories(tx, caller, noopAudit, ["2640"]);
+      await settings.updateBasPreference(tx, caller, noopAudit, "2640", { shortCode: "Vat" });
       const e = await expenses.createExpense(tx, caller, noopAudit, {
         groupId: g.data?.id as string,
         kind: "vat_payment",
         date: "2026-07-25",
         description: "TVA Q2 2026",
-        basCode: "264",
+        basCode: "2640",
         amount: "628.00",
         currency: "CHF",
         paidFromAccountId: owner.sources.afChf.id,
@@ -652,14 +652,14 @@ describe("F56 — the return says what the invoices say, and the declaration wha
         description: "2026-07",
         kind: "batch",
       });
-      await settings.activateBasCategories(tx, caller, noopAudit, ["264"]);
-      await settings.updateBasPreference(tx, caller, noopAudit, "264", { shortCode: "Vat" });
+      await settings.activateBasCategories(tx, caller, noopAudit, ["2640"]);
+      await settings.updateBasPreference(tx, caller, noopAudit, "2640", { shortCode: "Vat" });
       const e = await expenses.createExpense(tx, caller, noopAudit, {
         groupId: g.data?.id as string,
         kind: "vat_payment",
         date: "2026-07-25",
         description: "TVA Q2 2026",
-        basCode: "264",
+        basCode: "2640",
         amount: "628.00",
         currency: "CHF",
         paidFromAccountId: owner.sources.afChf.id,
