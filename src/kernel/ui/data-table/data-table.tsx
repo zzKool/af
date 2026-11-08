@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Columns3,
   Filter as FilterIcon,
+  GripVertical,
   Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -656,8 +657,12 @@ function ColumnsMenu<Row>({
   layout: TableLayoutState;
 }) {
   const t = useT();
-  const { hidden, setHidden, move, reset, isDefault } = layout;
+  const { hidden, setHidden, move, drop, reset, isDefault } = layout;
   const ordered = orderColumns(columns, layout.layout.order).filter((c) => !isPinned(c));
+  // the owner, 2026-11-08: one step per click is painful on 30 columns — drag a line by its grip, drop it
+  // on another line (the arrows stay: the keyboard path)
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
   const toggleable = ordered.filter((c) => c.header);
   if (toggleable.length === 0) return null;
   return (
@@ -674,7 +679,48 @@ function ColumnsMenu<Row>({
           {toggleable.map((c, i) => {
             const name = typeof c.header === "string" ? c.header : c.key;
             return (
-              <div key={c.key} className="flex items-center gap-2 text-sm">
+              <div
+                key={c.key}
+                className={cn(
+                  "flex items-center gap-2 rounded-sm text-sm",
+                  dragged === c.key && "opacity-40",
+                  over === c.key && dragged !== c.key && "bg-hover ring-1 ring-action/40",
+                )}
+                data-testid="columns-menu-item"
+                data-column={c.key}
+                onDragOver={(e) => {
+                  if (dragged && dragged !== c.key) {
+                    e.preventDefault();
+                    setOver(c.key);
+                  }
+                }}
+                onDragLeave={() => setOver((o) => (o === c.key ? null : o))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const key = dragged ?? e.dataTransfer.getData("text/plain");
+                  if (key && key !== c.key) drop(key, c.key);
+                  setDragged(null);
+                  setOver(null);
+                }}
+              >
+                <span
+                  draggable
+                  className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                  aria-hidden
+                  title={t("table.dragToReorder")}
+                  data-testid="columns-menu-grip"
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", c.key);
+                    setDragged(c.key);
+                  }}
+                  onDragEnd={() => {
+                    setDragged(null);
+                    setOver(null);
+                  }}
+                >
+                  <GripVertical className="size-3.5" />
+                </span>
                 {/* the label wraps the control: a `for` cannot name Base UI's span[role=checkbox] */}
                 <label className="flex min-w-0 flex-1 items-center gap-2">
                   <Checkbox

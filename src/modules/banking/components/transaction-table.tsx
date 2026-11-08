@@ -90,6 +90,49 @@ const DEFAULT_SORT = [
   { col: "createdAt", dir: "desc" as const },
 ];
 
+/** The owner's column order (2026-11-08); a column not named here keeps its place after them. */
+const COLUMN_ORDER = [
+  "bookingDate",
+  "partnerName",
+  "counterpartyKey",
+  "accountLabel",
+  "bankAccountId",
+  "description",
+  "currency",
+  "balance",
+  "basLabel",
+  "basCode",
+  "basFrom",
+  "partnerId",
+  "partnerFrom",
+  "mixed",
+  "proposedBasCode",
+  "proposedSource",
+  "proposedConfidence",
+  "note",
+  "noDocumentNeeded",
+  "categorisedBy",
+  "reference",
+  "ownNotes",
+  "amount",
+  "steps",
+  "state",
+  "amountBase",
+  "rate",
+  "rateSource",
+  "allocated",
+  "bankImportId",
+  "createdAt",
+];
+
+function inOrder<C extends { key: string }>(columns: C[]): C[] {
+  const rank = (k: string) => {
+    const i = COLUMN_ORDER.indexOf(k);
+    return i < 0 ? COLUMN_ORDER.length : i;
+  };
+  return [...columns].sort((a, b) => rank(a.key) - rank(b.key));
+}
+
 export function TransactionTable({
   result,
   balances,
@@ -181,291 +224,288 @@ export function TransactionTable({
     [partners],
   );
 
-  // The list beside the work surface (F131, review 2026-10-31 §6.2, read by the owner; D76 the Pulse board): five
-  // columns by default — **Date · Counterparty (who + the bank text) · proof · partner · category · State · Amount** —
-  // in the ≈ 45 % left of the 55 % panel at 1440 px, no sideways scroll.
-  // Account, Description, Category, Partner, Proposed, Note… stay one click away in the column chooser (the
-  // Account quick filter and the balances strip do not need the column); a user's saved layout wins as always.
+  // The list's default columns are the owner's own layout (2026-11-08, his screenshot of the chooser): **Date ·
+  // Partner · Counterparty · Category · Reference · Own notes · Amount · Checks · State · Imported**, in that
+  // order (`COLUMN_ORDER`). The rest stays one click away in the column chooser; a saved layout wins as always.
   const columns = useMemo<DataTableColumn<TransactionRow>[]>(
-    () => [
-      {
-        key: "bookingDate",
-        header: t("banking.col.bookingDate"),
-        type: "date",
-        width: "6rem",
-        alwaysVisible: true,
-        quickFilter: true,
-        cell: (row) => (
-          <span className="font-mono text-xs text-muted-foreground tabular-nums">
-            {row.bookingDate}
-          </span>
-        ),
-      },
-      {
-        key: "counterpartyKey",
-        header: t("banking.col.counterparty"),
-        type: "text",
-        width: "11rem",
-        // D76: who in bold (the partner when there is one, else the bank's key), the bank's text under it
-        cell: (row) => (
-          <span className="flex min-w-0 flex-col" title={row.description}>
-            <span className="truncate font-semibold">{row.partnerName ?? row.counterpartyKey}</span>
-            <span className="truncate font-mono text-[11px] text-muted-foreground">
+    () =>
+      inOrder([
+        {
+          key: "bookingDate",
+          header: t("banking.col.bookingDate"),
+          type: "date",
+          width: "6rem",
+          alwaysVisible: true,
+          quickFilter: true,
+          cell: (row) => (
+            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+              {row.bookingDate}
+            </span>
+          ),
+        },
+        {
+          key: "counterpartyKey",
+          header: t("banking.col.counterparty"),
+          type: "text",
+          width: "11rem",
+          // D76: who in bold (the partner when there is one, else the bank's key), the bank's text under it
+          cell: (row) => (
+            <span className="flex min-w-0 flex-col" title={row.description}>
+              <span className="truncate font-semibold">
+                {row.partnerName ?? row.counterpartyKey}
+              </span>
+              <span className="truncate font-mono text-[11px] text-muted-foreground">
+                {row.description}
+              </span>
+            </span>
+          ),
+        },
+        {
+          key: "steps",
+          header: t("banking.col.steps"),
+          type: "text",
+          width: "5rem",
+          sortable: false,
+          filterable: false,
+          // D76: proof · partner · category as three dots (derived, display only — no server column)
+          cell: (row) => (
+            <StepDots
+              steps={rowSteps({
+                state: row.state,
+                partnerId: row.partnerId,
+                basCode: row.basCode,
+                proposedBasCode: row.proposedBasCode,
+              })}
+            />
+          ),
+        },
+        {
+          key: "state",
+          header: t("banking.col.state"),
+          type: "enum",
+          width: "8.5rem",
+          cell: (row) => <TransactionStateLabel state={row.state} variant="chip" />,
+        },
+        {
+          key: "amount",
+          header: t("banking.col.amount"),
+          type: "money",
+          width: "8rem",
+          // D76: the amount in mono, bold (the base amount is the work surface's)
+          cell: (row) => (
+            <span
+              className={cn(
+                "font-mono font-semibold tabular-nums",
+                !row.amount.startsWith("-") && "text-state-done",
+              )}
+            >
+              {formatMoney(row.amount, row.currency, { signed: true })}
+            </span>
+          ),
+        },
+        {
+          key: "accountLabel",
+          header: t("banking.col.account"),
+          type: "enum",
+          width: "9rem",
+          quickFilter: true,
+          defaultHidden: true,
+        },
+        {
+          key: "bankAccountId",
+          header: `${t("banking.col.account")} (id)`,
+          type: "enum",
+          defaultHidden: true,
+        },
+        {
+          key: "description",
+          header: t("banking.col.description"),
+          type: "text",
+          width: "18rem",
+          defaultHidden: true,
+          cell: (row) => (
+            <span className="block truncate" title={row.description}>
               {row.description}
             </span>
-          </span>
-        ),
-      },
-      {
-        key: "steps",
-        header: t("banking.col.steps"),
-        type: "text",
-        width: "5rem",
-        sortable: false,
-        filterable: false,
-        // D76: proof · partner · category as three dots (derived, display only — no server column)
-        cell: (row) => (
-          <StepDots
-            steps={rowSteps({
-              state: row.state,
-              partnerId: row.partnerId,
-              basCode: row.basCode,
-              proposedBasCode: row.proposedBasCode,
-            })}
-          />
-        ),
-      },
-      {
-        key: "state",
-        header: t("banking.col.state"),
-        type: "enum",
-        width: "8.5rem",
-        cell: (row) => <TransactionStateLabel state={row.state} variant="chip" />,
-      },
-      {
-        key: "amount",
-        header: t("banking.col.amount"),
-        type: "money",
-        width: "8rem",
-        // D76: the amount in mono, bold (the base amount is the work surface's)
-        cell: (row) => (
-          <span
-            className={cn(
-              "font-mono font-semibold tabular-nums",
-              !row.amount.startsWith("-") && "text-state-done",
-            )}
-          >
-            {formatMoney(row.amount, row.currency, { signed: true })}
-          </span>
-        ),
-      },
-      {
-        key: "accountLabel",
-        header: t("banking.col.account"),
-        type: "enum",
-        width: "9rem",
-        quickFilter: true,
-        defaultHidden: true,
-      },
-      {
-        key: "bankAccountId",
-        header: `${t("banking.col.account")} (id)`,
-        type: "enum",
-        defaultHidden: true,
-      },
-      {
-        key: "description",
-        header: t("banking.col.description"),
-        type: "text",
-        width: "18rem",
-        defaultHidden: true,
-        cell: (row) => (
-          <span className="block truncate" title={row.description}>
-            {row.description}
-          </span>
-        ),
-      },
-      {
-        key: "currency",
-        header: t("banking.col.currency"),
-        type: "enum",
-        width: "4rem",
-        defaultHidden: true,
-      },
-      {
-        key: "balance",
-        header: t("banking.col.balance"),
-        type: "money",
-        width: "8rem",
-        defaultHidden: true,
-      },
-      {
-        key: "basLabel",
-        header: t("banking.col.category"),
-        type: "text",
-        width: "11rem",
-        defaultHidden: true,
-        cell: (row) =>
-          row.basLabel ? (
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="min-w-0 truncate" title={row.basLabel}>
-                {row.basLabel}
-              </span>
-              {/* F129: the proofs disagree — the larger allocation's account shows, the tag says so */}
-              {row.mixed && <Tag>{t("banking.facts.mixed")}</Tag>}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
           ),
-      },
-      {
-        key: "basCode",
-        header: `${t("banking.col.category")} (code)`,
-        type: "enum",
-        defaultHidden: true,
-      },
-      {
-        key: "basFrom",
-        header: t("banking.col.basFrom"),
-        type: "enum",
-        width: "7rem",
-        defaultHidden: true,
-      },
-      {
-        key: "partnerName",
-        header: t("banking.col.partner"),
-        type: "text",
-        width: "10rem",
-        defaultHidden: true,
-      },
-      {
-        key: "partnerId",
-        header: `${t("banking.col.partner")} (id)`,
-        type: "enum",
-        defaultHidden: true,
-      },
-      {
-        key: "partnerFrom",
-        header: t("banking.col.partnerFrom"),
-        type: "enum",
-        width: "7rem",
-        defaultHidden: true,
-      },
-      {
-        key: "mixed",
-        header: t("banking.col.mixed"),
-        type: "boolean",
-        width: "6rem",
-        defaultHidden: true,
-      },
-      // F98 (the owner's answer 3): the current category proposal — code + its family, filterable, sortable
-      {
-        key: "proposedBasCode",
-        header: t("banking.col.proposed"),
-        type: "enum",
-        width: "7.5rem",
-        defaultHidden: true,
-        cell: (row) =>
-          row.proposedBasCode && row.proposedConfidence !== null ? (
-            <ProposedCode
-              code={row.proposedBasCode}
-              confidence={row.proposedConfidence}
-              source={row.proposedSource}
-            />
-          ) : null,
-      },
-      {
-        key: "proposedSource",
-        header: `${t("banking.col.proposed")} (${t("banking.col.proposedSource")})`,
-        type: "enum",
-        defaultHidden: true,
-      },
-      {
-        key: "proposedConfidence",
-        header: `${t("banking.col.proposed")} (${t("banking.col.proposedConfidence")})`,
-        type: "number",
-        defaultHidden: true,
-      },
-      // F131: the work surface takes ≈ 55 % of the canvas — the note lives in the panel's facts zone; the column
-      // stays a click away in the chooser (lessons F71: a module with more columns than the canvas uses the chooser)
-      {
-        key: "note",
-        header: t("banking.col.note"),
-        type: "text",
-        width: "10rem",
-        defaultHidden: true,
-      },
-      {
-        key: "noDocumentNeeded",
-        header: t("banking.col.noDocument"),
-        type: "boolean",
-        width: "6rem",
-        defaultHidden: true,
-      },
-      {
-        key: "categorisedBy",
-        header: t("banking.col.categorisedBy"),
-        type: "enum",
-        width: "7rem",
-        defaultHidden: true,
-      },
-      {
-        key: "reference",
-        header: t("banking.col.reference"),
-        type: "text",
-        width: "10rem",
-        defaultHidden: true,
-      },
-      {
-        key: "ownNotes",
-        header: t("banking.col.ownNotes"),
-        type: "text",
-        width: "8rem",
-        defaultHidden: true,
-      },
-      {
-        key: "amountBase",
-        header: t("banking.col.amountBase"),
-        type: "money",
-        width: "8rem",
-        defaultHidden: true,
-      },
-      {
-        key: "rate",
-        header: t("banking.col.rate"),
-        type: "number",
-        width: "6rem",
-        defaultHidden: true,
-      },
-      {
-        key: "rateSource",
-        header: t("banking.col.rateSource"),
-        type: "enum",
-        width: "6rem",
-        defaultHidden: true,
-      },
-      {
-        key: "allocated",
-        header: t("banking.col.allocated"),
-        type: "money",
-        width: "7rem",
-        defaultHidden: true,
-      },
-      {
-        key: "bankImportId",
-        header: t("banking.col.import"),
-        type: "enum",
-        width: "10rem",
-        defaultHidden: true,
-      },
-      {
-        key: "createdAt",
-        header: t("banking.imports.col.date"),
-        type: "date",
-        width: "7rem",
-        defaultHidden: true,
-      },
-    ],
+        },
+        {
+          key: "currency",
+          header: t("banking.col.currency"),
+          type: "enum",
+          width: "4rem",
+          defaultHidden: true,
+        },
+        {
+          key: "balance",
+          header: t("banking.col.balance"),
+          type: "money",
+          width: "8rem",
+          defaultHidden: true,
+        },
+        {
+          key: "basLabel",
+          header: t("banking.col.category"),
+          type: "text",
+          width: "11rem",
+
+          cell: (row) =>
+            row.basLabel ? (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="min-w-0 truncate" title={row.basLabel}>
+                  {row.basLabel}
+                </span>
+                {/* F129: the proofs disagree — the larger allocation's account shows, the tag says so */}
+                {row.mixed && <Tag>{t("banking.facts.mixed")}</Tag>}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
+        },
+        {
+          key: "basCode",
+          header: `${t("banking.col.category")} (code)`,
+          type: "enum",
+          defaultHidden: true,
+        },
+        {
+          key: "basFrom",
+          header: t("banking.col.basFrom"),
+          type: "enum",
+          width: "7rem",
+          defaultHidden: true,
+        },
+        {
+          key: "partnerName",
+          header: t("banking.col.partner"),
+          type: "text",
+          width: "10rem",
+        },
+        {
+          key: "partnerId",
+          header: `${t("banking.col.partner")} (id)`,
+          type: "enum",
+          defaultHidden: true,
+        },
+        {
+          key: "partnerFrom",
+          header: t("banking.col.partnerFrom"),
+          type: "enum",
+          width: "7rem",
+          defaultHidden: true,
+        },
+        {
+          key: "mixed",
+          header: t("banking.col.mixed"),
+          type: "boolean",
+          width: "6rem",
+          defaultHidden: true,
+        },
+        // F98 (the owner's answer 3): the current category proposal — code + its family, filterable, sortable
+        {
+          key: "proposedBasCode",
+          header: t("banking.col.proposed"),
+          type: "enum",
+          width: "7.5rem",
+          defaultHidden: true,
+          cell: (row) =>
+            row.proposedBasCode && row.proposedConfidence !== null ? (
+              <ProposedCode
+                code={row.proposedBasCode}
+                confidence={row.proposedConfidence}
+                source={row.proposedSource}
+              />
+            ) : null,
+        },
+        {
+          key: "proposedSource",
+          header: `${t("banking.col.proposed")} (${t("banking.col.proposedSource")})`,
+          type: "enum",
+          defaultHidden: true,
+        },
+        {
+          key: "proposedConfidence",
+          header: `${t("banking.col.proposed")} (${t("banking.col.proposedConfidence")})`,
+          type: "number",
+          defaultHidden: true,
+        },
+        // F131: the work surface takes ≈ 55 % of the canvas — the note lives in the panel's facts zone; the column
+        // stays a click away in the chooser (lessons F71: a module with more columns than the canvas uses the chooser)
+        {
+          key: "note",
+          header: t("banking.col.note"),
+          type: "text",
+          width: "10rem",
+          defaultHidden: true,
+        },
+        {
+          key: "noDocumentNeeded",
+          header: t("banking.col.noDocument"),
+          type: "boolean",
+          width: "6rem",
+          defaultHidden: true,
+        },
+        {
+          key: "categorisedBy",
+          header: t("banking.col.categorisedBy"),
+          type: "enum",
+          width: "7rem",
+          defaultHidden: true,
+        },
+        {
+          key: "reference",
+          header: t("banking.col.reference"),
+          type: "text",
+          width: "10rem",
+        },
+        {
+          key: "ownNotes",
+          header: t("banking.col.ownNotes"),
+          type: "text",
+          width: "8rem",
+        },
+        {
+          key: "amountBase",
+          header: t("banking.col.amountBase"),
+          type: "money",
+          width: "8rem",
+          defaultHidden: true,
+        },
+        {
+          key: "rate",
+          header: t("banking.col.rate"),
+          type: "number",
+          width: "6rem",
+          defaultHidden: true,
+        },
+        {
+          key: "rateSource",
+          header: t("banking.col.rateSource"),
+          type: "enum",
+          width: "6rem",
+          defaultHidden: true,
+        },
+        {
+          key: "allocated",
+          header: t("banking.col.allocated"),
+          type: "money",
+          width: "7rem",
+          defaultHidden: true,
+        },
+        {
+          key: "bankImportId",
+          header: t("banking.col.import"),
+          type: "enum",
+          width: "10rem",
+          defaultHidden: true,
+        },
+        {
+          key: "createdAt",
+          header: t("banking.imports.col.date"),
+          type: "date",
+          width: "7rem",
+        },
+      ]),
     [t],
   );
 

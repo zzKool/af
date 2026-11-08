@@ -107,16 +107,22 @@ test.describe("Banking", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("import-dialog")).toBeHidden();
 
-    // 2. the list beside the work surface (F131 §6.2, D76): five columns by default — Date · Counterparty · the
+    // 2. the owner's default columns (2026-11-08) — Date · Partner · Counterparty · Category · Reference · Own notes ·
+    //    Amount · Checks · State · Imported; was (F131 §6.2, D76): five columns by default — Date · Counterparty · the
     //    three dots · State · Amount — the rest in the chooser; the journey owns its layout (an earlier run may
     //    have shown more)
     await resetColumns(page);
     expect(await visibleColumns(page)).toEqual([
       "bookingDate",
+      "partnerName",
       "counterpartyKey",
+      "basLabel",
+      "reference",
+      "ownNotes",
+      "amount",
       "steps",
       "state",
-      "amount",
+      "createdAt",
     ]);
     //    the OpenAI row: categorise by hand, then "create rule from this"
     await page.getByRole("row").filter({ hasText: "OPENAI" }).first().click();
