@@ -18,3 +18,9 @@ Plan: [plan.md](plan.md). State is left here so any session can continue: tick a
 
 ## F66 — read through the owners (lessons audit 25) · lane 9, DIRECT · branch `feat/contracts-partners-read-through`
 - [x] T012 `validateBasCategoryFK` asks `settings.getBasCategory` + `isBasActivated`; the type-removal guard asks `contracts.activeContractCount` (a lazy `import()` — contracts imports partners) — no `tx.contract` / `tx.basCategory` / `tx.tenantBasPreference` left in `modules/partners`
+
+## F144 — the partner page, Pulse phase 7b · branch `feat/partners-pulse` (LIGHT; the board *Partner*)
+- [x] T013 *(invoices)* `partner-insight.ts`: `partnerInsightFrom` (pure — invoiced this year in the client's currency vs the same months last year, credit notes taking back; drafts, issued not sent, unpaid; pays after with *late* this year; twelve months invoiced + days to pay + open; the last 8 events draft / issued / sent / paid) and `partnerInsight(tx, partnerId, today)` (the client's documents, its payment history, the days billed from `unit = day` lines). Tests: `partner-insight.pure.test.ts`
+- [x] T014 *(invoices)* `PartnerFigures`, `PartnerMonths`, `PartnerTimeline` (`components/partner-invoicing.tsx`); `NewInvoiceForm` `initialPartnerId` from `?partner=`
+- [x] T015 The page composes them (`app/(app)/partners/[id]`, `EntityPage ground`): the Overview as cards — the figures, the months and what happened, *Details* (the about grid + the form), the active contract card (rate, period, references, terms), *Linked* (invoices, bank rows, documents, contracts); *New invoice* in the title row for an active client. e2e `invoices.spec.ts` (the figure, the timeline, *New invoice* on the client); `partners.spec.ts` unchanged
+- [x] T016 Docs: F144, [[partners]] *The overview*, roadmap 7 done. Left (nice): click the days worked, travel days without expense; contract changes and documents in *What happened*

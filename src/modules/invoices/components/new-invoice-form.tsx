@@ -25,17 +25,22 @@ type ContractOption = { id: string; name: string; currency: string | null };
 export function NewInvoiceForm({
   clients,
   initialType,
+  initialPartnerId,
   today,
 }: {
   clients: ClientOption[];
   initialType: "invoice" | "quote";
+  /** F144: *New invoice* on a partner's page opens on that client */
+  initialPartnerId?: string;
   today: string;
 }) {
   const t = useT();
   const ids = useId();
   const router = useRouter();
   const [type, setType] = useState<"invoice" | "quote">(initialType);
-  const [partnerId, setPartnerId] = useState<string>(clients[0]?.id ?? "");
+  const [partnerId, setPartnerId] = useState<string>(
+    clients.find((c) => c.id === initialPartnerId)?.id ?? clients[0]?.id ?? "",
+  );
   // the contract list carries the client it was loaded for: a list (or a pick) of another client is never shown
   // nor submitted — client A → contract → client B used to submit A's contract while B's list loaded (F76)
   const [loaded, setLoaded] = useState<{ partnerId: string; contracts: ContractOption[] } | null>(

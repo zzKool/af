@@ -24,7 +24,12 @@ export default async function NewInvoicePage({
       title={type === "quote" ? "New quote" : "New invoice"}
       back={<Link href="/invoices">← Invoices</Link>}
     >
-      <NewInvoiceForm clients={clients} initialType={type} today={createClock().today()} />
+      <NewInvoiceForm
+        clients={clients}
+        initialType={type}
+        initialPartnerId={typeof params.partner === "string" ? params.partner : undefined}
+        today={createClock().today()}
+      />
     </EntityPage>
   );
 }

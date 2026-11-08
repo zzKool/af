@@ -36,6 +36,7 @@ export * from "./invoices.actions";
 export type { RenderInvoicePdfData } from "./jobs/render-pdf";
 export { invoiceJobs, printPath, renderInvoicePdfJob } from "./jobs/render-pdf";
 export { invoiceLinkable } from "./linkable";
+export * from "./partner-insight";
 export {
   clientPaymentHistory,
   expectedPayment,

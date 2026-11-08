@@ -91,6 +91,18 @@ test.describe("Invoices", () => {
       // the list shows it with its derived state
       await page.goto("/invoices");
       await expect(page.getByRole("link", { name: `${shortCode}26-INV-001` })).toBeVisible();
+
+      // F144, the partner page: the year's figure, what happened, *New invoice* opens on this client
+      await page.goto("/partners");
+      await page.getByRole("link", { name: client }).click();
+      await expect(page.getByTestId("partner-invoiced")).toContainText(/24.000\.00/);
+      await expect(page.getByTestId("partner-pays-after")).toContainText("no paid invoice yet");
+      await expect(page.getByTestId("partner-timeline")).toContainText(
+        `Sent ${shortCode}26-INV-001`,
+      );
+      await page.getByTestId("partner-new-invoice").click();
+      await expect(page).toHaveURL(/\/invoices\/new\?type=invoice&partner=/);
+      await expect(page.getByLabel("Client")).toContainText(client);
     });
   });
 });
