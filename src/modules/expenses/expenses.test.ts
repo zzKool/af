@@ -232,7 +232,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         ...fixtureInput(g.id, FIXTURE.expenses[0]),
         basCode: "6570",
       });
-      expect(noAlias.error?.message).toMatch(/657 Banking costs has no short code/);
+      expect(noAlias.error?.message).toMatch(/6570 Banking costs has no short code/);
       const noGroup = await createExpense(tx, owner.caller, noopAudit, {
         ...fixtureInput("00000000-0000-0000-0000-000000000000", FIXTURE.expenses[0]),
       });

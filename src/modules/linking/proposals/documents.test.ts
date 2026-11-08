@@ -149,9 +149,9 @@ describe("proposals on documents (F126)", () => {
       mock(),
     );
     const decisions = await run(c, async (tx) => [
-      await decideDocumentProposal(tx, c, auditFor(tx, c), kept, "659"),
-      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "501"),
-      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "501"),
+      await decideDocumentProposal(tx, c, auditFor(tx, c), kept, "6590"),
+      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "5010"),
+      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "5010"),
     ]);
     expect(decisions).toEqual(["accepted", "rejected", null]);
     expect((await run(c, (tx) => currentDocumentProposals(tx, [kept, changed]))).size).toBe(0);

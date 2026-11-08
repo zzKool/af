@@ -107,8 +107,8 @@ describe("complete — the OpenAI-compatible endpoint", () => {
     expect(body.max_tokens).toBe(300);
     expect(body.response_format.type).toBe("json_schema");
     expect([...body.response_format.json_schema.schema.properties.basCode.enum].sort()).toEqual([
-      "583",
-      "654",
+      "5830",
+      "6540",
     ]);
     expect(body.response_format.json_schema.schema.additionalProperties).toBe(false);
     expect((init?.headers as Record<string, string> | undefined)?.authorization).toBe(

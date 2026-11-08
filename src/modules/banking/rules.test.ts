@@ -383,7 +383,7 @@ describe("US2 — rules that categorise", () => {
         name: "Bad BAS",
         matchType: "contains",
         matchPattern: "X",
-        basCode: "999",
+        basCode: "9990",
       });
       expect(bas.error?.code).toBe("NOT_FOUND");
       const partner = await rules.createRule(tx, caller, noopAudit, {

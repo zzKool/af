@@ -69,11 +69,11 @@ describe("Use for notes (F126)", () => {
     await run(c, (tx) =>
       updateBasPreference(tx, c, audit, "6540", { useFor: "  software licences and cloud  " }),
     );
-    expect((await notes(c))["654"]).toEqual(["software licences and cloud", "confirmed"]);
+    expect((await notes(c))["6540"]).toEqual(["software licences and cloud", "confirmed"]);
     const opts = await run(c, (tx) => basPickerOptions(tx));
     expect(opts.find((o) => o.code === "6540")?.useFor).toBe("software licences and cloud");
     await run(c, (tx) => updateBasPreference(tx, c, audit, "6540", { useFor: "  " }));
-    expect((await notes(c))["654"]).toEqual([null, null]);
+    expect((await notes(c))["6540"]).toEqual([null, null]);
   });
 
   it("the model drafts only where the owner has not written; a draft never overwrites a confirmed note", async () => {
@@ -94,9 +94,9 @@ describe("Use for notes (F126)", () => {
     );
     expect(written).toBe(1);
     expect(await notes(c)).toEqual({
-      "501": ["office rent", "draft"],
-      "654": ["mine", "confirmed"],
-      "657": ["bank fees", "confirmed"],
+      "5010": ["office rent", "draft"],
+      "6540": ["mine", "confirmed"],
+      "6570": ["bank fees", "confirmed"],
     });
   });
 
@@ -111,9 +111,9 @@ describe("Use for notes (F126)", () => {
     );
     expect((await run(c, (tx) => prepareUseForDrafts(tx))).flat()).toHaveLength(3);
     await run(c, (tx) => writeUseForDrafts(tx, c, audit, [{ code: "5010", useFor: "v2" }]));
-    expect((await notes(c))["501"]).toEqual(["v2", "draft"]);
-    await run(c, (tx) => confirmUseForNotes(tx, c, audit, ["654"]));
-    expect((await notes(c))["654"]).toEqual(["v1", "confirmed"]);
+    expect((await notes(c))["5010"]).toEqual(["v2", "draft"]);
+    await run(c, (tx) => confirmUseForNotes(tx, c, audit, ["6540"]));
+    expect((await notes(c))["6540"]).toEqual(["v1", "confirmed"]);
     const all = await run(c, (tx) => confirmUseForNotes(tx, c, audit));
     expect(all.data?.confirmed).toBe(2);
     expect((await run(c, (tx) => prepareUseForDrafts(tx))).flat()).toHaveLength(0);
@@ -125,21 +125,21 @@ describe("Use for notes (F126)", () => {
 
   it("the job: batches to the model, answers outside the batch dropped, unreachable stops, off asks nothing", async () => {
     const codes = [
-      "501",
-      "502",
-      "503",
-      "504",
-      "505",
-      "506",
-      "507",
-      "509",
-      "510",
-      "511",
-      "512",
-      "513",
-      "514",
-      "654",
-      "657",
+      "5010",
+      "5020",
+      "5030",
+      "5040",
+      "5050",
+      "5060",
+      "5070",
+      "5090",
+      "5100",
+      "5110",
+      "5120",
+      "5130",
+      "5140",
+      "6540",
+      "6570",
     ];
     const c = await owner(codes);
     let calls = 0;
@@ -156,7 +156,7 @@ describe("Use for notes (F126)", () => {
     const r = await draftUseFor({ tenantId: c.tenantId, userId: c.userId }, ai);
     expect(calls).toBe(Math.ceil(codes.length / USE_FOR_BATCH));
     expect(r).toEqual({ accounts: codes.length, drafted: codes.length, failed: 0, stopped: false });
-    expect((await notes(c))["654"]).toEqual(["drafted for 654", "draft"]);
+    expect((await notes(c))["6540"]).toEqual(["drafted for 6540", "draft"]);
 
     const down: AiService = {
       kind: "openai-compatible",

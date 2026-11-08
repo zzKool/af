@@ -374,7 +374,7 @@ describe("link_payment_record (F114 US2)", () => {
     await q(`UPDATE supplier_invoices SET amount_total = 101, amount_net = 81 WHERE id = $1`, [
       SI_BANK,
     ]); // unlinked: open
-    await q(`UPDATE expenses SET note = 'free', bas_code = '5830' WHERE id = $1`, [E_CARD]);
+    await q(`UPDATE expenses SET note = 'free', bas_code = '583' WHERE id = $1`, [E_CARD]);
     await expect(
       q(`UPDATE expenses SET rate_source = 'bank' WHERE id = $1`, [E_TAXI]),
     ).rejects.toThrow(/expense_locked|rate_source_check/);

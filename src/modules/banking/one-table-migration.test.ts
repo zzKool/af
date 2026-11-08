@@ -116,7 +116,7 @@ async function fixture() {
      VALUES ($1, $2, 'create', 'bank_transaction', $3, NULL, '{"amount":"-132.52"}', 'web', '2026-07-03T12:00:00Z'),
             ($1, $2, 'create', 'journal_entry', $4, NULL, '{"basCode":null}', 'web', '2026-07-03T12:00:01Z'),
             ($1, $2, 'update', 'journal_entry', $4, '{"basCode":null,"partnerId":null,"noDocumentNeeded":false}',
-             '{"basCode":"6540","partnerId":"${PARTNER}","noDocumentNeeded":false,"categorisedBy":"rule"}', 'system', '2026-07-04T10:00:00Z')`,
+             '{"basCode":"654","partnerId":"${PARTNER}","noDocumentNeeded":false,"categorisedBy":"rule"}', 'system', '2026-07-04T10:00:00Z')`,
     [T, U, ROW_SEK, ENTRY_SEK],
   );
 }
@@ -150,7 +150,7 @@ describe("one_transaction_table (F113 US2)", () => {
         rate: "1.000000",
         rate_source: "same_currency",
         rate_date: null,
-        bas_code: "6540",
+        bas_code: "654",
         partner_id: PARTNER,
         note: "the subscription",
         no_document_needed: false,
@@ -210,7 +210,7 @@ describe("one_transaction_table (F113 US2)", () => {
       ).rejects.toThrow(/bank_transaction_locked/);
     }
     await db.query(
-      `UPDATE bank_transactions SET bas_code = '6570', note = NULL, no_document_needed = true, categorised_by = 'manual', rule_id = NULL WHERE id = $1`,
+      `UPDATE bank_transactions SET bas_code = '657', note = NULL, no_document_needed = true, categorised_by = 'manual', rule_id = NULL WHERE id = $1`,
       [ROW_SEK],
     );
     // the row is the bank: `bank` is no rate source of a row

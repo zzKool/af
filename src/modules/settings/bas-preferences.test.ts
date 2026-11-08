@@ -68,10 +68,11 @@ import {
 // bas_categories reference table tests
 // ─────────────────────────────────────────────────────────────
 describe("bas_categories reference table", () => {
-  it("has ~472 seeded entries", async () => {
+  it("has the four-digit chart (D68): ~470 main accounts and ~800 sub-accounts", async () => {
     const categories = await basService.getBasCategories(prisma);
-    expect(categories.length).toBeGreaterThanOrEqual(460);
-    expect(categories.length).toBeLessThanOrEqual(500);
+    expect(categories.length).toBeGreaterThanOrEqual(1200);
+    expect(categories.length).toBeLessThanOrEqual(1400);
+    expect(categories.filter((c) => c.kind === "main").length).toBeGreaterThanOrEqual(460);
   });
 
   it("spot-check: code 501 = Lokalhyra", async () => {
@@ -151,38 +152,38 @@ describe("bas preferences service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
 
     const codes = [
-      "126",
-      "153",
-      "193",
-      "194",
-      "197",
-      "208",
-      "244",
-      "261",
-      "262",
-      "264",
-      "300",
-      "361",
-      "399",
-      "501",
-      "512",
-      "540",
-      "541",
-      "580",
-      "591",
-      "620",
-      "631",
-      "640",
-      "650",
-      "690",
-      "722",
-      "731",
-      "757",
-      "769",
-      "836",
-      "841",
-      "891",
-      "899",
+      "1260",
+      "1530",
+      "1930",
+      "1940",
+      "1970",
+      "2080",
+      "2440",
+      "2610",
+      "2620",
+      "2640",
+      "3000",
+      "3610",
+      "3990",
+      "5010",
+      "5120",
+      "5400",
+      "5410",
+      "5800",
+      "5910",
+      "6200",
+      "6310",
+      "6400",
+      "6500",
+      "6900",
+      "7220",
+      "7310",
+      "7570",
+      "7690",
+      "8360",
+      "8410",
+      "8910",
+      "8990",
     ];
 
     const result = await withTenantTransaction(
@@ -232,7 +233,7 @@ describe("bas preferences service", () => {
       owner.callerIdentity.tenantId,
       "delete",
       "tenant_bas_preference",
-      "501",
+      "5010",
     );
   });
 
@@ -423,7 +424,7 @@ describe("audit logging", () => {
       owner.callerIdentity.tenantId,
       "create",
       "tenant_bas_preference",
-      "501",
+      "5010",
     );
   });
 
@@ -446,7 +447,7 @@ describe("audit logging", () => {
       owner.callerIdentity.tenantId,
       "update",
       "tenant_bas_preference",
-      "501",
+      "5010",
     );
   });
 });
@@ -583,9 +584,9 @@ describe("basPickerOptions (F125, F95)", () => {
       owner.callerIdentity.tenantId,
       async (tx) => {
         await basService.activateBasCategories(tx, owner.callerIdentity, noopAudit, [
-          "657",
-          "153",
-          "654",
+          "6570",
+          "1530",
+          "6540",
         ]);
         await basService.updateBasPreference(tx, owner.callerIdentity, noopAudit, "6540", {
           isFavorite: true,

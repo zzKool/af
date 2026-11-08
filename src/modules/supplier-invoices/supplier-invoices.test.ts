@@ -200,7 +200,7 @@ describe("US1 — record a supplier invoice", () => {
     const third = await create(julyInvoice({ invoiceNumber: "9161", invoiceDate: "2026-03-31" }));
     expect(third.data?.key).toBe("SI213-Acc-03");
     const it1 = await create(
-      julyInvoice({ partnerId: saas, invoiceNumber: "INV-1", basCode: "654", currency: "EUR" }),
+      julyInvoice({ partnerId: saas, invoiceNumber: "INV-1", basCode: "6540", currency: "EUR" }),
     );
     expect(it1.data).toMatchObject({ key: "SI213-IT-01", currency: "EUR" });
   });
@@ -398,7 +398,7 @@ describe("US1 — record a supplier invoice", () => {
     await adminPool.query(
       `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, paid_from_account_id,
          cadence, start_date, created_by, updated_at)
-       VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '657', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
+       VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '6570', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
       [
         subscriptionId,
         owner.caller.tenantId,
@@ -468,8 +468,8 @@ describe("US1 — record a supplier invoice", () => {
       }),
     );
     expect(good.data?.lines.map((l) => [l.lineNo, l.basCode, l.vatAmount])).toEqual([
-      [1, "653", "81.00"],
-      [2, "654", "16.20"],
+      [1, "6530", "81.00"],
+      [2, "6540", "16.20"],
     ]);
     const replaced = await run(owner.caller, (tx) =>
       updateSupplierInvoice(tx, owner.caller, noopAudit, good.data!.id, { lines: null }),

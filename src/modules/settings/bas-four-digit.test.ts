@@ -12,7 +12,7 @@ afterAll(() => admin.end());
 const one = async (sql: string) => (await admin.query(sql)).rows[0];
 
 describe("the four-digit chart (D68)", () => {
-  it("every account has four digits, a group, and a sub-account its main account", async () => {
+  it("every account has four digits, a group of its class (BAS's 30 covers 30–34), and a sub-account its main account", async () => {
     expect(
       await one(`SELECT count(*)::int AS n FROM bas_categories WHERE code !~ '^[0-9]{4}$'`),
     ).toEqual({ n: 0 });
@@ -28,7 +28,8 @@ describe("the four-digit chart (D68)", () => {
     ).toEqual({ n: 0 });
     expect(
       await one(`SELECT count(*)::int AS n FROM bas_categories c
-                  WHERE left(c.code, 2) <> c.group_code OR left(c.code, 1)::int <> c.class_num`),
+                  WHERE left(c.code, 1) <> left(c.group_code, 1) OR left(c.code, 2) < c.group_code
+                     OR left(c.code, 1)::int <> c.class_num`),
     ).toEqual({ n: 0 });
     // the accounts the app names in code exist (the no-proof reasons, the default rules, the mock's answer)
     const named = ["2510", "6540", "6570", "7210", "8310"];
