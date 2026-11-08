@@ -155,6 +155,12 @@ Before an expense or a supplier invoice is created from a document (US1), the ap
 - **FR-025**: Every write here MUST be audited (became, filed, upload-anyway, create-anyway with its note, archive, restore, OCR re-run).
 - **FR-026**: Every string MUST exist in en, fr and sv.
 
+## D78 — drop anything (F140, Pulse phase 6a, 2026-11-08)
+
+- **FR-027**: The upload zone MUST NOT ask a type; every file goes as kind `document` (`doc_yyyymmdd_nnn`, the `doc-yyyy-mm` series), financial, read by the file rule (PDF → `prebuilt-invoice`, image → `prebuilt-receipt`).
+- **FR-028**: A `document` row in the inbox MUST say what its reading proposes (`readingProposes`: supplier invoice / expense) and lead with that *Make it…* button; with no amount read it MUST ask *What is it?* (receipt · invoice · contract · NDA · certificate), the answer typing it through `classifyDocument` (the key follows, the model re-reads only when it differs).
+- **FR-029**: The expense and supplier-invoice dialogs' document pickers MUST offer `document` rows too.
+
 ### Key Entities *(include if feature involves data)*
 
 - **Document** (existing): gains a **content hash** (set once) and an **archived** mark (when, by whom; cleared on restore). No new status value: the pipeline statuses stay what they are; *reviewed*, *became*, *archived* are facts beside it.

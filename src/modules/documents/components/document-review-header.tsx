@@ -22,7 +22,7 @@ const QUALITY_LABEL: Record<string, MessageKey> = {
   none: "documents.review.quality.none",
 };
 
-const UPLOAD_KINDS = ["expense", "invoice", "contract", "nda", "certificate"];
+const UPLOAD_KINDS = ["document", "expense", "invoice", "contract", "nda", "certificate"];
 
 export function DocumentReviewHeader({
   data,

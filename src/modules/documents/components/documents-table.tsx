@@ -70,7 +70,7 @@ function valueKey(column: string, value: string): MessageKey | null {
         ? (`documents.status.${value}` as MessageKey)
         : null;
     case "prefixType":
-      return ["expense", "invoice", "contract", "nda", "certificate"].includes(value)
+      return ["document", "expense", "invoice", "contract", "nda", "certificate"].includes(value)
         ? (`documents.prefix.${value}` as MessageKey)
         : null;
     case "documentType":

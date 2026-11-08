@@ -94,6 +94,7 @@ export interface OcrLineItem {
 // --- Model selection ---
 
 const MODEL_MAP: Record<string, string> = {
+  document: "prebuilt-receipt",
   expense: "prebuilt-receipt",
   invoice: "prebuilt-invoice",
   contract: "prebuilt-layout",
@@ -125,7 +126,9 @@ export function ocrModelFor(
   paper?: OcrPaper | null,
 ): string {
   if (paper) return PAPER_MODEL[paper];
-  if (prefixType === "expense" && isPdf(mimeType)) return "prebuilt-invoice";
+  // D78: a drop with no type follows the same file rule — a PDF is read as an invoice, a photo as a receipt
+  if ((prefixType === "expense" || prefixType === "document") && isPdf(mimeType))
+    return "prebuilt-invoice";
   return MODEL_MAP[prefixType] ?? "prebuilt-layout";
 }
 

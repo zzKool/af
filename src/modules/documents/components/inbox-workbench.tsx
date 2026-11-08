@@ -27,6 +27,7 @@ import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import {
   archiveDocumentsAction,
+  classifyDocumentAction,
   listInboxAction,
   markDocumentReviewedAction,
   runOcrAction,
@@ -34,6 +35,7 @@ import {
 } from "@/modules/documents/documents.actions";
 import { documentFileUrl } from "@/modules/documents/file";
 import type { InboxState, InboxTab } from "@/modules/documents/inbox";
+import { ASK_KINDS, readingProposes } from "@/modules/documents/proposes";
 import type { InboxData, InboxItem } from "@/modules/documents/queries";
 import { NewExpenseDialog } from "@/modules/expenses/ui";
 import { SuggestionsSection } from "@/modules/linking/ui";
@@ -648,6 +650,54 @@ export function InboxWorkbench({
   );
 }
 
+/** D78: no amount read on a drop nobody typed — one question, the answer types it (the key and the model follow). */
+function WhatIsIt({
+  documentId,
+  canWrite,
+  onTyped,
+}: {
+  documentId: string;
+  canWrite: boolean;
+  onTyped: () => void;
+}) {
+  const t = useT();
+  const { executeAsync, isPending } = useAction(classifyDocumentAction);
+  return (
+    <div
+      className="mt-2 flex flex-col gap-2 rounded-xl border border-state-attention/30 bg-state-attention/6 p-3"
+      data-testid="inbox-what-is-it"
+    >
+      <p className="text-sm font-medium">{t("documents.inbox.whatIsIt")}</p>
+      {canWrite && (
+        <div className="flex flex-wrap gap-1.5">
+          {ASK_KINDS.map((kind) => (
+            <Button
+              key={kind}
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              data-kind={kind}
+              onClick={async () => {
+                const r = await executeAsync({ documentId, documentType: kind });
+                const error = extractError(r);
+                if (error) return void toast.error(error);
+                toast.success(
+                  t("documents.inbox.typed", {
+                    type: t(`documents.prefix.${kind}` as MessageKey),
+                  }),
+                );
+                onTyped();
+              }}
+            >
+              {t(`documents.prefix.${kind}` as MessageKey)}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InboxPane({
   row,
   canWrite,
@@ -709,6 +759,11 @@ function InboxPane({
     ],
   ];
   const ocrable = ["needs_ocr", "stuck", "ocr_failed"].includes(row.state);
+  // D78: a drop nobody typed — the reading proposes what it becomes; no amount read, the pane asks what it is
+  const untyped = row.prefixType === "document" && row.state === "ready";
+  const proposal = untyped ? readingProposes(row.facts) : null;
+  const ask = proposal === "ask";
+  const supplierFirst = proposal === "supplier_invoice";
 
   return (
     <div className="flex flex-col gap-3" data-testid="inbox-pane">
@@ -738,18 +793,24 @@ function InboxPane({
             </Link>
           </p>
         )}
+        {proposal && proposal !== "ask" && (
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="inbox-proposes">
+            {t(`documents.inbox.proposes.${proposal}`)}
+          </p>
+        )}
+        {ask && <WhatIsIt documentId={row.id} canWrite={canWrite} onTyped={onLinked} />}
         <div className="mt-2 flex flex-wrap gap-2" data-testid="inbox-actions">
           {canWrite && ocrable && (
             <Button size="sm" disabled={busy} onClick={onOcr} data-testid="inbox-run-ocr">
               {t("documents.inbox.action.runOcr")}
             </Button>
           )}
-          {canMake && (
+          {canMake && !ask && (
             <>
               <Button
                 size="sm"
-                // one primary in the pane: *Run OCR* while the OCR is due, *Expense* once the facts are there
-                variant={canWrite && ocrable ? "outline" : "default"}
+                // one primary in the pane: *Run OCR* while the OCR is due, then what the reading proposes (D78)
+                variant={(canWrite && ocrable) || supplierFirst ? "outline" : "default"}
                 onClick={() => onMake("expense")}
                 data-testid="inbox-make-expense"
               >
@@ -757,7 +818,7 @@ function InboxPane({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant={supplierFirst ? "default" : "outline"}
                 onClick={() => onMake("supplier")}
                 data-testid="inbox-make-supplier-invoice"
               >

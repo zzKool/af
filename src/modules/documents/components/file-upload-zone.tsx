@@ -3,11 +3,10 @@
 import { AlertCircle, CheckCircle, Copy, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AppError } from "@/kernel/errors/app-error";
-import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import { MAX_FILE_SIZE_MB } from "@/kernel/nav/constants";
 import { CodeChip } from "@/kernel/ui/tags";
@@ -30,11 +29,14 @@ import { UploadBatchList } from "./upload-batch-list";
 
 const ACCEPTED_EXTENSIONS = ACCEPTED_UPLOAD_EXTENSIONS.map((e) => `.${e}`).join(",");
 const SLOW_UPLOAD_MS = 3000;
+/** the kind of a drop nobody typed (D78): `doc_…` until the reading says, or the owner, what it is */
+const UNTYPED = "document";
 
 type PrefixOption = { documentType: string; prefix: string };
 
 type FileUploadZoneProps = {
-  prefixOptions: PrefixOption[];
+  /** the kinds the review page offers — the zone itself never asks (D78) */
+  prefixOptions?: PrefixOption[];
   onUploadComplete?: (doc: { id: string; businessKey: string; fileName: string }) => void;
   /** F92: once a batch of several files is through (and after a row's retry) — the parent refreshes once */
   onBatchComplete?: () => void;
@@ -44,17 +46,14 @@ type FileUploadZoneProps = {
 type UploadState = "idle" | "dragover" | "uploading" | "complete" | "duplicate" | "error" | "batch";
 
 export function FileUploadZone({
-  prefixOptions,
   onUploadComplete,
   onBatchComplete,
   onError,
 }: FileUploadZoneProps) {
   const t = useT();
-  // unique: the zone renders twice when + New opens the upload dialog over the library (F73)
-  const prefixId = useId();
   const [state, setState] = useState<UploadState>("idle");
-  // no default (D52): the type picks the OCR model and the key's prefix — the owner chooses it before the upload
-  const [selectedPrefix, setSelectedPrefix] = useState("");
+  // D78 (refines D52): drop anything — no type asked; the file picks the model, the reading proposes what it becomes
+  const selectedPrefix = UNTYPED;
   const [uploadedDoc, setUploadedDoc] = useState<{
     id: string;
     businessKey: string;
@@ -66,7 +65,6 @@ export function FileUploadZone({
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const fileRef = useRef<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const typeRef = useRef<HTMLSelectElement>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // F92: several files, one type — the rows of the result list, and whether the batch is still going
   const [batch, setBatch] = useState<UploadBatchItem[] | null>(null);
@@ -100,18 +98,8 @@ export function FileUploadZone({
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
   }, []);
 
-  const askForType = useCallback(() => {
-    setState("idle");
-    toast.info(t("documents.upload.chooseType"));
-    typeRef.current?.focus();
-  }, [t]);
-
   const handleUpload = useCallback(
     async (file: File, force = false) => {
-      if (!selectedPrefix) {
-        askForType();
-        return;
-      }
       // Client-side pre-validation: nothing is posted for a file the server would refuse anyway
       const problem = precheckUpload(file, MAX_FILE_SIZE_MB);
       if (problem) {
@@ -152,7 +140,7 @@ export function FileUploadZone({
       setState("complete");
       onUploadComplete?.(outcome.doc);
     },
-    [postOne, selectedPrefix, askForType, onUploadComplete, onError, t],
+    [postOne, onUploadComplete, onError, t],
   );
 
   const setBatchItem = useCallback(
@@ -167,10 +155,6 @@ export function FileUploadZone({
   const handleFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
-      if (!selectedPrefix) {
-        askForType();
-        return;
-      }
       if (files.length === 1) {
         handleUpload(files[0]);
         return;
@@ -202,7 +186,7 @@ export function FileUploadZone({
       // the inbox count and the sidebar badge are server-rendered: one refresh for the whole batch
       if (outcomes.some((o) => o.kind === "uploaded")) onBatchComplete?.();
     },
-    [selectedPrefix, askForType, handleUpload, batch, postOne, setBatchItem, onBatchComplete, t],
+    [handleUpload, batch, postOne, setBatchItem, onBatchComplete, t],
   );
 
   /** A row's second chance: *Try again* on a failed file, *Upload anyway* (force) on a duplicate. */
@@ -270,12 +254,8 @@ export function FileUploadZone({
 
   const handleClick = useCallback(() => {
     if (state === "uploading" || busyRef.current) return;
-    if (!selectedPrefix) {
-      askForType();
-      return;
-    }
     inputRef.current?.click();
-  }, [state, selectedPrefix, askForType]);
+  }, [state]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -310,32 +290,6 @@ export function FileUploadZone({
 
   return (
     <div className="space-y-3">
-      {/* Prefix type selector */}
-      <div className="flex items-center gap-2">
-        <label htmlFor={prefixId} className="text-sm font-medium text-muted-foreground">
-          {t("documents.upload.type")}
-        </label>
-        <select
-          id={prefixId}
-          ref={typeRef}
-          value={selectedPrefix}
-          onChange={(e) => setSelectedPrefix(e.target.value)}
-          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-          disabled={state === "uploading" || batchRunning}
-          required
-          data-testid="upload-type"
-        >
-          <option value="" disabled>
-            {t("documents.upload.typePlaceholder")}
-          </option>
-          {prefixOptions.map((opt) => (
-            <option key={opt.documentType} value={opt.documentType}>
-              {t(`documents.prefix.${opt.documentType}` as MessageKey)} ({opt.prefix})
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Drop zone — div with role="button" is needed for drag-and-drop support */}
       {/* biome-ignore lint/a11y/useSemanticElements: drop zone requires div for drag-and-drop, button element doesn't support it */}
       <div
@@ -365,11 +319,6 @@ export function FileUploadZone({
             <p className="text-sm text-muted-foreground">
               {isTouchDevice ? t("documents.upload.tap") : t("documents.upload.drop")}
             </p>
-            {!selectedPrefix && (
-              <p className="mt-1 text-xs text-foreground" data-testid="upload-choose-type">
-                {t("documents.upload.chooseType")}
-              </p>
-            )}
             <p className="mt-1 text-xs text-muted-foreground">
               {t("documents.upload.hint", { max: MAX_FILE_SIZE_MB })}
             </p>

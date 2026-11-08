@@ -1,5 +1,7 @@
 # Document Upload Flow
 
+> **D78 (2026-11-08): drop anything.** The zone asks no type any more — every file goes as kind `document` (`doc_20261108_001`), read by the file rule (PDF → invoice model, photo → receipt model); the inbox says what the reading proposes it becomes, and asks *What is it?* only when no amount was read. The sections below that speak of choosing a type describe D52's zone, before D78.
+
 ## Overview
 
 Documents are uploaded via `FileUploadZone` component on the `/documents` page (owner-only). The upload pipeline validates files, stores blobs in Azure, generates business keys, and enqueues the OCR job after commit. One file or several at once (up to 50, one type for all — *Several files at once* below); every file takes the same path.

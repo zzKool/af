@@ -1559,10 +1559,6 @@ export const fr: PartialDictionary = {
   "documents.preview.fitWidth": "Ajuster à la largeur",
   "documents.preview.fit": "Ajuster",
   "documents.preview.page": "Page {page}/{pages}",
-  "documents.upload.type": "Type de document",
-  "documents.upload.typePlaceholder": "Choisir le type…",
-  "documents.upload.chooseType":
-    "Choisissez d'abord le type de document : il décide comment l'OCR le lit",
   "documents.upload.zone": "Téléverser un document",
   "documents.upload.tap": "Touchez pour téléverser",
   "documents.upload.drop": "Déposez les fichiers ici ou cliquez pour parcourir",
