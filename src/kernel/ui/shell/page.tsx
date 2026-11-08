@@ -83,10 +83,15 @@ export function ListPage({
 export function EntityPage({
   children,
   className,
+  ground = false,
   ...header
-}: PageHeaderProps & { children: ReactNode }) {
+}: PageHeaderProps & {
+  children: ReactNode;
+  /** D76: as on `ListPage` — the page's own cards on the dotted ground */
+  ground?: boolean;
+}) {
   return (
-    <div className={cn(PAGE, className)}>
+    <div className={cn(PAGE, className)} data-ground={ground ? "" : undefined}>
       {header.title !== undefined && <PageHeader {...header} />}
       <div className="min-w-0 flex-1">{children}</div>
     </div>

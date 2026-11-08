@@ -36,6 +36,13 @@ export * from "./invoices.actions";
 export type { RenderInvoicePdfData } from "./jobs/render-pdf";
 export { invoiceJobs, printPath, renderInvoicePdfJob } from "./jobs/render-pdf";
 export { invoiceLinkable } from "./linkable";
+export {
+  clientPaymentHistory,
+  expectedPayment,
+  type PaidInvoice,
+  type PaymentStats,
+  paymentStats,
+} from "./payment-history";
 export * from "./queries";
 export {
   type RatePricing,
@@ -43,10 +50,13 @@ export {
   rateUsageFromInvoiceLines,
   vatRegistrationUsageFromInvoices,
 } from "./rate-usage";
+export { type ReadyFacts, type ReadyItem, readyToSend } from "./ready";
+export { REMINDER_GRACE_DAYS, reminderDraft, reminderDue } from "./reminder";
 // global search (F93): the module's palette hits
 export { searchInvoiceHits } from "./search";
 export { resolveSheetContext, type SheetContext } from "./sheet-context";
 export { creditSign, signedTotal } from "./signed";
+export { type StudioFacts, studioFacts } from "./studio";
 export type { InvoiceTotals, LineInput, LineTotals } from "./totals";
 export { formatVatPercent, invoiceTotals, lineTotals, TotalsError } from "./totals";
 export type * from "./types";

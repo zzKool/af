@@ -207,3 +207,37 @@ export async function createdFromTargets(
 }
 
 export { type RowUsage, rowRemaining } from "./row-usage";
+
+/**
+ * The day each entity was last paid (F143, *when will it be paid*): the latest booking date of the bank rows whose
+ * allocating links point at it — the payer's history the invoice studio and the partner page read. Entities with
+ * no paying row are left out.
+ */
+export async function paidOnDates(
+  tx: TransactionClient,
+  type: LinkableType,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const links = await tx.link.findMany({
+    where: {
+      toType: type,
+      toId: { in: [...ids] },
+      fromType: "bank_transaction",
+      kind: { in: [...ALLOCATING_KINDS] },
+    },
+    select: { fromId: true, toId: true },
+  });
+  const bank = getLinkable("bank_transaction");
+  if (!bank?.factsMany || links.length === 0) return out;
+  const rows = await bank.factsMany(tx, [...new Set(links.map((l) => l.fromId))]);
+  const dateOf = new Map(rows.map((r) => [r.id, r.date]));
+  for (const l of links) {
+    const d = dateOf.get(l.fromId);
+    if (!d) continue;
+    const seen = out.get(l.toId);
+    if (!seen || d > seen) out.set(l.toId, d);
+  }
+  return out;
+}

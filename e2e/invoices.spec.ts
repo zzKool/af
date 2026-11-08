@@ -59,6 +59,21 @@ test.describe("Invoices", () => {
       await expect(page.getByText("Saved")).toBeVisible();
       await expect(page.getByTestId("line-net").first()).toContainText("24");
 
+      // F143, the studio: ready to send re-checked on the draft, the client's history, the page's language
+      const ready = page.getByTestId("invoice-ready");
+      await expect(ready.locator('[data-key="lines"]')).toHaveAttribute("data-state", "ok");
+      await expect(ready.locator('[data-key="client"]')).toHaveAttribute("data-state", "ok");
+      await expect(page.getByTestId("invoice-when-paid")).toContainText("No paid invoice");
+      const language = page.getByTestId("invoice-language");
+      await language.getByRole("button", { name: "fr" }).click();
+      await expect(page.getByText("Facture", { exact: true })).toBeVisible();
+      await language.getByRole("button", { name: "en" }).click();
+      await expect(language.getByRole("button", { name: "en" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(page.getByText("Saved")).toBeVisible();
+
       // issue → number, locked sheet, PDF from the job
       await page.getByRole("button", { name: "Issue" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Issue" }).click();

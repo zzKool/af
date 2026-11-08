@@ -6,6 +6,7 @@ import { createAuditEntry } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import { auth } from "@/kernel/auth/auth";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { daysUntil } from "@/kernel/clock/calendar";
 import { prisma } from "@/kernel/db/client";
 import { type TransactionClient, withTenantTransaction } from "@/kernel/db/tenant-client";
 import { cleanupTestData, createAuthenticatedContext } from "@/kernel/db/test-fixtures";
@@ -21,6 +22,7 @@ import * as settings from "@/modules/settings";
 import { creditedSum } from "./credited";
 import * as invoices from "./invoices";
 import { invoiceLinkable } from "./linkable";
+import { clientPaymentHistory } from "./payment-history";
 import * as queries from "./queries";
 import { ratePricingFromInvoiceLines, rateUsageFromInvoiceLines } from "./rate-usage";
 
@@ -738,6 +740,25 @@ describe("US5 — derived states and the list", () => {
     // a draft is not linkable
     const draft = await januaryDraft(caller, w);
     expect((await pay(caller, draft.id, "1.00")).error?.code).toBe("NOT_FOUND");
+  });
+
+  it("F143: the client's payment history — paid on the bank row's date, days from the issue", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const a = await januaryDraft(caller, w);
+    const b = await januaryDraft(caller, w);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      await invoices.issue(tx, caller, noopAudit, NOW, { id: a.id });
+      await invoices.issue(tx, caller, noopAudit, NOW, { id: b.id });
+    });
+    await pay(caller, a.id, "25944.00"); // b stays open: not in the history
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const issued = await queries.getInvoice(tx, a.id, "2026-03-10");
+      const history = await clientPaymentHistory(tx, w.partnerId, "2026-03-10");
+      expect(history.map((h) => h.number)).toEqual([issued.data?.number]);
+      expect(history[0].paidOn).toBe("2026-02-10");
+      expect(history[0].days).toBe(daysUntil(issued.data?.issueDate as string, "2026-02-10"));
+    });
   });
 
   it("list: derived columns filter, sort and search; distinct states; date hierarchy; sums (scenario 3)", async () => {
