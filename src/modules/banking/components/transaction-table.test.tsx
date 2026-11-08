@@ -90,40 +90,70 @@ function renderTable(initial: Record<string, unknown> = {}) {
 
 afterEach(cleanup);
 
-describe("TransactionTable — the four columns beside the work surface (F131 §6.2)", () => {
-  it("shows Date · Counterparty · the three dots · State · Amount by default, in that order, nothing else", () => {
+describe("TransactionTable — the default columns (the owner, 2026-11-08)", () => {
+  it("the owner's columns by default, in his order (2026-11-08)", () => {
     renderTable();
-    expect(headers()).toEqual(["bookingDate", "counterpartyKey", "steps", "state", "amount"]);
+    expect(headers()).toEqual([
+      "bookingDate",
+      "partnerName",
+      "counterpartyKey",
+      "basLabel",
+      "reference",
+      "ownNotes",
+      "amount",
+      "steps",
+      "state",
+      "createdAt",
+    ]);
     // D76: who in bold — the partner when there is one — with the bank's text under it (and as the tooltip)
-    const who = screen.getByText("Skattepunkten AB");
-    expect(who.parentElement).toHaveAttribute("title", "Kortköp 260708 SKATTEPUNKTEN OFFICE");
     expect(screen.getByText("Kortköp 260708 SKATTEPUNKTEN OFFICE")).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: /^Proof: missing · Partner: done · Category: done$/ }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("6540 IT-tjänster")).not.toBeInTheDocument();
   });
 
-  it("Account, Description, Category, Partner, Proposed and Note wait in the chooser; one tick shows a column", () => {
+  it("Account, Description, Proposed and Note wait in the chooser; one tick shows a column", () => {
     renderTable();
     fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
     const menu = screen.getByTestId("columns-menu");
-    for (const name of ["Account", "Description", "Category", "Partner", "Proposed", "Note"]) {
+    for (const name of ["Account", "Description", "Proposed", "Note"]) {
       expect(menu.querySelector(`[aria-label="${name}"]`)).toHaveAttribute("aria-checked", "false");
     }
-    for (const name of ["Date", "Amount", "Counterparty", "State", "Checks"]) {
+    for (const name of [
+      "Date",
+      "Partner",
+      "Category",
+      "Amount",
+      "Counterparty",
+      "State",
+      "Checks",
+    ]) {
       expect(menu.querySelector(`[aria-label="${name}"]`)).toHaveAttribute("aria-checked", "true");
     }
-    fireEvent.click(menu.querySelector('[aria-label="Partner"]') as Element);
-    expect(headers()).toEqual([
-      "bookingDate",
-      "counterpartyKey",
-      "steps",
-      "state",
-      "amount",
-      "partnerName",
-    ]);
-    expect(screen.getAllByText("Skattepunkten AB")).toHaveLength(2);
+    fireEvent.click(menu.querySelector('[aria-label="Description"]') as Element);
+    expect(headers()).toContain("description");
+  });
+
+  it("the chooser reorders by drag and drop: a line dropped on another takes its place", () => {
+    renderTable();
+    fireEvent.click(screen.getByRole("button", { name: "Choose columns" }));
+    const items = () =>
+      screen.getAllByTestId("columns-menu-item").map((el) => el.getAttribute("data-column"));
+    const grip = (key: string) =>
+      screen
+        .getAllByTestId("columns-menu-item")
+        .find((el) => el.getAttribute("data-column") === key)
+        ?.querySelector('[data-testid="columns-menu-grip"]') as Element;
+    const line = (key: string) =>
+      screen
+        .getAllByTestId("columns-menu-item")
+        .find((el) => el.getAttribute("data-column") === key) as Element;
+    const data = { setData: () => {}, getData: () => "createdAt", effectAllowed: "" };
+    fireEvent.dragStart(grip("createdAt"), { dataTransfer: data });
+    fireEvent.dragOver(line("partnerName"), { dataTransfer: data });
+    fireEvent.drop(line("partnerName"), { dataTransfer: data });
+    expect(items().indexOf("createdAt")).toBeLessThan(items().indexOf("partnerName"));
+    expect(headers().indexOf("createdAt")).toBeLessThan(headers().indexOf("partnerName"));
   });
 
   it("a saved layout wins over the defaults (its hidden list is the whole list, its order first)", () => {

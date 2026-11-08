@@ -293,14 +293,14 @@ Why it works on a 4B CPU model: the schema is six views with explicit names, the
 
 Depends on: **F116 PR A** (memory) for stage 1c — build P1 after it, or P1 reads a stub; **F114** for the FX check; **F97** (built) for the panel and the rule offer. Sizes: P1 M · P2 M · P3 M · P4 S · P5 M · P6 S each. Every PR: `docs/local-ai.md` becomes the module doc of what exists, this plan's sections moving into [[linking]], [[banking]] and [[search]] as they are built.
 
-## 11. Questions for the owner (one batch)
+## 11. The owner's answers (2026-11-08, one batch)
 
-1. **The box**: CPU-only on today's RAM (a 4B model, 0 CHF) to start — and decide the RAM upgrade (a mixture-of-experts 30B-class model at 4B speed, inside your 100–150 CHF) after the first eval? The runbook has both. A GPU does not fit this chassis; that path is a different box, later.
-2. **Order**: P1 → P2 → P3 as above (BAS and partner proposals first, the closing run second) — or the closing run first with stage 1 only, since the deterministic half already changes the month?
-3. **The nightly run**: wanted, or only after an import and on *Run now*? (The nightly catches late proofs and the checks; it costs nothing when nothing is open.)
-4. **Ask your books**: in this plan (P5), or parked until the first three are in use? It is the only item that adds a database role.
-5. ~~**Proposals on documents**~~ — **with P2** (the owner, 2026-10-31: "I want it directly suggested", F126). Was: (the second reader, §8): with P2, or later? It is the only part that touches the review page (F117 says the page is not a record — a proposal fits that).
-6. **A rejected proposal**: never re-made for that row (the plan), or re-made when the model or the prompt version changes?
+1. **The box**: start CPU-only, no purchase. The owner asks first how much of the box's memory the LLM VM can be given before any RAM is bought — the split (host, AF's VM, the LLM's VM) and the model class it allows are worked out in the private runbook; a mixture-of-experts model (30B-class at ~3B active) is the target if the split leaves it room, else a 4B–8B dense model. Decided after the first eval on his rows (§9).
+2. **Order**: **proposals first** (BAS + partner, P1 → P2), the closing run second (P3).
+3. **The nightly run**: **yes** — nightly, plus after each import and on *Run now*.
+4. **Ask your books**: **parked** until the proposals are in use (no new database role for now).
+5. **Proposals on documents**: with P2 (2026-10-31, F126 — built, T102 / T103).
+6. **A rejected proposal**: **made again when the model or the prompt version changes** — not before (a *no* holds for the same model and prompt; `proposals` keep `model` + `promptVersion`, the re-run skips a rejected row unless one of them differs).
 
 ## Related
 
