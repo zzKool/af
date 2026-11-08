@@ -40,6 +40,7 @@ export function toSheetDocument(
       unitPrice: l.unitPrice,
       vatRate: l.vatRate,
       netAmount: l.netAmount,
+      discountPercent: l.discountPercent,
     })),
     subtotal: invoice.subtotal,
     discountAmount: invoice.discountAmount,

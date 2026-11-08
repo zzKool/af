@@ -80,5 +80,9 @@
 - [x] T045 *Preview PDF* (drafts) and the on-demand PDF beside *PDF is being generated…* — `/invoices/[id]/pdf`, the reason when Chromium fails; *Invoice logo* in Settings → Company (data URL ≤ 300 KB; the audit keeps the size, not the bytes). e2e `invoices.spec.ts`
 - [x] T046 Docs: D79, F145, [[invoices]] *The sheet*, screenshots `f145-editor-light.png`, `f145-pdf.png`
 
+## F146 — `feat/invoices-line-options` (the owner's review of F145)
+
+- [x] T047 Line ⋯ menu: discount on this line (no *Remise 0 %* by default; printed under the description), VAT rate per line (`slots.vatColumn`; *One VAT rate* back); the client column 68 mm wide on the right; *Ready to send?* `company` item (e-mail / website missing → the footer is only the name). Tests: print (line discount), ready (company), print-identity re-baselined, e2e line options
+
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.

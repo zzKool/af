@@ -65,6 +65,18 @@ test.describe("Invoices", () => {
       expect(preview.headers()["content-type"]).toContain("application/pdf");
       await expect(page.getByTestId("preview-pdf")).toBeVisible();
 
+      // F146: a discount and a VAT rate on one line, on demand
+      await page.getByTestId("line-options").first().click();
+      await page.getByRole("menuitem", { name: "Discount on this line" }).click();
+      await expect(page.getByTestId("line-discount")).toBeVisible();
+      await page.getByRole("button", { name: "Remove the line's discount" }).click();
+      await expect(page.getByTestId("line-discount")).toHaveCount(0);
+      await page.getByTestId("line-options").first().click();
+      await page.getByRole("menuitem", { name: "VAT rate per line" }).click();
+      await expect(page.getByRole("columnheader", { name: "VAT %" })).toBeVisible();
+      await page.getByRole("button", { name: "One VAT rate" }).click();
+      await expect(page.getByRole("columnheader", { name: "VAT %" })).toHaveCount(0);
+
       // F143, the studio: ready to send re-checked on the draft, the client's history, the page's language
       const ready = page.getByTestId("invoice-ready");
       await expect(ready.locator('[data-key="lines"]')).toHaveAttribute("data-state", "ok");

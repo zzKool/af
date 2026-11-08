@@ -11,6 +11,8 @@ export type StudioFacts = {
   bank: { currency: string; iban: string | null } | null;
   /** the ECB rate of the issue day is stored (or the invoice is in the base) */
   rateKnown: boolean;
+  /** F146: what the company block and the footer miss (Settings → Company) */
+  companyMissing?: ("email" | "website")[];
   history: PaidInvoice[];
 };
 
@@ -30,6 +32,7 @@ export async function studioFacts(
       ? { currency: ctx.parties.bank.currency, iban: ctx.parties.bank.iban ?? null }
       : null,
     rateKnown: rate,
+    companyMissing: (["email", "website"] as const).filter((k) => !ctx.parties.tenant[k]),
     history: await clientPaymentHistory(tx, inv.partnerId, today),
   };
 }

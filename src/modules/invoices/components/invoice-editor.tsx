@@ -8,6 +8,12 @@ import { useAction } from "next-safe-action/hooks";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -308,6 +314,11 @@ export function InvoiceEditor({
     "rounded-[3px] border border-transparent bg-[#eef4ff] px-1 py-0.5 text-inherit outline-none hover:border-[#c7d2fe] focus:border-[#2563eb] focus:bg-white";
   const [showDiscount, setShowDiscount] = useState(header.discountPercent !== "");
   const [showNotes, setShowNotes] = useState(header.notes !== "");
+  // F146: a discount and a VAT rate per line, on demand — not a column of zeros on every invoice
+  const [lineDiscounts, setLineDiscounts] = useState<Set<string>>(
+    () => new Set(lines.filter((l) => Number(l.discountPercent || 0) !== 0).map((l) => l.key)),
+  );
+  const [vatPerLine, setVatPerLine] = useState(() => new Set(lines.map((l) => l.vatRate)).size > 1);
   const linkBtn = "text-[9pt] text-[#2563eb] hover:underline print:hidden";
   const commonRate = lines[0]?.vatRate ?? vat.rate;
   const unitLabel = (q: string) =>
@@ -390,7 +401,7 @@ export function InvoiceEditor({
               value={header.issueDate}
               onChange={(e) => setH("issueDate", e.target.value)}
               onBlur={() => void persist()}
-              className={`${field} w-[34mm] font-bold`}
+              className={`${field} w-[31mm] font-bold`}
               aria-label={tUi("invoices.form.issueDate")}
             />
           ),
@@ -400,7 +411,7 @@ export function InvoiceEditor({
               value={header.dueDate}
               onChange={(e) => setH("dueDate", e.target.value)}
               onBlur={() => void persist()}
-              className={`${field} w-[34mm] font-bold`}
+              className={`${field} w-[31mm] font-bold`}
               aria-label={t("invoice.dueDate")}
             />
           ),
@@ -410,7 +421,7 @@ export function InvoiceEditor({
               onChange={(e) => setH("periodLabel", e.target.value)}
               onBlur={() => void persist()}
               placeholder={tUi("invoices.form.periodPlaceholder")}
-              className={`${field} w-[40mm] font-bold`}
+              className={`${field} w-[31mm] font-bold`}
               aria-label={tUi("invoices.form.period")}
             />
           ),
@@ -430,7 +441,7 @@ export function InvoiceEditor({
                         value={r.label}
                         onChange={(e) => setRef({ label: e.target.value })}
                         onBlur={() => void persist()}
-                        className={`${field} w-[24mm]`}
+                        className={`${field} w-[26mm]`}
                         placeholder={tUi("invoices.form.referenceLabel")}
                         aria-label={tUi("invoices.form.referenceLabel")}
                       />
@@ -440,7 +451,7 @@ export function InvoiceEditor({
                         value={r.value}
                         onChange={(e) => setRef({ value: e.target.value })}
                         onBlur={() => void persist()}
-                        className={`${field} w-[34mm] font-bold`}
+                        className={`${field} w-[27mm] font-bold`}
                         placeholder={tUi("invoices.form.referenceValue")}
                         aria-label={tUi("invoices.form.referenceValue")}
                       />
@@ -480,6 +491,7 @@ export function InvoiceEditor({
               )}
             </>
           ),
+          vatColumn: vatPerLine,
           lines: (cols) =>
             lines.map((l, i) => (
               <tr
@@ -498,11 +510,11 @@ export function InvoiceEditor({
                     className={`${field} block w-full resize-none`}
                     aria-label={t("invoice.table.description")}
                   />
-                  {(l.discountPercent !== "" || l.rateSourceId) && (
+                  {(lineDiscounts.has(l.key) || l.rateSourceId) && (
                     <div className="mt-1 flex items-center gap-2 px-1 text-[8pt] text-[#6b7280]">
                       {l.rateSourceId && <span>{tUi("invoices.line.fromContractRate")}</span>}
-                      {l.discountPercent !== "" && (
-                        <label className="flex items-center gap-1">
+                      {lineDiscounts.has(l.key) && (
+                        <label className="flex items-center gap-1" data-testid="line-discount">
                           {t("invoice.totals.discount")}
                           <input
                             inputMode="decimal"
@@ -515,6 +527,22 @@ export function InvoiceEditor({
                             aria-label={tUi("invoices.line.discountPercent")}
                           />
                           %
+                          <button
+                            type="button"
+                            className="text-[#9ca3af] hover:text-[#b91c1c]"
+                            aria-label={tUi("invoices.line.removeDiscount")}
+                            onClick={() => {
+                              setLine(l.key, { discountPercent: "" });
+                              setLineDiscounts((prev) => {
+                                const next = new Set(prev);
+                                next.delete(l.key);
+                                return next;
+                              });
+                              queueMicrotask(() => void persist());
+                            }}
+                          >
+                            ×
+                          </button>
                         </label>
                       )}
                     </div>
@@ -571,7 +599,27 @@ export function InvoiceEditor({
                     ? sheetMoney(totals.value.lines[i]?.net ?? "0.00", invoice.currency)
                     : "—"}
                 </td>
-                <td className="py-2 text-right whitespace-nowrap opacity-40 group-hover:opacity-100 print:hidden">
+                <td className="py-2 text-right whitespace-nowrap opacity-40 group-hover:opacity-100 focus-within:opacity-100 print:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="px-1 text-[#6b7280] hover:text-[#111827]"
+                      aria-label={tUi("invoices.line.options")}
+                      data-testid="line-options"
+                    >
+                      ⋯
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        disabled={lineDiscounts.has(l.key)}
+                        onClick={() => setLineDiscounts((prev) => new Set(prev).add(l.key))}
+                      >
+                        {tUi("invoices.line.addDiscount")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={vatPerLine} onClick={() => setVatPerLine(true)}>
+                        {tUi("invoices.line.vatPerLine")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <button
                     type="button"
                     className="px-1 text-[#6b7280] hover:text-[#111827]"
@@ -604,7 +652,7 @@ export function InvoiceEditor({
             </tr>
           ),
           vat:
-            rateOptions.length > 1 ? (
+            rateOptions.length > 1 && !vatPerLine ? (
               <select
                 value={commonRate}
                 onChange={(e) => setAllRates(e.target.value)}
@@ -643,6 +691,11 @@ export function InvoiceEditor({
               {!showDiscount && (
                 <button type="button" className={linkBtn} onClick={() => setShowDiscount(true)}>
                   + {tUi("invoices.form.addDiscount")}
+                </button>
+              )}
+              {vatPerLine && new Set(lines.map((l) => l.vatRate)).size === 1 && (
+                <button type="button" className={linkBtn} onClick={() => setVatPerLine(false)}>
+                  {tUi("invoices.line.oneVatRate")}
                 </button>
               )}
               {!showNotes && (

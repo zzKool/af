@@ -4,7 +4,15 @@
 import type { VatTreatment } from "./vat-treatment";
 
 export type ReadyState = "ok" | "warn" | "todo";
-export type ReadyKey = "client" | "lines" | "period" | "references" | "vat" | "bank" | "rate";
+export type ReadyKey =
+  | "client"
+  | "lines"
+  | "period"
+  | "references"
+  | "vat"
+  | "bank"
+  | "rate"
+  | "company";
 export type ReadyItem = { key: ReadyKey; state: ReadyState; params?: Record<string, string> };
 
 export type ReadyFacts = {
@@ -24,6 +32,8 @@ export type ReadyFacts = {
   bank: { currency: string; iban: string | null } | null;
   /** the ECB rate of the issue date is stored (or the invoice is in the base) — issue refuses without it */
   rateKnown: boolean;
+  /** F146: the company's e-mail / website missing from Settings → Company (the footer prints only the name) */
+  companyMissing?: readonly string[];
 };
 
 const positive = (v: string) => Number.isFinite(Number(v)) && Number(v) > 0;
@@ -67,6 +77,12 @@ export function readyToSend(f: ReadyFacts): { items: ReadyItem[]; ok: number; re
     params: { currency: f.bank?.currency ?? f.currency },
   });
   items.push({ key: "rate", state: f.rateKnown ? "ok" : "todo", params: { currency: f.currency } });
+  if (f.companyMissing)
+    items.push(
+      f.companyMissing.length === 0
+        ? { key: "company", state: "ok" }
+        : { key: "company", state: "warn", params: { list: f.companyMissing.join(", ") } },
+    );
   const ok = items.filter((i) => i.state === "ok").length;
   return { items, ok, ready: items.every((i) => i.state !== "todo") };
 }

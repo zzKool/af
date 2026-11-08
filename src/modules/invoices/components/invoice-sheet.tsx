@@ -47,6 +47,8 @@ export type SheetLine = {
   unitPrice: string;
   vatRate: string;
   netAmount: string;
+  /** F146: a discount on this line — printed under its description; the amount is already net of it */
+  discountPercent?: string | null;
 };
 
 /** What the editor renders in place of a value. Absent slot = the value prints. */
@@ -56,6 +58,8 @@ export type SheetSlots = {
   periodLabel?: ReactNode;
   /** the references' rows (label · value) inside the dates list, and the "+ reference" control */
   references?: ReactNode;
+  /** F146: show the VAT % column although every line has the same rate (the owner chose *VAT per line*) */
+  vatColumn?: boolean;
   /** the table body's rows, given the columns the sheet shows */
   lines?: (cols: SheetColumns) => ReactNode;
   /** a row after the lines (the "+ line" control) */
@@ -141,7 +145,7 @@ export function InvoiceSheet({ mode, doc, slots = {} }: SheetProps) {
     `${sign}${sheetMoney(amount, doc.currency, whole)}`;
   const { tenant, partner, bank } = doc.parties;
   const cols: SheetColumns = {
-    vat: new Set(doc.lines.map((l) => l.vatRate)).size > 1,
+    vat: slots.vatColumn || new Set(doc.lines.map((l) => l.vatRate)).size > 1,
   };
   const title = t(`invoice.title.${doc.type}` as MessageKey);
   const partnerAddress = partner.address
@@ -204,7 +208,7 @@ export function InvoiceSheet({ mode, doc, slots = {} }: SheetProps) {
       </header>
 
       {/* the company (left) · the client and the document's facts (right) */}
-      <section className="mb-[8mm] grid grid-cols-2 gap-[10mm]">
+      <section className="mb-[8mm] grid grid-cols-[minmax(0,1fr)_68mm] gap-[8mm]">
         <div className="flex flex-col gap-[4mm]">
           <div className="space-y-0.5">
             <div className="text-[11pt] font-bold">{tenant.name}</div>
@@ -308,7 +312,14 @@ export function InvoiceSheet({ mode, doc, slots = {} }: SheetProps) {
             ? slots.lines(cols)
             : doc.lines.map((l) => (
                 <tr key={l.key} className="align-top" style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <td className="px-3 py-2.5 whitespace-pre-wrap">{l.description}</td>
+                  <td className="px-3 py-2.5 whitespace-pre-wrap">
+                    {l.description}
+                    {l.discountPercent && Number(l.discountPercent) !== 0 && (
+                      <div className="text-[8pt]" style={{ color: MUTED }}>
+                        {t("invoice.totals.discount")} {formatVatPercent(l.discountPercent)}%
+                      </div>
+                    )}
+                  </td>
                   <td className="px-2 py-2.5 text-center tabular-nums">
                     {sheetQuantity(l.quantity, l.unit, t)}
                   </td>

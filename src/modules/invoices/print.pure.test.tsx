@@ -239,6 +239,15 @@ describe("the printed invoice — variants", () => {
     );
   });
 
+  it("F146: a line's discount prints under its description", () => {
+    const doc = {
+      ...base,
+      lines: [{ ...base.lines[0], discountPercent: "10", netAmount: "21600.00" }],
+    };
+    expect(text(doc)).toContain("Consulting Services Remise 10%");
+    expect(text(base)).not.toContain("Remise");
+  });
+
   it("formatting helpers", () => {
     const t = translator("fr");
     expect(sheetMoney("25944.00", "CHF")).toBe("CHF 25'944.00");

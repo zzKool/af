@@ -31,6 +31,7 @@ const READY_TEXT: Record<ReadyKey, Partial<Record<ReadyState, MessageKey>>> = {
     todo: "invoices.ready.bank.todo",
   },
   rate: { ok: "invoices.ready.rate.ok", todo: "invoices.ready.rate.todo" },
+  company: { ok: "invoices.ready.company.ok", warn: "invoices.ready.company.warn" },
 };
 const TREATMENT_TEXT: Record<VatTreatment, MessageKey> = {
   standard: "invoices.ready.treatment.standard",
@@ -82,6 +83,7 @@ export function InvoiceStudio({
             currency: invoice.currency,
             bank: facts.bank,
             rateKnown: facts.rateKnown,
+            companyMissing: facts.companyMissing,
           })
         : null,
     [draft, facts, invoice.type, invoice.currency],
