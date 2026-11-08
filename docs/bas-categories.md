@@ -53,6 +53,8 @@ The BAS standard is updated annually. To update:
 
 `20261108120000_bas_four_digit`: `bas_groups` + `kind` / `group_code` / `parent_code` on `bas_categories`; the chart's 1 282 rows inserted beside the old ones; the old row's short code and French name carried to `NNN0`; a guard that **refuses the migration naming any stored code without its `NNN0`**; then `NNN` → `NNN0` on bank rows, rules, expenses, journal entries, subscriptions, supplier invoices and their lines, tenant preferences (short codes, favourites, translations, *Use for* notes ride on the row), partners' defaults and the BAS proposals' payloads; the three-digit rows deleted; the rules back. Business keys carry the short code, not the account: nothing renumbered. The codes the app names (no-proof reasons `2510` / `6570` / `7210` / `8310`, the default rules, the mock) moved with it.
 
+**English for every account (F149)**: BAS's English chart (2025) does not name 107 accounts of the 2026 Swedish chart (new or renamed sub-accounts). The agent translated them (migration `20261108130000_bas_english_names`, the same table `EN_TRANSLATED` in the parser); each ends with ` **` so it is never taken for BAS's wording. The owner's own English name (Settings → BAS) still wins, and an official English chart replaces them on the next reload.
+
 Settings → BAS lists class → **group** (`65 · Other external services`, *3 of 12 active*, open when it holds an active account or a search finds something, a click opens or closes it) → accounts, sub-accounts indented under their main account. The picker groups the active accounts by the same groups inside the class order, and a word of the group's name finds them (`external` → group 65).
 
 ## The picker and the names on screen (F125, F95 part 1 — 2026-10-30)
