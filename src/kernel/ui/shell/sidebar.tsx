@@ -53,7 +53,7 @@ export function Sidebar({
   );
 
   const link = (item: NavItem) => {
-    // the longest matching path wins: /banking/inbox is Work's, not Banking's (F97 US4)
+    // the longest matching path wins: /banking/inbox is Banking › Inbox, /expenses/groups is Expenses
     const matches = (p: string) => pathname === p || pathname.startsWith(`${p}/`);
     const active =
       matches(item.path) &&

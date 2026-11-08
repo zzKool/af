@@ -47,10 +47,8 @@ describe("filterNavItems", () => {
   });
 
   test("Work is the owner's — the accountant reads, the loop is not his", () => {
-    expect(filterNavItems(NAV_ITEMS, "owner").map((i) => i.path)).toContain("/banking/inbox");
-    expect(filterNavItems(NAV_ITEMS, "accountant").map((i) => i.path)).not.toContain(
-      "/banking/inbox",
-    );
+    expect(filterNavItems(NAV_ITEMS, "owner").map((i) => i.path)).toContain("/work");
+    expect(filterNavItems(NAV_ITEMS, "accountant").map((i) => i.path)).not.toContain("/work");
   });
 
   test("Documents is visible to owner but not accountant", () => {

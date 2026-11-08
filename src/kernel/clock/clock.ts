@@ -29,6 +29,11 @@ function formatStockholmDate(date: Date): string {
   return stockholmDateFormatter.format(date);
 }
 
+/** The Stockholm day ('YYYY-MM-DD') of an instant — a stored timestamp read as the owner's calendar day. */
+export function stockholmDay(date: Date): string {
+  return formatStockholmDate(date);
+}
+
 /** Production clock — wraps system time with Europe/Stockholm timezone. */
 class RealClock implements Clock {
   now(): Date {

@@ -56,9 +56,9 @@ describe("Sidebar — counts of open work (F72)", () => {
     expect(screen.getByRole("link", { name: "Banking" }).textContent).toBe("Banking");
   });
 
-  it("Work (F97 US4): first after Dashboard with the one count; on /banking/inbox it is the active item, not Banking", () => {
-    pathname = "/banking/inbox";
-    render(<Sidebar role={OWNER} counts={{ "/banking/inbox": 5, "/banking": 3 }} />);
+  it("Work (F97 US4, F137): first after Dashboard with the one count; on /work it is the active item, not Banking", () => {
+    pathname = "/work";
+    render(<Sidebar role={OWNER} counts={{ "/work": 5, "/banking": 3 }} />);
     const links = screen.getAllByRole("link").map((l) => l.textContent);
     expect(links.slice(0, 3)).toEqual(["Dashboard", "Work5", "Banking3"]);
     expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute("aria-current", "page");

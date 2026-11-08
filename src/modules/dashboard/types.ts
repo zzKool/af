@@ -58,3 +58,68 @@ export type DashboardOverview = {
   pulse: PulseMetric[];
   briefing: { since: string | null; lines: BriefingLine[] };
 };
+
+// --- Work: the monthly close (F137, spec US4 / FR-004 – FR-005) ---
+
+/** The owner's monthly loop (2026-11-07), in his order, and the package that ends it. */
+export const CLOSE_STEPS = ["rates", "statements", "justified", "expenses", "closed"] as const;
+export type CloseStepKind = (typeof CLOSE_STEPS)[number];
+
+/**
+ * done · current (the first step not done — the one to do now) · todo (after it) · waiting (the package, until the
+ * four steps before it are done). Derived, never stored.
+ */
+export type CloseStepState = "done" | "current" | "todo" | "waiting";
+
+export type CloseStep = {
+  kind: CloseStepKind;
+  state: CloseStepState;
+  /** how far: rates days stored / weekdays, accounts complete / monthly accounts, rows justified / rows… */
+  done: number;
+  total: number;
+  href: string;
+};
+
+/** A monthly bank account and the last day its balance chain reaches (F115). */
+export type CloseAccount = {
+  label: string;
+  currency: string;
+  completeTo: string | null;
+  complete: boolean;
+};
+
+/** A client invoiced for the month before and not yet for this one (FR-005). */
+export type InvoiceReminder = { partnerId: string; partnerName: string; lastIssueDate: string };
+
+export type MonthlyClose = {
+  /** yyyy-mm */
+  month: string;
+  /** 0–100: the steps' progress, each a fifth */
+  percent: number;
+  steps: CloseStep[];
+  /** the rates step's facts */
+  rates: { weekdays: number; missing: number };
+  accounts: CloseAccount[];
+  /** the bank rows of the month (the Months panel's counts) */
+  rows: { justified: number; toJustify: number };
+  /** privately paid expenses dated in the month */
+  privateExpenses: number;
+  /** the Stockholm day the month's first package was built, null before */
+  builtOn: string | null;
+  /** the neighbours ‹ › — null past the first month with data / after this month */
+  previous: string | null;
+  next: string | null;
+  reminders: InvoiceReminder[];
+};
+
+/** One of the past months: the day it was closed (its package built), or how far it is. */
+export type PastClose = { month: string; builtOn: string | null; percent: number };
+
+export type WorkData = {
+  close: MonthlyClose;
+  past: PastClose[];
+  /** the months closed in a row, back from the newest closed one before this month */
+  streak: number;
+  /** the dashboard's items that are not steps of the close */
+  alsoWaiting: ActionItem[];
+};

@@ -40,10 +40,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
     enabled: true,
     group: null,
   },
-  // Work (F97 US4, review 2026-10-26 §1.4): the monthly loop in one place — the rows to justify and the documents
-  // to review, with their count. The accountant reads; the loop is the owner's.
+  // Work (F97 US4, review 2026-10-26 §1.4; F137, D76 phase 4): the monthly close in one place — the owner's four
+  // steps and the package; the count is still the rows to justify and the documents to review. The accountant
+  // reads; the loop is the owner's. The linking inbox stays at /banking/inbox (Banking › Inbox).
   {
-    path: "/banking/inbox",
+    path: "/work",
     label: "Work",
     labelKey: "nav.work",
     icon: "ListChecks",

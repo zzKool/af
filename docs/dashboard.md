@@ -74,6 +74,27 @@ page.tsx ── withTenantTransaction (one interactive transaction, the reads on
 
 Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widgets.tsx` on the D40 kit (F71): figures through `formatMoney`, each to-do line a `<StateIcon>` of its priority (`priority-family.ts` — high attention, medium in progress, low neutral) and a grey `<CountBadge>`, the page on `EntityPage`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with one of every kind of item — `documents_to_review` and `vat_not_paid` in their own tests —, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
 
+## Work — the monthly close (F137, D76 phase 4)
+
+`/work` — *Work* in the rail, the owner's (the accountant has no Work; `requireCaller` sends him to the dashboard) — is the owner's monthly loop as he wrote it (2026-11-07): the exchange rates up to date, the bank statements imported, every bank row justified, the private expenses added — and the package that ends the month. Built from the board *Pulse · Work* (D77). The linking inbox stays at `/banking/inbox` (Banking › Inbox).
+
+```
+workData(tx, caller, today, month?)          close.ts — read only, nothing stored
+   ├─ package.listBuilds        the day each month's first package was built (Stockholm day)
+   ├─ banking.bankMonths        the months' rows justified / to justify · each account's completeTo
+   ├─ rates.rateCoverage        the weekdays without an ECB rate, per month (FR-009's gaps)
+   ├─ expenses.listExpenses     the privately paid expenses dated in the months shown
+   ├─ invoices.listInvoices     the invoices of the two invoice windows (the reminder)
+   └─ dashboardOverview         Also waiting = its items minus the close's own (rows, rate gaps, package)
+```
+
+- **The steps** (`closeSteps`, pure): *rates* done when no weekday of the month misses a rate; *statements* done when every **main** account's balance chain reaches the month's last day (savings come once a year — not a monthly step); *justified* done when no row is left to justify (and the month has rows, or its statements are in); *private expenses* and *month closed* done when the package is built — nothing else can know every receipt is in (an open question to the owner: a *nothing more to add* tick would be a stored fact). The first step not done is *current*; the package *waits* until the four before it are done. The percent: each step a fifth, the rates / statements / rows by their fraction.
+- **The month**: `?month=yyyy-mm`; without it, last month until its package is built, then this month (`defaultCloseMonth`). ‹ › move one month, between the first month the Months panel knows and this month.
+- **The invoice reminder** (FR-005, `invoiceReminders`): a client invoiced in the month before's window and not in this one's — a window runs from the 21st of the work month to the 20th of the next; a draft counts as prepared. Shown from the window's first day.
+- **Past months**: the six before this month — *closed {day}* or how far — and the streak of months closed in a row back from last month (last month still open does not break it, `closeStreak`).
+
+Strings `work.*` (en only, D62); the view `components/work-page.tsx` (`MonthlyCloseView`, `WorkMonthNav`), the header's sentence `work-text.ts`; the page `src/app/(app)/work/page.tsx` on the ground (D76). Links that look like buttons are `<Link className={buttonVariants()}>` — a link stays a link. Tests: `close.pure.test.ts` (the steps, the default month, the streak, the reminder), `close.test.ts` (a small world on the real modules), `work-page.test.tsx`, `e2e/work.spec.ts`; `/work` in `screenshots.spec.ts`.
+
 ## Speed (F55, measured 2026-10-23)
 
 `next build` + `next start`, the seeded tenant filled with ~3.5 years of the owner's volume (2023-04 → 2026-10: 1 596 bank rows, 49 invoices, 336 expenses, 210 supplier invoices, 1 764 documents, 64 000 audit rows), 12 requests, median. The page's one transaction runs the reads **one after the other** (an interactive transaction is one connection), so the page time is their sum.

@@ -6,6 +6,7 @@ import { type Page, test } from "@playwright/test";
 // (constitution §4.5). Entity pages are reached from the first row of their list, when there is one.
 const PAGES: Record<string, string> = {
   dashboard: "/dashboard",
+  work: "/work",
   banking: "/banking",
   "banking-new": "/banking?new=1",
   "banking-rules": "/banking/rules",

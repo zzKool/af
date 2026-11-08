@@ -23,3 +23,14 @@ Already tracked elsewhere — no task here, so `tasks.md` and [[features]] never
 - `"SEK"` written as the pulse's and the items' currency (payables, liability, invoiced this year, amounts) → **F70** (D39)
 - ~~money on screen through `formatCurrency` + the code (three money formats on one dashboard), the priority badges' palette colours → **F71** (D40 kit; lessons *small inconsistencies*)~~ — T007 (2026-10-23)
 - ~~rows to justify read as a full list, last month's flags as the whole package preview → **F82**, **F83**~~ — 2026-10-24: `banking.rowsToJustifyCount`, `package.periodFlags` ([[dashboard]] *Speed*)
+
+## Phase 3: Work — the monthly close (F137, D76 phase 4a)
+
+From the board *Pulse · Work* (D77) and the owner's four-step loop (US4). One PR, `feat/dashboard-pulse`; shared files: the nav constants (Work's path), `en.ts`.
+
+- [x] T008 `close.ts`: `monthlyClose` and `pastCloses` (FR-004), a pure `closeSteps` from the reads' facts, tested on its own; a DB test on a small world.
+- [x] T009 `/work`: the title with the percent and the sentence, the five-step progress line with the open step's card, *Also waiting*, *Past months* with the streak, ‹ › between months. The rail's *Work* opens it (its count unchanged).
+- [x] T010 e2e: the owner's *Work* shows the month and its steps; the accountant has no *Work*. `/work` in `screenshots.spec.ts`; `docs/dashboard.md` *Work*.
+
+Open question for the owner (does not block): step 4 cannot know that every private expense is in — today it is done with the package. A *nothing more to add* tick per month would be a stored fact (a schema change).
+
