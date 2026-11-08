@@ -68,3 +68,9 @@ T001 → T002/T003 → T004 → T005 → T006 → T007 → T008 → T009 → T01
 
 ## F73 — + New opens the dialog (2026-10-24, `feat/expenses-new-dialog`, LIGHT)
 - [x] T032 `/expenses?new=1` opens the new expense dialog: `NewExpenseButton`'s open state is the kernel's `useNewParam()` (rendered only for a caller who may create — the list's title row and the group page); closing drops the param. No i18n change. Tests: the hook's own (`kernel/ui/shell/use-new-param.test.tsx`); e2e `expenses` (?new=1 → the dialog → Esc → no param; the accountant: nothing opens); screenshot `expenses-new` light + dark. The sidebar's href gains `?new=1` in F73's last PR (nav).
+
+## F142 — the phone: snap a receipt (Pulse phase 6c, 2026-11-08, `feat/phone-capture`, the owner's yes of 2026-11-08)
+
+- [x] T040 `/m` (route group `(phone)`, no rail): take a photo / pick a file → uploaded untyped (D78) → the reading polled → *Check what was read* (from, date, amount, currency, the trip the date falls in — `proposeGroupForDate` —, a cost account) → *Who paid?* one tap per payer (own cards first) → `createExpense` with the document → *Saved*: the key, what the company owes (`ledgerSnapshot`), the receipts still missing (`phoneSummary`), *Snap the next one*.
+- [x] T041 `app/manifest.ts` (start `/m`, standalone) and the proxy lets the manifest through; e2e `phone.spec.ts` on a phone viewport with an invented receipt photo.
+

@@ -10,6 +10,7 @@ export * from "./components/groups-table";
 export * from "./components/header-actions";
 export * from "./components/labels";
 export * from "./components/new-expense-dialog";
+export * from "./components/phone-capture";
 export * from "./components/settle-work";
 export * from "./components/settlements-table";
 export * from "./components/statement-sheet";
