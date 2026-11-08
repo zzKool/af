@@ -49,12 +49,19 @@ export function parseChart(svRows, enRows) {
     const a = row[0];
     if (typeof a === "number" && a >= 10 && a <= 99) {
       const code = String(a);
-      group = { code, classNum: Number(code[0]), name: clean(row[1]), nameEn: enGroups.get(code) ?? null };
+      group = {
+        code,
+        classNum: Number(code[0]),
+        name: clean(row[1]),
+        nameEn: enGroups.get(code) ?? null,
+      };
       groups.push(group);
       continue;
     }
     if (!group) continue;
-    const mainCode = String(a ?? "").replace("#", "").trim();
+    const mainCode = String(a ?? "")
+      .replace("#", "")
+      .trim();
     if (/^\d{4}$/.test(mainCode)) {
       main = mainCode;
       if (!accounts.has(mainCode))
@@ -69,7 +76,9 @@ export function parseChart(svRows, enRows) {
           parentCode: null,
         });
     }
-    const subCode = String(row[2] ?? "").replace("#", "").trim();
+    const subCode = String(row[2] ?? "")
+      .replace("#", "")
+      .trim();
     if (/^\d{4}$/.test(subCode) && !accounts.has(subCode)) {
       const parent = main && main.slice(0, 3) === subCode.slice(0, 3) ? main : null;
       accounts.set(subCode, {
