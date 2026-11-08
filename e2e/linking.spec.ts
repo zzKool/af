@@ -240,6 +240,32 @@ test.describe("Linking", () => {
       });
       await page.keyboard.press("Escape");
 
+      // F139, Reconcile: the month's row on the match stage — the invoice's client is the partner (sure, not asked);
+      // Accept links it, Done today lists it, Undo puts it back
+      await page.goto(`/banking/reconcile?month=${today.slice(0, 7)}`);
+      const queued = page.getByTestId("reconcile-row").filter({ hasText: payer.toUpperCase() });
+      await expect(queued).toBeVisible();
+      await queued.click();
+      const stage = page.getByTestId("reconcile-match");
+      await expect(stage).toContainText(num);
+      await expect(stage.getByTestId("reconcile-partner-value")).toHaveAttribute(
+        "data-state",
+        "sure",
+      );
+      await expect(stage.getByTestId("reconcile-preview")).toContainText(
+        `The row is linked to ${num}`,
+      );
+      await snap(page, "reconcile");
+      await stage.getByTestId("reconcile-accept").click();
+      await expectToast(page, "Accepted — next row.");
+      await expect(queued).toHaveCount(0);
+      const done = page.getByTestId("reconcile-done-item").filter({ hasText: num });
+      await expect(done).toBeVisible();
+      await done.getByRole("button", { name: "Undo" }).click();
+      await expectToast(page, "Undone — the row is back in the queue.");
+      await expect(queued).toBeVisible();
+      await page.goto("/banking");
+
       // the inbox lists the row HIGH; select it, Enter links it
       await page.getByTestId("go-inbox").click();
       await expect(page).toHaveURL(/\/banking\/inbox/);

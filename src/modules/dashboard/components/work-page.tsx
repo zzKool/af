@@ -89,10 +89,13 @@ function stepWords(step: CloseStep, close: MonthlyClose, month: string, t: T) {
           t("work.justified.factOpen", { count: left }),
         ],
         actions: done
-          ? [{ label: t("work.justified.actionDone"), href: step.href }]
+          ? [{ label: t("work.justified.actionDone"), href: "/banking" }]
           : [
-              { label: t("work.justified.inbox"), href: "/banking/inbox", secondary: true },
-              { label: t("work.justified.action", { count: left }), href: step.href },
+              { label: t("work.justified.actionDone"), href: "/banking", secondary: true },
+              {
+                label: t("work.justified.action", { count: left }),
+                href: `${step.href}?month=${close.month}`,
+              },
             ],
       };
     }

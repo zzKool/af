@@ -44,7 +44,7 @@ const MONTHLY_ROLES: ReadonlySet<string> = new Set(["main"]);
 const HREF: Record<CloseStepKind, string> = {
   rates: "/rates",
   statements: "/banking?new=1",
-  justified: "/banking",
+  justified: "/banking/reconcile",
   expenses: "/expenses?new=1",
   closed: "/package",
 };

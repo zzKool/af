@@ -63,7 +63,7 @@ test.describe("Dashboard", () => {
       await snap(page, "dashboard");
 
       await rows.getByRole("link").click();
-      await expect(page).toHaveURL(/\/banking\/inbox/);
+      await expect(page).toHaveURL(/\/banking\/reconcile/);
     });
   });
 });

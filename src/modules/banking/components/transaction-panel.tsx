@@ -705,7 +705,7 @@ export function TransactionDetailView({
                 variant="outline"
                 size="sm"
                 nativeButton={false}
-                render={<Link href="/banking/inbox" />}
+                render={<Link href={`/banking/reconcile?row=${tx.id}`} />}
               >
                 {t("banking.panel.openReconcile")}
               </Button>

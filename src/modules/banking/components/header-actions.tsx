@@ -46,6 +46,15 @@ export function WorkbenchActions({
   const t = useT();
   return (
     <>
+      {/* F139: the month's rows on the match stage */}
+      <Button
+        variant="outline"
+        nativeButton={false}
+        render={<Link href="/banking/reconcile" />}
+        data-testid="go-reconcile"
+      >
+        {t("banking.nav.reconcile")}
+      </Button>
       <Button
         variant="outline"
         nativeButton={false}
