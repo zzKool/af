@@ -38,8 +38,10 @@ CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/set-app-password.mjs
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-# Chromium for kernel/pdf (invoices, statements, package summary). Fonts: DejaVu + Noto for sv/fr/de glyphs.
-RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-dejavu font-noto \
+# Chromium for kernel/pdf (invoices, statements, package summary). Fonts: DejaVu + Noto for sv/fr/de glyphs;
+# Liberation Sans stands in for Arial, the invoice sheet's font (D79) — same metrics, so the server's PDF
+# lays out like the one rendered on a laptop.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-dejavu font-noto font-liberation \
     && rm -rf /var/cache/apk/*
 ENV CHROMIUM_PATH=/usr/bin/chromium-browser
 RUN addgroup --system --gid 1001 nodejs

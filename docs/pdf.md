@@ -13,7 +13,7 @@ src/kernel/pdf/
   print-token.pure.test.ts
 src/kernel/auth/print-caller.ts   requirePrintCaller(searchParams, path) → CallerIdentity for a /print page (404 otherwise)
 src/proxy.ts                      /print/* is excluded from the session redirect — the token is the auth
-Dockerfile                        runner stage: apk chromium + fonts, CHROMIUM_PATH=/usr/bin/chromium-browser
+Dockerfile                        runner stage: apk chromium + fonts (DejaVu, Noto, Liberation = Arial's metrics for the invoice sheet), CHROMIUM_PATH=/usr/bin/chromium-browser
 ```
 
 ## How a module prints something
