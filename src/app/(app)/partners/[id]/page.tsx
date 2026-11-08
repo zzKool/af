@@ -8,6 +8,8 @@ import { listTransactions, TRANSACTION_DEFAULT_SORT } from "@/modules/banking";
 import * as contractService from "@/modules/contracts";
 import { documentsByIds } from "@/modules/documents";
 import { expensesForPartner } from "@/modules/expenses";
+import { partnerInsight } from "@/modules/invoices";
+import { PartnerFigures, PartnerMonths, PartnerTimeline } from "@/modules/invoices/ui";
 import { linksTouching } from "@/modules/linking";
 import * as partnerService from "@/modules/partners";
 import { PartnerDetailTabs } from "@/modules/partners/ui";
@@ -30,6 +32,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     documents,
     transactions,
     expenses,
+    insight,
   } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const partner = await partnerService.getPartner(tx, id);
     const basPrefs = { data: await settingsService.basPickerOptions(tx) };
@@ -58,7 +61,10 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     });
     // spend with this partner (F87): its expenses, newest first, and Σ base
     const expenses = await expensesForPartner(tx, id);
+    // the invoicing (F144, the board *Partner*): derived from the client's invoices and the rows that pay them
+    const insight = await partnerInsight(tx, id, today);
     return {
+      insight,
       partnerResult: partner,
       basPrefsResult: basPrefs,
       contractsResult: contracts,
@@ -128,8 +134,15 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     phone: c.phone,
   }));
 
+  const active = contracts.find((c) => c.isActive && c.currentRate);
+  const rate =
+    active?.currentRate && active.currency
+      ? { amount: active.currentRate.rate, currency: active.currency }
+      : null;
+  const invoices = insight.invoiceCount > 0 || partner.types.includes("client");
+
   return (
-    <EntityPage>
+    <EntityPage ground>
       <PartnerDetailTabs
         partner={partner}
         contracts={contracts}
@@ -152,6 +165,16 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
           })),
         }}
         expenses={expenses}
+        figures={invoices ? <PartnerFigures insight={insight} rate={rate} /> : undefined}
+        activity={
+          invoices ? (
+            <>
+              <PartnerMonths insight={insight} />
+              <PartnerTimeline insight={insight} />
+            </>
+          ) : undefined
+        }
+        invoiceCount={invoices ? insight.invoiceCount : undefined}
       />
     </EntityPage>
   );

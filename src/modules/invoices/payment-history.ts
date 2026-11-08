@@ -19,12 +19,13 @@ export async function clientPaymentHistory(
   tx: TransactionClient,
   partnerId: string,
   today: string,
+  limit = HISTORY_INVOICES,
 ): Promise<PaidInvoice[]> {
   const list = await listInvoices(
     tx,
     {
       page: 1,
-      pageSize: 500,
+      pageSize: 1000,
       sort: [{ col: "issueDate", dir: "desc" }],
       filters: {
         partnerId: { kind: "in", values: [partnerId] },
@@ -34,7 +35,7 @@ export async function clientPaymentHistory(
     },
     today,
   );
-  const rows = list.rows.slice(0, HISTORY_INVOICES);
+  const rows = list.rows.slice(0, limit);
   const paidOn = await linking.paidOnDates(
     tx,
     "invoice",

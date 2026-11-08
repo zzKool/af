@@ -16,6 +16,7 @@ export * from "./components/invoice-studio";
 export { type InvoiceRow, InvoiceTable } from "./components/invoice-table";
 export { NewDocumentButton } from "./components/new-document-button";
 export { type ClientOption, NewInvoiceForm } from "./components/new-invoice-form";
+export * from "./components/partner-invoicing";
 export * from "./components/reminder-card";
 export { toSheetDocument } from "./components/sheet-document";
 export * from "./invoices.actions";

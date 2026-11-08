@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
+import { buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
@@ -15,7 +16,7 @@ import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { RowActionsMenu } from "@/kernel/ui/data-table";
-import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import { DetailsGrid } from "@/kernel/ui/details-section";
 import { PageHeader } from "@/kernel/ui/shell/page";
 import { CountBadge, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
@@ -69,6 +70,12 @@ interface PartnerDetailTabsProps {
   transactions: { total: number; rows: PartnerTransactionRow[] };
   /** spend with this partner (F87) — the expenses module's read, composed by the page */
   expenses: PartnerExpenses;
+  /** F144 (the board *Partner*): the invoicing figures, composed by the page from the invoices module */
+  figures?: ReactNode;
+  /** F144: twelve months of invoiced and paid, what happened */
+  activity?: ReactNode;
+  /** F144: the partner's invoices and credit notes, for *Linked* */
+  invoiceCount?: number;
 }
 
 export function PartnerDetailTabs({
@@ -82,6 +89,9 @@ export function PartnerDetailTabs({
   documents,
   transactions,
   expenses,
+  figures,
+  activity,
+  invoiceCount,
 }: PartnerDetailTabsProps) {
   const t = useT();
   const router = useRouter();
@@ -155,6 +165,15 @@ export function PartnerDetailTabs({
               ]}
             />
             <GraphLink self={{ type: "partner", id: partner.id }} />
+            {types.includes("client") && isActive && (
+              <Link
+                href={`/invoices/new?type=invoice&partner=${partner.id}`}
+                className={buttonVariants()}
+                data-testid="partner-new-invoice"
+              >
+                {t("partners.insight.newInvoice")}
+              </Link>
+            )}
           </>
         }
         tabs={
@@ -185,31 +204,56 @@ export function PartnerDetailTabs({
         }
       />
 
-      <TabsContent value="overview">
-        <DetailsSection title={t("details.about")} className="border-t-0 pt-0">
-          <DetailsGrid
-            rows={[
-              [t("partners.col.status"), <PartnerStateLabel key="s" isActive={isActive} />],
-              [
-                t("partners.col.types"),
-                <PartnerTypeTags key="t" types={types} systemRole={partner.systemRole ?? null} />,
-              ],
-              [
-                t("partners.overview.activeContracts"),
-                <span key="c" className="tabular-nums">
-                  {activeContractCount}
-                </span>,
-              ],
-              [
-                t("partners.col.created"),
-                <span key="d" className="tabular-nums">
-                  {partner.createdAt.slice(0, 10)}
-                </span>,
-              ],
-            ]}
-          />
-        </DetailsSection>
-        <PartnerForm partner={partner} basOptions={basOptions} onSaved={handleSaved} />
+      <TabsContent value="overview" className="flex flex-col gap-[18px]">
+        {figures}
+        <div className="grid items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="flex min-w-0 flex-col gap-[18px]">
+            {activity}
+            <section className={CARD}>
+              <h2 className="mb-3 text-sm font-semibold">{t("partners.insight.details")}</h2>
+              <DetailsGrid
+                rows={[
+                  [t("partners.col.status"), <PartnerStateLabel key="s" isActive={isActive} />],
+                  [
+                    t("partners.col.types"),
+                    <PartnerTypeTags
+                      key="t"
+                      types={types}
+                      systemRole={partner.systemRole ?? null}
+                    />,
+                  ],
+                  [
+                    t("partners.overview.activeContracts"),
+                    <span key="c" className="tabular-nums">
+                      {activeContractCount}
+                    </span>,
+                  ],
+                  [
+                    t("partners.col.created"),
+                    <span key="d" className="tabular-nums">
+                      {partner.createdAt.slice(0, 10)}
+                    </span>,
+                  ],
+                ]}
+              />
+              <PartnerForm partner={partner} basOptions={basOptions} onSaved={handleSaved} />
+            </section>
+          </div>
+          <aside className="flex flex-col gap-[18px]">
+            <ContractCard contract={contracts.find((c) => c.isActive) ?? null} />
+            <section className={CARD} data-testid="partner-linked">
+              <h2 className="mb-2 text-sm font-semibold">{t("partners.insight.linked")}</h2>
+              <ul className="flex flex-col gap-1 text-[13px] tabular-nums">
+                {invoiceCount !== undefined && (
+                  <li>{t("partners.insight.linkedInvoices", { count: invoiceCount })}</li>
+                )}
+                <li>{t("partners.insight.linkedBank", { count: transactions.total })}</li>
+                <li>{t("partners.insight.linkedDocuments", { count: documents.length })}</li>
+                <li>{t("partners.insight.linkedContracts", { count: contracts.length })}</li>
+              </ul>
+            </section>
+          </aside>
+        </div>
       </TabsContent>
 
       <TabsContent value="contracts">
@@ -297,6 +341,50 @@ export function PartnerDetailTabs({
 
       <ConfirmDialog {...dialogProps} />
     </Tabs>
+  );
+}
+
+const CARD = "rounded-2xl border border-subtle bg-surface p-4 shadow-card";
+
+/** F144: the active contract at a glance — the rate, the period, the references the client asks for, the terms. */
+function ContractCard({ contract: c }: { contract: ContractRow | null }) {
+  const t = useT();
+  if (!c)
+    return (
+      <section className={CARD} data-testid="partner-contract">
+        <p className="text-[13px] text-muted-foreground">{t("partners.insight.noContract")}</p>
+      </section>
+    );
+  const rows: [string, ReactNode][] = [];
+  if (c.currentRate)
+    rows.push([
+      t("partners.insight.rate"),
+      <span key="r" className="tabular-nums">
+        {formatMoney(c.currentRate.rate, c.currency ?? BASE)}
+      </span>,
+    ]);
+  rows.push([
+    t("partners.insight.period"),
+    <span key="p" className="tabular-nums">
+      {c.startDate} → {c.endDate ?? "…"}
+    </span>,
+  ]);
+  for (const r of c.externalReferences) rows.push([r.label, <span key={r.label}>{r.value}</span>]);
+  if (c.paymentTerms)
+    rows.push([
+      t("partners.insight.terms"),
+      /^\d+$/.test(c.paymentTerms)
+        ? t("partners.insight.termsDays", { count: Number(c.paymentTerms) })
+        : c.paymentTerms,
+    ]);
+  return (
+    <section className={CARD} data-testid="partner-contract">
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        {t("partners.insight.contract", { name: c.name })}
+        <Tag>{c.currency ?? BASE}</Tag>
+      </h2>
+      <DetailsGrid rows={rows} />
+    </section>
   );
 }
 
