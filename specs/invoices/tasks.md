@@ -66,7 +66,7 @@
 - [x] T037 `feat/invoices-currencies` — audit 30: `defaults.ts` `toCurrency` (Zod enum on `CURRENCIES`); `drafts.ts`'s defaults chain parses the contract's and the partner's currency instead of casting (both are already enums upstream, so nothing changes for stored data; an unknown code now falls through to the next source instead of reaching the row). Test: `defaults.pure.test.ts`. Left: the UI casts on the DTO's `currency: string` (`invoice-table.tsx` row / sum currency, `invoice-sheet.tsx` `sheetMoney`) — they go when the DTO types `currency` as `Currency`; the sheet left as is (the printed PDF)
 - [x] T038 `feat/invoices-real-bank-linkable` — audit 31: `invoices.test.ts` registers banking's real `bankTransactionLinkable`; US5's payments are incoming CHF rows through `banking.importCsv` (a one-line Nordea export each), so the link carries the row's amount and currency like in the app — the fake "before the banking module exists" (amount null, nothing checked on the source side) is gone
 
-## F143 — `feat/invoice-studio` (Pulse phase 7a, LIGHT)
+## F143 — `feat/invoices-studio` (Pulse phase 7a, LIGHT)
 
 - [x] T039 Pure: `ready.ts` (`readyToSend`), `payment-stats.ts` (`paymentStats`, `expectedPayment`), `reminder.ts` (`reminderDue`, `reminderDraft`; `invoice.reminder.*` in en / fr / sv). Tests: `studio.pure.test.ts`
 - [x] T040 Reads: `linking.paidOnDates(tx, type, ids)` (the latest booking date of the justifying bank rows), `payment-history.ts` `clientPaymentHistory`, `studio.ts` `studioFacts(tx, ctx, today)`. Test: DB *F143: the client's payment history* in `invoices.test.ts`
