@@ -236,7 +236,7 @@ export function createMockAiService(answers: Record<string, unknown> = MOCK_ANSW
  */
 export const MOCK_ANSWERS: Record<string, unknown> = {
   "linking.bas-proposal": {
-    basCode: "654",
+    basCode: "6540",
     confidence: 0.86,
     reason: "Looks like a software or cloud service (mock answer)",
     alternatives: [],

@@ -79,7 +79,7 @@ test.describe("Supplier invoices", () => {
       await page.getByTestId("si-net").fill("1200.00");
       await page.getByTestId("si-vat").fill("97.20");
       await expect(page.getByTestId("si-total")).toHaveValue("1297.20");
-      await pick("si-category", /^653/);
+      await pick("si-category", /^6530/);
       await page.getByTestId("create-supplier-invoice").click();
       await expectToast(page, "Acc-01 created");
       await expect(dialog).not.toBeVisible();

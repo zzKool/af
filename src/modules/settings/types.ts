@@ -4,7 +4,7 @@
  * One BAS account as a picker shows it (F125, F95): the code, the name in the UI language (the tenant's own
  * translation → the chart's English → Swedish), the Swedish name as the second line when it differs, the short code
  * that keys an expense / a supplier invoice, the BAS class (the first digit) and the owner's favourite flag.
- * `label` (`654 · IT services (It)`) is the one-line form lists, tests and screen readers use.
+ * `label` (`6540 · IT services (It)`) is the one-line form lists, tests and screen readers use.
  */
 export type BasOption = {
   code: string;
@@ -16,6 +16,9 @@ export type BasOption = {
   favourite?: boolean;
   /** F126: the owner's *Use for* note (English) — the picker's second line; the BAS proposals' prompt reads it */
   useFor?: string | null;
+  /** D68: BAS's account group (`65`) and its name in English — the picker's sub-heading, searched too */
+  groupCode?: string;
+  groupName?: string | null;
 };
 
 /** Where a suggested account comes from — said on screen, never "AI" unless a model proposed it. */

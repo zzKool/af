@@ -19,7 +19,7 @@ export function basDisplayName(c: {
 
 export async function basPickerOptions(tx: TransactionClient): Promise<BasOption[]> {
   const prefs = await tx.tenantBasPreference.findMany({
-    include: { basCategory: true },
+    include: { basCategory: { include: { group: true } } },
     orderBy: [{ basCategory: { classNum: "asc" } }, { basCategory: { code: "asc" } }],
   });
   return prefs.map((p) => {
@@ -35,6 +35,8 @@ export async function basPickerOptions(tx: TransactionClient): Promise<BasOption
       classNum: c.classNum,
       favourite: p.isFavorite,
       useFor: p.useFor?.trim() || null,
+      groupCode: c.groupCode,
+      groupName: c.group.nameEn ?? c.group.name,
     };
   });
 }

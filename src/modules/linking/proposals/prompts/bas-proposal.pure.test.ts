@@ -13,9 +13,9 @@ import {
 } from "./bas-proposal";
 
 const ACCOUNTS: PromptAccount[] = [
-  { code: "501", name: "Premises rent", nameSv: "Lokalhyra" },
-  { code: "654", name: "IT services", nameSv: "IT-tjänster" },
-  { code: "657", name: "Banking costs", nameSv: "Bankkostnader" },
+  { code: "5010", name: "Premises rent", nameSv: "Lokalhyra" },
+  { code: "6540", name: "IT services", nameSv: "IT-tjänster" },
+  { code: "6570", name: "Banking costs", nameSv: "Bankkostnader" },
 ];
 const EXAMPLES = [
   { text: "DESKSHARE AB 2026-09", amount: "-2500.00", currency: "SEK", basCode: "501" },
@@ -24,7 +24,7 @@ const EXAMPLES = [
 describe("the BAS prompt", () => {
   it("the static part does not depend on the row — every row of a run reuses the cache", () => {
     const sys = basProposalSystem(ACCOUNTS, EXAMPLES);
-    expect(sys).toContain("654 IT services (IT-tjänster)");
+    expect(sys).toContain("6540 IT services (IT-tjänster)");
     expect(sys).toContain("DESKSHARE AB 2026-09 | -2500.00 SEK → 501");
     const a = basProposalUser({
       bookingDate: "2026-09-01",
@@ -44,10 +44,10 @@ describe("the BAS prompt", () => {
 
   it("the owner's note is in the account line, and editing it changes the prompt's facts", () => {
     const noted = ACCOUNTS.map((a) =>
-      a.code === "654" ? { ...a, useFor: "software licences and cloud subscriptions" } : a,
+      a.code === "6540" ? { ...a, useFor: "software licences and cloud subscriptions" } : a,
     );
     expect(basProposalSystem(noted, [])).toContain(
-      "654 IT services (IT-tjänster) — use for: software licences and cloud subscriptions",
+      "6540 IT services (IT-tjänster) — use for: software licences and cloud subscriptions",
     );
     expect(promptFactsHash(noted)).not.toBe(promptFactsHash(ACCOUNTS));
     expect(promptFactsHash(ACCOUNTS)).toBe(promptFactsHash([...ACCOUNTS]));
@@ -55,11 +55,11 @@ describe("the BAS prompt", () => {
 
   it("the answer is bound to the active codes", () => {
     const schema = basProposalSchema(ACCOUNTS.map((a) => a.code));
-    const ok = { basCode: "654", confidence: 0.9, reason: "A software service", alternatives: [] };
+    const ok = { basCode: "6540", confidence: 0.9, reason: "A software service", alternatives: [] };
     expect(schema.safeParse(ok).success).toBe(true);
     expect(schema.safeParse({ ...ok, basCode: "999" }).success).toBe(false);
     expect(
-      schema.safeParse({ ...ok, alternatives: [{ basCode: "580", why: "travel" }] }).success,
+      schema.safeParse({ ...ok, alternatives: [{ basCode: "5800", why: "travel" }] }).success,
     ).toBe(false);
     expect(schema.safeParse({ ...ok, confidence: 1.2 }).success).toBe(false);
   });

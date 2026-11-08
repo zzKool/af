@@ -93,7 +93,7 @@ beforeEach(async () => {
     name: "Skattepunkten Office Services AB",
     types: ["vendor"],
     defaultCurrency: "CHF",
-    defaultBasCategoryCode: "653",
+    defaultBasCategoryCode: "6530",
   });
   skattepunkten = vendor.id;
   saas = (
@@ -104,9 +104,9 @@ beforeEach(async () => {
     })
   ).id;
   const ids = await run(owner.caller, async (tx) => {
-    await settings.activateBasCategories(tx, owner.caller, noopAudit, ["653", "654"]);
-    await settings.updateBasPreference(tx, owner.caller, noopAudit, "653", { shortCode: "Acc" });
-    await settings.updateBasPreference(tx, owner.caller, noopAudit, "654", { shortCode: "IT" });
+    await settings.activateBasCategories(tx, owner.caller, noopAudit, ["6530", "6540"]);
+    await settings.updateBasPreference(tx, owner.caller, noopAudit, "6530", { shortCode: "Acc" });
+    await settings.updateBasPreference(tx, owner.caller, noopAudit, "6540", { shortCode: "IT" });
     const g = await expenses.createGroup(tx, owner.caller, noopAudit, {
       description: "2026-03 — March",
       kind: "batch",
@@ -133,7 +133,7 @@ const julyInvoice = (over: Partial<SupplierInvoiceInput> = {}): SupplierInvoiceI
   amountNet: "1200.00",
   vatAmount: "97.20",
   amountTotal: "1297.20",
-  basCode: "653",
+  basCode: "6530",
   vatRegistrationId: chReg,
   ...over,
 });
@@ -190,7 +190,7 @@ describe("US1 — record a supplier invoice", () => {
         groupId,
         date: "2026-03-12",
         description: "Bokföring",
-        basCode: "653",
+        basCode: "6530",
         amount: "100.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.afSek.id,
@@ -200,7 +200,7 @@ describe("US1 — record a supplier invoice", () => {
     const third = await create(julyInvoice({ invoiceNumber: "9161", invoiceDate: "2026-03-31" }));
     expect(third.data?.key).toBe("SI213-Acc-03");
     const it1 = await create(
-      julyInvoice({ partnerId: saas, invoiceNumber: "INV-1", basCode: "654", currency: "EUR" }),
+      julyInvoice({ partnerId: saas, invoiceNumber: "INV-1", basCode: "6540", currency: "EUR" }),
     );
     expect(it1.data).toMatchObject({ key: "SI213-IT-01", currency: "EUR" });
   });
@@ -253,7 +253,7 @@ describe("US1 — record a supplier invoice", () => {
     });
     const notVendor = await create(julyInvoice({ invoiceNumber: "x", partnerId: client.id }));
     expect(notVendor.error?.message).toMatch(/not a vendor/);
-    const noAlias = await create(julyInvoice({ invoiceNumber: "x", basCode: "657" }));
+    const noAlias = await create(julyInvoice({ invoiceNumber: "x", basCode: "6570" }));
     expect(noAlias.error?.message).toMatch(/no short code/);
     const dup = await create(julyInvoice({ invoiceNumber: " 9160 " }));
     expect(dup.error?.message).toBe(
@@ -398,7 +398,7 @@ describe("US1 — record a supplier invoice", () => {
     await adminPool.query(
       `INSERT INTO subscriptions (id, tenant_id, name, partner_id, becomes, bas_code, group_id, paid_from_account_id,
          cadence, start_date, created_by, updated_at)
-       VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '657', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
+       VALUES ($1, $2, 'Monthly fee', $3, 'supplier_invoice', '6570', $4, $5, 'monthly', '2026-01-14', $6, NOW())`,
       [
         subscriptionId,
         owner.caller.tenantId,
@@ -431,7 +431,7 @@ describe("US1 — record a supplier invoice", () => {
             amountNet: "1000.00",
             vatRate: "8.10",
             vatAmount: "81.00",
-            basCode: "653",
+            basCode: "6530",
           },
           {
             lineNo: 2,
@@ -439,7 +439,7 @@ describe("US1 — record a supplier invoice", () => {
             amountNet: "200.00",
             vatRate: "8.10",
             vatAmount: "17.20",
-            basCode: "654",
+            basCode: "6540",
           },
         ],
       }),
@@ -454,7 +454,7 @@ describe("US1 — record a supplier invoice", () => {
             amountNet: "1000.00",
             vatRate: "8.10",
             vatAmount: "81.00",
-            basCode: "653",
+            basCode: "6530",
           },
           {
             lineNo: 2,
@@ -462,14 +462,14 @@ describe("US1 — record a supplier invoice", () => {
             amountNet: "200.00",
             vatRate: "8.10",
             vatAmount: "16.20",
-            basCode: "654",
+            basCode: "6540",
           },
         ],
       }),
     );
     expect(good.data?.lines.map((l) => [l.lineNo, l.basCode, l.vatAmount])).toEqual([
-      [1, "653", "81.00"],
-      [2, "654", "16.20"],
+      [1, "6530", "81.00"],
+      [2, "6540", "16.20"],
     ]);
     const replaced = await run(owner.caller, (tx) =>
       updateSupplierInvoice(tx, owner.caller, noopAudit, good.data!.id, { lines: null }),
@@ -509,13 +509,13 @@ describe("US1 — record a supplier invoice", () => {
       expect(locked.error?.message).toMatch(/has a payment/);
       const free = await updateSupplierInvoice(tx, owner.caller, noopAudit, r.data!.id, {
         note: "July fee",
-        basCode: "654",
+        basCode: "6540",
         vatRegistrationId: null,
         documentMissing: true,
       });
       expect(free.data).toMatchObject({
         note: "July fee",
-        basCode: "654",
+        basCode: "6540",
         alias: "Acc",
         vatRegistrationId: null,
         documentMissing: true,
@@ -607,7 +607,7 @@ describe("US1 — record a supplier invoice", () => {
       amountNet: "1200.00",
       vatAmount: "97.20",
       amountTotal: "1297.20",
-      basCode: "653",
+      basCode: "6530",
       vatRegistrationId: chReg,
       note: "latest",
       groupId,
@@ -1140,7 +1140,7 @@ describe("US3 / US4 — the list, the KPIs, the pickers, the VAT read model", ()
       allocated: "1297.20",
       open: "0.00",
       partnerName: "Skattepunkten Office Services AB",
-      basLabel: "653 · Accountancy services",
+      basLabel: "6530 · Accountancy services",
       groupNumber: 213,
     });
     expect(byKey["SI213-Acc-02"]).toMatchObject({ status: "unpaid", open: "1297.20" });

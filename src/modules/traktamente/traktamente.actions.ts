@@ -96,7 +96,7 @@ export const upsertTripAction = ownerAction
 
 /** Write the per-diem expense; the breakdown PDF job is enqueued once committed (D29). */
 export const createPerDiemExpenseAction = ownerAction
-  .schema(z.object({ groupId: uuid, basCode: z.string().regex(/^\d{3,4}$/) }))
+  .schema(z.object({ groupId: uuid, basCode: z.string().regex(/^\d{4}$/) }))
   .metadata({ name: "createPerDiemExpense" })
   .action(async ({ ctx, parsedInput }) => {
     const result = await trips.createOrReplacePerDiemExpense(

@@ -94,7 +94,7 @@ const fixtureInput = (groupId: string, e: Fx) => ({
   groupId,
   date: e.date,
   description: e.description,
-  basCode: e.alias === "Tr" ? "580" : "583",
+  basCode: e.alias === "Tr" ? "5800" : "5830",
   amount: e.amount.toFixed(2),
   currency: e.currency as "CHF",
   paidFromAccountId: owner.sources.privateCh.id,
@@ -172,9 +172,9 @@ describe("US1 — a receipt becomes an expense in a group", () => {
 
     // the category changes, the key does not
     const moved = await run(owner.caller, (tx) =>
-      updateExpense(tx, owner.caller, noopAudit, created[0].id, { basCode: "583" }),
+      updateExpense(tx, owner.caller, noopAudit, created[0].id, { basCode: "5830" }),
     );
-    expect(moved.data).toMatchObject({ key: "Ex213-Tr-01", alias: "Tr", basCode: "583" });
+    expect(moved.data).toMatchObject({ key: "Ex213-Tr-01", alias: "Tr", basCode: "5830" });
     // the next Tr continues the series; a fourth kind of alias starts at 01
     const next = await run(owner.caller, (tx) =>
       createExpense(tx, owner.caller, noopAudit, {
@@ -230,9 +230,9 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     await run(owner.caller, async (tx) => {
       const noAlias = await createExpense(tx, owner.caller, noopAudit, {
         ...fixtureInput(g.id, FIXTURE.expenses[0]),
-        basCode: "657",
+        basCode: "6570",
       });
-      expect(noAlias.error?.message).toMatch(/657 Banking costs has no short code/);
+      expect(noAlias.error?.message).toMatch(/6570 Banking costs has no short code/);
       const noGroup = await createExpense(tx, owner.caller, noopAudit, {
         ...fixtureInput("00000000-0000-0000-0000-000000000000", FIXTURE.expenses[0]),
       });
@@ -247,7 +247,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         groupId: g.id,
         date: "2026-03-10",
         description: "ChatGPT subscription",
-        basCode: "580",
+        basCode: "5800",
         amount: "45.00",
         currency: "CHF",
         paidFromAccountId: owner.sources.afSek.id,
@@ -310,7 +310,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       expect(change.error?.message).toMatch(/settled or linked/);
       const facts = await updateExpense(tx, owner.caller, noopAudit, e.data!.id, {
         note: "ok",
-        basCode: "583",
+        basCode: "5830",
       });
       expect(facts.data?.note).toBe("ok");
       const again = await payExpense(tx, owner.caller, noopAudit, {
@@ -370,7 +370,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
           groupId: g.id,
           date: "2026-03-10",
           description,
-          basCode: "580",
+          basCode: "5800",
           amount,
           currency: "SEK",
           paidFromAccountId: owner.sources.afSek.id,
@@ -457,7 +457,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         groupId: g.id,
         date: "2026-03-10",
         description: "Domain renewal",
-        basCode: "580",
+        basCode: "5800",
         amount: "120.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.afSek.id,
@@ -681,7 +681,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         groupId: g.id,
         date: "2026-03-10",
         description: "ChatGPT subscription",
-        basCode: "580",
+        basCode: "5800",
         amount: "45.00",
         currency: "CHF",
         paidFromAccountId: owner.sources.afSek.id,
@@ -803,7 +803,7 @@ describe("US1 — a receipt becomes an expense in a group", () => {
         groupId: g.id,
         date: "2026-03-10",
         description: "ChatGPT subscription",
-        basCode: "580",
+        basCode: "5800",
         amount: "45.00",
         currency: "CHF",
         paidFromAccountId: owner.sources.afSek.id,
@@ -938,7 +938,7 @@ describe("US5 — the list, the groups, the ledger", () => {
         groupId: g.id,
         date: "2026-03-10",
         description: "Company card",
-        basCode: "580",
+        basCode: "5800",
         amount: "45.00",
         currency: "CHF",
         paidFromAccountId: owner.sources.afSek.id,
@@ -1048,7 +1048,7 @@ describe("US5 — the list, the groups, the ledger", () => {
     await run(owner.caller, (tx) =>
       updateExpense(tx, owner.caller, realAudit(tx, owner.caller), e.data!.id, {
         note: "Booked online",
-        basCode: "583",
+        basCode: "5830",
       }),
     );
     // an amount edit is named too — the trail keeps money as decimal strings (F84)

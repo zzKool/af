@@ -35,12 +35,12 @@ function input(
 describe("stage1", () => {
   it("US1: two rows set by hand → the category and the partner, remembered, HIGH", () => {
     const drafts = stage1(
-      input({ memory: { bas: [{ code: "654", n: 2 }], partner: [{ id: P1, n: 2 }] } }),
+      input({ memory: { bas: [{ code: "6540", n: 2 }], partner: [{ id: P1, n: 2 }] } }),
     );
     expect(drafts).toEqual([
       {
         kind: "bas",
-        payload: { basCode: "654", alternatives: [] },
+        payload: { basCode: "6540", alternatives: [] },
         source: "memory",
         confidence: 0.8,
         reason: "Set by hand on 2 rows of this counterparty",
@@ -57,14 +57,14 @@ describe("stage1", () => {
   });
 
   it("one row is not a memory; a split history (< 70 %) is not either", () => {
-    expect(stage1(input({ memory: { bas: [{ code: "654", n: 1 }], partner: [] } }))).toEqual([]);
+    expect(stage1(input({ memory: { bas: [{ code: "6540", n: 1 }], partner: [] } }))).toEqual([]);
     expect(
       stage1(
         input({
           memory: {
             bas: [
-              { code: "654", n: 2 },
-              { code: "659", n: 2 },
+              { code: "6540", n: 2 },
+              { code: "6590", n: 2 },
             ],
             partner: [],
           },
@@ -75,7 +75,7 @@ describe("stage1", () => {
 
   it("a rule made after the import comes first, at 1.00", () => {
     const [d] = stage1(
-      input({ rule: { ruleId: "r", ruleName: "CLOUDHOST", basCode: "654", partnerId: null } }),
+      input({ rule: { ruleId: "r", ruleName: "CLOUDHOST", basCode: "6540", partnerId: null } }),
     );
     expect(d).toMatchObject({
       kind: "bas",
@@ -86,7 +86,7 @@ describe("stage1", () => {
   });
 
   it("the partner's default when the row has a partner and no category; no partner proposal then", () => {
-    const drafts = stage1(input({ row: { partnerId: P1 }, partnerDefault: "583" }));
+    const drafts = stage1(input({ row: { partnerId: P1 }, partnerDefault: "5830" }));
     expect(drafts).toHaveLength(1);
     expect(drafts[0]).toMatchObject({ kind: "bas", source: "partner_default", confidence: 0.95 });
   });
@@ -95,15 +95,15 @@ describe("stage1", () => {
     const [d] = stage1(
       input({
         row: { partnerId: P1 },
-        partnerDefault: "583",
-        memory: { bas: [{ code: "654", n: 5 }], partner: [] },
+        partnerDefault: "5830",
+        memory: { bas: [{ code: "6540", n: 5 }], partner: [] },
       }),
     );
     expect(d).toMatchObject({
       kind: "bas",
       source: "partner_default",
       confidence: 0.79,
-      payload: { basCode: "583", alternatives: [{ basCode: "654" }] },
+      payload: { basCode: "5830", alternatives: [{ basCode: "6540" }] },
     });
     expect(familyOf(d.confidence)).toBe("medium");
   });
@@ -112,8 +112,8 @@ describe("stage1", () => {
     expect(
       stage1(
         input({
-          row: { basCode: "654", partnerId: P2 },
-          memory: { bas: [{ code: "659", n: 9 }], partner: [{ id: P1, n: 9 }] },
+          row: { basCode: "6540", partnerId: P2 },
+          memory: { bas: [{ code: "6590", n: 9 }], partner: [{ id: P1, n: 9 }] },
         }),
       ),
     ).toEqual([]);
@@ -122,8 +122,8 @@ describe("stage1", () => {
   it("every draft's payload reads back through its parser", () => {
     for (const d of stage1(
       input({
-        rule: { ruleId: "r", ruleName: "X", basCode: "654", partnerId: P1 },
-        memory: { bas: [{ code: "659", n: 3 }], partner: [{ id: P2, n: 3 }] },
+        rule: { ruleId: "r", ruleName: "X", basCode: "6540", partnerId: P1 },
+        memory: { bas: [{ code: "6590", n: 3 }], partner: [{ id: P2, n: 3 }] },
       }),
     ))
       expect(parsePayload(d.kind, d.payload)).not.toBeNull();
@@ -144,7 +144,7 @@ describe("policy", () => {
   });
 
   it("property: any single stage-1 source alone is HIGH; a disagreement is never HIGH", () => {
-    const code = fc.constantFrom("654", "659", "583", "657");
+    const code = fc.constantFrom("6540", "6590", "5830", "6570");
     fc.assert(
       fc.property(code, code, fc.integer({ min: 2, max: 40 }), (a, b, n) => {
         const alone = stage1(input({ memory: { bas: [{ code: a, n }], partner: [] } }));
@@ -175,10 +175,10 @@ describe("policy", () => {
   it("fromMemory: the top value, with its count and the total", () => {
     expect(
       fromMemory([
-        { value: "654", n: 3 },
-        { value: "659", n: 1 },
+        { value: "6540", n: 3 },
+        { value: "6590", n: 1 },
       ]),
-    ).toEqual({ value: "654", n: 3, total: 4 });
+    ).toEqual({ value: "6540", n: 3, total: 4 });
     expect(fromMemory([])).toBeNull();
   });
 });

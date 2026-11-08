@@ -37,7 +37,7 @@ beforeEach(async () => {
     name: "Tabula Pro",
     partnerId,
     becomes: "expense",
-    basCode: "580",
+    basCode: "5800",
     newGroup: { description: "Tabula Pro" },
     paidFromAccountId: owner.sources.afSek.id,
     cadence: "monthly",

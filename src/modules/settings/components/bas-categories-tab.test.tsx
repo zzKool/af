@@ -44,8 +44,8 @@ const cat = (code: string, name: string, nameEn: string) => ({
   suggestedAlias: null,
 });
 const CATS = [
-  cat("654", "IT-tjänster", "IT services"),
-  cat("657", "Bankkostnader", "Banking costs"),
+  cat("6540", "IT-tjänster", "IT services"),
+  cat("6570", "Bankkostnader", "Banking costs"),
 ];
 const pref = (
   c: (typeof CATS)[number],
@@ -80,14 +80,14 @@ describe("BasCategoriesTab — Use for notes", () => {
       "1 of 2 active accounts confirmed · 1 drafts",
     );
     expect(screen.getByTestId("bas-draft-ai")).toBeDisabled();
-    expect(screen.getByTestId("bas-note-654")).toHaveAttribute("data-state", "draft");
-    expect(screen.getByTestId("bas-note-654")).toHaveTextContent("DraftSoftware licences");
-    expect(screen.queryByTestId("bas-note-confirm-657")).toBeNull();
-    fireEvent.click(screen.getByTestId("bas-note-confirm-654"));
+    expect(screen.getByTestId("bas-note-6540")).toHaveAttribute("data-state", "draft");
+    expect(screen.getByTestId("bas-note-6540")).toHaveTextContent("DraftSoftware licences");
+    expect(screen.queryByTestId("bas-note-confirm-6570")).toBeNull();
+    fireEvent.click(screen.getByTestId("bas-note-confirm-6540"));
     await waitFor(() =>
-      expect(screen.getByTestId("bas-note-654")).toHaveAttribute("data-state", "confirmed"),
+      expect(screen.getByTestId("bas-note-6540")).toHaveAttribute("data-state", "confirmed"),
     );
-    expect(confirm).toHaveBeenCalledWith({ codes: ["654"] });
+    expect(confirm).toHaveBeenCalledWith({ codes: ["6540"] });
     expect(screen.queryByTestId("bas-confirm-all")).toBeNull();
   });
 
@@ -100,5 +100,56 @@ describe("BasCategoriesTab — Use for notes", () => {
       />,
     );
     expect(screen.getByTestId("bas-draft-ai")).toBeEnabled();
+  });
+});
+
+// D68 (F148): class → group → accounts; a group holding an active account opens by itself, the others on a click;
+// a sub-account sits indented under its main account.
+describe("BasCategoriesTab — BAS's groups (D68)", () => {
+  afterEach(cleanup);
+  const c4 = (
+    code: string,
+    name: string,
+    kind: "main" | "sub",
+    parentCode: string | null = null,
+  ) => ({
+    ...cat(code, name, name),
+    groupCode: code.slice(0, 2),
+    kind,
+    parentCode,
+  });
+  const ACCOUNTS = [
+    c4("6070", "Representation", "main"),
+    c4("6072", "Representation, not deductible", "sub", "6070"),
+    c4("6540", "IT services", "main"),
+    c4("6541", "IT operations", "sub", "6540"),
+  ];
+  const GROUPS = [
+    {
+      code: "60",
+      classNum: 6,
+      name: "ÖVRIGA EXTERNA RÖRELSEUTGIFTER",
+      nameEn: "Other operating expenses",
+    },
+    { code: "65", classNum: 6, name: "ÖVRIGA EXTERNA TJÄNSTER", nameEn: "Other external services" },
+  ];
+
+  it("the group headings with their counts; only the active group is open; a click opens another", () => {
+    render(
+      <BasCategoriesTab
+        initialCategories={ACCOUNTS}
+        groups={GROUPS}
+        initialPreferences={[pref(ACCOUNTS[2] as never, null, null)]}
+      />,
+    );
+    fireEvent.click(screen.getByText(/^6\./));
+    expect(screen.getByTestId("bas-group-65")).toHaveTextContent("65Other external services");
+    expect(screen.getByTestId("bas-group-65")).toHaveTextContent("1/2 active");
+    expect(screen.getByTestId("bas-group-65")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("bas-group-60")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("6541")).toHaveClass("pl-3"); // the sub-account, indented
+    expect(screen.queryByText("6072")).toBeNull();
+    fireEvent.click(screen.getByTestId("bas-group-60"));
+    expect(screen.getByText("6072")).toBeInTheDocument();
   });
 });

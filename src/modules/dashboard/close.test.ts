@@ -94,7 +94,7 @@ async function world() {
       groupId: trip.data?.id as string,
       date: "2026-06-03",
       description: "Train",
-      basCode: "580",
+      basCode: "5800",
       amount: "80.00",
       currency: "CHF",
       paidFromAccountId: owner.sources.privateCh.id,

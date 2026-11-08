@@ -205,10 +205,10 @@ export const NO_PROOF_REASONS_INCOMING: readonly NoProofReason[] = [
 ];
 /** the account each reason proposes (the owner's active set may not hold it — then none is written) */
 export const NO_PROOF_BAS: Record<NoProofReason, string | null> = {
-  fee: "657",
-  tax: "251",
-  salary: "721",
-  interest: "831",
+  fee: "6570",
+  tax: "2510",
+  salary: "7210",
+  interest: "8310",
   client: null,
   other: null,
 };

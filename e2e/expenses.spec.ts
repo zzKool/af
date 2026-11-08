@@ -49,9 +49,9 @@ test.describe("Expenses", () => {
         await page.getByRole("option", { name: option }).click();
       };
       const receipts: [string, string, RegExp][] = [
-        ["Hotel", "6450.00", /^580/],
-        ["Transport", "1620.00", /^580/],
-        ["Meals", "2695.00", /^583/],
+        ["Hotel", "6450.00", /^5800/],
+        ["Transport", "1620.00", /^5800/],
+        ["Meals", "2695.00", /^5830/],
       ];
       for (const [i, [desc, amount, category]] of receipts.entries()) {
         await page.getByTestId("open-new-expense").click();
@@ -252,7 +252,7 @@ test.describe("Expenses", () => {
       const partnerUrl = page.url();
       const basField = page.getByText("BAS Category", { exact: true }).locator("..");
       await basField.getByRole("combobox").click();
-      await page.getByRole("option", { name: /^583/ }).click();
+      await page.getByRole("option", { name: /^5830/ }).click();
       await expect(async () => {
         await page.reload();
         await expect(
@@ -281,7 +281,7 @@ test.describe("Expenses", () => {
       await dialog.getByLabel("Date", { exact: true }).fill("2025-04-02");
       await page.getByTestId("expense-description").fill("Dinner with the client");
       await pick("Partner", vendorName);
-      await expect(dialog.getByLabel("Category", { exact: true })).toContainText(/^583/);
+      await expect(dialog.getByLabel("Category", { exact: true })).toContainText(/^5830/);
       await expect(dialog.getByTestId("category-from-partner")).toBeVisible();
       await page.getByTestId("expense-amount").fill("842.00");
       await page.getByTestId("create-expense").click();

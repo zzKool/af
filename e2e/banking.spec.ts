@@ -165,7 +165,7 @@ test.describe("Banking", () => {
     await page.keyboard.press("ArrowLeft");
     await expect.poll(() => widthOf("[data-testid=transaction-panel]")).toBe(defaultWidth + 40);
     await panel.getByLabel("Category").click();
-    await page.getByRole("option", { name: /^654 · IT services/ }).click();
+    await page.getByRole("option", { name: /^6540 · IT services/ }).click();
     await expect(page.getByText("Saved").first()).toBeVisible();
     await panel.getByTestId("create-rule").click();
     const dialog = page.getByTestId("rule-dialog");
@@ -268,8 +268,10 @@ test.describe("Banking", () => {
     await expect(page.getByTestId("rule-near-miss").filter({ hasText: insurance })).toHaveCount(0);
     await page.goto("/banking");
     await showColumns(page, ["Category"]); // one tick away beside the work surface (F131 §6.2)
-    await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText("657");
-    await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("831");
+    await expect(page.getByRole("row").filter({ hasText: "AVGIFTER NORDEA" })).toContainText(
+      "6570",
+    );
+    await expect(page.getByRole("row").filter({ hasText: "Ranta" })).toContainText("8310");
     // the three imports of this journey are listed (other journeys import too — CI runs two workers)
     await page.goto("/banking/imports");
     for (const name of [

@@ -29,7 +29,14 @@ type BasCategory = {
   classNum: number;
   isCommon: boolean;
   suggestedAlias: string | null;
+  /** D68 (F148): BAS's account group (`65`), main account `NNN0` or a sub-account under `parentCode` */
+  groupCode?: string;
+  kind?: "main" | "sub";
+  parentCode?: string | null;
 };
+
+/** D68: BAS's two-digit account group */
+type BasGroupRef = { code: string; classNum: number; name: string; nameEn: string | null };
 
 type BasPreference = {
   id: string;
@@ -45,6 +52,8 @@ type BasPreference = {
 
 type Props = {
   initialCategories: BasCategory[];
+  /** D68: the account groups — the accordion's second level (class → group → accounts) */
+  groups?: BasGroupRef[];
   initialPreferences: BasPreference[];
   /** the local model is configured — *Draft with AI* is offered */
   aiOn?: boolean;
@@ -71,7 +80,12 @@ function actionError(result: {
 // ─────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────
-export function BasCategoriesTab({ initialCategories, initialPreferences, aiOn = false }: Props) {
+export function BasCategoriesTab({
+  initialCategories,
+  groups = [],
+  initialPreferences,
+  aiOn = false,
+}: Props) {
   const t = useT();
   const search = useBasSearch((s) => s.search);
   const setSearch = useCallback((v: string) => useBasSearch.store.setState({ search: v }), []);
@@ -488,6 +502,8 @@ export function BasCategoriesTab({ initialCategories, initialPreferences, aiOn =
           <ClassAccordion
             key={classNum}
             classNum={classNum}
+            groups={groups}
+            searching={search.trim() !== ""}
             className={categories[0]?.className || ""}
             categories={categories}
             preferences={preferences}
@@ -548,7 +564,7 @@ function QuickStartPreview({
               onChange={() => onToggle(cat.code)}
               className="rounded"
             />
-            <span className="font-mono text-xs text-muted-foreground w-8">{cat.code}</span>
+            <span className="font-mono text-xs text-muted-foreground w-10">{cat.code}</span>
             <span>{cat.nameEn || cat.name}</span>
             {cat.nameEn && (
               <span className="text-xs text-muted-foreground italic" title={cat.name}>
@@ -577,11 +593,18 @@ function QuickStartPreview({
   );
 }
 
+/** A line of a class's list: a group heading, or an account under it */
+type Entry =
+  | { type: "group"; group: BasGroupRef; active: number; total: number; open: boolean }
+  | { type: "account"; cat: BasCategory };
+
 // ─────────────────────────────────────────────────────────────
 // Class Accordion with Virtual List
 // ─────────────────────────────────────────────────────────────
 function ClassAccordion({
   classNum,
+  groups,
+  searching,
   className,
   categories,
   preferences,
@@ -599,6 +622,8 @@ function ClassAccordion({
   onConfirmNote,
 }: {
   classNum: number;
+  groups: BasGroupRef[];
+  searching: boolean;
   className: string;
   categories: BasCategory[];
   preferences: Map<string, BasPreference>;
@@ -619,12 +644,41 @@ function ClassAccordion({
   const parentRef = useRef<HTMLDivElement>(null);
   const activeCount = categories.filter((c) => preferences.has(c.code)).length;
 
+  // D68 (F148): BAS's levels — class → group → accounts. A group opens by itself when it holds an active account
+  // (or a search finds something in it); a click on its heading opens or closes it.
+  const [toggled, setToggled] = useState<Map<string, boolean>>(new Map());
+  const entries = useMemo<Entry[]>(() => {
+    const byGroup = new Map<string, BasCategory[]>();
+    for (const c of categories) {
+      const g = c.groupCode ?? c.code.slice(0, 2);
+      byGroup.set(g, [...(byGroup.get(g) ?? []), c]);
+    }
+    const out: Entry[] = [];
+    for (const [code, list] of [...byGroup].sort(([a], [b]) => a.localeCompare(b))) {
+      const active = list.filter((c) => preferences.has(c.code)).length;
+      const open = toggled.get(code) ?? (searching || active > 0);
+      out.push({
+        type: "group",
+        group: groups.find((g) => g.code === code) ?? { code, classNum, name: "", nameEn: null },
+        active,
+        total: list.length,
+        open,
+      });
+      if (open) for (const c of list) out.push({ type: "account", cat: c });
+    }
+    return out;
+  }, [categories, groups, preferences, toggled, searching, classNum]);
+
   const virtualizer = useVirtualizer({
-    count: categories.length,
+    count: entries.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (index) =>
-      (expandedRows.has(categories[index].code) ? 160 : 44) +
-      (preferences.get(categories[index].code)?.useFor ? 20 : 0),
+    estimateSize: (index) => {
+      const e = entries[index];
+      if (e.type === "group") return 34;
+      return (
+        (expandedRows.has(e.cat.code) ? 160 : 44) + (preferences.get(e.cat.code)?.useFor ? 20 : 0)
+      );
+    },
     overscan: 10,
   });
 
@@ -640,7 +694,10 @@ function ClassAccordion({
           <span className="font-medium text-sm">
             {classNum}. {t(`settings.bas.class.${classNum as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`)}
           </span>
-          <span className="text-xs text-muted-foreground italic">{className}</span>
+          {/* the first group's Swedish heading said nothing about the class — the groups below say it (D68) */}
+          {groups.length === 0 && (
+            <span className="text-xs text-muted-foreground italic">{className}</span>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">
           {t("settings.bas.activeOf", { active: activeCount, total: categories.length })}
@@ -651,7 +708,47 @@ function ClassAccordion({
         <div ref={parentRef} className="max-h-[400px] overflow-auto border-t">
           <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
             {virtualizer.getVirtualItems().map((virtualRow) => {
-              const cat = categories[virtualRow.index];
+              const entry = entries[virtualRow.index];
+              if (entry.type === "group")
+                return (
+                  <div
+                    key={`g-${entry.group.code}`}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 border-b bg-muted/40 px-3 py-1.5 text-left text-xs hover:bg-muted"
+                      aria-expanded={entry.open}
+                      data-testid={`bas-group-${entry.group.code}`}
+                      onClick={() =>
+                        setToggled((prev) => new Map(prev).set(entry.group.code, !entry.open))
+                      }
+                    >
+                      <ChevronDown
+                        className={`h-3 w-3 transition-transform ${entry.open ? "" : "-rotate-90"}`}
+                      />
+                      <span className="font-mono font-semibold">{entry.group.code}</span>
+                      <span className="font-medium">{entry.group.nameEn || entry.group.name}</span>
+                      {entry.group.nameEn && (
+                        <span className="truncate text-muted-foreground italic">
+                          {entry.group.name}
+                        </span>
+                      )}
+                      <span className="ml-auto shrink-0 text-muted-foreground">
+                        {t("settings.bas.activeOf", { active: entry.active, total: entry.total })}
+                      </span>
+                    </button>
+                  </div>
+                );
+              const cat = entry.cat;
               const pref = preferences.get(cat.code);
               const isSaving = savingCodes.has(cat.code);
               const isRowExpanded = expandedRows.has(cat.code);
@@ -742,7 +839,9 @@ function CategoryRow({
         />
 
         {/* Code */}
-        <span className="font-mono text-xs text-muted-foreground w-8 shrink-0">
+        <span
+          className={`font-mono text-xs text-muted-foreground w-10 shrink-0 ${category.kind === "sub" ? "pl-3" : ""}`}
+        >
           {category.code}
         </span>
 

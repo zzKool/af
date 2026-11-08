@@ -81,7 +81,7 @@ describe("MakeItSection (specs/documents US1)", () => {
       basProposal: null, // F126: no AI proposal for this document
     });
     // F126: the AI's account reaches both dialogs
-    const hint = { code: "654", reason: "A software plan", prefill: true };
+    const hint = { code: "6540", reason: "A software plan", prefill: true };
     const withHint = initialFromFacts("doc-1", "k", facts, hint);
     expect(withHint.expense.basProposal).toEqual(hint);
     expect(withHint.supplier.basProposal).toEqual(hint);

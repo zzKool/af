@@ -101,12 +101,12 @@ import { CategoriseForm, type PartnerOption, proposedCategory } from "./categori
 const OPENAI = "55555555-5555-4555-8555-555555555555";
 const NORDEA = "66666666-6666-4666-8666-666666666666";
 const partners: PartnerOption[] = [
-  { id: OPENAI, name: "OpenAI", defaultBasCode: "654" },
+  { id: OPENAI, name: "OpenAI", defaultBasCode: "6540" },
   { id: NORDEA, name: "Nordea", defaultBasCode: null },
 ];
 const categories = [
-  { code: "654", label: "654 · Programvaror" },
-  { code: "657", label: "657 · Bankkostnader" },
+  { code: "6540", label: "6540 · Programvaror" },
+  { code: "6570", label: "6570 · Bankkostnader" },
 ];
 const entry = (basCode: string | null) => ({
   id: "77777777-7777-4777-8777-777777777777",
@@ -124,8 +124,8 @@ describe("the partner's default category (T002)", () => {
   });
 
   it("proposedCategory: only when the row has none and the partner has one", () => {
-    expect(proposedCategory(null, OPENAI, partners)).toBe("654");
-    expect(proposedCategory("657", OPENAI, partners)).toBeNull();
+    expect(proposedCategory(null, OPENAI, partners)).toBe("6540");
+    expect(proposedCategory("6570", OPENAI, partners)).toBeNull();
     expect(proposedCategory(null, NORDEA, partners)).toBeNull();
     expect(proposedCategory(null, null, partners)).toBeNull();
   });
@@ -139,21 +139,21 @@ describe("the partner's default category (T002)", () => {
       expect(calls.categorise).toHaveBeenCalledWith({
         id: entry(null).id,
         partnerId: OPENAI,
-        basCode: "654",
+        basCode: "6540",
       }),
     );
-    expect(screen.getByLabelText("Category")).toHaveValue("654");
+    expect(screen.getByLabelText("Category")).toHaveValue("6540");
   });
 
   it("categorise form: a category already set is never overwritten — only the partner is saved", async () => {
     render(
-      <CategoriseForm entry={entry("657")} categories={categories} partners={partners} canWrite />,
+      <CategoriseForm entry={entry("6570")} categories={categories} partners={partners} canWrite />,
     );
     fireEvent.change(screen.getByLabelText("Partner"), { target: { value: OPENAI } });
     await waitFor(() =>
       expect(calls.categorise).toHaveBeenCalledWith({ id: entry(null).id, partnerId: OPENAI }),
     );
-    expect(screen.getByLabelText("Category")).toHaveValue("657");
+    expect(screen.getByLabelText("Category")).toHaveValue("6570");
   });
 });
 
@@ -170,10 +170,10 @@ describe("F98 — a HIGH proposal pre-filled (the owner's answer 2)", () => {
         categories={categories}
         partners={partners}
         canWrite
-        prefill={{ basCode: "654", partnerId: OPENAI }}
+        prefill={{ basCode: "6540", partnerId: OPENAI }}
       />,
     );
-    expect(screen.getByLabelText("Category")).toHaveValue("654");
+    expect(screen.getByLabelText("Category")).toHaveValue("6540");
     expect(screen.getByLabelText("Partner")).toHaveValue(OPENAI);
     expect(screen.getByTestId("prefill-hint")).toBeInTheDocument();
     expect(calls.categorise).not.toHaveBeenCalled();
@@ -182,14 +182,14 @@ describe("F98 — a HIGH proposal pre-filled (the owner's answer 2)", () => {
   it("a category already on the row wins over the proposal", () => {
     render(
       <CategoriseForm
-        entry={entry("657")}
+        entry={entry("6570")}
         categories={categories}
         partners={partners}
         canWrite
-        prefill={{ basCode: "654" }}
+        prefill={{ basCode: "6540" }}
       />,
     );
-    expect(screen.getByLabelText("Category")).toHaveValue("657");
+    expect(screen.getByLabelText("Category")).toHaveValue("6570");
     expect(screen.queryByTestId("prefill-hint")).toBeNull();
   });
 
@@ -200,12 +200,12 @@ describe("F98 — a HIGH proposal pre-filled (the owner's answer 2)", () => {
         categories={categories}
         partners={partners}
         canWrite
-        prefill={{ basCode: "654" }}
+        prefill={{ basCode: "6540" }}
       />,
     );
-    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "657" } });
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "6570" } });
     await waitFor(() =>
-      expect(calls.categorise).toHaveBeenCalledWith({ id: entry(null).id, basCode: "657" }),
+      expect(calls.categorise).toHaveBeenCalledWith({ id: entry(null).id, basCode: "6570" }),
     );
   });
 });

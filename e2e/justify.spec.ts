@@ -81,7 +81,7 @@ test.describe("Justify", () => {
       await page.getByRole("option", { name: "Private SE" }).click();
       await page.getByTestId("expense-description").fill(`Train ${stamp}`);
       await expenseDialog.getByLabel("Category", { exact: true }).click();
-      await page.getByRole("option", { name: /^580/ }).click();
+      await page.getByRole("option", { name: /^5800/ }).click();
       await page.getByTestId("expense-amount").fill("420.00");
       await page.getByTestId("create-expense").click();
       await expectToast(page, "Tr-01 created");
@@ -172,7 +172,7 @@ test.describe("Justify", () => {
       await snapElement(dialog.getByTestId("reading-checks"), "reading-dialog-checks-element");
       // the category, then the one click — warn, never block
       await dialog.getByTestId("justify-category").click();
-      await page.getByRole("option", { name: /^654/ }).click();
+      await page.getByRole("option", { name: /^6540/ }).click();
       await expect(dialog.getByTestId("justify-create")).toBeEnabled();
       await dialog.getByTestId("justify-create").click();
       await expectToast(page, "created and linked");
@@ -214,7 +214,7 @@ test.describe("Justify", () => {
       await page.getByRole("option", { name: "+ New group…" }).click();
       await dialog.getByTestId("new-group-description").fill(groupName);
       await dialog.getByTestId("justify-category").click();
-      await page.getByRole("option", { name: /^580/ }).click();
+      await page.getByRole("option", { name: /^5800/ }).click();
       await dialog.getByTestId("justify-create").click();
       await expectToast(page, "created and linked");
       await expect(inboxRow(`ICA ${stamp}`)).toHaveCount(0, { timeout: 20_000 });
@@ -252,7 +252,7 @@ test.describe("Justify", () => {
       await dialog.getByTestId("justify-group").getByRole("combobox").click();
       await page.getByRole("option", { name: new RegExp(groupName) }).click();
       await dialog.getByTestId("justify-category").click();
-      await page.getByRole("option", { name: /^580/ }).click();
+      await page.getByRole("option", { name: /^5800/ }).click();
       await snap(page, "reading-dialog-lost");
       await dialog.getByTestId("justify-create").click();
       await expectToast(page, "created and linked");
@@ -269,7 +269,7 @@ test.describe("Justify", () => {
       await expect(icaRow).toContainText("Linked");
       await expect(icaRow).toContainText(supplier);
       const feeRow = page.getByRole("row").filter({ hasText: `PRISAVGIFT ${stamp}` });
-      await expect(feeRow).toContainText("657");
+      await expect(feeRow).toContainText("6570");
       await expect(feeRow).toContainText("Nordea");
       await expect(feeRow).toContainText("No document needed");
       await expect(page.getByRole("row").filter({ hasText: `CAFE ${stamp}` })).toContainText(

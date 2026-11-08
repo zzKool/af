@@ -132,7 +132,7 @@ const partners = [
   { id: "p-tools", name: "Invented Tools", defaultBasCode: null },
   { id: "p-client", name: "Invented Client", defaultBasCode: null },
 ];
-const categories = [{ code: "654", label: "654 · IT services" }];
+const categories = [{ code: "6540", label: "6540 · IT services" }];
 
 function view(rows: ReconcileRow[], done: ReconcileData["done"] = []) {
   const data: ReconcileData = {

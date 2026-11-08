@@ -27,7 +27,7 @@ const options: SubscriptionPageOptions = {
   categories: [
     { code: "6540", label: "6540 · IT-tjänster (IT)" },
     { code: "6550", label: "6550 · Konsultarvoden (Kons)" },
-    { code: "580", label: "580 · Resekostnader (Tr)" },
+    { code: "5800", label: "5800 · Resekostnader (Tr)" },
   ],
   groups: [{ id: "g1", label: "217 — Online subscription" }],
   sources: [
@@ -55,9 +55,9 @@ describe("SubscriptionFormDialog", () => {
     expect(screen.getByTestId("sub-match")).toHaveValue("Byteform AB");
     expect(screen.getByTestId("sub-group")).toHaveTextContent("Byteform AB");
     // the owner chooses another category: a second vendor no longer moves it
-    await pick("sub-category", "580 · Resekostnader (Tr)");
+    await pick("sub-category", "5800 · Resekostnader (Tr)");
     await pick("sub-vendor", "Tabula GmbH");
-    expect(screen.getByTestId("sub-category")).toHaveTextContent("580");
+    expect(screen.getByTestId("sub-category")).toHaveTextContent("5800");
     expect(screen.getByTestId("sub-currency")).toHaveTextContent("EUR");
   });
 

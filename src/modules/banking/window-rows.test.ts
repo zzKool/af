@@ -98,7 +98,7 @@ describe("outgoingRowsInWindow", () => {
         groupId: g.data!.id,
         date: "2026-03-12",
         description: "Byteform",
-        basCode: "580",
+        basCode: "5800",
         amount: "199.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.afSek.id,

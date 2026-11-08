@@ -24,4 +24,4 @@ export const positiveRate = z
   .refine((v) => Number(v) > 0, "The rate must be positive");
 
 /** A BAS account code: 3 or 4 digits. */
-export const basCode = z.string().regex(/^\d{3,4}$/, "A BAS code is 3 or 4 digits");
+export const basCode = z.string().regex(/^\d{4}$/, "A BAS account is 4 digits"); // D68

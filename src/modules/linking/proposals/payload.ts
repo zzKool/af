@@ -8,7 +8,7 @@ export type ProposalKindName = (typeof PROPOSAL_KINDS)[number];
 export const PROPOSAL_SOURCES = ["rule", "partner_default", "memory", "model"] as const;
 export type ProposalSourceName = (typeof PROPOSAL_SOURCES)[number];
 
-const basCode = z.string().regex(/^\d{3,4}$/);
+const basCode = z.string().regex(/^\d{4}$/); // D68: four digits
 
 export const basPayloadSchema = z.object({
   basCode,

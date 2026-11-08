@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { stockholmDay } from "@/kernel/clock/clock";
 import { cleanupTestData } from "@/kernel/db/test-fixtures";
 import { RollbackError } from "@/kernel/errors/app-error";
 import * as banking from "@/modules/banking";
@@ -226,15 +227,16 @@ describe("acceptMatch (F139 FR-002)", () => {
         bankTransactionId: w.card,
         to: { type: "document", id: w.documentId },
         partnerId: vendor.data?.id,
-        basCode: "654",
+        basCode: "6540",
       }),
     );
     expect(link.error).toBeUndefined();
     const row = await run(owner.caller, (tx) => banking.getTransaction(tx, w.card));
-    expect(row.data?.transaction).toMatchObject({ partnerId: vendor.data?.id, basCode: "654" });
+    expect(row.data?.transaction).toMatchObject({ partnerId: vendor.data?.id, basCode: "6540" });
 
     const done = await run(owner.caller, (tx) =>
-      doneToday(tx, new Date().toISOString().slice(0, 10)),
+      // the day as the app counts it (Stockholm) — a UTC date broke the test between 23:00 and 01:00 UTC
+      doneToday(tx, stockholmDay(new Date())),
     );
     expect(done.map((x) => x.linkId)).toContain(link.data?.id);
 

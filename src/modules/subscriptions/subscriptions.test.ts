@@ -65,7 +65,7 @@ const input = (o: Partial<SubscriptionInput> = {}): SubscriptionInput => ({
   name: "Byteform",
   partnerId: byteform,
   becomes: "expense",
-  basCode: "580",
+  basCode: "5800",
   newGroup: { description: "Byteform" },
   paidFromAccountId: owner.sources.afSek.id,
   cadence: "monthly",
@@ -121,7 +121,7 @@ describe("US1 — describe a subscription once", () => {
     expect((await create({ partnerId: client.id })).error?.message).toMatch(/Pick a vendor/);
     expect((await create({ partnerId: inactive.id })).error?.message).toMatch(/inactive partner/);
     expect((await create({ basCode: "6540" })).error?.message).toMatch(/not active/);
-    expect((await create({ basCode: "657" })).error?.message).toMatch(/no short code/);
+    expect((await create({ basCode: "6570" })).error?.message).toMatch(/no short code/);
     expect(
       (await create({ becomes: "supplier_invoice", paidFromAccountId: owner.sources.privateSe.id }))
         .error?.message,
@@ -234,7 +234,7 @@ describe("US5 — prices, pauses, the end", () => {
         groupId: r.data!.groupId,
         date: "2026-03-16",
         description: "Byteform",
-        basCode: "580",
+        basCode: "5800",
         amount: "199.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.afSek.id,
@@ -267,7 +267,7 @@ describe("US5 — prices, pauses, the end", () => {
         groupId: r.data!.groupId,
         date: "2026-02-15",
         description: "Byteform",
-        basCode: "580",
+        basCode: "5800",
         amount: "199.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.afSek.id,
@@ -327,7 +327,7 @@ describe("US2 — the periods' state from real entities", () => {
           groupId: sub.data!.subscription.groupId,
           date,
           description: "Byteform",
-          basCode: "580",
+          basCode: "5800",
           amount: "199.00",
           currency: "SEK",
           paidFromAccountId: owner.sources.afSek.id,
@@ -374,7 +374,7 @@ describe("US2 — the periods' state from real entities", () => {
         groupId: g.data!.id,
         date: "2026-10-16",
         description: "Byteform",
-        basCode: "580",
+        basCode: "5800",
         amount: "199.00",
         currency: "SEK",
         paidFromAccountId: owner.sources.privateSe.id,
@@ -425,7 +425,7 @@ describe("F116 PR C2 — a subscription as a rule", () => {
       name: "Byteform (subscription)",
       matchPattern: "BYTEFORM",
       matchField: "all",
-      basCode: "580",
+      basCode: "5800",
       partnerId: byteform,
       bankAccountId: owner.sources.afSek.id,
       sign: "out",
@@ -468,7 +468,7 @@ describe("F116 PR C2 — a subscription as a rule", () => {
     const base = {
       name: "Tabular",
       matchText: "TABULAR",
-      basCode: "540",
+      basCode: "5400",
       partnerId: "p",
       bankAccountId: "a",
       accountCurrency: "SEK",

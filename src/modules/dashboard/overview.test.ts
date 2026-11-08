@@ -158,7 +158,7 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       groupId: trip.data?.id as string,
       date: "2026-06-03",
       description: "Train",
-      basCode: "580",
+      basCode: "5800",
       amount: "120.00",
       currency: "CHF",
       paidFromAccountId: owner.sources.privateCh.id,
@@ -173,8 +173,8 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
     defaultCurrency: "SEK",
   });
   await run(owner.caller, async (tx) => {
-    await settings.activateBasCategories(tx, owner.caller, noopAudit, ["653"]);
-    await settings.updateBasPreference(tx, owner.caller, noopAudit, "653", { shortCode: "Acc" });
+    await settings.activateBasCategories(tx, owner.caller, noopAudit, ["6530"]);
+    await settings.updateBasPreference(tx, owner.caller, noopAudit, "6530", { shortCode: "Acc" });
     const batch = await expenses.createGroup(tx, owner.caller, noopAudit, {
       description: "2026-06",
       kind: "batch",
@@ -188,7 +188,7 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       amountNet: "1000.00",
       vatAmount: "250.00",
       amountTotal: "1250.00",
-      basCode: "653",
+      basCode: "6530",
     });
     if (si.error) throw new Error(si.error.message);
     // a supplier invoice due within 14 days of TODAY
@@ -201,7 +201,7 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       amountNet: "400.00",
       vatAmount: "100.00",
       amountTotal: "500.00",
-      basCode: "653",
+      basCode: "6530",
     });
     if (soon.error) throw new Error(soon.error.message);
     // a company-card expense whose bank row is not there yet
@@ -209,7 +209,7 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       groupId: batch.data?.id as string,
       date: "2026-07-02",
       description: "Figma",
-      basCode: "580",
+      basCode: "5800",
       amount: "150.00",
       currency: "SEK",
       paidFromAccountId: owner.sources.afSek.id,

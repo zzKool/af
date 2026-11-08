@@ -53,7 +53,7 @@ const notes = async (c: CallerIdentity) =>
     ).map((p) => [p.basCode, [p.useFor, p.useForState]]),
   );
 
-async function owner(codes = ["501", "654", "657"]) {
+async function owner(codes = ["5010", "6540", "6570"]) {
   const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
   await run(caller, (tx) => activateBasCategories(tx, caller, audit, codes));
   return caller;
@@ -67,36 +67,36 @@ describe("Use for notes (F126)", () => {
   it("the owner's own note is confirmed; an empty one clears it; the picker carries it", async () => {
     const c = await owner();
     await run(c, (tx) =>
-      updateBasPreference(tx, c, audit, "654", { useFor: "  software licences and cloud  " }),
+      updateBasPreference(tx, c, audit, "6540", { useFor: "  software licences and cloud  " }),
     );
-    expect((await notes(c))["654"]).toEqual(["software licences and cloud", "confirmed"]);
+    expect((await notes(c))["6540"]).toEqual(["software licences and cloud", "confirmed"]);
     const opts = await run(c, (tx) => basPickerOptions(tx));
-    expect(opts.find((o) => o.code === "654")?.useFor).toBe("software licences and cloud");
-    await run(c, (tx) => updateBasPreference(tx, c, audit, "654", { useFor: "  " }));
-    expect((await notes(c))["654"]).toEqual([null, null]);
+    expect(opts.find((o) => o.code === "6540")?.useFor).toBe("software licences and cloud");
+    await run(c, (tx) => updateBasPreference(tx, c, audit, "6540", { useFor: "  " }));
+    expect((await notes(c))["6540"]).toEqual([null, null]);
   });
 
   it("the model drafts only where the owner has not written; a draft never overwrites a confirmed note", async () => {
     const c = await owner();
-    await run(c, (tx) => updateBasPreference(tx, c, audit, "654", { useFor: "mine" }));
+    await run(c, (tx) => updateBasPreference(tx, c, audit, "6540", { useFor: "mine" }));
     const batches = await run(c, (tx) => prepareUseForDrafts(tx));
-    expect(batches.flat().map((a) => a.code)).toEqual(["501", "657"]);
-    expect(batches[0]?.[0]).toMatchObject({ code: "501", nameSv: "Lokalhyra" });
+    expect(batches.flat().map((a) => a.code)).toEqual(["5010", "6570"]);
+    expect(batches[0]?.[0]).toMatchObject({ code: "5010", nameSv: "Lokalhyra" });
 
     // the owner writes 657 while the model is thinking: his note stands
-    await run(c, (tx) => updateBasPreference(tx, c, audit, "657", { useFor: "bank fees" }));
+    await run(c, (tx) => updateBasPreference(tx, c, audit, "6570", { useFor: "bank fees" }));
     const written = await run(c, (tx) =>
       writeUseForDrafts(tx, c, audit, [
-        { code: "501", useFor: "office rent" },
-        { code: "654", useFor: "would overwrite" },
-        { code: "657", useFor: "would overwrite" },
+        { code: "5010", useFor: "office rent" },
+        { code: "6540", useFor: "would overwrite" },
+        { code: "6570", useFor: "would overwrite" },
       ]),
     );
     expect(written).toBe(1);
     expect(await notes(c)).toEqual({
-      "501": ["office rent", "draft"],
-      "654": ["mine", "confirmed"],
-      "657": ["bank fees", "confirmed"],
+      "5010": ["office rent", "draft"],
+      "6540": ["mine", "confirmed"],
+      "6570": ["bank fees", "confirmed"],
     });
   });
 
@@ -104,16 +104,16 @@ describe("Use for notes (F126)", () => {
     const c = await owner();
     await run(c, (tx) =>
       writeUseForDrafts(tx, c, audit, [
-        { code: "501", useFor: "v1" },
-        { code: "654", useFor: "v1" },
-        { code: "657", useFor: "v1" },
+        { code: "5010", useFor: "v1" },
+        { code: "6540", useFor: "v1" },
+        { code: "6570", useFor: "v1" },
       ]),
     );
     expect((await run(c, (tx) => prepareUseForDrafts(tx))).flat()).toHaveLength(3);
-    await run(c, (tx) => writeUseForDrafts(tx, c, audit, [{ code: "501", useFor: "v2" }]));
-    expect((await notes(c))["501"]).toEqual(["v2", "draft"]);
-    await run(c, (tx) => confirmUseForNotes(tx, c, audit, ["654"]));
-    expect((await notes(c))["654"]).toEqual(["v1", "confirmed"]);
+    await run(c, (tx) => writeUseForDrafts(tx, c, audit, [{ code: "5010", useFor: "v2" }]));
+    expect((await notes(c))["5010"]).toEqual(["v2", "draft"]);
+    await run(c, (tx) => confirmUseForNotes(tx, c, audit, ["6540"]));
+    expect((await notes(c))["6540"]).toEqual(["v1", "confirmed"]);
     const all = await run(c, (tx) => confirmUseForNotes(tx, c, audit));
     expect(all.data?.confirmed).toBe(2);
     expect((await run(c, (tx) => prepareUseForDrafts(tx))).flat()).toHaveLength(0);
@@ -125,21 +125,21 @@ describe("Use for notes (F126)", () => {
 
   it("the job: batches to the model, answers outside the batch dropped, unreachable stops, off asks nothing", async () => {
     const codes = [
-      "501",
-      "502",
-      "503",
-      "504",
-      "505",
-      "506",
-      "507",
-      "509",
-      "510",
-      "511",
-      "512",
-      "513",
-      "514",
-      "654",
-      "657",
+      "5010",
+      "5020",
+      "5030",
+      "5040",
+      "5050",
+      "5060",
+      "5070",
+      "5090",
+      "5100",
+      "5110",
+      "5120",
+      "5130",
+      "5140",
+      "6540",
+      "6570",
     ];
     const c = await owner(codes);
     let calls = 0;
@@ -156,7 +156,7 @@ describe("Use for notes (F126)", () => {
     const r = await draftUseFor({ tenantId: c.tenantId, userId: c.userId }, ai);
     expect(calls).toBe(Math.ceil(codes.length / USE_FOR_BATCH));
     expect(r).toEqual({ accounts: codes.length, drafted: codes.length, failed: 0, stopped: false });
-    expect((await notes(c))["654"]).toEqual(["drafted for 654", "draft"]);
+    expect((await notes(c))["6540"]).toEqual(["drafted for 6540", "draft"]);
 
     const down: AiService = {
       kind: "openai-compatible",
@@ -168,14 +168,14 @@ describe("Use for notes (F126)", () => {
       })),
     };
     const stopped = await askUseForDrafts(down, [
-      [{ code: "501", name: "a", nameSv: "b", className: "c" }],
-      [{ code: "654", name: "a", nameSv: "b", className: "c" }],
+      [{ code: "5010", name: "a", nameSv: "b", className: "c" }],
+      [{ code: "6540", name: "a", nameSv: "b", className: "c" }],
     ]);
     expect(stopped).toMatchObject({ failed: 1, stopped: true });
     expect(down.complete).toHaveBeenCalledTimes(1);
     const off: AiService = { kind: "off", complete: vi.fn() };
     expect(
-      (await askUseForDrafts(off, [[{ code: "501", name: "a", nameSv: "b", className: "c" }]]))
+      (await askUseForDrafts(off, [[{ code: "5010", name: "a", nameSv: "b", className: "c" }]]))
         .stopped,
     ).toBe(true);
     expect(off.complete).not.toHaveBeenCalled();

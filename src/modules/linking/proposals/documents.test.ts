@@ -45,17 +45,17 @@ const auditFor = (tx: TransactionClient, c: CallerIdentity): AuditLogger => ({
 });
 
 const ANSWER = {
-  basCode: "659",
+  basCode: "6590",
   confidence: 0.88,
   reason: "A monthly software plan",
-  alternatives: [{ basCode: "654", why: "IT services" }],
+  alternatives: [{ basCode: "6540", why: "IT services" }],
 };
 const mock = () => createMockAiService({ "linking.bas-proposal": ANSWER });
 
 async function owner() {
   const { callerIdentity: c } = await createAuthenticatedContext(auth, "owner");
   await run(c, (tx) =>
-    settings.activateBasCategories(tx, c, auditFor(tx, c), ["501", "654", "659"]),
+    settings.activateBasCategories(tx, c, auditFor(tx, c), ["5010", "6540", "6590"]),
   );
   return c;
 }
@@ -115,7 +115,7 @@ describe("proposals on documents (F126)", () => {
     expect(prompts[0]).toContain("Lines: Team plan, monthly");
     expect(prompts[0]).toContain("Total: 19.00 EUR");
     const hints = await run(c, (tx) => documentBasHints(tx, [id]));
-    expect(hints[id]).toEqual({ code: "659", reason: "A monthly software plan", prefill: true });
+    expect(hints[id]).toEqual({ code: "6590", reason: "A monthly software plan", prefill: true });
     // not asked again on the same facts
     const again = await proposeForDocuments(
       { tenantId: c.tenantId, userId: c.userId, all: true },
@@ -129,7 +129,7 @@ describe("proposals on documents (F126)", () => {
     await createTestPartner(adminPool, c.tenantId, c.userId, {
       name: "Cloudnimbus Ltd",
       types: ["vendor"],
-      defaultBasCategoryCode: "654",
+      defaultBasCategoryCode: "6540",
     });
     const id = await receipt(c);
     const scope = { tenantId: c.tenantId, userId: c.userId, documentIds: [id] };
@@ -149,9 +149,9 @@ describe("proposals on documents (F126)", () => {
       mock(),
     );
     const decisions = await run(c, async (tx) => [
-      await decideDocumentProposal(tx, c, auditFor(tx, c), kept, "659"),
-      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "501"),
-      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "501"),
+      await decideDocumentProposal(tx, c, auditFor(tx, c), kept, "6590"),
+      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "5010"),
+      await decideDocumentProposal(tx, c, auditFor(tx, c), changed, "5010"),
     ]);
     expect(decisions).toEqual(["accepted", "rejected", null]);
     expect((await run(c, (tx) => currentDocumentProposals(tx, [kept, changed]))).size).toBe(0);
@@ -181,7 +181,7 @@ describe("proposals on documents (F126)", () => {
             targetId: id,
             documentId: id,
             kind: "bas",
-            payload: { basCode: "654", alternatives: [] },
+            payload: { basCode: "6540", alternatives: [] },
             source: "model",
             model: "mock",
             promptVersion: "bas-proposal.v1",
@@ -209,7 +209,7 @@ describe("proposals on documents (F126)", () => {
             targetType: "document",
             targetId: id,
             kind: "bas",
-            payload: { basCode: "654", alternatives: [] },
+            payload: { basCode: "6540", alternatives: [] },
             source: "model",
             model: "mock",
             promptVersion: "bas-proposal.v1",

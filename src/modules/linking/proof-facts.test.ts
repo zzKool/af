@@ -64,8 +64,8 @@ afterAll(async () => {
 /** A supplier with a VAT number, a rule naming it for a key, two rows, a document, a paid supplier invoice. */
 async function scene(caller: CallerIdentity) {
   return run(caller, async (tx) => {
-    await settings.activateBasCategories(tx, caller, noopAudit, ["654"]);
-    await settings.updateBasPreference(tx, caller, noopAudit, "654", { shortCode: "IT" });
+    await settings.activateBasCategories(tx, caller, noopAudit, ["6540"]);
+    await settings.updateBasPreference(tx, caller, noopAudit, "6540", { shortCode: "IT" });
     const supplier = await partners.createPartner(tx, caller, noopAudit, {
       name: "Skattepunkten Office Services AB",
       shortCode: "SKP",
@@ -176,7 +176,7 @@ describe("proofFacts (F131)", () => {
           amountNet: "1037.76",
           vatAmount: "259.44",
           amountTotal: "1297.20",
-          basCode: "654",
+          basCode: "6540",
         },
       }),
     );

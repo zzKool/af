@@ -18,7 +18,7 @@ The accountant books. AF records facts, categorises them with BAS, links them to
 - ECB rates: daily, weekend/holiday → last available; gap > 3 days flagged.
 
 ## BAS
-Categories from the standard kontoplan; tenant marks active + favourites; **alias** = short code used in business keys (`Tr`, `Ut`, `Rep`, `Off`, `Acc`, `Evnt`, `Vat`, …). Partner defaults suggest a category; learned rules from corrections suggest next time. Bank fees → category *bank fees* with `no_document_needed`.
+Categories from the standard kontoplan, **at four digits** (D68: main account `NNN0`, sub-account `NNN1`–`NNN9`, in BAS's two-digit groups); tenant marks active + favourites; **alias** = short code used in business keys (`Tr`, `Ut`, `Rep`, `Off`, `Acc`, `Evnt`, `Vat`, …). Partner defaults suggest a category; learned rules from corrections suggest next time. Bank fees → category *bank fees* with `no_document_needed`.
 
 ## VAT
 - Registrations per tenant: SE (moms 25/12/6 %) and CH (MWST 8.1 %, quarterly). Each invoice carries the registration and the declaration period (`CH 2026/Q2`).

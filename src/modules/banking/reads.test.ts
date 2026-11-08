@@ -146,12 +146,12 @@ describe("F71 — a bank row's History", () => {
       const audit = auditFor(tx, caller);
       const id = entry?.id as string;
       expect(
-        (await categorise(tx, caller, audit, id, { basCode: "657", partnerId: null })).error,
+        (await categorise(tx, caller, audit, id, { basCode: "6570", partnerId: null })).error,
       ).toBeUndefined();
       expect(
         (
           await categorise(tx, caller, audit, id, {
-            basCode: "657",
+            basCode: "6570",
             partnerId: null,
             noDocumentNeeded: true,
           })
@@ -177,7 +177,7 @@ describe("F71 — a bank row's History", () => {
       linkKind: "transfer",
       otherType: "bank_transaction",
     });
-    expect(after.data?.[2]).toMatchObject({ basCode: "657", by: "manual", source: "web" });
+    expect(after.data?.[2]).toMatchObject({ basCode: "6570", by: "manual", source: "web" });
     // the other leg sees the same link from its side
     const other = await run(caller, (tx) => transactionHistory(tx, sekTx));
     expect(other.data?.map((e) => e.kind)).toEqual(["linked", "imported"]);
@@ -331,8 +331,8 @@ describe("F129 — effective partner and category, derived on read", () => {
     const ids = await setup(caller);
     await importFile(caller, ids.sek, "nordea-2026-07-sek-sample.csv");
     return run(caller, async (tx) => {
-      await settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["654", "653"]);
-      await settings.updateBasPreference(tx, caller, auditFor(tx, caller), "654", {
+      await settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["6540", "6530"]);
+      await settings.updateBasPreference(tx, caller, auditFor(tx, caller), "6540", {
         shortCode: "IT",
       });
       const supplier = await partners.createPartner(tx, caller, auditFor(tx, caller), {
@@ -355,7 +355,7 @@ describe("F129 — effective partner and category, derived on read", () => {
         amountNet: row.amount.abs().mul("0.8").toFixed(2),
         vatAmount: row.amount.abs().mul("0.2").toFixed(2),
         amountTotal: row.amount.abs().toFixed(2),
-        basCode: "654",
+        basCode: "6540",
         documentMissing: true,
       });
       if (si.error) throw new Error(si.error.message);
@@ -397,17 +397,17 @@ describe("F129 — effective partner and category, derived on read", () => {
         partnerId: s.supplierId,
         partnerName: "Skattepunkten Office Services AB",
         partnerFrom: "proof",
-        basCode: "654",
+        basCode: "6540",
         basFrom: "proof",
         mixed: false,
       });
-      expect(row?.basLabel).toMatch(/^654 · /);
+      expect(row?.basLabel).toMatch(/^6540 · /);
       const detail = await getTransaction(tx, s.row);
       expect(detail.data?.effective).toMatchObject({
         partnerId: s.supplierId,
         partnerName: "Skattepunkten Office Services AB",
         partnerFrom: "proof",
-        basCode: "654",
+        basCode: "6540",
         basFrom: "proof",
       });
       expect(detail.data?.state).toBe("linked");
@@ -420,7 +420,7 @@ describe("F129 — effective partner and category, derived on read", () => {
         state: "linked",
         partnerId: s.supplierId,
         partnerName: "Skattepunkten Office Services AB",
-        basCode: "654",
+        basCode: "6540",
         partnerFrom: "proof",
         basFrom: "proof",
       });
@@ -470,12 +470,12 @@ describe("F129 — effective partner and category, derived on read", () => {
     );
     expect(applied.error).toBeUndefined();
     await run(caller, async (tx) => {
-      const typed = await categorise(tx, caller, auditFor(tx, caller), s.row, { basCode: "653" });
+      const typed = await categorise(tx, caller, auditFor(tx, caller), s.row, { basCode: "6530" });
       expect(typed.error).toBeUndefined();
       const list = await listTransactions(tx, { page: 1, pageSize: 50, sort: [], filters: {} });
       expect(list.rows.find((r) => r.id === s.row)).toMatchObject({
         state: "linked",
-        basCode: "653",
+        basCode: "6530",
         basFrom: "row",
         partnerId: s.supplierId,
         partnerFrom: "proof",

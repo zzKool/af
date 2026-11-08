@@ -180,7 +180,7 @@ test.describe("Document review page — owner", () => {
     await pick("Group", "+ New group…");
     await page.getByTestId("new-group-description").fill(`Receipts ${stamp}`);
     await pick("Paid by", "Private SE");
-    await pick("Category", /^580/);
+    await pick("Category", /^5800/);
     if (!(await page.getByTestId("expense-description").inputValue())) {
       await page.getByTestId("expense-description").fill("ICA Maxi");
     }

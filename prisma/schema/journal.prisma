@@ -54,7 +54,7 @@ model JournalEntry {
   /// the RateSource enum, never `bank` (CHECK)
   rateSource       RateSource            @map("rate_source")
   rateDate         DateTime?             @map("rate_date") @db.Date
-  /// 3-digit BAS group (bas_categories.code), validated at write
+  /// four-digit BAS account (bas_categories.code, D68), validated at write
   basCode          String?               @map("bas_code") @db.VarChar(4)
   partnerId        String?               @map("partner_id") @db.Uuid
   note             String?

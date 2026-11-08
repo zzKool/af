@@ -1,5 +1,5 @@
 // The option lists the categorise form and the rule dialog need: the tenant's active BAS set (favourites
-// first) as `657 · Bankkostnader`, and the active partners. Server-side helpers for pages.
+// first) as `6570 · Bankkostnader`, and the active partners. Server-side helpers for pages.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as partners from "@/modules/partners";
