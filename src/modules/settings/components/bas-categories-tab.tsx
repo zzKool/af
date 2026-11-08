@@ -694,7 +694,10 @@ function ClassAccordion({
           <span className="font-medium text-sm">
             {classNum}. {t(`settings.bas.class.${classNum as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`)}
           </span>
-          <span className="text-xs text-muted-foreground italic">{className}</span>
+          {/* the first group's Swedish heading said nothing about the class — the groups below say it (D68) */}
+          {groups.length === 0 && (
+            <span className="text-xs text-muted-foreground italic">{className}</span>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">
           {t("settings.bas.activeOf", { active: activeCount, total: categories.length })}
