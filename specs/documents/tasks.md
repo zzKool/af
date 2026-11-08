@@ -75,3 +75,9 @@ Notes from the build (2026-10-21): the DB tests of T011 / T012 live in `inbox.te
 - [x] T041 The zone without a type; `readingProposes` + the pane's line and the *What is it?* question; the pickers take `document`; the review page shows *Not typed yet*.
 - [x] T042 Tests: keys, the model rule, `readingProposes`, the zone; the e2e journeys without the type select (`doc_` keys).
 
+## F141 — boxes on the document (Pulse phase 6b, 2026-11-08, `feat/documents-boxes`)
+
+- [x] T043 kernel/ocr: `OcrField.box` from DI's first bounding region, `OcrExtractedData.pages`; `fieldBox`; the mock's readings with boxes; `parseOcrFields` keeps a well-formed box.
+- [x] T044 documents: `readingMarks` / `sureCount` (pure); `MarksOverlay` in the preview (the page fits the width); the inbox pane — the document beside *What it read*, hover lights the box; the review page draws them; the inbox on the ground.
+- [x] T045 Tests: the mapper, `readingMarks`, the overlay; e2e `document-boxes.spec.ts` on `mockInvoicePdf`.
+

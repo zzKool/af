@@ -81,6 +81,7 @@ function row(id: string, over: Partial<InboxItem> = {}): InboxItem {
     documentDate: "2026-03-01",
     quality: "high",
     facts: { vendorName: "SBB", invoiceTotal: 85, currency: "CHF", invoiceDate: "2026-03-01" },
+    reading: null,
     reviewedAt: null,
     archivedAt: null,
     createdAt: "2026-03-01T10:00:00.000Z",
