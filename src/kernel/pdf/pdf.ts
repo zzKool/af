@@ -2,8 +2,8 @@
 // of the same component that renders the editable form; no second template). The only importer of
 // playwright-core (guard). Modules provide a `/print/...` route and call renderPathToPdf().
 //
-// Chromium ships in the image (Dockerfile: apk chromium, CHROMIUM_PATH). Locally, CHROMIUM_PATH or the
-// Playwright-installed browser of the e2e suite. A browser is launched per render and closed after —
+// Chromium ships in the image (Dockerfile: apk chromium, CHROMIUM_PATH). Locally, CHROMIUM_PATH, a system
+// Chrome / Edge (Windows: Edge is always there) or the Playwright-installed browser of the e2e suite. A browser is launched per render and closed after —
 // invoices are issued a few times a month; a warm pool would be a mechanism for nothing.
 import { existsSync } from "node:fs";
 import { type Browser, chromium } from "playwright-core";
@@ -28,13 +28,27 @@ const CANDIDATE_PATHS = [
   "/usr/bin/chromium",
   "/usr/bin/google-chrome-stable",
   "/usr/bin/google-chrome",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 ];
+
+/** A Windows laptop always has Edge (Chromium) — Firefox cannot print for us; Chrome when it is there. */
+function windowsCandidates(env: NodeJS.ProcessEnv = process.env): string[] {
+  if (process.platform !== "win32") return [];
+  const roots = [env["ProgramFiles(x86)"], env.ProgramFiles, env.LOCALAPPDATA].filter(
+    (r): r is string => !!r,
+  );
+  return roots.flatMap((r) => [
+    `${r}\\Microsoft\\Edge\\Application\\msedge.exe`,
+    `${r}\\Google\\Chrome\\Application\\chrome.exe`,
+  ]);
+}
 
 /** The Chromium executable this environment has, or null — tests skip, renders fail with a clear error. */
 export function chromiumExecutablePath(): string | null {
   const fromEnv = process.env.CHROMIUM_PATH;
   if (fromEnv) return existsSync(fromEnv) ? fromEnv : null;
-  for (const p of CANDIDATE_PATHS) if (existsSync(p)) return p;
+  for (const p of [...CANDIDATE_PATHS, ...windowsCandidates()]) if (existsSync(p)) return p;
   try {
     const p = chromium.executablePath();
     if (existsSync(p)) return p;
@@ -55,7 +69,7 @@ async function launch(): Promise<Browser> {
   const executablePath = chromiumExecutablePath();
   if (!executablePath) {
     throw new Error(
-      "No Chromium found: set CHROMIUM_PATH (the image installs it at /usr/bin/chromium-browser)",
+      "No Chromium found (Firefox cannot print PDFs here): install Edge or Chrome, or set CHROMIUM_PATH to one (the image installs it at /usr/bin/chromium-browser)",
     );
   }
   return chromium.launch({
