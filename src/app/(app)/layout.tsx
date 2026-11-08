@@ -71,8 +71,8 @@ export default async function AppLayout({
           // F136: the ECB days without a rate in any pair, each once — the dashboard's rate-gap count
           const rateDays = new Set((await rateGaps(tx, today)).flatMap((g) => g.missingDays)).size;
           return {
-            // Work (F97 US4): the rows to justify and the documents to review, one number
-            "/banking/inbox": banking + documents,
+            // Work (F97 US4, F137): the rows to justify and the documents to review, one number
+            "/work": banking + documents,
             "/banking": banking,
             "/documents": documents,
             "/invoices": invoices,

@@ -43,3 +43,15 @@ export function formatDate(date: Date | string, locale?: string): string {
     dateStyle: "long",
   }).format(d);
 }
+
+/** `2026-07` → `July 2026` (`long`) or `Jul 2026` (`short`) in the UI language — a month named, not a day. */
+export function formatMonth(
+  month: string,
+  locale: string,
+  style: "long" | "short" = "long",
+): string {
+  const d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1));
+  return new Intl.DateTimeFormat(locale, { month: style, year: "numeric", timeZone: "UTC" }).format(
+    d,
+  );
+}
