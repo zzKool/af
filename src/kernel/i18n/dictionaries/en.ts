@@ -71,6 +71,7 @@ export const en = {
   "table.columns": "Columns",
   "table.chooseColumns": "Choose columns",
   "table.resetLayout": "Reset layout",
+  "table.dragToReorder": "Drag to reorder",
   "table.range": "{first}–{last} of {total}",
   "table.previous": "Previous",
   "table.next": "Next",
