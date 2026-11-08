@@ -16,6 +16,8 @@ import {
 } from "@/modules/numbering";
 
 const CLASSIFICATION_MAP: Record<UploadKind, "financial" | "relationship"> = {
+  // D78: a drop with no type is read as a financial paper; no amount read → the inbox asks what it is
+  document: "financial",
   expense: "financial",
   invoice: "financial",
   contract: "relationship",

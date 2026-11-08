@@ -13,12 +13,15 @@
 //   statement    Reimb_ST26-001_2026-03-31.pdf   the reimbursement statement PDF of a settlement
 //   bank stmt    Bank_Plusgirokonto-SEK_2026-07-01_2026-07-31.csv   the stored CSV of a bank import: {account label slug}_{from}_{to}
 //   package      Package_2026-06.zip, Package_2026-06_v2.zip, Package_2026.zip   the accountant package of a period
-//   upload       exp_20261020_001         provisional key of a raw upload: {kind}{yyyymmdd}_{seq in doc-{yyyymm}}
+//   upload       doc_20261108_001         provisional key of a raw upload: {kind}{yyyymmdd}_{seq in doc-{yyyymm}} —
+//                                         `doc_` for a drop whose type the app finds by itself (D78), `exp_` / `inv_` / … once typed
 
-export type UploadKind = "expense" | "invoice" | "contract" | "nda" | "certificate";
+/** `document`: dropped without a type (D78) — the reading proposes what it becomes; the owner types it when asked. */
+export type UploadKind = "document" | "expense" | "invoice" | "contract" | "nda" | "certificate";
 
 /** The v2 per-tenant prefix table, now constants (D6; the table was dropped, D30). */
 export const UPLOAD_KIND_PREFIX: Record<UploadKind, string> = {
+  document: "doc_",
   expense: "exp_",
   invoice: "inv_",
   contract: "ctrt_",
@@ -238,7 +241,7 @@ export function uploadDocumentKey(kind: UploadKind, date: string, seq: number): 
   return `${UPLOAD_KIND_PREFIX[kind]}${date.replace(/-/g, "")}_${pad(seq, 3)}`;
 }
 
-const UPLOAD_KEY = /^(exp|inv|ctrt|nda|cert)_(\d{8}_\d{3,})$/;
+const UPLOAD_KEY = /^(doc|exp|inv|ctrt|nda|cert)_(\d{8}_\d{3,})$/;
 
 /**
  * The same provisional key for another kind (D52): `exp_20261020_001` → `inv_20261020_001` — same date, same

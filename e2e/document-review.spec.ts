@@ -13,7 +13,6 @@ async function openOwnDocument(page: Page, real = false): Promise<void> {
   // random, not the clock: parallel journeys starting in the same millisecond would upload the same bytes (a duplicate)
   const stamp = crypto.randomUUID().slice(0, 8);
   const name = `e2e-review-${stamp}.pdf`;
-  await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
   await page.locator('input[type="file"]').setInputFiles({
     name,
     mimeType: "application/pdf",
@@ -32,16 +31,16 @@ async function openOwnDocument(page: Page, real = false): Promise<void> {
 test.describe("Document review page — owner", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
 
-  test("the type drives the reading: expense → invoice swaps the key and reads it again (D52)", async ({
+  test("a drop nobody typed (D78) typed as an invoice: the key follows, the same model read it (D52)", async ({
     page,
   }) => {
     test.setTimeout(90_000);
     await openOwnDocument(page);
     const key = page.getByTestId("document-review-key");
-    await expect(key).toHaveText(/^exp_\d{8}_\d{3}$/);
+    await expect(key).toHaveText(/^doc_\d{8}_\d{3}$/);
     const upload = (await key.textContent()) ?? "";
-    // the mock OCR answers by the model the kernel picks — a PDF expense is the invoice model's (D69); the page
-    // follows the reading on its own
+    // the mock OCR answers by the model the kernel picks — an untyped PDF is the invoice model's (D78, D69); the
+    // page follows the reading on its own
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
     });
@@ -51,7 +50,7 @@ test.describe("Document review page — owner", () => {
 
     // same date, same number; the same model read it already (a PDF, D69), so no second reading — the page shows
     // the invoice's fields for the new type
-    await expect(key).toHaveText(upload.replace(/^exp_/, "inv_"));
+    await expect(key).toHaveText(upload.replace(/^doc_/, "inv_"));
     await expect(page.getByTestId("document-review-state")).toHaveText(/Ready/, {
       timeout: 30_000,
     });

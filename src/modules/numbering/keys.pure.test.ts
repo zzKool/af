@@ -116,11 +116,21 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(uploadSeries("2026-10-20")).toBe("doc-2026-10");
     expect(isUploadKind("nda")).toBe(true);
     expect(isUploadKind("receipt")).toBe(false);
-    expect(Object.values(UPLOAD_KIND_PREFIX)).toEqual(["exp_", "inv_", "ctrt_", "nda_", "cert_"]);
+    expect(Object.values(UPLOAD_KIND_PREFIX)).toEqual([
+      "doc_",
+      "exp_",
+      "inv_",
+      "ctrt_",
+      "nda_",
+      "cert_",
+    ]);
+    // D78: a drop nobody typed
+    expect(uploadDocumentKey("document", "2026-11-08", 3)).toBe("doc_20261108_003");
   });
 
   it("a provisional key follows the kind: same date, same number (D52); a final key does not", () => {
     expect(reprefixUploadKey("exp_20261020_001", "invoice")).toBe("inv_20261020_001");
+    expect(reprefixUploadKey("doc_20261108_003", "contract")).toBe("ctrt_20261108_003");
     expect(reprefixUploadKey("inv_20261020_014", "expense")).toBe("exp_20261020_014");
     expect(reprefixUploadKey("ctrt_20261020_1234", "nda")).toBe("nda_20261020_1234");
     expect(reprefixUploadKey("exp_20261020_001", "expense")).toBe("exp_20261020_001");

@@ -754,7 +754,8 @@ export async function candidateDocuments(
   tx: TransactionClient,
   caller: CallerIdentity,
 ): Promise<DocumentOption[]> {
-  const docs = await documents.candidateDocuments(tx, caller, ["expense"]);
+  // D78: a drop not typed yet can become an expense too
+  const docs = await documents.candidateDocuments(tx, caller, ["expense", "document"]);
   return docs.map((d) => ({
     id: d.id,
     businessKey: d.businessKey,

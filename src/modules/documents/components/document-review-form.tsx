@@ -36,7 +36,8 @@ export function DocumentReviewForm({
   onClassificationChange,
   company = null,
 }: DocumentReviewFormProps) {
-  const isFinancial = prefixType === "expense" || prefixType === "invoice";
+  const isFinancial =
+    prefixType === "expense" || prefixType === "invoice" || prefixType === "document";
 
   return (
     <div className="space-y-6">

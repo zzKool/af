@@ -36,11 +36,9 @@ const defaultProps = {
   ],
 };
 
-/** the owner picks the type first — there is no default (D52) */
-function renderWithType(ui: ReactElement, type = "expense") {
-  const r = render(ui);
-  fireEvent.change(screen.getByLabelText("Document type"), { target: { value: type } });
-  return r;
+/** D78: drop anything — the zone never asks for a type; every upload goes as `document` */
+function renderWithType(ui: ReactElement, _type?: string) {
+  return render(ui);
 }
 
 function successResult(overrides?: Partial<{ id: string; businessKey: string; fileName: string }>) {
@@ -96,35 +94,13 @@ describe("FileUploadZone", () => {
     expect(zone).toHaveAttribute("role", "button");
   });
 
-  it("shows prefix type selector with options", () => {
+  it("never asks for a type (D78): no selector, the file picker opens on a click", () => {
     render(<FileUploadZone {...defaultProps} />);
-    const select = screen.getByLabelText("Document type") as HTMLSelectElement;
-    expect(select).toBeInTheDocument();
-    // the placeholder, then the kinds by their names — nothing chosen
-    expect(select.options).toHaveLength(3);
-    expect(select.value).toBe("");
-    expect(select.options[1].textContent).toBe("Expense (exp_)");
-  });
-
-  it("asks for the type before an upload: nothing is posted, the type selector gets the focus", async () => {
-    render(<FileUploadZone {...defaultProps} />);
-    expect(screen.getByTestId("upload-choose-type")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Document type")).not.toBeInTheDocument();
     const input = document.querySelector("input[type='file']") as HTMLInputElement;
     const clickSpy = vi.spyOn(input, "click");
-
     fireEvent.click(screen.getByLabelText("Upload document"));
-    expect(clickSpy).not.toHaveBeenCalled(); // the file picker does not open
-
-    const validFile = new File(["pdf content"], "test.pdf", { type: "application/pdf" });
-    await act(async () => {
-      fireEvent.change(input, { target: { files: [validFile] } });
-    });
-
-    expect(mockExecuteAsync).not.toHaveBeenCalled();
-    expect(mockToast.info).toHaveBeenCalledWith(
-      "Choose the document type first: it decides how the OCR reads it",
-    );
-    expect(document.activeElement).toBe(screen.getByLabelText("Document type"));
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   it("shows file format and size info", () => {
@@ -183,7 +159,7 @@ describe("FileUploadZone", () => {
     expect(mockExecuteAsync).toHaveBeenCalledTimes(1);
     const formData = mockExecuteAsync.mock.calls[0][0] as FormData;
     expect(formData.get("file")).toBeInstanceOf(File);
-    expect(formData.get("prefixType")).toBe("expense");
+    expect(formData.get("prefixType")).toBe("document");
   });
 
   it("shows complete state with business key after successful upload", async () => {
@@ -364,12 +340,12 @@ describe("FileUploadZone", () => {
       pdfFile("c.pdf"),
     ]);
 
-    // each file through the one-file action, with the one type chosen before
+    // each file through the one-file action, untyped (D78)
     expect(mockExecuteAsync).toHaveBeenCalledTimes(3);
     for (const [i, name] of ["a.pdf", "b.pdf", "c.pdf"].entries()) {
       const fd = mockExecuteAsync.mock.calls[i][0] as FormData;
       expect((fd.get("file") as File).name).toBe(name);
-      expect(fd.get("prefixType")).toBe("invoice");
+      expect(fd.get("prefixType")).toBe("document");
       expect(fd.get("force")).toBeNull();
     }
 
@@ -467,35 +443,5 @@ describe("FileUploadZone", () => {
       fireEvent.click(screen.getByRole("button", { name: "Upload more" }));
     });
     expect(screen.queryByTestId("upload-batch")).not.toBeInTheDocument();
-  });
-
-  it("several files without a type: nothing is posted, the type is asked for", async () => {
-    render(<FileUploadZone {...defaultProps} />);
-    await dropFiles(screen.getByLabelText("Upload document"), [pdfFile("a.pdf"), pdfFile("b.pdf")]);
-    expect(mockExecuteAsync).not.toHaveBeenCalled();
-    expect(mockToast.info).toHaveBeenCalledWith(
-      "Choose the document type first: it decides how the OCR reads it",
-    );
-  });
-
-  it("changes prefix type via selector", async () => {
-    const user = userEvent.setup();
-    mockExecuteAsync.mockResolvedValue(
-      successResult({ businessKey: "inv_20260314_001", fileName: "invoice.pdf" }),
-    );
-
-    render(<FileUploadZone {...defaultProps} />);
-    const select = screen.getByLabelText("Document type");
-    await user.selectOptions(select, "invoice");
-
-    const input = document.querySelector("input[type='file']") as HTMLInputElement;
-    const validFile = new File(["pdf content"], "invoice.pdf", { type: "application/pdf" });
-    await act(async () => {
-      fireEvent.change(input, { target: { files: [validFile] } });
-    });
-
-    expect(mockExecuteAsync).toHaveBeenCalledTimes(1);
-    const formData = mockExecuteAsync.mock.calls[0][0] as FormData;
-    expect(formData.get("prefixType")).toBe("invoice");
   });
 });

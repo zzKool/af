@@ -666,7 +666,7 @@ export async function candidateDocuments(
   tx: TransactionClient,
   caller: CallerIdentity,
 ): Promise<DocumentOption[]> {
-  const docs = await documents.candidateDocuments(tx, caller, ["invoice", "expense"]);
+  const docs = await documents.candidateDocuments(tx, caller, ["invoice", "expense", "document"]);
   return docs.map((d) => ({
     id: d.id,
     businessKey: d.businessKey,

@@ -188,6 +188,11 @@ describe("ocrModelFor — the type decides (D52), the file refines it (D69)", ()
     expect(ocrModelFor("expense", null)).toBe("prebuilt-receipt");
   });
 
+  it("a drop nobody typed follows the same file rule (D78): a PDF → invoice, a photo → receipt", () => {
+    expect(ocrModelFor("document", "application/pdf")).toBe("prebuilt-invoice");
+    expect(ocrModelFor("document", "image/jpeg")).toBe("prebuilt-receipt");
+  });
+
   it("the other types do not look at the file", () => {
     expect(ocrModelFor("invoice", "image/jpeg")).toBe("prebuilt-invoice");
     expect(ocrModelFor("contract", "application/pdf")).toBe("prebuilt-layout");

@@ -55,7 +55,10 @@ export function FinancialFieldsSection({
   company = null,
 }: FinancialFieldsSectionProps) {
   const t = useT();
-  const isInvoice = prefixType === "invoice";
+  // D78: a drop not typed yet shows the invoice's fields when the invoice model read it (a PDF)
+  const isInvoice =
+    prefixType === "invoice" ||
+    (prefixType === "document" && extractedData?.modelUsed === "prebuilt-invoice");
   const billedTo = isInvoice && company ? checkBilledTo(company, resolvedData) : "unknown";
 
   const handleBlur = useCallback(

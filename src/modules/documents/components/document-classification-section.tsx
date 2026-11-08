@@ -36,7 +36,9 @@ export function DocumentClassificationSection({
 }: DocumentClassificationSectionProps) {
   const t = useT();
   const router = useRouter();
-  const isFinancial = prefixType === "expense" || prefixType === "invoice";
+  // D78: a drop not typed yet (`document`) is a financial paper until the owner says otherwise
+  const isFinancial =
+    prefixType === "expense" || prefixType === "invoice" || prefixType === "document";
   const category = isFinancial ? "financial" : "relationship";
 
   const handlePrefixChange = useCallback(
@@ -98,7 +100,7 @@ export function DocumentClassificationSection({
         <Label htmlFor="prefixType">{t("documents.review.type")}</Label>
         <Select value={prefixType} onValueChange={handlePrefixChange}>
           <SelectTrigger id="prefixType">
-            <SelectValue />
+            <SelectValue>{t(`documents.prefix.${prefixType}` as MessageKey)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {CATEGORIES[category].map((type) => (

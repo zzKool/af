@@ -69,3 +69,9 @@ Notes from the build (2026-10-21): the DB tests of T011 / T012 live in `inbox.te
 
 - [x] T033 `upload-batch.ts` (pure, client-safe): `precheckUpload`, `outcomeOf` (action result → uploaded / duplicate / failed), `runUploadBatch` (one file after the other; a failure or a throw is that file's row, the next goes on), `countOutcomes`, `MAX_UPLOAD_BATCH_FILES` = 50. `file-upload-zone.tsx`: one upload path `postOne` (the single file and every batch file); several files dropped or picked (`multiple`) → the type chosen once for all, `UploadBatchList` (one row per file: state, its key → review page; the duplicate card's *Use existing* / *Upload anyway*; the reason + *Try again*); one `onBatchComplete` → `router.refresh()` at the end (inbox count, sidebar badge); more than 50 → a toast, nothing posted; one file keeps the single view. Kernel: `queue.test.ts` — a backlog on one queue runs one at a time and never delays another queue's job (OCR vs the invoice PDF render). Tests: `upload-batch.pure.test.ts` (a batch of 3: uploaded, duplicate, failed; a throw; no overlap), `file-upload-zone.test.tsx` (the batch of 3, a too-large file, *Upload anyway* / *Try again* on a row, > 50, the picker), `documents.test.ts` (4 files: own keys, the duplicate and the refused file use no number), e2e `document-multi-upload.spec.ts`; screenshot `upload-multi.png`.
 
+## F140 — drop anything (D78, Pulse phase 6a, 2026-11-08, `feat/documents-drop-anything`)
+
+- [x] T040 numbering: kind `document`, prefix `doc_`; documents: classification financial; ocr: the file rule for `document`.
+- [x] T041 The zone without a type; `readingProposes` + the pane's line and the *What is it?* question; the pickers take `document`; the review page shows *Not typed yet*.
+- [x] T042 Tests: keys, the model rule, `readingProposes`, the zone; the e2e journeys without the type select (`doc_` keys).
+

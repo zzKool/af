@@ -13,7 +13,6 @@ test.describe("Document Library", () => {
 
     // upload a PDF — Azurite must be running (CI and local)
     const stamp = crypto.randomUUID().slice(0, 8); // not the clock: parallel journeys, same millisecond
-    await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
     await page.locator('input[type="file"]').setInputFiles({
       name: `e2e-library-${stamp}.pdf`,
       mimeType: "application/pdf",
@@ -25,7 +24,6 @@ test.describe("Document Library", () => {
 
     // the same bytes again: the card, nothing stored (specs/documents US2); "Upload another" clears it
     await page.getByRole("button", { name: "Upload another" }).click();
-    await page.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
     await page.locator('input[type="file"]').setInputFiles({
       name: `e2e-library-${stamp}-copy.pdf`,
       mimeType: "application/pdf",
@@ -33,21 +31,21 @@ test.describe("Document Library", () => {
     });
     const card = page.getByTestId("upload-duplicate");
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card.getByTestId("upload-duplicate-key")).toHaveText(/^exp_/);
+    await expect(card.getByTestId("upload-duplicate-key")).toHaveText(/^doc_/);
     const existingHref = await card
       .getByRole("link", { name: "Use existing document" })
       .getAttribute("href");
     expect(existingHref).toMatch(/^\/documents\/[0-9a-f-]{36}$/);
     await card.getByRole("button", { name: "Upload another" }).click();
 
-    // the row: an upload key (exp_…), status uploaded or processing, not linked — this journey's own file, never
-    // the first exp_ row (a parallel journey's upload: deleting it below would pull it from under that journey)
+    // the row: an upload key (doc_…), status uploaded or processing, not linked — this journey's own file, never
+    // the first doc_ row (a parallel journey's upload: deleting it below would pull it from under that journey)
     const row = page
       .getByRole("row")
       .filter({ has: page.getByTestId("document-key") })
       .filter({ hasText: `e2e-library-${stamp}.pdf` })
       .first();
-    await expect(row.getByTestId("document-key")).toHaveText(/^exp_/, { timeout: 15_000 });
+    await expect(row.getByTestId("document-key")).toHaveText(/^doc_/, { timeout: 15_000 });
     await expect(row).toBeVisible({ timeout: 15_000 });
     // F71: the row's derived state as icon + word, its actions in the ⋮ menu
     await expect(row.getByTestId("document-state")).toHaveText(/Needs OCR|Processing|Ready/);
@@ -107,7 +105,6 @@ test.describe("Document Library", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Upload document" })).toBeVisible();
     const stamp = crypto.randomUUID().slice(0, 8);
-    await dialog.getByTestId("upload-type").selectOption("expense"); // no default type (D52)
     await dialog.locator('input[type="file"]').setInputFiles({
       name: `e2e-new-${stamp}.pdf`,
       mimeType: "application/pdf",

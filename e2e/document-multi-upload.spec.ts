@@ -30,7 +30,6 @@ test.describe("Document upload — several files at once", () => {
     await trackToasts(page);
     await withToastReport(page, async () => {
       await page.goto("/documents");
-      await page.getByTestId("upload-type").selectOption("expense"); // once, for the three (D52)
       await page.locator('input[type="file"]').setInputFiles([
         { name: `multi-a-${stamp}.pdf`, mimeType: "application/pdf", buffer: receipt },
         { name: `multi-copy-${stamp}.pdf`, mimeType: "application/pdf", buffer: receipt },
@@ -48,7 +47,7 @@ test.describe("Document upload — several files at once", () => {
       });
       await expect(rows).toHaveCount(3);
       await expect(rows.nth(0)).toHaveAttribute("data-status", "uploaded");
-      await expect(rows.nth(0).getByTestId("upload-batch-key")).toHaveText(/^exp_\d{8}_\d{3}$/);
+      await expect(rows.nth(0).getByTestId("upload-batch-key")).toHaveText(/^doc_\d{8}_\d{3}$/);
       await expect(rows.nth(1)).toHaveAttribute("data-status", "duplicate");
       const firstKey = (await rows.nth(0).getByTestId("upload-batch-key").textContent()) ?? "";
       await expect(rows.nth(1).getByTestId("upload-batch-duplicate-key")).toHaveText(firstKey);
@@ -63,7 +62,7 @@ test.describe("Document upload — several files at once", () => {
       await rows.nth(1).getByRole("button", { name: "Upload anyway" }).click();
       await expect(rows.nth(1)).toHaveAttribute("data-status", "uploaded", { timeout: 30_000 });
       const copyKey = (await rows.nth(1).getByTestId("upload-batch-key").textContent()) ?? "";
-      expect(copyKey).toMatch(/^exp_\d{8}_\d{3}$/);
+      expect(copyKey).toMatch(/^doc_\d{8}_\d{3}$/);
       expect(copyKey).not.toBe(firstKey);
 
       // 3. the inbox, opened by URL: the two stored documents, each read by its own OCR job
