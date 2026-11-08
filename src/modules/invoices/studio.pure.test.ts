@@ -65,6 +65,16 @@ describe("readyToSend (F143)", () => {
     expect(readyToSend(facts({ bank: null })).ready).toBe(false);
   });
 
+  it("F146: the company's e-mail / website missing — a warning naming them, still ready", () => {
+    const r = readyToSend(facts({ companyMissing: ["email", "website"] }));
+    const c = r.items.find((i) => i.key === "company");
+    expect(c).toEqual({ key: "company", state: "warn", params: { list: "email, website" } });
+    expect(
+      readyToSend(facts({ companyMissing: [] })).items.find((i) => i.key === "company")?.state,
+    ).toBe("ok");
+    expect(readyToSend(facts()).items.map((i) => i.key)).not.toContain("company");
+  });
+
   it("a quote has no period line; no references, no references line", () => {
     const keys = readyToSend(facts({ type: "quote", references: [] })).items.map((i) => i.key);
     expect(keys).not.toContain("period");
