@@ -1,99 +1,12 @@
 "use client";
 
-// The dashboard's three widgets (feature inventory §3.14): the action items — one line each, the figure, the page
-// that resolves it — the business pulse, and the briefing since the last visit. Strings from the dictionary; money
-// on screen through `formatMoney` (D40); the priority as a state icon from `priority-family.ts`, the count as a
-// grey `<CountBadge>` — no palette colours.
-import Link from "next/link";
+// The briefing since the last visit (feature inventory §3.14). The action items and the business pulse moved into
+// the home's Next moves and cash hero (F138, `home.tsx`).
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/kernel/i18n/format-date";
 import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
-import { formatMoney } from "@/kernel/money/format-money";
-import { StateIcon } from "@/kernel/ui/state-label";
-import { CountBadge } from "@/kernel/ui/tags";
-import type { ActionItem, BriefingLine, PulseMetric } from "@/modules/dashboard/types";
+import type { BriefingLine } from "@/modules/dashboard/types";
 import { briefingText } from "../briefing-label";
-import { PRIORITY_FAMILY } from "../priority-family";
-
-export function ActionItemsWidget({ items }: { items: ActionItem[] }) {
-  const t = useT();
-  return (
-    <Card data-testid="action-items">
-      <CardHeader>
-        <CardTitle>{t("dashboard.actions.title")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("dashboard.actions.none")}</p>
-        ) : (
-          <ul className="divide-y divide-subtle">
-            {items.map((item) => (
-              <li key={item.id} data-testid="action-item" data-kind={item.kind}>
-                <Link
-                  href={item.href}
-                  data-priority={item.priority}
-                  className="-mx-2 flex items-center gap-3 rounded-md px-2 py-2 hover:bg-hover"
-                >
-                  <StateIcon family={PRIORITY_FAMILY[item.priority]} />
-                  <CountBadge count={item.count} className="min-w-7" />
-                  <span className="min-w-0 flex-1 text-sm">
-                    {t(`dashboard.action.${item.kind}`, {
-                      count: item.count,
-                      period: item.period ?? "",
-                      ...item.params,
-                    })}
-                    {item.amount && (
-                      <span className="ml-1 text-muted-foreground tabular-nums">
-                        · {formatMoney(item.amount.value, item.amount.currency)}
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-muted-foreground">→</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function BusinessPulseWidget({ metrics }: { metrics: PulseMetric[] }) {
-  const t = useT();
-  return (
-    <Card data-testid="business-pulse">
-      <CardHeader>
-        <CardTitle>{t("dashboard.pulse.title")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-          {metrics.map((m) => (
-            <div key={m.id} data-testid="pulse-metric" data-kind={m.kind}>
-              <dt className="truncate text-xs text-muted-foreground">
-                {m.kind === "balance" ? m.label : t(`dashboard.pulse.${m.kind}`)}
-              </dt>
-              <dd className="text-lg font-semibold tabular-nums">
-                <Link href={m.href} className="hover:text-primary-hover">
-                  {formatMoney(m.value, m.currency)}
-                </Link>
-              </dd>
-              {m.hint && (
-                <dd className="text-xs text-muted-foreground">
-                  {m.kind === "balance"
-                    ? t("dashboard.pulse.asOf", { date: m.hint })
-                    : m.kind === "invoicedYear"
-                      ? m.hint
-                      : t("dashboard.pulse.open", { count: m.hint })}
-                </dd>
-              )}
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function BriefingWidget({ since, lines }: { since: string | null; lines: BriefingLine[] }) {
   const t = useT();

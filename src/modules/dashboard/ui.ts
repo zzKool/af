@@ -2,5 +2,6 @@
 // Safe to import from client components and pages. Never re-export services from here — they would pull Prisma into the bundle.
 
 export * from "./components/dashboard-widgets";
+export * from "./components/home";
 export * from "./components/work-page";
 export type * from "./types";

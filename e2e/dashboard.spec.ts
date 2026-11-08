@@ -46,13 +46,19 @@ test.describe("Dashboard", () => {
 
       await page.goto("/dashboard");
       await expect(page.getByRole("heading", { name: /Welcome back/ })).toBeVisible();
+      // F138: the next moves show three — the others on demand
       const todo = page.getByTestId("action-items");
       await expect(todo).toBeVisible();
+      const more = page.getByTestId("home-moves-more");
+      if (await more.isVisible()) await more.click();
       const rows = todo.locator('[data-testid="action-item"][data-kind="rows_to_justify"]');
       await expect(rows).toBeVisible();
       await expect(rows).toContainText(/\d+ bank line\(s\) to justify/);
-      await expect(page.getByTestId("business-pulse")).toContainText("Plusgirokonto SEK");
+      await expect(page.getByTestId("home-cash")).toBeVisible();
+      await expect(page.getByTestId("home-currencies")).toBeVisible();
       await expect(page.getByTestId("business-pulse")).toContainText("Receivables open");
+      // the owner's close: the line to Work
+      await expect(page.getByTestId("home-close")).toHaveAttribute("href", "/work");
       await expect(page.getByTestId("briefing")).toBeVisible();
       await snap(page, "dashboard");
 
@@ -68,6 +74,7 @@ test.describe("Dashboard — the accountant", () => {
   test("sees the pulse and the month-end items, not the owner's work", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.getByTestId("business-pulse")).toBeVisible();
+    await expect(page.getByTestId("home-close")).toHaveCount(0);
     await expect(
       page.locator('[data-testid="action-item"][data-kind="rows_to_justify"]'),
     ).toHaveCount(0);

@@ -32,5 +32,13 @@ From the board *Pulse · Work* (D77) and the owner's four-step loop (US4). One P
 - [x] T009 `/work`: the title with the percent and the sentence, the five-step progress line with the open step's card, *Also waiting*, *Past months* with the streak, ‹ › between months. The rail's *Work* opens it (its count unchanged).
 - [x] T010 e2e: the owner's *Work* shows the month and its steps; the accountant has no *Work*. `/work` in `screenshots.spec.ts`; `docs/dashboard.md` *Work*.
 
-Open question for the owner (does not block): step 4 cannot know that every private expense is in — today it is done with the package. A *nothing more to add* tick per month would be a stored fact (a schema change).
+Owner, 2026-11-08: *later* — parked under the roadmap's Open decisions. Was: step 4 cannot know that every private expense is in — today it is done with the package. A *nothing more to add* tick per month would be a stored fact (a schema change).
+
+## Phase 4: Home — the year at a glance (F138, D76 phase 4b)
+
+From the board *Pulse* (D77) and the owner's picks (US5). One PR, `feat/home-pulse`; shared files: `en.ts`.
+
+- [x] T011 `home.ts`: `cashDays`, `cashSummary` (FR-006), `ticker` (FR-007), `homeData`; `home-text.ts` `homeSentence` (FR-008); `banking.balanceHistory`; `workData` takes the overview already read. Pure + DB tests.
+- [x] T012 The dashboard page: `CashHero`, `NextMoves`, `CurrenciesCard` (`components/home.tsx`) on the ground; the action-items and business-pulse widgets retired into them (their F71 checks carried over to `home.test.tsx`).
+- [x] T013 e2e `dashboard.spec.ts` follows (the moves on demand, the cash, the currencies, the line to Work; none for the accountant); screenshots; `docs/dashboard.md` *Home*.
 

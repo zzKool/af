@@ -146,6 +146,8 @@ export type CsvRow = {
   name?: string;
   details?: string;
   message?: string;
+  /** the running balance after the row (Nordea's *Balance*), decimal point */
+  balance?: string;
 };
 
 /** A Nordea export of `rows` on `accountId` (dates ISO → `YYYY/MM/DD`, amounts with a decimal comma). */
@@ -160,7 +162,7 @@ export async function importRows(
     "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
   const lines = rows.map(
     (r) =>
-      `${r.date.replace(/-/g, "/")};${r.amount.replace(".", ",")};;;${r.name ?? ""};${r.details ?? ""};${r.message ?? ""};;;${currency};`,
+      `${r.date.replace(/-/g, "/")};${r.amount.replace(".", ",")};;;${r.name ?? ""};${r.details ?? ""};${r.message ?? ""};;${r.balance?.replace(".", ",") ?? ""};${currency};`,
   );
   const bytes = Buffer.from(`${header}\n${lines.join("\n")}\n`, "latin1");
   const fileName = `PLUSGIROKONTO FTG 123 45 67-8 - ${randomUUID().slice(0, 8)}.csv`;

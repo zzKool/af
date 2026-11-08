@@ -74,6 +74,30 @@ page.tsx ── withTenantTransaction (one interactive transaction, the reads on
 
 Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widgets.tsx` on the D40 kit (F71): figures through `formatMoney`, each to-do line a `<StateIcon>` of its priority (`priority-family.ts` — high attention, medium in progress, low neutral) and a grey `<CountBadge>`, the page on `EntityPage`; the page `src/app/(app)/dashboard/page.tsx`. Tests: `overview.test.ts` (a world with one of every kind of item — `documents_to_review` and `vat_not_paid` in their own tests —, the accountant's subset, an empty tenant), `e2e/dashboard.spec.ts`.
 
+## Home — the year at a glance (F138, D76 phase 4b)
+
+`/dashboard`, rebuilt from the board *Pulse* (D77) with the owner's picks: the cash with its trend, the next moves, the currencies and the exposure, the close's line and the streak (must); the situation sentence and the year's ring (nice, cheap).
+
+```
+┌ Cash · all accounts, in SEK ──────────────────────┐ ┌ Next moves  3 of N ────────────┐
+│ 127 500  SEK   ▲ 27 500 this month  ╱╲_╱‾ (12 mo) │ │ 1 … [Open]  2 …  3 …          │
+│ N thing(s) are late. July is 57 % done — next: …  │ │ Show the other N               │
+│ Receivables · Payables · Owed to you · Invoiced   │ │ ▬▬▬▬░░ July · 35 of 41 rows    │
+│                                   ( 87 % ring )   │ │ 3 month(s) closed in a row     │
+└───────────────────────────────────────────────────┘ └────────────────────────────────┘
+┌ Since your last visit (briefing) ─────────────────┐ ┌ Currencies  SEK per unit · 90 d ┐
+                                                      │ CHF  EUR  USD (now, %, line)   │
+                                                      │ ▬▬▬▬▬▬▬░░ shares · 1 % move    │
+```
+
+- `homeData(tx, caller, today, since)` (`home.ts`): the overview (read once, handed to `workData`), the cash, the tickers, the year's rows (the Months panel's counts), and the owner's Work (null for the accountant — no close line).
+- **The cash** (`cashSummary`, pure): `banking.balanceHistory(tx, days)` gives each statement account's balance on each day — the balance of the latest booking date on or before it, the file's first row of that date (the rule of `accountBalances`); the days are the last day of each of the twelve months before this one, then today. Each balance through that day's nearest-day rate to the base; an account with no rate today is left out of the total and the hero says so. The month's move = today − last month's last day (it includes the currency effect — it is the cash in the base). The 1 % sentence takes the largest foreign holding.
+- **The tickers**: the rates page's cross over 90 days (`TICKER_DAYS`), now and the change over the window; a ticker links to `/rates`.
+- **The sentence** (`homeSentence`, server-side): the high-priority items, then the close's month, percent and current step in Work's words.
+- Retired: `ActionItemsWidget` and `BusinessPulseWidget` (the moves and the hero's figures replace them; the per-account balances moved to the currencies' shares). `BriefingWidget` stays.
+
+Tests: `home.pure.test.ts`, `home.test.ts` (an invented world: balances in CHF and SEK, rates at 12.5), `components/home.test.tsx` (F71's money and state checks carried over), `e2e/dashboard.spec.ts`.
+
 ## Work — the monthly close (F137, D76 phase 4)
 
 `/work` — *Work* in the rail, the owner's (the accountant has no Work; `requireCaller` sends him to the dashboard) — is the owner's monthly loop as he wrote it (2026-11-07): the exchange rates up to date, the bank statements imported, every bank row justified, the private expenses added — and the package that ends the month. Built from the board *Pulse · Work* (D77). The linking inbox stays at `/banking/inbox` (Banking › Inbox).
