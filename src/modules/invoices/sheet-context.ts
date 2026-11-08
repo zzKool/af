@@ -1,11 +1,13 @@
 // What a page needs to render one document: the invoice with its derived state, the parties (the stored
 // snapshot once issued, otherwise resolved live from partner + tenant + bank account), the VAT treatment and
 // the related number. One transaction, used by the entity page and the print route.
+
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as banking from "@/modules/banking";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
+import { consultantName } from "./consultant";
 import { getInvoice, nextNumberHint } from "./queries";
 import type { InvoiceWithDerived, PrintedParties } from "./types";
 import { type Registration, type VatTreatment, vatTreatmentFor } from "./vat-treatment";
@@ -58,6 +60,7 @@ export async function resolveSheetContext(
       logoUrl: profile.data?.logoUrl ?? null,
       vatNumber: registration?.vatNumber ?? null,
       vatCountry: registration?.country ?? null,
+      consultant: await consultantName(tx, invoice.contractId),
     },
     partner: {
       name: partner.data?.name ?? "",

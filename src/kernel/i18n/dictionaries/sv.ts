@@ -359,7 +359,7 @@ export const sv: PartialDictionary = {
   "invoice.reminder.closing": "Vänliga hälsningar,",
   "invoice.payment.title": "Betalning",
   "invoice.payment.termsDefault": "Betalning ska ske inom {days} dagar från fakturadatum.",
-  "invoice.payment.pleaseReference": "Vänligen ange fakturanummer {number}.",
+  "invoice.payment.pleaseReference": "Vänligen ange fakturanumret vid betalning:",
   "invoice.payment.bankDetails": "Bankuppgifter",
   "invoice.payment.bank": "Bank",
   "invoice.payment.accountHolder": "Kontoinnehavare",
@@ -368,6 +368,7 @@ export const sv: PartialDictionary = {
   "invoice.payment.bicSwift": "BIC/SWIFT",
   "invoice.company.orgNumber": "Org.nr",
   "invoice.company.vatNumber": "Moms.nr",
+  "invoice.company.consultant": "Konsult",
   "invoice.client.vatNumber": "Kundens moms.nr",
   "invoice.notes": "Anteckningar",
   "invoice.vat.reverseCharge":

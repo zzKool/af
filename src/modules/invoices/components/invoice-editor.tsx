@@ -5,10 +5,8 @@
 // totals from the pure arithmetic. The editor never decides the layout — it fills the sheet's slots.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -89,7 +87,10 @@ export function InvoiceEditor({
   registrations,
   partnerForVat,
   onDraft,
+  toolbar,
 }: {
+  /** F145: more controls in the toolbar above the paper (the PDF preview) */
+  toolbar?: ReactNode;
   /** F143: the draft as the owner types it — the studio's *Ready to send?* reads it live */
   onDraft?: (draft: EditorDraft) => void;
   invoice: EditorInvoice;
@@ -302,12 +303,23 @@ export function InvoiceEditor({
     },
   );
 
-  const vatColumn = true;
-  const inputCls = "h-7 border-dashed bg-transparent px-1 text-[11pt]";
+  // F145: fields sit where the values print, tinted so they read as editable; the paper stays the invoice
+  const field =
+    "rounded-[3px] border border-transparent bg-[#eef4ff] px-1 py-0.5 text-inherit outline-none hover:border-[#c7d2fe] focus:border-[#2563eb] focus:bg-white";
+  const [showDiscount, setShowDiscount] = useState(header.discountPercent !== "");
+  const [showNotes, setShowNotes] = useState(header.notes !== "");
+  const linkBtn = "text-[9pt] text-[#2563eb] hover:underline print:hidden";
+  const commonRate = lines[0]?.vatRate ?? vat.rate;
+  const unitLabel = (q: string) =>
+    t(Number(q) === 1 ? "invoice.unit.day.one" : "invoice.unit.day.other");
+  const setAllRates = (rate: string) => {
+    setLines((prev) => prev.map((l) => ({ ...l, vatRate: rate })));
+    queueMicrotask(() => void persist());
+  };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {/* F143, the board *Invoice studio*: the page changes language, the numbers do not */}
         <fieldset
           aria-label={tUi("invoices.form.language")}
@@ -335,7 +347,34 @@ export function InvoiceEditor({
             </button>
           ))}
         </fieldset>
-        <span>
+        {/* F145: the VAT registration is a choice about the document, not a mark on the paper */}
+        <Select
+          value={header.vatRegistrationId || "__none__"}
+          onValueChange={(v) => {
+            setH("vatRegistrationId", !v || v === "__none__" ? "" : v);
+            queueMicrotask(() => void persist());
+          }}
+        >
+          <SelectTrigger
+            className="h-8 w-56 text-xs"
+            aria-label={tUi("invoices.form.vatRegistration")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">{tUi("invoices.form.noVatRegistration")}</SelectItem>
+            {registrations.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {tUi("invoices.form.vatRegistrationOption", {
+                  country: r.country,
+                  number: r.vatNumber,
+                })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {toolbar}
+        <span className="ml-auto">
           {saveState === "saving" && "…"}
           {saveState === "saved" && tUi("invoices.saved")}
           {!totals.ok && <span className="text-destructive">{totals.message}</span>}
@@ -345,301 +384,288 @@ export function InvoiceEditor({
         mode="edit"
         doc={doc}
         slots={{
-          headerTools: (
-            <div className="mt-2 flex justify-end gap-2 print:hidden">
-              <Select
-                value={header.vatRegistrationId || "__none__"}
-                onValueChange={(v) => {
-                  setH("vatRegistrationId", !v || v === "__none__" ? "" : v);
-                  queueMicrotask(() => void persist());
-                }}
-              >
-                <SelectTrigger
-                  className="h-7 w-44 text-xs"
-                  aria-label={tUi("invoices.form.vatRegistration")}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{tUi("invoices.form.noVatRegistration")}</SelectItem>
-                  {registrations.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.country} · {r.vatNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ),
           issueDate: (
-            <Input
+            <input
               type="date"
               value={header.issueDate}
               onChange={(e) => setH("issueDate", e.target.value)}
               onBlur={() => void persist()}
-              className={`${inputCls} w-40`}
+              className={`${field} w-[34mm] font-bold`}
               aria-label={tUi("invoices.form.issueDate")}
             />
           ),
           dueDate: (
-            <Input
+            <input
               type="date"
               value={header.dueDate}
               onChange={(e) => setH("dueDate", e.target.value)}
               onBlur={() => void persist()}
-              className={`${inputCls} w-40`}
+              className={`${field} w-[34mm] font-bold`}
               aria-label={t("invoice.dueDate")}
             />
           ),
           periodLabel: (
-            <Input
+            <input
               value={header.periodLabel}
               onChange={(e) => setH("periodLabel", e.target.value)}
               onBlur={() => void persist()}
               placeholder={tUi("invoices.form.periodPlaceholder")}
-              className={`${inputCls} w-48`}
+              className={`${field} w-[40mm] font-bold`}
               aria-label={tUi("invoices.form.period")}
             />
           ),
           references: (
-            <div className="space-y-1">
-              {header.printedReferences.map((r, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: editable list without ids
-                <div key={i} className="flex gap-1">
-                  <Input
-                    value={r.label}
-                    onChange={(e) =>
-                      setH(
-                        "printedReferences",
-                        header.printedReferences.map((x, j) =>
-                          j === i ? { ...x, label: e.target.value } : x,
-                        ),
-                      )
-                    }
-                    onBlur={() => void persist()}
-                    className={`${inputCls} w-36`}
-                    placeholder="Label"
-                  />
-                  <Input
-                    value={r.value}
-                    onChange={(e) =>
-                      setH(
-                        "printedReferences",
-                        header.printedReferences.map((x, j) =>
-                          j === i ? { ...x, value: e.target.value } : x,
-                        ),
-                      )
-                    }
-                    onBlur={() => void persist()}
-                    className={`${inputCls} flex-1`}
-                    placeholder="Value"
-                  />
-                  <Button
+            <>
+              {header.printedReferences.map((r, i) => {
+                const setRef = (patch: Partial<PrintedReference>) =>
+                  setH(
+                    "printedReferences",
+                    header.printedReferences.map((x, j) => (j === i ? { ...x, ...patch } : x)),
+                  );
+                return (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: editable list without ids
+                  <div key={i} className="contents">
+                    <dt>
+                      <input
+                        value={r.label}
+                        onChange={(e) => setRef({ label: e.target.value })}
+                        onBlur={() => void persist()}
+                        className={`${field} w-[24mm]`}
+                        placeholder={tUi("invoices.form.referenceLabel")}
+                        aria-label={tUi("invoices.form.referenceLabel")}
+                      />
+                    </dt>
+                    <dd className="flex items-center gap-1 font-bold">
+                      <input
+                        value={r.value}
+                        onChange={(e) => setRef({ value: e.target.value })}
+                        onBlur={() => void persist()}
+                        className={`${field} w-[34mm] font-bold`}
+                        placeholder={tUi("invoices.form.referenceValue")}
+                        aria-label={tUi("invoices.form.referenceValue")}
+                      />
+                      <button
+                        type="button"
+                        className="text-[#9ca3af] hover:text-[#b91c1c] print:hidden"
+                        title={tUi("invoices.line.remove")}
+                        onClick={() => {
+                          setH(
+                            "printedReferences",
+                            header.printedReferences.filter((_, j) => j !== i),
+                          );
+                          queueMicrotask(() => void persist());
+                        }}
+                      >
+                        ×
+                      </button>
+                    </dd>
+                  </div>
+                );
+              })}
+              {header.printedReferences.length < 10 && (
+                <dd className="col-span-2">
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => {
-                      setH(
-                        "printedReferences",
-                        header.printedReferences.filter((_, j) => j !== i),
-                      );
-                      queueMicrotask(() => void persist());
-                    }}
+                    className={linkBtn}
+                    onClick={() =>
+                      setH("printedReferences", [
+                        ...header.printedReferences,
+                        { label: "", value: "" },
+                      ])
+                    }
+                  >
+                    + {tUi("invoices.form.addReference")}
+                  </button>
+                </dd>
+              )}
+            </>
+          ),
+          lines: (cols) =>
+            lines.map((l, i) => (
+              <tr
+                key={l.key}
+                className="group align-top"
+                style={{ borderBottom: "1px solid #e5e7eb" }}
+                data-testid="line-row"
+              >
+                <td className="px-2 py-2">
+                  <textarea
+                    value={l.description}
+                    rows={Math.max(1, l.description.split("\n").length)}
+                    onChange={(e) => setLine(l.key, { description: e.target.value })}
+                    onBlur={() => void persist()}
+                    placeholder={tUi("invoices.line.descriptionPlaceholder")}
+                    className={`${field} block w-full resize-none`}
+                    aria-label={t("invoice.table.description")}
+                  />
+                  {(l.discountPercent !== "" || l.rateSourceId) && (
+                    <div className="mt-1 flex items-center gap-2 px-1 text-[8pt] text-[#6b7280]">
+                      {l.rateSourceId && <span>{tUi("invoices.line.fromContractRate")}</span>}
+                      {l.discountPercent !== "" && (
+                        <label className="flex items-center gap-1">
+                          {t("invoice.totals.discount")}
+                          <input
+                            inputMode="decimal"
+                            value={l.discountPercent}
+                            onChange={(e) =>
+                              setLine(l.key, { discountPercent: e.target.value.replace(",", ".") })
+                            }
+                            onBlur={() => void persist()}
+                            className={`${field} w-10 text-right`}
+                            aria-label={tUi("invoices.line.discountPercent")}
+                          />
+                          %
+                        </label>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td className="px-1 py-2 text-center whitespace-nowrap">
+                  <input
+                    inputMode="decimal"
+                    value={l.quantity}
+                    onChange={(e) => setLine(l.key, { quantity: e.target.value.replace(",", ".") })}
+                    onBlur={() => void persist()}
+                    className={`${field} w-[10mm] text-center tabular-nums`}
+                    aria-label={t("invoice.table.quantity")}
+                  />{" "}
+                  {unitLabel(l.quantity)}
+                </td>
+                <td className="px-1 py-2 text-right whitespace-nowrap">
+                  {invoice.currency}{" "}
+                  <input
+                    inputMode="decimal"
+                    value={l.unitPrice}
+                    onChange={(e) =>
+                      setLine(l.key, {
+                        unitPrice: e.target.value.replace(",", "."),
+                        rateSourceId: null,
+                      })
+                    }
+                    onBlur={() => void persist()}
+                    className={`${field} w-[18mm] text-right tabular-nums`}
+                    aria-label={t("invoice.table.unitPrice")}
+                  />
+                </td>
+                {cols.vat && (
+                  <td className="px-1 py-2 text-right">
+                    <select
+                      value={l.vatRate}
+                      onChange={(e) => {
+                        setLine(l.key, { vatRate: e.target.value });
+                        queueMicrotask(() => void persist());
+                      }}
+                      className={`${field} text-right`}
+                      aria-label={t("invoice.table.vatPercent")}
+                    >
+                      {rateOptions.map((r) => (
+                        <option key={r} value={r}>
+                          {formatVatPercent(r)}%
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                )}
+                <td className="px-3 py-2.5 text-right tabular-nums" data-testid="line-net">
+                  {totals.ok
+                    ? sheetMoney(totals.value.lines[i]?.net ?? "0.00", invoice.currency)
+                    : "—"}
+                </td>
+                <td className="py-2 text-right whitespace-nowrap opacity-40 group-hover:opacity-100 print:hidden">
+                  <button
+                    type="button"
+                    className="px-1 text-[#6b7280] hover:text-[#111827]"
+                    title={tUi("invoices.line.duplicate")}
+                    aria-label={tUi("invoices.line.duplicate")}
+                    onClick={() => duplicateLine(l.key)}
+                  >
+                    ⧉
+                  </button>
+                  <button
+                    type="button"
+                    className="px-1 text-[#6b7280] hover:text-[#b91c1c] disabled:opacity-30"
+                    title={tUi("invoices.line.remove")}
+                    aria-label={tUi("invoices.line.remove")}
+                    onClick={() => removeLine(l.key)}
+                    disabled={lines.length <= 1}
                   >
                     ×
-                  </Button>
-                </div>
-              ))}
-              {header.printedReferences.length < 10 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() =>
-                    setH("printedReferences", [
-                      ...header.printedReferences,
-                      { label: "", value: "" },
-                    ])
+                  </button>
+                </td>
+              </tr>
+            )),
+          afterLines: (
+            <tr className="print:hidden">
+              <td colSpan={6} className="px-2 pt-2">
+                <button type="button" className={linkBtn} onClick={addLine}>
+                  + {tUi("invoices.line.add")}
+                </button>
+              </td>
+            </tr>
+          ),
+          vat:
+            rateOptions.length > 1 ? (
+              <select
+                value={commonRate}
+                onChange={(e) => setAllRates(e.target.value)}
+                className={`${field} tabular-nums`}
+                aria-label={tUi("invoices.form.vatRate")}
+                data-testid="sheet-vat-rate"
+              >
+                {rateOptions.map((r) => (
+                  <option key={r} value={r}>
+                    ({formatVatPercent(r)}%)
+                  </option>
+                ))}
+              </select>
+            ) : undefined,
+          discount: showDiscount ? (
+            <span className="ml-1 inline-flex items-center gap-1">
+              <input
+                inputMode="decimal"
+                value={header.discountPercent}
+                onChange={(e) => setH("discountPercent", e.target.value.replace(",", "."))}
+                onBlur={() => {
+                  if (header.discountPercent === "" || Number(header.discountPercent) === 0) {
+                    setH("discountPercent", "");
+                    setShowDiscount(false);
                   }
-                >
-                  + {tUi("invoices.form.addReference")}
-                </Button>
+                  void persist();
+                }}
+                className={`${field} w-10 text-right`}
+                aria-label={tUi("invoices.form.discountPercent")}
+              />
+              %
+            </span>
+          ) : undefined,
+          afterTotals: (
+            <div className="mt-1 flex gap-3 print:hidden">
+              {!showDiscount && (
+                <button type="button" className={linkBtn} onClick={() => setShowDiscount(true)}>
+                  + {tUi("invoices.form.addDiscount")}
+                </button>
+              )}
+              {!showNotes && (
+                <button type="button" className={linkBtn} onClick={() => setShowNotes(true)}>
+                  + {tUi("invoices.form.addNote")}
+                </button>
               )}
             </div>
           ),
-          lines: (
-            <table className="w-full border-collapse text-left">
-              <thead className="border-b border-black">
-                <tr>
-                  <th className="py-1 pr-2 font-semibold">{t("invoice.table.description")}</th>
-                  <th className="w-24 py-1 pr-2 text-center font-semibold">
-                    {t("invoice.table.quantity")}
-                  </th>
-                  <th className="w-32 py-1 pr-2 text-right font-semibold">
-                    {t("invoice.table.unitPrice")}
-                  </th>
-                  <th className="w-20 py-1 pr-2 text-right font-semibold">
-                    {t("invoice.totals.discount")} %
-                  </th>
-                  {vatColumn && (
-                    <th className="w-24 py-1 pr-2 text-right font-semibold">
-                      {t("invoice.table.vatPercent")}
-                    </th>
-                  )}
-                  <th className="w-32 py-1 text-right font-semibold">
-                    {t("invoice.table.amount")}
-                  </th>
-                  <th className="w-16 py-1" />
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((l, i) => (
-                  <tr
-                    key={l.key}
-                    className="border-b border-neutral-200 align-top"
-                    data-testid="line-row"
-                  >
-                    <td className="py-1 pr-2">
-                      <Input
-                        value={l.description}
-                        onChange={(e) => setLine(l.key, { description: e.target.value })}
-                        onBlur={() => void persist()}
-                        placeholder={tUi("invoices.line.descriptionPlaceholder")}
-                        className={`${inputCls} w-full`}
-                        aria-label={t("invoice.table.description")}
-                      />
-                      {l.rateSourceId && (
-                        <div className="mt-0.5 text-[8pt] text-neutral-500">
-                          {tUi("invoices.line.fromContractRate")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-1 pr-2">
-                      <Input
-                        inputMode="decimal"
-                        value={l.quantity}
-                        onChange={(e) =>
-                          setLine(l.key, { quantity: e.target.value.replace(",", ".") })
-                        }
-                        onBlur={() => void persist()}
-                        className={`${inputCls} text-center`}
-                        aria-label={t("invoice.table.quantity")}
-                      />
-                    </td>
-                    <td className="py-1 pr-2">
-                      <Input
-                        inputMode="decimal"
-                        value={l.unitPrice}
-                        onChange={(e) =>
-                          setLine(l.key, {
-                            unitPrice: e.target.value.replace(",", "."),
-                            rateSourceId: null,
-                          })
-                        }
-                        onBlur={() => void persist()}
-                        className={`${inputCls} text-right`}
-                        aria-label={t("invoice.table.unitPrice")}
-                      />
-                    </td>
-                    <td className="py-1 pr-2">
-                      <Input
-                        inputMode="decimal"
-                        value={l.discountPercent}
-                        onChange={(e) =>
-                          setLine(l.key, { discountPercent: e.target.value.replace(",", ".") })
-                        }
-                        onBlur={() => void persist()}
-                        className={`${inputCls} text-right`}
-                        aria-label={`${t("invoice.totals.discount")} %`}
-                      />
-                    </td>
-                    {vatColumn && (
-                      <td className="py-1 pr-2">
-                        <Select
-                          value={l.vatRate}
-                          onValueChange={(v) => {
-                            if (v) {
-                              setLine(l.key, { vatRate: v });
-                              queueMicrotask(() => void persist());
-                            }
-                          }}
-                        >
-                          <SelectTrigger
-                            className="h-7 w-full justify-end border-dashed bg-transparent px-1 text-[11pt]"
-                            aria-label={t("invoice.table.vatPercent")}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {rateOptions.map((r) => (
-                              <SelectItem key={r} value={r}>
-                                {formatVatPercent(r)}%
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                    )}
-                    <td className="py-1 text-right tabular-nums" data-testid="line-net">
-                      {totals.ok
-                        ? sheetMoney(totals.value.lines[i]?.net ?? "0.00", invoice.currency)
-                        : "—"}
-                    </td>
-                    <td className="py-1 text-right whitespace-nowrap">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        title={tUi("invoices.line.duplicate")}
-                        onClick={() => duplicateLine(l.key)}
-                      >
-                        ⧉
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        title={tUi("invoices.line.remove")}
-                        onClick={() => removeLine(l.key)}
-                        disabled={lines.length <= 1}
-                      >
-                        ×
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td colSpan={7} className="py-1">
-                    <Button type="button" variant="outline" size="xs" onClick={addLine}>
-                      + {tUi("invoices.line.add")}
-                    </Button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          ),
-          discount: (
-            <Input
-              inputMode="decimal"
-              value={header.discountPercent}
-              onChange={(e) => setH("discountPercent", e.target.value.replace(",", "."))}
-              onBlur={() => void persist()}
-              placeholder="0"
-              className={`${inputCls} ml-2 inline-block w-14 text-right`}
-              aria-label={tUi("invoices.form.discountPercent")}
-            />
-          ),
-          notes: (
+          notes: showNotes ? (
             <textarea
               value={header.notes}
               onChange={(e) => setH("notes", e.target.value)}
-              onBlur={() => void persist()}
+              onBlur={() => {
+                if (header.notes.trim() === "") setShowNotes(false);
+                void persist();
+              }}
               placeholder={tUi("invoices.form.notes")}
-              className="w-full rounded border border-dashed bg-transparent p-1 text-[11pt]"
+              className={`${field} block w-full resize-none`}
               rows={2}
               aria-label={tUi("invoices.form.notes")}
             />
-          ),
+          ) : undefined,
           paymentTerms: (
             <textarea
               value={header.paymentTermsText}
@@ -650,7 +676,7 @@ export function InvoiceEditor({
                   ? t("invoice.payment.termsDefault", { days: doc.paymentTermsDays })
                   : tUi("invoices.form.paymentTermsText")
               }
-              className="w-full rounded border border-dashed bg-transparent p-1 text-[10pt]"
+              className={`${field} block w-full resize-none placeholder:text-[#111827]`}
               rows={1}
               aria-label={tUi("invoices.form.paymentTermsText")}
             />

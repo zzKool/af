@@ -2,6 +2,8 @@
 // with them. The PDF is Chromium's render of this markup (`/print/invoice/[id]` → <InvoiceSheet mode="print">), so
 // identical markup is an identical PDF. The snapshots were written from `main` BEFORE the kit change and are
 // committed; a diff here is a change to every issued invoice's PDF — it needs its own decision, never an update.
+// Re-baselined once by such a decision: F145 (2026-11-08) — the owner's invoice shape (logo, title line, the
+// client's facts list, grey header / total / payment box, labels with a colon).
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import fixture from "../../../specs/invoices/fixtures/sample-invoice.json";

@@ -28,7 +28,14 @@ type ProfileData = {
 
 const CURRENCIES = ["SEK", "CHF", "EUR", "USD"] as const;
 
-export function CompanyProfileForm({ initialData }: { initialData: ProfileData }) {
+export function CompanyProfileForm({
+  initialData,
+  initialLogo = null,
+}: {
+  initialData: ProfileData;
+  /** F145: the logo on top of invoices (a data URL) */
+  initialLogo?: string | null;
+}) {
   const t = useT();
   const [data, setData] = useState(initialData);
   const [errors, setErrors] = useState<Partial<Record<keyof ProfileData, string>>>({});
@@ -83,6 +90,8 @@ export function CompanyProfileForm({ initialData }: { initialData: ProfileData }
           <p className="text-sm text-muted-foreground">Company initials</p>
         </div>
       </div>
+
+      <LogoField initial={initialLogo} />
 
       {/* Company Name */}
       <FieldWrapper
@@ -229,6 +238,80 @@ function FieldWrapper({
       </div>
       {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+const LOGO_MAX_BYTES = 300_000;
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+
+/** F145: the invoice logo — picked here, printed centred on top of every invoice from the next one issued. */
+function LogoField({ initial }: { initial: string | null }) {
+  const t = useT();
+  const [logo, setLogo] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { executeAsync } = useAction(updateTenantProfileAction);
+  const save = async (value: string | null) => {
+    setSaving(true);
+    setError(null);
+    const r = await executeAsync({ logoUrl: value });
+    setSaving(false);
+    if (r?.serverError || r?.validationErrors || r?.data?.error) {
+      setError(t("settings.company.logoFailed"));
+      return;
+    }
+    setLogo(value);
+  };
+  return (
+    <div className="space-y-2" data-testid="company-logo">
+      <Label>{t("settings.company.logo")}</Label>
+      <div className="flex items-center gap-4">
+        <div className="flex h-16 w-48 items-center justify-center rounded-md border border-subtle bg-white p-2">
+          {logo ? (
+            // biome-ignore lint/performance/noImgElement: a data URL, nothing to optimise
+            <img
+              src={logo}
+              alt={t("settings.company.logo")}
+              className="max-h-12 max-w-44 object-contain"
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground">{t("settings.company.noLogo")}</span>
+          )}
+        </div>
+        <label className="cursor-pointer text-sm text-action hover:underline">
+          {logo ? t("settings.company.logoReplace") : t("settings.company.logoPick")}
+          <input
+            type="file"
+            accept={LOGO_TYPES.join(",")}
+            className="sr-only"
+            aria-label={t("settings.company.logoPick")}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              if (!LOGO_TYPES.includes(file.type) || file.size > LOGO_MAX_BYTES) {
+                setError(t("settings.company.logoRules"));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => void save(String(reader.result));
+              reader.readAsDataURL(file);
+            }}
+          />
+        </label>
+        {logo && (
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:text-destructive"
+            onClick={() => void save(null)}
+          >
+            {t("settings.company.logoRemove")}
+          </button>
+        )}
+        {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+      </div>
+      <p className="text-xs text-muted-foreground">{error ?? t("settings.company.logoHint")}</p>
     </div>
   );
 }

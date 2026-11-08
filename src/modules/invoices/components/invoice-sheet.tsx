@@ -54,14 +54,24 @@ export type SheetSlots = {
   issueDate?: ReactNode;
   dueDate?: ReactNode;
   periodLabel?: ReactNode;
+  /** the references' rows (label · value) inside the dates list, and the "+ reference" control */
   references?: ReactNode;
-  lines?: ReactNode;
+  /** the table body's rows, given the columns the sheet shows */
+  lines?: (cols: SheetColumns) => ReactNode;
+  /** a row after the lines (the "+ line" control) */
+  afterLines?: ReactNode;
+  /** the discount input — the row shows when there is a discount or this slot is given */
   discount?: ReactNode;
+  /** the VAT rate picker, beside "VAT" in the totals */
+  vat?: ReactNode;
+  /** under the totals (the "+ discount" control) */
+  afterTotals?: ReactNode;
   notes?: ReactNode;
   paymentTerms?: ReactNode;
-  /** rendered under the title block (language, registration pickers) */
-  headerTools?: ReactNode;
 };
+
+/** The columns of the lines table: VAT % only when the lines carry different rates. */
+export type SheetColumns = { vat: boolean };
 
 export type SheetProps = {
   mode: "edit" | "print";
@@ -104,6 +114,24 @@ export function sheetQuantity(
   return label === unitKey ? qty : `${qty} ${label}`;
 }
 
+/** `CH` → `Suisse` in the document's language; a country already written out prints as is. */
+export function sheetCountry(country: string | undefined, language: string): string | undefined {
+  if (!country || !/^[A-Z]{2}$/.test(country)) return country;
+  try {
+    return new Intl.DisplayNames([DATE_LOCALE[language.slice(0, 2)] ?? "en-GB"], {
+      type: "region",
+    }).of(country);
+  } catch {
+    return country;
+  }
+}
+
+// The shape (F145) is the owner's own invoice: the logo centred on top; "Invoice VA26-…" on the right; the
+// company (left) and the client (right), the dates, period and references under the client as a bold list;
+// a grey table header; the totals with a grey total row; the payment box grey; the footer line.
+const GREY = "#f3f4f6";
+const MUTED = "#4b5563";
+
 export function InvoiceSheet({ mode, doc, slots = {} }: SheetProps) {
   const t = translator(doc.language);
   const edit = mode === "edit";
@@ -112,284 +140,323 @@ export function InvoiceSheet({ mode, doc, slots = {} }: SheetProps) {
   const money = (amount: string, whole = false) =>
     `${sign}${sheetMoney(amount, doc.currency, whole)}`;
   const { tenant, partner, bank } = doc.parties;
-  const vatColumn =
-    doc.lines.some((l) => l.vatRate !== doc.lines[0]?.vatRate) || doc.lines.length === 0;
+  const cols: SheetColumns = {
+    vat: new Set(doc.lines.map((l) => l.vatRate)).size > 1,
+  };
   const title = t(`invoice.title.${doc.type}` as MessageKey);
-  const addressLines = (a: PrintedParties["partner"]["address"]) =>
-    a
-      ? [a.street, [a.postalCode, a.city].filter(Boolean).join(" "), a.country].filter(Boolean)
-      : [];
+  const partnerAddress = partner.address
+    ? [
+        partner.address.street,
+        [partner.address.postalCode, partner.address.city].filter(Boolean).join(" "),
+        sheetCountry(partner.address.country, doc.language),
+      ].filter((l): l is string => !!l)
+    : [];
   const termsSentence =
     doc.paymentTermsText ??
     (doc.type !== "quote" && doc.paymentTermsDays !== null
       ? t("invoice.payment.termsDefault", { days: doc.paymentTermsDays })
       : null);
+  const hasDiscount = Number(doc.discountAmount) > 0;
+  const label = (k: MessageKey) => `${t(k)}:`;
 
   return (
     <article
-      className="sheet relative mx-auto flex w-full max-w-[210mm] flex-col gap-6 bg-white p-[15mm] text-[11pt] leading-snug text-black shadow-sm print:max-w-none print:p-0 print:shadow-none"
+      className="sheet relative mx-auto flex w-full max-w-[210mm] flex-col bg-white p-[15mm] text-[10pt] leading-snug text-[#111827] shadow-sm print:max-w-none print:p-0 print:shadow-none"
+      style={{ fontFamily: "Arial, Helvetica, sans-serif", colorScheme: "light" }}
       data-mode={mode}
       lang={doc.language}
     >
-      {/* header: company (left) · title + number (right) */}
-      <header className="flex items-start justify-between gap-6">
-        <div className="min-w-0">
-          {tenant.logoUrl ? (
-            // biome-ignore lint/performance/noImgElement: the PDF renderer wants a plain <img>
-            <img
-              src={tenant.logoUrl}
-              alt={tenant.name}
-              className="mb-2 max-h-[20mm] max-w-[60mm]"
-            />
-          ) : (
-            <div className="text-[16pt] font-semibold">{tenant.name}</div>
-          )}
+      {/* the logo, centred */}
+      {tenant.logoUrl && (
+        <div className="mb-[8mm] flex justify-center">
+          {/* biome-ignore lint/performance/noImgElement: the PDF renderer wants a plain <img> */}
+          <img
+            src={tenant.logoUrl}
+            alt={tenant.name}
+            className="max-h-[18mm] max-w-[70mm] object-contain"
+            data-testid="sheet-logo"
+          />
         </div>
-        <div className="text-right">
-          <div
-            className="text-[18pt] font-semibold"
-            style={isCredit ? { color: "#b91c1c" } : undefined}
-          >
-            {title}
-          </div>
-          <div className="text-[13pt] tabular-nums" data-testid="sheet-number">
+      )}
+
+      {/* "Invoice VA26-004" on the right */}
+      <header className="mb-[7mm] text-right">
+        <div className="text-[15pt]" style={isCredit ? { color: "#b91c1c" } : undefined}>
+          <span style={{ color: MUTED }}>{title}</span>{" "}
+          <span className="font-bold tabular-nums" data-testid="sheet-number">
             {doc.number ?? (
-              <span className="text-neutral-500">
+              <span className="font-normal" style={{ color: "#9ca3af" }}>
                 {doc.numberHint
                   ? t("invoices.willBe", { number: doc.numberHint })
                   : t("invoice.draft")}
               </span>
             )}
-          </div>
-          {doc.status === "draft" && doc.number === null && (
-            <div className="mt-1 inline-block rounded border border-neutral-400 px-2 text-[9pt] tracking-wider text-neutral-600">
-              {t("invoice.draft")}
-            </div>
-          )}
-          {slots.headerTools}
+          </span>
         </div>
+        {doc.status === "draft" && doc.number === null && (
+          <div
+            className="mt-1 inline-block rounded border px-2 text-[8pt] tracking-wider"
+            style={{ borderColor: "#9ca3af", color: MUTED }}
+          >
+            {t("invoice.draft")}
+          </div>
+        )}
       </header>
 
-      {/* parties */}
-      <section className="grid grid-cols-2 gap-6">
-        <div className="space-y-0.5">
-          <div className="font-semibold">{tenant.name}</div>
-          {tenant.address?.split(/\n|, /).map((l) => (
-            <div key={l}>{l}</div>
-          ))}
-          {tenant.email && <div>{tenant.email}</div>}
-          {tenant.orgNumber && (
-            <div>
-              {t("invoice.company.orgNumber")}: {tenant.orgNumber}
-            </div>
-          )}
-          {tenant.vatNumber && (
-            <div>
-              {t("invoice.company.vatNumber")}: {tenant.vatNumber}
-            </div>
-          )}
+      {/* the company (left) · the client and the document's facts (right) */}
+      <section className="mb-[8mm] grid grid-cols-2 gap-[10mm]">
+        <div className="flex flex-col gap-[4mm]">
+          <div className="space-y-0.5">
+            <div className="text-[11pt] font-bold">{tenant.name}</div>
+            {tenant.address
+              ?.split(/\n|, /)
+              .filter(Boolean)
+              .map((l) => (
+                <div key={l}>{l}</div>
+              ))}
+          </div>
+          <div className="space-y-0.5 text-[9pt]">
+            {tenant.email && <div>{tenant.email}</div>}
+            {tenant.orgNumber && (
+              <div>
+                {label("invoice.company.orgNumber")} {tenant.orgNumber}
+              </div>
+            )}
+            {tenant.vatNumber && (
+              <div>
+                {label("invoice.company.vatNumber")} {tenant.vatNumber}
+              </div>
+            )}
+            {tenant.consultant && (
+              <div data-testid="sheet-consultant">
+                {label("invoice.company.consultant")} {tenant.consultant}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="space-y-0.5">
-          <div className="font-semibold">{partner.name}</div>
-          {addressLines(partner.address).map((l) => (
-            <div key={l}>{l}</div>
-          ))}
-          {partner.vatNumber && (
-            <div>
-              {t("invoice.client.vatNumber")}: {partner.vatNumber}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* meta */}
-      <section className="grid grid-cols-2 gap-6">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-          <dt className="text-neutral-600">{t("invoice.date")}</dt>
-          <dd>{slots.issueDate ?? sheetDate(doc.issueDate, doc.language)}</dd>
-          {(doc.dueDate || slots.dueDate) && (
-            <>
-              <dt className="text-neutral-600">
-                {doc.type === "quote" ? t("invoice.validUntil") : t("invoice.dueDate")}
-              </dt>
-              <dd>{slots.dueDate ?? (doc.dueDate ? sheetDate(doc.dueDate, doc.language) : "")}</dd>
-            </>
-          )}
-          {(doc.periodLabel || slots.periodLabel) && (
-            <>
-              <dt className="text-neutral-600">{t("invoice.period")}</dt>
-              <dd>{slots.periodLabel ?? doc.periodLabel}</dd>
-            </>
-          )}
+        <div className="flex flex-col gap-[4mm]">
+          <div className="space-y-0.5">
+            <div className="text-[11pt] font-bold">{partner.name}</div>
+            {partnerAddress.map((l) => (
+              <div key={l}>{l}</div>
+            ))}
+            {partner.vatNumber && (
+              <div className="text-[9pt]">
+                {label("invoice.client.vatNumber")} {partner.vatNumber}
+              </div>
+            )}
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-0.5 text-[9pt]">
+            <dt>{label("invoice.date")}</dt>
+            <dd className="font-bold">
+              {slots.issueDate ?? sheetDate(doc.issueDate, doc.language)}
+            </dd>
+            {(doc.dueDate || slots.dueDate) && (
+              <>
+                <dt>{label(doc.type === "quote" ? "invoice.validUntil" : "invoice.dueDate")}</dt>
+                <dd className="font-bold">
+                  {slots.dueDate ?? (doc.dueDate ? sheetDate(doc.dueDate, doc.language) : "")}
+                </dd>
+              </>
+            )}
+            {(doc.periodLabel || slots.periodLabel) && (
+              <>
+                <dt>{label("invoice.period")}</dt>
+                <dd className="font-bold">{slots.periodLabel ?? doc.periodLabel}</dd>
+              </>
+            )}
+            {slots.references ??
+              doc.printedReferences.map((r) => (
+                <div key={`${r.label}:${r.value}`} className="contents">
+                  <dt>{r.label}:</dt>
+                  <dd className="font-bold">{r.value}</dd>
+                </div>
+              ))}
+          </dl>
           {doc.relatedNumber && (
-            <dd className="col-span-2 text-neutral-700">
+            <div className="text-[9pt]" style={{ color: MUTED }}>
               {isCredit
                 ? t("invoice.creditFor", { number: doc.relatedNumber })
                 : t("invoice.fromQuote", { number: doc.relatedNumber })}
-            </dd>
-          )}
-        </dl>
-        <div>
-          {slots.references ?? (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-              {doc.printedReferences.map((r) => (
-                <div key={`${r.label}:${r.value}`} className="contents">
-                  <dt className="text-neutral-600">{r.label}</dt>
-                  <dd>{r.value}</dd>
-                </div>
-              ))}
-            </dl>
+            </div>
           )}
         </div>
       </section>
 
-      {/* lines */}
-      <section>
-        {slots.lines ?? (
-          <table className="w-full border-collapse text-left">
-            <thead className="border-b border-black">
-              <tr>
-                <th className="py-1 pr-2 font-semibold">{t("invoice.table.description")}</th>
-                <th className="py-1 pr-2 text-center font-semibold">
-                  {t("invoice.table.quantity")}
-                </th>
-                <th className="py-1 pr-2 text-right font-semibold">
-                  {t("invoice.table.unitPrice")}
-                </th>
-                {vatColumn && (
-                  <th className="py-1 pr-2 text-right font-semibold">
-                    {t("invoice.table.vatPercent")}
-                  </th>
-                )}
-                <th className="py-1 text-right font-semibold">{t("invoice.table.amount")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {doc.lines.map((l) => (
-                <tr key={l.key} className="border-b border-neutral-200 align-top">
-                  <td className="py-1.5 pr-2 whitespace-pre-wrap">{l.description}</td>
-                  <td className="py-1.5 pr-2 text-center tabular-nums">
+      {/* the lines */}
+      <table className="mb-[5mm] w-full border-collapse text-left">
+        <thead>
+          <tr style={{ background: GREY }}>
+            <th className="px-3 py-2 font-bold">{t("invoice.table.description")}</th>
+            <th className="w-[22mm] px-2 py-2 text-center font-bold">
+              {t("invoice.table.quantity")}
+            </th>
+            <th className="w-[30mm] px-2 py-2 text-right font-bold">
+              {t("invoice.table.unitPrice")}
+            </th>
+            {cols.vat && (
+              <th className="w-[16mm] px-2 py-2 text-right font-bold">
+                {t("invoice.table.vatPercent")}
+              </th>
+            )}
+            <th className="w-[32mm] px-3 py-2 text-right font-bold">{t("invoice.table.amount")}</th>
+            {edit && <th className="w-[14mm] print:hidden" />}
+          </tr>
+        </thead>
+        <tbody>
+          {slots.lines
+            ? slots.lines(cols)
+            : doc.lines.map((l) => (
+                <tr key={l.key} className="align-top" style={{ borderBottom: "1px solid #e5e7eb" }}>
+                  <td className="px-3 py-2.5 whitespace-pre-wrap">{l.description}</td>
+                  <td className="px-2 py-2.5 text-center tabular-nums">
                     {sheetQuantity(l.quantity, l.unit, t)}
                   </td>
-                  <td className="py-1.5 pr-2 text-right tabular-nums">
+                  <td className="px-2 py-2.5 text-right tabular-nums">
                     {sheetMoney(l.unitPrice, doc.currency, true)}
                   </td>
-                  {vatColumn && (
-                    <td className="py-1.5 pr-2 text-right tabular-nums">
+                  {cols.vat && (
+                    <td className="px-2 py-2.5 text-right tabular-nums">
                       {formatVatPercent(l.vatRate)}%
                     </td>
                   )}
-                  <td className="py-1.5 text-right tabular-nums">{money(l.netAmount)}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{money(l.netAmount)}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+          {slots.afterLines}
+        </tbody>
+      </table>
 
-      {/* totals */}
-      <section className="flex justify-end">
-        <table className="w-[80mm] text-right tabular-nums">
+      {/* the totals */}
+      <section className="mb-[7mm] flex flex-col items-end">
+        <table className="w-[95mm] border-collapse text-right tabular-nums">
           <tbody>
-            <tr>
-              <td className="py-0.5 pr-4 text-left text-neutral-600">
-                {t("invoice.totals.subtotal")}
-              </td>
-              <td className="py-0.5">{money(doc.subtotal)}</td>
+            <tr style={{ borderTop: "1px solid #e5e7eb" }}>
+              <td className="px-3 py-1.5 text-left">{t("invoice.totals.subtotal")}</td>
+              <td className="px-3 py-1.5">{money(doc.subtotal)}</td>
             </tr>
-            {(slots.discount || Number(doc.discountAmount) > 0) && (
-              <tr>
-                <td className="py-0.5 pr-4 text-left text-neutral-600">
+            {(hasDiscount || slots.discount) && (
+              <tr data-testid="sheet-discount">
+                <td className="px-3 py-1.5 text-left">
                   {t("invoice.totals.discount")}
-                  {doc.discountPercent ? ` ${formatVatPercent(doc.discountPercent)}%` : ""}
+                  {!slots.discount && doc.discountPercent
+                    ? ` (${formatVatPercent(doc.discountPercent)}%)`
+                    : ""}
                   {slots.discount}
                 </td>
-                <td className="py-0.5" style={{ color: "#b91c1c" }}>
+                <td className="px-3 py-1.5" style={{ color: "#b91c1c" }}>
                   −{sheetMoney(doc.discountAmount, doc.currency)}
                 </td>
               </tr>
             )}
-            {doc.vatByRate.map((v) => (
-              <tr key={v.rate}>
-                <td className="py-0.5 pr-4 text-left text-neutral-600">
-                  {t("invoice.totals.vat")} ({formatVatPercent(v.rate)}%)
+            {doc.vatByRate.length === 0 && slots.vat && (
+              <tr>
+                <td className="px-3 py-1.5 text-left">
+                  {t("invoice.totals.vat")} {slots.vat}
                 </td>
-                <td className="py-0.5">{money(v.vat)}</td>
+                <td className="px-3 py-1.5">{money("0")}</td>
+              </tr>
+            )}
+            {doc.vatByRate.map((v, i) => (
+              <tr key={v.rate}>
+                <td className="px-3 py-1.5 text-left">
+                  {t("invoice.totals.vat")}{" "}
+                  {i === 0 && slots.vat && !cols.vat ? slots.vat : `(${formatVatPercent(v.rate)}%)`}
+                </td>
+                <td className="px-3 py-1.5">{money(v.vat)}</td>
               </tr>
             ))}
-            <tr className="border-t-2 border-black font-semibold">
-              <td className="py-1 pr-4 text-left">{t("invoice.totals.total")}</td>
-              <td className="py-1" style={isCredit ? { color: "#b91c1c" } : undefined}>
+            <tr className="text-[11pt] font-bold" style={{ background: GREY }}>
+              <td className="px-3 py-2.5 text-left">{t("invoice.totals.total")}</td>
+              <td className="px-3 py-2.5" style={isCredit ? { color: "#b91c1c" } : undefined}>
                 {money(doc.totalAmount)}
               </td>
             </tr>
           </tbody>
         </table>
+        {slots.afterTotals}
       </section>
 
       {/* VAT sentence (D23) */}
       {doc.treatment === "reverse_charge" && Number(doc.vatAmount) === 0 && (
-        <p className="text-[10pt] text-neutral-700">{t("invoice.vat.reverseCharge")}</p>
+        <p className="mb-[5mm] text-[9pt]" style={{ color: MUTED }}>
+          {t("invoice.vat.reverseCharge")}
+        </p>
       )}
       {doc.treatment === "export" && Number(doc.vatAmount) === 0 && (
-        <p className="text-[10pt] text-neutral-700">{t("invoice.vat.export")}</p>
+        <p className="mb-[5mm] text-[9pt]" style={{ color: MUTED }}>
+          {t("invoice.vat.export")}
+        </p>
       )}
 
-      {/* notes */}
+      {/* notes — only when there are some */}
       {(slots.notes || doc.notes) && (
-        <section>
-          <div className="font-semibold">{t("invoice.notes")}</div>
+        <section className="mb-[5mm]">
           {slots.notes ?? <p className="whitespace-pre-wrap">{doc.notes}</p>}
         </section>
       )}
 
-      {/* payment box */}
+      {/* the payment box */}
       {doc.type !== "quote" && (
-        <section className="rounded border border-neutral-300 p-3 text-[10pt]">
-          <div className="font-semibold">{t("invoice.payment.title")}</div>
-          {slots.paymentTerms ?? (termsSentence && <p>{termsSentence}</p>)}
-          {doc.number && <p>{t("invoice.payment.pleaseReference", { number: doc.number })}</p>}
+        <section className="rounded-sm p-[5mm] text-[9pt]" style={{ background: "#f9fafb" }}>
+          <div className="mb-2 text-[11pt] font-bold">{t("invoice.payment.title")}</div>
+          <div className="mb-3">
+            {slots.paymentTerms ?? (termsSentence && <span>{termsSentence}</span>)}
+            {(doc.number || doc.numberHint) && (
+              <>
+                {" "}
+                {t("invoice.payment.pleaseReference")}{" "}
+                <span className="font-bold">{doc.number ?? doc.numberHint}</span>.
+              </>
+            )}
+          </div>
           {bank && (
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-              <dt className="text-neutral-600">{t("invoice.payment.bankDetails")}</dt>
-              <dd />
-              {bank.bankName && (
-                <>
-                  <dt className="text-neutral-600">{t("invoice.payment.bank")}</dt>
-                  <dd>{bank.bankName}</dd>
-                </>
-              )}
-              {bank.accountHolder && (
-                <>
-                  <dt className="text-neutral-600">{t("invoice.payment.accountHolder")}</dt>
-                  <dd>{bank.accountHolder}</dd>
-                </>
-              )}
-              {bank.iban ? (
-                <>
-                  <dt className="text-neutral-600">{t("invoice.payment.iban")}</dt>
-                  <dd className="font-mono">{bank.iban}</dd>
-                </>
-              ) : (
-                <>
-                  <dt className="text-neutral-600">{t("invoice.payment.account")}</dt>
-                  <dd className="font-mono">{bank.accountNumber}</dd>
-                </>
-              )}
-              {bank.bic && (
-                <>
-                  <dt className="text-neutral-600">{t("invoice.payment.bicSwift")}</dt>
-                  <dd className="font-mono">{bank.bic}</dd>
-                </>
-              )}
-            </dl>
+            <>
+              <div className="mb-1 font-bold">{label("invoice.payment.bankDetails")}</div>
+              <dl className="grid grid-cols-[38mm_1fr] gap-y-1">
+                {bank.bankName && (
+                  <>
+                    <dt>{label("invoice.payment.bank")}</dt>
+                    <dd>{bank.bankName}</dd>
+                  </>
+                )}
+                {bank.accountHolder && (
+                  <>
+                    <dt>{label("invoice.payment.accountHolder")}</dt>
+                    <dd>{bank.accountHolder}</dd>
+                  </>
+                )}
+                {bank.iban ? (
+                  <>
+                    <dt>{label("invoice.payment.iban")}</dt>
+                    <dd>{bank.iban}</dd>
+                  </>
+                ) : (
+                  <>
+                    <dt>{label("invoice.payment.account")}</dt>
+                    <dd>{bank.accountNumber}</dd>
+                  </>
+                )}
+                {bank.bic && (
+                  <>
+                    <dt>{label("invoice.payment.bicSwift")}</dt>
+                    <dd>{bank.bic}</dd>
+                  </>
+                )}
+              </dl>
+            </>
           )}
         </section>
       )}
 
       {/* footer — fixed at the bottom of every printed page */}
-      <footer className="sheet-footer mt-auto border-t border-neutral-300 pt-2 text-center text-[8pt] text-neutral-500">
-        {[tenant.name, tenant.email, tenant.website].filter(Boolean).join(" • ")}
+      <footer
+        className="sheet-footer mt-auto pt-[10mm] text-center text-[7pt]"
+        style={{ color: "#374151" }}
+      >
+        <div className="pt-2" style={{ borderTop: "1px solid #d1d5db" }}>
+          {[tenant.name, tenant.email, tenant.website].filter(Boolean).join(" • ")}
+        </div>
       </footer>
       {!edit && <PrintStyles />}
     </article>
@@ -407,7 +474,7 @@ function PrintStyles() {
         .sheet thead { display: table-header-group; }
         .sheet tr { break-inside: avoid; }
         /* repeated at the bottom of every page, inside the page box (a negative offset would add a page) */
-        .sheet-footer { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; background: white; }
+        .sheet-footer { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; padding: 0; background: white; }
       }
     `}</style>
   );

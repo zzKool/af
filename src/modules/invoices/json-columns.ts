@@ -29,6 +29,7 @@ const partiesShape = z.object({
     logoUrl: text,
     vatNumber: text,
     vatCountry: text,
+    consultant: text,
   }),
   partner: z.object({
     name: z.string(),

@@ -11,6 +11,7 @@ import * as numbering from "@/modules/numbering";
 import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
+import { consultantName } from "./consultant";
 import { creditedSum } from "./credited";
 import { registrationById } from "./defaults";
 import { declarationPeriodFor } from "./derive";
@@ -112,6 +113,7 @@ export async function issue(
       logoUrl: profile.data?.logoUrl ?? null,
       vatNumber: registration?.vatNumber ?? null,
       vatCountry: registration?.country ?? null,
+      consultant: await consultantName(tx, row.contractId),
     },
     partner: {
       name: partner.data.name,
