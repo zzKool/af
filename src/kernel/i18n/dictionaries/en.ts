@@ -1918,7 +1918,7 @@ export const en = {
   "supplierInvoices.hero.late": "{count} late",
   "supplierInvoices.hero.missing": "{count} without their document.",
   "supplierInvoices.hero.split": "Where {year} went",
-  "supplierInvoices.hero.monthsTitle": "Supplier invoices, by month",
+  "supplierInvoices.hero.monthsTitle": "Costs, by month",
   "supplierInvoices.hero.monthsSub":
     "{base} · by invoice date · amber = something of that month is still unpaid",
   "supplierInvoices.meta.count": "{count} supplier invoices",
@@ -2544,7 +2544,7 @@ export const en = {
   "documents.pulse.duplicatesSub": "the same bytes twice",
   "documents.pulse.failed": "Read failed",
   "documents.pulse.failedSub": "the OCR could not read them",
-  "documents.pulse.splitTitle": "Where the documents stand",
+  "documents.pulse.splitTitle": "Where they stand",
   "documents.pulse.splitSub": "by state",
   "documents.desk.meta": "{count} waiting for a decision",
   "documents.desk.all": "All documents ({count})",
