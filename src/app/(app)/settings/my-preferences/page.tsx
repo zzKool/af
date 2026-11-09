@@ -4,7 +4,7 @@ import { getAuthContext } from "@/kernel/auth/auth";
 import { prisma } from "@/kernel/db/client";
 import { Msg } from "@/kernel/i18n/msg";
 import { parseTheme } from "@/kernel/ui/theme";
-import { MyPreferencesTab } from "@/modules/settings/ui";
+import { MyPreferencesTab, SettingsSection } from "@/modules/settings/ui";
 
 export default async function MyPreferencesSettingsPage() {
   const hdrs = await headers();
@@ -19,14 +19,11 @@ export default async function MyPreferencesSettingsPage() {
   });
 
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">
-        <Msg k="settings.preferences.title" />
-      </h1>
+    <SettingsSection title={<Msg k="settings.preferences.title" />}>
       <MyPreferencesTab
         initialLocale={userPref?.locale ?? null}
         initialTheme={parseTheme(userPref?.theme)}
       />
-    </div>
+    </SettingsSection>
   );
 }
