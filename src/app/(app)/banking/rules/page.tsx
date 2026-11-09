@@ -5,6 +5,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
+import { Kpi, KpiRow, TableCard } from "@/kernel/ui/pulse";
 import { ListPage } from "@/kernel/ui/shell/page";
 import {
   categoryOptions,
@@ -56,13 +57,16 @@ export default async function BankRulesPage({
         }))
       : [];
     const prefs = await getUserPreferences(tx, auth);
-    return { result, categories, partners, accounts, nearMisses, rules, prefs };
+    // F165: the hero — the rules, how many work, what they did
+    const all = await listRulesPage(tx, { page: 1, pageSize: 1000, sort: [], filters: {} });
+    return { result, categories, partners, accounts, nearMisses, rules, prefs, all: all.rows };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const canWrite = can(auth, "update", "bank_transaction");
 
   return (
     <ListPage
+      ground
       title={t("banking.rules.title")}
       meta={t("banking.rules.meta", { count: data.result.total })}
       actions={
@@ -75,29 +79,59 @@ export default async function BankRulesPage({
         )
       }
     >
-      <RuleNearMisses
-        misses={data.nearMisses}
-        rules={data.rules}
-        categories={data.categories}
-        partners={data.partners}
-        accounts={data.accounts}
-        canWrite={canWrite}
-      />
-      <RulesTable
-        result={{
-          ...data.result,
-          rows: data.result.rows.map((r) => ({
-            ...r,
-            lastHitAt: r.lastHitAt ? r.lastHitAt.toISOString() : null,
-            createdAt: r.createdAt.toISOString(),
-            updatedAt: r.updatedAt.toISOString(),
-          })),
-        }}
-        categories={data.categories}
-        partners={data.partners}
-        accounts={data.accounts}
-        canWrite={canWrite}
-      />
+      <div className="flex flex-col gap-[18px]">
+        <KpiRow testId="rules-hero">
+          <Kpi
+            label={t("banking.rules.pulse.rules")}
+            value={data.all.length}
+            sub={t("banking.rules.pulse.active", {
+              count: data.all.filter((r) => r.isActive).length,
+            })}
+          />
+          <Kpi
+            label={t("banking.rules.pulse.hits")}
+            value={data.all.reduce((s, r) => s + r.hitCount, 0)}
+            tone="done"
+            sub={t("banking.rules.pulse.hitsSub")}
+          />
+          <Kpi
+            label={t("banking.rules.pulse.noProof")}
+            value={data.all.filter((r) => r.isActive && r.noDocumentNeeded).length}
+            sub={t("banking.rules.pulse.noProofSub")}
+          />
+          <Kpi
+            label={t("banking.rules.pulse.nearMisses")}
+            value={data.nearMisses.length}
+            tone={data.nearMisses.length > 0 ? "attention" : "done"}
+            sub={t("banking.rules.pulse.nearMissesSub")}
+          />
+        </KpiRow>
+        <RuleNearMisses
+          misses={data.nearMisses}
+          rules={data.rules}
+          categories={data.categories}
+          partners={data.partners}
+          accounts={data.accounts}
+          canWrite={canWrite}
+        />
+        <TableCard>
+          <RulesTable
+            result={{
+              ...data.result,
+              rows: data.result.rows.map((r) => ({
+                ...r,
+                lastHitAt: r.lastHitAt ? r.lastHitAt.toISOString() : null,
+                createdAt: r.createdAt.toISOString(),
+                updatedAt: r.updatedAt.toISOString(),
+              })),
+            }}
+            categories={data.categories}
+            partners={data.partners}
+            accounts={data.accounts}
+            canWrite={canWrite}
+          />
+        </TableCard>
+      </div>
     </ListPage>
   );
 }

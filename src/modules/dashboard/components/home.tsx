@@ -9,7 +9,7 @@ import { useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { formatMonth } from "@/kernel/i18n/format-date";
 import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
-import { formatMoney } from "@/kernel/money/format-money";
+import { formatMoney, formatMoneyCompact } from "@/kernel/money/format-money";
 import { StateIcon } from "@/kernel/ui/state-label";
 import { cn } from "@/lib/utils";
 import type {
@@ -146,7 +146,7 @@ export function CashHero({
               </dt>
               <dd className="text-lg font-semibold tabular-nums">
                 <Link href={m.href} className="hover:text-action">
-                  {formatMoney(m.value, m.currency)}
+                  {formatMoneyCompact(m.value, m.currency)}
                 </Link>
               </dd>
             </div>

@@ -6,7 +6,8 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
-import { formatMoney } from "@/kernel/money/format-money";
+import { formatMoney, formatMoneyCompact } from "@/kernel/money/format-money";
+import { Kpi, KpiRow, TableCard } from "@/kernel/ui/pulse";
 import { EntityPage } from "@/kernel/ui/shell/page";
 import { Tag } from "@/kernel/ui/tags";
 import {
@@ -25,6 +26,9 @@ import { countryOptions, getTrip, toLocal } from "@/modules/traktamente";
 import { TripPanel } from "@/modules/traktamente/ui";
 
 // The group page: header with totals, the trip panel (trip groups), the group's expenses.
+/** the books' currency — the group's figures are in it */
+const BASE = "SEK";
+
 export default async function ExpenseGroupPage({
   params,
   searchParams,
@@ -74,12 +78,13 @@ export default async function ExpenseGroupPage({
 
   return (
     <EntityPage
+      ground
       title={g.label}
       tags={<Tag>{t(`expenses.groups.kind.${g.kind}`)}</Tag>}
       meta={t("expenses.group.meta", {
         count: g.expenseCount,
-        total: formatMoney(g.totalBase, "SEK", { bare: true }),
-        open: formatMoney(g.openBase, "SEK", { bare: true }),
+        total: formatMoney(g.totalBase, BASE, { bare: true }),
+        open: formatMoney(g.openBase, BASE, { bare: true }),
       })}
       actions={
         <GroupHeaderActions
@@ -94,7 +99,23 @@ export default async function ExpenseGroupPage({
         />
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-[18px]">
+        {/* F164: the group's figures as the boards' tiles */}
+        <KpiRow testId="group-figures">
+          <Kpi label={t("expenses.pulse.spent")} value={formatMoneyCompact(g.totalBase, BASE)} />
+          <Kpi
+            label={t("expenses.pulse.owed")}
+            value={formatMoneyCompact(g.openBase, BASE)}
+            tone={Number(g.openBase) > 0 ? "attention" : "done"}
+            href={Number(g.openBase) > 0 ? "/expenses/settle" : undefined}
+          />
+          <Kpi label={t("expenses.pulse.lines")} value={g.expenseCount} />
+          <Kpi
+            label={t("expenses.pulse.perDiem")}
+            value={data.perDiem ? formatMoneyCompact(data.perDiem.amount, BASE) : "—"}
+            sub={data.trip ? t("expenses.pulse.perDiemSub") : t("expenses.pulse.noTrip")}
+          />
+        </KpiRow>
         {(g.kind === "trip" || data.trip) && (
           <TripPanel
             groupId={g.id}
@@ -126,17 +147,19 @@ export default async function ExpenseGroupPage({
         <SupplierInvoiceGroupSection
           rows={data.supplierInvoices.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))}
         />
-        <ExpenseTable
-          result={{
-            ...data.result,
-            rows: data.result.rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
-          }}
-          ledger={null}
-          {...data.options}
-          canWrite={canWrite}
-          groupId={g.id}
-          hideKpis
-        />
+        <TableCard>
+          <ExpenseTable
+            result={{
+              ...data.result,
+              rows: data.result.rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+            }}
+            ledger={null}
+            {...data.options}
+            canWrite={canWrite}
+            groupId={g.id}
+            hideKpis
+          />
+        </TableCard>
       </div>
     </EntityPage>
   );

@@ -176,4 +176,15 @@ export type HomeData = {
   work: WorkData | null;
   /** F158: the year, week by week — the statement accounts' money and justified squares */
   weeks: YearWeeks;
+  /** F167: where the year's money went — income by client, costs by kind, what is kept */
+  flow: MoneyFlow;
+};
+
+/** F167, the board's *Where 2026's money went*: the year so far, in the base. */
+export type MoneyFlow = {
+  year: string;
+  income: { label: string; base: string }[];
+  costs: { label: string; base: string }[];
+  /** income − costs (negative: the year costs more than it brought) */
+  kept: string;
 };

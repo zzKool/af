@@ -5,6 +5,7 @@ export * from "./components/duplicate-panel";
 export * from "./components/expense-panel";
 export * from "./components/expense-state";
 export * from "./components/expense-table";
+export * from "./components/expenses-pulse";
 export * from "./components/group-cards";
 export * from "./components/group-picker";
 export * from "./components/groups-table";

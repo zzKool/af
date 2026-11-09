@@ -5,6 +5,7 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
+import { Kpi, KpiRow } from "@/kernel/ui/pulse";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { categoryOptions, partnerOptions } from "@/modules/banking";
 import { inboxRows, justifyOptions, unlinkedDocuments } from "@/modules/linking";
@@ -30,6 +31,7 @@ export default async function InboxPage() {
 
   return (
     <ListPage
+      ground
       title={t("linking.inbox.title")}
       meta={t("linking.inbox.meta", {
         count: data.rows.length,
@@ -38,14 +40,43 @@ export default async function InboxPage() {
       })}
       back={<Link href="/banking">← {t("banking.title")}</Link>}
     >
-      <InboxWorkbench
-        rows={data.rows}
-        documents={data.documents}
-        categories={data.categories}
-        partners={data.partners}
-        justifyOptions={data.justify}
-        canWrite={can(auth, "create", "bank_transaction")}
-      />
+      <div className="flex flex-col gap-[18px]">
+        <KpiRow testId="bank-inbox-hero">
+          <Kpi
+            label={t("linking.inbox.pulse.rows")}
+            value={data.rows.length}
+            tone={data.rows.length > 0 ? "attention" : "done"}
+            sub={t("linking.inbox.pulse.rowsSub")}
+          />
+          <Kpi
+            label={t("linking.inbox.pulse.sure")}
+            value={high}
+            tone="done"
+            sub={t("linking.inbox.pulse.sureSub")}
+          />
+          <Kpi
+            label={t("linking.inbox.pulse.check")}
+            value={data.rows.filter((r) => r.top && r.top.confidence !== "HIGH").length}
+            sub={t("linking.inbox.pulse.checkSub")}
+          />
+          <Kpi
+            label={t("linking.inbox.pulse.documents")}
+            value={data.documents.length}
+            sub={t("linking.inbox.pulse.documentsSub")}
+            href="/documents"
+          />
+        </KpiRow>
+        <section className="pulse-card px-4 py-3">
+          <InboxWorkbench
+            rows={data.rows}
+            documents={data.documents}
+            categories={data.categories}
+            partners={data.partners}
+            justifyOptions={data.justify}
+            canWrite={can(auth, "create", "bank_transaction")}
+          />
+        </section>
+      </div>
     </ListPage>
   );
 }

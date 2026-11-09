@@ -19,6 +19,7 @@ export type { LoadedSubscription } from "./facts";
 export { loadSubscriptions } from "./facts";
 export { subscriptionLinkable } from "./linkable";
 export { EXACT_PCT } from "./matcher";
+export * from "./overview";
 export type { SubscriptionPageOptions, SubscriptionVendorOption } from "./page-data";
 export { subscriptionPageOptions } from "./page-data";
 export { RECEIPT_WINDOW, ROW_WINDOW } from "./periods";

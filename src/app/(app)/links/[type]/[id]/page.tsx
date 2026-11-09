@@ -48,6 +48,7 @@ export default async function LinkGraphPage({
 
   return (
     <EntityPage
+      ground
       title={
         <span className="flex min-w-0 items-center gap-2">
           {t("linking.graph.title")}
@@ -67,7 +68,9 @@ export default async function LinkGraphPage({
         depth: maxDepth,
       })}
     >
-      <LinkGraph graph={graph} />
+      <section className="pulse-card p-4">
+        <LinkGraph graph={graph} />
+      </section>
     </EntityPage>
   );
 }

@@ -891,3 +891,22 @@ export async function groupCards(
   });
   return { month, cards };
 }
+
+/**
+ * F167, the home's *Where the money went*: Σ base of the expenses dated in `[from, to]` — the VAT payments left out
+ * (they are the Swiss VAT, not a cost of the business).
+ */
+export async function expensesBaseBetween(
+  tx: TransactionClient,
+  from: string,
+  to: string,
+): Promise<string> {
+  const r = await tx.expense.aggregate({
+    _sum: { amountBase: true },
+    where: {
+      date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
+      kind: { not: "vat_payment" },
+    },
+  });
+  return (r._sum.amountBase ?? new Prisma.Decimal(0)).toFixed(2);
+}

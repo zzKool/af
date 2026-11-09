@@ -189,9 +189,21 @@ export function HeroFigures({
   );
 }
 
-export function KpiRow({ children, testId }: { children: ReactNode; testId?: string }) {
+export function KpiRow({
+  children,
+  testId,
+  pairs = false,
+}: {
+  children: ReactNode;
+  testId?: string;
+  /** two by two (beside another card) instead of four in a row */
+  pairs?: boolean;
+}) {
   return (
-    <div className="grid gap-[18px] sm:grid-cols-2 xl:grid-cols-4" data-testid={testId}>
+    <div
+      className={cn("grid gap-[18px] sm:grid-cols-2", !pairs && "xl:grid-cols-4")}
+      data-testid={testId}
+    >
       {children}
     </div>
   );

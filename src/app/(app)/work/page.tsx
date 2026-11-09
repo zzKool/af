@@ -34,7 +34,19 @@ export default async function WorkRoute({
   return (
     <ListPage
       ground
-      title={t("work.title", { month: name, percent: work.close.percent })}
+      // F167, the board *Work*: the share in the done colour — *July 2026 is 62 % done*
+      title={(() => {
+        const [before, after] = t("work.title", { month: name, percent: "\u0000" }).split("\u0000");
+        return (
+          <>
+            {before}
+            <span className="text-state-done" data-testid="work-percent">
+              {work.close.percent} %
+            </span>
+            {after?.replace(/^ ?%/, "")}
+          </>
+        );
+      })()}
       meta={
         <>
           <span className="font-medium text-foreground">{t("work.eyebrow")}</span> ·{" "}

@@ -137,16 +137,26 @@ export function WorkPage({
   right,
   leftWidth = "24rem",
   className,
+  ground = false,
   ...header
-}: WorkPageProps) {
+}: WorkPageProps & {
+  /** D76 (F164): on the dotted ground, the list pane a card */
+  ground?: boolean;
+}) {
   return (
-    <div className={cn("flex h-full min-h-0 flex-col gap-4 px-5 pt-3.5 pb-5", className)}>
+    <div
+      className={cn("flex h-full min-h-0 flex-col gap-4 px-5 pt-3.5 pb-5", className)}
+      data-ground={ground ? "" : undefined}
+    >
       <PageHeader {...header} />
       <div
         className="grid min-h-0 flex-1 gap-4"
         style={{ gridTemplateColumns: `${leftWidth} minmax(0, 1fr)` }}
       >
-        <section className="min-h-0 overflow-auto rounded-lg border" aria-label="List">
+        <section
+          className={cn("min-h-0 overflow-auto", ground ? "pulse-card p-2" : "rounded-lg border")}
+          aria-label="List"
+        >
           {left}
         </section>
         <section className="min-h-0 overflow-auto" aria-label="Detail">
