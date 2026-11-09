@@ -98,6 +98,12 @@ Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widge
 
 Tests: `home.pure.test.ts`, `home.test.ts` (an invented world: balances in CHF and SEK, rates at 12.5), `components/home.test.tsx` (F71's money and state checks carried over), `e2e/dashboard.spec.ts`.
 
+### The year, week by week (F158, the owner's gap audit 2026-11-09)
+
+Under the cash and the next moves, full width: `YearStrip` (`components/year-strip.tsx`) over `yearWeeks` (`year-weeks.ts`, pure, `year-weeks.pure.test.ts`). Fifty-two weeks back from today's (Monday → Sunday, the ISO number): on top the money in (up) and out (down) of the statement accounts in the base (a square-root scale, as the bank's day strip); under it one square per statement account per week — **done** (every row justified) · **open** (rows to justify, in last month or this one: the close still runs) · **late** (rows to justify in a month before last month: its close is past) · **nothing that week**. A week is a button: its range, in and out (whole units), how many rows are still to justify, *Open this week* → Banking filtered to the week (`f.bookingDate=dates:from=…|to=…`). Built from the day cells `bankMonths` already gives the home — no new read. The board's other rows (invoices, expenses, documents, subscriptions) and *Where the money went* (the flow) are not built yet.
+
+The cash headline and its month are **whole units** (`formatMoney(…, { whole: true })`, half up — the board's *693 295 SEK*); every other figure keeps its cents.
+
 ## Work — the monthly close (F137, D76 phase 4)
 
 `/work` — *Work* in the rail, the owner's (the accountant has no Work; `requireCaller` sends him to the dashboard) — is the owner's monthly loop as he wrote it (2026-11-07): the exchange rates up to date, the bank statements imported, every bank row justified, the private expenses added — and the package that ends the month. Built from the board *Pulse · Work* (D77). The linking inbox stays at `/banking/inbox` (Banking › Inbox).

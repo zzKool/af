@@ -14,13 +14,28 @@ export interface FormatMoneyOptions {
   signed?: boolean;
   /** omit the currency code (a column whose header names the currency); default false */
   bare?: boolean;
+  /** the whole units only, rounded half up (a headline figure — the home's cash, F158); default false */
+  whole?: boolean;
+}
+
+/** `"159876"` + 1 as a digit string — the rounding of `whole` without a number (no float, any length). */
+function incrementDigits(digits: string): string {
+  const out = digits.split("");
+  for (let i = out.length - 1; i >= 0; i -= 1) {
+    if (out[i] !== "9") {
+      out[i] = String(Number(out[i]) + 1);
+      return out.join("");
+    }
+    out[i] = "0";
+  }
+  return `1${out.join("")}`;
 }
 
 /** `formatMoney("-2312.43", "SEK")` → `−2 312.43 SEK`. Takes the decimal string a DTO carries. */
 export function formatMoney(
   amount: string,
   currency: string | null | undefined,
-  { signed = false, bare = false }: FormatMoneyOptions = {},
+  { signed = false, bare = false, whole = false }: FormatMoneyOptions = {},
 ): string {
   const raw = typeof amount === "string" ? amount.trim() : "";
   const m = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(raw);
@@ -33,10 +48,12 @@ export function formatMoney(
     );
   }
   const dec = decDigits.slice(0, CURRENCY_DECIMAL_PLACES).padEnd(CURRENCY_DECIMAL_PLACES, "0");
-  const int = intDigits.replace(/^0+(?=\d)/, "");
+  const trimmed = intDigits.replace(/^0+(?=\d)/, "");
+  // whole: half up on the magnitude (−0.50 → −1), the decimals dropped
+  const int = whole && Number(dec[0]) >= 5 ? incrementDigits(trimmed) : trimmed;
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, THIN_SPACE);
-  const zero = /^0+$/.test(int) && /^0*$/.test(dec);
+  const zero = /^0+$/.test(int) && (whole || /^0*$/.test(dec));
   const prefix = sign === "-" && !zero ? MINUS : signed && !zero ? "+" : "";
-  const number = `${prefix}${grouped}.${dec}`;
+  const number = whole ? `${prefix}${grouped}` : `${prefix}${grouped}.${dec}`;
   return bare || !currency ? number : `${number}${NBSP}${currency}`;
 }

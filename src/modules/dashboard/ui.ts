@@ -4,4 +4,5 @@
 export * from "./components/dashboard-widgets";
 export * from "./components/home";
 export * from "./components/work-page";
+export * from "./components/year-strip";
 export type * from "./types";

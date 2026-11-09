@@ -2268,6 +2268,21 @@ export const en = {
     "No document matches this row yet — justify it by hand: upload the proof, link a document, or say why none is needed.",
 
   // --- Home: the year at a glance (F138, D76 phase 4b) ---
+  "home.year.title": "The year, week by week",
+  "home.year.sub":
+    "money in and out on top, in {base} · every statement account below · pick a week",
+  "home.year.state.done": "done",
+  "home.year.state.open": "open",
+  "home.year.state.late": "late",
+  "home.year.state.none": "nothing that week",
+  "home.year.in": "in",
+  "home.year.out": "out",
+  "home.year.week": "Week {number}, {from} to {to}",
+  "home.year.weekNumber": "Week {number}",
+  "home.year.noRows": "No bank row that week.",
+  "home.year.toJustify": "{count} of {rows} bank rows still to justify.",
+  "home.year.allJustified": "All {rows} bank rows justified.",
+  "home.year.open": "Open this week",
   "home.cash.eyebrow": "Cash · all accounts, in {base}",
   "home.cash.month": "{delta} this month",
   "home.cash.incomplete": "an account without a rate today is left out",
