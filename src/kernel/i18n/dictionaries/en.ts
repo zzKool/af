@@ -2199,6 +2199,7 @@ export const en = {
   "reconcile.title": "Reconcile {month}",
   "reconcile.meta": "{left} row(s) left · {done} of {total} rows done in {month}",
   "reconcile.metaDone": "Every bank row of {month} is justified.",
+  "reconcile.ring": "rows done in {month}",
   "reconcile.previous": "Previous month",
   "reconcile.next": "Next month",
   "reconcile.queue": "The rows of the month",

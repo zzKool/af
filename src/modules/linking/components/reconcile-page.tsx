@@ -83,15 +83,8 @@ export function ReconcileMonthNav({ data }: { data: ReconcileData }) {
         {text(formatMonth(month, lang, "short"))}
       </Link>
     ) : null;
-  const total = data.progress.justified + data.progress.toJustify;
-  const pct = total > 0 ? Math.floor((data.progress.justified / total) * 100) : 100;
   return (
     <div className="flex items-center gap-3" data-testid="reconcile-month-nav">
-      <span className="hidden w-40 sm:block" aria-hidden>
-        <span className="flex h-1.5 overflow-hidden rounded-full bg-surface-2">
-          <i className="block bg-state-done" style={{ width: `${pct}%` }} />
-        </span>
-      </span>
       {link(data.previous, t("reconcile.previous"), (m) => `‹ ${m}`)}
       {link(data.next, t("reconcile.next"), (m) => `${m} ›`)}
     </div>
@@ -105,6 +98,7 @@ export function ReconcilePage({
   justifyOptions,
   canWrite,
   initialRowId,
+  strip,
 }: {
   data: ReconcileData;
   partners: PartnerOption[];
@@ -112,6 +106,8 @@ export function ReconcilePage({
   justifyOptions: JustifyOptions | null;
   canWrite: boolean;
   initialRowId: string | null;
+  /** F159: the month's days per statement account (banking's day cells), for the strip on top */
+  strip?: MonthStripData;
 }) {
   const t = useT();
   const lang = useUiLanguage();
@@ -206,103 +202,219 @@ export function ReconcilePage({
   };
 
   return (
-    <div
-      className="grid items-start gap-[18px] lg:grid-cols-[20rem_minmax(0,1fr)]"
-      data-testid="reconcile-page"
-      data-month={data.month}
-    >
-      <aside className="flex flex-col gap-[18px]" aria-label={t("reconcile.queue")}>
-        <section className={cn(CARD, "flex flex-col gap-3 p-4")} data-testid="reconcile-queue">
-          {ordered.length === 0 && (
-            <p className="text-sm text-muted-foreground">{t("reconcile.empty", { month })}</p>
-          )}
-          {RECONCILE_GROUPS.map((g) => {
-            const rows = ordered.filter((r) => r.group === g);
-            if (rows.length === 0) return null;
-            return (
-              <QueueGroup
-                key={g}
-                group={g}
-                rows={rows}
-                focusId={focusId}
-                onFocus={setFocusId}
-                action={
-                  g === "ready" && canWrite ? (
-                    <Button
-                      size="sm"
-                      onClick={() => void acceptAll()}
-                      disabled={bulking}
-                      data-testid="reconcile-accept-all"
-                    >
-                      {t("reconcile.acceptAll", { count: rows.length })}
-                    </Button>
-                  ) : null
-                }
-              />
-            );
-          })}
-        </section>
-        <section className={cn(CARD, "flex flex-col gap-2 p-4")} data-testid="reconcile-done">
-          <h2 className="flex items-baseline gap-2 text-sm font-semibold">
-            {t("reconcile.done.title")}
-            <span className="text-xs font-normal text-muted-foreground">· {data.done.length}</span>
-          </h2>
-          {data.done.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("reconcile.done.none")}</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {data.done.map((d) => (
-                <li
-                  key={d.linkId}
-                  className="flex items-center gap-2 text-xs"
-                  data-testid="reconcile-done-item"
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    <span className="font-medium">{d.rowLabel}</span>
-                    <span className="text-muted-foreground"> → {d.targetLabel}</span>
-                  </span>
-                  {canWrite && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => void undo(d.linkId)}
-                    >
-                      {t("reconcile.done.undo")}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <p className="px-1 text-[11px] text-muted-foreground">{t("reconcile.keys")}</p>
-      </aside>
+    <div className="flex flex-col gap-[18px]" data-testid="reconcile-page" data-month={data.month}>
+      {strip && <MonthStrip strip={strip} month={data.month} progress={data.progress} />}
+      <div className="grid items-start gap-[18px] lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="flex flex-col gap-[18px]" aria-label={t("reconcile.queue")}>
+          <section className={cn(CARD, "flex flex-col gap-3 p-4")} data-testid="reconcile-queue">
+            {ordered.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("reconcile.empty", { month })}</p>
+            )}
+            {RECONCILE_GROUPS.map((g) => {
+              const rows = ordered.filter((r) => r.group === g);
+              if (rows.length === 0) return null;
+              return (
+                <QueueGroup
+                  key={g}
+                  group={g}
+                  rows={rows}
+                  focusId={focusId}
+                  onFocus={setFocusId}
+                  action={
+                    g === "ready" && canWrite ? (
+                      <Button
+                        size="sm"
+                        onClick={() => void acceptAll()}
+                        disabled={bulking}
+                        data-testid="reconcile-accept-all"
+                      >
+                        {t("reconcile.acceptAll", { count: rows.length })}
+                      </Button>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </section>
+        </aside>
 
-      <section className={cn(CARD, "min-w-0 p-5")} data-testid="reconcile-stage">
-        {focus ? (
-          <Stage
-            key={focus.id}
-            row={focus}
-            rows={data.rows}
-            month={month}
-            progress={data.progress}
-            partners={partners}
-            categories={categories}
-            justifyOptions={justifyOptions}
-            canWrite={canWrite}
-            onAccepted={() => {
-              setFocusId(nextAfter(focus.id));
-              router.refresh();
-            }}
-            onSkip={() => move(1)}
-            onChanged={() => router.refresh()}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">{t("reconcile.empty", { month })}</p>
-        )}
+        <section className="min-w-0" data-testid="reconcile-stage">
+          {focus ? (
+            <Stage
+              key={focus.id}
+              row={focus}
+              rows={data.rows}
+              month={month}
+              progress={data.progress}
+              partners={partners}
+              categories={categories}
+              justifyOptions={justifyOptions}
+              canWrite={canWrite}
+              onAccepted={() => {
+                setFocusId(nextAfter(focus.id));
+                router.refresh();
+              }}
+              onSkip={() => move(1)}
+              onChanged={() => router.refresh()}
+            />
+          ) : (
+            <p className={cn(CARD, "p-5 text-sm text-muted-foreground")}>
+              {t("reconcile.empty", { month })}
+            </p>
+          )}
+        </section>
+      </div>
+
+      {/* F159: today's trail — every link made today, newest first, each with its Undo; the keys under it */}
+      <section
+        className={cn(CARD, "flex flex-col gap-2 px-4 py-3")}
+        data-testid="reconcile-done"
+        aria-label={t("reconcile.done.title")}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={EYEBROW}>
+            {t("reconcile.done.title")} · {data.done.length}
+          </span>
+          {data.done.length === 0 && (
+            <span className="text-xs text-muted-foreground">{t("reconcile.done.none")}</span>
+          )}
+          {data.done.map((d) => (
+            <span
+              key={d.linkId}
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-subtle bg-surface-2 py-0.5 pr-1 pl-3 text-xs"
+              data-testid="reconcile-done-item"
+            >
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                {d.at.slice(11, 16)}
+              </span>
+              <span className="min-w-0 truncate">
+                <span className="font-medium">{d.rowLabel}</span>
+                <span className="text-muted-foreground"> → {d.targetLabel}</span>
+              </span>
+              {canWrite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 rounded-full px-2"
+                  onClick={() => void undo(d.linkId)}
+                >
+                  {t("reconcile.done.undo")}
+                </Button>
+              )}
+            </span>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground">{t("reconcile.keys")}</p>
       </section>
     </div>
+  );
+}
+
+/** The month's days per statement account (banking's day cells) — what the strip on top draws. */
+export type MonthStripData = {
+  accounts: { id: string; label: string; currency: string }[];
+  days: { date: string; bankAccountId: string; rows: number; toJustify: number }[];
+};
+
+/** every day of `yyyy-mm` */
+function daysOfMonth(month: string): string[] {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: last }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+}
+
+/**
+ * F159, the board's header: one square per day per statement account (green: every row of the day justified ·
+ * amber: something to justify · faint: no row), and the ring — rows done of the month's rows.
+ */
+function MonthStrip({
+  strip,
+  month,
+  progress,
+}: {
+  strip: MonthStripData;
+  month: string;
+  progress: { justified: number; toJustify: number };
+}) {
+  const t = useT();
+  const lang = useUiLanguage();
+  const days = daysOfMonth(month);
+  const total = progress.justified + progress.toJustify;
+  const pct = total > 0 ? progress.justified / total : 1;
+  const C = 2 * Math.PI * 18;
+  const cell = (account: string, day: string) =>
+    strip.days.find((d) => d.bankAccountId === account && d.date === day) ?? null;
+  return (
+    <section
+      className={cn(CARD, "flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4")}
+      data-testid="reconcile-strip"
+    >
+      <div className="min-w-0 flex-1 overflow-x-auto">
+        <div
+          className="grid min-w-[30rem] items-center gap-x-[3px] gap-y-1"
+          style={{ gridTemplateColumns: `7.5rem repeat(${days.length}, minmax(0, 1fr))` }}
+        >
+          {strip.accounts.map((a) => (
+            <div key={a.id} className="contents">
+              <span className="truncate pr-2 text-[10.5px] text-muted-foreground" title={a.label}>
+                {a.label}
+              </span>
+              {days.map((day) => {
+                const c = cell(a.id, day);
+                return (
+                  <span
+                    key={day}
+                    title={
+                      c ? `${a.label} · ${day} · ${c.rows - c.toJustify}/${c.rows}` : undefined
+                    }
+                    className={cn(
+                      "h-3 rounded-[3px]",
+                      !c || c.rows === 0
+                        ? "bg-border/50"
+                        : c.toJustify > 0
+                          ? "bg-state-attention"
+                          : "bg-state-done",
+                    )}
+                    data-state={!c ? "none" : c.toJustify > 0 ? "open" : "done"}
+                  />
+                );
+              })}
+            </div>
+          ))}
+          <span />
+          {days.map((day, i) => (
+            <span key={day} className="pt-0.5 text-[10px] text-muted-foreground">
+              {i === 0 || i === 14 || i === days.length - 1 ? Number(day.slice(8)) : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-3" data-testid="reconcile-ring">
+        <svg viewBox="0 0 44 44" className="size-11 -rotate-90" aria-hidden>
+          <circle cx="22" cy="22" r="18" fill="none" strokeWidth="5" className="stroke-border" />
+          <circle
+            cx="22"
+            cy="22"
+            r="18"
+            fill="none"
+            strokeWidth="5"
+            strokeLinecap="round"
+            className="stroke-state-done"
+            strokeDasharray={`${C * pct} ${C}`}
+          />
+        </svg>
+        <span className="flex flex-col">
+          <span className="text-[22px] leading-6 font-semibold tabular-nums">
+            {progress.justified} / {total}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {t("reconcile.ring", {
+              month: formatMonth(month, lang, "short").split(" ")[0] ?? month,
+            })}
+          </span>
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -489,7 +601,7 @@ function Stage({
 
   if (byHand || !s) {
     return (
-      <div className="flex flex-col gap-3" data-testid="reconcile-by-hand">
+      <div className={cn(CARD, "flex flex-col gap-3 p-5")} data-testid="reconcile-by-hand">
         {twinHint}
         {!s && <p className="text-sm text-muted-foreground">{t("reconcile.noCandidate")}</p>}
         {s && (
@@ -529,279 +641,292 @@ function Stage({
   const others = row.inbox.suggestions.length - 1;
 
   return (
-    <div className="flex flex-col gap-4" data-testid="reconcile-match" data-row-id={row.id}>
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">{t("reconcile.stage.match")}</h2>
-        <ConfidenceLabel confidence={s.confidence} testId="reconcile-confidence" />
-        <span className="text-xs text-muted-foreground">
-          {t("reconcile.stage.reasons", { count: s.reasons.length })}
-        </span>
-      </div>
-      {twinHint}
-
-      {/* the bank row ← the lines → the candidate */}
-      <div className="grid items-stretch gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-        <div
-          className="flex flex-col gap-1.5 rounded-xl border border-subtle bg-surface-2 p-4"
-          data-testid="reconcile-side-row"
-        >
-          <span className={EYEBROW}>{t("reconcile.stage.row")}</span>
-          <span className="text-[15px] font-semibold">
-            {row.inbox.list.counterpartyKey || row.inbox.list.description}
-          </span>
+    <div
+      className="grid items-stretch gap-[18px] xl:grid-cols-[minmax(0,1fr)_22rem]"
+      data-testid="reconcile-match"
+      data-row-id={row.id}
+    >
+      {/* F159, the board: the match in the middle — the bank row, the candidate, the lines, why */}
+      <div className={cn(CARD, "flex min-w-0 flex-col gap-4 p-5")} data-testid="reconcile-centre">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">{t("reconcile.stage.match")}</h2>
+          <ConfidenceLabel confidence={s.confidence} testId="reconcile-confidence" />
           <span className="text-xs text-muted-foreground">
-            {t("reconcile.stage.booked")} {row.inbox.list.bookingDate} · {row.inbox.accountLabel}
-          </span>
-          <span className="font-mono text-lg font-medium tabular-nums">
-            {formatMoney(signed(row), row.inbox.row.currency)}
-          </span>
-          <span className="truncate text-xs text-muted-foreground">
-            {row.inbox.list.description}
+            {t("reconcile.stage.reasons", { count: s.reasons.length })}
           </span>
         </div>
-        <ul
-          className="flex flex-row flex-wrap items-center justify-center gap-1.5 md:flex-col"
-          aria-label={t("reconcile.stage.why")}
-          data-testid="reconcile-lines"
-        >
-          {s.reasons.map((r) => (
-            <li key={r} className="flex items-center gap-1.5">
-              <span className="hidden h-px w-4 bg-border md:block" aria-hidden />
-              <span className="rounded-full bg-state-done/10 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-state-done">
-                {reasonLabel(r)}
-              </span>
-              <span className="hidden h-px w-4 bg-border md:block" aria-hidden />
-            </li>
-          ))}
-        </ul>
-        <div
-          className="flex flex-col gap-1.5 rounded-xl border border-subtle bg-surface-2 p-4"
-          data-testid="reconcile-side-candidate"
-        >
-          <span className={EYEBROW}>{t("reconcile.stage.candidate")}</span>
-          <EntityLabel type={c.type} label={c.label} className="text-[15px] font-semibold" />
-          <span className="text-xs text-muted-foreground">
-            {c.date}
-            {c.partnerName ? ` · ${c.partnerName}` : ""}
-            {c.reference ? ` · ${c.reference}` : ""}
-          </span>
-          <span className="font-mono text-lg font-medium tabular-nums">
-            {c.currency ? formatMoney(c.amount, c.currency) : c.amount}
-          </span>
+        {twinHint}
+
+        {/* the bank row ← the lines → the candidate */}
+        <div className="grid items-stretch gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div
+            className="flex flex-col gap-1.5 rounded-xl border border-subtle bg-surface-2 p-4"
+            data-testid="reconcile-side-row"
+          >
+            <span className={EYEBROW}>{t("reconcile.stage.row")}</span>
+            <span className="text-[15px] font-semibold">
+              {row.inbox.list.counterpartyKey || row.inbox.list.description}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {t("reconcile.stage.booked")} {row.inbox.list.bookingDate} · {row.inbox.accountLabel}
+            </span>
+            <span className="font-mono text-lg font-medium tabular-nums">
+              {formatMoney(signed(row), row.inbox.row.currency)}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {row.inbox.list.description}
+            </span>
+          </div>
+          <ul
+            className="flex flex-row flex-wrap items-center justify-center gap-1.5 md:flex-col"
+            aria-label={t("reconcile.stage.why")}
+            data-testid="reconcile-lines"
+          >
+            {s.reasons.map((r) => (
+              <li key={r} className="flex items-center gap-1.5">
+                <span className="hidden h-px w-4 bg-border md:block" aria-hidden />
+                <span className="rounded-full bg-state-done/10 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-state-done">
+                  {reasonLabel(r)}
+                </span>
+                <span className="hidden h-px w-4 bg-border md:block" aria-hidden />
+              </li>
+            ))}
+          </ul>
+          <div
+            className="flex flex-col gap-1.5 rounded-xl border border-subtle bg-surface-2 p-4"
+            data-testid="reconcile-side-candidate"
+          >
+            <span className={EYEBROW}>{t("reconcile.stage.candidate")}</span>
+            <EntityLabel type={c.type} label={c.label} className="text-[15px] font-semibold" />
+            <span className="text-xs text-muted-foreground">
+              {c.date}
+              {c.partnerName ? ` · ${c.partnerName}` : ""}
+              {c.reference ? ` · ${c.reference}` : ""}
+            </span>
+            <span className="font-mono text-lg font-medium tabular-nums">
+              {c.currency ? formatMoney(c.amount, c.currency) : c.amount}
+            </span>
+          </div>
         </div>
+
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{t("reconcile.stage.why")} · </span>
+          {s.reasons.map(reasonLabel).join(" · ")}
+        </p>
+
+        {others > 0 && (
+          <details className="text-sm" data-testid="reconcile-others">
+            <summary className="cursor-pointer text-muted-foreground">
+              {t("reconcile.stage.others", { count: others })}
+            </summary>
+            <ul className="mt-2 flex flex-col gap-1">
+              {row.inbox.suggestions.map((o, i) =>
+                i === pick ? null : (
+                  <li
+                    key={`${o.candidate.type}:${o.candidate.id}`}
+                    className="flex items-center gap-2"
+                  >
+                    <ConfidenceLabel confidence={o.confidence} />
+                    <EntityLabel
+                      type={o.candidate.type}
+                      label={o.candidate.label}
+                      className="min-w-0 flex-1 truncate"
+                    />
+                    <Button variant="outline" size="sm" onClick={() => setPick(i)}>
+                      {t("reconcile.stage.pick")}
+                    </Button>
+                  </li>
+                ),
+              )}
+            </ul>
+          </details>
+        )}
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{t("reconcile.stage.why")} · </span>
-        {s.reasons.map(reasonLabel).join(" · ")}
-      </p>
-
-      {/* the two fields — a fact when sure, prefilled and marked when proposed, asked when unknown */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <div
-          className="flex flex-col gap-1.5 rounded-xl border border-subtle p-3"
-          data-testid="reconcile-partner"
-        >
-          <span className={EYEBROW}>{t("reconcile.field.partner")}</span>
-          {fields.partner.state === "sure" ? (
-            <FieldValue
-              field={fields.partner}
-              name={partnerName(partnerId) ?? "—"}
-              testId="reconcile-partner-value"
-            />
-          ) : (
-            <>
-              <Select
-                value={partnerId ?? NONE}
-                onValueChange={(v) => setPartnerId(!v || v === NONE ? null : v)}
-                disabled={!canWrite}
-              >
-                <SelectTrigger
-                  className={cn(
-                    "w-full",
-                    fields.partner.state === "proposed" && "border-dashed border-action",
-                  )}
-                  data-state-field={fields.partner.state}
-                  aria-label={t("reconcile.field.partner")}
-                >
-                  <SelectValue>
-                    {partnerName(partnerId) ?? t("reconcile.field.ask.partner")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  {partners.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-xs text-muted-foreground">
-                {fields.partner.state === "proposed" && fields.partner.from
-                  ? t(`reconcile.field.from.${fields.partner.from}`)
-                  : t("reconcile.field.ask.partner")}
-              </span>
-            </>
-          )}
-        </div>
-        <div
-          className="flex flex-col gap-1.5 rounded-xl border border-subtle p-3"
-          data-testid="reconcile-category"
-        >
-          <span className={EYEBROW}>{t("reconcile.field.category")}</span>
-          {fields.category.state === "sure" ? (
-            <FieldValue
-              field={fields.category}
-              name={`${basCode ?? ""} ${categoryName(basCode) ?? ""}`.trim() || "—"}
-              testId="reconcile-category-value"
-            />
-          ) : (
-            <>
-              <BasPicker
-                options={categories}
-                value={basCode ?? ""}
-                onChange={(code) => setBasCode(code || null)}
-                direction={row.inbox.row.direction === "incoming" ? "income" : "cost"}
-                allowNone
-                proposed={fields.category.state === "proposed"}
-                disabled={!canWrite}
-                data-testid="reconcile-category-picker"
+      {/* the right column: the two fields (a fact when sure, prefilled and marked when proposed, asked when
+          unknown), the bank's FX cost, what accepting does, then the actions at the bottom */}
+      <div className={cn(CARD, "flex min-w-0 flex-col gap-3 p-5")} data-testid="reconcile-side">
+        <div className="flex flex-col gap-3">
+          <div
+            className="flex flex-col gap-1.5 rounded-xl border border-subtle p-3"
+            data-testid="reconcile-partner"
+          >
+            <span className={EYEBROW}>{t("reconcile.field.partner")}</span>
+            {fields.partner.state === "sure" ? (
+              <FieldValue
+                field={fields.partner}
+                name={partnerName(partnerId) ?? "—"}
+                testId="reconcile-partner-value"
               />
-              <span className="text-xs text-muted-foreground">
-                {fields.category.state === "proposed" && fields.category.from
-                  ? `${t(`reconcile.field.from.${fields.category.from}`)}${
-                      fields.category.confidence !== null
-                        ? ` · ${t("reconcile.field.confidence", { percent: Math.round(fields.category.confidence * 100) })}`
-                        : ""
-                    }`
-                  : t("reconcile.field.ask.category")}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {row.fx && c === row.inbox.top?.candidate && (
-        <div
-          className="flex flex-col gap-2 rounded-xl border border-subtle p-3"
-          data-testid="reconcile-fx"
-        >
-          <span className={EYEBROW}>{t("reconcile.fx.title")}</span>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-4">
-            <div>
-              <dt className="text-xs text-muted-foreground">{t("reconcile.fx.original")}</dt>
-              <dd className="font-mono tabular-nums">
-                {formatMoney(row.fx.original, row.fx.originalCurrency)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">
-                {t("reconcile.fx.ecb", { date: row.fx.rateDate })}
-              </dt>
-              <dd className="font-mono tabular-nums">
-                {row.fx.ecbRate} · {formatMoney(row.fx.ecbAmount, row.fx.rowCurrency)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">{t("reconcile.fx.bank")}</dt>
-              <dd className="font-mono tabular-nums">
-                {row.fx.bankRate} · {formatMoney(row.fx.charged, row.fx.rowCurrency)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">{t("reconcile.fx.cost")}</dt>
-              <dd className="font-mono font-semibold tabular-nums">
-                {formatMoney(row.fx.cost, row.fx.rowCurrency)} · {row.fx.costPercent} %
-              </dd>
-            </div>
-          </dl>
-          <span className="text-xs text-muted-foreground">{t("reconcile.fx.note")}</span>
-        </div>
-      )}
-
-      <div
-        className="flex flex-col gap-1 rounded-xl bg-surface-2 p-3"
-        data-testid="reconcile-preview"
-      >
-        <span className={EYEBROW}>{t("reconcile.preview.title")}</span>
-        <ul className="flex flex-col gap-0.5 text-[13px]">
-          <li>
-            ✓ {t("reconcile.preview.link", { label: c.label })}
-            {s.allocation && c.currency
-              ? ` · ${t("reconcile.preview.allocation", { amount: formatMoney(s.allocation, c.currency) })}`
-              : ""}
-          </li>
-          {partnerId && (
-            <li>✓ {t("reconcile.preview.partner", { name: partnerName(partnerId) ?? "" })}</li>
-          )}
-          {basCode && (
-            <li>
-              ✓{" "}
-              {t("reconcile.preview.category", {
-                code: `${basCode} ${categoryName(basCode) ?? ""}`.trim(),
-              })}
-            </li>
-          )}
-          {needsPartner ? (
-            <li className="text-state-attention">! {t("reconcile.preview.needsPartner")}</li>
-          ) : (
-            <li>
-              ✓{" "}
-              {t("reconcile.preview.state", {
-                done: progress.justified + 1,
-                total,
-                month,
-              })}
-            </li>
-          )}
-        </ul>
-      </div>
-
-      {others > 0 && (
-        <details className="text-sm" data-testid="reconcile-others">
-          <summary className="cursor-pointer text-muted-foreground">
-            {t("reconcile.stage.others", { count: others })}
-          </summary>
-          <ul className="mt-2 flex flex-col gap-1">
-            {row.inbox.suggestions.map((o, i) =>
-              i === pick ? null : (
-                <li
-                  key={`${o.candidate.type}:${o.candidate.id}`}
-                  className="flex items-center gap-2"
+            ) : (
+              <>
+                <Select
+                  value={partnerId ?? NONE}
+                  onValueChange={(v) => setPartnerId(!v || v === NONE ? null : v)}
+                  disabled={!canWrite}
                 >
-                  <ConfidenceLabel confidence={o.confidence} />
-                  <EntityLabel
-                    type={o.candidate.type}
-                    label={o.candidate.label}
-                    className="min-w-0 flex-1 truncate"
-                  />
-                  <Button variant="outline" size="sm" onClick={() => setPick(i)}>
-                    {t("reconcile.stage.pick")}
-                  </Button>
-                </li>
-              ),
+                  <SelectTrigger
+                    className={cn(
+                      "w-full",
+                      fields.partner.state === "proposed" && "border-dashed border-action",
+                    )}
+                    data-state-field={fields.partner.state}
+                    aria-label={t("reconcile.field.partner")}
+                  >
+                    <SelectValue>
+                      {partnerName(partnerId) ?? t("reconcile.field.ask.partner")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>—</SelectItem>
+                    {partners.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">
+                  {fields.partner.state === "proposed" && fields.partner.from
+                    ? t(`reconcile.field.from.${fields.partner.from}`)
+                    : t("reconcile.field.ask.partner")}
+                </span>
+              </>
+            )}
+          </div>
+          <div
+            className="flex flex-col gap-1.5 rounded-xl border border-subtle p-3"
+            data-testid="reconcile-category"
+          >
+            <span className={EYEBROW}>{t("reconcile.field.category")}</span>
+            {fields.category.state === "sure" ? (
+              <FieldValue
+                field={fields.category}
+                name={`${basCode ?? ""} ${categoryName(basCode) ?? ""}`.trim() || "—"}
+                testId="reconcile-category-value"
+              />
+            ) : (
+              <>
+                <BasPicker
+                  options={categories}
+                  value={basCode ?? ""}
+                  onChange={(code) => setBasCode(code || null)}
+                  direction={row.inbox.row.direction === "incoming" ? "income" : "cost"}
+                  allowNone
+                  proposed={fields.category.state === "proposed"}
+                  disabled={!canWrite}
+                  data-testid="reconcile-category-picker"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {fields.category.state === "proposed" && fields.category.from
+                    ? `${t(`reconcile.field.from.${fields.category.from}`)}${
+                        fields.category.confidence !== null
+                          ? ` · ${t("reconcile.field.confidence", { percent: Math.round(fields.category.confidence * 100) })}`
+                          : ""
+                      }`
+                    : t("reconcile.field.ask.category")}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {row.fx && c === row.inbox.top?.candidate && (
+          <div
+            className="flex flex-col gap-2 rounded-xl border border-subtle p-3"
+            data-testid="reconcile-fx"
+          >
+            <span className={EYEBROW}>{t("reconcile.fx.title")}</span>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-4">
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("reconcile.fx.original")}</dt>
+                <dd className="font-mono tabular-nums">
+                  {formatMoney(row.fx.original, row.fx.originalCurrency)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">
+                  {t("reconcile.fx.ecb", { date: row.fx.rateDate })}
+                </dt>
+                <dd className="font-mono tabular-nums">
+                  {row.fx.ecbRate} · {formatMoney(row.fx.ecbAmount, row.fx.rowCurrency)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("reconcile.fx.bank")}</dt>
+                <dd className="font-mono tabular-nums">
+                  {row.fx.bankRate} · {formatMoney(row.fx.charged, row.fx.rowCurrency)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">{t("reconcile.fx.cost")}</dt>
+                <dd className="font-mono font-semibold tabular-nums">
+                  {formatMoney(row.fx.cost, row.fx.rowCurrency)} · {row.fx.costPercent} %
+                </dd>
+              </div>
+            </dl>
+            <span className="text-xs text-muted-foreground">{t("reconcile.fx.note")}</span>
+          </div>
+        )}
+
+        <div
+          className="flex flex-col gap-1 rounded-xl bg-surface-2 p-3"
+          data-testid="reconcile-preview"
+        >
+          <span className={EYEBROW}>{t("reconcile.preview.title")}</span>
+          <ul className="flex flex-col gap-0.5 text-[13px]">
+            <li>
+              ✓ {t("reconcile.preview.link", { label: c.label })}
+              {s.allocation && c.currency
+                ? ` · ${t("reconcile.preview.allocation", { amount: formatMoney(s.allocation, c.currency) })}`
+                : ""}
+            </li>
+            {partnerId && (
+              <li>✓ {t("reconcile.preview.partner", { name: partnerName(partnerId) ?? "" })}</li>
+            )}
+            {basCode && (
+              <li>
+                ✓{" "}
+                {t("reconcile.preview.category", {
+                  code: `${basCode} ${categoryName(basCode) ?? ""}`.trim(),
+                })}
+              </li>
+            )}
+            {needsPartner ? (
+              <li className="text-state-attention">! {t("reconcile.preview.needsPartner")}</li>
+            ) : (
+              <li>
+                ✓{" "}
+                {t("reconcile.preview.state", {
+                  done: progress.justified + 1,
+                  total,
+                  month,
+                })}
+              </li>
             )}
           </ul>
-        </details>
-      )}
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-subtle pt-3">
-        {canWrite && (
-          <Button
-            onClick={() => void doAccept()}
-            disabled={needsPartner || isPending}
-            data-testid="reconcile-accept"
-          >
-            {t("reconcile.accept")} <kbd className="ml-1 text-[10px] opacity-70">Enter</kbd>
-          </Button>
-        )}
-        <Button variant="outline" onClick={() => setByHand(true)}>
-          {t("reconcile.byHand")}
-        </Button>
-        <Button variant="ghost" className="ml-auto" onClick={onSkip}>
-          {t("reconcile.skip")} <kbd className="ml-1 text-[10px] opacity-70">J</kbd>
-        </Button>
+        <div className="mt-auto flex flex-col gap-2 border-t border-subtle pt-3">
+          {canWrite && (
+            <Button
+              onClick={() => void doAccept()}
+              disabled={needsPartner || isPending}
+              data-testid="reconcile-accept"
+              className="w-full"
+            >
+              {t("reconcile.accept")} <kbd className="ml-1 text-[10px] opacity-70">Enter</kbd>
+            </Button>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={() => setByHand(true)}>
+              {t("reconcile.byHand")}
+            </Button>
+            <Button variant="outline" onClick={onSkip}>
+              {t("reconcile.skip")} <kbd className="ml-1 text-[10px] opacity-70">J</kbd>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
