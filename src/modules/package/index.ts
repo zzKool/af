@@ -2,6 +2,8 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and actions.
 
+export type { CloseCheck, CloseCheckKey, CloseMonth, CloseZipEntry } from "./close";
+export { CLOSE_CHECKS, closeMonth, ratesCoveredTo, ratesTarget } from "./close";
 export { collectPeriod, countsOf, extensionOf, impliedRate, packageFileName } from "./collect";
 export { CSV_HEADER, statementCsv, statementFiles } from "./csv";
 export type { BuildDeps, BuildPackageData, Collected } from "./jobs/build-package";
