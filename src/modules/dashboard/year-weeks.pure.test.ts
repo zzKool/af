@@ -1,6 +1,15 @@
-// The year strip (F158) — pure: weeks Monday → Sunday, the money summed per week, the square per account derived.
+// The year strip (F158) — pure: weeks Monday → Sunday, the money summed per week, the square per account derived;
+// F171: the invoices', expenses' and documents' rows, each thing's state mapped, the week the worst of them.
 import { describe, expect, it } from "vitest";
-import { isoWeek, mondayOf, YEAR_WEEKS, yearWeeks } from "./year-weeks";
+import {
+  documentCell,
+  expenseCell,
+  invoiceCell,
+  isoWeek,
+  mondayOf,
+  YEAR_WEEKS,
+  yearWeeks,
+} from "./year-weeks";
 
 const accounts = [
   { id: "a", label: "Konto A", currency: "CHF" },
@@ -67,5 +76,80 @@ describe("yearWeeks", () => {
     expect(at("2026-10-05")).toEqual(["open", "none"]);
     expect(at("2026-09-07")).toEqual(["late", "done"]);
     expect(y.weeks.reduce((n, w) => n + w.rows, 0)).toBe(9); // the 2024 rows are not in
+  });
+});
+
+describe("the books' squares (F171)", () => {
+  const today = "2026-11-11";
+
+  it("an invoice: paid or credited done, overdue late, unpaid open; drafts, quotes, credit notes out", () => {
+    const cell = (state: string, type = "invoice") => invoiceCell({ type, state });
+    expect(cell("paid")).toBe("done");
+    expect(cell("credited")).toBe("done");
+    expect(cell("overdue")).toBe("late");
+    expect(["issued", "sent", "partially_paid"].map((s) => cell(s))).toEqual([
+      "open",
+      "open",
+      "open",
+    ]);
+    expect(cell("draft")).toBeNull();
+    expect(cell("issued", "quote")).toBeNull();
+    expect(cell("issued", "credit_note")).toBeNull();
+  });
+
+  it("an expense: done when settled and justified, else open — late before last month", () => {
+    const e = (over: Partial<Parameters<typeof expenseCell>[0]>) =>
+      expenseCell(
+        {
+          date: "2026-11-02",
+          status: "paid",
+          kind: "receipt",
+          hasDocument: true,
+          documentMissing: false,
+          ...over,
+        },
+        today,
+      );
+    expect(e({})).toBe("done");
+    expect(e({ status: "refunded" })).toBe("done");
+    expect(e({ hasDocument: false, documentMissing: true })).toBe("done"); // receipt declared lost
+    expect(e({ hasDocument: false, kind: "per_diem" })).toBe("done"); // computed, no receipt
+    expect(e({ hasDocument: false })).toBe("open"); // paid, the receipt missing
+    expect(e({ status: "awaiting_link" })).toBe("open");
+    expect(e({ status: "partially_refunded", date: "2026-10-31" })).toBe("open"); // last month
+    expect(e({ status: "to_refund", date: "2026-09-30" })).toBe("late"); // its close is past
+  });
+
+  it("a document: filed or parked done, in the inbox open — late before last month; generated out", () => {
+    expect(documentCell("filed", "2026-08-01", today)).toBe("done");
+    expect(documentCell("archived", "2026-08-01", today)).toBe("done");
+    expect(documentCell("ready", "2026-10-01", today)).toBe("open");
+    expect(documentCell("ocr_failed", "2026-11-10", today)).toBe("open");
+    expect(documentCell("needs_ocr", "2026-09-30", today)).toBe("late");
+    expect(documentCell("generated", "2026-11-10", today)).toBeNull();
+  });
+
+  it("a week takes its worst thing; counted and pending per lane; none without a thing", () => {
+    const y = yearWeeks(accounts, [], today, {
+      invoices: [
+        { date: "2026-11-09", cell: "done" },
+        { date: "2026-11-12", cell: "late" },
+        { date: "2026-11-13", cell: "open" },
+        { date: "2023-01-02", cell: "late" }, // outside the window
+      ],
+      expenses: [
+        { date: "2026-11-10", cell: "done" },
+        { date: "2026-11-02", cell: "open" },
+      ],
+      documents: [{ date: "2026-11-15", cell: "done" }],
+    });
+    const last = y.weeks.at(-1);
+    expect(last?.books.invoices).toEqual({ cell: "late", count: 3, pending: 2 });
+    expect(last?.books.expenses).toEqual({ cell: "done", count: 1, pending: 0 });
+    expect(last?.books.documents).toEqual({ cell: "done", count: 1, pending: 0 });
+    expect(y.weeks.at(-2)?.books.expenses).toEqual({ cell: "open", count: 1, pending: 1 });
+    expect(y.weeks.at(-2)?.books.invoices).toEqual({ cell: "none", count: 0, pending: 0 });
+    expect(y.weeks.reduce((n, w) => n + w.books.invoices.count, 0)).toBe(3);
+    expect(last?.cells).toEqual(["none", "none"]); // the bank's squares untouched
   });
 });

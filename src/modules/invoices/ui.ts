@@ -21,6 +21,7 @@ export { type ClientOption, NewInvoiceForm } from "./components/new-invoice-form
 export * from "./components/new-invoice-steps";
 export * from "./components/partner-invoicing";
 export * from "./components/reminder-card";
+export { ReminderToggle } from "./components/reminder-toggle";
 export { toSheetDocument } from "./components/sheet-document";
 export * from "./invoices.actions";
 export type * from "./types";

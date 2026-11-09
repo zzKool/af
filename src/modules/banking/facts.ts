@@ -173,7 +173,7 @@ async function validateFacts(
 export type CategoriseOptions = {
   /** who is setting the facts: the owner (default) or a rule (then `ruleId`). Never `partner_default` (audit 32):
    * a rule that brings its partner's default category is still the rule — `rule_id` names it. */
-  by?: Exclude<CategorisedBy, "partner_default">;
+  by?: CategorisedBy;
   ruleId?: string | null;
 };
 

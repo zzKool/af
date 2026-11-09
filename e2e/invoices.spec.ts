@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { expectToast, trackToasts, withToastReport } from "./fixtures/toasts";
 
 // The owner's monthly invoice (specs/invoices US1 + US2): client with a contract rate → new draft pre-filled
-// from the contract → 20 days → issue → number assigned, sheet locked, PDF stored by the job → mark as sent.
+// from the contract → 20 days → issue → number assigned, sheet locked, PDF stored by the job → download and mark
+// as sent.
 test.describe("Invoices", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
 
@@ -119,6 +120,23 @@ test.describe("Invoices", () => {
       );
       await expect(page.getByText("Saved")).toBeVisible();
 
+      // F169, the studio's bar: an invoice in the base has no ≈ beside its total; the reminder switch is on by
+      // default, turned off it stays off (stored)
+      await expect(page.getByTestId("invoice-studio-base")).toHaveCount(0);
+      const reminderSwitch = page.getByRole("switch", { name: /Draft a reminder/ });
+      await expect(reminderSwitch).toHaveAttribute("aria-checked", "true");
+      const switched = page.waitForResponse(
+        (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+      );
+      await reminderSwitch.click();
+      await switched;
+      await expect(reminderSwitch).toHaveAttribute("aria-checked", "false");
+      await page.reload();
+      await expect(page.getByRole("switch", { name: /Draft a reminder/ })).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+
       // issue → number, locked sheet, PDF from the job
       await page.getByRole("button", { name: "Issue" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Issue" }).click();
@@ -128,8 +146,16 @@ test.describe("Invoices", () => {
       await expect(page.getByLabel("Qty")).toHaveCount(0); // print mode: no inputs
       await expect(page.getByTestId("download-pdf")).toBeVisible({ timeout: 90_000 });
 
-      // mark as sent
-      await page.getByRole("button", { name: "Mark as sent" }).click();
+      // F169: the switch still moves once issued (a hand-set fact, like sent)
+      const issuedSwitch = page.getByRole("switch", { name: /Draft a reminder/ });
+      await expect(issuedSwitch).toHaveAttribute("aria-checked", "false");
+      await issuedSwitch.click();
+      await expect(issuedSwitch).toHaveAttribute("aria-checked", "true");
+
+      // F169: download and mark as sent — the PDF opens, the invoice is marked sent
+      const pdfTab = page.context().waitForEvent("page");
+      await page.getByRole("button", { name: "Download and mark as sent" }).click();
+      await (await pdfTab).close();
       await expectToast(page, "Marked as sent");
       await expect(page.getByTestId("invoice-state")).toHaveText("Sent");
 
