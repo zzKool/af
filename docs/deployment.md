@@ -99,6 +99,10 @@ docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 
 **Azure Document Intelligence** is the one cloud dependency of the homelab stack (OCR): `AZURE_DI_ENDPOINT` / `AZURE_DI_KEY` (F0 free tier, 500 pages a month). Without them every upload's OCR fails with the reason (*OCR is not configured*) — never a mock on the box (F108); the mock is `OCR_PROVIDER=mock`, for dev and tests.
 
+### A fresh start (2026-11-09)
+
+`scripts/reset-working-data.sh box` (in the checkout next to `docker-compose.prod.yml`) empties the working items and every stored file, after a backup (`scripts/backup.sh`); `… laptop` does the same on the dev database and Azurite (Docker only — Git Bash on Windows). It shows the counts, asks for `RESET`, runs one transaction. **Kept**: the login, the company profile and logo, the bank accounts, the VAT registrations, the BAS chart and its settings, the ECB and traktamente rates, the four system partners with the two seed rules, the schedules. **Emptied**: bank rows and imports, documents and their files, partners, contracts, invoices (numbering back to 001), expenses, supplier invoices, subscriptions, links, proposals, the journal, the audit trail, the owner's rules, table layouts.
+
 ## Azure (later, scale to zero)
 
 The same two images, the same env vars. Resources, one resource group `af-prod` in `swedencentral`:
