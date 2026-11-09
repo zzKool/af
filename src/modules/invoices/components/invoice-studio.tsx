@@ -72,9 +72,7 @@ export function InvoiceStudio({
   const t = useT();
   const [draft, setDraft] = useState<EditorDraft | null>(null);
   const onDraft = useCallback((d: EditorDraft) => setDraft(d), []);
-  const [quantityRequest, setQuantityRequest] = useState<{ value: string; seq: number } | null>(
-    null,
-  );
+  const [daysRequest, setDaysRequest] = useState<{ days: string[]; seq: number } | null>(null);
   const total = draft?.total ?? invoice.totalAmount;
   // the days calendar sets the first line's days — shown once there is a line
   const firstQuantity = draft ? draft.lines[0]?.quantity : invoice.lines?.[0]?.quantity;
@@ -129,9 +127,8 @@ export function InvoiceStudio({
               issueDate={draft?.issueDate ?? invoice.issueDate}
               periodLabel={draft?.periodLabel ?? invoice.periodLabel ?? ""}
               quantity={firstQuantity}
-              onCount={(n) =>
-                setQuantityRequest((r) => ({ value: String(n), seq: (r?.seq ?? 0) + 1 }))
-              }
+              stored={invoice.lines?.[0]?.workedDays ?? []}
+              onDays={(days) => setDaysRequest((r) => ({ days, seq: (r?.seq ?? 0) + 1 }))}
             />
           )}
 
@@ -210,7 +207,7 @@ export function InvoiceStudio({
             registrations={registrations}
             partnerForVat={partnerForVat}
             onDraft={onDraft}
-            quantityRequest={quantityRequest}
+            daysRequest={daysRequest}
           />
         </div>
       </div>
@@ -280,40 +277,55 @@ export function weekdaysOf(month: string): string[] {
 }
 
 /**
- * F160, the board's *Days worked*: the invoice's period (its label, else the month before the issue date) as a calendar; a click adds or removes a day and
- * the first line's quantity becomes the count. Only the count is stored (the line's days); the calendar opens on
- * the first weekdays of that count — a picking aid, not a timesheet.
+ * The days the calendar opens with (F168): the line's stored days when it has some; else, for a line whose quantity
+ * is a whole count of days, the month's first weekdays as a *suggestion* (not stored until a day is clicked).
+ */
+export function daysToShow(
+  stored: readonly string[],
+  quantity: string,
+  month: string,
+): { days: string[]; suggested: boolean } {
+  if (stored.length > 0) return { days: [...stored], suggested: false };
+  const n = Number(quantity);
+  const weekdays = weekdaysOf(month);
+  return Number.isInteger(n) && n > 0 && n <= weekdays.length
+    ? { days: weekdays.slice(0, n), suggested: true }
+    : { days: [], suggested: false };
+}
+
+/**
+ * F160 / F168, the board's *Days worked*: the invoice's period as a calendar — the month of the line's stored days,
+ * else the month its label names, else the month before the issue date. A click adds or removes a day; the first
+ * line then stores the days picked and bills their count. The days may span two months (a period from the 15th);
+ * a quantity typed by hand (half days) keeps the days and the calendar says so.
  */
 function DaysWorked({
   issueDate,
   periodLabel,
   quantity,
-  onCount,
+  stored,
+  onDays,
 }: {
   issueDate: string;
   periodLabel: string;
   quantity: string;
-  onCount: (count: number) => void;
+  stored: readonly string[];
+  onDays: (days: string[]) => void;
 }) {
   const t = useT();
   const lang = useUiLanguage();
-  // the period the invoice names, else the month before the issue date
   const [month, setMonth] = useState(
-    () => monthOfPeriod(periodLabel) ?? shiftMonth(issueDate.slice(0, 7), -1),
+    () =>
+      stored[0]?.slice(0, 7) ?? monthOfPeriod(periodLabel) ?? shiftMonth(issueDate.slice(0, 7), -1),
   );
-  const initial = (m: string) => {
-    const n = Number(quantity);
-    const weekdays = weekdaysOf(m);
-    return new Set(
-      Number.isInteger(n) && n > 0 && n <= weekdays.length ? weekdays.slice(0, n) : [],
-    );
-  };
-  const [picked, setPicked] = useState<Set<string>>(() => initial(month));
-  const go = (step: number) => {
-    const m = shiftMonth(month, step);
-    setMonth(m);
-    setPicked(initial(m));
-  };
+  // the owner's days once stored or clicked; until then a suggestion that follows the line's quantity and the month
+  const [own, setOwn] = useState<Set<string> | null>(() =>
+    stored.length > 0 ? new Set(stored) : null,
+  );
+  const shown = useMemo(() => daysToShow([], quantity, month), [quantity, month]);
+  const picked = own ?? new Set(shown.days);
+  const suggested = own === null && shown.suggested;
+  const go = (step: number) => setMonth(shiftMonth(month, step));
   const [y, mm] = month.split("-").map(Number) as [number, number];
   const days = new Date(Date.UTC(y, mm, 0)).getUTCDate();
   const lead = (new Date(Date.UTC(y, mm - 1, 1)).getUTCDay() + 6) % 7;
@@ -321,9 +333,11 @@ function DaysWorked({
     const next = new Set(picked);
     if (next.has(day)) next.delete(day);
     else next.add(day);
-    setPicked(next);
-    onCount(next.size);
+    setOwn(next);
+    onDays([...next].sort());
   };
+  const elsewhere = [...picked].filter((d) => !d.startsWith(month)).length;
+  const differs = !suggested && picked.size > 0 && Number(quantity) !== picked.size;
   return (
     <section className={cn(CARD, "flex flex-col gap-3")} data-testid="invoice-days">
       <div className="flex items-center gap-2">
@@ -349,8 +363,15 @@ function DaysWorked({
           </button>
         </span>
       </div>
-      <p className="-mt-2 text-xs text-muted-foreground">
-        {t("invoices.days.hint", { count: picked.size })}
+      <p className="-mt-2 text-xs text-muted-foreground" data-testid="invoice-days-hint">
+        {t(suggested ? "invoices.days.suggested" : "invoices.days.hint", { count: picked.size })}
+        {elsewhere > 0 && <> · {t("invoices.days.elsewhere", { count: elsewhere })}</>}
+        {differs && (
+          <span className="text-state-attention">
+            {" "}
+            · {t("invoices.days.differs", { quantity })}
+          </span>
+        )}
       </p>
       <div className="grid grid-cols-7 gap-1 text-center">
         {DOW.map((d) => (

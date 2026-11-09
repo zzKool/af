@@ -129,3 +129,21 @@ describe("the days calendar's month (F160)", () => {
     expect(weekdaysOf("2026-07")).toHaveLength(23);
   });
 });
+
+describe("the days the calendar opens with (F168)", () => {
+  it("stored days win; else a whole quantity suggests the month's first weekdays; else none", async () => {
+    const { daysToShow } = await import("./invoice-studio");
+    expect(daysToShow(["2026-07-06", "2026-07-08"], "2", "2026-07")).toEqual({
+      days: ["2026-07-06", "2026-07-08"],
+      suggested: false,
+    });
+    // July 2026 starts on a Wednesday
+    expect(daysToShow([], "3", "2026-07")).toEqual({
+      days: ["2026-07-01", "2026-07-02", "2026-07-03"],
+      suggested: true,
+    });
+    expect(daysToShow([], "4.5", "2026-07")).toEqual({ days: [], suggested: false });
+    expect(daysToShow([], "0", "2026-07")).toEqual({ days: [], suggested: false });
+    expect(daysToShow([], "40", "2026-07")).toEqual({ days: [], suggested: false });
+  });
+});

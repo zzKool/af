@@ -584,7 +584,11 @@ export const en = {
   "invoices.studio.total": "Total",
   "invoices.days.title": "Days worked · {month}",
   "invoices.days.hint":
-    "{count} day(s) — click a day to add or remove it; the count goes to the first line",
+    "{count} day(s) — click a day to add or remove it; the first line keeps the days and bills their count",
+  "invoices.days.suggested":
+    "{count} day(s) suggested from the line — click a day to pick the real ones; they are kept with the line",
+  "invoices.days.elsewhere": "{count} in another month",
+  "invoices.days.differs": "the line bills {quantity}",
   "invoices.days.previous": "Previous month",
   "invoices.days.next": "Next month",
   "invoices.days.dow.mon": "Mon",

@@ -104,6 +104,8 @@ export type InvoiceLineDto = {
   periodStart: string | null;
   periodEnd: string | null;
   rateSourceId: string | null;
+  /** F168: the days worked the line bills (yyyy-mm-dd, sorted); empty when none were picked */
+  workedDays: string[];
 };
 
 export type InvoiceDto = {

@@ -114,6 +114,9 @@ model InvoiceLine {
   vatAmount       Decimal   @map("vat_amount") @db.Decimal(15, 2)
   periodStart     DateTime? @map("period_start") @db.Date
   periodEnd       DateTime? @map("period_end") @db.Date
+  /// F168: the days worked the line bills, as picked on the studio's calendar — the quantity is their count when
+  /// they are given (the owner can still type a quantity, e.g. half days); empty for a line without picked days
+  workedDays      DateTime[] @default([]) @map("worked_days") @db.Date
   /// the contract_rate the unit price came from (provenance; validated UUID, no FK)
   rateSourceId    String?   @map("rate_source_id") @db.Uuid
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz

@@ -59,6 +59,33 @@ test.describe("Invoices", () => {
       await expect(page.getByText("Saved")).toBeVisible();
       await expect(page.getByTestId("line-net").first()).toContainText("24");
 
+      // F168: the calendar suggests the period's first 20 weekdays; a click makes them the line's days (19), kept on
+      // reload; a quantity typed back by hand keeps the days and the calendar says so
+      // each save is awaited on its server action's response — "Saved" is already on screen from the last one
+      const draftSaved = () =>
+        page.waitForResponse(
+          (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+        );
+      const days = page.getByTestId("invoice-days");
+      await expect(page.getByTestId("invoice-days-hint")).toContainText("20 day(s) suggested");
+      let saved = draftSaved();
+      await days.locator('[data-day="2026-01-05"]').click();
+      await expect(qty).toHaveValue("19");
+      await saved;
+      await qty.fill("20");
+      saved = draftSaved();
+      await qty.blur();
+      await saved;
+      await expect(page.getByTestId("invoice-days-hint")).toContainText("the line bills 20");
+      await page.reload();
+      await expect(days.locator('[data-day="2026-01-05"]')).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      await expect(days.locator('[data-day="2026-01-06"]')).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByTestId("invoice-days-hint")).toContainText("19 day(s)");
+      await expect(page.getByTestId("line-net").first()).toContainText("24");
+
       // F145: no discount row unless there is one; the PDF is there on demand, even for a draft
       await expect(page.getByTestId("sheet-discount")).toHaveCount(0);
       const preview = await page.request.get(`${page.url()}/pdf`);

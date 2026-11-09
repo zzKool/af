@@ -88,6 +88,7 @@ export function lineRowsFrom(
     periodStart: l.periodStart ? toDate(l.periodStart) : null,
     periodEnd: l.periodEnd ? toDate(l.periodEnd) : null,
     rateSourceId: l.rateSourceId ?? null,
+    workedDays: [...new Set(l.workedDays ?? [])].sort().map(toDate),
   }));
 }
 
@@ -133,5 +134,6 @@ export function linesToInput(lines: InvoiceLine[]): z.output<typeof lineInputSch
       periodStart: iso(l.periodStart),
       periodEnd: iso(l.periodEnd),
       rateSourceId: l.rateSourceId,
+      workedDays: l.workedDays.map((d) => iso(d) as string),
     }));
 }
