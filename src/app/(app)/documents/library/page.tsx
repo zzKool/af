@@ -7,6 +7,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
+import { Kpi, KpiRow, PulseSection, StackBar, TableCard } from "@/kernel/ui/pulse";
 import { ListPage } from "@/kernel/ui/shell/page";
 import {
   DOCUMENT_COLUMN_KEYS,
@@ -50,6 +51,7 @@ export default async function DocumentsPage({
 
   return (
     <ListPage
+      ground
       title={t("documents.library.title")}
       meta={t("documents.meta", {
         total: data.stats?.totalCount ?? data.result.total,
@@ -67,19 +69,64 @@ export default async function DocumentsPage({
         </Button>
       }
     >
-      <DocumentsTable
-        result={{
-          ...data.result,
-          rows: data.result.rows.map((d) => ({
-            ...d,
-            createdAt: d.createdAt.toISOString(),
-            reviewedAt: d.reviewedAt ? d.reviewedAt.toISOString() : null,
-          })),
-        }}
-        canUpload={canUpload}
-        canDelete={can(auth, "delete", "financial_document")}
-        prefixOptions={prefixOptions}
-      />
+      <div className="flex flex-col gap-[18px]">
+        <KpiRow testId="library-hero">
+          <Kpi
+            label={t("documents.pulse.total")}
+            value={data.stats?.totalCount ?? data.result.total}
+            sub={t("documents.pulse.totalSub")}
+          />
+          <Kpi
+            label={t("documents.pulse.review")}
+            value={data.inbox.total}
+            tone={data.inbox.total > 0 ? "attention" : "done"}
+            sub={t("documents.pulse.reviewSub")}
+            href="/documents"
+          />
+          <Kpi
+            label={t("documents.pulse.duplicates")}
+            value={data.inbox.duplicates}
+            tone={data.inbox.duplicates > 0 ? "danger" : "neutral"}
+            sub={t("documents.pulse.duplicatesSub")}
+          />
+          <Kpi
+            label={t("documents.pulse.failed")}
+            value={data.stats?.byStatus?.ocr_failed ?? 0}
+            tone={(data.stats?.byStatus?.ocr_failed ?? 0) > 0 ? "danger" : "neutral"}
+            sub={t("documents.pulse.failedSub")}
+          />
+        </KpiRow>
+        {data.stats && Object.keys(data.stats.byStatus).length > 0 && (
+          <PulseSection title={t("documents.pulse.splitTitle")} sub={t("documents.pulse.splitSub")}>
+            <StackBar
+              testId="library-split"
+              parts={Object.entries(data.stats.byStatus)
+                .sort((a, b) => b[1] - a[1])
+                .map(([status, n]) => ({
+                  key: status,
+                  label: status.replaceAll("_", " "),
+                  value: n,
+                  detail: n,
+                }))}
+            />
+          </PulseSection>
+        )}
+        <TableCard>
+          <DocumentsTable
+            result={{
+              ...data.result,
+              rows: data.result.rows.map((d) => ({
+                ...d,
+                createdAt: d.createdAt.toISOString(),
+                reviewedAt: d.reviewedAt ? d.reviewedAt.toISOString() : null,
+              })),
+            }}
+            canUpload={canUpload}
+            canDelete={can(auth, "delete", "financial_document")}
+            prefixOptions={prefixOptions}
+          />
+        </TableCard>
+      </div>
     </ListPage>
   );
 }

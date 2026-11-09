@@ -5,6 +5,7 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
+import { Kpi, KpiRow } from "@/kernel/ui/pulse";
 import { ListPage } from "@/kernel/ui/shell/page";
 import {
   chRegistrations,
@@ -12,8 +13,9 @@ import {
   swissVatPeriods,
   swissVatReturn,
   vatPaymentOptions,
+  vatQuarterCard,
 } from "@/modules/exports";
-import { SwissVatReturnPage } from "@/modules/exports/ui";
+import { SwissVatReturnPage, VatQuarterCard } from "@/modules/exports/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 // The Swiss VAT return (specs/exports/spec.md): per CH registration and quarter, the FTA form from the read
@@ -39,12 +41,15 @@ export default async function ExportsPage({
       registrationId && period
         ? ((await swissVatReturn(tx, auth, { registrationId, period, today })).data ?? null)
         : null;
-    return { registrations, periods, payments, declarations, prefs, initial };
+    // F165: the hero — the quarter to act on (the Close page's card), the quarters as tiles
+    const quarter = await vatQuarterCard(tx, auth, today);
+    return { registrations, periods, payments, declarations, prefs, initial, quarter };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
 
   return (
     <ListPage
+      ground
       title={t("exports.title")}
       meta={t("exports.meta", {
         periods: data.periods.length,
@@ -52,26 +57,65 @@ export default async function ExportsPage({
         paid: data.declarations.filter((d) => d.paidAt).length,
       })}
     >
-      <SwissVatReturnPage
-        registrations={data.registrations}
-        periods={data.periods}
-        payments={data.payments}
-        initial={
-          data.initial
-            ? {
-                ...data.initial,
-                declaration: data.initial.declaration
-                  ? {
-                      ...data.initial.declaration,
-                      createdAt: data.initial.declaration.createdAt.toISOString(),
-                      updatedAt: data.initial.declaration.updatedAt.toISOString(),
-                    }
-                  : null,
+      <div className="flex flex-col gap-[18px]">
+        <div className="grid items-stretch gap-[18px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <VatQuarterCard card={data.quarter} />
+          <KpiRow testId="exports-hero" pairs>
+            <Kpi
+              label={t("exports.pulse.quarters")}
+              value={data.periods.length}
+              sub={t("exports.pulse.quartersSub")}
+            />
+            <Kpi
+              label={t("exports.pulse.declared")}
+              value={data.declarations.filter((d) => d.declaredAt).length}
+              tone="done"
+              sub={t("exports.pulse.declaredSub")}
+            />
+            <Kpi
+              label={t("exports.pulse.paid")}
+              value={data.declarations.filter((d) => d.paidAt).length}
+              tone="done"
+              sub={t("exports.pulse.paidSub")}
+            />
+            <Kpi
+              label={t("exports.pulse.toDeclare")}
+              value={Math.max(
+                0,
+                data.periods.length - 1 - data.declarations.filter((d) => d.declaredAt).length,
+              )}
+              tone={
+                data.periods.length - 1 - data.declarations.filter((d) => d.declaredAt).length > 0
+                  ? "attention"
+                  : "done"
               }
-            : null
-        }
-        canWrite={can(auth, "create", "accountant_package")}
-      />
+              sub={t("exports.pulse.toDeclareSub")}
+            />
+          </KpiRow>
+        </div>
+        <section className="pulse-card p-6">
+          <SwissVatReturnPage
+            registrations={data.registrations}
+            periods={data.periods}
+            payments={data.payments}
+            initial={
+              data.initial
+                ? {
+                    ...data.initial,
+                    declaration: data.initial.declaration
+                      ? {
+                          ...data.initial.declaration,
+                          createdAt: data.initial.declaration.createdAt.toISOString(),
+                          updatedAt: data.initial.declaration.updatedAt.toISOString(),
+                        }
+                      : null,
+                  }
+                : null
+            }
+            canWrite={can(auth, "create", "accountant_package")}
+          />
+        </section>
+      </div>
     </ListPage>
   );
 }

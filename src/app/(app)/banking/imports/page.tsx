@@ -6,8 +6,14 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
+import { Kpi, KpiRow, TableCard } from "@/kernel/ui/pulse";
 import { ListPage } from "@/kernel/ui/shell/page";
-import { IMPORT_COLUMN_KEYS, IMPORT_DEFAULT_SORT, listImportsPage } from "@/modules/banking";
+import {
+  IMPORT_COLUMN_KEYS,
+  IMPORT_DEFAULT_SORT,
+  listImports,
+  listImportsPage,
+} from "@/modules/banking";
 import { ImportCsvButton, ImportsTable } from "@/modules/banking/ui";
 import { getUserPreferences } from "@/modules/settings";
 
@@ -27,24 +33,61 @@ export default async function BankImportsPage({
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const result = await listImportsPage(tx, query);
     const prefs = await getUserPreferences(tx, auth);
-    return { result, prefs };
+    // F165: the hero — the files, the rows they brought, what was skipped, the newest
+    const all = await listImports(tx);
+    return { result, prefs, all };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const canWrite = can(auth, "create", "bank_transaction");
 
   return (
     <ListPage
+      ground
       title={t("banking.imports.title")}
       meta={t("banking.imports.meta", { count: data.result.total })}
       actions={canWrite && <ImportCsvButton />}
     >
-      <ImportsTable
-        result={{
-          ...data.result,
-          rows: data.result.rows.map((i) => ({ ...i, importedAt: i.importedAt.toISOString() })),
-        }}
-        canWrite={canWrite}
-      />
+      <div className="flex flex-col gap-[18px]">
+        <KpiRow testId="imports-hero">
+          <Kpi
+            label={t("banking.imports.pulse.files")}
+            value={data.all.length}
+            sub={t("banking.imports.pulse.filesSub")}
+          />
+          <Kpi
+            label={t("banking.imports.pulse.rows")}
+            value={data.all.reduce((s, i) => s + i.importedCount, 0)}
+            tone="done"
+            sub={t("banking.imports.pulse.rowsSub")}
+          />
+          <Kpi
+            label={t("banking.imports.pulse.duplicates")}
+            value={data.all.reduce((s, i) => s + i.duplicateCount, 0)}
+            sub={t("banking.imports.pulse.duplicatesSub")}
+          />
+          <Kpi
+            label={t("banking.imports.pulse.newest")}
+            value={
+              data.all
+                .map((i) => i.periodTo)
+                .filter((d): d is string => !!d)
+                .sort()
+                .at(-1) ?? "—"
+            }
+            sub={t("banking.imports.pulse.newestSub")}
+            href="/banking/import"
+          />
+        </KpiRow>
+        <TableCard>
+          <ImportsTable
+            result={{
+              ...data.result,
+              rows: data.result.rows.map((i) => ({ ...i, importedAt: i.importedAt.toISOString() })),
+            }}
+            canWrite={canWrite}
+          />
+        </TableCard>
+      </div>
     </ListPage>
   );
 }
