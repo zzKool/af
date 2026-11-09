@@ -102,7 +102,8 @@ describe("CashHero", () => {
     // F158: the headline in whole units (the board: 693 295 SEK)
     expect(screen.getByTestId("home-cash-total").textContent).toBe("127 500");
     expect(screen.getByTestId("home-cash-month").textContent).toBe("▼ 2 500 this month");
-    expect(screen.getByRole("link").textContent).toBe("10 810.00 CHF");
+    // F167: the hero's figures as the board prints them (10 810, 1.28 M)
+    expect(screen.getByRole("link").textContent).toBe("10.8 k CHF");
     expect(screen.getByTestId("home-ring").textContent).toContain("75%");
   });
 });

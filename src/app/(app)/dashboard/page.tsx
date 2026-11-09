@@ -11,6 +11,7 @@ import {
   BriefingWidget,
   CashHero,
   CurrenciesCard,
+  MoneyFlowCard,
   NextMoves,
   YearStrip,
 } from "@/modules/dashboard/ui";
@@ -64,7 +65,8 @@ export default async function DashboardPage() {
         </div>
         <YearStrip data={home.weeks} base={home.cash.base} />
         <div className="flex flex-wrap items-stretch gap-[18px]">
-          <div className="flex min-w-0 flex-[7_1_560px] flex-col">
+          <div className="flex min-w-0 flex-[7_1_560px] flex-col gap-[18px]">
+            <MoneyFlowCard flow={home.flow} base={home.cash.base} />
             <BriefingWidget
               since={home.overview.briefing.since}
               lines={home.overview.briefing.lines}

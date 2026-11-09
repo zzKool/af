@@ -10,10 +10,13 @@ import { tenantProfile } from "@/kernel/db/tenant";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import * as banking from "@/modules/banking";
+import * as expenses from "@/modules/expenses";
+import * as invoices from "@/modules/invoices";
 import * as rates from "@/modules/rates";
+import * as supplierInvoices from "@/modules/supplier-invoices";
 import { workData } from "./close";
 import { dashboardOverview } from "./overview";
-import type { CashSummary, CurrencyTicker, HomeData } from "./types";
+import type { CashSummary, CurrencyTicker, HomeData, MoneyFlow } from "./types";
 import { yearWeeks } from "./year-weeks";
 
 /** The currencies' window on the home (the board: *90 days*). */
@@ -150,5 +153,45 @@ export async function homeData(
   const statement = months.accounts.filter((a) => banking.STATEMENT_ROLES.includes(a.role));
   const weeks = yearWeeks(statement, months.days, today);
 
-  return { overview, cash, currencies, year: counts, work, weeks };
+  const flow = await moneyFlow(tx, today);
+
+  return { overview, cash, currencies, year: counts, work, weeks, flow };
+}
+
+/**
+ * F167: the year so far as flows — what came in by client (invoices − credit notes), what went out by kind (supplier
+ * invoices by category, the expenses), what is kept. Every figure is its module's own read; summed here.
+ */
+export async function moneyFlow(tx: TransactionClient, today: string): Promise<MoneyFlow> {
+  const year = today.slice(0, 4);
+  const sales = await invoices.invoicesOverview(tx, today);
+  const costs = await supplierInvoices.supplierOverview(tx, today);
+  const spent = await expenses.expensesBaseBetween(tx, `${year}-01-01`, today);
+  return moneyFlowFrom(year, sales, costs, spent);
+}
+
+/** Pure: the parts above zero, the rest folded in, `kept` the difference. */
+export function moneyFlowFrom(
+  year: string,
+  sales: { clients: { name: string; base: string }[]; others: string },
+  costs: { categories: { label: string; base: string }[]; others: string },
+  expensesBase: string,
+): MoneyFlow {
+  const positive = (xs: { label: string; base: string }[]) => xs.filter((x) => D(x.base).gt(0));
+  const income = positive([
+    ...sales.clients.map((c) => ({ label: c.name, base: c.base })),
+    { label: "others", base: sales.others },
+  ]);
+  const out = positive([
+    ...costs.categories.slice(0, 4),
+    {
+      label: "others",
+      base: D(costs.others)
+        .add(costs.categories.slice(4).reduce((s, c) => s.add(D(c.base)), D("0")))
+        .toFixed(2),
+    },
+    { label: "expenses", base: expensesBase },
+  ]);
+  const sum = (xs: { base: string }[]) => xs.reduce((s, x) => s.add(D(x.base)), D("0"));
+  return { year, income, costs: out, kept: money(sum(income).sub(sum(out))) };
 }

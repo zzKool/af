@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { translator } from "@/kernel/i18n/translate";
 import { closeSteps } from "./close";
-import { cashDays, cashSummary, ticker } from "./home";
+import { cashDays, cashSummary, moneyFlowFrom, ticker } from "./home";
 import { homeSentence } from "./home-text";
 
 // Invented balances and rates (D51): a SEK base, a CHF account and a SEK savings.
@@ -118,5 +118,29 @@ describe("homeSentence (FR-008)", () => {
 
   it("the accountant: what is late only", () => {
     expect(homeSentence([], null, "", t)).toBe("Nothing is late.");
+  });
+});
+
+describe("moneyFlowFrom (F167)", () => {
+  it("income by client, costs by kind, what is kept; zero parts left out", () => {
+    const f = moneyFlowFrom(
+      "2026",
+      { clients: [{ name: "Client A", base: "100000.00" }], others: "0.00" },
+      {
+        categories: [
+          { label: "Rent", base: "20000.00" },
+          { label: "IT", base: "5000.00" },
+        ],
+        others: "0.00",
+      },
+      "15000.00",
+    );
+    expect(f.income).toEqual([{ label: "Client A", base: "100000.00" }]);
+    expect(f.costs).toEqual([
+      { label: "Rent", base: "20000.00" },
+      { label: "IT", base: "5000.00" },
+      { label: "expenses", base: "15000.00" },
+    ]);
+    expect(f.kept).toBe("60000.00");
   });
 });
