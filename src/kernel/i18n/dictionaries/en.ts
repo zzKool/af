@@ -1589,6 +1589,7 @@ export const en = {
   "settings.menu.automation": "Automation",
   "settings.company.title": "Company",
   "settings.company.heading": "Company Profile",
+  "settings.company.initials": "Printed on every invoice — changes apply to new invoices only",
   "settings.company.description": "Name, organisation number, address, contact, base currency.",
   "settings.company.saveFailed": "Save failed",
   "settings.company.nameRequired": "Company name is required",
@@ -1764,6 +1765,9 @@ export const en = {
   "settings.preferences.themeSystem": "System",
   "settings.preferences.themeLight": "Light",
   "settings.preferences.themeDark": "Dark",
+  "settings.preferences.themeSystemSub": "light by day, dark when your computer switches",
+  "settings.preferences.themeLightSub": "white cards on a soft grey ground",
+  "settings.preferences.themeDarkSub": "the Pulse night look",
   "settings.preferences.themeSaveFailed": "Failed to update the colour scheme",
   "settings.preferences.saveFailed": "Failed to update locale",
 

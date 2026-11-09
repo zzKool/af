@@ -81,128 +81,131 @@ export function CompanyProfileForm({
   );
 
   return (
-    <div className="space-y-8">
-      {/* Company Avatar */}
-      <div className="flex items-center gap-4">
+    <div className="space-y-6">
+      {/* Company Avatar — F166: the identity row on top, the logo beside it */}
+      <div className="flex flex-wrap items-center gap-4">
         <CompanyAvatar name={data.name} className="h-16 w-16 text-lg" />
         <div>
           <p className="text-lg font-medium">{data.name}</p>
-          <p className="text-sm text-muted-foreground">Company initials</p>
+          <p className="text-sm text-muted-foreground">{t("settings.company.initials")}</p>
         </div>
       </div>
 
       <LogoField initial={initialLogo} />
 
-      {/* Company Name */}
-      <FieldWrapper
-        label={t("settings.company.name")}
-        required
-        error={errors.name}
-        saving={savingField === "name"}
-      >
-        <Input
-          value={data.name}
-          onChange={(e) => setData((prev) => ({ ...prev, name: e.target.value }))}
-          onBlur={() => saveField("name", data.name)}
-          placeholder={t("settings.company.namePlaceholder")}
-        />
-      </FieldWrapper>
-
-      {/* Org Number */}
-      <FieldWrapper
-        label={t("settings.company.orgNumber")}
-        error={errors.orgNumber}
-        saving={savingField === "orgNumber"}
-      >
-        <Input
-          value={data.orgNumber}
-          onChange={(e) => setData((prev) => ({ ...prev, orgNumber: e.target.value }))}
-          onBlur={() => saveField("orgNumber", data.orgNumber)}
-          placeholder={t("settings.company.orgNumberPlaceholder")}
-        />
-      </FieldWrapper>
-
-      {/* Address */}
-      <FieldWrapper
-        label={t("settings.company.address")}
-        error={errors.address}
-        saving={savingField === "address"}
-      >
-        <Input
-          value={data.address}
-          onChange={(e) => setData((prev) => ({ ...prev, address: e.target.value }))}
-          onBlur={() => saveField("address", data.address)}
-          placeholder={t("settings.company.addressPlaceholder")}
-        />
-      </FieldWrapper>
-
-      {/* Contact line — printed on invoices */}
-      <FieldWrapper
-        label={t("settings.company.email")}
-        error={errors.email}
-        saving={savingField === "email"}
-        hint={t("settings.company.emailHint")}
-      >
-        <Input
-          type="email"
-          value={data.email}
-          onChange={(e) => setData((prev) => ({ ...prev, email: e.target.value }))}
-          onBlur={() => saveField("email", data.email)}
-          placeholder={t("settings.company.emailPlaceholder")}
-        />
-      </FieldWrapper>
-      <FieldWrapper
-        label={t("settings.company.website")}
-        error={errors.website}
-        saving={savingField === "website"}
-      >
-        <Input
-          value={data.website}
-          onChange={(e) => setData((prev) => ({ ...prev, website: e.target.value }))}
-          onBlur={() => saveField("website", data.website)}
-          placeholder="https://example.com"
-        />
-      </FieldWrapper>
-      <FieldWrapper
-        label={t("settings.company.phone")}
-        error={errors.phone}
-        saving={savingField === "phone"}
-      >
-        <Input
-          value={data.phone}
-          onChange={(e) => setData((prev) => ({ ...prev, phone: e.target.value }))}
-          onBlur={() => saveField("phone", data.phone)}
-          placeholder="+46 …"
-        />
-      </FieldWrapper>
-
-      {/* Currency */}
-      <FieldWrapper
-        label={t("settings.company.currency")}
-        error={errors.currency}
-        saving={savingField === "currency"}
-        hint={t("settings.company.currencyHint")}
-      >
-        <Select
-          value={data.currency}
-          onValueChange={(value) => {
-            if (!value) return;
-            setData((prev) => ({ ...prev, currency: value }));
-            saveField("currency", value);
-          }}
+      {/* F166, the board *Settings*: the fields two by two */}
+      <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+        {/* Company Name */}
+        <FieldWrapper
+          label={t("settings.company.name")}
+          required
+          error={errors.name}
+          saving={savingField === "name"}
         >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CURRENCIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FieldWrapper>
+          <Input
+            value={data.name}
+            onChange={(e) => setData((prev) => ({ ...prev, name: e.target.value }))}
+            onBlur={() => saveField("name", data.name)}
+            placeholder={t("settings.company.namePlaceholder")}
+          />
+        </FieldWrapper>
+
+        {/* Org Number */}
+        <FieldWrapper
+          label={t("settings.company.orgNumber")}
+          error={errors.orgNumber}
+          saving={savingField === "orgNumber"}
+        >
+          <Input
+            value={data.orgNumber}
+            onChange={(e) => setData((prev) => ({ ...prev, orgNumber: e.target.value }))}
+            onBlur={() => saveField("orgNumber", data.orgNumber)}
+            placeholder={t("settings.company.orgNumberPlaceholder")}
+          />
+        </FieldWrapper>
+
+        {/* Address */}
+        <FieldWrapper
+          label={t("settings.company.address")}
+          error={errors.address}
+          saving={savingField === "address"}
+        >
+          <Input
+            value={data.address}
+            onChange={(e) => setData((prev) => ({ ...prev, address: e.target.value }))}
+            onBlur={() => saveField("address", data.address)}
+            placeholder={t("settings.company.addressPlaceholder")}
+          />
+        </FieldWrapper>
+
+        {/* Contact line — printed on invoices */}
+        <FieldWrapper
+          label={t("settings.company.email")}
+          error={errors.email}
+          saving={savingField === "email"}
+          hint={t("settings.company.emailHint")}
+        >
+          <Input
+            type="email"
+            value={data.email}
+            onChange={(e) => setData((prev) => ({ ...prev, email: e.target.value }))}
+            onBlur={() => saveField("email", data.email)}
+            placeholder={t("settings.company.emailPlaceholder")}
+          />
+        </FieldWrapper>
+        <FieldWrapper
+          label={t("settings.company.website")}
+          error={errors.website}
+          saving={savingField === "website"}
+        >
+          <Input
+            value={data.website}
+            onChange={(e) => setData((prev) => ({ ...prev, website: e.target.value }))}
+            onBlur={() => saveField("website", data.website)}
+            placeholder="https://example.com"
+          />
+        </FieldWrapper>
+        <FieldWrapper
+          label={t("settings.company.phone")}
+          error={errors.phone}
+          saving={savingField === "phone"}
+        >
+          <Input
+            value={data.phone}
+            onChange={(e) => setData((prev) => ({ ...prev, phone: e.target.value }))}
+            onBlur={() => saveField("phone", data.phone)}
+            placeholder="+46 …"
+          />
+        </FieldWrapper>
+
+        {/* Currency */}
+        <FieldWrapper
+          label={t("settings.company.currency")}
+          error={errors.currency}
+          saving={savingField === "currency"}
+          hint={t("settings.company.currencyHint")}
+        >
+          <Select
+            value={data.currency}
+            onValueChange={(value) => {
+              if (!value) return;
+              setData((prev) => ({ ...prev, currency: value }));
+              saveField("currency", value);
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FieldWrapper>
+      </div>
     </div>
   );
 }

@@ -96,8 +96,8 @@ test.describe("Colour scheme", () => {
     const light = await appBg();
 
     await page.goto("/settings/my-preferences");
-    await page.getByTestId("theme-select").click();
-    await page.getByRole("option", { name: "Dark" }).click();
+    // F166: three cards, the board's *How the app looks*
+    await page.getByTestId("theme-option-dark").click();
     await expect(html).toHaveAttribute("data-theme", "dark");
     await expect(page.getByText("Preferences saved")).toBeVisible();
     const dark = await appBg();
@@ -122,8 +122,7 @@ test.describe("Colour scheme", () => {
     await other.close();
 
     // System: no attribute, the light OS decides again
-    await page.getByTestId("theme-select").click();
-    await page.getByRole("option", { name: "System" }).click();
+    await page.getByTestId("theme-option-system").click();
     await expect(html).not.toHaveAttribute("data-theme");
     await expect.poll(appBg).toBe(light);
   });
