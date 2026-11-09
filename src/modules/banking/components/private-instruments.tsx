@@ -50,7 +50,7 @@ export function PrivateInstruments({ initial }: { initial: PrivateInstrument[] }
   return (
     <section className="flex flex-col gap-3" data-testid="private-instruments">
       <div>
-        <h2 className="text-lg font-semibold">{t("settings.privateInstruments.title")}</h2>
+        <h2 className="text-[15px] font-semibold">{t("settings.privateInstruments.title")}</h2>
         <p className="text-sm text-muted-foreground">
           {t("settings.privateInstruments.description")}
         </p>

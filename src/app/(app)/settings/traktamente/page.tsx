@@ -3,8 +3,8 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
-import { ListPage } from "@/kernel/ui/shell/page";
 import { getUserPreferences } from "@/modules/settings";
+import { SettingsSection } from "@/modules/settings/ui";
 import { listRates, rateYears } from "@/modules/traktamente";
 import { RateActions, RateTable, RateYearTabs } from "@/modules/traktamente/ui";
 
@@ -29,13 +29,13 @@ export default async function TraktamenteSettingsPage({
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   return (
-    <ListPage
+    <SettingsSection
       title={t("traktamente.title")}
       meta={t("traktamente.meta", { count: data.rows.length, year: data.year })}
       actions={<RateActions years={data.years} year={data.year} />}
       tabs={<RateYearTabs years={data.years} year={data.year} />}
     >
       <RateTable rows={data.rows.map(({ createdAt: _c, updatedAt: _u, ...r }) => r)} />
-    </ListPage>
+    </SettingsSection>
   );
 }

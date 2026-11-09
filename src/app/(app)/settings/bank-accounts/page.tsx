@@ -4,6 +4,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { Msg } from "@/kernel/i18n/msg";
 import * as bankService from "@/modules/banking";
 import { BankAccountsTab, PrivateInstruments } from "@/modules/banking/ui";
+import { SettingsSection } from "@/modules/settings/ui";
 
 export default async function BankAccountsSettingsPage() {
   const auth = await requireCaller({ action: "manage", subject: "tenant_settings" });
@@ -68,14 +69,14 @@ export default async function BankAccountsSettingsPage() {
   );
 
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">
-        <Msg k="settings.bankAccounts.title" />
-      </h1>
-      <BankAccountsTab initialAccounts={accounts} bankFormats={formats} />
-      <div className="mt-8">
+    <>
+      <SettingsSection title={<Msg k="settings.bankAccounts.title" />}>
+        <BankAccountsTab initialAccounts={accounts} bankFormats={formats} />
+      </SettingsSection>
+      {/* the owner's own cards (D76): their own card, their own heading */}
+      <section className="pulse-card p-5">
         <PrivateInstruments initial={privateInstruments} />
-      </div>
-    </div>
+      </section>
+    </>
   );
 }

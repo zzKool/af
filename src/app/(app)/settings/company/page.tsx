@@ -3,7 +3,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { Msg } from "@/kernel/i18n/msg";
-import { CompanyProfileForm } from "@/modules/settings/ui";
+import { CompanyProfileForm, SettingsSection } from "@/modules/settings/ui";
 
 export default async function CompanySettingsPage() {
   const auth = await requireCaller({ action: "manage", subject: "tenant_settings" });
@@ -16,10 +16,7 @@ export default async function CompanySettingsPage() {
   if (!profile) redirect("/login");
 
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="mb-6 text-2xl font-semibold">
-        <Msg k="settings.company.heading" />
-      </h1>
+    <SettingsSection title={<Msg k="settings.company.heading" />}>
       <CompanyProfileForm
         initialData={{
           name: profile.name,
@@ -32,6 +29,6 @@ export default async function CompanySettingsPage() {
         }}
         initialLogo={profile.logoUrl}
       />
-    </div>
+    </SettingsSection>
   );
 }
