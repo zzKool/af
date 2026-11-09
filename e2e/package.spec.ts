@@ -68,7 +68,16 @@ test.describe("Accountant package", () => {
 
       // 2. the page: this month with its counts and flags, the preview naming the unlinked rows
       await page.goto("/package");
-      await expect(page.getByRole("heading", { name: "Accountant package" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Close", exact: true })).toBeVisible();
+      // the Close page (F155): the month card (five checks, the zip) beside the Swiss VAT quarter; the month
+      // just ended by default, this month one click away
+      await expect(page.getByTestId("close-checks").getByTestId("close-check")).toHaveCount(5);
+      await expect(page.getByTestId("close-zip")).toContainText("notes.md");
+      await expect(page.getByTestId("close-vat")).toBeVisible();
+      await page.goto(`/package?close=${period}`);
+      const card = page.getByTestId("close-month");
+      await expect(card).toHaveAttribute("data-period", period);
+      await expect(card.locator('[data-check="justified"]')).not.toHaveAttribute("data-open", "0");
       // the months are a DataTable (F71): the row holds the month's cell, its state word and its flags
       const cell = page.locator(`[data-testid="package-period"][data-period="${period}"]`);
       const month = page.getByRole("row").filter({ has: cell });
@@ -115,8 +124,10 @@ test.describe("Accountant package — the accountant", () => {
 
   test("sees the months and the versions, cannot build", async ({ page }) => {
     await page.goto("/package");
-    await expect(page.getByRole("heading", { name: "Accountant package" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Close", exact: true })).toBeVisible();
     await expect(page.getByTestId("package-period").first()).toBeVisible();
+    await expect(page.getByTestId("close-month")).toBeVisible();
     await expect(page.getByTestId("package-build")).toHaveCount(0);
+    await expect(page.getByTestId("close-build")).toHaveCount(0);
   });
 });

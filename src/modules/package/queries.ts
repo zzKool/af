@@ -10,6 +10,8 @@ import type {
   ListResult,
 } from "@/kernel/list-query/types";
 import * as banking from "@/modules/banking";
+import * as rates from "@/modules/rates";
+import { type CloseMonth, closeMonth, ratesCoveredTo } from "./close";
 import { collectPeriod, countsOf } from "./collect";
 import { collectFlags } from "./flags";
 import {
@@ -146,6 +148,17 @@ export async function livePreview(
     counts: countsOf(data),
     files: data.documents.map((d) => `${d.folder}/${d.fileName}`),
   };
+}
+
+/** The month card of the Close page (F155): the five checks and the zip's tree, as a build would see them now. */
+export async function closeMonthOf(
+  tx: TransactionClient,
+  period: string,
+  today: string,
+): Promise<CloseMonth> {
+  const data = await collectPeriod(tx, parsePeriod(period), today);
+  const pairs = await rates.rateStatus(tx, today);
+  return closeMonth(data, { coveredTo: ratesCoveredTo(pairs), today });
 }
 
 /**

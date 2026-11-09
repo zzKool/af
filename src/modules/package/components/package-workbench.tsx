@@ -6,7 +6,7 @@
 // are re-read every two seconds and the outcome announced.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Table,
@@ -32,6 +32,7 @@ import {
 import { StateLabel } from "@/kernel/ui/state-label";
 import { CodeChip } from "@/kernel/ui/tags";
 import { getDocumentDownloadUrlAction } from "@/modules/documents/ui";
+import type { CloseMonth } from "@/modules/package/close";
 import { MONTH_COLUMN_KEYS, MONTH_DEFAULT_SORT } from "@/modules/package/month-columns";
 import {
   buildPackageAction,
@@ -48,6 +49,7 @@ import {
   periodState,
 } from "@/modules/package/state-family";
 import type { PackageBuildDto } from "@/modules/package/types";
+import { CloseMonthCard } from "./close-month-card";
 import { PackagePanel } from "./package-panel";
 
 /** The DTO over the wire: dates as ISO strings. */
@@ -78,6 +80,8 @@ export function PackageWorkbench({
   years,
   canBuild,
   initialPeriod,
+  close,
+  aside,
 }: {
   /** the months' page of the table (filtered, sorted, paged on the server) */
   months: ListResult<OverviewRow>;
@@ -85,6 +89,16 @@ export function PackageWorkbench({
   canBuild: boolean;
   /** the period whose panel is open on arrival (the newest month with rows) */
   initialPeriod: string | null;
+  /** the Close page's month card (F155): the month, its row with the builds, the months either side */
+  close?: {
+    month: CloseMonth;
+    row: OverviewRow | null;
+    prev: string | null;
+    next: string | null;
+    lastBuilt: { period: string; builtAt: string | null } | null;
+  };
+  /** beside the month card: the Swiss VAT quarter (the exports module's card, composed by the page) */
+  aside?: ReactNode;
 }) {
   const t = useT();
   const router = useRouter();
@@ -118,7 +132,11 @@ export function PackageWorkbench({
   );
   const monthRows = useMemo(() => months.rows.map(live), [months.rows, live]);
   const yearRows = useMemo(() => years.map(live), [years, live]);
-  const all = useMemo(() => [...monthRows, ...yearRows], [monthRows, yearRows]);
+  const closeRow = useMemo(() => (close?.row ? live(close.row) : null), [close?.row, live]);
+  const all = useMemo(
+    () => [...monthRows, ...yearRows, ...(closeRow ? [closeRow] : [])],
+    [monthRows, yearRows, closeRow],
+  );
   const selectedRow = all.find((r) => r.period === selected) ?? null;
 
   // while a build runs, re-read the builds every two seconds; announce the outcome
@@ -130,8 +148,11 @@ export function PackageWorkbench({
     if (!d) return;
     const fresh = d.map(toRow);
     let finished = false;
+    const announced = new Set<string>();
     for (const row of all) {
       for (const was of row.builds) {
+        if (announced.has(was.id)) continue;
+        announced.add(was.id);
         const now = fresh.find((b) => b.id === was.id);
         if (!now || !isRunning(was) || isRunning(now)) continue;
         finished = true;
@@ -290,26 +311,46 @@ export function PackageWorkbench({
 
   return (
     <div className="flex flex-col gap-6">
-      <DataTable
-        tableKey="package-months"
-        columns={columns}
-        result={{ ...months, rows: monthRows }}
-        state={state}
-        filterSource={filterSource}
-        valueLabel={(column, value) =>
-          value === null
-            ? t("common.blanks")
-            : column === "state" && (PERIOD_STATES as readonly string[]).includes(value)
-              ? t(`package.state.${value as OverviewRow["state"]}`)
-              : value
-        }
-        onRowClick={(row) => setSelected(row.period)}
-        rowActions={rowActions}
-        emptyState={t("package.empty")}
-      />
+      {close && (
+        <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <CloseMonthCard
+            close={close.month}
+            row={closeRow}
+            prev={close.prev}
+            next={close.next}
+            lastBuilt={close.lastBuilt}
+            canBuild={canBuild}
+            building={building}
+            onBuild={(period) => void requestBuild(period)}
+            onDownload={(id) => void download(id)}
+            onDetails={setSelected}
+          />
+          {aside}
+        </div>
+      )}
+      {close && <h2 className="eyebrow -mb-3">{t("package.close.months")}</h2>}
+      <section className="pulse-card px-2 pt-3 pb-2">
+        <DataTable
+          tableKey="package-months"
+          columns={columns}
+          result={{ ...months, rows: monthRows }}
+          state={state}
+          filterSource={filterSource}
+          valueLabel={(column, value) =>
+            value === null
+              ? t("common.blanks")
+              : column === "state" && (PERIOD_STATES as readonly string[]).includes(value)
+                ? t(`package.state.${value as OverviewRow["state"]}`)
+                : value
+          }
+          onRowClick={(row) => setSelected(row.period)}
+          rowActions={rowActions}
+          emptyState={t("package.empty")}
+        />
+      </section>
 
       {yearRows.length > 0 && (
-        <section className="flex flex-col gap-2" aria-label={t("package.years")}>
+        <section className="pulse-card flex flex-col gap-2 p-4" aria-label={t("package.years")}>
           <h2 className="text-[13px] font-semibold">{t("package.years")}</h2>
           <Table>
             <TableHeader>
