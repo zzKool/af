@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
-import { formatMonth } from "@/kernel/i18n/format-date";
+import { formatMonth, formatTimeOfDay } from "@/kernel/i18n/format-date";
 import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { cn } from "@/lib/utils";
@@ -285,7 +285,7 @@ export function ReconcilePage({
               data-testid="reconcile-done-item"
             >
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                {d.at.slice(11, 16)}
+                {formatTimeOfDay(d.at)}
               </span>
               <span className="min-w-0 truncate">
                 <span className="font-medium">{d.rowLabel}</span>
@@ -658,7 +658,7 @@ function Stage({
         {twinHint}
 
         {/* the bank row ← the lines → the candidate */}
-        <div className="grid items-stretch gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div className="grid items-stretch gap-3 sm:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
           <div
             className="flex flex-col gap-1.5 rounded-xl border border-subtle bg-surface-2 p-4"
             data-testid="reconcile-side-row"
@@ -678,17 +678,17 @@ function Stage({
             </span>
           </div>
           <ul
-            className="flex flex-row flex-wrap items-center justify-center gap-1.5 md:flex-col"
+            className="order-last flex flex-row flex-wrap items-center justify-center gap-1.5 sm:col-span-2 2xl:order-none 2xl:col-span-1 2xl:flex-col"
             aria-label={t("reconcile.stage.why")}
             data-testid="reconcile-lines"
           >
             {s.reasons.map((r) => (
               <li key={r} className="flex items-center gap-1.5">
-                <span className="hidden h-px w-4 bg-border md:block" aria-hidden />
+                <span className="hidden h-px w-4 bg-border 2xl:block" aria-hidden />
                 <span className="rounded-full bg-state-done/10 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-state-done">
                   {reasonLabel(r)}
                 </span>
-                <span className="hidden h-px w-4 bg-border md:block" aria-hidden />
+                <span className="hidden h-px w-4 bg-border 2xl:block" aria-hidden />
               </li>
             ))}
           </ul>

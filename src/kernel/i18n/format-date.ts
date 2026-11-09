@@ -25,6 +25,18 @@ export function formatDateTime(date: Date | string, locale: string): string {
   }).format(d);
 }
 
+/** `14:05` — the time of day on the business clock (Europe/Stockholm, as `clock.today()`), the same on server and
+ *  client, so a server-rendered time never shifts on hydration (F159: Reconcile's *Done today*). */
+export function formatTimeOfDay(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Europe/Stockholm",
+  }).format(d);
+}
+
 export function formatDateShort(date: Date | string, locale: string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat(locale, {

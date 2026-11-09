@@ -99,16 +99,18 @@ a row booked in [from, to] reads  issued ≤ to + 5 ∧ (due ≥ from − 10 ∨
 One month's rows to justify, one at a time, built from the board *Reconcile* (D77). The engine is the inbox's (`inboxRows`, now with a booking-date span; each row hands on its list row and the partner the counterparty memory names first); the writes are `applySuggestion`, `bulkApplyHigh`, `removeLink` and one composite.
 
 ```
-queue (grouped)                 stage (the row in focus)
- Ready · Accept N    ─────►  bank row ── same name ── candidate
- To check                             ── 2 days   ──
- Needs a document                     ── = after FX ─
- Who is this?                 Partner: sure | proposed (dashed) | asked
- Done today · Undo            Category: sure | proposed n % | asked
-                              FX: original · ECB · bank · cost %
-                              When you accept: link · partner · category · justified
-                              [Accept and next ⏎] [Do it by hand] [Skip J]
+the month strip: one square per day per statement account (done · to justify · no row)        ring  35 / 41
+queue (grouped)         the match (centre)                         the right column
+ Ready · Accept N        bank row ── same name ── candidate          Partner: sure | proposed | asked
+ To check                         ── 2 days   ──                      Category: sure | proposed n % | asked
+ Needs a document        Why · the reasons · Other candidates         FX: original · ECB · bank · cost %
+ Who is this?                                                         When you accept: link · partner · …
+                                                                      [Accept and next ⏎]
+                                                                      [Do it by hand] [Skip J]
+Done today · 16:36 row → target  Undo · 16:34 …  Undo        (the keys under it)
 ```
+
+**As the board draws it (F159, the owner's gap audit 2026-11-09):** three columns at `xl` — the queue, the match in the centre, the fields / FX / *when you accept* / the actions in their own right column (the actions at its bottom); the bank row and the candidate side by side, the reasons under them (beside them from `2xl`). On top, the **month strip** — banking's day cells (`bankMonths`, read by the page) per statement account, and the ring *rows done in July*. *Done today* is the **trail at the bottom**: one chip per link made today with its time (`formatTimeOfDay`, the business clock's Europe/Stockholm) and *Undo*, the keys under it. The month navigation lost its little bar (the ring says it).
 
 - **Groups** (`reconcileGroup`): Ready = the best candidate is HIGH and the partner is known (the row's or the candidate's); To check = a candidate, something unsure; Needs a document = no candidate, partner known; Who is this? = nothing.
 - **The fields** (`stageFields`, client-safe — recomputed when the owner picks another candidate): *sure* from the row (typed or its proof's) or from the candidate → a fact, not sent; *proposed* from the counterparty memory (partner) or F98's proposal (category, with its confidence) → prefilled, dashed, sent on accept; *asked* → a picker. Accept waits for a partner: a justified row says who (F129).
