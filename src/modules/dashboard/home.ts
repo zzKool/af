@@ -14,6 +14,7 @@ import * as rates from "@/modules/rates";
 import { workData } from "./close";
 import { dashboardOverview } from "./overview";
 import type { CashSummary, CurrencyTicker, HomeData } from "./types";
+import { yearWeeks } from "./year-weeks";
 
 /** The currencies' window on the home (the board: *90 days*). */
 export const TICKER_DAYS = 90;
@@ -146,5 +147,8 @@ export async function homeData(
     ? await workData(tx, caller, today, null, overview)
     : null;
 
-  return { overview, cash, currencies, year: counts, work };
+  const statement = months.accounts.filter((a) => banking.STATEMENT_ROLES.includes(a.role));
+  const weeks = yearWeeks(statement, months.days, today);
+
+  return { overview, cash, currencies, year: counts, work, weeks };
 }

@@ -36,6 +36,15 @@ describe("formatMoney — the one on-screen format (D40)", () => {
     expect(formatMoney("1200", null)).toBe(`1${S}200.00`);
   });
 
+  test("whole: the units only, half up on the magnitude, zero never signed (F158, the home's cash)", () => {
+    expect(formatMoney("159876.76", "SEK", { whole: true })).toBe(`159${S}877${NB}SEK`);
+    expect(formatMoney("693295.49", null, { whole: true })).toBe(`693${S}295`);
+    expect(formatMoney("999.50", null, { whole: true })).toBe(`1${S}000`);
+    expect(formatMoney("-2312.50", null, { whole: true })).toBe(`${MINUS}2${S}313`);
+    expect(formatMoney("-0.40", null, { whole: true })).toBe("0");
+    expect(formatMoney("28640", null, { whole: true, signed: true })).toBe(`+28${S}640`);
+  });
+
   test("trailing zeros past the cents are accepted; real sub-cent precision is refused (round first)", () => {
     expect(formatMoney("12.500000", "SEK")).toBe(`12.50${NB}SEK`);
     expect(() => formatMoney("12.505", "SEK")).toThrow(/round before formatting/);

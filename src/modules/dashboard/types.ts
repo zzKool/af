@@ -1,5 +1,6 @@
 // DTOs of the dashboard (feature inventory §3.14): what the page shows, computed on request from the modules'
 // read models — nothing stored.
+import type { YearWeeks } from "./year-weeks";
 
 export const ACTION_KINDS = [
   "rows_to_justify",
@@ -173,4 +174,6 @@ export type HomeData = {
   year: { year: string; justified: number; toJustify: number };
   /** the owner's close — null for the accountant */
   work: WorkData | null;
+  /** F158: the year, week by week — the statement accounts' money and justified squares */
+  weeks: YearWeeks;
 };
