@@ -806,3 +806,88 @@ export async function inputVatSources(
     vatAmount: (r.vatAmount ?? new D(0)).toFixed(2),
   }));
 }
+
+/** One card of *This month's groups* (F154, the board *Expenses*: "Trips this month"). */
+export type GroupCard = {
+  id: string;
+  number: number;
+  description: string;
+  kind: string;
+  /** yyyy-mm-dd — the trip's days, else the first and last expense of the group */
+  from: string;
+  to: string;
+  /** a trip's country (ISO), for the card's line */
+  country: string | null;
+  items: { id: string; key: string; description: string; hasDocument: boolean; perDiem: boolean }[];
+  /** receipts still missing (a per-diem line needs none) */
+  missing: number;
+  /** the group's total in the base currency, every expense of it */
+  totalBase: string;
+};
+
+/**
+ * The groups with an expense in the latest month that has one (F154): what the owner is filling now — each with its
+ * lines, which still lack their receipt, and its total. At most six, the newest first.
+ */
+export async function groupCards(
+  tx: TransactionClient,
+): Promise<{ month: string | null; cards: GroupCard[] }> {
+  const latest = await tx.expense.findFirst({ orderBy: { date: "desc" }, select: { date: true } });
+  if (!latest) return { month: null, cards: [] };
+  const month = latest.date.toISOString().slice(0, 7);
+  const start = new Date(`${month}-01T00:00:00Z`);
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  const inMonth = await tx.expense.findMany({
+    where: { date: { gte: start, lt: end } },
+    select: { groupId: true },
+    distinct: ["groupId"],
+  });
+  const groups = await tx.expenseGroup.findMany({
+    where: { id: { in: inMonth.map((e) => e.groupId) } },
+    include: {
+      trip: { select: { departureAt: true, returnAt: true, countryCode: true } },
+      expenses: {
+        select: {
+          id: true,
+          key: true,
+          description: true,
+          date: true,
+          amountBase: true,
+          kind: true,
+        },
+        orderBy: [{ date: "asc" }, { key: "asc" }],
+      },
+    },
+    orderBy: { number: "desc" },
+    take: 6,
+  });
+  const f = await facts(
+    tx,
+    groups.flatMap((g) => g.expenses.map((e) => e.id)),
+  );
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const cards = groups.map((g): GroupCard => {
+    const items = g.expenses.map((e) => ({
+      id: e.id,
+      key: e.key,
+      description: e.description,
+      hasDocument: f.hasDocument.has(e.id),
+      perDiem: e.kind === "per_diem",
+    }));
+    const dates = g.expenses.map((e) => day(e.date));
+    return {
+      id: g.id,
+      number: g.number,
+      description: g.description,
+      kind: g.kind,
+      from: g.trip ? day(g.trip.departureAt) : (dates[0] ?? month),
+      to: g.trip ? day(g.trip.returnAt) : (dates[dates.length - 1] ?? month),
+      country: g.trip?.countryCode ?? null,
+      items,
+      missing: items.filter((i) => !i.hasDocument && !i.perDiem).length,
+      totalBase: g.expenses.reduce((s, e) => s.plus(e.amountBase), new D(0)).toFixed(2),
+    };
+  });
+  return { month, cards };
+}

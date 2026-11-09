@@ -4,6 +4,10 @@ Module `src/modules/expenses` · schema `prisma/schema/expenses.prisma` · migra
 
 > An expense is one cost the company bears outside supplier invoices: a receipt, the per-diem of a trip, a Swiss VAT payment. It lives in a **group** (`213 — Travel to CH in March 2026`), carries a **key** that is the receipt's file name (`Ex213-Tr-01`), a **base at its date** (written once, never the bank's — F114) and a **payer**: a bank account, the company's main ones (`Plusgirokonto SEK`, `Plusgirokonto CHF`) or a private instrument of the owner (`Private SE`, `Private CH` — `bank_accounts.role = owner_private`, [[banking]]). **The payment is a link and only a link** (D60): a `justifies` link from the paying bank row (company-paid), a `settles` link from the refund row (private) — each with the amount it pays in the expense's currency and the base the row gave. What the owner paid privately is a liability of the company in base; a refund transaction **settles** a chosen set of those expenses; the residual stays open. *Paid / awaiting link / to refund / partially refunded / refunded*, what is open and the **FX difference** are **derived** from the links, never typed.
 
+## The list page as the board draws it (F154, 2026-11-09)
+
+`/expenses` sits on the ground (D76): the title says what the company owes the owner (*12 expenses · the company owes you 17 027.00 SEK*, `ExpensesMeta`) and the secondary *Settle 17 027.00 SEK* carries the amount; under it **the latest month's groups** as cards (`groupCards` in `queries.ts`, `GroupCards`): the groups with an expense in the most recent month that has one — a trip's days and country, else the first and last expense —, each line as a chip with ✓ when its receipt is there and **?** (attention) when it is missing (a per-diem line needs none), *N receipt(s) missing* or *complete*, the group's total in the base; a card opens its group. Then the ledger's quick filters and the list in their own card. The base is read once on the list (`EXPENSES_BASE` in `expense-table.tsx`, D46).
+
 ## Model
 
 ```
