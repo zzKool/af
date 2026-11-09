@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
@@ -6,13 +7,7 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { parseListQuery } from "@/kernel/list-query/codec";
 import { ListPage } from "@/kernel/ui/shell/page";
-import {
-  accountLabel,
-  getBankAccounts,
-  IMPORT_COLUMN_KEYS,
-  IMPORT_DEFAULT_SORT,
-  listImportsPage,
-} from "@/modules/banking";
+import { IMPORT_COLUMN_KEYS, IMPORT_DEFAULT_SORT, listImportsPage } from "@/modules/banking";
 import { ImportCsvButton, ImportsTable } from "@/modules/banking/ui";
 import { getUserPreferences } from "@/modules/settings";
 
@@ -23,15 +18,16 @@ export default async function BankImportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireCaller({ action: "read", subject: "bank_transaction" });
-  const query = parseListQuery(await searchParams, {
+  const params = await searchParams;
+  if (params.new === "1") redirect("/banking/import"); // F156: the import is its own page
+  const query = parseListQuery(params, {
     columns: IMPORT_COLUMN_KEYS,
     defaultSort: IMPORT_DEFAULT_SORT,
   });
   const data = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
     const result = await listImportsPage(tx, query);
-    const accounts = await getBankAccounts(tx, auth);
     const prefs = await getUserPreferences(tx, auth);
-    return { result, accounts: accounts.data ?? [], prefs };
+    return { result, prefs };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const canWrite = can(auth, "create", "bank_transaction");
@@ -40,17 +36,7 @@ export default async function BankImportsPage({
     <ListPage
       title={t("banking.imports.title")}
       meta={t("banking.imports.meta", { count: data.result.total })}
-      actions={
-        canWrite && (
-          <ImportCsvButton
-            accounts={data.accounts.map((a) => ({
-              id: a.id,
-              label: accountLabel(a),
-              currency: a.currency,
-            }))}
-          />
-        )
-      }
+      actions={canWrite && <ImportCsvButton />}
     >
       <ImportsTable
         result={{

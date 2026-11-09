@@ -14,6 +14,7 @@ export const SUB_PAGES: Record<string, MessageKey> = {
   "/settings/traktamente": "settings.traktamente.title",
   "/settings/ai": "settings.ai.title",
   "/settings/my-preferences": "settings.preferences.title",
+  "/banking/import": "banking.import.pageTitle",
   "/banking/imports": "banking.nav.imports",
   "/banking/rules": "banking.nav.rules",
   "/banking/inbox": "banking.nav.inbox",
