@@ -2,6 +2,9 @@
 # A fresh start, whole or in part (the owner, 2026-11-09): asks the period (everything · this year · this month ·
 # from a date) and, scope by scope, what to drop — then shows what would go, asks for RESET, and only then writes.
 #
+# Or (choice 2) everything: a fresh app, the login and the company included — only the BAS chart and the ECB
+# rates stay (scripts/reset-factory.sql); then the first account registered owns the new company.
+#
 #   scripts/reset-working-data.sh box      # the prod compose on the box — a backup first (scripts/backup.sh)
 #   scripts/reset-working-data.sh laptop   # the dev database (af_dev) and Azurite — Git Bash on Windows, Docker only
 #
@@ -22,6 +25,46 @@ box) psql_run() { $COMPOSE exec -T db psql -U "${POSTGRES_USER:-af}" -d "${POSTG
 laptop) psql_run() { docker compose exec -T db-dev psql -U af -d af_dev -v ON_ERROR_STOP=1 "$@"; } ;;
 *) echo "usage: $0 box|laptop" >&2; exit 2 ;;
 esac
+
+# ── what kind of reset ────────────────────────────────────────────────────────────────────────────────────
+echo "What kind of reset?"
+echo "  1) choose what to drop (by period and scope) — the login and the company stay"
+echo "  2) everything — a fresh app: the login, the company, VAT, bank accounts, every item and file go;"
+echo "     only the BAS chart and the ECB exchange rates stay"
+read -r -p "Choice [1-2]: " kind
+if [ "$kind" = 2 ]; then
+  echo
+  echo "On the $TARGET this would empty (kept below):"
+  psql_run -q -v commit=false <scripts/reset-factory.sql
+  echo
+  read -r -p "Type RESET to empty all of it (anything else stops here): " answer
+  [ "$answer" = "RESET" ] || { echo "Nothing changed."; exit 1; }
+  if [ "$TARGET" = box ]; then
+    echo "▸ backup"
+    scripts/backup.sh
+  fi
+  echo "▸ database"
+  psql_run -q -v commit=true <scripts/reset-factory.sql >/dev/null
+  echo "▸ every stored file"
+  if [ "$TARGET" = box ]; then
+    docker run --rm --volumes-from "$($COMPOSE ps -q app)" alpine sh -c 'rm -rf /data/documents/* /data/documents/.[!.]* 2>/dev/null; true'
+  else
+    : >"$TMP/keep.txt"
+    npx tsx scripts/sweep-blobs.ts "$TMP/keep.txt" ||
+      echo "  Azurite is not running: docker compose up -d azurite, then run this choice again (the database part is done)"
+  fi
+  echo
+  echo "Done — a fresh app. Your old login is gone; the first account you register owns the new company:"
+  if [ "$TARGET" = box ]; then
+    echo "  1. in .env.prod remove the line AUTH_SIGNUP=closed, then: $COMPOSE up -d app"
+    echo "  2. open the app's /register page and create your account (name, e-mail, password)"
+    echo "  3. put AUTH_SIGNUP=closed back in .env.prod, then: $COMPOSE up -d app"
+    echo "  4. Settings: the company (name, address, logo), VAT registrations, bank accounts"
+  else
+    echo "  open http://localhost:3000/register — or npm run seed for the dev users and their sample setup"
+  fi
+  exit 0
+fi
 
 # ── the period ────────────────────────────────────────────────────────────────────────────────────────────
 echo "What period?"
@@ -91,7 +134,8 @@ if [ "$TARGET" = box ]; then
     find . -mindepth 1 -type d -empty -delete
     echo "  $(find . -type f | wc -l) file(s) kept"'
 else
-  npx tsx scripts/sweep-blobs.ts "$TMP/keep.txt"
+  npx tsx scripts/sweep-blobs.ts "$TMP/keep.txt" ||
+    echo "  Azurite is not running: docker compose up -d azurite, then run this again (the database part is done)"
 fi
 
 echo "Done ($LABEL). Sign in as before."
