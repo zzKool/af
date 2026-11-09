@@ -28,9 +28,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { CURRENCIES } from "@/kernel/nav/constants";
+import { cn } from "@/lib/utils";
 import {
   type CategoryState,
   chooseCategory,
@@ -97,7 +105,37 @@ export function defaultSourceId(
   return (inCurrency ?? company[0] ?? sources[0])?.id ?? "";
 }
 
-export function NewExpenseDialog({
+/** What the new-expense form takes — the dialog (from a document) and the docked panel (the expenses pages) alike. */
+export type NewExpenseProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  groups: GroupOption[];
+  categories: CategoryOption[];
+  sources: SourceOption[];
+  /** per partner, the accounts used before (F125 PR 2) */
+  basHistory?: Record<string, { code: string; count: number }[]>;
+  documents: DocumentOption[];
+  defaultGroupId?: string;
+  /** the OCR facts of the document this expense is made from — applied when the form opens */
+  initial?: ExpenseInitial;
+  onCreated?: (expense: { id: string; key: string }) => void;
+};
+
+/** The form as a dialog — where it interrupts another page (the inbox, a document's review). */
+export function NewExpenseDialog(props: NewExpenseProps) {
+  return <NewExpenseForm {...props} variant="dialog" />;
+}
+
+/**
+ * The form as the docked side panel (F170, the board *Pulse — Expenses*): on the expenses pages it opens beside the
+ * list like a row's panel — the list narrows, nothing is covered; × and Escape close it.
+ */
+export function NewExpensePanel(props: NewExpenseProps) {
+  return <NewExpenseForm {...props} variant="panel" />;
+}
+
+function NewExpenseForm({
+  variant,
   open,
   onOpenChange,
   groups,
@@ -108,20 +146,7 @@ export function NewExpenseDialog({
   defaultGroupId,
   initial,
   onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  groups: GroupOption[];
-  categories: CategoryOption[];
-  sources: SourceOption[];
-  /** per partner, the accounts used before (F125 PR 2) */
-  basHistory?: Record<string, { code: string; count: number }[]>;
-  documents: DocumentOption[];
-  defaultGroupId?: string;
-  /** the OCR facts of the document this expense is made from — applied when the dialog opens */
-  initial?: ExpenseInitial;
-  onCreated?: (expense: { id: string; key: string }) => void;
-}) {
+}: NewExpenseProps & { variant: "dialog" | "panel" }) {
   const t = useT();
   const ids = useId();
   const router = useRouter();
@@ -315,6 +340,282 @@ export function NewExpenseDialog({
     router.refresh();
   }
 
+  // two columns from `sm` (the board: date · amount, category · trip) — `wide` spans the row, `pair` is half a row
+  // in the dialog and the whole row in the narrower panel
+  const panel = variant === "panel";
+  const wide = "sm:col-span-2";
+  const pair = panel ? "sm:col-span-2" : "";
+  const submitDisabled =
+    isPending ||
+    creatingGroup ||
+    !groupId ||
+    (groupId === NEW_GROUP && !newGroup.trim()) ||
+    !basCode ||
+    !sourceId ||
+    (blocked && !ackNote.trim());
+  const submitLabel = blocked
+    ? t("documents.duplicate.panel.createAnyway")
+    : t("expenses.form.create");
+
+  const form = (
+    <form
+      className="grid gap-3 sm:grid-cols-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <GroupPicker
+        idPrefix={ids}
+        label={t("expenses.form.group")}
+        groups={groups}
+        value={groupId}
+        onChange={(id) => {
+          setGroupTouched(true);
+          setGroupId(id);
+        }}
+        newDescription={newGroup}
+        onNewDescription={setNewGroup}
+        hint={
+          groupReason
+            ? t(`expenses.form.groupProposed.${groupReason}`)
+            : !groupId && !defaultGroupId
+              ? t("expenses.form.groupNone", { date, month: date.slice(0, 7) })
+              : null
+        }
+      />
+      <div>
+        <label htmlFor={`${ids}-kind`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.kind")}
+        </label>
+        <Select value={kind} onValueChange={(v) => v && setKind(v as ExpenseKind)}>
+          <SelectTrigger id={`${ids}-kind`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EXPENSE_KINDS.filter((k) => k !== "per_diem").map((k) => (
+              <SelectItem key={k} value={k}>
+                {t(`expenses.kind.${k}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.date")}
+        </label>
+        <DateInput
+          id={`${ids}-date`}
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+        />
+      </div>
+      <div className={wide}>
+        <label htmlFor={`${ids}-desc`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.descriptionField")}
+        </label>
+        <Input
+          id={`${ids}-desc`}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+          data-testid="expense-description"
+        />
+      </div>
+      {initial?.vendor && (
+        <PartnerMatchCard
+          vendor={initial.vendor}
+          selectedId={partnerId ?? ""}
+          onUseMatch={(id) => pickPartner(id)}
+          onCreated={(p) => {
+            addVendor({ id: p.id, name: p.name, defaultBasCategoryCode: null });
+            pickPartner(p.id, null);
+          }}
+        />
+      )}
+      <div className={wide}>
+        <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
+          {t("expenses.partner")}
+        </label>
+        <PartnerPicker
+          id={`${ids}-partner`}
+          value={partnerId}
+          onChange={(id) => pickPartner(id)}
+          vendors={vendors}
+        />
+      </div>
+      <div className={wide}>
+        <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.category")}
+        </label>
+        <BasPicker
+          id={`${ids}-cat`}
+          options={categories}
+          value={basCode}
+          onChange={(code) => code && setCategory(chooseCategory(code))}
+          suggestions={[...aiSuggestion(initial?.basProposal), ...(partnerSuggestion ?? [])]}
+          proposed={category.source === "ai"}
+          direction="cost"
+          requireAlias
+          data-testid="expense-category"
+        />
+        {category.source === "ai" && (
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-ai">
+            {t("expenses.categoryFromAi")}
+          </p>
+        )}
+        {category.source === "partner" && (
+          <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-partner">
+            {t("expenses.categoryFromPartner")}
+          </p>
+        )}
+      </div>
+      <div className={pair}>
+        <label htmlFor={`${ids}-src`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.paidBy")}
+        </label>
+        <Select value={sourceId} onValueChange={(v) => v && setSourceId(v)}>
+          <SelectTrigger id={`${ids}-src`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {sources.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className={cn("grid grid-cols-[1fr_auto] gap-2", pair)}>
+        <div>
+          <label htmlFor={`${ids}-amount`} className="mb-1 block text-xs font-medium">
+            {t("expenses.form.amount")}
+          </label>
+          <Input
+            id={`${ids}-amount`}
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="600.00"
+            required
+            data-testid="expense-amount"
+          />
+        </div>
+        <div>
+          <label htmlFor={`${ids}-ccy`} className="mb-1 block text-xs font-medium">
+            {t("expenses.form.currency")}
+          </label>
+          <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
+            <SelectTrigger id={`${ids}-ccy`} className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className={pair}>
+        <label htmlFor={`${ids}-doc`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.document")}
+        </label>
+        <Select value={documentId} onValueChange={(v) => setDocumentId(v ?? NONE)}>
+          <SelectTrigger id={`${ids}-doc`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>{t("expenses.form.noDocument")}</SelectItem>
+            {documentOptions.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.fileName ? `${d.businessKey} · ${d.fileName}` : d.businessKey}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {documentId === NONE && (
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            <Checkbox
+              id={`${ids}-missing`}
+              checked={documentMissing}
+              onCheckedChange={(c) => setDocumentMissing(c === true)}
+              aria-label={t("expenses.form.documentMissing")}
+            />
+            <span>{t("expenses.form.documentMissing")}</span>
+          </label>
+        )}
+      </div>
+      <div>
+        <label htmlFor={`${ids}-vat`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.vatAmount")}
+        </label>
+        <Input
+          id={`${ids}-vat`}
+          inputMode="decimal"
+          value={vatAmount}
+          onChange={(e) => setVatAmount(e.target.value)}
+        />
+      </div>
+      <div className={wide}>
+        <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
+          {t("expenses.form.note")}
+        </label>
+        <Input id={`${ids}-note`} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <DuplicatePanel matches={duplicates} ackNote={ackNote} onAckNote={setAckNote} />
+      {panel ? (
+        // the board's footer: the two buttons share the row, at the end of the panel
+        <div className="sticky bottom-0 flex gap-2 bg-surface pt-2 pb-1 sm:col-span-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            size="sm"
+            className="flex-1"
+            disabled={submitDisabled}
+            data-testid="create-expense"
+          >
+            {submitLabel}
+          </Button>
+        </div>
+      ) : (
+        <DialogFooter className="sm:col-span-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" disabled={submitDisabled} data-testid="create-expense">
+            {submitLabel}
+          </Button>
+        </DialogFooter>
+      )}
+    </form>
+  );
+
+  if (panel)
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent data-testid="new-expense-dialog" data-variant="panel" defaultWidth={420}>
+          <SheetHeader>
+            <SheetTitle>{t("expenses.form.title")}</SheetTitle>
+            <SheetDescription>{t("expenses.form.description")}</SheetDescription>
+          </SheetHeader>
+          {form}
+        </SheetContent>
+      </Sheet>
+    );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="new-expense-dialog" className="sm:max-w-2xl">
@@ -322,238 +623,7 @@ export function NewExpenseDialog({
           <DialogTitle>{t("expenses.form.title")}</DialogTitle>
           <DialogDescription>{t("expenses.form.description")}</DialogDescription>
         </DialogHeader>
-        <form
-          className="grid gap-3 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void submit();
-          }}
-        >
-          <GroupPicker
-            idPrefix={ids}
-            label={t("expenses.form.group")}
-            groups={groups}
-            value={groupId}
-            onChange={(id) => {
-              setGroupTouched(true);
-              setGroupId(id);
-            }}
-            newDescription={newGroup}
-            onNewDescription={setNewGroup}
-            hint={
-              groupReason
-                ? t(`expenses.form.groupProposed.${groupReason}`)
-                : !groupId && !defaultGroupId
-                  ? t("expenses.form.groupNone", { date, month: date.slice(0, 7) })
-                  : null
-            }
-          />
-          <div>
-            <label htmlFor={`${ids}-kind`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.kind")}
-            </label>
-            <Select value={kind} onValueChange={(v) => v && setKind(v as ExpenseKind)}>
-              <SelectTrigger id={`${ids}-kind`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EXPENSE_KINDS.filter((k) => k !== "per_diem").map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {t(`expenses.kind.${k}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.date")}
-            </label>
-            <DateInput
-              id={`${ids}-date`}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label htmlFor={`${ids}-desc`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.descriptionField")}
-            </label>
-            <Input
-              id={`${ids}-desc`}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-              data-testid="expense-description"
-            />
-          </div>
-          {initial?.vendor && (
-            <PartnerMatchCard
-              vendor={initial.vendor}
-              selectedId={partnerId ?? ""}
-              onUseMatch={(id) => pickPartner(id)}
-              onCreated={(p) => {
-                addVendor({ id: p.id, name: p.name, defaultBasCategoryCode: null });
-                pickPartner(p.id, null);
-              }}
-            />
-          )}
-          <div className="sm:col-span-2">
-            <label htmlFor={`${ids}-partner`} className="mb-1 block text-xs font-medium">
-              {t("expenses.partner")}
-            </label>
-            <PartnerPicker
-              id={`${ids}-partner`}
-              value={partnerId}
-              onChange={(id) => pickPartner(id)}
-              vendors={vendors}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label htmlFor={`${ids}-cat`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.category")}
-            </label>
-            <BasPicker
-              id={`${ids}-cat`}
-              options={categories}
-              value={basCode}
-              onChange={(code) => code && setCategory(chooseCategory(code))}
-              suggestions={[...aiSuggestion(initial?.basProposal), ...(partnerSuggestion ?? [])]}
-              proposed={category.source === "ai"}
-              direction="cost"
-              requireAlias
-              data-testid="expense-category"
-            />
-            {category.source === "ai" && (
-              <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-ai">
-                {t("expenses.categoryFromAi")}
-              </p>
-            )}
-            {category.source === "partner" && (
-              <p className="mt-1 text-xs text-muted-foreground" data-testid="category-from-partner">
-                {t("expenses.categoryFromPartner")}
-              </p>
-            )}
-          </div>
-          <div>
-            <label htmlFor={`${ids}-src`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.paidBy")}
-            </label>
-            <Select value={sourceId} onValueChange={(v) => v && setSourceId(v)}>
-              <SelectTrigger id={`${ids}-src`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sources.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <div>
-              <label htmlFor={`${ids}-amount`} className="mb-1 block text-xs font-medium">
-                {t("expenses.form.amount")}
-              </label>
-              <Input
-                id={`${ids}-amount`}
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="600.00"
-                required
-                data-testid="expense-amount"
-              />
-            </div>
-            <div>
-              <label htmlFor={`${ids}-ccy`} className="mb-1 block text-xs font-medium">
-                {t("expenses.form.currency")}
-              </label>
-              <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-                <SelectTrigger id={`${ids}-ccy`} className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <label htmlFor={`${ids}-doc`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.document")}
-            </label>
-            <Select value={documentId} onValueChange={(v) => setDocumentId(v ?? NONE)}>
-              <SelectTrigger id={`${ids}-doc`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>{t("expenses.form.noDocument")}</SelectItem>
-                {documentOptions.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.fileName ? `${d.businessKey} · ${d.fileName}` : d.businessKey}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {documentId === NONE && (
-              <label className="mt-2 flex items-center gap-2 text-sm">
-                <Checkbox
-                  id={`${ids}-missing`}
-                  checked={documentMissing}
-                  onCheckedChange={(c) => setDocumentMissing(c === true)}
-                  aria-label={t("expenses.form.documentMissing")}
-                />
-                <span>{t("expenses.form.documentMissing")}</span>
-              </label>
-            )}
-          </div>
-          <div>
-            <label htmlFor={`${ids}-vat`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.vatAmount")}
-            </label>
-            <Input
-              id={`${ids}-vat`}
-              inputMode="decimal"
-              value={vatAmount}
-              onChange={(e) => setVatAmount(e.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label htmlFor={`${ids}-note`} className="mb-1 block text-xs font-medium">
-              {t("expenses.form.note")}
-            </label>
-            <Input id={`${ids}-note`} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          <DuplicatePanel matches={duplicates} ackNote={ackNote} onAckNote={setAckNote} />
-          <DialogFooter className="sm:col-span-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                isPending ||
-                creatingGroup ||
-                !groupId ||
-                (groupId === NEW_GROUP && !newGroup.trim()) ||
-                !basCode ||
-                !sourceId ||
-                (blocked && !ackNote.trim())
-              }
-              data-testid="create-expense"
-            >
-              {blocked ? t("documents.duplicate.panel.createAnyway") : t("expenses.form.create")}
-            </Button>
-          </DialogFooter>
-        </form>
+        {form}
       </DialogContent>
     </Dialog>
   );

@@ -2,6 +2,7 @@
 // The ONLY path other modules and src/app may import for server-side code (constitution §2).
 // Never import this file from a client component — use ./ui for components and types.
 
+export { type BaseFigure, baseFigure } from "./base-today";
 export { creditedSum } from "./credited";
 export { DEFAULT_PAYMENT_TERMS_DAYS, QUOTE_VALIDITY_DAYS } from "./defaults";
 export { declarationPeriodFor, deriveState, isDeclarationPeriod, remainingAmount } from "./derive";
@@ -27,7 +28,9 @@ export {
   issueSchema,
   lineInputSchema,
   markSent,
+  reminderSchema,
   setDeclarationPeriod,
+  setReminder,
   toInvoiceDto,
   updateDraft,
   updateDraftSchema,

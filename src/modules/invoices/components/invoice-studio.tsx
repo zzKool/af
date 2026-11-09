@@ -11,11 +11,13 @@ import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { cn } from "@/lib/utils";
 import type { PrintedParties } from "@/modules/invoices/types";
+import { baseFigure } from "../base-today";
 import { expectedPayment, paymentStats } from "../payment-stats";
 import { type ReadyKey, type ReadyState, readyToSend } from "../ready";
 import type { StudioFacts } from "../studio";
 import type { Registration, VatTreatment } from "../vat-treatment";
 import { type EditorDraft, type EditorInvoice, InvoiceEditor } from "./invoice-editor";
+import { ReminderToggle } from "./reminder-toggle";
 
 const CARD = "pulse-card p-4";
 const MARK: Record<ReadyState, string> = { ok: "✓", warn: "!", todo: "○" };
@@ -97,6 +99,8 @@ export function InvoiceStudio({
         : null,
     [draft, facts, invoice.type, invoice.currency],
   );
+  // F169: ≈ the total in the base at today's rate (an estimate — the base is written once, at issue)
+  const base = baseFigure(invoice, total, facts.todayRate ?? null);
   const stats = paymentStats(facts.history);
   const expected = expectedPayment(stats, today);
 
@@ -221,7 +225,20 @@ export function InvoiceStudio({
         <span className="text-[24px] font-semibold tabular-nums" data-testid="invoice-studio-total">
           {total ? formatMoney(total, invoice.currency) : "—"}
         </span>
-        <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>
+        {base && (
+          <span
+            className="text-[13px] text-muted-foreground tabular-nums"
+            data-testid="invoice-studio-base"
+          >
+            {t("invoices.baseToday", { amount: formatMoney(base.amount, base.currency) })}
+          </span>
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-2">
+          {invoice.type === "invoice" && (
+            <ReminderToggle id={invoice.id} on={invoice.remindWhenLate ?? true} />
+          )}
+          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        </div>
       </div>
     </div>
   );

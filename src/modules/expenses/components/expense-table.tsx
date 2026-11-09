@@ -35,6 +35,7 @@ import type {
   SourceOption,
   TransactionOption,
 } from "@/modules/expenses/types";
+import { announceDockedPanel, useOtherDockedPanel } from "./dock-channel";
 import { ExpensePanel } from "./expense-panel";
 import { ExpenseStateLabel } from "./expense-state";
 import { groupLabel } from "./labels";
@@ -114,6 +115,8 @@ export function ExpenseTable({
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  // F170: one docked panel at a time — the new-expense form opening closes the row, a row picked closes the form
+  useOtherDockedPanel("row", () => setSelectedId(null));
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -499,7 +502,10 @@ export function ExpenseTable({
         }}
         rowCurrency={(row) => row.currency as Currency}
         sumCurrency={EXPENSES_BASE}
-        onRowClick={(row) => setSelectedId(row.id)}
+        onRowClick={(row) => {
+          announceDockedPanel("row");
+          setSelectedId(row.id);
+        }}
         searchPlaceholder={t("expenses.search")}
         emptyState={
           Object.keys(state.query.filters).length || state.query.search

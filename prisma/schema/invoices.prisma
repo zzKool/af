@@ -5,7 +5,7 @@
 // Typed states are hand-set facts only (draft / issued / sent; a quote's accepted / declined). Paid, partially
 // paid, overdue, credited, expired and converted are DERIVED at read time from links, credit notes and dates.
 // Issued documents are immutable: triggers in the migration refuse every change except status, sent_at,
-// decided_at, declaration_period, pdf_document_id. Corrections are credit notes.
+// decided_at, declaration_period, pdf_document_id, remind_when_late. Corrections are credit notes.
 // Cross-module references (partner, contract, VAT registration, PDF document, rate source) are validated UUIDs,
 // never FKs (constitution §2); invoice ↔ lines and credit note ↔ original are intra-module FKs.
 
@@ -77,6 +77,8 @@ model Invoice {
   issuedAt          DateTime?     @map("issued_at") @db.Timestamptz
   sentAt            DateTime?     @map("sent_at") @db.Timestamptz
   decidedAt         DateTime?     @map("decided_at") @db.Timestamptz
+  /// F169: draft the reminder when the invoice is 3 days late and open (a hand-set switch, on by default)
+  remindWhenLate    Boolean       @default(true) @map("remind_when_late")
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz
   createdBy         String        @map("created_by") @db.Uuid

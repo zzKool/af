@@ -11,7 +11,7 @@ export { convertQuote, copyToDraft, createCreditNote } from "./copies";
 export { dueDateFor } from "./defaults";
 export { createDraft, deleteDraft, updateDraft } from "./drafts";
 export { toInvoiceDto, toLineDto } from "./dto";
-export { decideQuote, markSent, setDeclarationPeriod } from "./hand-set-facts";
+export { decideQuote, markSent, setDeclarationPeriod, setReminder } from "./hand-set-facts";
 export { issue } from "./issue";
 export type {
   CreateDraftInput,
@@ -26,5 +26,6 @@ export {
   declarationPeriodSchema,
   issueSchema,
   lineInputSchema,
+  reminderSchema,
   updateDraftSchema,
 } from "./schemas";

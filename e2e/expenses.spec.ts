@@ -314,4 +314,50 @@ test.describe("Expenses", () => {
     await expect(dialog).toBeHidden();
     await expect(page).not.toHaveURL(/new=1/);
   });
+
+  // F170 (the board *Pulse — Expenses*): the form docks beside the list, not over it; one panel at a time —
+  // a row picked closes the form, the form opened closes the row
+  test("the new expense form docks beside the list, one panel at a time", async ({ page }) => {
+    await trackToasts(page);
+    const desc = `Docked parking ${stamp}`;
+    await page.goto("/expenses");
+    await page.getByTestId("open-new-expense").click();
+    const form = page.getByTestId("new-expense-dialog");
+    await expect(form).toBeVisible();
+    await expect(form).toHaveAttribute("data-docked", "");
+    await expect(page.locator("[data-slot=details-dock]")).toContainText("New expense");
+    // nothing covers the list: its search stays usable while the form is open
+    await expect(page.getByPlaceholder("Search key, description, group, note…")).toBeEditable();
+    const pick = async (label: string, option: RegExp | string) => {
+      await form.getByLabel(label, { exact: true }).click();
+      await page.getByRole("option", { name: option }).click();
+    };
+    await pick("Group", "+ New group…");
+    await page.getByTestId("new-group-description").fill(`Docked ${stamp}`);
+    await pick("Paid by", "Private SE");
+    await form.getByLabel("Date", { exact: true }).fill("2025-05-06");
+    await page.getByTestId("expense-description").fill(desc);
+    await pick("Category", /^5800/);
+    await page.getByTestId("expense-amount").fill("90.00");
+    await page.getByTestId("create-expense").click();
+    await expectToast(page, "created");
+    await expect(form).toBeHidden();
+
+    // the row's panel and the form share the dock
+    await page.goto(`/expenses?q=${encodeURIComponent(desc)}`);
+    await page.getByTestId("open-new-expense").click();
+    await expect(form).toBeVisible();
+    // the description cell — the narrowed row's middle may fall on its group link
+    await page
+      .getByRole("row")
+      .filter({ hasText: desc })
+      .first()
+      .getByRole("cell", { name: desc, exact: true })
+      .click();
+    await expect(page.getByTestId("expense-panel")).toBeVisible();
+    await expect(form).toBeHidden();
+    await page.getByTestId("open-new-expense").click();
+    await expect(form).toBeVisible();
+    await expect(page.getByTestId("expense-panel")).toBeHidden();
+  });
 });

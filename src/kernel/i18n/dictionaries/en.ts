@@ -582,6 +582,10 @@ export const en = {
   "invoices.ready.company.ok": "Your e-mail and website are on the page",
   "invoices.ready.company.warn": "No {list} in Settings → Company — the footer shows only the name",
   "invoices.studio.total": "Total",
+  "invoices.baseToday": "≈ {amount} today",
+  "invoices.baseAtIssue": "{amount} at issue",
+  "invoices.reminderSwitch.label":
+    "Draft a reminder if it is not paid {days} days after the due date",
   "invoices.days.title": "Days worked · {month}",
   "invoices.days.hint":
     "{count} day(s) — click a day to add or remove it; the first line keeps the days and bills their count",
@@ -634,6 +638,7 @@ export const en = {
   "invoices.action.issueConfirm.description":
     "The number is assigned and the PDF is generated; the document can no longer be edited.",
   "invoices.action.markSent": "Mark as sent",
+  "invoices.action.downloadAndSend": "Download and mark as sent",
   "invoices.action.creditNote": "Create credit note",
   "invoices.action.accept": "Mark accepted",
   "invoices.action.decline": "Mark declined",
@@ -2420,7 +2425,7 @@ export const en = {
   "home.flow.short": "The year costs {amount} more than it brought so far.",
   "home.year.title": "The year, week by week",
   "home.year.sub":
-    "money in and out on top, in {base} · every statement account below · pick a week",
+    "money in and out on top, in {base} · every part of the books below · pick a week",
   "home.year.state.done": "done",
   "home.year.state.open": "open",
   "home.year.state.late": "late",
@@ -2433,6 +2438,15 @@ export const en = {
   "home.year.toJustify": "{count} of {rows} bank rows still to justify.",
   "home.year.allJustified": "All {rows} bank rows justified.",
   "home.year.open": "Open this week",
+  "home.year.lane.invoices": "Invoices",
+  "home.year.lane.expenses": "Expenses",
+  "home.year.lane.documents": "Documents",
+  "home.year.books.invoices": "{count} invoice(s) issued · {pending} not paid yet",
+  "home.year.books.invoicesDone": "{count} invoice(s) issued, all paid",
+  "home.year.books.expenses": "{count} expense(s) · {pending} to settle or justify",
+  "home.year.books.expensesDone": "{count} expense(s), all settled and justified",
+  "home.year.books.documents": "{count} document(s) received · {pending} to review",
+  "home.year.books.documentsDone": "{count} document(s) received, all filed",
   "home.cash.eyebrow": "Cash · all accounts, in {base}",
   "home.cash.month": "{delta} this month",
   "home.cash.incomplete": "an account without a rate today is left out",

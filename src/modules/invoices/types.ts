@@ -150,6 +150,8 @@ export type InvoiceDto = {
   issuedAt: Date | null;
   sentAt: Date | null;
   decidedAt: Date | null;
+  /** F169: the reminder is drafted when late (a hand-set switch, on by default) */
+  remindWhenLate: boolean;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
