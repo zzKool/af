@@ -57,6 +57,8 @@ type LineState = {
   discountPercent: string;
   vatRate: string;
   rateSourceId: string | null;
+  /** F168: the days the line bills, as picked on the studio's calendar */
+  workedDays: string[];
 };
 
 type HeaderState = {
@@ -115,10 +117,11 @@ export function InvoiceEditor({
   partnerForVat,
   onDraft,
   toolbar,
-  quantityRequest,
+  daysRequest,
 }: {
   /** F160: the studio's days calendar — when `seq` changes, the first line's quantity becomes `value` (saved) */
-  quantityRequest?: { value: string; seq: number } | null;
+  /** F168: the days picked on the studio's calendar, for the first line */
+  daysRequest?: { days: string[]; seq: number } | null;
   /** F145: more controls in the toolbar above the paper (the PDF preview) */
   toolbar?: ReactNode;
   /** F143: the draft as the owner types it — the studio's *Ready to send?* reads it live */
@@ -153,6 +156,7 @@ export function InvoiceEditor({
       discountPercent: l.discountPercent ?? "",
       vatRate: l.vatRate,
       rateSourceId: l.rateSourceId,
+      workedDays: l.workedDays,
     })),
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -234,6 +238,7 @@ export function InvoiceEditor({
         discountPercent: l.discountPercent || null,
         vatRate: l.vatRate || "0",
         rateSourceId: l.rateSourceId,
+        workedDays: l.workedDays,
       })),
     });
     const error = extractError(r);
@@ -246,18 +251,23 @@ export function InvoiceEditor({
     router.refresh();
   }, [invoice.id, router, save]);
 
-  // F160: the days calendar asks for a quantity on the first line — applied once per request, then saved
-  const appliedSeq = useRef(quantityRequest?.seq ?? 0);
+  // F160 / F168: the days calendar sets the first line's days and its quantity (their count) — applied once per
+  // request, then saved
+  const appliedSeq = useRef(daysRequest?.seq ?? 0);
   useEffect(() => {
-    if (!quantityRequest || quantityRequest.seq === appliedSeq.current) return;
-    appliedSeq.current = quantityRequest.seq;
+    if (!daysRequest || daysRequest.seq === appliedSeq.current) return;
+    appliedSeq.current = daysRequest.seq;
     const prev = latest.current.lines;
     if (prev.length === 0) return;
-    const next = [{ ...(prev[0] as LineState), quantity: quantityRequest.value }, ...prev.slice(1)];
+    const days = [...daysRequest.days].sort();
+    const next = [
+      { ...(prev[0] as LineState), quantity: String(days.length), workedDays: days },
+      ...prev.slice(1),
+    ];
     setLines(next);
     latest.current = { ...latest.current, lines: next }; // persist reads it before the next render
     void persist();
-  }, [quantityRequest, persist]);
+  }, [daysRequest, persist]);
 
   const setH = <K extends keyof HeaderState>(k: K, v: HeaderState[K]) =>
     setHeader((prev) => ({ ...prev, [k]: v }));
@@ -275,6 +285,7 @@ export function InvoiceEditor({
         discountPercent: "",
         vatRate: vat.rate,
         rateSourceId: null,
+        workedDays: [],
       },
     ]);
   };
@@ -286,7 +297,11 @@ export function InvoiceEditor({
     setLines((prev) => {
       const i = prev.findIndex((l) => l.key === key);
       if (i < 0) return prev;
-      return [...prev.slice(0, i + 1), { ...prev[i], key: newKey() }, ...prev.slice(i + 1)];
+      return [
+        ...prev.slice(0, i + 1),
+        { ...(prev[i] as LineState), key: newKey(), workedDays: [] },
+        ...prev.slice(i + 1),
+      ];
     });
     queueMicrotask(() => void persist());
   };
@@ -324,6 +339,7 @@ export function InvoiceEditor({
         periodStart: null,
         periodEnd: null,
         rateSourceId: l.rateSourceId,
+        workedDays: l.workedDays,
       })),
       issuedAt: null,
       sentAt: null,

@@ -98,7 +98,10 @@ async function copyInternal(
     internalNote?: string;
   },
 ): Promise<ServiceResult<InvoiceDto>> {
-  const lines = opts.lines ?? linesToInput(source.lines);
+  // a copy is the next period's invoice: its days are still to be picked (F168); a quote converted keeps them
+  const lines =
+    opts.lines ??
+    linesToInput(source.lines).map((l) => (opts.event === "copy" ? { ...l, workedDays: [] } : l));
   const lineRows = lineRowsFrom(caller.tenantId, lines);
   if (!Array.isArray(lineRows)) return { error: lineRows };
   const discountPercent = source.discountPercent ? source.discountPercent.toString() : null;

@@ -29,6 +29,7 @@ export function toLineDto(row: InvoiceLine): InvoiceLineDto {
     periodStart: iso(row.periodStart),
     periodEnd: iso(row.periodEnd),
     rateSourceId: row.rateSourceId,
+    workedDays: row.workedDays.map((d) => iso(d) as string),
   };
 }
 

@@ -26,6 +26,12 @@ export const lineInputSchema = z.object({
   periodStart: isoDate.nullable().optional(),
   periodEnd: isoDate.nullable().optional(),
   rateSourceId: uuid.nullable().optional(),
+  /** F168: the days worked the line bills, as picked on the studio's calendar (yyyy-mm-dd, a month at most) */
+  workedDays: z
+    .array(isoDate)
+    .max(31)
+    .refine((d) => new Set(d).size === d.length, "A day is picked twice")
+    .optional(),
 });
 export type LineInputDto = z.input<typeof lineInputSchema>;
 

@@ -191,6 +191,39 @@ describe("US1 — draft and issue a monthly invoice", () => {
     await assertAuditLogged(adminPool, caller.tenantId, "create", "invoice", d.id);
   });
 
+  it("F168: a line keeps the days worked it bills; a copy leaves them to pick, a doubled day is refused", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const d = await januaryDraft(caller, w);
+    expect(d.lines[0]?.workedDays).toEqual([]);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const line = d.lines[0] as NonNullable<(typeof d.lines)[0]>;
+      const days = ["2026-01-07", "2026-01-05", "2026-01-06"];
+      const withDays = await invoices.updateDraft(tx, caller, noopAudit, {
+        id: d.id,
+        lines: [{ ...line, discountPercent: null, quantity: "3", workedDays: days }],
+      });
+      expect(withDays.error).toBeUndefined();
+      expect(withDays.data?.lines[0]?.workedDays).toEqual([
+        "2026-01-05",
+        "2026-01-06",
+        "2026-01-07",
+      ]);
+      // an update of the header alone keeps the lines' days
+      const header = await invoices.updateDraft(tx, caller, noopAudit, { id: d.id, notes: "x" });
+      expect(header.data?.lines[0]?.workedDays).toHaveLength(3);
+      // the next period's copy starts without days
+      const copy = await invoices.copyToDraft(tx, caller, noopAudit, TODAY, d.id);
+      expect(copy.data?.lines[0]?.workedDays).toEqual([]);
+      expect(copy.data?.lines[0]?.quantity).toBe("3");
+      const twice = await invoices.updateDraft(tx, caller, noopAudit, {
+        id: d.id,
+        lines: [{ ...line, discountPercent: null, workedDays: ["2026-01-05", "2026-01-05"] }],
+      });
+      expect(twice.error?.message).toMatch(/twice/);
+    });
+  });
+
   it("totals of 20 days at 1 200 with 8.1 % (scenario 2); the next number is only a hint", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const w = await world(caller);
