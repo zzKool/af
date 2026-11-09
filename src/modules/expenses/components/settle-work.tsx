@@ -462,6 +462,7 @@ export function SettleWork({
 
   return (
     <WorkPage
+      ground
       title={t("expenses.settle.title")}
       meta={t("expenses.settle.meta", {
         open: sek(ledgerOpen),

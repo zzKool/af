@@ -29,7 +29,7 @@ const ALLOWED: Record<string, readonly [number, number]> = {
   "src/modules/banking/facts.ts": [2, 0],
   "src/modules/banking/implicit-rate.ts": [4, 0],
   // F70's debt — goes when F70 is built (specs/base-currency on feat/settings-base-currency)
-  "src/app/(app)/expenses/groups/[id]/page.tsx": [0, 2],
+  "src/app/(app)/expenses/groups/[id]/page.tsx": [0, 1],
   "src/kernel/i18n/dictionaries/en.ts": [0, 1],
   "src/kernel/i18n/dictionaries/fr.ts": [0, 1],
   "src/kernel/i18n/dictionaries/sv.ts": [0, 1],

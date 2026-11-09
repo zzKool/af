@@ -24,11 +24,12 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const t = translator(await requestLocale(data.prefs.data?.locale));
   return (
     <EntityPage
+      ground
       back={<Link href="/expenses/settlements">← {t("expenses.settlements.title")}</Link>}
       title={data.statement.number}
       meta={`${t("expenses.statement.payee")} ${data.statement.payee} · ${data.statement.refund.bookingDate}`}
     >
-      <div className="bg-muted/30 p-4">
+      <div className="pulse-card-2 p-4">
         <StatementSheet data={data.statement} locale={locale} />
       </div>
     </EntityPage>

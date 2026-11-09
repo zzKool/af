@@ -8,5 +8,6 @@ export * from "./components/new-supplier-invoice-dialog";
 export * from "./components/state-label";
 export * from "./components/supplier-invoice-panel";
 export * from "./components/supplier-invoice-table";
+export * from "./components/supplier-invoices-hero";
 export * from "./supplier-invoices.actions";
 export type * from "./types";

@@ -27,3 +27,15 @@ export function daysUntil(from: string, to: string): number {
 export function daysBetween(a: string, b: string): number {
   return Math.abs(daysUntil(a, b));
 }
+
+/** The `n` months up to `today`'s, oldest first: `lastMonths("2026-07-15", 3)` → `2026-05`, `2026-06`, `2026-07`. */
+export function lastMonths(today: string, n = 12): string[] {
+  const y = Number(today.slice(0, 4));
+  const m = Number(today.slice(5, 7));
+  const out: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const k = y * 12 + (m - 1) - i;
+    out.push(`${Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
