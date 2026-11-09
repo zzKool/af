@@ -8,14 +8,17 @@ export {
   type RelatedDocument,
 } from "./components/invoice-details";
 export { type EditorInvoice, InvoiceEditor } from "./components/invoice-editor";
+export * from "./components/invoice-figures";
 export { InvoiceLinks } from "./components/invoice-links";
 export type { SheetDocument, SheetLine, SheetSlots } from "./components/invoice-sheet";
 export { InvoiceSheet, sheetDate, sheetMoney, sheetQuantity } from "./components/invoice-sheet";
 export { InvoiceStateLabel } from "./components/invoice-state-label";
 export * from "./components/invoice-studio";
 export { type InvoiceRow, InvoiceTable } from "./components/invoice-table";
+export * from "./components/invoices-hero";
 export { NewDocumentButton } from "./components/new-document-button";
 export { type ClientOption, NewInvoiceForm } from "./components/new-invoice-form";
+export * from "./components/new-invoice-steps";
 export * from "./components/partner-invoicing";
 export * from "./components/reminder-card";
 export { toSheetDocument } from "./components/sheet-document";

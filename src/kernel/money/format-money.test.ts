@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { formatMoney, MINUS, THIN_SPACE } from "@/kernel/money/format-money";
+import { formatMoney, formatMoneyCompact, MINUS, THIN_SPACE } from "@/kernel/money/format-money";
 
 const S = THIN_SPACE;
 const NB = " ";
@@ -77,5 +77,19 @@ describe("formatMoney — the one on-screen format (D40)", () => {
         ).toBe(true);
       }),
     );
+  });
+});
+
+describe("formatMoneyCompact — the boards' headline figures (F163)", () => {
+  test.each([
+    ["1280000.00", null, `1.28${NB}M`],
+    ["214300", null, `214${NB}k`],
+    ["56400", "CHF", `56.4${NB}k${NB}CHF`],
+    ["9412.40", "SEK", `9${S}412${NB}SEK`],
+    ["-12500", null, `${MINUS}12.5${NB}k`],
+    ["0.00", null, "0"],
+    ["10000000", null, `10${NB}M`],
+  ])("%s %s → %s", (amount, currency, expected) => {
+    expect(formatMoneyCompact(amount, currency)).toBe(expected);
   });
 });

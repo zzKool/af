@@ -57,3 +57,32 @@ export function formatMoney(
   const number = whole ? `${prefix}${grouped}` : `${prefix}${grouped}.${dec}`;
   return bare || !currency ? number : `${number}${NBSP}${currency}`;
 }
+
+/**
+ * A headline figure the way the Pulse boards print it (F163): `1 280 000.00` → `1.28 M`, `214 300` → `214 k`, under
+ * ten thousand the whole units (`9 412`). Three significant digits at most; the currency after when given. For the
+ * big numbers of a hero or a KPI only — a table, a form and a printed document keep `formatMoney`.
+ */
+export function formatMoneyCompact(amount: string, currency?: string | null): string {
+  const raw = typeof amount === "string" ? amount.trim() : "";
+  if (!/^[+-]?\d+(\.\d+)?$/.test(raw))
+    throw new TypeError(
+      `formatMoneyCompact: invalid amount "${amount}" — expected a decimal string`,
+    );
+  const negative = raw.startsWith("-");
+  const value = Math.abs(Number(raw)); // display only: three significant digits
+  const unit = (n: number, d: number, s: string) => {
+    const v = n / d;
+    const digits = v >= 100 ? 0 : v >= 10 ? 1 : 2;
+    return `${v.toFixed(digits).replace(/\.?0+$/, "")}${NBSP}${s}`;
+  };
+  const body =
+    value >= 1_000_000
+      ? unit(value, 1_000_000, "M")
+      : value >= 10_000
+        ? unit(value, 1_000, "k")
+        : formatMoney(value.toFixed(2), null, { whole: true });
+  const zero = body === "0";
+  const number = `${negative && !zero ? MINUS : ""}${body}`;
+  return currency ? `${number}${NBSP}${currency}` : number;
+}
