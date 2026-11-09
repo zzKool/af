@@ -99,9 +99,14 @@ docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 
 **Azure Document Intelligence** is the one cloud dependency of the homelab stack (OCR): `AZURE_DI_ENDPOINT` / `AZURE_DI_KEY` (F0 free tier, 500 pages a month). Without them every upload's OCR fails with the reason (*OCR is not configured*) — never a mock on the box (F108); the mock is `OCR_PROVIDER=mock`, for dev and tests.
 
-### A fresh start (2026-11-09)
+### A fresh start, whole or in part (2026-11-09)
 
-`scripts/reset-working-data.sh box` (in the checkout next to `docker-compose.prod.yml`) empties the working items and every stored file, after a backup (`scripts/backup.sh`); `… laptop` does the same on the dev database and Azurite (Docker only — Git Bash on Windows). It shows the counts, asks for `RESET`, runs one transaction. **Kept**: the login, the company profile and logo, the bank accounts, the VAT registrations, the BAS chart and its settings, the ECB and traktamente rates, the four system partners with the two seed rules, the schedules. **Emptied**: bank rows and imports, documents and their files, partners, contracts, invoices (numbering back to 001), expenses, supplier invoices, subscriptions, links, proposals, the journal, the audit trail, the owner's rules, table layouts.
+`scripts/reset-working-data.sh box` (in the checkout next to `docker-compose.prod.yml`) or `… laptop` (the dev database and Azurite — Docker only, Git Bash on Windows) asks:
+
+1. **the period** — everything · this year · this month · from a date (bank rows by booking date, invoices by issue date, expenses and supplier invoices by their date, documents by upload date; partners, contracts, subscriptions and rules by creation);
+2. **the scopes**, one yes / no each — banking (rows, imports and their CSVs, refund settlements on them) · documents (uploads and files, month packages) · invoices (quotes, credit notes, their PDFs, Swiss VAT declarations) · expenses (supplier invoices, trips, settlements, empty groups) · subscriptions · partners (with contacts and contracts — only those nothing kept still uses) · the owner's rules;
+
+then shows **what would go** (a dry run of `scripts/reset-working-data.sql`, rolled back), asks for `RESET`, takes a backup on the box (`scripts/backup.sh`), runs the same SQL for real in one transaction, and deletes every stored file no document points at any more (`scripts/sweep-blobs.ts` on the laptop). Links, proposals and the history of what goes go with it; the numbering continues after the last number kept (everything dropped = `VA26-INV-001` again). **Never dropped**: the login, the company profile and logo, the bank accounts, the VAT registrations, the BAS chart and its settings, the ECB and traktamente rates, the four system partners and the two seed rules, the schedules; the table layouts only on a full reset.
 
 ## Azure (later, scale to zero)
 
