@@ -33,7 +33,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 ## Numbers and dates
 - [ ] Figures use `tabular-nums` so the top bar's eye veils them (F150); a date or count that is no secret gets `data-public`, a non-figure secret (IBAN, reference) `data-sensitive`.
 - [ ] Money on screen through the one kernel formatter `formatMoney` (`kernel/money/format-money`): `−2 312.43 SEK` (U+202F thousands, `.` decimals, U+2212 minus, code after) — the same in every UI language. Never `toLocaleString` or `Intl` in a component. `formatCurrency` is for **printed** sheets only.
-- [ ] Dates `yyyy-mm-dd`. Figures `tabular-nums`, right-aligned in tables.
+- [ ] Dates `yyyy-mm-dd` — shown, and typed through `DateInput` (`components/ui/date-input.tsx`), never `<input type="date">` (it shows the browser's locale). Figures `tabular-nums`, right-aligned in tables.
 - [ ] Keys (`VA26-INV-007`) as a mono code chip; copyable in a title.
 
 ## States and tags
