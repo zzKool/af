@@ -1,7 +1,8 @@
 "use client";
 
 // The year, week by week (F158, the Pulse board): fifty-two columns — the money in (up) and out (down) of the
-// statement accounts in the base on top, one square per account under it (done · open · late · nothing that week).
+// statement accounts in the base on top, one square per account under it (done · open · late · nothing that week),
+// then the books' rows (F171): the invoices issued, the expenses dated, the documents received that week.
 // A column is a button: it shows its week on the right (the range, in and out, the rows still to justify) with the
 // way into Banking filtered to that week. Derived on request (`yearWeeks`), read only.
 import Link from "next/link";
@@ -12,7 +13,12 @@ import { uiLanguage } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { cn } from "@/lib/utils";
-import type { WeekCellState, YearWeeks } from "@/modules/dashboard/year-weeks";
+import {
+  BOOK_LANES,
+  type WeekCellState,
+  type YearWeek,
+  type YearWeeks,
+} from "@/modules/dashboard/year-weeks";
 
 const MONEY = 40;
 const CELL: Record<WeekCellState, string> = {
@@ -27,13 +33,14 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
   const { effectiveLocale } = useLocale();
   const lang = uiLanguage(effectiveLocale ?? null);
   const { weeks, accounts } = data;
-  const lastWithRows = [...weeks].reverse().find((w) => w.rows > 0) ?? weeks.at(-1) ?? null;
+  const busy = (w: YearWeek) => w.rows > 0 || BOOK_LANES.some((l) => w.books[l].count > 0);
+  const lastWithRows = [...weeks].reverse().find(busy) ?? weeks.at(-1) ?? null;
   const [selected, setSelected] = useState<string | null>(lastWithRows?.from ?? null);
   const week = weeks.find((w) => w.from === selected) ?? null;
   const max = Math.max(1, ...weeks.map((w) => Math.max(Number(w.inBase), Number(w.outBase))));
   // a square-root scale, as the day strip: one large transfer does not flatten the year
   const h = (v: string) => (Number(v) > 0 ? Math.max(2, Math.sqrt(Number(v) / max) * MONEY) : 0);
-  if (accounts.length === 0) return null;
+  if (accounts.length === 0 && !weeks.some(busy)) return null;
 
   return (
     <section
@@ -119,6 +126,30 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
                 ))}
               </div>
             ))}
+            {/* F171: the books — one row per lane */}
+            {BOOK_LANES.map((lane) => (
+              <div key={lane} className="contents">
+                <span
+                  className="truncate pr-2 text-[11px] leading-[14px] text-muted-foreground"
+                  data-testid="home-year-lane"
+                  data-lane={lane}
+                >
+                  {t(`home.year.lane.${lane}`)}
+                </span>
+                {weeks.map((w) => (
+                  <span
+                    key={w.from}
+                    className={cn(
+                      "my-[2px] h-[10px] rounded-[2px]",
+                      CELL[w.books[lane].cell],
+                      w.from === selected && "ring-1 ring-foreground/50",
+                    )}
+                    data-lane={lane}
+                    data-state={w.books[lane].cell}
+                  />
+                ))}
+              </div>
+            ))}
             {/* the months under the first week of each */}
             <span />
             {weeks.map((w, i) => {
@@ -166,6 +197,26 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
                   ? t("home.year.toJustify", { count: week.toJustify, rows: week.rows })
                   : t("home.year.allJustified", { rows: week.rows })}
             </p>
+            {BOOK_LANES.some((l) => week.books[l].count > 0) && (
+              <ul className="flex flex-col gap-1.5 text-xs" data-testid="home-year-books">
+                {BOOK_LANES.filter((l) => week.books[l].count > 0).map((l) => {
+                  const b = week.books[l];
+                  return (
+                    <li key={l} className="flex items-center gap-2" data-lane={l}>
+                      <span
+                        className={cn("size-2 shrink-0 rounded-full", CELL[b.cell])}
+                        aria-hidden
+                      />
+                      <span className="text-muted-foreground">
+                        {b.pending === 0
+                          ? t(`home.year.books.${l}Done`, { count: b.count })
+                          : t(`home.year.books.${l}`, { count: b.count, pending: b.pending })}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             {week.rows > 0 && (
               <Link
                 href={`/banking?f.bookingDate=${encodeURIComponent(`dates:from=${week.from}|to=${week.to}`)}`}
