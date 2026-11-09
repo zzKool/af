@@ -8,7 +8,7 @@ import { mapInOrder, type TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import type { LinkableType, LinkKind } from "@/modules/linking";
 import * as linking from "@/modules/linking";
-import type { CategorisedBy, TransactionHistoryEvent } from "./types";
+import type { HistoryCategorisedBy, TransactionHistoryEvent } from "./types";
 
 // MUST NOT import from next/* or src/components/*
 
@@ -29,8 +29,8 @@ const TRAIL_LIMIT = 100;
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const text = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
-const CATEGORISED_BY: readonly CategorisedBy[] = ["manual", "rule", "partner_default"];
-const categorisedBy = (v: unknown): CategorisedBy | null =>
+const CATEGORISED_BY: readonly HistoryCategorisedBy[] = ["manual", "rule", "partner_default"];
+const categorisedBy = (v: unknown): HistoryCategorisedBy | null =>
   CATEGORISED_BY.find((b) => b === v) ?? null;
 const linkKind = (v: unknown): LinkKind | null => linking.LINK_KINDS.find((k) => k === v) ?? null;
 

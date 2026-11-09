@@ -37,7 +37,6 @@ const ALLOWED: Record<string, readonly [number, number]> = {
   "src/kernel/ocr/ocr.ts": [0, 2],
   "src/modules/banking/components/transaction-panel.tsx": [0, 1],
   "src/modules/banking/transfer-pairs.ts": [7, 0],
-  "src/modules/contracts/components/contract-list.tsx": [0, 1],
   "src/modules/contracts/contracts.ts": [0, 1],
   "src/modules/dashboard/overview.ts": [0, 7],
   "src/modules/expenses/components/expense-panel-payments.tsx": [0, 1],

@@ -77,6 +77,34 @@ describe("toHistoryEvents", () => {
     ]);
   });
 
+  // F67: `partner_default` can no longer be stored, but an audit row written before keeps it — the History still
+  // names it; a word the database never held is no one
+  it("an old audit row's `partner_default` is still read; an unknown `by` is null", () => {
+    const events = toHistoryEvents(
+      [
+        row({
+          entityType: "bank_transaction",
+          action: "update",
+          oldData: entry({}),
+          newData: entry({ basCode: "6570", categorisedBy: "partner_default" }),
+          createdAt: at(2),
+        }),
+        row({
+          entityType: "bank_transaction",
+          action: "update",
+          oldData: entry({}),
+          newData: entry({ basCode: "6540", categorisedBy: "someone" }),
+          createdAt: at(1),
+        }),
+      ],
+      SELF,
+    );
+    expect(events).toMatchObject([
+      { kind: "categorised", basCode: "6570", by: "partner_default" },
+      { kind: "categorised", basCode: "6540", by: null },
+    ]);
+  });
+
   it("a link names the other end whichever side the row is on; an unknown kind is dropped", () => {
     const link = (
       fromId: string,
