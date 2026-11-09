@@ -9,6 +9,7 @@ import { useT } from "@/kernel/i18n/use-t";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: MessageKey };
+/** `ownerOnly`: shown to a caller who may manage the tenant's settings */
 type Group = { label: MessageKey; items: Item[]; ownerOnly?: boolean };
 
 export const SETTINGS_MENU: readonly Group[] = [
