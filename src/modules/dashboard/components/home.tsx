@@ -83,7 +83,7 @@ export function CashHero({
             className="text-[clamp(2.75rem,6vw,4.75rem)] leading-[0.95] font-semibold tracking-[-0.045em] tabular-nums"
             data-testid="home-cash-total"
           >
-            {formatMoney(cash.total, null)}
+            {formatMoney(cash.total, null, { whole: true })}
           </span>
           <span className="text-[22px] text-muted-foreground">{cash.base}</span>
         </div>
@@ -100,7 +100,9 @@ export function CashHero({
             >
               {delta >= 0 ? "▲" : "▼"}{" "}
               {t("home.cash.month", {
-                delta: formatMoney((cash.monthDelta ?? "0").replace(/^-/, ""), null),
+                delta: formatMoney((cash.monthDelta ?? "0").replace(/^-/, ""), null, {
+                  whole: true,
+                }),
               })}
             </span>
           )}
