@@ -659,7 +659,8 @@ export async function getTransaction(
     if (other.type !== "document" && other.type !== "bank_transaction") {
       const docLinkable = linking.getLinkable("document");
       for (const dl of await linking.linksTouching(tx, other.type, [other.id])) {
-        const doc = dl.from.type === "document" ? dl.from : dl.to.type === "document" ? dl.to : null;
+        const doc =
+          dl.from.type === "document" ? dl.from : dl.to.type === "document" ? dl.to : null;
         if (!doc || documents.some((d) => d.id === doc.id)) continue;
         const docSummary = docLinkable ? await docLinkable.summary(tx, doc.id) : null;
         documents.push({ id: doc.id, label: docSummary?.label ?? doc.id });
