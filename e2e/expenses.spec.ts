@@ -250,14 +250,13 @@ test.describe("Expenses", () => {
       await page.getByRole("link", { name: vendorName }).click();
       await expect(page).toHaveURL(/\/partners\/[0-9a-f-]{36}$/);
       const partnerUrl = page.url();
-      const basField = page.getByText("BAS Category", { exact: true }).locator("..");
-      await basField.getByRole("combobox").click();
+      // the partner's facts are edited in the *Edit details* dialog; the Details card reads them back (F151)
+      await page.getByTestId("partner-edit-details").click();
+      await page.getByTestId("partner-default-bas").click();
       await page.getByRole("option", { name: /^5830/ }).click();
       await expect(async () => {
         await page.reload();
-        await expect(
-          page.getByText("BAS Category", { exact: true }).locator("..").getByRole("combobox"),
-        ).toContainText("583", { timeout: 2_000 });
+        await expect(page.getByTestId("partner-details")).toContainText("5830", { timeout: 2_000 });
       }).toPass({ timeout: 20_000 });
 
       // a group of its own
