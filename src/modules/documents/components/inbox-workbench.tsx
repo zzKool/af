@@ -5,10 +5,8 @@
 // could justify it and the actions its state allows. Keyboard first, shaped like /banking/inbox. Archive and
 // restore go on an undo stack that lives as long as the page. The accountant reads, nothing more.
 import { FileText } from "lucide-react";
-import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,36 +21,25 @@ import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
-import { formatMoney } from "@/kernel/money/format-money";
-import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 import {
   archiveDocumentsAction,
-  classifyDocumentAction,
   listInboxAction,
   markDocumentReviewedAction,
   runOcrAction,
   unarchiveDocumentsAction,
 } from "@/modules/documents/documents.actions";
-import { documentFileUrl } from "@/modules/documents/file";
 import type { InboxState, InboxTab } from "@/modules/documents/inbox";
-import { ASK_KINDS, readingProposes } from "@/modules/documents/proposes";
-import type { InboxData, InboxFacts, InboxItem } from "@/modules/documents/queries";
-import { type MarkedKey, sureCount } from "@/modules/documents/reading-marks";
+import type { InboxData, InboxItem } from "@/modules/documents/queries";
 import { NewExpenseDialog } from "@/modules/expenses/ui";
-import { SuggestionsSection } from "@/modules/linking/ui";
 import { NewSupplierInvoiceDialog } from "@/modules/supplier-invoices/ui";
 import { DocumentStateLabel } from "./document-state-label";
-import { FieldConfidence } from "./field-confidence";
+import { InboxPane, money } from "./inbox-pane";
 import { initialFromFacts, type MakeItOptions } from "./make-it-section";
+import { INBOX_KEYS, useInboxKeys } from "./use-inbox-keys";
+import { useInboxUndo } from "./use-inbox-undo";
 
-const DocumentPreview = dynamic(() => import("@/modules/documents/components/document-preview"), {
-  ssr: false,
-  loading: () => <div className="aspect-[3/4] animate-pulse rounded-lg bg-muted" />,
-});
-
-export const INBOX_UNDO_MAX = 20;
 const TABS: readonly InboxTab[] = ["all", "pending", "ready", "duplicates", "archived"];
 const PENDING: readonly InboxState[] = ["needs_ocr", "processing", "stuck", "ocr_failed"];
 /** the queue card's left edge (the board): what the document needs, at a glance — the state label says it in words */
@@ -65,51 +52,8 @@ const ROW_EDGE: Partial<Record<InboxState, string>> = {
   archived: "border-l-border",
 };
 
-/** The keyboard map (FR-022); the accountant's help lists the reading keys only (US4-7). */
-const KEYS: { keys: string; label: MessageKey; write: boolean }[] = [
-  { keys: "j / ↓ · k / ↑", label: "documents.inbox.help.move", write: false },
-  { keys: "x", label: "documents.inbox.help.select", write: true },
-  { keys: "a", label: "documents.inbox.help.selectAll", write: true },
-  { keys: "o", label: "documents.inbox.help.ocr", write: true },
-  { keys: "e", label: "documents.inbox.help.expense", write: true },
-  { keys: "i", label: "documents.inbox.help.supplier", write: true },
-  { keys: "l", label: "documents.inbox.help.link", write: true },
-  { keys: "Enter", label: "documents.inbox.help.enter", write: true },
-  { keys: "1 – 3", label: "documents.inbox.help.nth", write: true },
-  { keys: "d", label: "documents.inbox.help.archive", write: true },
-  { keys: "r", label: "documents.inbox.help.restore", write: true },
-  { keys: "u / z", label: "documents.inbox.help.undo", write: true },
-  { keys: "?", label: "documents.inbox.help.help", write: false },
-  { keys: "Esc", label: "documents.inbox.help.esc", write: false },
-];
-
-/** Typing in a field, or inside a dialog / an open list: the page's keys stay quiet (`Esc` included — the
- *  dialog closes itself). */
-export function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el || typeof el.closest !== "function") return false;
-  const tag = el.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    el.isContentEditable ||
-    !!el.closest("[role=dialog]") ||
-    !!el.closest("[role=alertdialog]") ||
-    !!el.closest("[role=listbox]")
-  );
-}
-
-type UndoEntry = { kind: "archive" | "restore"; ids: string[] };
-
-/** On-screen money (D40); an OCR amount the formatter refuses shows as it came rather than breaking the pane. */
-function money(amount: string, currency: string | null): string {
-  try {
-    return formatMoney(amount, currency);
-  } catch {
-    return currency ? `${amount} ${currency}` : amount;
-  }
-}
+export { isTyping } from "./use-inbox-keys";
+export { INBOX_UNDO_MAX } from "./use-inbox-undo";
 
 export function InboxWorkbench({
   initial,
@@ -129,7 +73,7 @@ export function InboxWorkbench({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [helpOpen, setHelpOpen] = useState(false);
   const [dialog, setDialog] = useState<"expense" | "supplier" | null>(null);
-  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const undo = useInboxUndo();
   const [openSearchKey, setOpenSearchKey] = useState(0);
   const [applyRequest, setApplyRequest] = useState<
     { index: number; requireHigh: boolean; seq: number; needsHighMessage?: string } | undefined
@@ -243,8 +187,7 @@ export function InboxWorkbench({
           toast.message(t("documents.inbox.toast.undonePartial", { count: done.length, refused }));
         else toast.success(t("documents.inbox.toast.undone"));
       } else {
-        if (done.length > 0)
-          setUndoStack((s) => [...s, { kind, ids: done }].slice(-INBOX_UNDO_MAX));
+        if (done.length > 0) undo.push({ kind, ids: done });
         const key =
           kind === "archive"
             ? refused > 0
@@ -259,18 +202,17 @@ export function InboxWorkbench({
       setChecked(new Set());
       await reload();
     },
-    [archive, unarchive, canWrite, reload, t],
+    [archive, unarchive, canWrite, reload, t, undo.push],
   );
 
   const undoLast = useCallback(async () => {
-    const last = undoStack[undoStack.length - 1];
+    const last = undo.pop();
     if (!last) {
       toast.message(t("documents.inbox.toast.nothingToUndo"));
       return;
     }
-    setUndoStack((s) => s.slice(0, -1));
     await park(last.kind === "archive" ? "restore" : "archive", last.ids, true);
-  }, [undoStack, park, t]);
+  }, [undo, park, t]);
 
   const ocr = useCallback(
     async (row: InboxItem) => {
@@ -310,76 +252,42 @@ export function InboxWorkbench({
     !!row && row.state === "ready" && row.documentType === "financial";
   const selection = checked.size > 0 ? [...checked] : null;
 
-  // the keyboard (FR-022): quiet while typing or inside a dialog; the accountant has j k ? Esc only
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || dialog) return;
-      const key = e.key;
-      if (key === "?") {
-        e.preventDefault();
-        setHelpOpen((o) => !o);
-        return;
-      }
-      if (helpOpen) return; // the help dialog closes on Esc by itself
-      if (key === "Escape") {
-        if (openId) {
-          paneClosed.current = true;
-          setOpenId(null);
-        } else if (checked.size > 0) setChecked(new Set());
-        return;
-      }
-      if (key === "j" || key === "ArrowDown") {
-        e.preventDefault();
-        move(1);
-        return;
-      }
-      if (key === "k" || key === "ArrowUp") {
-        e.preventDefault();
-        move(-1);
-        return;
-      }
-      if (!canWrite) return;
-      if (key === "x" && open) {
-        e.preventDefault();
-        toggle(open.id);
-      } else if (key === "a") {
-        e.preventDefault();
-        setChecked((c) =>
-          c.size === rows.length && rows.length > 0 ? new Set() : new Set(rows.map((r) => r.id)),
-        );
-      } else if (key === "o" && open) {
-        e.preventDefault();
-        void ocr(open);
-      } else if ((key === "e" || key === "i") && open) {
-        e.preventDefault();
-        if (canMake(open)) setDialog(key === "e" ? "expense" : "supplier");
-      } else if (key === "l" && open && canLink(open)) {
-        e.preventDefault();
-        setOpenSearchKey((k) => k + 1);
-      } else if (key === "d") {
-        e.preventDefault();
-        if (tab === "archived") return;
-        const ids = selection ?? (open ? [open.id] : []);
-        void park("archive", ids);
-      } else if (key === "r") {
-        e.preventDefault();
-        if (tab === "archived" && selection) void park("restore", selection);
-        else void reload().then(() => toast.message(t("documents.inbox.toast.refreshed")));
-      } else if (key === "u" || key === "z") {
-        e.preventDefault();
-        void undoLast();
-      } else if ((key === "Enter" || /^[1-3]$/.test(key)) && open && canLink(open)) {
-        e.preventDefault();
-        setApplyRequest((prev) => ({
-          index: key === "Enter" ? 0 : Number(key) - 1,
-          requireHigh: key === "Enter",
-          seq: (prev?.seq ?? 0) + 1,
-          needsHighMessage: t("documents.inbox.enterNeedsHigh"),
-        }));
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  // the keyboard (FR-022): the map and its handler in `use-inbox-keys.ts`
+  useInboxKeys({
+    dialogOpen: dialog !== null,
+    helpOpen,
+    toggleHelp: () => setHelpOpen((o) => !o),
+    canWrite,
+    open,
+    tab,
+    selection,
+    canMake,
+    canLink,
+    escape: () => {
+      if (openId) {
+        paneClosed.current = true;
+        setOpenId(null);
+      } else if (checked.size > 0) setChecked(new Set());
+    },
+    move,
+    toggle: (id) => toggle(id),
+    toggleAll: () =>
+      setChecked((c) =>
+        c.size === rows.length && rows.length > 0 ? new Set() : new Set(rows.map((r) => r.id)),
+      ),
+    ocr: (row) => void ocr(row),
+    make: (d) => setDialog(d),
+    openSearch: () => setOpenSearchKey((k) => k + 1),
+    park: (kind, ids) => void park(kind, ids),
+    refresh: () => void reload().then(() => toast.message(t("documents.inbox.toast.refreshed"))),
+    undo: () => void undoLast(),
+    apply: (index, requireHigh) =>
+      setApplyRequest((prev) => ({
+        index,
+        requireHigh,
+        seq: (prev?.seq ?? 0) + 1,
+        needsHighMessage: t("documents.inbox.enterNeedsHigh"),
+      })),
   });
 
   const makeInitial = useMemo(
@@ -402,7 +310,7 @@ export function InboxWorkbench({
     duplicates: counts.duplicates,
     archived: counts.archived,
   };
-  const lastUndo = undoStack[undoStack.length - 1];
+  const lastUndo = undo.last;
 
   return (
     <div className="flex flex-col gap-3" data-testid="document-inbox">
@@ -666,7 +574,7 @@ export function InboxWorkbench({
             <DialogDescription>{t("documents.inbox.help.description")}</DialogDescription>
           </DialogHeader>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            {KEYS.filter((k) => canWrite || !k.write).map((k) => (
+            {INBOX_KEYS.filter((k) => canWrite || !k.write).map((k) => (
               <div key={k.keys} className="contents">
                 <dt>
                   <kbd className="rounded border px-1 font-mono text-xs">{k.keys}</kbd>
@@ -678,368 +586,6 @@ export function InboxWorkbench({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-/** A mark's value as the inbox facts hold it (as corrected), for the list. */
-function markValue(row: InboxItem, key: MarkedKey): string {
-  const v = row.facts[key as keyof InboxFacts];
-  if (v === undefined || v === null) return "";
-  if (key === "invoiceTotal" || key === "subtotal" || key === "totalTax")
-    return formatMoney(String(v), row.facts.currency ?? null);
-  return String(v);
-}
-
-/**
- * F141, the board *Documents*: what the reading found — each field, its value, DI's confidence — *N sure · M to
- * check*; hovering a line lights its box on the preview.
- */
-function WhatItRead({
-  row,
-  active,
-  onActive,
-}: {
-  row: InboxItem;
-  active: string | null;
-  onActive: (key: string | null) => void;
-}) {
-  const t = useT();
-  const marks = row.reading?.marks ?? [];
-  const { sure, check } = sureCount(marks);
-  return (
-    <section className="flex flex-col gap-1.5" data-testid="inbox-what-it-read">
-      <h3 className="flex items-baseline gap-2 text-sm font-semibold">
-        {t("documents.read.title")}
-        <span className="text-xs font-normal text-muted-foreground">
-          {t("documents.read.count", { sure, check })}
-        </span>
-      </h3>
-      <ul className="flex flex-col">
-        {marks.map((m) => (
-          <li key={m.key}>
-            <button
-              type="button"
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-hover",
-                active === m.key && "bg-surface-2",
-              )}
-              onMouseEnter={() => onActive(m.key)}
-              onMouseLeave={() => onActive(null)}
-              onFocus={() => onActive(m.key)}
-              onBlur={() => onActive(null)}
-              data-mark={m.key}
-            >
-              <span className="w-32 shrink-0 text-xs text-muted-foreground">
-                {t(`documents.read.field.${m.key}` as MessageKey)}
-              </span>
-              <span className="min-w-0 flex-1 truncate tabular-nums">{markValue(row, m.key)}</span>
-              <FieldConfidence confidence={m.confidence} />
-            </button>
-            {typeof m.confidence === "number" && (
-              <div
-                className="mx-2 mb-1 h-0.5 overflow-hidden rounded-full bg-surface-2"
-                aria-hidden
-              >
-                <div
-                  className={cn(
-                    "h-full rounded-full",
-                    m.confidence >= 0.9 ? "bg-state-done/60" : "bg-state-attention/70",
-                  )}
-                  style={{ width: `${Math.round(m.confidence * 100)}%` }}
-                />
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** D78: no amount read on a drop nobody typed — one question, the answer types it (the key and the model follow). */
-function WhatIsIt({
-  documentId,
-  canWrite,
-  onTyped,
-}: {
-  documentId: string;
-  canWrite: boolean;
-  onTyped: () => void;
-}) {
-  const t = useT();
-  const { executeAsync, isPending } = useAction(classifyDocumentAction);
-  return (
-    <div
-      className="mt-2 flex flex-col gap-2 rounded-xl border border-state-attention/30 bg-state-attention/6 p-3"
-      data-testid="inbox-what-is-it"
-    >
-      <p className="text-sm font-medium">{t("documents.inbox.whatIsIt")}</p>
-      {canWrite && (
-        <div className="flex flex-wrap gap-1.5">
-          {ASK_KINDS.map((kind) => (
-            <Button
-              key={kind}
-              size="sm"
-              variant="outline"
-              disabled={isPending}
-              data-kind={kind}
-              onClick={async () => {
-                const r = await executeAsync({ documentId, documentType: kind });
-                const error = extractError(r);
-                if (error) return void toast.error(error);
-                toast.success(
-                  t("documents.inbox.typed", {
-                    type: t(`documents.prefix.${kind}` as MessageKey),
-                  }),
-                );
-                onTyped();
-              }}
-            >
-              {t(`documents.prefix.${kind}` as MessageKey)}
-            </Button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InboxPane({
-  row,
-  canWrite,
-  canMake,
-  canFile,
-  canLink,
-  busy,
-  openSearchKey,
-  applyRequest,
-  onOcr,
-  onMake,
-  onFile,
-  onArchive,
-  onRestore,
-  onLinked,
-}: {
-  row: InboxItem;
-  canWrite: boolean;
-  canMake: boolean;
-  canFile: boolean;
-  canLink: boolean;
-  busy: boolean;
-  openSearchKey: number;
-  applyRequest?: { index: number; requireHigh: boolean; seq: number; needsHighMessage?: string };
-  onOcr: () => void;
-  onMake: (d: "expense" | "supplier") => void;
-  onFile: () => void;
-  onArchive: () => void;
-  onRestore: () => void;
-  onLinked: () => void;
-}) {
-  const t = useT();
-  // F106: the bytes come from the authenticated route — a pure path from the id, nothing to fetch first
-  const fileUrl = documentFileUrl(row.id);
-  // F141: the field *What it read* hovers — its box stands out on the preview
-  const [activeMark, setActiveMark] = useState<string | null>(null);
-
-  const f = row.facts;
-  const facts: [MessageKey, ReactNode][] = [
-    ["documents.inbox.fact.vendor", row.vendor],
-    ["documents.inbox.fact.number", f.invoiceNumber],
-    [
-      "documents.inbox.fact.amount",
-      row.amount ? (
-        <span key="amount" className="tabular-nums" data-amount={row.amount}>
-          {money(row.amount, row.currency)}
-        </span>
-      ) : null,
-    ],
-    [
-      "documents.inbox.fact.date",
-      row.documentDate ? (
-        <span key="date" className="tabular-nums">
-          {row.documentDate}
-        </span>
-      ) : null,
-    ],
-    [
-      "documents.inbox.fact.quality",
-      row.quality ? t(`documents.inbox.quality.${row.quality === "high" ? "high" : "low"}`) : null,
-    ],
-  ];
-  const ocrable = ["needs_ocr", "stuck", "ocr_failed"].includes(row.state);
-  // D78: a drop nobody typed — the reading proposes what it becomes; no amount read, the pane asks what it is
-  const untyped = row.prefixType === "document" && row.state === "ready";
-  const proposal = untyped ? readingProposes(row.facts) : null;
-  const ask = proposal === "ask";
-  const supplierFirst = proposal === "supplier_invoice";
-
-  return (
-    <>
-      {/* the document, its boxes lit by what it read (F141) */}
-      <section
-        className="min-w-0 pulse-card p-4"
-        aria-label={row.fileName}
-        data-testid="inbox-preview-card"
-      >
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Tag>{t(`documents.prefix.${row.prefixType}` as MessageKey)}</Tag>
-          <span className="min-w-0 truncate" title={row.fileName}>
-            {row.fileName}
-          </span>
-          {row.reading && row.reading.marks.length > 0 && (
-            <span className="ml-auto hidden xl:inline">{t("documents.desk.previewHint")}</span>
-          )}
-        </div>
-        <div
-          className="overflow-hidden rounded-xl border border-subtle bg-surface-2"
-          style={{ height: "72vh" }}
-          data-testid="inbox-preview"
-        >
-          <DocumentPreview
-            fileUrl={fileUrl}
-            mimeType={row.mimeType}
-            marks={row.reading}
-            active={activeMark}
-          />
-        </div>
-      </section>
-
-      {/* what it is, what it read, what it could pay, and what to do with it */}
-      <section
-        className="flex min-w-0 flex-col gap-4 pulse-card p-5 xl:sticky xl:top-3"
-        aria-label={t("documents.inbox.pane")}
-        data-testid="inbox-pane"
-      >
-        <div>
-          <h2 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
-            <CodeChip>
-              <span data-testid="inbox-pane-key">{row.businessKey}</span>
-            </CodeChip>
-            <DocumentStateLabel state={row.state} />
-          </h2>
-          {row.vendor && <p className="mt-1 text-[15px] font-semibold">{row.vendor}</p>}
-          {row.state === "stuck" && (
-            <p className="text-xs text-muted-foreground">{t("documents.inbox.stuck")}</p>
-          )}
-          {row.duplicateOf && (
-            <p className="mt-1 text-xs">
-              <Link
-                href={`/documents/${row.duplicateOf.id}`}
-                className="text-primary hover:underline"
-              >
-                {t("documents.inbox.duplicateOf", { key: row.duplicateOf.businessKey })}
-              </Link>
-            </p>
-          )}
-          {proposal && proposal !== "ask" && (
-            <p className="mt-1 text-xs text-muted-foreground" data-testid="inbox-proposes">
-              {t(`documents.inbox.proposes.${proposal}`)}
-            </p>
-          )}
-          {ask && <WhatIsIt documentId={row.id} canWrite={canWrite} onTyped={onLinked} />}
-        </div>
-
-        {row.reading && row.reading.marks.length > 0 && (
-          <WhatItRead row={row} active={activeMark} onActive={setActiveMark} />
-        )}
-
-        {/* what it read says it already: the plain facts fold away then */}
-        <DetailsSection
-          title={t("documents.review.financial")}
-          defaultOpen={!(row.reading && row.reading.marks.length > 0)}
-        >
-          <div data-testid="inbox-facts">
-            <DetailsGrid rows={facts.filter(([, v]) => v).map(([label, v]) => [t(label), v])} />
-          </div>
-        </DetailsSection>
-
-        {canLink && (
-          <SuggestionsSection
-            target={{ endpoint: { type: "document", id: row.id } }}
-            canWrite={canWrite}
-            onLinked={onLinked}
-            openSearchKey={openSearchKey}
-            applyRequest={applyRequest}
-            limit={3}
-          />
-        )}
-
-        <div
-          className="flex flex-wrap gap-2 border-t border-subtle pt-3"
-          data-testid="inbox-actions"
-        >
-          {canWrite && ocrable && (
-            <Button size="sm" disabled={busy} onClick={onOcr} data-testid="inbox-run-ocr">
-              {t("documents.inbox.action.runOcr")}
-            </Button>
-          )}
-          {canMake && !ask && (
-            <>
-              <Button
-                size="sm"
-                // one primary in the pane: *Run OCR* while the OCR is due, then what the reading proposes (D78)
-                variant={(canWrite && ocrable) || supplierFirst ? "outline" : "default"}
-                onClick={() => onMake("expense")}
-                data-testid="inbox-make-expense"
-              >
-                {t("documents.makeIt.expense")}
-              </Button>
-              <Button
-                size="sm"
-                variant={supplierFirst ? "default" : "outline"}
-                onClick={() => onMake("supplier")}
-                data-testid="inbox-make-supplier-invoice"
-              >
-                {t("documents.makeIt.supplierInvoice")}
-              </Button>
-            </>
-          )}
-          {canFile && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={onFile}
-              title={t("documents.makeIt.justFileHint")}
-              data-testid="inbox-file"
-            >
-              {t("documents.makeIt.justFile")}
-            </Button>
-          )}
-          {canWrite && row.state !== "archived" && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={onArchive}
-              data-testid="inbox-archive"
-            >
-              {t("documents.inbox.action.archive")}
-            </Button>
-          )}
-          {canWrite && row.state === "archived" && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={onRestore}
-              data-testid="inbox-restore"
-            >
-              {t("documents.inbox.action.restore")}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="link"
-            nativeButton={false}
-            render={<Link href={`/documents/${row.id}`} />}
-            data-testid="inbox-open"
-          >
-            {t("documents.inbox.action.open")}
-          </Button>
-        </div>
-      </section>
-    </>
   );
 }
 
