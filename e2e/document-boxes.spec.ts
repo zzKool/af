@@ -23,7 +23,7 @@ test.describe("Documents — what it read, and where", () => {
     test.setTimeout(90_000);
     const stamp = crypto.randomUUID().slice(0, 8);
     const name = `e2e-boxes-${stamp}.pdf`;
-    await page.goto("/documents");
+    await page.goto("/documents/library");
     await page.locator('input[type="file"]').setInputFiles({
       name,
       mimeType: "application/pdf",

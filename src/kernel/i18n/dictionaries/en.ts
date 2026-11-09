@@ -2252,6 +2252,14 @@ export const en = {
   // --- documents library (D20) ---
   "documents.title": "Documents",
   "documents.meta": "{total} document(s) · {unreviewed} to review · {failed} OCR failed",
+  "documents.library.title": "All documents",
+  "documents.desk.meta": "{count} waiting for a decision",
+  "documents.desk.all": "All documents ({count})",
+  "documents.desk.dropTitle": "Drop anything here",
+  "documents.desk.dropText":
+    "PDFs, phone photos, several at once. You never pick a type: the app reads each file, proposes what it becomes and the bank row it pays.",
+  "documents.upload.dropCompact": "Drop files here, or click to choose them",
+  "documents.desk.previewHint": "hover a field on the right — its box lights up",
   "documents.search": "Search key, file name, vendor…",
   "documents.empty": "No documents match. Upload a receipt or an invoice above.",
   "documents.blank": "(blank)",

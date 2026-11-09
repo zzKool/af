@@ -6,7 +6,7 @@ test.describe("Document Library", () => {
   test.use({ storageState: "e2e/.auth/owner.json" });
 
   test("upload → row → filter → delete", async ({ page }) => {
-    await page.goto("/documents");
+    await page.goto("/documents/library");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Search" })).toBeVisible();
@@ -100,7 +100,7 @@ test.describe("Document Library", () => {
 
   // F73: + New → Upload document lands on ?new=1 — the zone in a dialog; closing drops the param
   test("?new=1 opens the upload dialog", async ({ page }) => {
-    await page.goto("/documents?new=1");
+    await page.goto("/documents/library?new=1");
     const dialog = page.getByTestId("upload-document-dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Upload document" })).toBeVisible();
@@ -126,11 +126,11 @@ test.describe("Document Library — the accountant", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
   test("reads the financial documents, cannot upload or delete", async ({ page }) => {
-    await page.goto("/documents");
+    await page.goto("/documents/library");
     await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload document" })).toHaveCount(0);
     // ?new=1 opens nothing for a role that cannot upload
-    await page.goto("/documents?new=1");
+    await page.goto("/documents/library?new=1");
     await expect(page.getByTestId("upload-document-dialog")).toHaveCount(0);
     // no Delete in any row's ⋮ menu
     const firstRowMenu = page.getByRole("button", { name: "Row actions" }).first();

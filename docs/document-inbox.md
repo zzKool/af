@@ -1,6 +1,6 @@
-# Document inbox
+# Document inbox — the documents desk
 
-`/documents/inbox` — the documents work page: every document that still needs a decision on the left, the open one on the right, driven from the keyboard. Spec: `specs/documents/spec.md` US4 (FR-016 – FR-024), decisions D32 / D34. Shaped like the banking inbox ([[linking]]).
+`/documents` (since F153; `/documents/inbox` redirects there) — the documents work page, the board *Documents*: **Drop anything here** on top (`DropHero`: the upload zone, no type to pick — D78; `?new=1` opens it in a dialog), then **three columns** at 1280 px and more — what still needs a decision (cards with the vendor, the key and state, the kind, the amount and date read; a left edge per state, red for a duplicate), **the document** with the boxes of what was read (hovering a field lights its box), and **What it read** (each field, its value, a confidence bar and glyph — the plain facts fold away when there are marks), the bank rows that could justify it, and the actions (*Expense* · *Supplier invoice* · *Just file it* · *Archive* · *Open*). Narrower, the three stack. *All documents (n)* opens the library ([[document-library]]). Driven from the keyboard. Spec: `specs/documents/spec.md` US4 (FR-016 – FR-024), decisions D32 / D34. Shaped like the banking inbox ([[linking]]).
 
 ```
 upload ──► OCR ──► inbox row ──► Make it… Expense / Supplier invoice ──► out (became)

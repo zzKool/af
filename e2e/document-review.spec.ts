@@ -8,7 +8,7 @@ import { minimalPdf } from "./fixtures/pdf";
  * cannot change what this one sees.
  */
 async function openOwnDocument(page: Page, real = false): Promise<void> {
-  await page.goto("/documents");
+  await page.goto("/documents/library");
   await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
   // random, not the clock: parallel journeys starting in the same millisecond would upload the same bytes (a duplicate)
   const stamp = crypto.randomUUID().slice(0, 8);
@@ -204,7 +204,7 @@ test.describe("Document review page — owner", () => {
 
     // FR-005: the library says it too — Expense {key}, linking to the same expense
     const docKey = (await page.getByTestId("document-review-key").textContent())?.trim() ?? "";
-    await page.goto(`/documents?q=${encodeURIComponent(docKey)}`);
+    await page.goto(`/documents/library?q=${encodeURIComponent(docKey)}`);
     const libraryBecame = page.getByTestId("document-became-link");
     await expect(libraryBecame).toContainText(/Expense Ex\d+-\w+-\d+/);
     await expect(libraryBecame).toHaveAttribute("href", href ?? "");
@@ -247,7 +247,7 @@ test.describe("Document review page — owner", () => {
 
   test("documents list shows each row's derived state as icon + word", async ({ page }) => {
     await openOwnDocument(page);
-    await page.goto("/documents");
+    await page.goto("/documents/library");
     // F71: the inbox's word through the module's one family map — Ready until it is decided, never a pill
     const state = page.getByTestId("document-state").first();
     await expect(state).toBeVisible();
@@ -265,7 +265,7 @@ test.describe("Document review page — accountant blocked from detail", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
   test("accountant can view the documents list but cannot upload", async ({ page }) => {
-    await page.goto("/documents");
+    await page.goto("/documents/library");
     // Story 5.4: accountants have read-only access to the (financial) documents library — the list shows,
     // the upload zone does not. The rows may carry detail links (generated PDFs and bank statements are
     // financial), so the assertion is on the write surface, not on the links.

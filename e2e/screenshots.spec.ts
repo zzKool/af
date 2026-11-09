@@ -14,8 +14,8 @@ const PAGES: Record<string, string> = {
   "banking-reconcile": "/banking/reconcile",
   "banking-imports": "/banking/imports",
   documents: "/documents",
-  "documents-new": "/documents?new=1",
-  "documents-inbox": "/documents/inbox",
+  "documents-new": "/documents/library?new=1",
+  "documents-library": "/documents/library",
   partners: "/partners",
   invoices: "/invoices",
   "invoices-new": "/invoices/new",
@@ -49,8 +49,8 @@ const ENTITIES: Record<string, { list: string; link: string }> = {
     link: 'a[href^="/invoices/"]:not([href="/invoices/new"])',
   },
   "document-entity": {
-    list: "/documents",
-    link: 'a[href^="/documents/"]:not([href="/documents/inbox"])',
+    list: "/documents/library",
+    link: 'td a[href^="/documents/"]',
   },
   "expense-group-entity": { list: "/expenses/groups", link: 'a[href^="/expenses/groups/"]' },
 };
