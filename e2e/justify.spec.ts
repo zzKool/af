@@ -232,15 +232,20 @@ test.describe("Justify", () => {
       await expect(page.getByText(`Always like this for PRISAVGIFT ${stamp}?`)).toBeVisible();
       await expect(inboxRow(`PRISAVGIFT ${stamp}`)).toHaveCount(0, { timeout: 20_000 });
 
-      // 6. the card row: the fourth exit shows (an outgoing row, the owner owed the train) and leads to the settle
-      //    page with this row preselected; then x → the dialog without a paper → an expense with the flag, the
-      //    merchant picked
+      // 6. the card row: the fourth exit shows (an outgoing row, the owner owed the train) and opens the FIFO
+      //    picker in place on this row (T021, cancelled here); then x → the dialog without a paper → an expense
+      //    with the flag, the merchant picked
       await inboxRow(`CAFE ${stamp}`).first().click();
       await expect(page.getByTestId("justify-panel")).toBeVisible();
-      await expect(page.getByTestId("justify-refund")).toHaveAttribute(
-        "href",
-        /\/expenses\/settle\?row=[0-9a-f-]{36}$/,
-      );
+      await page.getByTestId("justify-refund").click();
+      await expect(page.getByTestId("refund-picker")).toBeVisible();
+      await expect(page.getByTestId("refund-line").first()).toBeVisible();
+      await snapElement(page.getByTestId("justify-panel"), "f172-refund-picker-light");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await snapElement(page.getByTestId("justify-panel"), "f172-refund-picker-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.getByTestId("refund-cancel").click();
+      await expect(page.getByTestId("refund-picker")).toHaveCount(0);
       await page.keyboard.press("x");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByTestId("reading-title")).toContainText("Receipt lost");
@@ -249,8 +254,22 @@ test.describe("Justify", () => {
       await dialog.getByTestId("justify-vendor").fill(`Coffee ${stamp}`);
       await dialog.getByTestId("justify-partner").click();
       await page.getByRole("option", { name: supplier }).click();
+      // + New group as a trip (T020): the trip's three facts in place, the paper's day at both ends; Confirm
+      // names what is missing until a country is picked — then back to the batch group made above
       await dialog.getByTestId("justify-group").getByRole("combobox").click();
+      await page.getByRole("option", { name: "+ New group…" }).click();
+      await dialog.getByTestId("reading-new-group-trip").click();
+      await expect(dialog.getByTestId("new-trip-departure")).toHaveValue(/T08:00$/);
+      await expect(dialog.getByTestId("new-trip-return")).toHaveValue(/T18:00$/);
+      await expect(dialog.getByTestId("justify-missing")).toContainText("the trip's country");
+      await dialog.getByTestId("justify-group").scrollIntoViewIfNeeded();
+      await snap(page, "f172-new-trip-light");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await snap(page, "f172-new-trip-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+      await dialog.getByTestId("justify-group").getByRole("combobox").first().click();
       await page.getByRole("option", { name: new RegExp(groupName) }).click();
+      await expect(dialog.getByTestId("new-trip-departure")).toHaveCount(0);
       await dialog.getByTestId("justify-category").click();
       await page.getByRole("option", { name: /^5800/ }).click();
       await snap(page, "reading-dialog-lost");

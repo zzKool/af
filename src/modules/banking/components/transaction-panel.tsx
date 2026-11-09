@@ -530,30 +530,29 @@ export function TransactionDetailView({
               testId="zone-proof"
             >
               {canWrite && justifyOptions && JUSTIFY_STATES.has(detail.state) && (
-                // the step is the heading: the panel's own section header (F97's *Justify*) is not shown here
-                <div className="[&>section]:border-t-0 [&>section]:pt-0 [&>section>button]:hidden">
-                  <JustifyPanel
-                    row={{
-                      id: tx.id,
-                      bookingDate: tx.bookingDate,
-                      amount: tx.amount,
-                      currency: tx.currency,
-                      amountBase: tx.amountBase,
-                      description: tx.description,
-                      counterpartyKey: tx.counterpartyKey,
-                      bankAccountId: tx.bankAccountId,
-                      accountLabel: detail.accountLabel,
-                    }}
-                    canWrite={canWrite}
-                    options={justifyOptions}
-                    proposals={proposals}
-                    onDone={changed}
-                    onProofRead={changed}
-                    proofKey={proofKey}
-                    noProofKey={noProofKey}
-                    lostKey={lostKey}
-                  />
-                </div>
+                // the step is the heading: the panel takes no section of its own here (T024)
+                <JustifyPanel
+                  heading={false}
+                  row={{
+                    id: tx.id,
+                    bookingDate: tx.bookingDate,
+                    amount: tx.amount,
+                    currency: tx.currency,
+                    amountBase: tx.amountBase,
+                    description: tx.description,
+                    counterpartyKey: tx.counterpartyKey,
+                    bankAccountId: tx.bankAccountId,
+                    accountLabel: detail.accountLabel,
+                  }}
+                  canWrite={canWrite}
+                  options={justifyOptions}
+                  proposals={proposals}
+                  onDone={changed}
+                  onProofRead={changed}
+                  proofKey={proofKey}
+                  noProofKey={noProofKey}
+                  lostKey={lostKey}
+                />
               )}
               {detail.links.length > 0 && (
                 <div className="flex flex-col gap-2" data-testid="proof-links">

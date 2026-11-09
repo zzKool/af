@@ -8,6 +8,7 @@ import { Prisma, type Trip } from "@/generated/prisma/client";
 import { toAuditData } from "@/kernel/audit/audit";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
+import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { AppError, ServiceResult } from "@/kernel/errors/app-error";
 import { uuid } from "@/kernel/validation/scalars";
@@ -331,4 +332,68 @@ export async function createOrReplacePerDiemExpense(
 export async function getTrip(tx: TransactionClient, groupId: string): Promise<TripDto | null> {
   const row = await tx.trip.findUnique({ where: { groupId } });
   return row ? toTripDto(row) : null;
+}
+
+/**
+ * A new trip in one step (review 2026-10-31 §5.2, T020): the reading dialog's *+ New group* as a trip — the group
+ * (kind `trip`, its number from the series) and its trip (departure, return, country) in the caller's transaction,
+ * the per-diem computed with it (`upsertTrip`'s snapshot). The meals and the per-diem expense stay the group page's
+ * (the trip panel): the paper says nothing of lunches. A missing rate year saves the trip without a snapshot and
+ * names what is missing (`computeError`), as `upsertTrip` does.
+ */
+export const newTripSchema = z
+  .object({
+    description: z.string().trim().min(1, "Description is required").max(200),
+    departureAt: z.string().min(16),
+    returnAt: z.string().min(16),
+    countryCode: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{2}$/, "A country code is two letters"),
+  })
+  .refine((v) => toInstant(v.returnAt) > toInstant(v.departureAt), {
+    message: "The return must be after the departure",
+  });
+export type NewTripInput = z.input<typeof newTripSchema>;
+
+export async function createTripGroup(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  input: NewTripInput,
+): Promise<
+  ServiceResult<{
+    group: expenses.ExpenseGroupDto;
+    trip: TripDto;
+    computeError: AppError | null;
+  }>
+> {
+  if (!can(caller, "create", "expense"))
+    return {
+      error: { code: "FORBIDDEN", message: "Not allowed to create a trip", retryable: false },
+    };
+  const parsed = newTripSchema.safeParse(input);
+  if (!parsed.success)
+    return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
+  const v = parsed.data;
+  const group = await expenses.createGroup(tx, caller, audit, {
+    description: v.description,
+    kind: "trip",
+  });
+  if (group.error) return { error: group.error };
+  const saved = await upsertTrip(tx, caller, audit, {
+    groupId: group.data.id,
+    departureAt: v.departureAt,
+    returnAt: v.returnAt,
+    countryCode: v.countryCode,
+  });
+  if (saved.error) return { error: saved.error };
+  return {
+    data: {
+      group: { ...group.data, kind: "trip" },
+      trip: saved.data.trip,
+      computeError: saved.data.computeError,
+    },
+  };
 }

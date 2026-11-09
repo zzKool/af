@@ -25,10 +25,12 @@ vi.mock("@/modules/documents/ui", async () => ({
 const matchState = vi.hoisted(() => ({
   matches: [] as { partnerId: string; name: string; percent: number }[],
 }));
-vi.mock("@/modules/partners/ui", () => ({
+// the create form is the partners module's own (T023), its action a name the `useAction` stub records
+vi.mock("@/modules/partners/partners.actions", () => ({ createPartnerAction: "createPartner" }));
+vi.mock("@/modules/partners/ui", async () => ({
   MATCH_BEST_FROM: 60,
-  createPartnerAction: "createPartner",
-  partnerAddressFromOcr: () => ({}),
+  PartnerCreateForm: (await import("@/modules/partners/components/partner-create-form"))
+    .PartnerCreateForm,
   PartnerMatchCard: ({
     onUseMatch,
     onMatches,
@@ -111,6 +113,52 @@ vi.mock("@/modules/expenses/ui", async () => ({
     </>
   ),
 }));
+
+// the trip's fields with a native country select; the creation records its input (T020)
+const tripState = vi.hoisted(() => ({ created: [] as { description: string; trip: unknown }[] }));
+vi.mock("@/modules/traktamente/ui", async () => {
+  const real = await import("@/modules/traktamente/components/new-trip-fields");
+  return {
+    newTripFor: real.newTripFor,
+    newTripMissing: real.newTripMissing,
+    useCreateTripGroup: () => ({
+      createTrip: async (description: string, trip: unknown) => {
+        tripState.created.push({ description, trip });
+        return "created-trip";
+      },
+      isPending: false,
+    }),
+    NewTripFields: ({
+      value,
+      onChange,
+    }: {
+      value: { departureAt: string; returnAt: string; countryCode: string };
+      onChange: (v: typeof value) => void;
+    }) => (
+      <>
+        <input
+          data-testid="new-trip-departure"
+          value={value.departureAt}
+          onChange={(e) => onChange({ ...value, departureAt: e.target.value })}
+        />
+        <input
+          data-testid="new-trip-return"
+          value={value.returnAt}
+          onChange={(e) => onChange({ ...value, returnAt: e.target.value })}
+        />
+        <select
+          data-testid="new-trip-country"
+          aria-label="Country"
+          value={value.countryCode}
+          onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
+        >
+          <option value="">—</option>
+          <option value="CH">Switzerland</option>
+        </select>
+      </>
+    ),
+  };
+});
 
 const calls: Record<string, ReturnType<typeof vi.fn>> = {};
 vi.mock("next-safe-action/hooks", () => ({
@@ -511,6 +559,45 @@ describe("ReadingDialog — the checks (F130) and the group (§5.2)", () => {
     fireEvent.click(screen.getByTestId("justify-create"));
     await waitFor(() => expect(calls.justify).toHaveBeenCalled());
     expect(calls.justify.mock.calls[0][0].supplier.groupId).toBe("created-group");
+  });
+
+  it("+ New group as a trip (T020): departure, return, country in place — the trip is created, the entity goes into it", async () => {
+    tripState.created = [];
+    mount();
+    fireEvent.change(screen.getByTestId("group-select"), { target: { value: "__new__" } });
+    // a month's group by default; the trip asks for its three facts
+    expect(screen.getByTestId("reading-new-group-batch")).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByTestId("new-trip-departure")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("reading-new-group-trip"));
+    // the paper's day at both ends, no country yet → Confirm names what the trip still needs
+    expect(screen.getByTestId("new-trip-departure")).toHaveValue("2026-07-06T08:00");
+    expect(screen.getByTestId("new-trip-return")).toHaveValue("2026-07-06T18:00");
+    fireEvent.change(screen.getByTestId("new-group-description"), {
+      target: { value: "Zurich, July 2026" },
+    });
+    fireEvent.click(screen.getByTestId("partner-match-use"));
+    await waitFor(() =>
+      expect(screen.getByTestId("justify-missing")).toHaveTextContent("the trip's country"),
+    );
+    expect(screen.getByTestId("justify-create")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("new-trip-country"), { target: { value: "CH" } });
+    fireEvent.change(screen.getByTestId("new-trip-return"), {
+      target: { value: "2026-07-09T19:30" },
+    });
+    await waitFor(() => expect(screen.getByTestId("justify-create")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("justify-create"));
+    await waitFor(() => expect(calls.justify).toHaveBeenCalled());
+    expect(tripState.created).toEqual([
+      {
+        description: "Zurich, July 2026",
+        trip: {
+          departureAt: "2026-07-06T08:00",
+          returnAt: "2026-07-09T19:30",
+          countryCode: "CH",
+        },
+      },
+    ]);
+    expect(calls.justify.mock.calls[0][0].supplier.groupId).toBe("created-trip");
   });
 
   it("Cancel closes without writing; a receipt lost opens without a preview, the facts typed", async () => {

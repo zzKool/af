@@ -170,9 +170,17 @@ export async function rowFacts(
         basCode: f.basCode ?? null,
       });
   }
-  const owner = allocating.some((l) => l.kind === "settles")
-    ? await partners.systemPartner(tx, "owner")
-    : null;
+  // the owner of the rows' tenant — named, not left to RLS (a read run as the migration role sees every tenant, T026)
+  const settledRow = allocating.find((l) => l.kind === "settles")?.from.id;
+  const tenantId = settledRow
+    ? (
+        await tx.bankTransaction.findUnique({
+          where: { id: settledRow },
+          select: { tenantId: true },
+        })
+      )?.tenantId
+    : undefined;
+  const owner = settledRow ? await partners.systemPartner(tx, "owner", tenantId) : null;
 
   const proofsByRow = new Map<string, ProofFact[]>();
   for (const l of allocating) {

@@ -94,6 +94,14 @@ export const upsertTripAction = ownerAction
     trips.upsertTrip(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );
 
+/** A new trip group with its trip in one transaction — the reading dialog's *+ New group* as a trip (T020). */
+export const createTripGroupAction = ownerAction
+  .schema(trips.newTripSchema)
+  .metadata({ name: "createTripGroup" })
+  .action(async ({ ctx, parsedInput }) =>
+    trips.createTripGroup(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
+
 /** Write the per-diem expense; the breakdown PDF job is enqueued once committed (D29). */
 export const createPerDiemExpenseAction = ownerAction
   .schema(z.object({ groupId: uuid, basCode: z.string().regex(/^\d{4}$/) }))

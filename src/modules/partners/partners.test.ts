@@ -791,6 +791,29 @@ describe("system partners (F129 US4)", () => {
     expect(partnerService.partnerTypeSchema.safeParse("authority").success).toBe(true);
   });
 
+  it("T026: outside RLS (the migration role sees every tenant) systemPartner names the tenant it was asked for", async () => {
+    const a = (await createAuthenticatedContext(auth, "owner")).callerIdentity;
+    const b = (await createAuthenticatedContext(auth, "owner")).callerIdentity;
+    for (const [c, bankName] of [
+      [a, "Bank A"],
+      [b, "Bank B"],
+    ] as const)
+      await run(c, (tx) => partnerService.ensureSystemPartners(tx, c, noopAudit, { bankName }));
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("@/generated/prisma/client");
+    const superuser = new PrismaClient({ adapter: new PrismaPg(adminPool) });
+    try {
+      await superuser.$transaction(async (raw) => {
+        const tx = raw as unknown as import("@/kernel/db/tenant-client").TransactionClient;
+        expect((await partnerService.systemPartner(tx, "bank", a.tenantId))?.name).toBe("Bank A");
+        expect((await partnerService.systemPartner(tx, "bank", b.tenantId))?.name).toBe("Bank B");
+        expect((await partnerService.systemPartners(tx, b.tenantId)).bank?.name).toBe("Bank B");
+      });
+    } finally {
+      await superuser.$disconnect();
+    }
+  });
+
   it("ensureSystemPartners seeds the four once — named, typed, audited — and finds them again by their role", async () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const c = owner.callerIdentity;

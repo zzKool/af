@@ -10,11 +10,13 @@ import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { settlementTolerance } from "@/kernel/money/settlement";
+import type { SystemRole } from "@/modules/partners";
 import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import { type BalanceRow, balanceChain } from "./completeness";
 import type { ParsedRow } from "./csv-parser";
 import { iso } from "./dto";
+import { baseAmount } from "./facts";
 import { parseForAccount } from "./import";
 import { DEFAULT_RULES, firstHit, orderRules, type RuleLike, ruleTarget } from "./rules";
 import type {
@@ -63,12 +65,12 @@ export async function previewImport(
   // the parse, the currency check, the dedup plan, the rates — exactly the import's refusals (F109), before any write
   const parsed = await parseForAccount(tx, input);
   if (parsed.error) return { error: parsed.error };
-  const { account, label, rows, fresh, duplicates, periodFrom, periodTo } = parsed.data;
+  const { account, label, rows, fresh, duplicates, periodFrom, periodTo, rates } = parsed.data;
   const freshIndexes = new Set(fresh.map((r) => r.rowIndex));
 
   // the rules in dry run on the new rows — the same first hit the import's `applyToTransactions` writes; a tenant
   // without a rule yet gets the two defaults the first import creates (they name the bank, F129)
-  const rules = await previewRules(tx, account.bankFormat.bankName);
+  const rules = await previewRules(tx, account.bankFormat.bankName, caller.tenantId);
   const ordered = orderRules(rules);
   const hits = new Map<number, ImportPreviewRuleHit>();
   const ruleFacts = await ruleHitFacts(tx, rules);
@@ -90,7 +92,7 @@ export async function previewImport(
   }
 
   // my invoice found: the open issued invoices whose number is a token of an incoming row's text
-  const invoices = await invoicesFound(tx, account.currency, fresh);
+  const invoices = await invoicesFound(tx, fresh, rates);
 
   // the balance chain over the account with the new rows in (F115): how far it would be proven after Import
   const existing = await tx.bankTransaction.findMany({
@@ -156,10 +158,19 @@ export async function previewImport(
  * (`ensureDefaultRules`): the bank's partner when it exists already, else the format's bank name — the import
  * creates it under that name (`ensureSystemPartners`).
  */
-async function previewRules(tx: TransactionClient, bankName: string): Promise<PreviewRule[]> {
-  const active = await tx.categorisationRule.findMany({ where: { isActive: true } });
+async function previewRules(
+  tx: TransactionClient,
+  bankName: string,
+  tenantId: string,
+): Promise<PreviewRule[]> {
+  const active = await tx.categorisationRule.findMany({ where: { isActive: true, tenantId } });
   if (active.length > 0) return active;
-  const bank = await partners.systemPartner(tx, "bank");
+  // each default rule's role → the partner holding it (FR-002: a role is looked up, never compared, T029); a role
+  // not held yet is named as the first import will create it — the bank under the format's bank name
+  // (active only — `ensureDefaultRules` names an active partner, the preview says what it will write)
+  const all = await partners.systemPartners(tx, tenantId);
+  const held = (role: SystemRole) => (all[role]?.isActive ? all[role] : null);
+  const unseededName: Partial<Record<SystemRole, string>> = { bank: bankName.trim() || "Bank" };
   const epoch = new Date(0);
   return DEFAULT_RULES.map(({ partnerRole, ...r }, i) => ({
     id: `default-${i}`,
@@ -171,8 +182,10 @@ async function previewRules(tx: TransactionClient, bankName: string): Promise<Pr
     createdAt: epoch,
     isActive: true,
     basCode: r.basCode ?? null,
-    partnerId: partnerRole === "bank" ? (bank?.id ?? null) : null,
-    partnerName: partnerRole === "bank" ? (bank?.name ?? (bankName.trim() || "Bank")) : null,
+    partnerId: partnerRole ? (held(partnerRole)?.id ?? null) : null,
+    partnerName: partnerRole
+      ? (held(partnerRole)?.name ?? unseededName[partnerRole] ?? null)
+      : null,
     noDocumentNeeded: r.noDocumentNeeded ?? false,
   }));
 }
@@ -223,14 +236,16 @@ async function ruleHitFacts(
  * reference claim, read through linking at call time (the load cycle, lessons F113 build): the candidates
  * come from the invoice linkable (its own `references` lookup), what is still open on them from linking's
  * allocation sums, the pair's confidence from `scoreMatch` on the parsed row's facts — the same facts the row's
- * linkable gives once imported, so *Suggestions* finds the same invoice after Import. The simplest honest claim:
- * the number is in the text, the invoice is open, in the row's currency; two numbers in one text name the
- * better-ranked one. Nothing is stored (D60: a link on a click only).
+ * linkable gives once imported (the base at the rate the import writes, `rates`), so *Suggestions* finds the same
+ * invoice after Import. The simplest honest claim: the number is in the text, the invoice is open; in another
+ * currency too (T022 — a CHF invoice paid into the SEK account), the scorer comparing the bases at the ECB rate and
+ * the reference waiving the currency penalty; two numbers in one text name the better-ranked one. Nothing is
+ * stored (D60: a link on a click only).
  */
 async function invoicesFound(
   tx: TransactionClient,
-  currency: string,
   fresh: readonly ParsedRow[],
+  rates: ReadonlyMap<string, { rate: string }>,
 ): Promise<Map<number, ImportPreviewInvoice>> {
   const out = new Map<number, ImportPreviewInvoice>();
   const incoming = fresh.filter((r) => r.amount.gt(0));
@@ -265,7 +280,7 @@ async function invoicesFound(
   );
   // open = the total minus what the links already allocate onto it (linking's read); settled ones are no candidates
   const unique = [...new Map(candidates.map((c) => [c.id, c])).values()].filter(
-    (c) => c.reference && c.currency === currency && c.direction === "incoming",
+    (c) => c.reference && c.direction === "incoming",
   );
   const allocated = await linking.allocatedSums(
     tx,
@@ -285,10 +300,11 @@ async function invoicesFound(
     if (!tokens || tokens.size === 0) continue;
     const named = open.filter((c) => tokens.has((c.reference as string).toUpperCase()));
     if (named.length === 0) continue;
+    const rate = rates.get(r.date)?.rate;
     const row = {
       amount: r.amount.toFixed(2),
       currency: r.currency,
-      amountBase: null,
+      amountBase: rate ? baseAmount(r.amount, rate).toFixed(2) : null,
       date: r.date,
       texts: texts(r),
     };
@@ -304,6 +320,7 @@ async function invoicesFound(
       invoiceId: best.candidate.id,
       number: best.candidate.reference as string,
       partnerName: best.candidate.partnerName,
+      currency: best.candidate.currency,
       confidence: best.confidence,
     });
   }

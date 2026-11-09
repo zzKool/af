@@ -4,6 +4,7 @@
 
 export * from "./components/new-partner-button";
 export * from "./components/ocr-address";
+export * from "./components/partner-create-form";
 export * from "./components/partner-detail-tabs";
 export * from "./components/partner-form";
 export * from "./components/partner-labels";

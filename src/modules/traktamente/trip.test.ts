@@ -31,7 +31,13 @@ import {
   upsertRate,
 } from "./rates";
 import { resolvePerDiemStatement } from "./statement";
-import { createOrReplacePerDiemExpense, getTrip, previewPerDiem, upsertTrip } from "./trip";
+import {
+  createOrReplacePerDiemExpense,
+  createTripGroup,
+  getTrip,
+  previewPerDiem,
+  upsertTrip,
+} from "./trip";
 
 let mockHeaders: Headers = new Headers();
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => mockHeaders) }));
@@ -434,6 +440,90 @@ describe("US3 — the per-diem expense", () => {
     expect(toInstant("2026-07-01T12:30").toISOString()).toBe("2026-07-01T10:30:00.000Z");
     expect(toInstant("2026-10-25T02:30").toISOString()).toMatch(/^2026-10-25T0[01]:30:00.000Z$/);
     expect(toInstant("2026-03-02T09:00:00+01:00").toISOString()).toBe("2026-03-02T08:00:00.000Z");
+  });
+});
+
+describe("T020 — a new trip from the reading dialog (review §5.2)", () => {
+  const newTrip = {
+    description: "Switzerland, March 2026",
+    departureAt: "2026-03-02T09:00",
+    returnAt: "2026-03-06T17:00",
+    countryCode: "ch",
+  };
+
+  it("one call: the trip group (its number from the series), the trip and its per-diem computed — audited", async () => {
+    const r = await run(owner.caller, (tx) =>
+      createTripGroup(tx, owner.caller, realAudit(tx, owner.caller), newTrip),
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.data?.group).toMatchObject({
+      number: 213,
+      description: "Switzerland, March 2026",
+      kind: "trip",
+    });
+    expect(r.data?.trip).toMatchObject({ groupId: r.data?.group.id, countryCode: "CH" });
+    // 2 Mar 09:00 → 6 Mar 17:00: a full departure day, three days, a half return day = 4.5 days of 1 402 SEK
+    expect(r.data?.trip.computed).toMatchObject({ days: 4.5 });
+    expect(r.data?.computeError).toBeNull();
+    await run(owner.caller, async (tx) => {
+      expect((await expenses.getGroup(tx, r.data!.group.id)).data?.kind).toBe("trip");
+      expect((await getTrip(tx, r.data!.group.id))?.countryCode).toBe("CH");
+      // the per-diem expense is the group page's (the meals are typed there): none written here
+      expect((await getTrip(tx, r.data!.group.id))?.perDiemExpenseId).toBeNull();
+    });
+    await assertAuditLogged(
+      adminPool,
+      owner.caller.tenantId,
+      "create",
+      "expense_group",
+      r.data!.group.id,
+    );
+    await assertAuditLogged(adminPool, owner.caller.tenantId, "create", "trip", r.data!.trip.id);
+  });
+
+  it("a year without rates: the trip is saved, the missing year named, nothing computed", async () => {
+    const r = await run(owner.caller, (tx) =>
+      createTripGroup(tx, owner.caller, noopAudit, {
+        ...newTrip,
+        departureAt: "2031-03-02T09:00",
+        returnAt: "2031-03-06T17:00",
+      }),
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.data?.trip.computed).toBeNull();
+    expect(r.data?.computeError?.message).toBeTruthy();
+  });
+
+  it("refused: an accountant, a return before the departure, a country that is not two letters", async () => {
+    const accountant = { ...owner.caller, role: "accountant" as const };
+    const denied = await run(owner.caller, (tx) =>
+      createTripGroup(tx, accountant, noopAudit, newTrip),
+    );
+    expect(denied.error?.code).toBe("FORBIDDEN");
+    const backwards = await run(owner.caller, (tx) =>
+      createTripGroup(tx, owner.caller, noopAudit, {
+        ...newTrip,
+        returnAt: "2026-03-01T17:00",
+      }),
+    );
+    expect(backwards.error?.code).toBe("VALIDATION_ERROR");
+    expect(backwards.error?.message).toMatch(/after the departure/);
+    const country = await run(owner.caller, (tx) =>
+      createTripGroup(tx, owner.caller, noopAudit, { ...newTrip, countryCode: "CHE" }),
+    );
+    expect(country.error?.code).toBe("VALIDATION_ERROR");
+    await run(owner.caller, async (tx) => expect(await expenses.listGroups(tx)).toHaveLength(0));
+  });
+
+  it("tenant isolation: another tenant does not see the trip group", async () => {
+    const r = await run(owner.caller, (tx) =>
+      createTripGroup(tx, owner.caller, noopAudit, newTrip),
+    );
+    const other = await setupOwner(adminPool, nordeaFormatId);
+    await run(other.caller, async (tx) => {
+      expect((await expenses.getGroup(tx, r.data!.group.id)).error?.code).toBe("NOT_FOUND");
+      expect(await getTrip(tx, r.data!.group.id)).toBeNull();
+    });
   });
 });
 

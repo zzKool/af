@@ -69,14 +69,18 @@ test.describe("Expenses", () => {
         );
         await expect(dialog).not.toBeVisible();
       }
-      await page.goto("/expenses");
+      // this run's rows only (a developer's database holds earlier runs' — the list pages them away)
+      await page.goto(`/expenses?q=${encodeURIComponent(groupName)}`);
       await expect(page.getByTestId("kpi-open")).toBeVisible();
-      await expect(page.getByRole("row").filter({ hasText: "Hotel" }).first()).toContainText(
-        "To refund",
-      );
+      // this run's hotel (a developer's database holds earlier runs' — their group names differ)
+      const hotelRow = page
+        .getByRole("row")
+        .filter({ hasText: "Hotel" })
+        .filter({ hasText: groupName });
+      await expect(hotelRow.first()).toContainText("To refund");
 
       // the panel: the key, the status, a fact saved on change
-      await page.getByRole("row").filter({ hasText: "Hotel" }).first().click();
+      await hotelRow.first().click();
       const panel = page.getByTestId("expense-panel");
       await expect(panel).toBeVisible();
       await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-Tr-01/);
@@ -142,9 +146,9 @@ test.describe("Expenses", () => {
       });
       await page.keyboard.press("Escape");
 
-      // 5. settle, run from the row (F131 §5.1): the row's panel offers *This row refunds me* (the ledger has
-      //    something open) → the settle page with the row preselected and locked → the FIFO proposal covers the
-      //    three receipts (dated before the per diem), confirm
+      // 5. settle, run from the row (F131 §5.1, T021): the row's panel offers *This row refunds me* (the ledger has
+      //    something open) → the FIFO picker in place on this row → the proposal covers the three receipts (dated
+      //    before the per diem), confirm — the settle page stays one link away
       await page.goto(`/banking?q=${encodeURIComponent(`Zikrija ${stamp}`)}`);
       await page
         .getByRole("row")
@@ -152,42 +156,31 @@ test.describe("Expenses", () => {
         .first()
         .click();
       await expect(page.getByTestId("transaction-panel")).toBeVisible();
-      const refundExit = page.getByTestId("justify-refund");
-      await expect(refundExit).toHaveAttribute("href", /\/expenses\/settle\?row=[0-9a-f-]{36}$/);
-      const refundRowId = (await refundExit.getAttribute("href"))?.split("row=")[1] ?? "";
-      await refundExit.click();
-      await expect(page).toHaveURL(/\/expenses\/settle\?row=/);
-      await expect(page.getByTestId("locked-transaction")).toContainText(`Zikrija ${stamp}`);
-      await expect(page.getByTestId("pick-transaction")).toHaveCount(0);
-      await expect(page.getByTestId("change-transaction")).toHaveAttribute(
+      await page.getByTestId("justify-refund").click();
+      const picker = page.getByTestId("refund-picker");
+      await expect(picker).toBeVisible();
+      await expect(picker.getByTestId("refund-open-settle")).toHaveAttribute(
         "href",
-        "/expenses/settle",
+        /\/expenses\/settle\?row=[0-9a-f-]{36}$/,
       );
-      await expect(page.getByTestId("settle-summary")).toBeVisible();
       // the proposal lands asynchronously — wait for its ticks before adjusting them
-      await expect(page.getByTestId("settle-selected")).not.toContainText("Selected: 0.00");
+      await expect(picker.getByTestId("refund-selected")).not.toContainText("Selected: 0.00");
       // the FIFO proposal ticks the oldest open expenses; keep only this run's three receipts (a developer's
       // database may hold earlier runs), hotel and transport in full, 1 630 of the meals
-      for (const row of await page.getByTestId("settle-row").all()) {
+      for (const row of await picker.getByTestId("refund-line").all()) {
         const key = (await row.innerText()).match(/Ex\d+-\w+-\d+/)?.[0] ?? "";
         const mine = key.startsWith(groupPrefix) && !key.endsWith("Tr-03");
-        // the row's own tick (a partly allocated row shows a second one, *in full*, F114)
         const box = row.getByRole("checkbox", { name: key, exact: true });
         if ((await box.isChecked()) !== mine) await box.click();
         if (mine && key.endsWith("Rep-01")) await row.getByRole("textbox").fill("1630.00");
       }
-      await expect(page.getByTestId("settle-hint")).toHaveText("Exact match");
+      await expect(picker.getByTestId("refund-hint")).toHaveText("Exact match");
       // D40 on-screen money: U+202F thousands, "." decimals (the printed statement keeps its own format)
-      await expect(page.getByTestId("settle-selected")).toContainText(/9\u202F700\.00/);
+      await expect(picker.getByTestId("refund-selected")).toContainText(/9\u202F700\.00/);
       await snap(page, "refund-from-row");
-      await page.getByTestId("open-confirm").click();
-      await expect(page.getByTestId("confirm-state")).toContainText(
-        /Partial — 1\u202F065\.00 SEK stays open/,
-      );
-      await page.getByTestId("confirm-settlement").click();
+      await picker.getByTestId("refund-confirm").click();
       await expectToast(page, "Settlement ST25-");
-      // run from the row: back on it — justified by the settlement (the statement is its proof, the owner its partner)
-      await expect(page).toHaveURL(new RegExp(`/banking\\?open=${refundRowId}$`));
+      // on the row still: justified by the settlement (the statement is its proof, the owner its partner)
       await expect(page.getByTestId("transaction-panel")).toBeVisible();
       await expect(page.getByTestId("panel-state")).toHaveText("Linked");
       await page.goto("/expenses/settlements");

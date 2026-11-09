@@ -133,6 +133,23 @@ export function paperOfPrefixType(prefixType: string | null | undefined): Paper 
   return prefixType === "expense" ? "receipt" : "invoice";
 }
 
+/** The paper each reading model reads (D75 — the receipt model a till receipt, the invoice model the rest). */
+const PAPER_OF_MODEL: Readonly<Record<string, Paper>> = {
+  "prebuilt-invoice": "invoice",
+  "prebuilt-receipt": "receipt",
+};
+
+/**
+ * The paper a document already read says (T030, *Use it*): the model that read it — an `expense` PDF read by the
+ * invoice model (D69) shows *Invoice*, what the fields on screen are — else, unread or by another model, its type.
+ */
+export function paperOfReading(
+  modelUsed: string | null | undefined,
+  prefixType: string | null | undefined,
+): Paper {
+  return (modelUsed ? PAPER_OF_MODEL[modelUsed] : undefined) ?? paperOfPrefixType(prefixType);
+}
+
 // --- the green checks (review §6.3: *✓ amount equal · ✓ 2 days · ✓ vendor = counterparty*) ---
 
 export type GreenCheck =

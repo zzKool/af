@@ -34,6 +34,27 @@ vi.mock("@/modules/partners/ui", () => ({
   isSystemRole: (v: unknown) =>
     typeof v === "string" && ["bank", "tax_agency_se", "tax_agency_ch", "owner"].includes(v),
 }));
+// the FIFO picker has its own tests (`refund-picker.test.tsx`): here only that the panel opens it on its row
+vi.mock("@/modules/expenses/ui", () => ({
+  RefundPicker: ({
+    transactionId,
+    onDone,
+    onCancel,
+  }: {
+    transactionId: string;
+    onDone: () => void;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="refund-picker" data-row={transactionId}>
+      <button type="button" data-testid="refund-confirm" onClick={onDone}>
+        Confirm
+      </button>
+      <button type="button" data-testid="refund-cancel" onClick={onCancel}>
+        Cancel
+      </button>
+    </div>
+  ),
+}));
 // the dialog itself has its own tests (`reading-dialog.test.tsx`): here only what the panel hands it
 const dialogProps = vi.hoisted(() => ({ last: {} as Record<string, unknown> }));
 vi.mock("./reading-dialog", () => ({
@@ -172,11 +193,12 @@ describe("JustifyPanel — the proof already in the inbox (T008)", () => {
 
     await screen.findByTestId("reading-dialog");
     expect(calls.readDocument).toHaveBeenCalledWith({ documentId: DOC });
-    // the dialog gets the document, its reading, the viewer's file and the paper the stored type says
+    // the dialog gets the document, its reading, the viewer's file and the paper the reading model says (T030: an
+    // `expense` PDF read by the invoice model is an invoice on screen, not the receipt its stored type says)
     expect(dialogProps.last).toMatchObject({
       documentId: DOC,
       reading: resolvedData,
-      paper: "receipt",
+      paper: "invoice",
       document: { fileUrl: "/api/documents/x/file", mimeType: "application/pdf" },
     });
   });
@@ -376,21 +398,58 @@ describe("JustifyPanel — no proof needed names a partner (F129 US3)", () => {
   });
 });
 
-describe("JustifyPanel — the fourth exit, *This row refunds me* (F131 §5.1)", () => {
+describe("JustifyPanel — its frame (T024)", () => {
   afterEach(cleanup);
   beforeEach(() => {
     for (const k of Object.keys(calls)) delete calls[k];
   });
 
-  it("an outgoing row while the owner is owed something: a link to the settle page with the row preselected", async () => {
+  it("its own collapsible *Justify* section by default; none when the host's heading names it", async () => {
     rowSuggestions([]);
-    render(<JustifyPanel row={row} canWrite options={{ ...options, openPrivateCount: 2 }} />);
+    render(<JustifyPanel row={row} canWrite options={options} />);
     await screen.findByTestId("justify-drop");
-    expect(screen.getByTestId("justify-refund")).toHaveAttribute(
-      "href",
-      `/expenses/settle?row=${ROW}`,
+    expect(screen.getByRole("button", { name: "Justify" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
     );
+    cleanup();
+    render(<JustifyPanel row={row} canWrite options={options} heading={false} />);
+    await screen.findByTestId("justify-drop");
+    expect(screen.queryByRole("button", { name: "Justify" })).toBeNull();
+    expect(screen.getByTestId("justify-frame")).toContainElement(
+      screen.getByTestId("justify-drop"),
+    );
+  });
+});
+
+describe("JustifyPanel — the fourth exit, *This row refunds me* (F131 §5.1, T021)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    for (const k of Object.keys(calls)) delete calls[k];
+  });
+
+  it("an outgoing row while the owner is owed something: the FIFO picker opens in place on this row (T021)", async () => {
+    rowSuggestions([]);
+    const onDone = vi.fn();
+    render(
+      <JustifyPanel
+        row={row}
+        canWrite
+        options={{ ...options, openPrivateCount: 2 }}
+        onDone={onDone}
+      />,
+    );
+    await screen.findByTestId("justify-drop");
     expect(screen.getByTestId("justify-refund")).toHaveTextContent("This row refunds me");
+    expect(screen.queryByTestId("refund-picker")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("justify-refund"));
+    expect(screen.getByTestId("refund-picker")).toHaveAttribute("data-row", ROW);
+    fireEvent.click(screen.getByTestId("refund-cancel"));
+    expect(screen.queryByTestId("refund-picker")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("justify-refund"));
+    fireEvent.click(screen.getByTestId("refund-confirm"));
+    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("refund-picker")).not.toBeInTheDocument();
     cleanup();
     // the reasons open (the inbox's `n` keeps them open on the next rows): the exit stays — it is not a reason
     render(

@@ -876,7 +876,9 @@ export async function ensureDefaultRules(
   for (const { partnerRole, ...r } of DEFAULT_RULES) {
     const cat = await settings.getBasCategory(tx, r.basCode ?? "");
     // the role's partner — seeded by `ensureSystemPartners` before this (the import calls both); none → no partner
-    const partner = partnerRole ? await partners.systemPartner(tx, partnerRole) : null;
+    const partner = partnerRole
+      ? await partners.systemPartner(tx, partnerRole, caller.tenantId)
+      : null;
     const res = await createRule(
       tx,
       caller,
