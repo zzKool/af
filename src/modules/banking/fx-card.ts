@@ -3,7 +3,6 @@
 // transfer pair (D44) — what the bank charged and the cost of its rate against the ECB's. Derived for the screen,
 // never stored. Pure.
 import { Prisma } from "@/generated/prisma/browser";
-import { BASE_CURRENCY } from "@/kernel/nav/constants";
 
 const D = Prisma.Decimal;
 
@@ -13,14 +12,18 @@ export type FxCard = {
   bank: { rate: string; amount: string; cost: string; percent: string } | null;
 };
 
-export function fxCard(row: {
-  amount: string;
-  currency: string;
-  amountBase: string;
-  rate: string;
-  bankImplicitRate: string | null;
-}): FxCard | null {
-  if (row.currency === BASE_CURRENCY) return null;
+/** `base`: the books' currency, from the caller (the base-currency guard, F85 — no new base read here) */
+export function fxCard(
+  row: {
+    amount: string;
+    currency: string;
+    amountBase: string;
+    rate: string;
+    bankImplicitRate: string | null;
+  },
+  base: string,
+): FxCard | null {
+  if (row.currency === base) return null;
   const foreign = new D(row.amount).abs();
   const ecbAmount = new D(row.amountBase).abs();
   const card: FxCard = {

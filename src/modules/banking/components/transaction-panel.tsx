@@ -27,7 +27,6 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
-import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { InfoBanner } from "@/kernel/ui/info-banner";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
@@ -81,6 +80,9 @@ const NO_DOCUMENT_STATES = new Set<TransactionDetailWire["state"]>([
   "no_document",
   "no_document_no_partner",
 ]);
+
+/** the books' currency (D46: SEK in code until F70 — this file's one base read) */
+const BASE = "SEK";
 
 const money = (amount: string, currency: string) => formatMoney(amount, currency);
 /** a rate as the bank / ECB gave it, without trailing zeros */
@@ -326,7 +328,7 @@ export function TransactionDetailView({
       : [];
 
   const self = tx ? ({ type: "bank_transaction", id: tx.id } as const) : null;
-  const fx = tx ? fxCard(tx) : null;
+  const fx = tx ? fxCard(tx, BASE) : null;
 
   // D76: the three steps — what the row carries, what waits as a proposal
   const basProposal = proposals.find((p) => p.kind === "bas");
@@ -454,7 +456,7 @@ export function TransactionDetailView({
             </span>
             <span className="text-muted-foreground tabular-nums" data-testid="row-base">
               {t("banking.zone.base")}{" "}
-              <span className="text-foreground">{formatMoney(tx.amountBase, "SEK")}</span>{" "}
+              <span className="text-foreground">{formatMoney(tx.amountBase, BASE)}</span>{" "}
               {t("banking.zone.atRate", {
                 rate: tx.rate,
                 source: t(`banking.rateSource.${tx.rateSource}`),
@@ -732,20 +734,18 @@ export function TransactionDetailView({
                   <dd className="text-right text-muted-foreground tabular-nums">
                     {rate(fx.ecb.rate)}
                   </dd>
-                  <dd className="text-right tabular-nums">{money(fx.ecb.amount, BASE_CURRENCY)}</dd>
+                  <dd className="text-right tabular-nums">{money(fx.ecb.amount, BASE)}</dd>
                   {fx.bank && (
                     <>
                       <dt className="text-muted-foreground">{t("banking.fx.bank")}</dt>
                       <dd className="text-right text-muted-foreground tabular-nums">
                         {rate(fx.bank.rate)}
                       </dd>
-                      <dd className="text-right tabular-nums">
-                        {money(fx.bank.amount, BASE_CURRENCY)}
-                      </dd>
+                      <dd className="text-right tabular-nums">{money(fx.bank.amount, BASE)}</dd>
                       <dt className="font-medium">{t("banking.fx.cost")}</dt>
                       <dd />
                       <dd className="text-right font-medium tabular-nums">
-                        {money(fx.bank.cost, BASE_CURRENCY)}
+                        {money(fx.bank.cost, BASE)}
                       </dd>
                     </>
                   )}
