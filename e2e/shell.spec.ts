@@ -66,7 +66,9 @@ test.describe("Shell", () => {
     await page.keyboard.press("Escape");
     await newMenu.click();
     await page.getByRole("menuitem", { name: "Import bank CSV" }).click();
-    await expect(page.getByTestId("import-dialog")).toBeVisible();
+    // F156: the import is its own page — ?new=1 lands there
+    await expect(page).toHaveURL(/\/banking\/import$/);
+    await expect(page.getByTestId("import-page")).toBeVisible();
   });
 });
 

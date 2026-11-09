@@ -100,12 +100,11 @@ test.describe("Banking", () => {
       const shots = join(__dirname, "..", "specs", "justify", "screenshots");
       mkdirSync(shots, { recursive: true });
       await previewRows.last().scrollIntoViewIfNeeded(); // the new rows sit at the bottom of the file
-      await page.getByTestId("import-dialog").screenshot({
-        path: join(shots, "import-preview.png"),
-      });
+      await page.screenshot({ path: join(shots, "import-preview.png"), fullPage: true });
     }
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("import-dialog")).toBeHidden();
+    // F156: the preview is a page — Cancel leaves it, nothing written
+    await page.getByRole("link", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/banking$/);
 
     // 2. the owner's default columns (2026-11-08) — Date · Partner · Counterparty · Category · Reference · Own notes ·
     //    Amount · Checks · State · Imported; was (F131 §6.2, D76): five columns by default — Date · Counterparty · the
@@ -298,17 +297,14 @@ test.describe("Banking", () => {
     await expect(page).not.toHaveURL(/f\.bookingDate/);
   });
 
-  // F73: + New → Import bank CSV lands on ?new=1 — the import dialog opens; closing drops the param
-  test("?new=1 opens the import dialog", async ({ page }) => {
+  // F73 → F156: + New → Import bank CSV lands on ?new=1 — the import page (it is no dialog any more)
+  test("?new=1 lands on the import page", async ({ page }) => {
     await page.goto("/banking?new=1");
-    const dialog = page.getByTestId("import-dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByTestId("import-file")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
-    await expect(page).not.toHaveURL(/new=1/);
+    await expect(page).toHaveURL(/\/banking\/import$/);
+    await expect(page.getByTestId("import-steps")).toBeVisible();
+    await expect(page.getByTestId("import-file")).toBeVisible();
     // the imports page reads it too
     await page.goto("/banking/imports?new=1");
-    await expect(page.getByTestId("import-dialog")).toBeVisible();
+    await expect(page).toHaveURL(/\/banking\/import$/);
   });
 });

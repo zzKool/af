@@ -8,7 +8,7 @@ const PAGES: Record<string, string> = {
   dashboard: "/dashboard",
   work: "/work",
   banking: "/banking",
-  "banking-new": "/banking?new=1",
+  "banking-import": "/banking/import",
   "banking-rules": "/banking/rules",
   "banking-inbox": "/banking/inbox",
   "banking-reconcile": "/banking/reconcile",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { createClock } from "@/kernel/clock/clock";
@@ -35,6 +36,8 @@ export default async function BankingPage({
 }) {
   const auth = await requireCaller({ action: "read", subject: "bank_transaction" });
   const params = await searchParams;
+  // F73 → F156: + New → Import bank CSV lands on ?new=1 — the import is its own page now
+  if (params.new === "1") redirect("/banking/import");
   const query = parseListQuery(params, {
     columns: TRANSACTION_COLUMN_KEYS,
     defaultSort: TRANSACTION_DEFAULT_SORT,
@@ -103,7 +106,7 @@ export default async function BankingPage({
           {noProof > 0 && ` · ${t("banking.meta.noProof", { count: noProof })}`}
         </>
       }
-      actions={<WorkbenchActions accounts={accountOptions} canWrite={canWrite} />}
+      actions={<WorkbenchActions canWrite={canWrite} />}
       banner={
         pending && (
           <InfoBanner>
