@@ -9,6 +9,7 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator } from "@/kernel/i18n/translate";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import { ListPage } from "@/kernel/ui/shell/page";
+import { foreignTransfers } from "@/modules/banking";
 import {
   crossSeries,
   firstRateDay,
@@ -36,11 +37,17 @@ const MAX_DAYS = 5 * 366;
 export default async function RatesPage() {
   const auth = await requireCaller();
   const today = createClock().today();
-  const { prefs, base } = await withTenantTransaction(prisma, auth.tenantId, async (tx) => {
-    const p = await getUserPreferences(tx, auth);
-    const profile = await tenantProfile(tx, auth.tenantId);
-    return { prefs: p, base: profile?.currency ?? CURRENCIES[0] };
-  });
+  const { prefs, base, transfers } = await withTenantTransaction(
+    prisma,
+    auth.tenantId,
+    async (tx) => {
+      const p = await getUserPreferences(tx, auth);
+      const profile = await tenantProfile(tx, auth.tenantId);
+      // F161: the owner's own transfers into the base, at the bank's rate (banking's read)
+      const moves = can(auth, "read", "bank_transaction") ? await foreignTransfers(tx) : [];
+      return { prefs: p, base: profile?.currency ?? CURRENCIES[0], transfers: moves };
+    },
+  );
   const t = translator(await requestLocale(prefs.data?.locale));
 
   const first = await firstRateDay(prisma);
@@ -56,10 +63,10 @@ export default async function RatesPage() {
       ground
       title={t("rates.title")}
       meta={t("rates.page.meta", { base })}
-      actions={canFetch ? <FetchRatesButton /> : undefined}
+      actions={canFetch ? <FetchRatesButton missing={coverage.missingDays.length} /> : undefined}
     >
       <div className="flex flex-col gap-4">
-        <RatesOverview base={base} series={series} today={today} />
+        <RatesOverview base={base} series={series} today={today} transfers={transfers} />
         <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <CoverageCard
             months={coverage.months}

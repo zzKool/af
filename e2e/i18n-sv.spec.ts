@@ -64,7 +64,10 @@ test.describe("Swedish UI", () => {
     await page.goto("/settings/rates");
     await expect(page).toHaveURL(/\/rates$/);
     await expect(page.getByRole("heading", { name: "Valutakurser" })).toBeVisible();
-    await expect(page.getByTestId("rates-fetch")).toHaveText("Hämta nu");
+    // F161: with days missing the button names them — a new key, English until the translation pass (D62)
+    await expect(page.getByTestId("rates-fetch")).toHaveText(
+      /^(Hämta nu|Fetch the \d+ missing day\(s\))$/,
+    );
     await snap(page, "sv-rates");
   });
 });
