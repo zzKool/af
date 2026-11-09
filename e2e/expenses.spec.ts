@@ -71,12 +71,15 @@ test.describe("Expenses", () => {
       }
       await page.goto("/expenses");
       await expect(page.getByTestId("kpi-open")).toBeVisible();
-      await expect(page.getByRole("row").filter({ hasText: "Hotel" }).first()).toContainText(
-        "To refund",
-      );
+      // this run's hotel (a developer's database holds earlier runs' — their group names differ)
+      const hotelRow = page
+        .getByRole("row")
+        .filter({ hasText: "Hotel" })
+        .filter({ hasText: groupName });
+      await expect(hotelRow.first()).toContainText("To refund");
 
       // the panel: the key, the status, a fact saved on change
-      await page.getByRole("row").filter({ hasText: "Hotel" }).first().click();
+      await hotelRow.first().click();
       const panel = page.getByTestId("expense-panel");
       await expect(panel).toBeVisible();
       await expect(page.getByTestId("panel-key")).toContainText(/Ex\d+-Tr-01/);
