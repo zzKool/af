@@ -64,6 +64,8 @@ const options = {
       number: 3,
       description: `${thisMonth} receipts`,
       kind: "batch" as const,
+      // the month is the group's stored fact (T025), not its name
+      month: thisMonth,
     },
   ],
   categories: [{ code: "5800", label: "5800 · Travel (Tr)" }],
