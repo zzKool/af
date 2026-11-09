@@ -1,8 +1,8 @@
 "use client";
 
 // The banking pages' title-row actions (D40: secondary buttons, then one primary).
-//   /banking          Inbox · Imports · Rules · [Import CSV]   (?new=1 opens the import dialog, F73)
-//   /banking/imports  [Import CSV]                            (?new=1 too)
+//   /banking          Inbox · Imports · Rules · [Import CSV]   (→ /banking/import, F156; ?new=1 lands there too)
+//   /banking/imports  [Import CSV]
 //   /banking/rules    Apply rules (dry run → confirm) · [New rule]
 import { ListChecks, Upload } from "lucide-react";
 import Link from "next/link";
@@ -14,35 +14,23 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
-import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import { applyRulesAction } from "@/modules/banking/banking.actions";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
-import { type AccountOption, ImportDialog } from "./import-dialog";
 import { type RuleAccountOption, RuleDialog } from "./rule-dialog";
 
-/** The primary of the workbench and the imports page: opens the import dialog — also from `?new=1`, the
- *  sidebar's **+ New → Import bank CSV** (F73). Rendered for a caller who may import only. */
-export function ImportCsvButton({ accounts }: { accounts: AccountOption[] }) {
+/** The primary of the workbench and the imports page: the import page (F156) — the sidebar's **+ New → Import
+ *  bank CSV** (F73) lands there too, through `?new=1`. Rendered for a caller who may import only. */
+export function ImportCsvButton() {
   const t = useT();
-  const [open, setOpen] = useNewParam();
   return (
-    <>
-      <Button onClick={() => setOpen(true)} data-testid="open-import">
-        <Upload aria-hidden />
-        {t("banking.import.button")}
-      </Button>
-      <ImportDialog open={open} onOpenChange={setOpen} accounts={accounts} />
-    </>
+    <Button nativeButton={false} render={<Link href="/banking/import" />} data-testid="open-import">
+      <Upload aria-hidden />
+      {t("banking.import.button")}
+    </Button>
   );
 }
 
-export function WorkbenchActions({
-  accounts,
-  canWrite,
-}: {
-  accounts: AccountOption[];
-  canWrite: boolean;
-}) {
+export function WorkbenchActions({ canWrite }: { canWrite: boolean }) {
   const t = useT();
   return (
     <>
@@ -70,7 +58,7 @@ export function WorkbenchActions({
       <Button variant="outline" nativeButton={false} render={<Link href="/banking/rules" />}>
         {t("banking.nav.rules")}
       </Button>
-      {canWrite && <ImportCsvButton accounts={accounts} />}
+      {canWrite && <ImportCsvButton />}
     </>
   );
 }

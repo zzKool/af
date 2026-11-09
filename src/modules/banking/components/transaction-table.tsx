@@ -37,7 +37,7 @@ import { type JustifyOptions, ProposedCode } from "@/modules/linking/ui";
 import { type AccountCardBalance, AccountCards } from "./account-cards";
 import type { CategoryOption, PartnerOption } from "./categorise-form";
 import { DayStrip } from "./day-strip";
-import type { AccountOption } from "./import-dialog";
+import type { AccountOption } from "./import-workbench";
 import { StepDots, StepDotsLegend } from "./step-dots";
 import { TransactionPanel } from "./transaction-panel";
 import { TransactionStateLabel } from "./transaction-state";
