@@ -2256,7 +2256,8 @@ export const en = {
   "documents.desk.meta": "{count} waiting for a decision",
   "documents.desk.all": "All documents ({count})",
   "documents.desk.dropTitle": "Drop anything here",
-  "documents.desk.dropText": "PDFs, phone photos, several at once. You never pick a type: the app reads each file, proposes what it becomes and the bank row it pays.",
+  "documents.desk.dropText":
+    "PDFs, phone photos, several at once. You never pick a type: the app reads each file, proposes what it becomes and the bank row it pays.",
   "documents.upload.dropCompact": "Drop files here, or click to choose them",
   "documents.desk.previewHint": "hover a field on the right — its box lights up",
   "documents.search": "Search key, file name, vendor…",
