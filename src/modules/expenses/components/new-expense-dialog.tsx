@@ -1,16 +1,17 @@
 "use client";
 
-// New expense (US1): the group — proposed from the date (F131 §5.2: the trip whose days cover it, else the month's
-// group, else empty with *+ New group…*; it follows the date until the owner picks by hand) or a new one inline —,
-// kind, date, description, the partner (F87 — optional, its default category proposed, never overwriting; from a
-// document the match card offers the OCR merchant's vendor), category, amount, currency, who paid, the receipt from
-// the inbox (or "no receipt"), a note. The key and the base come from the service.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+// New expense (US1): the group — proposed from the date (F131 §5.2: the trip whose days cover it, else the month's
+// group, else empty with *+ New group…*; it follows the date until the owner picks by hand) or a new one inline —,
+// kind, date, description, the partner (F87 — optional, its default category proposed, never overwriting; from a
+// document the match card offers the OCR merchant's vendor), category, amount, currency, who paid, the receipt from
+// the inbox (or "no receipt"), a note. The key and the base come from the service.
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -368,9 +369,8 @@ export function NewExpenseDialog({
             <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.date")}
             </label>
-            <Input
+            <DateInput
               id={`${ids}-date`}
-              type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required

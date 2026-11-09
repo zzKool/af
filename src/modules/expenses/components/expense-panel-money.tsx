@@ -1,9 +1,10 @@
 "use client";
 
-// The money form of the expense panel while the expense is open (amount, currency, date, paid by — saved on
-// *Save*), else the one line saying why it is locked. The base, the rate and the bank's amount are in *About*.
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+// The money form of the expense panel while the expense is open (amount, currency, date, paid by — saved on
+// *Save*), else the one line saying why it is locked. The base, the rate and the bank's amount are in *About*.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -100,9 +101,8 @@ export function ExpenseMoneySection({
             <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
               {t("expenses.form.date")}
             </label>
-            <Input
+            <DateInput
               id={`${ids}-date`}
-              type="date"
               value={form.date}
               onChange={(ev) => set({ date: ev.target.value })}
             />

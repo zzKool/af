@@ -9,6 +9,7 @@ import { useAction } from "next-safe-action/hooks";
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { addDays } from "@/kernel/clock/calendar";
 import { extractError } from "@/kernel/errors/extract-error";
@@ -567,9 +568,8 @@ export function DayRatesCard({
         <label htmlFor="rates-day-input" className="text-xs text-muted-foreground">
           {t("rates.page.day")}
         </label>
-        <Input
+        <DateInput
           id="rates-day-input"
-          type="date"
           value={day}
           max={today}
           onChange={(e) => void pick(e.target.value)}

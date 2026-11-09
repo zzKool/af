@@ -1,9 +1,10 @@
 "use client";
 
-// The money form of the supplier-invoice panel while the invoice is a draft (D37: open, no payment, no link) —
-// supplier, number, currency, dates, net, VAT, total, saved on *Save*. Once written, About shows the read-out.
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+// The money form of the supplier-invoice panel while the invoice is a draft (D37: open, no payment, no link) —
+// supplier, number, currency, dates, net, VAT, total, saved on *Save*. Once written, About shows the read-out.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -123,9 +124,8 @@ export function SupplierInvoiceMoneyForm({
         <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
           {t("supplierInvoices.form.invoiceDate")}
         </label>
-        <Input
+        <DateInput
           id={`${ids}-date`}
-          type="date"
           value={form.invoiceDate}
           onChange={(ev) => set({ invoiceDate: ev.target.value })}
         />
@@ -134,9 +134,8 @@ export function SupplierInvoiceMoneyForm({
         <label htmlFor={`${ids}-due`} className="mb-1 block text-xs font-medium">
           {t("supplierInvoices.form.dueDate")}
         </label>
-        <Input
+        <DateInput
           id={`${ids}-due`}
-          type="date"
           value={form.dueDate}
           onChange={(ev) => set({ dueDate: ev.target.value })}
         />

@@ -1,12 +1,13 @@
 "use client";
 
-// The panel's lower sections (F94 US5): the dated prices (a new price from a date closes the previous one, the
-// contract-rate rule; the latest can be removed), the pauses (a note each; the periods in them are skipped), and the
-// facts later confirms use (match text, tolerance, note) — saved on blur.
 import { useAction } from "next-safe-action/hooks";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+// The panel's lower sections (F94 US5): the dated prices (a new price from a date closes the previous one, the
+// contract-rate rule; the latest can be removed), the pauses (a note each; the periods in them are skipped), and the
+// facts later confirms use (match text, tolerance, note) — saved on blur.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -104,12 +105,7 @@ export function SubscriptionPrices({
             <label htmlFor={`${ids}-from`} className={label}>
               {t("subscriptions.panel.newPriceFrom")}
             </label>
-            <Input
-              id={`${ids}-from`}
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
+            <DateInput id={`${ids}-from`} value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div>
             <label htmlFor={`${ids}-amount`} className={label}>
@@ -216,9 +212,8 @@ export function SubscriptionPauses({
             <label htmlFor={`${ids}-pfrom`} className={label}>
               {t("subscriptions.panel.pauseFrom")}
             </label>
-            <Input
+            <DateInput
               id={`${ids}-pfrom`}
-              type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               required
@@ -228,9 +223,8 @@ export function SubscriptionPauses({
             <label htmlFor={`${ids}-pto`} className={label}>
               {t("subscriptions.panel.pauseTo")}
             </label>
-            <Input
+            <DateInput
               id={`${ids}-pto`}
-              type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               required

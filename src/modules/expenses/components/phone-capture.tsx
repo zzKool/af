@@ -1,14 +1,15 @@
 "use client";
 
-// Phone — snap a receipt (F142, Pulse phase 6c; the board *Phone*): 1 · take the photo (the phone's camera, or a
-// file) — it goes up untyped (D78) and is read by the receipt model; 2 · check what was read — from, date, amount,
-// the trip the date falls in, the category — and one tap says who paid; 3 · saved: the expense's key, what the
-// company owes in total, the receipts still missing, *Snap the next one*. Big targets, one column, no rail.
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
+// Phone — snap a receipt (F142, Pulse phase 6c; the board *Phone*): 1 · take the photo (the phone's camera, or a
+// file) — it goes up untyped (D78) and is read by the receipt model; 2 · check what was read — from, date, amount,
+// the trip the date falls in, the category — and one tap says who paid; 3 · saved: the expense's key, what the
+// company owes in total, the receipts still missing, *Snap the next one*. Big targets, one column, no rail.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
@@ -257,10 +258,13 @@ export function PhoneCapture({
             />
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <label
+              htmlFor="phone-date"
+              className="flex flex-col gap-1 text-xs text-muted-foreground"
+            >
               {t("phone.field.date")}
-              <Input
-                type="date"
+              <DateInput
+                id="phone-date"
                 value={draft.date}
                 onChange={(e) => setDraft({ ...draft, date: e.target.value, groupId: "" })}
                 className="h-11 text-base text-foreground"

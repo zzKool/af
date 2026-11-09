@@ -1,13 +1,14 @@
 "use client";
 
-// The confirm (F94 FR-008, US3, US4): what the period will become, from what was found — the receipt's / bill's facts
-// first, the bank row's next, the subscription's for the rest — editable, then one server action: the entity, the
-// row attached, `occurrence_of`, in one transaction. A period that already has its entity is *completed* instead
-// (the receipt after the charge, the charge after the receipt). Q1 A: a foreign-currency charge waits for its receipt.
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+// The confirm (F94 FR-008, US3, US4): what the period will become, from what was found — the receipt's / bill's facts
+// first, the bank row's next, the subscription's for the rest — editable, then one server action: the entity, the
+// row attached, `occurrence_of`, in one transaction. A period that already has its entity is *completed* instead
+// (the receipt after the charge, the charge after the receipt). Q1 A: a foreign-currency charge waits for its receipt.
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -160,9 +161,8 @@ export function ConfirmPeriodDialog({
                         ? t("subscriptions.confirm.invoiceDate")
                         : t("subscriptions.confirm.date")}
                     </label>
-                    <Input
+                    <DateInput
                       id={`${ids}-date`}
-                      type="date"
                       value={facts.date}
                       onChange={(e) => set("date", e.target.value)}
                       required
@@ -247,9 +247,8 @@ export function ConfirmPeriodDialog({
                       <label htmlFor={`${ids}-due`} className={label}>
                         {t("subscriptions.confirm.dueDate")}
                       </label>
-                      <Input
+                      <DateInput
                         id={`${ids}-due`}
-                        type="date"
                         value={facts.dueDate ?? ""}
                         onChange={(e) => set("dueDate", e.target.value)}
                       />
