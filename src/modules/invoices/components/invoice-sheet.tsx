@@ -2,7 +2,9 @@
 // values only and is what `/print/invoice/[id]` serves to Chromium; `mode="edit"` places inputs where the values
 // sit, supplied by the editor through `slots` — this file owns the layout and the formatting, never state.
 // No hooks, no "use client": a server component can render it as is.
+
 import type { ReactNode } from "react";
+import { countryName } from "@/kernel/i18n/display-names";
 import { type MessageKey, translator } from "@/kernel/i18n/translate";
 import { formatCurrency } from "@/kernel/money/format-currency";
 import type { Currency } from "@/kernel/nav/constants";
@@ -118,16 +120,9 @@ export function sheetQuantity(
   return label === unitKey ? qty : `${qty} ${label}`;
 }
 
-/** `CH` → `Suisse` in the document's language; a country already written out prints as is. */
+/** `CH` (or `ch`) → `Suisse` in the document's language; a country already written out prints as is. */
 export function sheetCountry(country: string | undefined, language: string): string | undefined {
-  if (!country || !/^[A-Z]{2}$/.test(country)) return country;
-  try {
-    return new Intl.DisplayNames([DATE_LOCALE[language.slice(0, 2)] ?? "en-GB"], {
-      type: "region",
-    }).of(country);
-  } catch {
-    return country;
-  }
+  return countryName(country, language);
 }
 
 // The shape (F145) is the owner's own invoice: the logo centred on top; "Invoice VA26-…" on the right; the

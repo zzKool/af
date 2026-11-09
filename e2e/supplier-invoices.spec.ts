@@ -49,6 +49,7 @@ test.describe("Supplier invoices", () => {
       await page.goto(`/partners?q=${encodeURIComponent(vendor)}`);
       await page.getByRole("link", { name: vendor }).click();
       await expect(page).toHaveURL(/\/partners\/[0-9a-f-]{36}$/);
+      await page.getByTestId("partner-edit-details").click();
       await page.getByLabel("Payment terms (days)").fill("20");
       const saved = page.waitForResponse(
         (r) => r.request().method() === "POST" && /\/partners\//.test(r.url()),
@@ -56,7 +57,7 @@ test.describe("Supplier invoices", () => {
       await page.getByLabel("Payment terms (days)").blur();
       await saved;
       await page.reload();
-      await expect(page.getByLabel("Payment terms (days)")).toHaveValue("20");
+      await expect(page.getByTestId("partner-details")).toContainText("20 days");
 
       // 2. the invoice: a new group inline, the due date from the terms, the key
       await page.goto("/supplier-invoices");
