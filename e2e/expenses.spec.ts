@@ -69,7 +69,8 @@ test.describe("Expenses", () => {
         );
         await expect(dialog).not.toBeVisible();
       }
-      await page.goto("/expenses");
+      // this run's rows only (a developer's database holds earlier runs' — the list pages them away)
+      await page.goto(`/expenses?q=${encodeURIComponent(groupName)}`);
       await expect(page.getByTestId("kpi-open")).toBeVisible();
       // this run's hotel (a developer's database holds earlier runs' — their group names differ)
       const hotelRow = page
