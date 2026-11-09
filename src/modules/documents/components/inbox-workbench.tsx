@@ -4,6 +4,7 @@
 // tabs with counts, search, selection — the open one on the right with its preview, facts, the bank rows that
 // could justify it and the actions its state allows. Keyboard first, shaped like /banking/inbox. Archive and
 // restore go on an undo stack that lives as long as the page. The accountant reads, nothing more.
+import { FileText } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
@@ -54,6 +55,15 @@ const DocumentPreview = dynamic(() => import("@/modules/documents/components/doc
 export const INBOX_UNDO_MAX = 20;
 const TABS: readonly InboxTab[] = ["all", "pending", "ready", "duplicates", "archived"];
 const PENDING: readonly InboxState[] = ["needs_ocr", "processing", "stuck", "ocr_failed"];
+/** the queue card's left edge (the board): what the document needs, at a glance — the state label says it in words */
+const ROW_EDGE: Partial<Record<InboxState, string>> = {
+  ready: "border-l-primary",
+  needs_ocr: "border-l-state-progress",
+  processing: "border-l-state-progress",
+  stuck: "border-l-state-attention",
+  ocr_failed: "border-l-destructive",
+  archived: "border-l-border",
+};
 
 /** The keyboard map (FR-022); the accountant's help lists the reading keys only (US4-7). */
 const KEYS: { keys: string; label: MessageKey; write: boolean }[] = [
@@ -492,7 +502,8 @@ export function InboxWorkbench({
         </div>
       )}
 
-      <div className="grid items-start gap-[18px] xl:grid-cols-[22rem_minmax(0,1fr)]">
+      {/* F153, the board *Documents*: three columns — what waits, the document, what it read */}
+      <div className="grid items-start gap-[18px] xl:grid-cols-[19rem_minmax(0,1fr)_minmax(21rem,25rem)]">
         {/* left: the queue — D76: a card on the ground */}
         <section
           className="min-w-0 overflow-hidden pulse-card"
@@ -511,7 +522,10 @@ export function InboxWorkbench({
               )}
             </p>
           ) : (
-            <ul ref={listRef} className="max-h-[75vh] divide-y overflow-auto text-sm">
+            <ul
+              ref={listRef}
+              className="flex max-h-[75vh] flex-col gap-2 overflow-auto p-2 text-sm"
+            >
               {rows.map((r) => {
                 const active = r.id === openId;
                 return (
@@ -521,7 +535,13 @@ export function InboxWorkbench({
                     data-testid="inbox-row"
                     data-state={active ? "selected" : undefined}
                     data-inbox-state={r.state}
-                    className={`flex cursor-pointer items-start gap-2 px-3 py-2 ${active ? "bg-selection" : "hover:bg-hover"}`}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-2.5 rounded-xl border border-l-[3px] border-subtle px-3 py-2.5",
+                      r.duplicateOf
+                        ? "border-l-destructive"
+                        : (ROW_EDGE[r.state] ?? "border-l-border"),
+                      active ? "border-primary/60 bg-selection" : "hover:bg-hover",
+                    )}
                     onClick={() => {
                       paneClosed.current = false;
                       setOpenId(r.id);
@@ -538,14 +558,17 @@ export function InboxWorkbench({
                         data-testid="inbox-row-check"
                       />
                     )}
+                    <FileText
+                      aria-hidden
+                      className="mt-0.5 size-8 shrink-0 rounded-md bg-surface-2 p-1.5 text-muted-foreground"
+                    />
                     <div className="min-w-0 flex-1">
+                      {r.vendor && (
+                        <div className="truncate text-[13.5px] font-semibold">{r.vendor}</div>
+                      )}
                       <div className="flex items-center gap-2">
                         <CodeChip>{r.businessKey}</CodeChip>
                         <DocumentStateLabel state={r.state} testId="inbox-state" />
-                        <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">
-                          {/* yyyy-mm-dd (D40), the same day the library's Uploaded column shows */}
-                          {r.createdAt.slice(0, 10)}
-                        </span>
                       </div>
                       <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-muted-foreground">
                         <Tag>{t(`documents.prefix.${r.prefixType}` as MessageKey)}</Tag>
@@ -553,13 +576,15 @@ export function InboxWorkbench({
                           {r.fileName}
                         </span>
                       </div>
-                      {(r.vendor || r.amount || r.documentDate) && (
-                        <div className="truncate text-xs tabular-nums">
-                          {[r.vendor, r.amount ? money(r.amount, r.currency) : null, r.documentDate]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </div>
-                      )}
+                      <div className="truncate text-xs text-muted-foreground tabular-nums">
+                        {/* the amount and the date read; the upload day (yyyy-mm-dd, D40) when nothing was read */}
+                        {[
+                          r.amount ? money(r.amount, r.currency) : null,
+                          r.documentDate ?? r.createdAt.slice(0, 10),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
                       {r.state === "stuck" && (
                         <div className="text-xs text-muted-foreground">
                           {t("documents.inbox.stuck")}
@@ -578,30 +603,30 @@ export function InboxWorkbench({
           )}
         </section>
 
-        {/* right: the open document */}
-        <section className="min-w-0 pulse-card p-5" aria-label={t("documents.inbox.pane")}>
-          {open ? (
-            <InboxPane
-              key={open.id}
-              row={open}
-              canWrite={canWrite}
-              canMake={canMake(open)}
-              canFile={canFile(open)}
-              canLink={canLink(open)}
-              busy={archiving || restoring || ocrRunning || filing}
-              openSearchKey={openSearchKey}
-              applyRequest={applyRequest}
-              onOcr={() => void ocr(open)}
-              onMake={(d) => setDialog(d)}
-              onFile={() => void justFile(open)}
-              onArchive={() => void park("archive", [open.id])}
-              onRestore={() => void park("restore", [open.id])}
-              onLinked={() => void reload()}
-            />
-          ) : (
+        {/* the open document: its two cards fill the second and third column */}
+        {open ? (
+          <InboxPane
+            key={open.id}
+            row={open}
+            canWrite={canWrite}
+            canMake={canMake(open)}
+            canFile={canFile(open)}
+            canLink={canLink(open)}
+            busy={archiving || restoring || ocrRunning || filing}
+            openSearchKey={openSearchKey}
+            applyRequest={applyRequest}
+            onOcr={() => void ocr(open)}
+            onMake={(d) => setDialog(d)}
+            onFile={() => void justFile(open)}
+            onArchive={() => void park("archive", [open.id])}
+            onRestore={() => void park("restore", [open.id])}
+            onLinked={() => void reload()}
+          />
+        ) : (
+          <section className="pulse-card p-5 xl:col-span-2" aria-label={t("documents.inbox.pane")}>
             <p className="text-sm text-muted-foreground">{t("documents.inbox.selectDocument")}</p>
-          )}
-        </section>
+          </section>
+        )}
       </div>
 
       {/* Make it… — the modules' own dialogs, pre-filled from the open document */}
@@ -710,6 +735,20 @@ function WhatItRead({
               <span className="min-w-0 flex-1 truncate tabular-nums">{markValue(row, m.key)}</span>
               <FieldConfidence confidence={m.confidence} />
             </button>
+            {typeof m.confidence === "number" && (
+              <div
+                className="mx-2 mb-1 h-0.5 overflow-hidden rounded-full bg-surface-2"
+                aria-hidden
+              >
+                <div
+                  className={cn(
+                    "h-full rounded-full",
+                    m.confidence >= 0.9 ? "bg-state-done/60" : "bg-state-attention/70",
+                  )}
+                  style={{ width: `${Math.round(m.confidence * 100)}%` }}
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -835,40 +874,100 @@ function InboxPane({
   const supplierFirst = proposal === "supplier_invoice";
 
   return (
-    <div className="flex flex-col gap-3" data-testid="inbox-pane">
-      <div>
-        <h2 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
-          <CodeChip>
-            <span data-testid="inbox-pane-key">{row.businessKey}</span>
-          </CodeChip>
-          <DocumentStateLabel state={row.state} />
-        </h2>
-        <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+    <>
+      {/* the document, its boxes lit by what it read (F141) */}
+      <section
+        className="min-w-0 pulse-card p-4"
+        aria-label={row.fileName}
+        data-testid="inbox-preview-card"
+      >
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Tag>{t(`documents.prefix.${row.prefixType}` as MessageKey)}</Tag>
-          <span className="truncate" title={row.fileName}>
+          <span className="min-w-0 truncate" title={row.fileName}>
             {row.fileName}
           </span>
-        </p>
-        {row.state === "stuck" && (
-          <p className="text-xs text-muted-foreground">{t("documents.inbox.stuck")}</p>
+          {row.reading && row.reading.marks.length > 0 && (
+            <span className="ml-auto hidden xl:inline">{t("documents.desk.previewHint")}</span>
+          )}
+        </div>
+        <div
+          className="overflow-hidden rounded-xl border border-subtle bg-surface-2"
+          style={{ height: "72vh" }}
+          data-testid="inbox-preview"
+        >
+          <DocumentPreview
+            fileUrl={fileUrl}
+            mimeType={row.mimeType}
+            marks={row.reading}
+            active={activeMark}
+          />
+        </div>
+      </section>
+
+      {/* what it is, what it read, what it could pay, and what to do with it */}
+      <section
+        className="flex min-w-0 flex-col gap-4 pulse-card p-5 xl:sticky xl:top-3"
+        aria-label={t("documents.inbox.pane")}
+        data-testid="inbox-pane"
+      >
+        <div>
+          <h2 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+            <CodeChip>
+              <span data-testid="inbox-pane-key">{row.businessKey}</span>
+            </CodeChip>
+            <DocumentStateLabel state={row.state} />
+          </h2>
+          {row.vendor && <p className="mt-1 text-[15px] font-semibold">{row.vendor}</p>}
+          {row.state === "stuck" && (
+            <p className="text-xs text-muted-foreground">{t("documents.inbox.stuck")}</p>
+          )}
+          {row.duplicateOf && (
+            <p className="mt-1 text-xs">
+              <Link
+                href={`/documents/${row.duplicateOf.id}`}
+                className="text-primary hover:underline"
+              >
+                {t("documents.inbox.duplicateOf", { key: row.duplicateOf.businessKey })}
+              </Link>
+            </p>
+          )}
+          {proposal && proposal !== "ask" && (
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="inbox-proposes">
+              {t(`documents.inbox.proposes.${proposal}`)}
+            </p>
+          )}
+          {ask && <WhatIsIt documentId={row.id} canWrite={canWrite} onTyped={onLinked} />}
+        </div>
+
+        {row.reading && row.reading.marks.length > 0 && (
+          <WhatItRead row={row} active={activeMark} onActive={setActiveMark} />
         )}
-        {row.duplicateOf && (
-          <p className="text-xs">
-            <Link
-              href={`/documents/${row.duplicateOf.id}`}
-              className="text-primary hover:underline"
-            >
-              {t("documents.inbox.duplicateOf", { key: row.duplicateOf.businessKey })}
-            </Link>
-          </p>
+
+        {/* what it read says it already: the plain facts fold away then */}
+        <DetailsSection
+          title={t("documents.review.financial")}
+          defaultOpen={!(row.reading && row.reading.marks.length > 0)}
+        >
+          <div data-testid="inbox-facts">
+            <DetailsGrid rows={facts.filter(([, v]) => v).map(([label, v]) => [t(label), v])} />
+          </div>
+        </DetailsSection>
+
+        {canLink && (
+          <SuggestionsSection
+            target={{ endpoint: { type: "document", id: row.id } }}
+            canWrite={canWrite}
+            onLinked={onLinked}
+            openSearchKey={openSearchKey}
+            applyRequest={applyRequest}
+            limit={3}
+          />
         )}
-        {proposal && proposal !== "ask" && (
-          <p className="mt-1 text-xs text-muted-foreground" data-testid="inbox-proposes">
-            {t(`documents.inbox.proposes.${proposal}`)}
-          </p>
-        )}
-        {ask && <WhatIsIt documentId={row.id} canWrite={canWrite} onTyped={onLinked} />}
-        <div className="mt-2 flex flex-wrap gap-2" data-testid="inbox-actions">
+
+        <div
+          className="flex flex-wrap gap-2 border-t border-subtle pt-3"
+          data-testid="inbox-actions"
+        >
           {canWrite && ocrable && (
             <Button size="sm" disabled={busy} onClick={onOcr} data-testid="inbox-run-ocr">
               {t("documents.inbox.action.runOcr")}
@@ -939,46 +1038,8 @@ function InboxPane({
             {t("documents.inbox.action.open")}
           </Button>
         </div>
-      </div>
-
-      {/* F141, the board *Documents*: the document with its boxes beside what it read */}
-      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div
-          className="overflow-hidden rounded-xl border border-subtle bg-surface-2 2xl:sticky 2xl:top-4"
-          style={{ height: "70vh" }}
-          data-testid="inbox-preview"
-        >
-          <DocumentPreview
-            fileUrl={fileUrl}
-            mimeType={row.mimeType}
-            marks={row.reading}
-            active={activeMark}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-4">
-          {row.reading && row.reading.marks.length > 0 && (
-            <WhatItRead row={row} active={activeMark} onActive={setActiveMark} />
-          )}
-
-          <DetailsSection title={t("documents.review.financial")}>
-            <div data-testid="inbox-facts">
-              <DetailsGrid rows={facts.filter(([, v]) => v).map(([label, v]) => [t(label), v])} />
-            </div>
-          </DetailsSection>
-
-          {canLink && (
-            <SuggestionsSection
-              target={{ endpoint: { type: "document", id: row.id } }}
-              canWrite={canWrite}
-              onLinked={onLinked}
-              openSearchKey={openSearchKey}
-              applyRequest={applyRequest}
-              limit={3}
-            />
-          )}
-        </div>
-      </div>
-    </div>
+      </section>
+    </>
   );
 }
 

@@ -20,7 +20,7 @@ export async function searchDocumentHits(
   raw: string,
 ): Promise<ServiceResult<SearchGroup>> {
   const q = parseSearchQuery(raw);
-  const all = seeAllHref("/documents", raw);
+  const all = seeAllHref("/documents/library", raw);
   const financial = can(caller, "read", "financial_document");
   const relationship = can(caller, "read", "relationship_document");
   if (!q || (!financial && !relationship)) return { data: emptyGroup("document", all) };

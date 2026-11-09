@@ -180,7 +180,7 @@ export async function dashboardOverview(
         kind: "documents_to_review",
         count: toReview,
         priority: "high",
-        href: "/documents/inbox",
+        href: "/documents",
       });
     }
     if (unlinkedDocs.length > 0) {

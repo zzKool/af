@@ -36,7 +36,7 @@ test.describe("Document inbox — owner", () => {
     await trackToasts(page);
     await withToastReport(page, async () => {
       // 1. three uploads, the third the same bytes as the first (Upload anyway)
-      await page.goto("/documents");
+      await page.goto("/documents/library");
       await upload(page, `inbox-a-${stamp}.pdf`, pdf("a"));
       await expect(page.getByRole("button", { name: "Upload another" })).toBeVisible({
         timeout: 15_000,
@@ -58,12 +58,14 @@ test.describe("Document inbox — owner", () => {
       // 2. the library links the inbox; the inbox lists the three, Ready once the OCR ran
       await expect(page.getByTestId("documents-inbox-link")).toContainText(/Inbox \(\d+\)/);
       await page.getByTestId("documents-inbox-link").click();
-      await expect(page).toHaveURL(/\/documents\/inbox$/);
-      await expect(page.getByRole("heading", { name: "Document inbox" })).toBeVisible();
+      // F153: the inbox is the documents desk
+      await expect(page).toHaveURL(/\/documents$/);
+      await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+      await expect(page.getByTestId("drop-hero")).toBeVisible();
       await page.getByTestId("inbox-search").fill(stamp);
       const rows = page.getByTestId("inbox-row");
       await expect(rows).toHaveCount(3);
-      await page.getByRole("heading", { name: "Document inbox" }).click(); // out of the search field
+      await page.getByRole("heading", { name: "Documents", exact: true }).click(); // out of the search field
       await expect(async () => {
         await page.keyboard.press("r"); // refresh until the mock OCR has run on the three
         await expect(page.locator('[data-inbox-state="ready"]')).toHaveCount(3, { timeout: 2_000 });
@@ -118,8 +120,8 @@ test.describe("Document inbox — accountant", () => {
   test.use({ storageState: "e2e/.auth/accountant.json" });
 
   test("reads the queue, changes nothing", async ({ page }) => {
-    await page.goto("/documents/inbox");
-    await expect(page.getByRole("heading", { name: "Document inbox" })).toBeVisible();
+    await page.goto("/documents/inbox"); // F153: redirects to the desk
+    await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
     await expect(page.getByTestId("inbox-row-check")).toHaveCount(0);
     const pane = page.getByTestId("inbox-pane");
     if (await pane.isVisible()) {

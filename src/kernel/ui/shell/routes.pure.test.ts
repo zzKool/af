@@ -32,7 +32,7 @@ describe("destinationsFor — what the search finds, by role", () => {
   test("the owner gets every enabled page and the named sub-pages under them", () => {
     const d = destinationsFor("owner");
     expect(d.map((x) => x.href)).toContain("/documents");
-    expect(d.map((x) => x.href)).toContain("/documents/inbox");
+    expect(d.map((x) => x.href)).toContain("/documents/library");
     expect(d.map((x) => x.href)).not.toContain("/reconciliation");
     expect(d.filter((x) => x.parent)).toHaveLength(Object.keys(SUB_PAGES).length);
   });
@@ -40,7 +40,7 @@ describe("destinationsFor — what the search finds, by role", () => {
   test("the accountant does not find owner-only pages nor their sub-pages", () => {
     const hrefs = destinationsFor("accountant").map((x) => x.href);
     expect(hrefs).not.toContain("/documents");
-    expect(hrefs).not.toContain("/documents/inbox");
+    expect(hrefs).not.toContain("/documents/library");
     expect(hrefs).toContain("/banking/rules");
   });
 });

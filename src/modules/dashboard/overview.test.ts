@@ -441,7 +441,7 @@ describe("the owner's dashboard", () => {
     const o = await run(owner.caller, (tx) => dashboardOverview(tx, owner.caller, TODAY, null));
     expect(o.items.find((i) => i.kind === "documents_to_review")).toMatchObject({
       count: 2,
-      href: "/documents/inbox",
+      href: "/documents",
     });
   });
 

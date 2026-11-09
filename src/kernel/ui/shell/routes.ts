@@ -18,7 +18,7 @@ export const SUB_PAGES: Record<string, MessageKey> = {
   "/banking/rules": "banking.nav.rules",
   "/banking/inbox": "banking.nav.inbox",
   "/banking/reconcile": "banking.nav.reconcile",
-  "/documents/inbox": "documents.inbox.title",
+  "/documents/library": "documents.library.title",
   "/expenses/groups": "expenses.nav.groups",
   "/expenses/settle": "expenses.nav.settle",
   "/expenses/settlements": "expenses.nav.settlements",
