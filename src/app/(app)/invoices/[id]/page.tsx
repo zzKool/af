@@ -73,6 +73,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         }
       : null;
 
+  const studio = inv.status === "draft" && canWrite && facts;
+
   return (
     <EntityPage
       ground
@@ -92,18 +94,21 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       }
       meta={`${partner?.name ?? ""} · ${formatMoney(inv.totalAmount, inv.currency)}`}
       actions={
-        <InvoiceActions
-          id={inv.id}
-          type={inv.type}
-          status={inv.status}
-          state={inv.state}
-          numberHint={ctx.numberHint}
-          pdfDocumentId={inv.pdfDocumentId}
-          canWrite={canWrite}
-        />
+        // F160: a draft's actions sit in the studio's bar at the bottom
+        studio ? undefined : (
+          <InvoiceActions
+            id={inv.id}
+            type={inv.type}
+            status={inv.status}
+            state={inv.state}
+            numberHint={ctx.numberHint}
+            pdfDocumentId={inv.pdfDocumentId}
+            canWrite={canWrite}
+          />
+        )
       }
     >
-      {inv.status === "draft" && canWrite && facts ? (
+      {studio ? (
         <InvoiceStudio
           invoice={{
             ...inv,
@@ -124,6 +129,17 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           partnerName={partner?.name ?? ""}
           facts={facts}
           today={today}
+          actions={
+            <InvoiceActions
+              id={inv.id}
+              type={inv.type}
+              status={inv.status}
+              state={inv.state}
+              numberHint={ctx.numberHint}
+              pdfDocumentId={inv.pdfDocumentId}
+              canWrite={canWrite}
+            />
+          }
           details={
             <InvoiceDetails
               invoice={{
