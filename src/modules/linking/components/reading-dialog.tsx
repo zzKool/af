@@ -1,5 +1,9 @@
 "use client";
 
+import { useAction } from "next-safe-action/hooks";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 // The reading dialog (F131, review 2026-10-31 §6.3 — DI Studio's shape): opened when the OCR reading of the paper
 // dropped on a bank row arrives (and on *Use it* for a proof already in the inbox, and on *Receipt lost* without a
 // paper). Full screen: the preview on the left (the review page's viewer — zoom, rotate, pages); on the right, top to
@@ -11,10 +15,7 @@
 // `confirmedWarnings`) · the Group proposed from the paper's date (the covering trip, else the month's group — never
 // list order) · the Category with its source · one primary, *Confirm & link* → `justifyRowAction` (one transaction),
 // then the D74 toast when the result proposes a rule. Escape closes without writing. Replaces the F97 compare card.
-import { useAction } from "next-safe-action/hooks";
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -612,9 +613,8 @@ function ReadingDialogBody({
                   }
                   glyph={glyph("invoiceDate", "transactionDate")}
                 >
-                  <Input
+                  <DateInput
                     id={`${ids}-date`}
-                    type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     data-testid="justify-date"
@@ -626,9 +626,8 @@ function ReadingDialogBody({
                     label={t("linking.reading.field.dueDate")}
                     glyph={glyph("dueDate")}
                   >
-                    <Input
+                    <DateInput
                       id={`${ids}-due`}
-                      type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
                       data-testid="justify-due"

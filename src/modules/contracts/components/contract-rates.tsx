@@ -1,14 +1,15 @@
 "use client";
 
-// The Rates section of one contract (specs/contracts US1, US3): dated history, inline add, edit-in-place,
-// delete with confirm. Lives inside the contract's expanded row on the partner page — no route of its own.
-// States (Current / Expired / Future) come from the server, derived against today; never stored — shown as a
-// D40 <StateLabel> through the module's one map (state-family.ts). Amounts through formatMoney (F71).
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+// The Rates section of one contract (specs/contracts US1, US3): dated history, inline add, edit-in-place,
+// delete with confirm. Lives inside the contract's expanded row on the partner page — no route of its own.
+// States (Current / Expired / Future) come from the server, derived against today; never stored — shown as a
+// D40 <StateLabel> through the module's one map (state-family.ts). Amounts through formatMoney (F71).
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -212,9 +213,8 @@ export function ContractRates({
               <label htmlFor={`${ids}-from`} className="mb-1 block text-xs font-medium">
                 {t("contracts.rates.validFrom")}
               </label>
-              <Input
+              <DateInput
                 id={`${ids}-from`}
-                type="date"
                 value={newFrom}
                 onChange={(e) => setNewFrom(e.target.value)}
                 className="h-8"
@@ -225,9 +225,8 @@ export function ContractRates({
               <label htmlFor={`${ids}-to`} className="mb-1 block text-xs font-medium">
                 {t("contracts.rates.validTo")}
               </label>
-              <Input
+              <DateInput
                 id={`${ids}-to`}
-                type="date"
                 value={newTo}
                 onChange={(e) => setNewTo(e.target.value)}
                 className="h-8"
@@ -331,8 +330,7 @@ function RateRow({
   return (
     <TableRow data-state={row.state}>
       <TableCell>
-        <Input
-          type="date"
+        <DateInput
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           onBlur={() => onEdit(row.id, "validFrom", from)}
@@ -341,8 +339,7 @@ function RateRow({
         />
       </TableCell>
       <TableCell>
-        <Input
-          type="date"
+        <DateInput
           value={to}
           onChange={(e) => setTo(e.target.value)}
           onBlur={() => onEdit(row.id, "validTo", to)}

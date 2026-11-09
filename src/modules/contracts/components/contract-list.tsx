@@ -1,9 +1,5 @@
 "use client";
 
-// The Contracts tab of the partner page: the contracts as a kit Table (a handful of rows — no DataTable, no URL
-// state), the derived state as <StateLabel> through state-family.ts, the currency as a <Tag>, the current rate
-// through formatMoney, Deactivate / Reactivate in the row's ⋮ menu (F71, D40). A row click expands the
-// contract's form and its Rates section.
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useAction } from "next-safe-action/hooks";
 import { Fragment, useCallback, useMemo, useState } from "react";
@@ -11,6 +7,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+// The Contracts tab of the partner page: the contracts as a kit Table (a handful of rows — no DataTable, no URL
+// state), the derived state as <StateLabel> through state-family.ts, the currency as a <Tag>, the current rate
+// through formatMoney, Deactivate / Reactivate in the row's ⋮ menu (F71, D40). A row click expands the
+// contract's form and its Rates section.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -141,8 +142,7 @@ function ContractEditForm({
         </div>
         <div>
           <Label>{t("contracts.form.startDate")}</Label>
-          <Input
-            type="date"
+          <DateInput
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             onBlur={() => handleBlur("startDate", startDate, contract.startDate)}
@@ -150,8 +150,7 @@ function ContractEditForm({
         </div>
         <div>
           <Label>{t("contracts.form.endDate")}</Label>
-          <Input
-            type="date"
+          <DateInput
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             onBlur={() => handleBlur("endDate", endDate, contract.endDate)}
@@ -620,9 +619,8 @@ export function ContractList({
             </div>
             <div>
               <Label htmlFor="new-contract-start">{t("contracts.form.startDate")}</Label>
-              <Input
+              <DateInput
                 id="new-contract-start"
-                type="date"
                 value={newStartDate}
                 onChange={(e) => setNewStartDate(e.target.value)}
               />

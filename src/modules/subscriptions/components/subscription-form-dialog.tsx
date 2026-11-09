@@ -5,6 +5,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -325,9 +326,8 @@ export function SubscriptionFormDialog({
               <label htmlFor={`${ids}-start`} className={label}>
                 {t("subscriptions.form.start")}
               </label>
-              <Input
+              <DateInput
                 id={`${ids}-start`}
-                type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
@@ -338,9 +338,8 @@ export function SubscriptionFormDialog({
               <label htmlFor={`${ids}-end`} className={label}>
                 {t("subscriptions.form.end")}
               </label>
-              <Input
+              <DateInput
                 id={`${ids}-end`}
-                type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />

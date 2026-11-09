@@ -1,15 +1,16 @@
 "use client";
 
-// New supplier invoice (US1, US3): the supplier (its currency, terms, category and registration pre-fill), the
-// group (or a new one inline), the supplier's number, the dates, net / VAT / total, the category, the VAT
-// registration, the document from the inbox (or "no document"), a note. *Copy last* takes the supplier's latest
-// invoice (amounts, category, registration — a new number and dates). The key and the base come from the service.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+// New supplier invoice (US1, US3): the supplier (its currency, terms, category and registration pre-fill), the
+// group (or a new one inline), the supplier's number, the dates, net / VAT / total, the category, the VAT
+// registration, the document from the inbox (or "no document"), a note. *Copy last* takes the supplier's latest
+// invoice (amounts, category, registration — a new number and dates). The key and the base come from the service.
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -449,9 +450,8 @@ export function NewSupplierInvoiceDialog({
             <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
               {t("supplierInvoices.form.invoiceDate")}
             </label>
-            <Input
+            <DateInput
               id={`${ids}-date`}
-              type="date"
               value={invoiceDate}
               onChange={(e) => setInvoiceDate(e.target.value)}
               required
@@ -469,9 +469,8 @@ export function NewSupplierInvoiceDialog({
                 </span>
               ) : null}
             </label>
-            <Input
+            <DateInput
               id={`${ids}-due`}
-              type="date"
               value={dueDate}
               onChange={(e) => {
                 setDueTouched(true);

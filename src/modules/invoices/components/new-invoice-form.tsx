@@ -1,11 +1,12 @@
 "use client";
 
-// Start a draft: client → contract (fills everything) → type, issue date, period. Creating opens the sheet.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+// Start a draft: client → contract (fills everything) → type, issue date, period. Creating opens the sheet.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -173,9 +174,8 @@ export function NewInvoiceForm({
         <label htmlFor={`${ids}-date`} className="mb-1 block text-xs font-medium">
           {t("invoices.form.issueDate")}
         </label>
-        <Input
+        <DateInput
           id={`${ids}-date`}
-          type="date"
           value={issueDate}
           onChange={(e) => setIssueDate(e.target.value)}
         />
@@ -195,9 +195,8 @@ export function NewInvoiceForm({
         <label htmlFor={`${ids}-start`} className="mb-1 block text-xs font-medium">
           {t("invoices.form.periodStart")}
         </label>
-        <Input
+        <DateInput
           id={`${ids}-start`}
-          type="date"
           value={periodStart}
           onChange={(e) => setPeriodStart(e.target.value)}
         />

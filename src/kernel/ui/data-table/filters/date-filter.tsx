@@ -1,12 +1,13 @@
 "use client";
 
-// Excel's date filter: a year → month → day tree with tri-state checkboxes and counts (over the set
-// filtered by the other columns), presets, and a custom from/to range. Selection is kept at leaf
-// (day) level and compressed to year/month/day tokens on OK.
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+// Excel's date filter: a year → month → day tree with tri-state checkboxes and counts (over the set
+// filtered by the other columns), presets, and a custom from/to range. Selection is kept at leaf
+// (day) level and compressed to year/month/day tokens on OK.
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MessageKey } from "@/kernel/i18n/translate";
@@ -235,16 +236,14 @@ export function DateFilter({ current, load, onApply, onClose }: DateFilterProps)
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <Input
-          type="date"
+        <DateInput
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           className="h-8"
           aria-label={t("table.filter.from")}
         />
         <span className="text-xs text-muted-foreground">{t("table.filter.to")}</span>
-        <Input
-          type="date"
+        <DateInput
           value={to}
           onChange={(e) => setTo(e.target.value)}
           className="h-8"

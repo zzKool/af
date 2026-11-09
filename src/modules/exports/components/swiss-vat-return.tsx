@@ -1,11 +1,5 @@
 "use client";
 
-// The Swiss VAT return page (specs/exports/spec.md US1–US3): registration and quarter, the FTA form row by row
-// (copy a value, type the manual refs), the warnings, the drill-down (invoices and input sources), the CSV, and
-// the declaration record — Declare (freezes the figures), Mark paid (with the vat_payment expense), undo both.
-// D40 kit (F71): the quarter's state as <StateLabel> through state-family.ts, amounts through formatMoney (the
-// plain decimal on data-amount), keys as <CodeChip>, country / credit note as <Tag>. The CSV is not a screen:
-// swissVatCsv writes the stored decimals, unchanged (swiss-vat.pure.test.ts compares it with the pre-F71 file).
 import { Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -13,6 +7,13 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+// The Swiss VAT return page (specs/exports/spec.md US1–US3): registration and quarter, the FTA form row by row
+// (copy a value, type the manual refs), the warnings, the drill-down (invoices and input sources), the CSV, and
+// the declaration record — Declare (freezes the figures), Mark paid (with the vat_payment expense), undo both.
+// D40 kit (F71): the quarter's state as <StateLabel> through state-family.ts, amounts through formatMoney (the
+// plain decimal on data-amount), keys as <CodeChip>, country / credit note as <Tag>. The CSV is not a screen:
+// swissVatCsv writes the stored decimals, unchanged (swiss-vat.pure.test.ts compares it with the pre-F71 file).
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -310,8 +311,7 @@ export function SwissVatReturnPage({
           </Button>
           {canWrite && data && !declared && (
             <>
-              <Input
-                type="date"
+              <DateInput
                 value={declaredAt}
                 onChange={(e) => setDeclaredAt(e.target.value)}
                 className="w-40"
@@ -337,8 +337,7 @@ export function SwissVatReturnPage({
               >
                 {t("exports.vat.undeclare")}
               </Button>
-              <Input
-                type="date"
+              <DateInput
                 value={payments.find((p) => p.id === paymentId)?.date ?? paidAt}
                 onChange={(e) => setPaidAt(e.target.value)}
                 disabled={!!paymentId}

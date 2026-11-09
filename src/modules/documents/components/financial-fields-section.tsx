@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -117,9 +118,8 @@ export function FinancialFieldsSection({
           </Label>
           {confidence(isInvoice ? "invoiceDate" : "transactionDate")}
         </div>
-        <Input
+        <DateInput
           id="invoiceDate"
-          type="date"
           defaultValue={String(resolvedData.invoiceDate ?? resolvedData.transactionDate ?? "")}
           disabled={readOnly}
           onChange={(e) =>
@@ -138,9 +138,8 @@ export function FinancialFieldsSection({
             </Label>
             {confidence("dueDate")}
           </div>
-          <Input
+          <DateInput
             id="dueDate"
-            type="date"
             defaultValue={String(resolvedData.dueDate ?? "")}
             disabled={readOnly}
             onChange={(e) => onFieldChange("dueDate", e.target.value)}

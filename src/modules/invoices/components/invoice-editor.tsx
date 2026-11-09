@@ -1,12 +1,13 @@
 "use client";
 
-// Edit mode of the sheet (D7): the same layout as the print, with inputs where the values sit. Owns the
-// draft's state, autosaves on blur through `updateDraftAction` (header + lines wholesale), shows live
-// totals from the pure arithmetic. The editor never decides the layout — it fills the sheet's slots.
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+// Edit mode of the sheet (D7): the same layout as the print, with inputs where the values sit. Owns the
+// draft's state, autosaves on blur through `updateDraftAction` (header + lines wholesale), shows live
+// totals from the pure arithmetic. The editor never decides the layout — it fills the sheet's slots.
+import { DateInput } from "@/components/ui/date-input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -432,8 +433,8 @@ export function InvoiceEditor({
         doc={doc}
         slots={{
           issueDate: (
-            <input
-              type="date"
+            <DateInput
+              plain
               value={header.issueDate}
               onChange={(e) => setH("issueDate", e.target.value)}
               onBlur={() => void persist()}
@@ -442,8 +443,8 @@ export function InvoiceEditor({
             />
           ),
           dueDate: (
-            <input
-              type="date"
+            <DateInput
+              plain
               value={header.dueDate}
               onChange={(e) => setH("dueDate", e.target.value)}
               onBlur={() => void persist()}
