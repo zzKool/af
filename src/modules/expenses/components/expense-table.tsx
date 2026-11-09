@@ -6,7 +6,7 @@
 // (`header-actions.tsx`).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
 import type { ListResult } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
@@ -35,6 +35,7 @@ import type {
   SourceOption,
   TransactionOption,
 } from "@/modules/expenses/types";
+import { useExpenseDockStore } from "../stores/use-expense-dock-store";
 import { ExpensePanel } from "./expense-panel";
 import { ExpenseStateLabel } from "./expense-state";
 import { groupLabel } from "./labels";
@@ -114,6 +115,12 @@ export function ExpenseTable({
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  // F170: one docked panel at a time — the new-expense form opening closes the row, a row picked closes the form
+  const creating = useExpenseDockStore((s) => s.creating);
+  const setCreating = useExpenseDockStore((s) => s.setCreating);
+  useEffect(() => {
+    if (creating) setSelectedId(null);
+  }, [creating]);
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -499,7 +506,10 @@ export function ExpenseTable({
         }}
         rowCurrency={(row) => row.currency as Currency}
         sumCurrency={EXPENSES_BASE}
-        onRowClick={(row) => setSelectedId(row.id)}
+        onRowClick={(row) => {
+          setCreating(false);
+          setSelectedId(row.id);
+        }}
         searchPlaceholder={t("expenses.search")}
         emptyState={
           Object.keys(state.query.filters).length || state.query.search

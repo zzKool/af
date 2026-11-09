@@ -6,7 +6,7 @@
 //   /expenses/groups/[id]    Edit · [Add expense]
 //   /expenses/settlements    [Settle]
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
@@ -18,9 +18,10 @@ import type {
   GroupOption,
   SourceOption,
 } from "@/modules/expenses/types";
+import { useExpenseDockStore } from "../stores/use-expense-dock-store";
 import { EXPENSES_BASE } from "./expense-table";
 import { GroupDialog } from "./groups-table";
-import { NewExpenseDialog } from "./new-expense-dialog";
+import { NewExpensePanel } from "./new-expense-dialog";
 
 export type NewExpenseOptions = {
   groups: GroupOption[];
@@ -30,7 +31,10 @@ export type NewExpenseOptions = {
   basHistory?: Record<string, { code: string; count: number }[]>;
 };
 
-/** The primary that opens the New expense dialog — on the list, or pre-set to a group on its page. */
+/**
+ * The primary that opens the new-expense form — on the list, or pre-set to a group on its page. F170: the form docks
+ * beside the list (the board *Pulse — Expenses*), one panel at a time with the row's details (the dock store).
+ */
 export function NewExpenseButton({
   options,
   groupId,
@@ -41,14 +45,35 @@ export function NewExpenseButton({
   label?: string;
 }) {
   const t = useT();
-  // `?new=1` — the sidebar's **+ New → Expense** (F73) — opens the dialog; closing drops the param
-  const [open, setOpen] = useNewParam();
+  // `?new=1` — the sidebar's **+ New → Expense** (F73) — opens the form; closing drops the param
+  const [requested, setRequested] = useNewParam();
+  const open = useExpenseDockStore((s) => s.creating);
+  const setCreating = useExpenseDockStore((s) => s.setCreating);
+  useEffect(() => {
+    if (requested) setCreating(true);
+  }, [requested, setCreating]);
+  // closed from elsewhere (a row picked in the list): the param goes too, so a reload does not open it again
+  const dropParam = useRef(setRequested);
+  dropParam.current = setRequested;
+  useEffect(
+    () =>
+      useExpenseDockStore.subscribe((s, prev) => {
+        if (prev.creating && !s.creating) dropParam.current(false);
+      }),
+    [],
+  );
+  // leaving the page closes the form (the store outlives the page)
+  useEffect(() => () => setCreating(false), [setCreating]);
+  const setOpen = (next: boolean) => {
+    setCreating(next);
+    setRequested(next);
+  };
   return (
     <>
       <Button onClick={() => setOpen(true)} data-testid="open-new-expense">
         {label ?? t("expenses.new")}
       </Button>
-      <NewExpenseDialog
+      <NewExpensePanel
         open={open}
         onOpenChange={setOpen}
         groups={options.groups}
