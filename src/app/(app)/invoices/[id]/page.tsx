@@ -22,6 +22,7 @@ import {
   InvoiceActions,
   InvoiceDetails,
   InvoiceEditor,
+  InvoiceFigures,
   InvoiceSheet,
   InvoiceStateLabel,
   InvoiceStudio,
@@ -173,58 +174,72 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           }
         />
       ) : (
-        <div className="flex flex-col gap-[18px] xl:flex-row">
-          <div className="flex min-w-0 flex-1 flex-col gap-[18px]">
-            {reminder && (
-              <ReminderCard
-                facts={reminder}
-                language={inv.language}
-                today={today}
-                email={ctx.parties.partner.email}
-              />
-            )}
-            <div className="pulse-card-2 p-4">
-              <InvoiceSheet
-                mode="print"
-                doc={toSheetDocument(inv, {
-                  parties: ctx.parties,
-                  treatment: ctx.treatment,
-                  relatedNumber: ctx.relatedNumber,
-                })}
-              />
-            </div>
-          </div>
-          <aside className="w-full shrink-0 pulse-card p-4 xl:w-[380px]">
-            <InvoiceDetails
-              invoice={{
-                id: inv.id,
-                type: inv.type,
-                status: inv.status,
-                state: inv.state,
-                partnerName: partner?.name ?? null,
-                issueDate: inv.issueDate,
-                dueDate: inv.dueDate,
-                periodLabel: inv.periodLabel,
-                currency: inv.currency,
-                totalAmount: inv.totalAmount,
-                allocated: inv.allocated,
-                remaining: inv.remaining,
-                allocatedBase: inv.allocatedBase,
-                fxDifference: inv.fxDifference,
-                credited: inv.credited,
-                baseCurrency: inv.baseCurrency,
-                totalBase: inv.totalBase,
-                rateToBase: inv.rateToBase,
-                rateSource: inv.rateSource,
-                rateDate: inv.rateDate,
-                declarationPeriod: inv.declarationPeriod,
-                internalNote: inv.internalNote,
-              }}
-              related={related}
-              declared={declared}
-              canWrite={canWrite}
+        <div className="flex flex-col gap-[18px]">
+          {/* F163: the figures of an issued invoice — total, paid, open, due — as the boards' KPI tiles */}
+          {inv.type === "invoice" && (
+            <InvoiceFigures
+              total={inv.totalAmount}
+              allocated={inv.allocated}
+              remaining={inv.remaining}
+              currency={inv.currency}
+              dueDate={inv.dueDate}
+              state={inv.state}
+              today={today}
             />
-          </aside>
+          )}
+          <div className="flex flex-col gap-[18px] xl:flex-row">
+            <div className="flex min-w-0 flex-1 flex-col gap-[18px]">
+              {reminder && (
+                <ReminderCard
+                  facts={reminder}
+                  language={inv.language}
+                  today={today}
+                  email={ctx.parties.partner.email}
+                />
+              )}
+              <div className="pulse-card-2 p-4">
+                <InvoiceSheet
+                  mode="print"
+                  doc={toSheetDocument(inv, {
+                    parties: ctx.parties,
+                    treatment: ctx.treatment,
+                    relatedNumber: ctx.relatedNumber,
+                  })}
+                />
+              </div>
+            </div>
+            <aside className="w-full shrink-0 pulse-card p-4 xl:w-[380px]">
+              <InvoiceDetails
+                invoice={{
+                  id: inv.id,
+                  type: inv.type,
+                  status: inv.status,
+                  state: inv.state,
+                  partnerName: partner?.name ?? null,
+                  issueDate: inv.issueDate,
+                  dueDate: inv.dueDate,
+                  periodLabel: inv.periodLabel,
+                  currency: inv.currency,
+                  totalAmount: inv.totalAmount,
+                  allocated: inv.allocated,
+                  remaining: inv.remaining,
+                  allocatedBase: inv.allocatedBase,
+                  fxDifference: inv.fxDifference,
+                  credited: inv.credited,
+                  baseCurrency: inv.baseCurrency,
+                  totalBase: inv.totalBase,
+                  rateToBase: inv.rateToBase,
+                  rateSource: inv.rateSource,
+                  rateDate: inv.rateDate,
+                  declarationPeriod: inv.declarationPeriod,
+                  internalNote: inv.internalNote,
+                }}
+                related={related}
+                declared={declared}
+                canWrite={canWrite}
+              />
+            </aside>
+          </div>
         </div>
       )}
     </EntityPage>

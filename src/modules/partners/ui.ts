@@ -9,5 +9,6 @@ export * from "./components/partner-form";
 export * from "./components/partner-labels";
 export * from "./components/partner-match-card";
 export * from "./components/partner-table";
+export * from "./components/partners-hero";
 export * from "./partners.actions";
 export type * from "./types";

@@ -4,7 +4,7 @@ import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { EntityPage } from "@/kernel/ui/shell/page";
-import { NewInvoiceForm } from "@/modules/invoices/ui";
+import { NewInvoiceForm, NewInvoiceSteps } from "@/modules/invoices/ui";
 import { getPartners } from "@/modules/partners";
 
 export default async function NewInvoicePage({
@@ -21,15 +21,22 @@ export default async function NewInvoicePage({
   });
   return (
     <EntityPage
+      ground
       title={type === "quote" ? "New quote" : "New invoice"}
       back={<Link href="/invoices">← Invoices</Link>}
     >
-      <NewInvoiceForm
-        clients={clients}
-        initialType={type}
-        initialPartnerId={typeof params.partner === "string" ? params.partner : undefined}
-        today={createClock().today()}
-      />
+      {/* F163: the form in its card on the ground, what happens next beside it */}
+      <div className="grid items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="pulse-card p-6">
+          <NewInvoiceForm
+            clients={clients}
+            initialType={type}
+            initialPartnerId={typeof params.partner === "string" ? params.partner : undefined}
+            today={createClock().today()}
+          />
+        </section>
+        <NewInvoiceSteps />
+      </div>
     </EntityPage>
   );
 }
