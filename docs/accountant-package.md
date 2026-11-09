@@ -78,9 +78,34 @@ Years: the same columns, ⋮ Build / Download              │ ▸ notes.md   �
 
 - **The months are a DataTable** (`tableKey` `package-months`): every column is computed, so the filters, the sort and the page run in memory over `periodOverview`'s months (`listMonths`) — the URL is the query (D20). *Month* is the period's first day, a date column with `quickFilter` (years → months). The years stay a kit `Table` under it with the same ⋮ (`RowActionsMenu`).
 - **The state is derived** (`state-family.ts`, one map): the latest build running → *Building* (in progress), failed → *Build failed* (attention), any flag → *Flags to check* (attention), a built version → *Built* (done), anything in the period → *Ready to build* (in progress), else *Nothing to send* (neutral). The versions in the panel use the build status's family. Older months (past the 12 collected live) read their last build's flags, as before.
-- **Row buttons → ⋮**: *Build* / *Rebuild* (owner, disabled while one runs) and *Download v{n}*. A row opens the docked panel; the newest month with bank lines is open on arrival. The panel's title row has the one primary (*Build* / *Rebuild*, owner) beside *Download v{n}*.
+- **Row buttons → ⋮**: *Build* / *Rebuild* (owner, disabled while one runs) and *Download v{n}*. A row opens the docked panel (since F155 nothing opens on arrival — the Close cards come first). The panel's title row has the one primary (*Build* / *Rebuild*, owner) beside *Download v{n}*.
 - **Flags on screen**: a business key as `<CodeChip>`, a bank line as its account and day, the figure through `formatMoney` (a bank line's signed amount, a delta's or an invoice's open amount — `package.flag.open`). The collector adds `amount`, `currency`, `account`, `date` to a flag for the screen only; `notes.md` and the *Flags* sheet print `key` + `detail` as before, and `generators.pure.test.ts` pins the bytes of the zip, `summary.xlsx`, `notes.md` and the year zip against a golden (`package-golden.json`, in UTC — fflate dates the entries in local time; taken before F71, re-captured for F111, for F114 PR 2 and for F129's *Partner* column — opened with openpyxl before the JSON was copied). To re-capture after a reviewed change of the sheets: `PACKAGE_GOLDEN_OUT=<dir> npx vitest run src/modules/package/generators.pure.test.ts` writes the four files and the new JSON there — open the workbook with a second reader before copying the JSON over.
 - No Tailwind palette colour, no `formatCurrency`, no `toLocaleString` left in the module.
+
+## The Close page (F155, the Pulse-Close board)
+
+`/package` is titled **Close** and opens on two cards above the months:
+
+```
+Close
+┌ Accountant package · October 2026  ‹Sep  Nov› ┐ ┌ Swiss VAT · Q4 2026      due 2027-03-01 ┐
+│ not ready  2 of 5 checks open …               │ │ Collect ━━ Prepare ── Declared ── Paid │
+│ ✓ Bank statements for October 2026            │ │ Taxable turnover          68 400 CHF   │
+│ ! Every bank line justified    [Open Reconcile]│ │ VAT due · Input tax · To pay          │
+│ ✓ Every document read and linked              │ │ Swedish moms: nothing to declare here │
+│ ✓ Client invoices paid                        │ │        [See the n invoices] [Open the return] │
+│ ! Exchange rates for every line   [Open rates]│ └────────────────────────────────────────┘
+│ What goes in the zip: 2026-10/ bank-statements/ … │
+│ Last package …     [Flags and notes] [Build anyway] │
+└───────────────────────────────────────────────┘
+Every month — the DataTable as before; Years under it
+```
+
+- **The month** is the one just ended (the month the accountant gets), `?close=2026-07` for another — ‹ › walk the months the table lists. Nothing opens the docked panel on arrival any more; *Flags and notes* (or a row) opens it.
+- **Five checks, counted, never typed** (`close.ts`, pure, `close.pure.test.ts`) over the same collected period a build writes: *bank* (lines imported, accounts), *justified* (lines carrying a flag other than `mixed`), *documents* (`missing_document` + `document_not_ready`), *invoices* (`unpaid_invoice`), *rates* (every pair's newest ECB day reaches the month's last weekday, three days' tolerance for a TARGET closing day; while the month runs, two days back). An open check links to the page that closes it.
+- **The zip tree** lists what `monthEntries` would write: one statement per account, the document folders with files, `summary.xlsx`, `notes.md`; the size is the stored documents' bytes.
+- **Build is never blocked**: with an open check the button reads *Build anyway* (the open items are notes.md's flags); a built month offers *Download v{n}* and *Rebuild*. The card's builds are polled with the table's.
+- **The VAT card** is the exports module's (`VatQuarterCard`, `vatQuarterCard` in `modules/exports/queries.ts`), composed by the page — see [[exports]].
 
 ## Determinism (R6)
 

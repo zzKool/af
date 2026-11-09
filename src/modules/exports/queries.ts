@@ -15,7 +15,14 @@ import * as supplierInvoices from "@/modules/supplier-invoices";
 import { getDeclaration, listDeclarations, withPaymentDate } from "./declaration-read";
 import { periodOfDate } from "./period";
 import { computeSwissVatReturn, quarterBounds, quartersBetween, rateKey } from "./swiss-vat";
-import type { InputVatSourceRow, ReturnInvoice, ReturnRate, SwissVatReturn } from "./types";
+import type {
+  InputVatSourceRow,
+  ReturnInvoice,
+  ReturnRate,
+  SwissVatReturn,
+  VatQuarterStep,
+  VatQuarterView,
+} from "./types";
 
 export { getDeclaration, listDeclarations };
 
@@ -271,4 +278,95 @@ export async function vatPaymentOptions(
     amount: e.amount,
     currency: e.currency,
   }));
+}
+
+/** `2026-09-30` + 60 days — the FTA's deadline for a quarter's return and payment. */
+export function vatDue(to: string): string {
+  const d = new Date(`${to}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 60);
+  return d.toISOString().slice(0, 10);
+}
+
+function quarterBefore(period: string): string {
+  const { from } = quarterBounds(period);
+  const d = new Date(`${from}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return periodOfDate(d.toISOString().slice(0, 10));
+}
+
+const lineAmount = (lines: readonly { ref: string; amount: string }[], ref: string) =>
+  lines.find((l) => l.ref === ref)?.amount ?? "0.00";
+
+/**
+ * The quarter the Close page shows (F155): the quarter just ended while it is not paid (prepare, declare, pay),
+ * else the running one (collecting). Null without a CH registration — nothing to declare.
+ */
+export async function vatQuarterCard(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  today: string,
+): Promise<VatQuarterView | null> {
+  const reg = (await chRegistrations(tx, caller))[0];
+  if (!reg) return null;
+  const periods = await swissVatPeriods(tx, today);
+  const current = periodOfDate(today);
+  const before = quarterBefore(current);
+  const beforeRecord = await getDeclaration(tx, reg.id, before);
+  const period = periods.includes(before) && !beforeRecord?.paidAt ? before : current;
+  const r = await swissVatReturn(tx, caller, { registrationId: reg.id, period, today });
+  if (!r.data) return null;
+  const ret = r.data;
+  const record = ret.declaration;
+  const step: VatQuarterStep = record?.paidAt
+    ? "paid"
+    : record?.declaredAt
+      ? "declared"
+      : today > ret.to
+        ? "prepare"
+        : "collect";
+
+  const { from } = quarterBounds(period);
+  const months = [0, 1, 2].map((i) => {
+    const d = new Date(`${from}T12:00:00Z`);
+    d.setUTCMonth(d.getUTCMonth() + i);
+    return d.toISOString().slice(0, 7);
+  });
+  const turnover = months.map((month) => ({
+    month,
+    turnover: ret.invoices
+      .filter((inv) => inv.issueDate.startsWith(month))
+      .reduce(
+        (s, inv) => (inv.type === "credit_note" ? s.minus(inv.net) : s.plus(inv.net)),
+        new D(0),
+      )
+      .toFixed(2),
+  }));
+
+  const prevPeriod = quarterBefore(period);
+  const prev = await getDeclaration(tx, reg.id, prevPeriod);
+  const prevLines = prev?.snapshot ?? [];
+  return {
+    registrationId: reg.id,
+    vatNumber: reg.vatNumber,
+    period,
+    from: ret.from,
+    to: ret.to,
+    due: vatDue(ret.to),
+    step,
+    months: turnover,
+    turnover: lineAmount(ret.lines, "299"),
+    taxDue: lineAmount(ret.lines, "399"),
+    deductible: lineAmount(ret.lines, "479"),
+    payable: lineAmount(ret.lines, "500"),
+    credit: lineAmount(ret.lines, "510"),
+    invoices: ret.invoices.length,
+    previous: prev
+      ? {
+          period: prevPeriod,
+          declaredAt: prev.declaredAt,
+          paidAt: prev.paidAt,
+          amount: lineAmount(prevLines, "500"),
+        }
+      : null,
+  };
 }

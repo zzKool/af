@@ -131,3 +131,35 @@ export type SwissVatDeclarationDto = {
   createdBy: string;
   source: string;
 };
+
+/** Where a quarter stands (F155, the Close page's card) — derived from today and the declaration's dates. */
+export type VatQuarterStep = "collect" | "prepare" | "declared" | "paid";
+
+/** The Swiss VAT quarter as the Close page's card reads it (F155): the step, the due day, the key figures in CHF. */
+export type VatQuarterView = {
+  registrationId: string;
+  vatNumber: string;
+  /** `CH 2026/Q3` */
+  period: string;
+  from: string;
+  to: string;
+  /** 60 days after the quarter's end */
+  due: string;
+  step: VatQuarterStep;
+  /** the quarter's months, each with its turnover (Σ invoice nets − credit notes, CHF) */
+  months: { month: string; turnover: string }[];
+  /** 299 · 399 · 479 · 500 · 510 */
+  turnover: string;
+  taxDue: string;
+  deductible: string;
+  payable: string;
+  credit: string;
+  invoices: number;
+  /** the quarter before, when it has a declaration record */
+  previous: {
+    period: string;
+    declaredAt: string | null;
+    paidAt: string | null;
+    amount: string;
+  } | null;
+};
