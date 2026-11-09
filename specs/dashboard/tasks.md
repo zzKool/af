@@ -42,3 +42,11 @@ From the board *Pulse* (D77) and the owner's picks (US5). One PR, `feat/home-pul
 - [x] T012 The dashboard page: `CashHero`, `NextMoves`, `CurrenciesCard` (`components/home.tsx`) on the ground; the action-items and business-pulse widgets retired into them (their F71 checks carried over to `home.test.tsx`).
 - [x] T013 e2e `dashboard.spec.ts` follows (the moves on demand, the cash, the currencies, the line to Work; none for the accountant); screenshots; `docs/dashboard.md` *Home*.
 
+
+## Phase 5: The year strip's books rows (F171)
+
+From the board *Pulse*'s lanes. One PR, `feat/dashboard-strip-rows`; shared files: `en.ts`.
+
+- [x] T014 `year-weeks.ts`: `invoiceCell`, `expenseCell`, `documentCell` (each module's derived state → done / open / late), the week the worst of its things per lane (`YearWeek.books`); `home.ts` `bookFacts` reads the three lists through their `index.ts`. Pure + DB tests.
+- [x] T015 `YearStrip`: the *Invoices · Expenses · Documents* rows under the accounts, the week's panel lists what each row holds; `home.test.tsx`; e2e `dashboard.spec.ts` sees the three rows; screenshots `screenshots/f171-year-strip-{light,dark}.png`.
+- [ ] Not built: the board's *Subscriptions* row.

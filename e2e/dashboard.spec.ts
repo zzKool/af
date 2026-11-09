@@ -56,6 +56,13 @@ test.describe("Dashboard", () => {
       await expect(rows).toContainText(/\d+ bank line\(s\) to justify/);
       await expect(page.getByTestId("home-cash")).toBeVisible();
       await expect(page.getByTestId("home-currencies")).toBeVisible();
+      // F158 / F171: the year strip — the weeks, then the books' rows under the accounts
+      await expect(page.getByTestId("home-year-week")).toHaveCount(52);
+      await expect(page.getByTestId("home-year-lane")).toHaveText([
+        "Invoices",
+        "Expenses",
+        "Documents",
+      ]);
       await expect(page.getByTestId("business-pulse")).toContainText("Receivables open");
       // the owner's close: the line to Work
       await expect(page.getByTestId("home-close")).toHaveAttribute("href", "/work");

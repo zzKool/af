@@ -21,9 +21,12 @@ const RATE_SOURCE_SET: Record<RateSource, true> = {
 };
 export const RATE_SOURCES = Object.keys(RATE_SOURCE_SET) as readonly RateSource[];
 
-/** Who set the category / partner last: the owner by hand or a rule (null = uncategorised). `partner_default` is
- * gone from the database (F67) — it stays in this read type for the audit rows written before. */
-export type CategorisedBy = "manual" | "rule" | "partner_default";
+/** Who set the category / partner last: the owner by hand or a rule (null = uncategorised) — the database's
+ * `journal_categorised_by` enum. */
+export type CategorisedBy = "manual" | "rule";
+/** `by` as an audit row may carry it: `partner_default` is gone from the database (F67) but can sit in the audit
+ * rows written before — the History reads it there, nothing else does. */
+export type HistoryCategorisedBy = CategorisedBy | "partner_default";
 
 /** The owner's facts on a row (`categorise`). */
 export type CategoriseInput = {
@@ -530,10 +533,10 @@ export type BankMonthsOverview = {
  */
 export type TransactionHistoryEvent = { at: string; source: string } & (
   | { kind: "imported" }
-  | { kind: "categorised"; basCode: string; by: CategorisedBy | null }
+  | { kind: "categorised"; basCode: string; by: HistoryCategorisedBy | null }
   | {
       kind: "uncategorised" | "partner" | "no_document" | "document_needed";
-      by: CategorisedBy | null;
+      by: HistoryCategorisedBy | null;
     }
   | { kind: "linked"; linkKind: LinkKind; otherType: LinkableType }
 );
