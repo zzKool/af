@@ -52,7 +52,7 @@ vi.mock("./partner-picker", () => ({
 vi.mock("@/modules/partners/ui", () => ({ PartnerMatchCard: () => null }));
 
 import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
-import { useExpenseDockStore } from "../stores/use-expense-dock-store";
+import { announceDockedPanel } from "./dock-channel";
 import { NewExpenseButton } from "./header-actions";
 import { NewExpensePanel } from "./new-expense-dialog";
 
@@ -163,11 +163,13 @@ describe("NewExpenseButton — one panel in the dock at a time (F170)", () => {
   beforeEach(() => {
     nav.params = new URLSearchParams();
     nav.replace.mockClear();
-    useExpenseDockStore.setState({ creating: false });
   });
   afterEach(cleanup);
 
-  it("the button opens the docked form; a row picked (the store closed) closes it", async () => {
+  it("the button opens the docked form and says so; a row picked closes it", async () => {
+    const heard: string[] = [];
+    const listen = (e: Event) => heard.push((e as CustomEvent<string>).detail);
+    window.addEventListener("af:expenses-dock", listen);
     render(
       <Canvas>
         <NewExpenseButton options={options} />
@@ -175,14 +177,27 @@ describe("NewExpenseButton — one panel in the dock at a time (F170)", () => {
     );
     expect(screen.queryByTestId("new-expense-dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("open-new-expense"));
-    expect(useExpenseDockStore.getState().creating).toBe(true);
     expect(dock()).toContainElement(screen.getByTestId("new-expense-dialog"));
+    // the list hears it and closes its row
+    expect(heard).toEqual(["new"]);
     // what the list does on a row click
-    act(() => useExpenseDockStore.getState().setCreating(false));
+    act(() => announceDockedPanel("row"));
     await waitFor(() => expect(screen.queryByTestId("new-expense-dialog")).toBeNull());
+    window.removeEventListener("af:expenses-dock", listen);
   });
 
-  it("?new=1 opens it; closed from the list, the param is dropped", async () => {
+  it("its own announcement does not close it", () => {
+    render(
+      <Canvas>
+        <NewExpenseButton options={options} />
+      </Canvas>,
+    );
+    fireEvent.click(screen.getByTestId("open-new-expense"));
+    act(() => announceDockedPanel("new"));
+    expect(screen.getByTestId("new-expense-dialog")).toBeInTheDocument();
+  });
+
+  it("?new=1 opens it; closed by a row picked, the param is dropped", async () => {
     nav.params = new URLSearchParams("new=1&sort=date");
     render(
       <Canvas>
@@ -190,20 +205,7 @@ describe("NewExpenseButton — one panel in the dock at a time (F170)", () => {
       </Canvas>,
     );
     expect(await screen.findByTestId("new-expense-dialog")).toBeInTheDocument();
-    expect(useExpenseDockStore.getState().creating).toBe(true);
-    act(() => useExpenseDockStore.getState().setCreating(false));
+    act(() => announceDockedPanel("row"));
     expect(nav.replace).toHaveBeenCalledWith("/expenses?sort=date", { scroll: false });
-  });
-
-  it("leaving the page closes the form (the store outlives the page)", () => {
-    const { unmount } = render(
-      <Canvas>
-        <NewExpenseButton options={options} />
-      </Canvas>,
-    );
-    fireEvent.click(screen.getByTestId("open-new-expense"));
-    unmount();
-    expect(useExpenseDockStore.getState().creating).toBe(false);
-    expect(nav.replace).not.toHaveBeenCalled();
   });
 });
