@@ -5,7 +5,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { LocaleProvider } from "@/kernel/i18n/locale-provider";
 import type { ActionItem, CashSummary } from "../types";
+import { yearWeeks } from "../year-weeks";
 import { CashHero, CurrenciesCard, NextMoves } from "./home";
+import { YearStrip } from "./year-strip";
 
 afterEach(cleanup);
 
@@ -124,5 +126,73 @@ describe("CurrenciesCard", () => {
     expect(screen.getByTestId("home-exposure").textContent).toContain(
       "A 1 % move in CHF/SEK is worth ± 1 225.00 SEK to you today.",
     );
+  });
+});
+
+describe("YearStrip (F158, F171)", () => {
+  const today = "2026-11-11";
+  const data = yearWeeks(
+    [{ id: "a", label: "Main SEK", currency: "SEK" }],
+    [
+      {
+        date: "2026-11-10",
+        bankAccountId: "a",
+        rows: 2,
+        toJustify: 1,
+        inBase: "100.00",
+        outBase: "0.00",
+      },
+    ],
+    today,
+    {
+      invoices: [
+        { date: "2026-11-09", cell: "done" },
+        { date: "2026-11-10", cell: "late" },
+      ],
+      expenses: [{ date: "2026-11-11", cell: "done" }],
+      documents: [],
+    },
+  );
+
+  it("the bank's row, then invoices, expenses and documents; the week says what is in it", () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <YearStrip data={data} base="SEK" />
+      </LocaleProvider>,
+    );
+    expect(screen.getAllByTestId("home-year-week")).toHaveLength(52);
+    expect(screen.getAllByTestId("home-year-lane").map((l) => l.textContent)).toEqual([
+      "Invoices",
+      "Expenses",
+      "Documents",
+    ]);
+    const states = (lane: string) =>
+      [...container.querySelectorAll(`span[data-lane="${lane}"][data-state]`)].map((c) =>
+        c.getAttribute("data-state"),
+      );
+    expect(states("invoices")).toHaveLength(52);
+    expect(states("invoices").at(-1)).toBe("late");
+    expect(states("expenses").at(-1)).toBe("done");
+    expect(states("documents").every((s) => s === "none")).toBe(true);
+    // the last busy week is picked: its books, the lanes without a thing left out
+    const books = screen.getByTestId("home-year-books");
+    expect(books.textContent).toContain("2 invoice(s) issued · 1 not paid yet");
+    expect(books.textContent).toContain("1 expense(s), all settled and justified");
+    expect(books.querySelector('[data-lane="documents"]')).toBeNull();
+    expect(screen.getByTestId("home-year-detail").textContent).toContain(
+      "1 of 2 bank rows still to justify.",
+    );
+    expect(container.innerHTML).not.toMatch(/(bg|text)-(red|amber|green|yellow)-\d/);
+  });
+
+  it("an earlier week shows its own books", () => {
+    render(
+      <LocaleProvider initialLocale="en">
+        <YearStrip data={data} base="SEK" />
+      </LocaleProvider>,
+    );
+    fireEvent.click(screen.getAllByTestId("home-year-week")[50] as HTMLElement);
+    expect(screen.queryByTestId("home-year-books")).toBeNull();
+    expect(screen.getByTestId("home-year-detail").textContent).toContain("No bank row that week.");
   });
 });

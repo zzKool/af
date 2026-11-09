@@ -256,3 +256,11 @@ export const setDeclarationPeriodAction = ownerAction
   .action(async ({ ctx, parsedInput }) => {
     return invoiceService.setDeclarationPeriod(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
   });
+
+/** F169: the reminder drafted when late, on or off (the studio's bar, an issued invoice's page). */
+export const setInvoiceReminderAction = ownerAction
+  .schema(invoiceService.reminderSchema)
+  .metadata({ name: "setInvoiceReminder" })
+  .action(async ({ ctx, parsedInput }) => {
+    return invoiceService.setReminder(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput);
+  });

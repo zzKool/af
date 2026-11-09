@@ -88,6 +88,9 @@ export const creditNoteSchema = z.object({
 });
 export type CreditNoteInput = z.input<typeof creditNoteSchema>;
 
+/** F169: the reminder drafted when late, on or off for this invoice. */
+export const reminderSchema = z.object({ id: uuid, remindWhenLate: z.boolean() });
+
 export const declarationPeriodSchema = z.object({
   id: uuid,
   declarationPeriod: z

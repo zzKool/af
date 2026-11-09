@@ -6,10 +6,13 @@ import { Prisma } from "@/generated/prisma/client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { can } from "@/kernel/auth/can";
 import { addDays } from "@/kernel/clock/calendar";
+import { stockholmDay } from "@/kernel/clock/clock";
 import { tenantProfile } from "@/kernel/db/tenant";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
+import type { ListQuery } from "@/kernel/list-query/types";
 import { CURRENCIES } from "@/kernel/nav/constants";
 import * as banking from "@/modules/banking";
+import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
 import * as invoices from "@/modules/invoices";
 import * as rates from "@/modules/rates";
@@ -17,7 +20,16 @@ import * as supplierInvoices from "@/modules/supplier-invoices";
 import { workData } from "./close";
 import { dashboardOverview } from "./overview";
 import type { CashSummary, CurrencyTicker, HomeData, MoneyFlow } from "./types";
-import { yearWeeks } from "./year-weeks";
+import {
+  type BookFact,
+  type BookFacts,
+  documentCell,
+  expenseCell,
+  invoiceCell,
+  mondayOf,
+  YEAR_WEEKS,
+  yearWeeks,
+} from "./year-weeks";
 
 /** The currencies' window on the home (the board: *90 days*). */
 export const TICKER_DAYS = 90;
@@ -151,11 +163,54 @@ export async function homeData(
     : null;
 
   const statement = months.accounts.filter((a) => banking.STATEMENT_ROLES.includes(a.role));
-  const weeks = yearWeeks(statement, months.days, today);
+  const weeks = yearWeeks(statement, months.days, today, await bookFacts(tx, caller, today));
 
   const flow = await moneyFlow(tx, today);
 
   return { overview, cash, currencies, year: counts, work, weeks, flow };
+}
+
+/**
+ * F171: the year strip's other rows — the invoices issued, the expenses dated and the documents received in the
+ * strip's fifty-two weeks, each with the state its own module derives (the list reads, through their index),
+ * mapped to the strip's family. Read only.
+ */
+export async function bookFacts(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  today: string,
+): Promise<BookFacts> {
+  const to = addDays(mondayOf(today), 6);
+  const from = addDays(mondayOf(today), -7 * (YEAR_WEEKS - 1));
+  const all = (filters: ListQuery["filters"]): ListQuery => ({
+    page: 1,
+    pageSize: 20_000,
+    sort: [],
+    filters,
+  });
+  const span = { kind: "dates" as const, from, to };
+  const sales = await invoices.listInvoices(
+    tx,
+    all({ issueDate: span, type: { kind: "in", values: ["invoice"] } }),
+    today,
+  );
+  const spent = await expenses.listExpenses(tx, all({ date: span }));
+  // a timestamp's day is the owner's (Stockholm): one day more on each side, the strip drops what falls outside
+  const received = await documents.listDocuments(
+    tx,
+    caller,
+    all({ createdAt: { kind: "dates", from: addDays(from, -1), to: addDays(to, 1) } }),
+  );
+  const keep = (date: string, cell: BookFact["cell"] | null): BookFact[] =>
+    cell ? [{ date, cell }] : [];
+  return {
+    invoices: sales.rows.flatMap((r) => keep(r.issueDate, invoiceCell(r))),
+    expenses: spent.rows.flatMap((r) => keep(r.date, expenseCell(r, today))),
+    documents: received.rows.flatMap((r) => {
+      const day = stockholmDay(r.createdAt);
+      return keep(day, documentCell(r.state, day, today));
+    }),
+  };
 }
 
 /**

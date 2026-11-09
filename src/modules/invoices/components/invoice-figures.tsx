@@ -20,6 +20,7 @@ export function InvoiceFigures({
   dueDate,
   state,
   today,
+  base,
 }: {
   total: string;
   allocated: string;
@@ -28,6 +29,8 @@ export function InvoiceFigures({
   dueDate: string | null;
   state: InvoiceState;
   today: string;
+  /** F169: the total in the base, as stored at issue — beside the total of an invoice in a foreign currency */
+  base?: { amount: string; currency: string } | null;
 }) {
   const t = useT();
   const share = Number(total) > 0 ? Math.min(100, (Number(allocated) / Number(total)) * 100) : 0;
@@ -36,7 +39,17 @@ export function InvoiceFigures({
   const toGo = dueDate ? days(today, dueDate) : null;
   return (
     <KpiRow testId="invoice-figures">
-      <Kpi label={t("invoices.fig.total")} value={formatMoney(total, currency)} />
+      <Kpi
+        label={t("invoices.fig.total")}
+        value={formatMoney(total, currency)}
+        sub={
+          base ? (
+            <span className="tabular-nums" data-testid="invoice-figures-base">
+              {t("invoices.baseAtIssue", { amount: formatMoney(base.amount, base.currency) })}
+            </span>
+          ) : undefined
+        }
+      />
       <Kpi
         label={t("invoices.fig.paid")}
         value={formatMoney(allocated, currency)}

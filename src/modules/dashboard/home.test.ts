@@ -4,9 +4,16 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
-import { cleanupTestData } from "@/kernel/db/test-fixtures";
-import { importRows, type Owner, run, setupOwner } from "@/modules/expenses/__fixtures__/harness";
-import { homeData } from "./home";
+import { cleanupTestData, createTestDocument } from "@/kernel/db/test-fixtures";
+import { createExpense, createGroup } from "@/modules/expenses";
+import {
+  importRows,
+  noopAudit,
+  type Owner,
+  run,
+  setupOwner,
+} from "@/modules/expenses/__fixtures__/harness";
+import { bookFacts, homeData } from "./home";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("@/kernel/logging/logger", () => ({
@@ -88,5 +95,48 @@ describe("homeData (F138)", () => {
     ]);
     expect(h.year).toEqual({ year: "2026", justified: 0, toJustify: 4 });
     expect(h.work?.close.month).toBe("2026-06");
+  });
+});
+
+describe("bookFacts (F171)", () => {
+  it("the expenses and documents of the strip's weeks, each with its module's state, mapped", async () => {
+    const g = await run(owner.caller, (tx) =>
+      createGroup(tx, owner.caller, noopAudit, { description: "Invented trip", kind: "batch" }),
+    );
+    const groupId = g.data?.id ?? "";
+    const expense = (date: string, documentMissing: boolean) =>
+      run(owner.caller, (tx) =>
+        createExpense(tx, owner.caller, noopAudit, {
+          groupId,
+          date,
+          description: "Invented lunch",
+          basCode: "5800",
+          amount: "120.00",
+          currency: "SEK",
+          paidFromAccountId: owner.sources.privateSe.id,
+          documentMissing,
+        }),
+      );
+    expect((await expense("2026-07-10", true)).error).toBeUndefined(); // to refund: open
+    expect((await expense("2026-05-04", false)).error).toBeUndefined(); // before last month: late
+    expect((await expense("2025-01-06", false)).error).toBeUndefined(); // outside the year
+    const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      status: "extracted",
+    });
+    await adminPool.query(
+      `UPDATE documents SET created_at = '2026-07-13T08:00:00Z', updated_at = '2026-07-13T08:00:00Z' WHERE id = $1`,
+      [doc.id],
+    );
+
+    const books = await run(owner.caller, (tx) => bookFacts(tx, owner.caller, TODAY));
+    expect([...books.expenses].sort((a, b) => a.date.localeCompare(b.date))).toEqual([
+      { date: "2026-05-04", cell: "late" },
+      { date: "2026-07-10", cell: "open" },
+    ]);
+    expect(books.documents).toEqual([{ date: "2026-07-13", cell: "open" }]); // ready: to review
+    expect(books.invoices).toEqual([]);
+
+    const h = await run(owner.caller, (tx) => homeData(tx, owner.caller, TODAY, null));
+    expect(h.weeks.weeks.at(-1)?.books.documents).toEqual({ cell: "open", count: 1, pending: 1 });
   });
 });

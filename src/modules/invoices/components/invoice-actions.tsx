@@ -129,11 +129,42 @@ export function InvoiceActions({
   const canCredit = type === "invoice" && state !== "credited";
   const canConvert = isQuote && status !== "declined" && state !== "converted";
 
+  // F169, the board *Invoice studio*: the PDF — the stored one, or made now while the job has not stored it yet (F145)
+  const openPdf = async (): Promise<boolean> => {
+    if (!pdfDocumentId) {
+      window.open(`/invoices/${id}/pdf`, "_blank", "noopener");
+      return true;
+    }
+    const r = await downloadUrl({ documentId: pdfDocumentId });
+    const error = extractError(r);
+    if (error) {
+      toast.error(error);
+      return false;
+    }
+    const url = r?.data?.data?.downloadUrl;
+    if (url) window.open(url, "_blank", "noopener");
+    return !!url;
+  };
+  // the PDF first, then the existing *mark as sent* — not marked when the PDF could not be had
+  const [sending, setSending] = useState(false);
+  const downloadAndSend = async () => {
+    setSending(true);
+    try {
+      if (await openPdf()) await run(() => markSent({ id }), t("invoices.sent"));
+    } finally {
+      setSending(false);
+    }
+  };
+  /** issued, not sent yet: sending is the next move, so it is the row's primary */
+  const sendIsPrimary = canWrite && status === "issued";
+
   /** the one primary of a document that is no longer a draft: what is made from it */
   function madeFromThis() {
+    const variant = sendIsPrimary ? "outline" : "default";
     if (canCredit || canConvert)
       return (
         <SplitButton
+          variant={variant}
           onClick={canCredit ? doCreditNote : doConvert}
           items={[{ label: t("invoices.action.copy"), onClick: doCopy }]}
           menuLabel={t("invoices.new")}
@@ -141,24 +172,18 @@ export function InvoiceActions({
           {canCredit ? t("invoices.action.creditNote") : t("invoices.action.convert")}
         </SplitButton>
       );
-    return <Button onClick={doCopy}>{t("invoices.action.copy")}</Button>;
+    return (
+      <Button variant={variant} onClick={doCopy}>
+        {t("invoices.action.copy")}
+      </Button>
+    );
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {!draft &&
         (pdfDocumentId ? (
-          <Button
-            variant="outline"
-            data-testid="download-pdf"
-            onClick={async () => {
-              const r = await downloadUrl({ documentId: pdfDocumentId });
-              const error = extractError(r);
-              if (error) return toast.error(error);
-              const url = r?.data?.data?.downloadUrl;
-              if (url) window.open(url, "_blank", "noopener");
-            }}
-          >
+          <Button variant="outline" data-testid="download-pdf" onClick={() => void openPdf()}>
             {t("invoices.action.downloadPdf")}
           </Button>
         ) : (
@@ -263,6 +288,11 @@ export function InvoiceActions({
         </>
       )}
       {canWrite && !draft && madeFromThis()}
+      {sendIsPrimary && (
+        <Button disabled={sending} onClick={downloadAndSend} data-testid="download-and-send">
+          {t("invoices.action.downloadAndSend")}
+        </Button>
+      )}
       <ConfirmDialog {...issueDialog.dialogProps} />
       <ConfirmDialog {...deleteDialog.dialogProps} />
     </div>
