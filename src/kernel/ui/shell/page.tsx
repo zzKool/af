@@ -15,6 +15,13 @@ export interface PageHeaderProps {
   meta?: ReactNode;
   /** Metadata tags next to the title (bank, currency, type) — grey `<Tag>`s, never a state. */
   tags?: ReactNode;
+  /**
+   * D76 entity header (the board *Partner*): a tile left of the title (`<EntityTile>`); the title grows to
+   * 30 px and `tags` go on their own line under it, as `<Chip>`s.
+   */
+  leading?: ReactNode;
+  /** Between the title row and the tabs: the entity's figures (the board puts its KPIs above the tabs). */
+  figures?: ReactNode;
   /** Secondary buttons then **one** primary (a `<SplitButton>` when it has variants), right-aligned. */
   actions?: ReactNode;
   /**
@@ -33,12 +40,31 @@ export function PageHeader({
   title,
   meta,
   tags,
+  leading,
+  figures,
   actions,
   back,
   tabs,
   banner,
   className,
 }: PageHeaderProps) {
+  if (leading)
+    return (
+      <header className={cn("flex flex-col gap-4", className)}>
+        <div className="flex flex-wrap items-center gap-x-[18px] gap-y-3">
+          {leading}
+          <div className="min-w-[18rem] flex-1">
+            <h1 className="truncate text-[30px] leading-9 font-semibold tracking-tight">{title}</h1>
+            {tags && <div className="mt-1.5 flex flex-wrap items-center gap-2">{tags}</div>}
+            {meta && <div className="mt-1 text-[13px] text-muted-foreground">{meta}</div>}
+          </div>
+          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        </div>
+        {figures}
+        {tabs}
+        {banner}
+      </header>
+    );
   return (
     <header className={cn("flex flex-col gap-3", className)}>
       {back && <BackLink>{back}</BackLink>}
@@ -54,6 +80,7 @@ export function PageHeader({
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
+      {figures}
       {tabs}
       {banner}
     </header>

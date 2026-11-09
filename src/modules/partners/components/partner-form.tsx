@@ -1,7 +1,7 @@
 "use client";
 
 import { useAction } from "next-safe-action/hooks";
-import { useCallback, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractError } from "@/kernel/errors/extract-error";
-import { useT } from "@/kernel/i18n/use-t";
+import { languageName } from "@/kernel/i18n/display-names";
+import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import { CURRENCIES, SUPPORTED_LOCALES } from "@/kernel/nav/constants";
-import { DetailsSection } from "@/kernel/ui/details-section";
+import { CountryPicker } from "@/kernel/ui/country-picker";
+import { cn } from "@/lib/utils";
 import { updatePartnerAction } from "@/modules/partners/partners.actions";
 import { type BasOption, BasPicker } from "@/modules/settings/ui";
 import { PARTNER_TYPES, type SystemRole } from "../types";
@@ -59,8 +61,9 @@ interface PartnerFormProps {
   onSaved?: (patch: { name?: string; types?: string[] }) => void;
 }
 
-// The partner page's editable facts (auto-save on blur / change), one collapsible `DetailsSection` per group
-// (D40). The title row, the state and Deactivate / Reactivate belong to the page (`PartnerDetailTabs`).
+// The partner's editable facts (auto-save on blur / change), in the *Edit details* dialog (the board *Partner*,
+// the owner 2026-11-09): identity, address (the country by name), contact, invoicing defaults, identifiers —
+// two columns on a wide screen. The page shows them read only in its *Details* card.
 export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) {
   const [name, setName] = useState(partner.name);
   const [shortCode, setShortCode] = useState(partner.shortCode ?? "");
@@ -84,6 +87,7 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
 
   const { executeAsync: execUpdate } = useAction(updatePartnerAction);
   const t = useT();
+  const lang = useUiLanguage();
 
   // Auto-save helper for simple fields
   const autoSave = useCallback(
@@ -134,11 +138,6 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
     [types, autoSave, onSaved, t],
   );
 
-  // Address save
-  const handleAddressSave = useCallback(() => {
-    autoSave("address", address);
-  }, [address, autoSave]);
-
   // External identifiers save
   const handleExternalIdsSave = useCallback(() => {
     const valid = externalIdentifiers.filter((ei) => ei.label.trim() && ei.value.trim());
@@ -163,223 +162,220 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
     [externalIdentifiers, autoSave],
   );
 
+  // the address saves as a whole, when a field is left or the country picked
+  const saveAddress = useCallback(
+    (next: AddressData) => {
+      if (JSON.stringify(next) === JSON.stringify(partner.address ?? {})) return;
+      void autoSave("address", next);
+    },
+    [autoSave, partner.address],
+  );
+
   return (
-    <div className="flex flex-col gap-1">
-      {/* Basic Info */}
-      <DetailsSection title={t("partners.form.basic")}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="name">{t("partners.col.name")}</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={() => handleBlur("name", name, partner.name)}
-            />
+    <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
+      <Group title={t("partners.form.identity")}>
+        <Field id="name" label={t("partners.col.name")} wide>
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => handleBlur("name", name, partner.name)}
+          />
+        </Field>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <span className="text-[12px] font-medium text-muted-foreground">
+            {t("partners.col.types")}
+          </span>
+          <div className="flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1">
+            {PARTNER_TYPES.map((type) => (
+              <label key={type} className="flex items-center gap-1.5 text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={types.includes(type)}
+                  onChange={(e) => handleTypeToggle(type, e.target.checked)}
+                />
+                {t(`partners.type.${type}`)}
+              </label>
+            ))}
           </div>
-          <div>
-            <Label>{t("partners.col.types")}</Label>
-            <div className="flex gap-3 pt-2">
-              {PARTNER_TYPES.map((type) => (
-                <label key={type} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={types.includes(type)}
-                    onChange={(e) => handleTypeToggle(type, e.target.checked)}
-                  />
-                  {t(`partners.type.${type}`)}
-                </label>
+        </div>
+        <Field id="shortCode" label={t("partners.new.shortCode")} wide>
+          <Input
+            id="shortCode"
+            value={shortCode}
+            maxLength={6}
+            placeholder={t("partners.form.shortCodePlaceholder")}
+            className="uppercase"
+            onChange={(e) => setShortCode(e.target.value.toUpperCase())}
+            onBlur={() => handleBlur("shortCode", shortCode, partner.shortCode ?? null)}
+          />
+        </Field>
+        <Field id="orgNumber" label={t("partners.col.orgNumber")}>
+          <Input
+            id="orgNumber"
+            value={orgNumber}
+            onChange={(e) => setOrgNumber(e.target.value)}
+            onBlur={() => handleBlur("orgNumber", orgNumber, partner.orgNumber)}
+          />
+        </Field>
+        <Field id="vatNumber" label={t("partners.col.vatNumber")}>
+          <Input
+            id="vatNumber"
+            value={vatNumber}
+            onChange={(e) => setVatNumber(e.target.value)}
+            onBlur={() => handleBlur("vatNumber", vatNumber, partner.vatNumber)}
+          />
+        </Field>
+      </Group>
+
+      <Group title={t("partners.form.address")}>
+        <Field id="street" label={t("partners.form.street")} wide>
+          <Input
+            id="street"
+            value={address.street ?? ""}
+            onChange={(e) => setAddress({ ...address, street: e.target.value })}
+            onBlur={() => saveAddress(address)}
+          />
+        </Field>
+        <Field id="postalCode" label={t("partners.form.postalCode")}>
+          <Input
+            id="postalCode"
+            value={address.postalCode ?? ""}
+            onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
+            onBlur={() => saveAddress(address)}
+          />
+        </Field>
+        <Field id="city" label={t("partners.form.city")}>
+          <Input
+            id="city"
+            value={address.city ?? ""}
+            onChange={(e) => setAddress({ ...address, city: e.target.value })}
+            onBlur={() => saveAddress(address)}
+          />
+        </Field>
+        <Field id="country" label={t("partners.form.country")} wide>
+          <CountryPicker
+            id="country"
+            value={address.country ?? ""}
+            data-testid="partner-country"
+            onChange={(code) => {
+              const next = { ...address, country: code || undefined };
+              setAddress(next);
+              saveAddress(next);
+            }}
+          />
+        </Field>
+      </Group>
+
+      <Group title={t("partners.form.contact")}>
+        <Field id="email" label={t("partners.col.email")}>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => handleBlur("email", email, partner.email)}
+          />
+        </Field>
+        <Field id="phone" label={t("partners.form.phone")}>
+          <Input
+            id="phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onBlur={() => handleBlur("phone", phone, partner.phone)}
+          />
+        </Field>
+      </Group>
+
+      <Group title={t("partners.form.defaults")}>
+        <Field id="defaultCurrency" label={t("partners.col.currency")}>
+          <Select
+            value={defaultCurrency || "__none__"}
+            onValueChange={(v) => {
+              const val = v === "__none__" || !v ? "" : v;
+              setDefaultCurrency(val);
+              handleSelectChange("defaultCurrency", v ?? "__none__");
+            }}
+          >
+            <SelectTrigger id="defaultCurrency">
+              <SelectValue placeholder={t("partners.form.selectCurrency")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
               ))}
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="shortCode">{t("partners.new.shortCode")}</Label>
-            <Input
-              id="shortCode"
-              value={shortCode}
-              maxLength={6}
-              placeholder={t("partners.form.shortCodePlaceholder")}
-              className="uppercase"
-              onChange={(e) => setShortCode(e.target.value.toUpperCase())}
-              onBlur={() => handleBlur("shortCode", shortCode, partner.shortCode ?? null)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="orgNumber">{t("partners.col.orgNumber")}</Label>
-            <Input
-              id="orgNumber"
-              value={orgNumber}
-              onChange={(e) => setOrgNumber(e.target.value)}
-              onBlur={() => handleBlur("orgNumber", orgNumber, partner.orgNumber)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="vatNumber">{t("partners.col.vatNumber")}</Label>
-            <Input
-              id="vatNumber"
-              value={vatNumber}
-              onChange={(e) => setVatNumber(e.target.value)}
-              onBlur={() => handleBlur("vatNumber", vatNumber, partner.vatNumber)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="email">{t("partners.col.email")}</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => handleBlur("email", email, partner.email)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="phone">{t("partners.form.phone")}</Label>
-            <Input
-              id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onBlur={() => handleBlur("phone", phone, partner.phone)}
-            />
-          </div>
-        </div>
-      </DetailsSection>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field id="defaultLanguage" label={t("partners.form.language")}>
+          <Select
+            value={defaultLanguage || "__none__"}
+            onValueChange={(v) => {
+              const val = v === "__none__" || !v ? "" : v;
+              setDefaultLanguage(val);
+              handleSelectChange("defaultLanguage", v ?? "__none__");
+            }}
+          >
+            <SelectTrigger id="defaultLanguage">
+              <SelectValue placeholder={t("partners.form.selectLanguage")}>
+                {(v: string) =>
+                  v && v !== "__none__" ? languageName(v, lang) : t("partners.form.none")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
+              {SUPPORTED_LOCALES.map((l) => (
+                <SelectItem key={l} value={l}>
+                  {languageName(l, lang)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field id="paymentTermsDays" label={t("partners.form.paymentTerms")}>
+          <Input
+            id="paymentTermsDays"
+            type="number"
+            min={0}
+            max={365}
+            placeholder="30"
+            value={paymentTermsDays}
+            onChange={(e) => setPaymentTermsDays(e.target.value)}
+            onBlur={() => {
+              const next = paymentTermsDays.trim() === "" ? null : Number(paymentTermsDays);
+              if (next === (partner.paymentTermsDays ?? null)) return;
+              void autoSave("paymentTermsDays", next);
+            }}
+          />
+        </Field>
+        <Field id="partner-default-bas" label={t("partners.form.basCategory")}>
+          <BasPicker
+            id="partner-default-bas"
+            options={basOptions}
+            value={defaultBasCategoryCode}
+            onChange={(code) => {
+              setDefaultBasCategoryCode(code);
+              handleSelectChange("defaultBasCategoryCode", code || "__none__");
+            }}
+            allowNone
+            noneLabel={t("partners.form.none")}
+            direction="cost"
+            data-testid="partner-default-bas"
+          />
+        </Field>
+        <p className="col-span-2 -mt-2 text-xs text-muted-foreground">
+          {t("partners.form.paymentTermsHint")}
+        </p>
+      </Group>
 
-      {/* Defaults */}
-      <DetailsSection title={t("partners.form.defaults")}>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <Label>{t("partners.col.currency")}</Label>
-            <Select
-              value={defaultCurrency || "__none__"}
-              onValueChange={(v) => {
-                const val = v === "__none__" || !v ? "" : v;
-                setDefaultCurrency(val);
-                handleSelectChange("defaultCurrency", v ?? "__none__");
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("partners.form.selectCurrency")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>{t("partners.form.language")}</Label>
-            <Select
-              value={defaultLanguage || "__none__"}
-              onValueChange={(v) => {
-                const val = v === "__none__" || !v ? "" : v;
-                setDefaultLanguage(val);
-                handleSelectChange("defaultLanguage", v ?? "__none__");
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("partners.form.selectLanguage")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">{t("partners.form.none")}</SelectItem>
-                {SUPPORTED_LOCALES.map((l) => (
-                  <SelectItem key={l} value={l}>
-                    {l}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>{t("partners.form.basCategory")}</Label>
-            <BasPicker
-              options={basOptions}
-              value={defaultBasCategoryCode}
-              onChange={(code) => {
-                setDefaultBasCategoryCode(code);
-                handleSelectChange("defaultBasCategoryCode", code || "__none__");
-              }}
-              allowNone
-              noneLabel={t("partners.form.none")}
-              direction="cost"
-              data-testid="partner-default-bas"
-            />
-          </div>
-          <div>
-            <Label htmlFor="paymentTermsDays">{t("partners.form.paymentTerms")}</Label>
-            <Input
-              id="paymentTermsDays"
-              type="number"
-              min={0}
-              max={365}
-              placeholder="30"
-              value={paymentTermsDays}
-              onChange={(e) => setPaymentTermsDays(e.target.value)}
-              onBlur={() => {
-                const next = paymentTermsDays.trim() === "" ? null : Number(paymentTermsDays);
-                if (next === (partner.paymentTermsDays ?? null)) return;
-                void autoSave("paymentTermsDays", next);
-              }}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("partners.form.paymentTermsHint")}
-            </p>
-          </div>
-        </div>
-      </DetailsSection>
-
-      {/* Address */}
-      <DetailsSection title={t("partners.form.address")}>
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="street">{t("partners.form.street")}</Label>
-              <Input
-                id="street"
-                value={address.street ?? ""}
-                onChange={(e) => setAddress({ ...address, street: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="city">{t("partners.form.city")}</Label>
-              <Input
-                id="city"
-                value={address.city ?? ""}
-                onChange={(e) => setAddress({ ...address, city: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="postalCode">{t("partners.form.postalCode")}</Label>
-              <Input
-                id="postalCode"
-                value={address.postalCode ?? ""}
-                onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="country">{t("partners.form.country")}</Label>
-              <Input
-                id="country"
-                value={address.country ?? ""}
-                onChange={(e) => setAddress({ ...address, country: e.target.value })}
-                maxLength={2}
-              />
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleAddressSave}>
-            {t("partners.form.saveAddress")}
-          </Button>
-        </div>
-      </DetailsSection>
-
-      {/* External Identifiers */}
-      <DetailsSection title={t("partners.form.identifiers")}>
-        <div className="space-y-3">
+      <Group title={t("partners.form.identifiers")} wide>
+        <div className="col-span-2 space-y-3">
           {externalIdentifiers.length === 0 && (
-            <p className="text-sm text-muted-foreground">{t("partners.form.noIdentifiers")}</p>
+            <p className="text-[13px] text-muted-foreground">{t("partners.form.noIdentifiers")}</p>
           )}
           {externalIdentifiers.map((ei, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: dynamic list without stable IDs
@@ -424,7 +420,38 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
             )}
           </div>
         </div>
-      </DetailsSection>
+      </Group>
+    </div>
+  );
+}
+
+/** A titled block of the form: an eyebrow, then a two-column grid. */
+function Group({ title, wide, children }: { title: string; wide?: boolean; children: ReactNode }) {
+  return (
+    <fieldset className={cn("grid grid-cols-2 content-start gap-3", wide && "md:col-span-2")}>
+      <legend className="eyebrow mb-3">{title}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+function Field({
+  id,
+  label,
+  wide,
+  children,
+}: {
+  id: string;
+  label: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1.5", wide && "col-span-2")}>
+      <Label htmlFor={id} className="truncate text-[12px] font-medium text-muted-foreground">
+        {label}
+      </Label>
+      {children}
     </div>
   );
 }

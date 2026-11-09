@@ -175,6 +175,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
           ) : undefined
         }
         invoiceCount={invoices ? insight.invoiceCount : undefined}
+        year={today.slice(0, 4)}
       />
     </EntityPage>
   );

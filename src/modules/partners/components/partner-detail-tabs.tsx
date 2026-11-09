@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 // The partner's 360° page (D40 entity archetype): the title row — the state, the types as tags, ⋮ with
 // Deactivate / Reactivate, the graph link — and underline tabs with count badges. The breadcrumb names the
 // parent, so there is no back link and the title shows once.
@@ -8,17 +9,29 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { extractError } from "@/kernel/errors/extract-error";
-import { useT } from "@/kernel/i18n/use-t";
+import { countryName, languageName } from "@/kernel/i18n/display-names";
+import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { BASE_CURRENCY } from "@/kernel/nav/constants";
+import { EntityTile } from "@/kernel/ui/company-avatar";
 import { RowActionsMenu } from "@/kernel/ui/data-table";
 import { DetailsGrid } from "@/kernel/ui/details-section";
 import { PageHeader } from "@/kernel/ui/shell/page";
-import { CountBadge, Tag } from "@/kernel/ui/tags";
+import { StateLabel } from "@/kernel/ui/state-label";
+import { Chip, CodeChip, CountBadge, Tag } from "@/kernel/ui/tags";
 import { useConfirmDialog } from "@/kernel/ui/use-confirm-dialog";
 import { ContractList, type ContractRow } from "@/modules/contracts/ui";
 import { GraphLink } from "@/modules/linking/ui";
@@ -39,7 +52,7 @@ import {
   deactivatePartnerAction,
   reactivatePartnerAction,
 } from "@/modules/partners/partners.actions";
-import { PartnerStateLabel, PartnerTypeTags } from "./partner-labels";
+import { PartnerStateLabel, PartnerTypeChips } from "./partner-labels";
 
 /** the books' base currency — read once here, for the transactions and the expenses tabs (F85) */
 const BASE = BASE_CURRENCY;
@@ -76,6 +89,8 @@ interface PartnerDetailTabsProps {
   activity?: ReactNode;
   /** F144: the partner's invoices and credit notes, for *Linked* */
   invoiceCount?: number;
+  /** today's year (the clock's), for the short code's "→ invoices VA26-INV-…" */
+  year: string;
 }
 
 export function PartnerDetailTabs({
@@ -92,9 +107,12 @@ export function PartnerDetailTabs({
   figures,
   activity,
   invoiceCount,
+  year,
 }: PartnerDetailTabsProps) {
   const t = useT();
+  const lang = useUiLanguage();
   const router = useRouter();
+  const [editing, setEditing] = useState(false);
   const [isActive, setIsActive] = useState(partner.isActive);
   const [displayName, setDisplayName] = useState(partner.name);
   const [types, setTypes] = useState<string[]>(partner.types);
@@ -109,7 +127,14 @@ export function PartnerDetailTabs({
   });
 
   const isClient = types.includes("client");
-  const activeContractCount = contracts.filter((c) => c.isActive).length;
+  const activeContract = contracts.find((c) => c.isActive) ?? null;
+  const address = (partner.address ?? {}) as PartnerAddress;
+  const place = [address.city, address.country?.toUpperCase()].filter(Boolean).join(" · ");
+  const invoicesIn = isClient
+    ? [partner.defaultCurrency, partner.defaultLanguage?.slice(0, 2).toUpperCase()]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   const handleDeactivate = useCallback(() => {
     confirm(
@@ -144,10 +169,28 @@ export function PartnerDetailTabs({
     <Tabs defaultValue="overview" className="gap-4">
       <PageHeader
         title={displayName}
+        leading={<EntityTile name={displayName} />}
         tags={
           <>
-            <PartnerStateLabel isActive={isActive} />
-            <PartnerTypeTags types={types} systemRole={partner.systemRole ?? null} />
+            <PartnerTypeChips types={types} systemRole={partner.systemRole ?? null} />
+            {!isActive && (
+              <span data-testid="partner-inactive" className="inline-flex">
+                <StateLabel variant="chip" family="neutral" state={t("partners.status.inactive")} />
+              </span>
+            )}
+            {place && <Chip data-testid="partner-place">{place}</Chip>}
+            {invoicesIn && <Chip>{t("partners.header.invoicesIn", { what: invoicesIn })}</Chip>}
+            {activeContract && (
+              <StateLabel
+                variant="chip"
+                family="done"
+                state={
+                  activeContract.endDate
+                    ? t("partners.header.contractTo", { date: activeContract.endDate })
+                    : t("partners.header.contractOpen")
+                }
+              />
+            )}
           </>
         }
         actions={
@@ -165,6 +208,14 @@ export function PartnerDetailTabs({
               ]}
             />
             <GraphLink self={{ type: "partner", id: partner.id }} />
+            <Button
+              variant="outline"
+              onClick={() => setEditing(true)}
+              data-testid="partner-edit-details"
+            >
+              <Pencil aria-hidden />
+              {t("partners.editDetails")}
+            </Button>
             {types.includes("client") && isActive && (
               <Link
                 href={`/invoices/new?type=invoice&partner=${partner.id}`}
@@ -176,6 +227,7 @@ export function PartnerDetailTabs({
             )}
           </>
         }
+        figures={figures}
         tabs={
           <TabsList>
             <TabsTrigger value="overview">{t("partners.tab.overview")}</TabsTrigger>
@@ -204,58 +256,62 @@ export function PartnerDetailTabs({
         }
       />
 
-      <TabsContent value="overview" className="flex flex-col gap-[18px]">
-        {/* keyed: the panel hands its children on as a list (React's key warning, the owner 2026-11-09) */}
-        <div key="figures">{figures}</div>
-        <div key="body" className="grid items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <TabsContent value="overview">
+        <div className="grid items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="flex min-w-0 flex-col gap-[18px]">
-            {activity}
-            <section className={CARD}>
-              <h2 className="mb-3 text-sm font-semibold">{t("partners.insight.details")}</h2>
-              <DetailsGrid
-                rows={[
-                  [t("partners.col.status"), <PartnerStateLabel key="s" isActive={isActive} />],
-                  [
-                    t("partners.col.types"),
-                    <PartnerTypeTags
-                      key="t"
-                      types={types}
-                      systemRole={partner.systemRole ?? null}
-                    />,
-                  ],
-                  [
-                    t("partners.overview.activeContracts"),
-                    <span key="c" className="tabular-nums">
-                      {activeContractCount}
-                    </span>,
-                  ],
-                  [
-                    t("partners.col.created"),
-                    <span key="d" className="tabular-nums">
-                      {partner.createdAt.slice(0, 10)}
-                    </span>,
-                  ],
-                ]}
-              />
-              <PartnerForm partner={partner} basOptions={basOptions} onSaved={handleSaved} />
-            </section>
+            {activity ?? (
+              <section className={CARD}>
+                <p className="text-[13px] text-muted-foreground">
+                  {t("partners.overview.noActivity")}
+                </p>
+              </section>
+            )}
           </div>
           <aside className="flex flex-col gap-[18px]">
-            <ContractCard contract={contracts.find((c) => c.isActive) ?? null} />
+            {isClient && <ContractCard contract={activeContract} />}
+            <DetailsCard
+              partner={partner}
+              isActive={isActive}
+              types={types}
+              contact={contacts[0] ?? null}
+              year={year}
+              basLabel={basOptions.find((o) => o.code === partner.defaultBasCategoryCode)?.label}
+              onEdit={() => setEditing(true)}
+            />
             <section className={CARD} data-testid="partner-linked">
-              <h2 className="mb-2 text-sm font-semibold">{t("partners.insight.linked")}</h2>
-              <ul className="flex flex-col gap-1 text-[13px] tabular-nums">
+              <h2 className="mb-2.5 text-sm font-semibold">{t("partners.insight.linked")}</h2>
+              <div className="flex flex-wrap gap-2">
                 {invoiceCount !== undefined && (
-                  <li>{t("partners.insight.linkedInvoices", { count: invoiceCount })}</li>
+                  <Chip>{t("partners.insight.linkedInvoices", { count: invoiceCount })}</Chip>
                 )}
-                <li>{t("partners.insight.linkedBank", { count: transactions.total })}</li>
-                <li>{t("partners.insight.linkedDocuments", { count: documents.length })}</li>
-                <li>{t("partners.insight.linkedContracts", { count: contracts.length })}</li>
-              </ul>
+                <Chip>{t("partners.insight.linkedBank", { count: transactions.total })}</Chip>
+                <Chip>{t("partners.insight.linkedDocuments", { count: documents.length })}</Chip>
+                <Chip>{t("partners.insight.linkedContracts", { count: contracts.length })}</Chip>
+              </div>
             </section>
           </aside>
         </div>
       </TabsContent>
+
+      <Dialog
+        open={editing}
+        onOpenChange={(open) => {
+          setEditing(open);
+          // the dialog saved field by field: the page's read-only cards read the new facts
+          if (!open) router.refresh();
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl" data-testid="partner-edit-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("partners.editDetailsOf", { name: displayName })}</DialogTitle>
+            <DialogDescription>{t("partners.editDetailsHint")}</DialogDescription>
+          </DialogHeader>
+          <PartnerForm partner={partner} basOptions={basOptions} onSaved={handleSaved} />
+          <DialogFooter>
+            <DialogClose render={<Button />}>{t("common.close")}</DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <TabsContent value="contracts">
         {isClient ? (
@@ -385,6 +441,115 @@ function ContractCard({ contract: c }: { contract: ContractRow | null }) {
         <Tag>{c.currency ?? BASE}</Tag>
       </h2>
       <DetailsGrid rows={rows} />
+    </section>
+  );
+}
+
+type PartnerAddress = { street?: string; postalCode?: string; city?: string; country?: string };
+
+/**
+ * The partner's facts, read only (the board *Partner*'s *Details*): the address with the country by name, the
+ * numbers, the short code and what it makes, the contact, the defaults. *Edit* opens the dialog.
+ */
+function DetailsCard({
+  partner,
+  isActive,
+  types,
+  contact,
+  year,
+  basLabel,
+  onEdit,
+}: {
+  partner: PartnerData;
+  isActive: boolean;
+  types: string[];
+  contact: PartnerContactRow | null;
+  year: string;
+  /** the default category's label (code · name), from the BAS options */
+  basLabel?: string;
+  onEdit: () => void;
+}) {
+  const t = useT();
+  const lang = useUiLanguage();
+  const a = (partner.address ?? {}) as PartnerAddress;
+  const addressLines = [
+    a.street,
+    [a.postalCode, a.city].filter(Boolean).join(" "),
+    countryName(a.country, lang),
+  ].filter((l): l is string => !!l);
+  const rows: [string, ReactNode][] = [
+    [t("partners.col.status"), <PartnerStateLabel key="s" isActive={isActive} />],
+  ];
+  if (addressLines.length)
+    rows.push([
+      t("partners.form.address"),
+      <span key="a" className="flex flex-col" data-sensitive data-testid="partner-address">
+        {addressLines.map((l) => (
+          <span key={l}>{l}</span>
+        ))}
+      </span>,
+    ]);
+  if (partner.vatNumber)
+    rows.push([
+      t("partners.col.vatNumber"),
+      <span key="v" data-sensitive>
+        {partner.vatNumber}
+      </span>,
+    ]);
+  if (partner.orgNumber)
+    rows.push([
+      t("partners.col.orgNumber"),
+      <span key="o" data-sensitive>
+        {partner.orgNumber}
+      </span>,
+    ]);
+  if (partner.shortCode)
+    rows.push([
+      t("partners.new.shortCode"),
+      <span
+        key="c"
+        className="flex flex-wrap items-baseline gap-x-2"
+        data-testid="partner-short-code"
+      >
+        <CodeChip>{partner.shortCode}</CodeChip>
+        {types.includes("client") && (
+          <span className="text-xs text-muted-foreground">
+            {t("partners.details.makes", { key: `${partner.shortCode}${year.slice(2)}-INV-…` })}
+          </span>
+        )}
+      </span>,
+    ]);
+  const reach = contact
+    ? [contact.name, contact.role].filter(Boolean).join(" · ")
+    : [partner.email, partner.phone].filter(Boolean).join(" · ");
+  if (reach)
+    rows.push([
+      t("partners.details.contact"),
+      <span key="r" data-sensitive>
+        {reach}
+      </span>,
+    ]);
+  if (partner.paymentTermsDays != null)
+    rows.push([
+      t("partners.insight.terms"),
+      t("partners.insight.termsDays", { count: partner.paymentTermsDays }),
+    ]);
+  if (partner.defaultLanguage)
+    rows.push([t("partners.form.language"), languageName(partner.defaultLanguage, lang)]);
+  if (partner.defaultBasCategoryCode)
+    rows.push([t("partners.details.category"), basLabel ?? partner.defaultBasCategoryCode]);
+  return (
+    <section className={CARD} data-testid="partner-details">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">{t("partners.insight.details")}</h2>
+        <Button variant="ghost" size="sm" onClick={onEdit}>
+          {t("common.edit")}
+        </Button>
+      </div>
+      <DetailsGrid rows={rows} />
+      {!a.street && !partner.vatNumber && !partner.shortCode && (
+        <p className="mt-2 text-xs text-muted-foreground">{t("partners.details.empty")}</p>
+      )}
     </section>
   );
 }

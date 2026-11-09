@@ -47,7 +47,27 @@ test.describe("Partners", () => {
     await page.getByRole("link", { name }).click();
     await expect(page).toHaveURL(/\/partners\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name })).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "Short code" })).toHaveValue(shortCode);
+    // the board *Partner* (the owner, 2026-11-09): the facts read only in Details, edited in a dialog
+    await expect(page.getByTestId("partner-short-code")).toContainText(shortCode);
+    await page.getByTestId("partner-edit-details").click();
+    const dialog = page.getByTestId("partner-edit-dialog");
+    await expect(dialog.getByRole("textbox", { name: "Short code" })).toHaveValue(shortCode);
+    const saved = () =>
+      page.waitForResponse((r) => r.request().method() === "POST" && /\/partners\//.test(r.url()));
+    await dialog.getByLabel("City").fill("Lausanne");
+    let save = saved();
+    await dialog.getByLabel("City").blur();
+    await save;
+    // the country by name, stored as its code; the Details card and the header say the name / the code
+    await page.getByTestId("partner-country").click();
+    await page.getByPlaceholder("Search a country or its code").fill("switz");
+    save = saved();
+    await page.getByTestId("country-CH").click();
+    await save;
+    await expect(page.getByTestId("partner-country")).toContainText("Switzerland");
+    await dialog.getByRole("button", { name: "Close" }).last().click();
+    await expect(page.getByTestId("partner-address")).toContainText("Switzerland");
+    await expect(page.getByTestId("partner-place")).toHaveText("Lausanne · CH");
 
     // the relationships: nothing names or is linked to a brand-new partner; the graph is one click away
     // F71: the state is a label, the types grey tags, the counts badges on the underline tabs
@@ -64,6 +84,9 @@ test.describe("Partners", () => {
     await page.getByRole("menuitem", { name: "Deactivate" }).press("Enter");
     await page.getByRole("alertdialog").getByRole("button", { name: "Deactivate" }).click();
     await expect(page.getByText(`${name} deactivated`)).toBeVisible();
+    // the header says *inactive* as a chip; Overview's Details carries the state
+    await expect(page.getByTestId("partner-inactive")).toBeVisible();
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
     await expect(page.getByTestId("partner-state").first()).toHaveAttribute(
       "data-partner-state",
       "inactive",
@@ -71,6 +94,7 @@ test.describe("Partners", () => {
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Reactivate" }).press("Enter");
     await expect(page.getByText(`${name} reactivated`)).toBeVisible();
+    await expect(page.getByTestId("partner-inactive")).toHaveCount(0);
     await expect(page.getByTestId("partner-state").first()).toHaveAttribute(
       "data-partner-state",
       "active",

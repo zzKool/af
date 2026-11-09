@@ -4,7 +4,7 @@
 // types as grey <Tag>s — metadata, never a colour. Used by the list, the partner page's title row and About.
 import { useT } from "@/kernel/i18n/use-t";
 import { StateLabel } from "@/kernel/ui/state-label";
-import { Tag } from "@/kernel/ui/tags";
+import { Chip, Tag } from "@/kernel/ui/tags";
 import { partnerState, partnerStateFamily } from "../state-family";
 import { isSystemRole, PARTNER_TYPES, type PartnerType, SYSTEM_ROLES } from "../types";
 
@@ -44,5 +44,28 @@ export function PartnerTypeTags({
         </span>
       )}
     </span>
+  );
+}
+
+/** The page header's types (D76, the board *Partner*): the kinds as round chips, the system role beside them. */
+export function PartnerTypeChips({
+  types,
+  systemRole = null,
+}: {
+  types: readonly string[];
+  systemRole?: string | null;
+}) {
+  const t = useT();
+  return (
+    <>
+      {types.filter(isPartnerType).map((type) => (
+        <Chip key={type} tone="info">
+          {t(`partners.type.${type}`)}
+        </Chip>
+      ))}
+      {isSystemRole(systemRole) && (
+        <Chip data-testid="partner-role-chip">{t(`partners.role.${systemRole}`)}</Chip>
+      )}
+    </>
   );
 }
