@@ -50,7 +50,8 @@ test.describe("Swedish UI", () => {
     await expect(page.getByRole("heading", { name: "Partner" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Lägg till partner" })).toBeVisible();
     await page.goto("/settings");
-    await expect(page.getByRole("heading", { name: "Inställningar" })).toBeVisible();
+    // F157: the page title (h1); the section under it is "Mina inställningar"
+    await expect(page.getByRole("heading", { name: "Inställningar", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /Bankkonton/ })).toBeVisible();
     await page.goto("/settings/company");
     await expect(page.getByRole("heading", { name: "Företagsprofil" })).toBeVisible();

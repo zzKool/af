@@ -49,7 +49,7 @@ Page (server component) → fetches data server-side
 
 - **Service:** `src/modules/settings/settings.ts` — MUST NOT import from `next/*`
 - **Actions:** `src/modules/settings/settings.actions.ts` — `ownerAction` chain, Zod validation
-- **Page:** `src/app/(app)/settings/company/page.tsx` — server component renders client form
+- **Page:** `src/app/(app)/settings/company/page.tsx` — server component renders client form, inside the Settings layout (F157, below)
 - **Kernel read:** `src/kernel/db/tenant.ts` `tenantProfile(tx, tenantId)` — the `tenants` row is the kernel's (tenancy.prisma); `settings.getTenantProfile` reads through it and is what other modules call (F66). The update path (`updateTenantProfile`) still reads and writes the row itself: its audit `oldData` is the whole row.
 
 ## Tenant Switching
@@ -72,3 +72,7 @@ The `TenantSwitcher` component reads from the Organization list (via Better Auth
 ## Contact line (2026-10-20)
 
 `tenants.email`, `website`, `phone` (migration `20261021000000_add_print_identity`) — Company profile fields printed on invoices: the email under the address, `name • email • website` in the footer ([[invoices]]).
+
+## Settings as one page (F157, the Pulse-Settings board)
+
+`src/app/(app)/settings/layout.tsx` makes Settings one ground page: the title *Settings* (the page's one h1), the sub-menu left (`SettingsMenu`, `modules/settings/components/settings-menu.tsx`: **You** — My Preferences · **Company** — Company Profile, Bank Accounts, VAT Registrations, BAS Categories · **Automation** — Exchange rates (`/rates`), Rules (`/banking/rules`), Traktamente rates, AI — the current one marked; the accountant sees *You* only), each section's content right as cards (`SettingsSection`: an h2 15/600, one line, actions, tabs). `/settings` opens *My Preferences* (the hub of links is gone — the sub-menu is it). The exchange rates and the rules keep their own pages in the main menu; the sub-menu links there.
