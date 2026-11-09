@@ -7,6 +7,8 @@ export * from "./components/bas-categories-tab";
 export * from "./components/bas-picker";
 export * from "./components/company-profile-form";
 export * from "./components/my-preferences-tab";
+export * from "./components/settings-menu";
+export * from "./components/settings-section";
 export * from "./components/vat-registrations-tab";
 export * from "./settings.actions";
 export * from "./table-preferences.actions";
