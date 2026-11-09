@@ -26,12 +26,14 @@ import {
 import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
+import { BASE_CURRENCY } from "@/kernel/nav/constants";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
 import { InfoBanner } from "@/kernel/ui/info-banner";
 import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 import { acceptTransferAction, getTransactionAction } from "@/modules/banking/banking.actions";
 import type { TransactionDetailWire, TransactionWire } from "@/modules/banking/detail-wire";
+import { fxCard } from "@/modules/banking/fx-card";
 import {
   missingSteps,
   rowSteps,
@@ -322,54 +324,8 @@ export function TransactionDetailView({
         ]
       : [];
 
-  // F129 (D73): what the row shows when nothing is typed — the proof's partner and category, derived on read; the
-  // form edits the typed value, which wins
-  const effectiveRows: [ReactNode, ReactNode][] = detail
-    ? [
-        ...(detail.effective.partnerFrom === "proof"
-          ? ([
-              [
-                t("banking.form.partner"),
-                <span
-                  key="p"
-                  className="inline-flex flex-wrap items-center gap-1.5"
-                  data-testid="effective-partner"
-                >
-                  {detail.effective.partnerName}
-                  <Tag>{t("banking.facts.fromProof")}</Tag>
-                </span>,
-              ],
-            ] as [ReactNode, ReactNode][])
-          : []),
-        ...(detail.effective.basFrom === "proof"
-          ? ([
-              [
-                t("banking.form.category"),
-                <span
-                  key="c"
-                  className="inline-flex flex-wrap items-center gap-1.5"
-                  data-testid="effective-category"
-                >
-                  {detail.effective.basLabel}
-                  <Tag>{t("banking.facts.fromProof")}</Tag>
-                </span>,
-              ],
-            ] as [ReactNode, ReactNode][])
-          : []),
-        ...(detail.effective.mixed
-          ? ([
-              [
-                t("banking.col.mixed"),
-                <span key="m" className="inline-flex" data-testid="effective-mixed">
-                  <Tag>{t("banking.facts.mixed")}</Tag>
-                </span>,
-              ],
-            ] as [ReactNode, ReactNode][])
-          : []),
-      ]
-    : [];
-
   const self = tx ? ({ type: "bank_transaction", id: tx.id } as const) : null;
+  const fx = tx ? fxCard(tx) : null;
 
   // D76: the three steps — what the row carries, what waits as a proposal
   const basProposal = proposals.find((p) => p.kind === "bas");
@@ -621,6 +577,17 @@ export function TransactionDetailView({
                   openSearchKey={openSearchKey}
                 />
               )}
+              {/* flagged *no document needed*: the flag itself, to take it back */}
+              {canWrite && tx.noDocumentNeeded && (
+                <CategoriseForm
+                  part="noDocument"
+                  entry={tx}
+                  categories={categories}
+                  partners={partners}
+                  canWrite={canWrite}
+                  onSaved={rowSaved}
+                />
+              )}
               {detail.links.length === 0 && NO_DOCUMENT_STATES.has(detail.state) && (
                 <div className="flex justify-end">
                   <GraphLink self={self} />
@@ -628,35 +595,82 @@ export function TransactionDetailView({
               )}
             </Step>
 
-            {/* 2 · PARTNER and 3 · CATEGORY — one form edits both (and the note); the Proposed line (F98) */}
+            {/* 2 · PARTNER and 3 · CATEGORY — each step holds its own control (the owner, 2026-11-09); the
+                Proposed line (F98) above them, for both */}
             <div className="flex flex-col gap-3" data-testid="zone-facts">
-              <Step n={2} step="partner" status={steps.partner} text={partnerText(steps.partner)} />
+              <ProposalLine
+                transactionId={tx.id}
+                proposals={proposals}
+                options={{ categories, partners }}
+                canWrite={canWrite}
+                acceptKey={acceptKey}
+                rejectKey={rejectKey}
+                onDecided={(accepted) => {
+                  changed();
+                  if (accepted?.proposeRule)
+                    toast.message(t("linking.proposals.ruleOffer"), {
+                      action: {
+                        label: t("banking.panel.createRule"),
+                        onClick: () => setRuleOpen(true),
+                      },
+                    });
+                }}
+              />
+              <Step
+                n={2}
+                step="partner"
+                status={steps.partner}
+                text={partnerText(steps.partner)}
+                testId="step-partner"
+              >
+                {detail.effective.partnerFrom === "proof" && (
+                  <span
+                    className="inline-flex flex-wrap items-center gap-1.5 text-[13px]"
+                    data-testid="effective-partner"
+                  >
+                    {detail.effective.partnerName}
+                    <Tag>{t("banking.facts.fromProof")}</Tag>
+                  </span>
+                )}
+                {steps.partner !== "none" && (
+                  <CategoriseForm
+                    part="partner"
+                    entry={tx}
+                    categories={categories}
+                    partners={partners}
+                    canWrite={canWrite}
+                    onSaved={rowSaved}
+                    prefill={prefillFromProposals(proposals)}
+                  />
+                )}
+              </Step>
               <Step
                 n={3}
                 step="category"
                 status={steps.category}
                 text={categoryText(steps.category)}
+                testId="step-category"
               >
-                {effectiveRows.length > 0 && <DetailsGrid rows={effectiveRows} />}
-                <ProposalLine
-                  transactionId={tx.id}
-                  proposals={proposals}
-                  options={{ categories, partners }}
-                  canWrite={canWrite}
-                  acceptKey={acceptKey}
-                  rejectKey={rejectKey}
-                  onDecided={(accepted) => {
-                    changed();
-                    if (accepted?.proposeRule)
-                      toast.message(t("linking.proposals.ruleOffer"), {
-                        action: {
-                          label: t("banking.panel.createRule"),
-                          onClick: () => setRuleOpen(true),
-                        },
-                      });
-                  }}
-                />
+                {(detail.effective.basFrom === "proof" || detail.effective.mixed) && (
+                  <span className="inline-flex flex-wrap items-center gap-1.5 text-[13px]">
+                    {detail.effective.basFrom === "proof" && (
+                      <span
+                        className="inline-flex flex-wrap items-center gap-1.5"
+                        data-testid="effective-category"
+                      >
+                        {detail.effective.basLabel}
+                        <Tag>{t("banking.facts.fromProof")}</Tag>
+                      </span>
+                    )}
+                    {detail.effective.mixed && (
+                      <span className="inline-flex" data-testid="effective-mixed">
+                        <Tag>{t("banking.facts.mixed")}</Tag>
+                      </span>
+                    )}
+                  </span>
+                )}
                 <CategoriseForm
+                  part="category"
                   entry={tx}
                   categories={categories}
                   partners={partners}
@@ -690,6 +704,53 @@ export function TransactionDetailView({
                 )}
               </Step>
             </div>
+
+            {/* the board's *Currency conversion*: a foreign row's ECB base, and the bank's rate on a transfer leg */}
+            {fx && (
+              <section
+                className="flex flex-col gap-2 rounded-xl border border-subtle bg-surface-2 px-3 py-2.5 text-[12.5px]"
+                data-testid="fx-card"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-[13px] font-semibold">{t("banking.fx.title")}</h3>
+                  {fx.bank && (
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {t("banking.fx.percent", { percent: fx.bank.percent })}
+                    </span>
+                  )}
+                </div>
+                <dl className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 gap-y-1">
+                  <dt className="text-muted-foreground">{t("banking.fx.original")}</dt>
+                  <dd />
+                  <dd className="text-right tabular-nums">
+                    {money(fx.original.amount, fx.original.currency)}
+                  </dd>
+                  <dt className="text-muted-foreground">
+                    {t("banking.fx.ecb", { source: t(`banking.rateSource.${tx.rateSource}`) })}
+                  </dt>
+                  <dd className="text-right text-muted-foreground tabular-nums">
+                    {rate(fx.ecb.rate)}
+                  </dd>
+                  <dd className="text-right tabular-nums">{money(fx.ecb.amount, BASE_CURRENCY)}</dd>
+                  {fx.bank && (
+                    <>
+                      <dt className="text-muted-foreground">{t("banking.fx.bank")}</dt>
+                      <dd className="text-right text-muted-foreground tabular-nums">
+                        {rate(fx.bank.rate)}
+                      </dd>
+                      <dd className="text-right tabular-nums">
+                        {money(fx.bank.amount, BASE_CURRENCY)}
+                      </dd>
+                      <dt className="font-medium">{t("banking.fx.cost")}</dt>
+                      <dd />
+                      <dd className="text-right font-medium tabular-nums">
+                        {money(fx.bank.cost, BASE_CURRENCY)}
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              </section>
+            )}
 
             {/* the footers, closed by default — their open state is not remembered */}
             <DetailsSection title={t("banking.panel.raw")} defaultOpen={false}>

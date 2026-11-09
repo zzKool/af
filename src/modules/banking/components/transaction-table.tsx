@@ -7,7 +7,7 @@
 // currency (`formatMoney`, signed), Month and Account as quick filters, a ⋮ per row — and the docked work surface
 // for the selected row (F131 §6.2), highlighted in the list. The title row's actions are `header-actions.tsx`.
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/kernel/i18n/use-t";
 import type { InFilter, ListResult } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
@@ -18,6 +18,7 @@ import {
   type DataTableFilterSource,
   useListQuery,
 } from "@/kernel/ui/data-table";
+import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
 import { Tag } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 import {
@@ -167,6 +168,16 @@ export function TransactionTable({
   const router = useRouter();
   const state = useListQuery({ columns: COLUMN_KEYS, defaultSort: DEFAULT_SORT });
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  // a row opened while the list sits low on the screen: bring the list (and the panel beside it) up, so the work
+  // surface is not a strip under the cards — they stay above, a scroll away
+  const listRef = useRef<HTMLElement>(null);
+  const opened = !!selectedId;
+  useEffect(() => {
+    const el = listRef.current;
+    if (!opened || !el || typeof el.scrollIntoView !== "function") return;
+    if (el.getBoundingClientRect().top > window.innerHeight * 0.45)
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [opened]);
 
   const filterSource = useMemo<DataTableFilterSource>(
     () => ({
@@ -586,7 +597,6 @@ export function TransactionTable({
   return (
     <div className="flex flex-col gap-4">
       <AccountCards
-        compact={!!selectedId}
         balances={balances}
         months={months}
         month={cardsMonth}
@@ -596,8 +606,8 @@ export function TransactionTable({
           state.setFilter("accountLabel", active ? null : { kind: "in", values: [label] });
         }}
       />
-      {/* a row open: the strip folds away, the list stays near the top (the cards go to one line) */}
-      {months && !selectedId && (
+      {/* the cards and the strip stay full width when a row is open (the board; the owner 2026-11-09) */}
+      {months && (
         <DayStrip
           overview={months}
           month={cardsMonth ?? months.to}
@@ -616,67 +626,71 @@ export function TransactionTable({
           }
         />
       )}
-      <section
-        className="flex flex-col gap-3 pulse-card px-4 pt-3.5 pb-2"
-        aria-label={t("banking.list")}
-      >
-        <DataTable
-          lead={segments}
-          toolbar={<StepDotsLegend />}
-          tableKey="bank-transactions"
-          columns={columns}
-          result={result}
-          state={state}
-          filterSource={filterSource}
-          valueLabel={(column, value) => {
-            if (value === null) return t("common.blanks");
-            if (column === "state") return t(`banking.state.${value as TransactionState}`);
-            if (column === "bankAccountId") return accountLabels[value] ?? value;
-            if (column === "basCode") return categoryLabels[value] ?? value;
-            if (column === "partnerId") return partnerLabels[value] ?? value;
-            if (column === "bankImportId") return importLabels[value] ?? value;
-            if (column === "categorisedBy")
-              return t(`banking.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
-            if (column === "rateSource")
-              return t(
-                `banking.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
-              );
-            if (column === "noDocumentNeeded" || column === "mixed")
-              return value === "true" ? t("common.yes") : t("common.no");
-            if (column === "basFrom" || column === "partnerFrom")
-              return t(`banking.facts.from.${value as "row" | "proof"}`);
-            return value;
-          }}
-          rowCurrency={(row) => row.currency as Currency}
-          sumCurrency={result.rows[0]?.currency as Currency | undefined}
-          onRowClick={(row) => setSelectedId(row.id)}
-          searchPlaceholder={t("banking.search")}
-          rowAccent={(row) => transactionStateFamily(row.state)}
-          activeRowId={selectedId}
-          rowActions={(row) => [
-            { label: t("banking.rowActions.open"), onClick: () => setSelectedId(row.id) },
-            {
-              label: t("banking.rowActions.sameCounterparty"),
-              onClick: () => state.setSearch(row.counterpartyKey),
-            },
-          ]}
-          emptyState={
-            Object.keys(state.query.filters).length || state.query.search
-              ? t("banking.emptyFiltered")
-              : t("banking.empty")
-          }
+      {/* the list and the work surface side by side, below the cards: the panel docks here, not beside the page */}
+      <DockedCanvas inline>
+        <section
+          ref={listRef}
+          className="flex flex-col gap-3 pulse-card px-4 pt-3.5 pb-2"
+          aria-label={t("banking.list")}
+        >
+          <DataTable
+            lead={segments}
+            toolbar={<StepDotsLegend />}
+            tableKey="bank-transactions"
+            columns={columns}
+            result={result}
+            state={state}
+            filterSource={filterSource}
+            valueLabel={(column, value) => {
+              if (value === null) return t("common.blanks");
+              if (column === "state") return t(`banking.state.${value as TransactionState}`);
+              if (column === "bankAccountId") return accountLabels[value] ?? value;
+              if (column === "basCode") return categoryLabels[value] ?? value;
+              if (column === "partnerId") return partnerLabels[value] ?? value;
+              if (column === "bankImportId") return importLabels[value] ?? value;
+              if (column === "categorisedBy")
+                return t(`banking.categorisedBy.${value as "manual" | "rule" | "partner_default"}`);
+              if (column === "rateSource")
+                return t(
+                  `banking.rateSource.${value as "same_currency" | "ecb_daily" | "ecb_nearest" | "manual"}`,
+                );
+              if (column === "noDocumentNeeded" || column === "mixed")
+                return value === "true" ? t("common.yes") : t("common.no");
+              if (column === "basFrom" || column === "partnerFrom")
+                return t(`banking.facts.from.${value as "row" | "proof"}`);
+              return value;
+            }}
+            rowCurrency={(row) => row.currency as Currency}
+            sumCurrency={result.rows[0]?.currency as Currency | undefined}
+            onRowClick={(row) => setSelectedId(row.id)}
+            searchPlaceholder={t("banking.search")}
+            rowAccent={(row) => transactionStateFamily(row.state)}
+            activeRowId={selectedId}
+            rowActions={(row) => [
+              { label: t("banking.rowActions.open"), onClick: () => setSelectedId(row.id) },
+              {
+                label: t("banking.rowActions.sameCounterparty"),
+                onClick: () => state.setSearch(row.counterpartyKey),
+              },
+            ]}
+            emptyState={
+              Object.keys(state.query.filters).length || state.query.search
+                ? t("banking.emptyFiltered")
+                : t("banking.empty")
+            }
+          />
+        </section>
+        <TransactionPanel
+          transactionId={selectedId}
+          nav={nav}
+          onClose={() => setSelectedId(null)}
+          categories={categories}
+          partners={partners}
+          justifyOptions={justifyOptions}
+          canWrite={canWrite}
+          onChanged={() => router.refresh()}
         />
-      </section>
-      <TransactionPanel
-        transactionId={selectedId}
-        nav={nav}
-        onClose={() => setSelectedId(null)}
-        categories={categories}
-        partners={partners}
-        justifyOptions={justifyOptions}
-        canWrite={canWrite}
-        onChanged={() => router.refresh()}
-      />
+      </DockedCanvas>
     </div>
   );
 }

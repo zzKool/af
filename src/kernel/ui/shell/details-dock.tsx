@@ -131,8 +131,19 @@ export function useDockedPanel(state: DockedPanelState): void {
   }, [register, owner]);
 }
 
-/** The canvas row: the page's scroll container on the left, the dock on the right. */
-export function DockedCanvas({ children }: { children: ReactNode }) {
+/**
+ * The canvas row: the page's scroll container on the left, the dock on the right. `inline` (the banking board,
+ * the owner 2026-11-09): a row inside the page — what is above it (the account cards, the day strip) stays full
+ * width, the panel docks beside the list only and stays in view (sticky, the window's height) while the list
+ * scrolls. A table inside registers with the nearest canvas.
+ */
+export function DockedCanvas({
+  children,
+  inline = false,
+}: {
+  children: ReactNode;
+  inline?: boolean;
+}) {
   const [dock, setDock] = useState<HTMLElement | null>(null);
   const [reg, setReg] = useState<Registration | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(0);
@@ -162,10 +173,23 @@ export function DockedCanvas({ children }: { children: ReactNode }) {
   );
   return (
     <DockContext.Provider value={value}>
-      <div ref={setRow} className="flex min-h-0 min-w-0 flex-1" data-slot="details-canvas">
-        {children}
+      <div
+        ref={setRow}
+        className={inline ? "flex min-w-0 items-start" : "flex min-h-0 min-w-0 flex-1"}
+        data-slot="details-canvas"
+        data-inline={inline ? "" : undefined}
+      >
+        {inline ? <div className="min-w-0 flex-1">{children}</div> : children}
         {/* empty = no width; a docked SheetContent gives it its own (380 px, or the page's), a hidden one its rail */}
-        <div ref={setDock} data-slot="details-dock" className="flex min-h-0 shrink-0" />
+        <div
+          ref={setDock}
+          data-slot="details-dock"
+          className={
+            inline
+              ? "sticky top-3 flex h-[calc(100dvh-7.5rem)] shrink-0 empty:hidden"
+              : "flex min-h-0 shrink-0"
+          }
+        />
       </div>
     </DockContext.Provider>
   );

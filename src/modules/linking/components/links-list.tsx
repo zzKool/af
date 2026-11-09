@@ -11,6 +11,7 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { removeLinkAction } from "@/modules/linking/linking.actions";
 import type { LinkDto, LinkEndpoint } from "@/modules/linking/types";
+import { EntityOpen } from "./entity-open";
 import { moneyText } from "./money";
 
 export type LinkRow = Omit<LinkDto, "createdAt"> & { createdAt: string; otherLabel: string | null };
@@ -62,6 +63,7 @@ export function LinksList({
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
+              <EntityOpen type={other.type} id={other.id} label={l.otherLabel ?? other.id} />
               {l.allocatedAmount && (
                 <span className="tabular-nums">
                   {moneyText(l.allocatedAmount, l.currency ?? fallbackCurrency) ??
