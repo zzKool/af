@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/kernel/i18n/use-t";
+import { formatMoney } from "@/kernel/money/format-money";
 import { useNewParam } from "@/kernel/ui/shell/use-new-param";
 import type {
   CategoryOption,
@@ -17,6 +18,7 @@ import type {
   GroupOption,
   SourceOption,
 } from "@/modules/expenses/types";
+import { EXPENSES_BASE } from "./expense-table";
 import { GroupDialog } from "./groups-table";
 import { NewExpenseDialog } from "./new-expense-dialog";
 
@@ -63,9 +65,12 @@ export function NewExpenseButton({
 export function ExpensesActions({
   options,
   canWrite,
+  owedBase,
 }: {
   options: NewExpenseOptions;
   canWrite: boolean;
+  /** F154: what the company owes the owner, in the base — *Settle 4 078.20 SEK*, the board's button */
+  owedBase?: string;
 }) {
   const t = useT();
   return (
@@ -78,8 +83,14 @@ export function ExpensesActions({
       </Button>
       {canWrite && (
         <>
-          <Button variant="outline" nativeButton={false} render={<Link href="/expenses/settle" />}>
-            {t("expenses.nav.settle")}
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/expenses/settle" data-testid="expenses-settle" />}
+          >
+            {owedBase && Number(owedBase) > 0
+              ? t("expenses.settleAmount", { amount: formatMoney(owedBase, EXPENSES_BASE) })
+              : t("expenses.nav.settle")}
           </Button>
           <NewExpenseButton options={options} />
         </>

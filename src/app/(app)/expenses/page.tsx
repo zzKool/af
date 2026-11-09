@@ -10,13 +10,15 @@ import {
   EXPENSE_COLUMN_KEYS,
   EXPENSE_DEFAULT_SORT,
   expensePageOptions,
+  groupCards,
   ledgerSnapshot,
   listExpenses,
 } from "@/modules/expenses";
-import { ExpensesActions, ExpenseTable } from "@/modules/expenses/ui";
+import { ExpensesActions, ExpensesMeta, ExpenseTable, GroupCards } from "@/modules/expenses/ui";
 import { getUserPreferences } from "@/modules/settings";
 
-// The expenses list (specs/expenses US5) — the URL is the query, the status derived server-side.
+// The expenses list (specs/expenses US5) — the URL is the query, the status derived server-side. F154, the board
+// *Expenses*: on the ground, what the company owes in the title, the latest month's groups as cards over the list.
 export default async function ExpensesPage({
   searchParams,
 }: {
@@ -33,32 +35,39 @@ export default async function ExpensesPage({
     const ledger = await ledgerSnapshot(tx);
     const options = await expensePageOptions(tx, auth);
     const prefs = await getUserPreferences(tx, auth);
-    return { result, ledger, options, prefs };
+    const cards = await groupCards(tx);
+    return { result, ledger, options, prefs, cards };
   });
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const { groups, categories, sources, documents } = data.options;
 
   return (
     <ListPage
+      ground
       title={t("expenses.title")}
-      meta={t("expenses.meta.count", { count: data.result.total })}
+      meta={<ExpensesMeta count={data.result.total} owedBase={data.ledger.total.openBase} />}
       actions={
         <ExpensesActions
           options={{ groups, categories, sources, documents }}
           canWrite={can(auth, "create", "expense")}
+          owedBase={data.ledger.total.openBase}
         />
       }
     >
-      <ExpenseTable
-        result={{
-          ...data.result,
-          rows: data.result.rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
-        }}
-        ledger={data.ledger}
-        {...data.options}
-        canWrite={can(auth, "create", "expense")}
-        initialSelectedId={typeof params.open === "string" ? params.open : null}
-      />
+      <GroupCards month={data.cards.month} cards={data.cards.cards} />
+      {/* on the ground (D76): the list in its own card, below the groups */}
+      <section className="pulse-card px-2 pt-3 pb-2">
+        <ExpenseTable
+          result={{
+            ...data.result,
+            rows: data.result.rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+          }}
+          ledger={data.ledger}
+          {...data.options}
+          canWrite={can(auth, "create", "expense")}
+          initialSelectedId={typeof params.open === "string" ? params.open : null}
+        />
+      </section>
     </ListPage>
   );
 }

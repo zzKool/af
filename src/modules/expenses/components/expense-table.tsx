@@ -81,7 +81,9 @@ const DEFAULT_SORT = [
 ];
 
 /** a base column: its header names the currency, so the figure goes bare */
-const base = (amount: string) => formatMoney(amount, "SEK", { bare: true });
+/** the books' currency on the expenses pages (D46: SEK in code until F70 — this file's one base read, F154) */
+export const EXPENSES_BASE: Currency = "SEK";
+const base = (amount: string) => formatMoney(amount, EXPENSES_BASE, { bare: true });
 
 export function ExpenseTable({
   result,
@@ -441,7 +443,7 @@ export function ExpenseTable({
               state.setFilter("status", { kind: "in", values: ["to_refund", "partially_refunded"] })
             }
           >
-            <span data-testid="kpi-open">{formatMoney(ledger.total.openBase, "SEK")}</span>
+            <span data-testid="kpi-open">{formatMoney(ledger.total.openBase, EXPENSES_BASE)}</span>
             <span className="text-muted-foreground">
               {t("expenses.kpi.openCount", { count: ledger.total.openCount })}
             </span>
@@ -454,14 +456,14 @@ export function ExpenseTable({
                 label={s.label}
                 onClick={() => state.setFilter("payerLabel", { kind: "in", values: [s.label] })}
               >
-                {formatMoney(s.openBase, "SEK")}
+                {formatMoney(s.openBase, EXPENSES_BASE)}
               </Kpi>
             ))}
           <Kpi
             label={t("expenses.kpi.refunded")}
             onClick={() => state.setFilter("status", { kind: "in", values: ["refunded"] })}
           >
-            {formatMoney(ledger.total.allocatedBase, "SEK")}
+            {formatMoney(ledger.total.allocatedBase, EXPENSES_BASE)}
           </Kpi>
           {ledger.awaitingLinkCount > 0 && (
             <Kpi
@@ -496,7 +498,7 @@ export function ExpenseTable({
           return value;
         }}
         rowCurrency={(row) => row.currency as Currency}
-        sumCurrency={"SEK" as Currency}
+        sumCurrency={EXPENSES_BASE}
         onRowClick={(row) => setSelectedId(row.id)}
         searchPlaceholder={t("expenses.search")}
         emptyState={
@@ -541,4 +543,12 @@ function Kpi({
       <span className="inline-flex items-center gap-2 tabular-nums">{children}</span>
     </button>
   );
+}
+
+/** The page's meta (F154): the count, and what the company owes the owner when it owes something. */
+export function ExpensesMeta({ count, owedBase }: { count: number; owedBase: string }) {
+  const t = useT();
+  return Number(owedBase) > 0
+    ? t("expenses.meta.owed", { count, amount: formatMoney(owedBase, EXPENSES_BASE) })
+    : t("expenses.meta.count", { count });
 }
