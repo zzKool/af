@@ -67,14 +67,15 @@ export default async function InboxPage() {
           />
         </KpiRow>
         <section className="pulse-card px-4 py-3">
-      <InboxWorkbench
-          rows={data.rows}
-          documents={data.documents}
-          categories={data.categories}
-          partners={data.partners}
-          justifyOptions={data.justify}
-          canWrite={can(auth, "create", "bank_transaction")}
-        />
+          <InboxWorkbench
+            rows={data.rows}
+            documents={data.documents}
+            categories={data.categories}
+            partners={data.partners}
+            justifyOptions={data.justify}
+            canWrite={can(auth, "create", "bank_transaction")}
+          />
+        </section>
       </div>
     </ListPage>
   );
