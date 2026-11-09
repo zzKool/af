@@ -1,4 +1,5 @@
-// After issue only hand-set facts change: sent, the quote's decision, the declaration period override.
+// After issue only hand-set facts change: sent, the quote's decision, the declaration period override, the reminder
+// switch (F169).
 import type { z } from "zod/v4";
 import type { AuditLogger } from "@/kernel/audit/types";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
@@ -6,7 +7,7 @@ import type { TransactionClient } from "@/kernel/db/tenant-client";
 import type { ServiceResult } from "@/kernel/errors/app-error";
 import { load, toInvoiceDto, withLines } from "./dto";
 import { notFound, parseError, violation } from "./errors";
-import { declarationPeriodSchema } from "./schemas";
+import { declarationPeriodSchema, reminderSchema } from "./schemas";
 import type { InvoiceDto } from "./types";
 
 // --- writes: hand-set facts ---
@@ -93,6 +94,39 @@ export async function setDeclarationPeriod(
     entityId: row.id,
     oldData: { declarationPeriod: row.declarationPeriod },
     newData: { declarationPeriod: parsed.data.declarationPeriod },
+  });
+  return { data: toInvoiceDto(updated) };
+}
+
+/**
+ * F169, the board *Invoice studio*: "Draft a reminder if it is not paid 3 days after the due date" — on or off for one
+ * invoice, a draft or an issued one (the lock lets this column through). Quotes and credit notes are never owed, so
+ * they have no reminder. The app sends nothing: the switch only says whether the page drafts the reminder.
+ */
+export async function setReminder(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  input: z.input<typeof reminderSchema>,
+): Promise<ServiceResult<InvoiceDto>> {
+  const parsed = reminderSchema.safeParse(input);
+  if (!parsed.success) return { error: parseError(parsed.error) };
+  const row = await load(tx, parsed.data.id);
+  if (!row) return { error: notFound("Invoice", parsed.data.id) };
+  if (row.type !== "invoice") return { error: violation("Only invoices have a reminder") };
+  void caller;
+  if (row.remindWhenLate === parsed.data.remindWhenLate) return { data: toInvoiceDto(row) };
+  const updated = await tx.invoice.update({
+    where: { id: row.id },
+    data: { remindWhenLate: parsed.data.remindWhenLate },
+    include: withLines,
+  });
+  await audit.log({
+    action: "update",
+    entityType: "invoice",
+    entityId: row.id,
+    oldData: { remindWhenLate: row.remindWhenLate },
+    newData: { remindWhenLate: parsed.data.remindWhenLate },
   });
   return { data: toInvoiceDto(updated) };
 }

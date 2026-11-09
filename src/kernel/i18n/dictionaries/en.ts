@@ -582,6 +582,10 @@ export const en = {
   "invoices.ready.company.ok": "Your e-mail and website are on the page",
   "invoices.ready.company.warn": "No {list} in Settings → Company — the footer shows only the name",
   "invoices.studio.total": "Total",
+  "invoices.baseToday": "≈ {amount} today",
+  "invoices.baseAtIssue": "{amount} at issue",
+  "invoices.reminderSwitch.label":
+    "Draft a reminder if it is not paid {days} days after the due date",
   "invoices.days.title": "Days worked · {month}",
   "invoices.days.hint":
     "{count} day(s) — click a day to add or remove it; the first line keeps the days and bills their count",
@@ -634,6 +638,7 @@ export const en = {
   "invoices.action.issueConfirm.description":
     "The number is assigned and the PDF is generated; the document can no longer be edited.",
   "invoices.action.markSent": "Mark as sent",
+  "invoices.action.downloadAndSend": "Download and mark as sent",
   "invoices.action.creditNote": "Create credit note",
   "invoices.action.accept": "Mark accepted",
   "invoices.action.decline": "Mark declined",

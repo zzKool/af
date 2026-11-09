@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
@@ -13,7 +13,15 @@ vi.mock("./invoice-editor", () => ({
     return <div data-testid="editor" />;
   },
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+// F169: the reminder switch saves through its action and refreshes the page
+const refresh = vi.fn();
+const setReminder = vi.fn(async (_: unknown) => ({ data: { data: {} } }) as unknown);
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+vi.mock("next-safe-action/hooks", () => ({
+  useAction: () => ({ executeAsync: setReminder, isPending: false }),
+}));
+vi.mock("@/modules/invoices/invoices.actions", () => ({ setInvoiceReminderAction: vi.fn() }));
 
 import { InvoiceStudio } from "./invoice-studio";
 import { ReminderCard } from "./reminder-card";
@@ -36,10 +44,24 @@ const base: EditorDraft = {
   total: "24000",
 };
 
-function studio(history: { days: number }[] = []) {
+function studio(
+  history: { days: number }[] = [],
+  opts: { currency?: string; todayRate?: string | null; remindWhenLate?: boolean } = {},
+) {
   return render(
     <InvoiceStudio
-      invoice={{ type: "invoice", currency: "CHF", language: "en" } as never}
+      invoice={
+        {
+          id: "inv-1",
+          type: "invoice",
+          status: "draft",
+          currency: opts.currency ?? "CHF",
+          baseCurrency: "SEK",
+          totalBase: null,
+          remindWhenLate: opts.remindWhenLate ?? true,
+          language: "en",
+        } as never
+      }
       parties={{} as never}
       numberHint={null}
       relatedNumber={null}
@@ -50,6 +72,7 @@ function studio(history: { days: number }[] = []) {
         partnerShortCode: "IC",
         bank: { currency: "CHF", iban: "CH00 0000 0000 0000 0000 0" },
         rateKnown: true,
+        todayRate: opts.todayRate ?? null,
         history: history.map((h, i) => ({
           id: String(i),
           number: `IC26-INV-00${i + 1}`,
@@ -86,6 +109,39 @@ describe("InvoiceStudio", () => {
     draft = base;
     studio();
     expect(screen.getByTestId("invoice-when-paid")).toHaveTextContent("No paid invoice");
+  });
+});
+
+describe("the studio's bar (F169)", () => {
+  it("≈ the draft's total in the base at today's rate — none in the base currency or without a rate", () => {
+    draft = base;
+    studio([], { todayRate: "11.5" });
+    expect(screen.getByTestId("invoice-studio-base")).toHaveTextContent(/≈ 276.000\.00.SEK today/);
+    cleanup();
+    studio([], { todayRate: null });
+    expect(screen.queryByTestId("invoice-studio-base")).toBeNull();
+    cleanup();
+    studio([], { currency: "SEK", todayRate: "1" });
+    expect(screen.queryByTestId("invoice-studio-base")).toBeNull();
+  });
+
+  it("the reminder switch: on by default, a click saves it off; a refused save puts it back", async () => {
+    draft = base;
+    studio();
+    const sw = screen.getByRole("switch", { name: /Draft a reminder if it is not paid 3 days/ });
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    await act(async () => {
+      fireEvent.click(sw);
+    });
+    expect(setReminder).toHaveBeenLastCalledWith({ id: "inv-1", remindWhenLate: false });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    expect(refresh).toHaveBeenCalled();
+    setReminder.mockResolvedValueOnce({ serverError: { message: "Nope" } });
+    await act(async () => {
+      fireEvent.click(sw);
+    });
+    expect(setReminder).toHaveBeenLastCalledWith({ id: "inv-1", remindWhenLate: true });
+    expect(sw).toHaveAttribute("aria-checked", "false");
   });
 });
 
