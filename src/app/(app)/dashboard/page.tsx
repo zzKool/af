@@ -7,7 +7,13 @@ import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator, uiLanguage } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { getDashboardData, homeData, homeSentence, TICKER_DAYS } from "@/modules/dashboard";
-import { BriefingWidget, CashHero, CurrenciesCard, NextMoves } from "@/modules/dashboard/ui";
+import {
+  BriefingWidget,
+  CashHero,
+  CurrenciesCard,
+  NextMoves,
+  YearStrip,
+} from "@/modules/dashboard/ui";
 import { getUserPreferences } from "@/modules/settings";
 
 // Home — the year at a glance (F138, specs/dashboard US5, D76 phase 4b; the board *Pulse*, D77): the cash in the
@@ -56,6 +62,7 @@ export default async function DashboardPage() {
           />
           <NextMoves items={home.overview.items} work={home.work} />
         </div>
+        <YearStrip data={home.weeks} base={home.cash.base} />
         <div className="flex flex-wrap items-stretch gap-[18px]">
           <div className="flex min-w-0 flex-[7_1_560px] flex-col">
             <BriefingWidget
