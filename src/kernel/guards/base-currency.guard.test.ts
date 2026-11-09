@@ -42,7 +42,7 @@ const ALLOWED: Record<string, readonly [number, number]> = {
   "src/modules/dashboard/overview.ts": [0, 7],
   "src/modules/expenses/components/expense-panel-payments.tsx": [0, 1],
   "src/modules/expenses/components/expense-panel.tsx": [0, 4],
-  "src/modules/expenses/components/expense-table.tsx": [0, 6],
+  "src/modules/expenses/components/expense-table.tsx": [0, 1],
   "src/modules/expenses/components/groups-table.tsx": [0, 2],
   "src/modules/expenses/components/new-expense-dialog.tsx": [0, 1],
   "src/modules/expenses/components/settle-work.tsx": [0, 5],
