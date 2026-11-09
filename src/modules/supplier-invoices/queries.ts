@@ -29,6 +29,7 @@ import * as settings from "@/modules/settings";
 import { allocatedSums } from "./allocated";
 import { historyEvent, type SupplierInvoiceHistoryEntry } from "./history";
 import { supplierInvoiceListSums } from "./list-sums";
+import { type SupplierOverview, supplierOverviewFrom } from "./overview";
 import { deriveSupplierInvoiceStatus } from "./status";
 import { toSupplierInvoiceDto } from "./supplier-invoices";
 import type {
@@ -801,4 +802,22 @@ export async function inputVatSources(
     vatAmount: r.vatAmount.toFixed(2),
     acquisition: false,
   }));
+}
+
+/** F164: the page's hero over every row of the list (`supplierOverviewFrom`). */
+export async function supplierOverview(
+  tx: TransactionClient,
+  today: string,
+): Promise<SupplierOverview> {
+  const list = await listSupplierInvoices(
+    tx,
+    {
+      page: 1,
+      pageSize: 5000,
+      sort: [{ col: "invoiceDate", dir: "desc" }],
+      filters: {},
+    },
+    { today },
+  );
+  return supplierOverviewFrom(list.rows, today);
 }

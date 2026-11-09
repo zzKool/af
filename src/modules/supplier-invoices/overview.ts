@@ -1,11 +1,9 @@
 // The supplier invoices page's hero (F164, Pulse everywhere): what the year's supplier invoices cost in the base
 // against the same span last year, twelve months as bars (amber while something of the month is unpaid), the year
 // split by category, the invoices without their document. Derived from the list's own rows — nothing stored.
-// `supplierOverviewFrom` is pure; `supplierOverview` reads.
+// Pure — `supplierOverview` (queries.ts) reads.
 import { Prisma } from "@/generated/prisma/browser";
 import { lastMonths } from "@/kernel/clock/calendar";
-import type { TransactionClient } from "@/kernel/db/tenant-client";
-import { listSupplierInvoices } from "./queries";
 import type { SupplierInvoiceListRow } from "./types";
 
 const D = Prisma.Decimal;
@@ -69,21 +67,4 @@ export function supplierOverviewFrom(
       .toFixed(2),
     missingDocuments: live.filter((r) => r.documentMissing).length,
   };
-}
-
-export async function supplierOverview(
-  tx: TransactionClient,
-  today: string,
-): Promise<SupplierOverview> {
-  const list = await listSupplierInvoices(
-    tx,
-    {
-      page: 1,
-      pageSize: 5000,
-      sort: [{ col: "invoiceDate", dir: "desc" }],
-      filters: {},
-    },
-    { today },
-  );
-  return supplierOverviewFrom(list.rows, today);
 }
