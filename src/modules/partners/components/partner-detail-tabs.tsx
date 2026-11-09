@@ -301,7 +301,7 @@ export function PartnerDetailTabs({
           if (!open) router.refresh();
         }}
       >
-        <DialogContent className="sm:max-w-4xl" data-testid="partner-edit-dialog">
+        <DialogContent size="xl" data-testid="partner-edit-dialog">
           <DialogHeader>
             <DialogTitle>{t("partners.editDetailsOf", { name: displayName })}</DialogTitle>
             <DialogDescription>{t("partners.editDetailsHint")}</DialogDescription>

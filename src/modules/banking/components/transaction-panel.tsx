@@ -2,15 +2,16 @@
 
 import { ArrowDown, ArrowUp } from "lucide-react";
 import Link from "next/link";
-// The work surface (F131, review 2026-10-31 §6.2 / O1; D76 Pulse): the docked details panel of the banking list,
-// wide (38 % of the canvas by default, resizable, remembered per table — the kit's `SheetContent`). On top the
-// row as a hero — who, the bank text, the amount large, the date and account, the state with one sentence of what
-// is left (`rowVerdict`), ↑ ↓ through the page — then **three numbered steps**, each marked done / proposed /
-// missing / not needed (`rowSteps`, the list's three dots): **1 · Proof** (the Justify panel: drop · use what is
-// here · pick · no proof needed · receipt lost; the links; the scored candidates), **2 · Partner** and
-// **3 · Category** (the Proposed line and the one form for partner · category · note) — and two collapsed footers,
-// *As the bank said* (the raw row) and *History*. Self-loading from the transaction id (the same view opens from
-// the list, from an import's "show the new rows" and in the inbox's right pane).
+// The work surface (F131, review 2026-10-31 §6.2 / O1; D76 Pulse; F152): the docked details panel of the banking list,
+// beside the list below the cards (38 % of that row by default, resizable, remembered per table — the kit's
+// `SheetContent`). On top the row as a hero — who, the bank text, the amount large, the date and account, the state
+// with one sentence of what is left (`rowVerdict`), ↑ ↓ through the page — then **three numbered steps**, each
+// marked done / proposed / missing / not needed (`rowSteps`, the list's three dots) and each holding its own control
+// (the owner, 2026-11-09): **1 · Proof** (the Justify panel; the links and the suggestions, each openable — a
+// document's file in a preview), **2 · Partner** (the partner picker) and **3 · Category** (the category and the
+// note, *Create rule from this*), the Proposed line above 2 and 3; the currency card for a foreign row; and two
+// collapsed footers, *As the bank said* (the raw row) and *History*. Self-loading from the transaction id (the same
+// view opens from the list, from an import's "show the new rows" and in the inbox's right pane).
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { type ReactNode, useCallback, useEffect, useState } from "react";

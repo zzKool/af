@@ -145,7 +145,8 @@ test.describe("Banking", () => {
     const handle = panel.getByRole("separator", { name: "Resize the panel" });
     // the journey owns its state: a width remembered by an earlier run goes first (double-click = the default)
     await handle.dblclick();
-    const canvas = await widthOf("[data-slot=details-canvas]");
+    // the list's own row (the panel docks beside the list, below the cards — 2026-11-09)
+    const canvas = await widthOf("[data-slot=details-canvas][data-inline]");
     const defaultWidth = await widthOf("[data-testid=transaction-panel]");
     expect(Math.abs(defaultWidth / canvas - 0.38)).toBeLessThan(0.02);
     if (process.env.E2E_SCREENSHOTS) {
