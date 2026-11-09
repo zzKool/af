@@ -25,6 +25,8 @@ import { invoiceLinkable } from "./linkable";
 import { clientPaymentHistory } from "./payment-history";
 import * as queries from "./queries";
 import { ratePricingFromInvoiceLines, rateUsageFromInvoiceLines } from "./rate-usage";
+import { resolveSheetContext } from "./sheet-context";
+import { studioFacts } from "./studio";
 
 const noopAudit: AuditLogger = { log: async () => {} };
 function realAudit(tx: TransactionClient, caller: CallerIdentity): AuditLogger {
@@ -877,6 +879,75 @@ describe("US5 — derived states and the list", () => {
       expect((await invoices.issue(tx, b, noopAudit, NOW, { id: d.id })).error?.code).toBe(
         "NOT_FOUND",
       );
+    });
+  });
+});
+
+describe("F169 — the reminder switch and the base today", () => {
+  it("on by default, turned off on a draft and on again once issued; the lock lets only it through", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const d = await januaryDraft(caller, w);
+    expect(d.remindWhenLate).toBe(true);
+    const off = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      invoices.setReminder(tx, caller, realAudit(tx, caller), { id: d.id, remindWhenLate: false }),
+    );
+    expect(off.data?.remindWhenLate).toBe(false);
+    await assertAuditLogged(adminPool, caller.tenantId, "update", "invoice", d.id);
+    await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      invoices.issue(tx, caller, noopAudit, NOW, { id: d.id }),
+    );
+    const on = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
+      invoices.setReminder(tx, caller, noopAudit, { id: d.id, remindWhenLate: true }),
+    );
+    expect(on.error).toBeUndefined();
+    expect(on.data?.status).toBe("issued");
+    expect(on.data?.remindWhenLate).toBe(true);
+    // straight SQL: the switch moves on an issued invoice, the amounts still do not
+    await adminPool.query("UPDATE invoices SET remind_when_late = false WHERE id = $1", [d.id]);
+    await expect(
+      adminPool.query(
+        "UPDATE invoices SET remind_when_late = true, total_amount = 1 WHERE id = $1",
+        [d.id],
+      ),
+    ).rejects.toThrow(/invoice_locked/);
+  });
+
+  it("a quote or a credit note has no reminder; another tenant cannot reach the switch", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const other = (await createAuthenticatedContext(auth, "owner")).callerIdentity;
+    const w = await world(caller);
+    const d = await januaryDraft(caller, w);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const quote = await invoices.createDraft(tx, caller, noopAudit, TODAY, {
+        type: "quote",
+        partnerId: w.partnerId,
+        lines: [],
+      });
+      const refused = await invoices.setReminder(tx, caller, noopAudit, {
+        id: quote.data?.id as string,
+        remindWhenLate: false,
+      });
+      expect(refused.error?.code).toBe("BUSINESS_RULE_VIOLATION");
+    });
+    await withTenantTransaction(prisma, other.tenantId, async (tx) => {
+      const r = await invoices.setReminder(tx, other, noopAudit, {
+        id: d.id,
+        remindWhenLate: false,
+      });
+      expect(r.error?.code).toBe("NOT_FOUND");
+    });
+  });
+
+  it("the studio's facts carry today's rate to the base (≈ base today on a draft)", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const w = await world(caller);
+    const d = await januaryDraft(caller, w);
+    await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
+      const ctx = await resolveSheetContext(tx, caller, d.id, TODAY);
+      const facts = await studioFacts(tx, ctx as NonNullable<typeof ctx>, TODAY);
+      // 2026-02-10: 1 CHF = 11.2 / 0.93 SEK — today's rate, not the issue day's (11.987041)
+      expect(facts.todayRate).toBe("12.043011");
     });
   });
 });

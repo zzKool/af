@@ -13,6 +13,7 @@ import { EntityPage } from "@/kernel/ui/shell/page";
 import { Tag } from "@/kernel/ui/tags";
 import { declaredOn } from "@/modules/exports";
 import {
+  baseFigure,
   relatedDocuments,
   reminderDue,
   resolveSheetContext,
@@ -27,6 +28,7 @@ import {
   InvoiceStateLabel,
   InvoiceStudio,
   ReminderCard,
+  ReminderToggle,
   toSheetDocument,
 } from "@/modules/invoices/ui";
 import { getPartner } from "@/modules/partners";
@@ -61,8 +63,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const docType = t(`invoices.type.${inv.type}`);
   // F143: the reminder drafted when late — an issued invoice, three days past its due date, still open
   const owing = inv.type === "invoice" && inv.number && Number(inv.remaining) > 0;
+  // F169: drafted only while the invoice's switch is on (on by default)
   const reminder =
-    owing && inv.number && reminderDue(inv.dueDate, today, true)
+    owing && inv.number && inv.remindWhenLate && reminderDue(inv.dueDate, today, true)
       ? {
           number: inv.number,
           issueDate: inv.issueDate,
@@ -185,10 +188,17 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               dueDate={inv.dueDate}
               state={inv.state}
               today={today}
+              base={baseFigure(inv, inv.totalAmount, null)}
             />
           )}
           <div className="flex flex-col gap-[18px] xl:flex-row">
             <div className="flex min-w-0 flex-1 flex-col gap-[18px]">
+              {/* F169: the reminder's switch, while something is owed (an issued invoice still open) */}
+              {owing && canWrite && (
+                <div className="pulse-card px-4 py-2.5">
+                  <ReminderToggle id={inv.id} on={inv.remindWhenLate} />
+                </div>
+              )}
               {reminder && (
                 <ReminderCard
                   facts={reminder}

@@ -8,14 +8,27 @@ const refresh = vi.fn();
 // F110: the try-again click queues the render again (through the action) before polling again
 const requeue = vi.fn(async () => ({ data: { data: { queued: true } } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
+// F169: download and mark as sent — the stored PDF's URL, then the existing mark-as-sent action
+const markSent = vi.fn(async (_: unknown) => ({ data: { data: { id: "inv-1" } } }));
+const downloadUrl = vi.fn(
+  async (_: unknown) =>
+    ({ data: { data: { downloadUrl: "https://blob.test/inv.pdf" } } }) as unknown,
+);
 vi.mock("next-safe-action/hooks", () => ({
   useAction: (action: unknown) => ({
-    executeAsync: action === "requeue" ? requeue : vi.fn(),
+    executeAsync:
+      action === "requeue"
+        ? requeue
+        : action === "markSent"
+          ? markSent
+          : action === "download"
+            ? downloadUrl
+            : vi.fn(),
     isPending: false,
   }),
 }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock("@/modules/documents/ui", () => ({ getDocumentDownloadUrlAction: vi.fn() }));
+vi.mock("@/modules/documents/ui", () => ({ getDocumentDownloadUrlAction: "download" }));
 vi.mock("@/modules/invoices/invoices.actions", () => ({
   convertQuoteAction: vi.fn(),
   copyToDraftAction: vi.fn(),
@@ -23,7 +36,7 @@ vi.mock("@/modules/invoices/invoices.actions", () => ({
   decideQuoteAction: vi.fn(),
   deleteDraftAction: vi.fn(),
   issueInvoiceAction: vi.fn(),
-  markSentAction: vi.fn(),
+  markSentAction: "markSent",
   requeueInvoicePdfAction: "requeue",
 }));
 
@@ -85,5 +98,55 @@ describe("InvoiceActions — the PDF poll (V12)", () => {
     render(<InvoiceActions {...props} pdfDocumentId="doc-1" />);
     expect(screen.getByTestId("download-pdf")).toBeInTheDocument();
     expect(screen.queryByTestId("pdf-pending")).toBeNull();
+  });
+});
+
+describe("InvoiceActions — download and mark as sent (F169)", () => {
+  const open = vi.fn();
+  beforeEach(() => {
+    vi.useRealTimers();
+    open.mockReset();
+    markSent.mockClear();
+    downloadUrl.mockClear();
+    vi.stubGlobal("open", open);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("issued, not sent: the primary — the stored PDF opens, then the invoice is marked sent", async () => {
+    render(<InvoiceActions {...props} pdfDocumentId="doc-1" />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons[buttons.length - 1]).toHaveTextContent("Download and mark as sent");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("download-and-send"));
+    });
+    expect(downloadUrl).toHaveBeenCalledWith({ documentId: "doc-1" });
+    expect(open).toHaveBeenCalledWith("https://blob.test/inv.pdf", "_blank", "noopener");
+    expect(markSent).toHaveBeenCalledWith({ id: "inv-1" });
+  });
+
+  it("before the job stored the PDF: the PDF made now, then marked sent", async () => {
+    render(<InvoiceActions {...props} />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("download-and-send"));
+    });
+    expect(open).toHaveBeenCalledWith("/invoices/inv-1/pdf", "_blank", "noopener");
+    expect(markSent).toHaveBeenCalledWith({ id: "inv-1" });
+  });
+
+  it("no PDF, no stamp: a refused download leaves the invoice unsent", async () => {
+    downloadUrl.mockResolvedValueOnce({ serverError: { message: "Blob store down" } });
+    render(<InvoiceActions {...props} pdfDocumentId="doc-1" />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("download-and-send"));
+    });
+    expect(markSent).not.toHaveBeenCalled();
+  });
+
+  it("only while issued: a sent invoice or a reader has no such button", () => {
+    render(<InvoiceActions {...props} status="sent" state="sent" />);
+    expect(screen.queryByTestId("download-and-send")).toBeNull();
+    cleanup();
+    render(<InvoiceActions {...props} canWrite={false} />);
+    expect(screen.queryByTestId("download-and-send")).toBeNull();
   });
 });

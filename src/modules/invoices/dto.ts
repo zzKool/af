@@ -75,6 +75,7 @@ export function toInvoiceDto(row: Invoice & { lines: InvoiceLine[] }): InvoiceDt
     issuedAt: row.issuedAt,
     sentAt: row.sentAt,
     decidedAt: row.decidedAt,
+    remindWhenLate: row.remindWhenLate,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     createdBy: row.createdBy,

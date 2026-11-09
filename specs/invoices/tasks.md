@@ -83,6 +83,7 @@
 ## F146 — `feat/invoices-line-options` (the owner's review of F145)
 
 - [x] T047 Line ⋯ menu: discount on this line (no *Remise 0 %* by default; printed under the description), VAT rate per line (`slots.vatColumn`; *One VAT rate* back); the client column 68 mm wide on the right; *Ready to send?* `company` item (e-mail / website missing → the footer is only the name). Tests: print (line discount), ready (company), print-identity re-baselined, e2e line options
+- [x] T048 F169, the board's three studio extras: *≈ base today* beside the total (a draft: its total at today's ECB rate, `baseFigure`; issued: the base stored at issue, on the *Total* tile), the reminder switch (`invoices.remind_when_late`, on by default, a hand-set fact the lock lets through; off → no reminder drafted), *Download and mark as sent* (the PDF — stored or made now — then `markSent`; the primary while issued). Tests: `base-today.pure.test.ts`, `invoices.test.ts` F169, `invoice-studio.test.tsx`, `invoice-actions.test.tsx`, e2e `invoices.spec.ts`
 
 ## Dependencies
 Part 1: T001–T003 → T004 → T005–T009 → T010–T011 → T012–T015 → T016. Part 2 starts after part 1 is on `main`; T017/T018 first (shared files), then T019 → T020 → T021 → T022 → T023.
