@@ -11,9 +11,15 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { removeLinkAction } from "@/modules/linking/linking.actions";
 import type { LinkDto, LinkEndpoint } from "@/modules/linking/types";
+import { EntityOpen } from "./entity-open";
 import { moneyText } from "./money";
 
-export type LinkRow = Omit<LinkDto, "createdAt"> & { createdAt: string; otherLabel: string | null };
+export type LinkRow = Omit<LinkDto, "createdAt"> & {
+  createdAt: string;
+  otherLabel: string | null;
+  /** the documents behind the other side (an expense's receipt), to open from here (F152) */
+  documents?: { id: string; label: string }[];
+};
 
 export function LinksList({
   self,
@@ -50,10 +56,10 @@ export function LinksList({
         return (
           <li
             key={l.id}
-            className="flex items-center justify-between gap-2 px-3 py-1.5"
+            className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 py-1.5"
             data-testid="link-row"
           >
-            <span className="min-w-0 truncate">
+            <span className="min-w-40 flex-1 truncate">
               <Badge variant="outline" className="mr-2">
                 {t(`linking.kind.${l.kind}`)}
               </Badge>
@@ -62,6 +68,10 @@ export function LinksList({
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
+              {l.documents?.map((d) => (
+                <EntityOpen key={d.id} type="document" id={d.id} label={d.label} />
+              ))}
+              <EntityOpen type={other.type} id={other.id} label={l.otherLabel ?? other.id} />
               {l.allocatedAmount && (
                 <span className="tabular-nums">
                   {moneyText(l.allocatedAmount, l.currency ?? fallbackCurrency) ??

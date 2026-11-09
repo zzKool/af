@@ -22,6 +22,7 @@ import {
 import type { EntityFacts, LinkableType, LinkEndpoint, Suggestion } from "@/modules/linking/types";
 import { ConfidenceLabel } from "./confidence-label";
 import { EntityLabel } from "./entity-label";
+import { EntityOpen } from "./entity-open";
 import { moneyText } from "./money";
 
 /** The scorer's reasons are English data; the known ones have a key, the parametrised ones print as they are. */
@@ -245,6 +246,7 @@ export function SuggestionsSection({
                   <span className="mr-1 text-xs text-muted-foreground">{i + 1}.</span>
                   <EntityLabel type={s.candidate.type} label={s.candidate.label} />
                 </span>
+                <EntityOpen type={s.candidate.type} id={s.candidate.id} label={s.candidate.label} />
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {s.score}
                 </span>

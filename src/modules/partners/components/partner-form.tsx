@@ -297,7 +297,7 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
               handleSelectChange("defaultCurrency", v ?? "__none__");
             }}
           >
-            <SelectTrigger id="defaultCurrency">
+            <SelectTrigger id="defaultCurrency" className="w-full">
               <SelectValue placeholder={t("partners.form.selectCurrency")} />
             </SelectTrigger>
             <SelectContent>
@@ -319,7 +319,7 @@ export function PartnerForm({ partner, basOptions, onSaved }: PartnerFormProps) 
               handleSelectChange("defaultLanguage", v ?? "__none__");
             }}
           >
-            <SelectTrigger id="defaultLanguage">
+            <SelectTrigger id="defaultLanguage" className="w-full">
               <SelectValue placeholder={t("partners.form.selectLanguage")}>
                 {(v: string) =>
                   v && v !== "__none__" ? languageName(v, lang) : t("partners.form.none")

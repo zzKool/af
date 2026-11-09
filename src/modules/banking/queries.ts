@@ -597,7 +597,8 @@ export type TransactionDetail = {
   /** the effective partner and category with their source (F129): the panel says *from the proof* */
   effective: EffectiveFacts & { partnerName: string | null; basLabel: string | null };
   allocated: string;
-  links: (LinkDto & { otherLabel: string | null })[];
+  /** each link with the other side's label and, for an expense / invoice, the documents behind it (F152) */
+  links: (LinkDto & { otherLabel: string | null; documents: { id: string; label: string }[] })[];
   transfers: TransferProposal[];
   import: BankImportDto | null;
 };
@@ -652,7 +653,20 @@ export async function getTransaction(
     const other = l.from.type === "bank_transaction" && l.from.id === id ? l.to : l.from;
     const linkable = linking.getLinkable(other.type);
     const summary = linkable ? await linkable.summary(tx, other.id) : null;
-    return { ...l, otherLabel: summary?.label ?? null };
+    // the proof's paper (the owner, 2026-11-09: "I upload a document and cannot open it from there"): the row links
+    // the expense or supplier invoice the document became — its documents ride along, to open from the row
+    const documents: { id: string; label: string }[] = [];
+    if (other.type !== "document" && other.type !== "bank_transaction") {
+      const docLinkable = linking.getLinkable("document");
+      for (const dl of await linking.linksTouching(tx, other.type, [other.id])) {
+        const doc =
+          dl.from.type === "document" ? dl.from : dl.to.type === "document" ? dl.to : null;
+        if (!doc || documents.some((d) => d.id === doc.id)) continue;
+        const docSummary = docLinkable ? await docLinkable.summary(tx, doc.id) : null;
+        documents.push({ id: doc.id, label: docSummary?.label ?? doc.id });
+      }
+    }
+    return { ...l, otherLabel: summary?.label ?? null, documents };
   });
   return {
     data: {

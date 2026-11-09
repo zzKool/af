@@ -244,6 +244,7 @@ describe("the work surface — the hero, three steps and two collapsed footers (
             createdBy: "u",
             source: "ui",
             otherLabel: "SI26-004 · Skattepunkten",
+            documents: [],
           },
         ],
         effective: {
@@ -267,6 +268,14 @@ describe("the work surface — the hero, three steps and two collapsed footers (
     );
     expect(within(facts).getByTestId("effective-partner")).toHaveTextContent("from the proof");
     expect(within(facts).getByTestId("effective-category")).toHaveTextContent("6540");
+    // the owner, 2026-11-09: each step holds its own control — the partner in 2, the category and note in 3
+    expect(
+      within(screen.getByTestId("step-partner")).getByLabelText("Partner"),
+    ).toBeInTheDocument();
+    const category = screen.getByTestId("step-category");
+    expect(within(category).getByLabelText("Category")).toBeInTheDocument();
+    expect(within(category).getByLabelText("Note")).toBeInTheDocument();
+    expect(within(category).queryByLabelText("Partner")).toBeNull();
   });
 
   it("a row the statement proves (a savings row, no link): the proof zone says so and offers no candidates", async () => {
