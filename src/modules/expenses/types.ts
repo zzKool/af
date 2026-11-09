@@ -39,6 +39,8 @@ export type ExpenseGroupDto = {
   number: number;
   description: string;
   kind: ExpenseGroupKind;
+  /** the month a batch group stands for (`YYYY-MM`, T025), null when none was set */
+  month: string | null;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -234,6 +236,8 @@ export type GroupOption = {
    */
   departure?: string | null;
   return?: string | null;
+  /** the month a batch group stands for (`YYYY-MM`, T025) — the pickers propose the date's month group from it */
+  month?: string | null;
 };
 /** A payer the pickers offer (F114): a bank account — `kind` says whether a bank row pays it or a settlement refunds it. */
 export type SourceOption = {

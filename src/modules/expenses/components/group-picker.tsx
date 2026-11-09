@@ -26,7 +26,6 @@ export {
   type GroupForProposal,
   type GroupProposal,
   type GroupProposalReason,
-  monthOfGroupName,
   proposeGroupForDate,
 } from "../group-proposal";
 
@@ -48,6 +47,7 @@ export const forProposal = (g: GroupOption): GroupForProposal => ({
   kind: g.kind,
   departure: g.departure ?? null,
   return: g.return ?? null,
+  month: g.month ?? null,
 });
 
 /** Two cells of the dialog's two-column grid: the select, and the description input when a new group is picked. */
@@ -122,9 +122,17 @@ export function GroupPicker({
  */
 export function useCreateGroupIfNew() {
   const { executeAsync, isPending } = useAction(createExpenseGroupAction);
-  async function resolveGroupId(groupId: string, newDescription: string): Promise<string | null> {
+  /** `month`: the month the new group stands for (T025 — the reading dialog's month group for its paper) */
+  async function resolveGroupId(
+    groupId: string,
+    newDescription: string,
+    month?: string | null,
+  ): Promise<string | null> {
     if (groupId !== NEW_GROUP) return groupId;
-    const g = await executeAsync({ description: newDescription.trim() });
+    const g = await executeAsync({
+      description: newDescription.trim(),
+      ...(month ? { month } : {}),
+    });
     const error = extractError(g);
     if (error) {
       toast.error(error);

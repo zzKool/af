@@ -15,6 +15,15 @@ import { EXPENSE_GROUP_KINDS, type ExpenseGroupDto, type ExpenseGroupKind } from
 export const groupInputSchema = z.object({
   description: z.string().trim().min(1, "Description is required").max(200),
   kind: z.enum(EXPENSE_GROUP_KINDS).optional(),
+  /**
+   * the month a batch group stands for (`YYYY-MM`, T025) — the reading dialog sets it on the paper's month group; the
+   * proposal reads it, never the name. A trip group has none (its days propose it).
+   */
+  month: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "A month is YYYY-MM")
+    .nullable()
+    .optional(),
 });
 export type GroupInput = z.input<typeof groupInputSchema>;
 
@@ -28,6 +37,7 @@ export function toGroupDto(row: ExpenseGroup): ExpenseGroupDto {
     number: row.number,
     description: row.description,
     kind: row.kind as ExpenseGroupKind,
+    month: row.month ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     createdBy: row.createdBy,
@@ -49,13 +59,17 @@ export async function createGroup(
   const parsed = groupInputSchema.safeParse(input);
   if (!parsed.success)
     return { error: invalid(parsed.error.issues[0]?.message ?? "Invalid input") };
+  const kind = parsed.data.kind ?? "batch";
+  if (kind === "trip" && parsed.data.month)
+    return { error: invalid("A trip group has no month — its days propose it") };
   const number = await nextInSeries(tx, caller, EXPENSE_GROUP_SERIES);
   const row = await tx.expenseGroup.create({
     data: {
       tenantId: caller.tenantId,
       number,
       description: parsed.data.description,
-      kind: parsed.data.kind ?? "batch",
+      kind,
+      month: parsed.data.month ?? null,
       createdBy: caller.userId,
       source: caller.source,
     },
@@ -89,14 +103,17 @@ export async function updateGroup(
     data: {
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
       ...(parsed.data.kind !== undefined ? { kind: parsed.data.kind } : {}),
+      ...(parsed.data.month !== undefined ? { month: parsed.data.month } : {}),
+      // a group becoming a trip is proposed by its days from then on, not by a month
+      ...(parsed.data.kind === "trip" ? { month: null } : {}),
     },
   });
   await audit.log({
     action: "update",
     entityType: "expense_group",
     entityId: id,
-    oldData: { description: row.description, kind: row.kind },
-    newData: { description: updated.description, kind: updated.kind },
+    oldData: { description: row.description, kind: row.kind, month: row.month },
+    newData: { description: updated.description, kind: updated.kind, month: updated.month },
   });
   return { data: toGroupDto(updated) };
 }

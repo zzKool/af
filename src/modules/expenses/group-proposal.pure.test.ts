@@ -1,7 +1,7 @@
 // The group a paper's date proposes (review 2026-10-31 §5.2): the covering trip, else the month's group, else nothing
-// — never the first of the list (lessons *F124 build*).
+// — never the first of the list (lessons *F124 build*); the month is the group's stored fact, never its name (T025).
 import { describe, expect, it } from "vitest";
-import { type GroupForProposal, monthOfGroupName, proposeGroupForDate } from "./group-proposal";
+import { type GroupForProposal, proposeGroupForDate } from "./group-proposal";
 
 const trip: GroupForProposal = {
   id: "trip",
@@ -10,7 +10,12 @@ const trip: GroupForProposal = {
   departure: "2026-03-02",
   return: "2026-03-21",
 };
-const july: GroupForProposal = { id: "july", name: "2026-07 card purchases", kind: "batch" };
+const july: GroupForProposal = {
+  id: "july",
+  name: "2026-07 card purchases",
+  kind: "batch",
+  month: "2026-07",
+};
 const first: GroupForProposal = { id: "first", name: "1 — Licences", kind: "batch" };
 
 describe("proposeGroupForDate", () => {
@@ -35,7 +40,12 @@ describe("proposeGroupForDate", () => {
   });
 
   it("the trip wins over a month group of the same month; two covering trips → the shorter one", () => {
-    const march: GroupForProposal = { id: "march", name: "March 2026", kind: "batch" };
+    const march: GroupForProposal = {
+      id: "march",
+      name: "March 2026",
+      kind: "batch",
+      month: "2026-03",
+    };
     expect(proposeGroupForDate("2026-03-10", [march, trip]).groupId).toBe("trip");
     const long: GroupForProposal = {
       id: "long",
@@ -70,7 +80,12 @@ describe("proposeGroupForDate", () => {
   });
 
   it("the month fallback is the date's month, the trip's month name never standing in for a receipt outside its days", () => {
-    const march: GroupForProposal = { id: "march", name: "2026-03 receipts", kind: "batch" };
+    const march: GroupForProposal = {
+      id: "march",
+      name: "2026-03 receipts",
+      kind: "batch",
+      month: "2026-03",
+    };
     // the day after the return: the trip is over, the month's group takes the receipt
     expect(proposeGroupForDate("2026-03-22", [trip, march])).toEqual({
       groupId: "march",
@@ -80,13 +95,16 @@ describe("proposeGroupForDate", () => {
     expect(proposeGroupForDate("2026-04-02", [trip, march]).groupId).toBeNull();
   });
 
-  it("no trip: the group whose name (or stored month) is the paper's month — not the first of the list", () => {
+  it("no trip: the group whose stored month is the paper's month — not the first of the list, never its name (T025)", () => {
     expect(proposeGroupForDate("2026-07-08", [first, july, trip])).toEqual({
       groupId: "july",
       reason: "month",
     });
     const stored: GroupForProposal = { id: "m", name: "Summer", kind: "batch", month: "2026-07" };
     expect(proposeGroupForDate("2026-07-08", [first, stored]).groupId).toBe("m");
+    // a name that says the month is no fact: without a stored month the group is not proposed
+    const named: GroupForProposal = { id: "named", name: "July 2026", kind: "batch" };
+    expect(proposeGroupForDate("2026-07-08", [first, named]).groupId).toBeNull();
     // a trip group never stands for a month, whatever its name says
     const tripNamedMonth = { ...trip, name: "July 2026 trip", departure: null, return: null };
     expect(proposeGroupForDate("2026-07-08", [tripNamedMonth]).groupId).toBeNull();
@@ -99,22 +117,5 @@ describe("proposeGroupForDate", () => {
     });
     expect(proposeGroupForDate("", [first])).toEqual({ groupId: null, reason: null });
     expect(proposeGroupForDate("2026-07-08", [])).toEqual({ groupId: null, reason: null });
-  });
-});
-
-describe("monthOfGroupName", () => {
-  it("reads an ISO month anywhere in the name, and an English month name with its year", () => {
-    expect(monthOfGroupName("2026-07 card purchases")).toBe("2026-07");
-    expect(monthOfGroupName("Receipts 2026-11")).toBe("2026-11");
-    expect(monthOfGroupName("July 2026")).toBe("2026-07");
-    expect(monthOfGroupName("Sep. 2026 expenses")).toBe("2026-09");
-    expect(monthOfGroupName("Switzerland, March 2026")).toBe("2026-03");
-  });
-
-  it("a group number, a year alone or an impossible month is not a month", () => {
-    expect(monthOfGroupName("213 — Switzerland")).toBeNull();
-    expect(monthOfGroupName("2026-13 nonsense")).toBeNull();
-    expect(monthOfGroupName("Budget 2026")).toBeNull();
-    expect(monthOfGroupName("Licences")).toBeNull();
   });
 });

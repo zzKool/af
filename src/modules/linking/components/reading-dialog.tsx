@@ -281,6 +281,7 @@ function ReadingDialogBody({
           kind: g.kind,
           departure: g.departure,
           return: g.return,
+          month: g.month ?? null,
         })),
       ),
     [date, row.bookingDate, options.groups],
@@ -396,7 +397,8 @@ function ReadingDialogBody({
     const gid =
       groupId === NEW_GROUP && newGroupKind === "trip"
         ? await createTrip(newGroupDescription, newTrip)
-        : await resolveGroupId(groupId, newGroupDescription);
+        : // the month's group carries its month as a fact (T025): the next paper of that month finds it
+          await resolveGroupId(groupId, newGroupDescription, monthOf(date || row.bookingDate));
     if (!gid) return;
     if (groupId === NEW_GROUP) {
       setCreatedGroups((list) => [

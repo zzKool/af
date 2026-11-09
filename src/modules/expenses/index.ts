@@ -45,7 +45,7 @@ export type { FifoLine, OpenExpense } from "./fifo";
 export { fifoAllocate, fifoOrder, residualOpen } from "./fifo";
 // the group a paper's date proposes (review 2026-10-31 §5.2, F131) — pure, also on `ui.ts` through the picker
 export type { GroupForProposal, GroupProposal, GroupProposalReason } from "./group-proposal";
-export { monthOfGroupName, proposeGroupForDate } from "./group-proposal";
+export { proposeGroupForDate } from "./group-proposal";
 export type { GroupInput, UpdateGroupInput } from "./groups";
 export {
   createGroup,

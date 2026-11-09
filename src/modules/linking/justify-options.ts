@@ -36,6 +36,7 @@ export async function justifyOptions(tx: TransactionClient, caller: CallerIdenti
       kind: g.kind,
       departure: trip ? traktamente.toLocal(trip.departureAt).date : null,
       return: trip ? traktamente.toLocal(trip.returnAt).date : null,
+      month: g.month ?? null,
     };
   });
   // F131 §5.1: the fourth exit *This row refunds me* shows only while the owner is owed something (the ledger)

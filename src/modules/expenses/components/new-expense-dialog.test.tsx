@@ -128,6 +128,8 @@ const props = {
       number: 3,
       description: `${thisMonth} receipts`,
       kind: "batch" as const,
+      // the month is the group's stored fact (T025), not its name
+      month: thisMonth,
     },
     {
       id: "00000000-0000-4000-8000-000000000004",

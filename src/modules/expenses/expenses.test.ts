@@ -35,7 +35,7 @@ import {
   unpayExpense,
   updateExpense,
 } from "./expenses";
-import { createGroup, deleteGroup } from "./groups";
+import { createGroup, deleteGroup, updateGroup } from "./groups";
 import { expensePageOptions } from "./page-data";
 import {
   candidateDocuments,
@@ -1033,6 +1033,53 @@ describe("US5 — the list, the groups, the ledger", () => {
         return: "2026-03-21",
       });
     });
+  });
+
+  it("T025: a month group carries its month as a fact — written, audited, on the options; refused on a trip or out of shape", async () => {
+    const created = await run(owner.caller, (tx) =>
+      createGroup(tx, owner.caller, realAudit(tx, owner.caller), {
+        description: "Card purchases",
+        month: "2026-07",
+      }),
+    );
+    expect(created.error).toBeUndefined();
+    expect(created.data).toMatchObject({ kind: "batch", month: "2026-07" });
+    await assertAuditLogged(
+      adminPool,
+      owner.caller.tenantId,
+      "create",
+      "expense_group",
+      created.data!.id,
+    );
+    await run(owner.caller, async (tx) => {
+      const options = await expensePageOptions(tx, owner.caller, {
+        documents: false,
+        transactions: false,
+      });
+      expect(options.groups.find((x) => x.id === created.data?.id)).toMatchObject({
+        month: "2026-07",
+      });
+      // a group without one says so — its name is never read for it
+      const named = await createGroup(tx, owner.caller, noopAudit, { description: "2026-08" });
+      expect(named.data?.month).toBeNull();
+    });
+    const bad = await run(owner.caller, (tx) =>
+      createGroup(tx, owner.caller, noopAudit, { description: "x", month: "2026-13" }),
+    );
+    expect(bad.error?.code).toBe("VALIDATION_ERROR");
+    const trip = await run(owner.caller, (tx) =>
+      createGroup(tx, owner.caller, noopAudit, {
+        description: "Zurich",
+        kind: "trip",
+        month: "2026-07",
+      }),
+    );
+    expect(trip.error?.code).toBe("VALIDATION_ERROR");
+    // a group that becomes a trip is proposed by its days from then on
+    const becameTrip = await run(owner.caller, (tx) =>
+      updateGroup(tx, owner.caller, noopAudit, created.data!.id, { kind: "trip" }),
+    );
+    expect(becameTrip.data).toMatchObject({ kind: "trip", month: null });
   });
 
   it("the panel's History: the expense's audit trail, newest first, the changed fields named (F71)", async () => {

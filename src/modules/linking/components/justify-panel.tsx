@@ -82,6 +82,8 @@ export type JustifyGroup = {
   kind?: "trip" | "batch";
   departure?: string | null;
   return?: string | null;
+  /** the month a batch group stands for (`YYYY-MM`, T025) — the stored fact the proposal reads, never the name */
+  month?: string | null;
 };
 
 /** The option lists the dialog needs — loaded by the page (`justifyOptions`), plain data. */

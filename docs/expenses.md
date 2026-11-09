@@ -11,7 +11,7 @@ Module `src/modules/expenses` · schema `prisma/schema/expenses.prisma` · migra
 ## Model
 
 ```
-expense_groups     number (series `expense_group`, never reused) · description · kind ∈ trip | batch
+expense_groups     number (series `expense_group`, never reused) · description · kind ∈ trip | batch · month? (`YYYY-MM`, a batch group's month — T025; CHECK on the shape; refused on a trip, cleared when a group becomes one)
 expenses           group_id (FK) · key (`Ex213-Tr-01`, unique) · seq · alias (snapshot) · kind ∈ receipt | per_diem | vat_payment
                    date · description · bas_code · amount (> 0) · currency · vat_amount? · vat_registration_id?
                    amount_base · rate · rate_source ∈ same_currency | ecb_daily | ecb_nearest | manual (CHECK `<> 'bank'`, F114) · rate_date?
@@ -71,7 +71,7 @@ The owner's fixture (`specs/expenses/fixtures/owner-flow-settlement.json`): 6 45
 
 ## The group proposed from the date — `group-proposal.ts` (F131 §5.2, 2026-11-05)
 
-`proposeGroupForDate(date, groups) → { group, source: "trip" | "month" } | null`, pure and client-safe (`expenses/ui` through the picker): **the covering trip first** — an open trip group whose departure–return covers the paper's date (`GroupOption.departure` / `return`, the trip's local days read with the groups through the group's `trip` relation in `listGroups`; two covering trips → the shorter, the same length → the later departure — a fact, never list order, lessons *F124 build*); **else the month's group** — the batch group that stands for the date's month (a stored `month`, or the one its name says: `2026-07 …` / `July 2026`, `monthOfGroupName`); **else none** — the picker stays empty with the hint and *+ New group…*. Who calls it: the reading dialog in [[linking]] (the group zone, from the paper's date, *proposed (the trip)* / *proposed (the month)*) and, since T018, the expense dialog (`NewExpenseDialog`, from the date field — it follows the date until the owner picks by hand; a group the page gave stands). The new supplier invoice dialog does not yet (it opens on the first group). `group-proposal.pure.test.ts`.
+`proposeGroupForDate(date, groups) → { group, source: "trip" | "month" } | null`, pure and client-safe (`expenses/ui` through the picker): **the covering trip first** — an open trip group whose departure–return covers the paper's date (`GroupOption.departure` / `return`, the trip's local days read with the groups through the group's `trip` relation in `listGroups`; two covering trips → the shorter, the same length → the later departure — a fact, never list order, lessons *F124 build*); **else the month's group** — the batch group that stands for the date's month (its stored `month` — `expense_groups.month`, T025 / F174: set when the reading dialog creates the paper's month group, backfilled once by the migration from the names `monthOfGroupName` used to read; the name itself is never parsed any more); **else none** — the picker stays empty with the hint and *+ New group…*. Who calls it: the reading dialog in [[linking]] (the group zone, from the paper's date, *proposed (the trip)* / *proposed (the month)*) and, since T018, the expense dialog (`NewExpenseDialog`, from the date field — it follows the date until the owner picks by hand; a group the page gave stands). The new supplier invoice dialog does not yet (it opens on the first group). `group-proposal.pure.test.ts`.
 
 ## The duplicate check — `duplicates.ts` (specs/documents US3, D32 — 2026-10-21)
 
