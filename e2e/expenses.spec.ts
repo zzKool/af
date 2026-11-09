@@ -358,7 +358,13 @@ test.describe("Expenses", () => {
     await page.goto(`/expenses?q=${encodeURIComponent(desc)}`);
     await page.getByTestId("open-new-expense").click();
     await expect(form).toBeVisible();
-    await page.getByRole("row").filter({ hasText: desc }).first().click();
+    // the description cell — the narrowed row's middle may fall on its group link
+    await page
+      .getByRole("row")
+      .filter({ hasText: desc })
+      .first()
+      .getByRole("cell", { name: desc, exact: true })
+      .click();
     await expect(page.getByTestId("expense-panel")).toBeVisible();
     await expect(form).toBeHidden();
     await page.getByTestId("open-new-expense").click();
