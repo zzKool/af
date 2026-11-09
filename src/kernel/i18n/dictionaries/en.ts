@@ -275,6 +275,7 @@ export const en = {
   "partners.header.invoicesIn": "invoices in {what}",
   "partners.details.makes": "→ invoices {key}",
   "partners.details.contact": "Contact",
+  "partners.details.category": "Default category",
   "partners.details.empty": "No address or numbers yet — Edit adds them.",
   "partners.overview.totalContracts": "Total contracts",
   "partners.overview.contacts": "Contacts",

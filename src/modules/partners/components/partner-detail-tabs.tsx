@@ -275,6 +275,7 @@ export function PartnerDetailTabs({
               types={types}
               contact={contacts[0] ?? null}
               year={year}
+              basLabel={basOptions.find((o) => o.code === partner.defaultBasCategoryCode)?.label}
               onEdit={() => setEditing(true)}
             />
             <section className={CARD} data-testid="partner-linked">
@@ -456,6 +457,7 @@ function DetailsCard({
   types,
   contact,
   year,
+  basLabel,
   onEdit,
 }: {
   partner: PartnerData;
@@ -463,6 +465,8 @@ function DetailsCard({
   types: string[];
   contact: PartnerContactRow | null;
   year: string;
+  /** the default category's label (code · name), from the BAS options */
+  basLabel?: string;
   onEdit: () => void;
 }) {
   const t = useT();
@@ -532,6 +536,8 @@ function DetailsCard({
     ]);
   if (partner.defaultLanguage)
     rows.push([t("partners.form.language"), languageName(partner.defaultLanguage, lang)]);
+  if (partner.defaultBasCategoryCode)
+    rows.push([t("partners.details.category"), basLabel ?? partner.defaultBasCategoryCode]);
   return (
     <section className={CARD} data-testid="partner-details">
       <div className="mb-2 flex items-center justify-between gap-2">
