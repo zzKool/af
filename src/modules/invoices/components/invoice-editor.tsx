@@ -83,6 +83,26 @@ export type EditorDraft = {
   total: string | null;
 };
 
+/** the draft's total as the server would store it, or null while a line does not compute */
+function liveTotal(
+  lines: { quantity: string; unitPrice: string; vatRate: string; discountPercent: string }[],
+  discountPercent: string,
+): string | null {
+  try {
+    return invoiceTotals(
+      lines.map((l) => ({
+        quantity: l.quantity || "0",
+        unitPrice: l.unitPrice || "0",
+        vatRate: l.vatRate || "0",
+        discountPercent: l.discountPercent || null,
+      })),
+      discountPercent || null,
+    ).total;
+  } catch {
+    return null;
+  }
+}
+
 let keySeq = 0;
 const newKey = () => `n${++keySeq}`;
 
@@ -95,7 +115,10 @@ export function InvoiceEditor({
   partnerForVat,
   onDraft,
   toolbar,
+  quantityRequest,
 }: {
+  /** F160: the studio's days calendar — when `seq` changes, the first line's quantity becomes `value` (saved) */
+  quantityRequest?: { value: string; seq: number } | null;
   /** F145: more controls in the toolbar above the paper (the PDF preview) */
   toolbar?: ReactNode;
   /** F143: the draft as the owner types it — the studio's *Ready to send?* reads it live */
@@ -165,7 +188,7 @@ export function InvoiceEditor({
       })),
       registration,
       treatment: vat.treatment,
-      total: null,
+      total: liveTotal(lines, header.discountPercent),
     });
   }, [header, lines, registration, vat.treatment, onDraft]);
 
@@ -222,6 +245,19 @@ export function InvoiceEditor({
     setSaveState("saved");
     router.refresh();
   }, [invoice.id, router, save]);
+
+  // F160: the days calendar asks for a quantity on the first line — applied once per request, then saved
+  const appliedSeq = useRef(quantityRequest?.seq ?? 0);
+  useEffect(() => {
+    if (!quantityRequest || quantityRequest.seq === appliedSeq.current) return;
+    appliedSeq.current = quantityRequest.seq;
+    const prev = latest.current.lines;
+    if (prev.length === 0) return;
+    const next = [{ ...(prev[0] as LineState), quantity: quantityRequest.value }, ...prev.slice(1)];
+    setLines(next);
+    latest.current = { ...latest.current, lines: next }; // persist reads it before the next render
+    void persist();
+  }, [quantityRequest, persist]);
 
   const setH = <K extends keyof HeaderState>(k: K, v: HeaderState[K]) =>
     setHeader((prev) => ({ ...prev, [k]: v }));

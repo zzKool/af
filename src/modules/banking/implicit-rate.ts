@@ -60,3 +60,46 @@ export async function withImplicitRates<T extends { id: string } & Leg>(
     return { ...r, bankImplicitRate: peer ? impliedRate(r, peer) : null };
   });
 }
+
+/** A transfer out of a foreign-currency account into the base account, with the rate the bank gave (F161). */
+export type ForeignTransfer = {
+  date: string;
+  currency: string;
+  /** what left the foreign account, positive */
+  amount: string;
+  /** base units per foreign unit, the pair's implied rate */
+  rate: string;
+};
+
+/**
+ * F161, the rates page's *My CHF → SEK transfers*: every outgoing foreign-currency row paired as a transfer with a
+ * base-currency row, oldest first — the date, the amount moved, the bank's implied rate. Derived on read (D44).
+ */
+export async function foreignTransfers(tx: TransactionClient): Promise<ForeignTransfer[]> {
+  const out = await tx.bankTransaction.findMany({
+    where: { amount: { lt: 0 } },
+    select: { id: true, amount: true, currency: true, bookingDate: true },
+    orderBy: { bookingDate: "asc" },
+  });
+  const rated = await withImplicitRates(
+    tx,
+    out.map((r) => ({
+      id: r.id,
+      amount: r.amount.toFixed(2),
+      currency: r.currency,
+      date: r.bookingDate.toISOString().slice(0, 10),
+    })),
+  );
+  return rated.flatMap((r) =>
+    r.bankImplicitRate
+      ? [
+          {
+            date: r.date,
+            currency: r.currency,
+            amount: new D(r.amount).abs().toFixed(2),
+            rate: r.bankImplicitRate,
+          },
+        ]
+      : [],
+  );
+}

@@ -55,7 +55,14 @@ function onOrBefore(points: CurrencySeries["points"], day: string) {
 // ─── Fetch now ──────────────────────────────────────────────────────────────────────────────────────────────
 
 /** *Fetch now* (owner): queues the sync job, then refreshes the page once the newest day moved (or 30 s). */
-export function FetchRatesButton({ size = "default" }: { size?: "default" | "sm" }) {
+export function FetchRatesButton({
+  size = "default",
+  missing = 0,
+}: {
+  size?: "default" | "sm";
+  /** F161: the weekdays missing since the first stored day — the button names them */
+  missing?: number;
+}) {
   const t = useT();
   const router = useRouter();
   const [polling, setPolling] = useState(false);
@@ -103,25 +110,37 @@ export function FetchRatesButton({ size = "default" }: { size?: "default" | "sm"
       disabled={isPending || polling}
       data-testid="rates-fetch"
     >
-      {polling ? t("rates.fetching") : t("rates.fetchNow")}
+      {polling
+        ? t("rates.fetching")
+        : missing > 0
+          ? t("rates.fetchMissing", { count: missing })
+          : t("rates.fetchNow")}
     </Button>
   );
 }
 
 // ─── the cards and the chart ────────────────────────────────────────────────────────────────────────────────
 
+/** A transfer from a foreign account to the base one, at the bank's rate (F161) — banking's `foreignTransfers`. */
+export type TransferMark = { date: string; currency: string; amount: string; rate: string };
+
 export function RatesOverview({
   base,
   series,
   today,
+  transfers = [],
 }: {
   base: string;
   series: CurrencySeries[];
   today: string;
+  /** F161: the owner's transfers into the base, drawn on the chart when *My transfers* is on */
+  transfers?: TransferMark[];
 }) {
   const t = useT();
   const [range, setRange] = useState<RangeKey>("1y");
   const [off, setOff] = useState<Set<string>>(new Set());
+  const [marks, setMarks] = useState(false);
+  const transferCurrencies = [...new Set(transfers.map((m) => m.currency))];
 
   return (
     <div className="flex flex-col gap-4">
@@ -223,7 +242,28 @@ export function RatesOverview({
               );
             })}
           </div>
-          <div className="ml-auto inline-flex gap-0.5 rounded-[10px] border border-subtle bg-surface-2 p-[3px]">
+          {transfers.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={marks}
+              onClick={() => setMarks((m) => !m)}
+              data-testid="rates-transfers-toggle"
+              className={cn(
+                "ml-auto inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                marks
+                  ? "border-primary bg-selection font-semibold text-primary"
+                  : "border-subtle text-muted-foreground",
+              )}
+            >
+              ⇄ {t("rates.page.transfers", { from: transferCurrencies.join(" / "), base })}
+            </button>
+          )}
+          <div
+            className={cn(
+              "inline-flex gap-0.5 rounded-[10px] border border-subtle bg-surface-2 p-[3px]",
+              transfers.length === 0 && "ml-auto",
+            )}
+          >
             {RANGES.map((r) => (
               <button
                 type="button"
@@ -243,6 +283,7 @@ export function RatesOverview({
           </div>
         </div>
         <RateChart
+          marks={marks ? transfers.filter((m) => !off.has(m.currency)) : []}
           series={series.filter((s) => !off.has(s.currency))}
           from={(() => {
             const days = RANGES.find((r) => r.key === range)?.days;
@@ -259,7 +300,15 @@ const H = 300;
 const PAD = { l: 44, r: 12, t: 12, b: 26 };
 
 /** The lines, hand-drawn in SVG (no chart library): a shared axis, a crosshair with the day's rates on hover. */
-function RateChart({ series, from }: { series: CurrencySeries[]; from: string | null }) {
+function RateChart({
+  series,
+  from,
+  marks = [],
+}: {
+  series: CurrencySeries[];
+  from: string | null;
+  marks?: TransferMark[];
+}) {
   const t = useT();
   const [hover, setHover] = useState<number | null>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -373,6 +422,36 @@ function RateChart({ series, from }: { series: CurrencySeries[]; from: string | 
           />
         )}
       </svg>
+      {/* F161: each transfer as a dashed line on its day, the bank's rate against the ECB's of that day */}
+      {marks
+        .filter((m) => m.date >= (days[0] ?? "") && m.date <= (days.at(-1) ?? ""))
+        .map((m, n) => {
+          const i = days.findLastIndex((d) => d <= m.date);
+          const ecb = onOrBefore(
+            series.find((s) => s.currency === m.currency)?.points ?? [],
+            m.date,
+          );
+          return (
+            <div
+              key={`${m.date}-${m.currency}-${m.amount}`}
+              className="pointer-events-none absolute border-l border-dashed border-foreground/50"
+              style={{
+                left: `${(x(Math.max(0, i)) / W) * 100}%`,
+                top: `${(PAD.t / H) * 100}%`,
+                bottom: `${(PAD.b / H) * 100}%`,
+              }}
+              data-testid="rates-transfer-mark"
+            >
+              <span
+                className="absolute left-1 rounded-md bg-action px-1.5 py-0.5 text-[10.5px] whitespace-nowrap text-action-fg tabular-nums"
+                style={{ top: `${(n % 3) * 22}px` }}
+              >
+                {m.date} · {m.currency} {show(num(m.rate))}
+                {ecb ? ` · ECB ${show(num(ecb.rate))}` : ""}
+              </span>
+            </div>
+          );
+        })}
       {hoverDay && (
         <div
           className="pointer-events-none absolute top-2 rounded-lg border border-subtle bg-surface px-2.5 py-1.5 text-xs shadow-pop"

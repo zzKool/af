@@ -8,7 +8,13 @@ import { formatMonth } from "@/kernel/i18n/format-date";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator, uiLanguage } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
-import { categoryOptions, getTransaction, partnerOptions } from "@/modules/banking";
+import {
+  bankMonths,
+  categoryOptions,
+  getTransaction,
+  partnerOptions,
+  STATEMENT_ROLES,
+} from "@/modules/banking";
 import { justifyOptions, reconcileData } from "@/modules/linking";
 import { ReconcileMonthNav, ReconcilePage } from "@/modules/linking/ui";
 import { getUserPreferences } from "@/modules/settings";
@@ -35,7 +41,22 @@ export default async function ReconcileRoute({
     const partners = await partnerOptions(tx);
     const prefs = await getUserPreferences(tx, auth);
     const justify = can(auth, "create", "link") ? await justifyOptions(tx, auth) : null;
-    return { reconcile, categories, partners, prefs, justify };
+    // F159: the strip on top — the month's day cells per statement account (the bank's Months read)
+    const months = await bankMonths(tx, { today });
+    const strip = {
+      accounts: months.accounts
+        .filter((a) => STATEMENT_ROLES.includes(a.role))
+        .map(({ id, label, currency }) => ({ id, label, currency })),
+      days: months.days
+        .filter((d) => d.date.startsWith(reconcile.month))
+        .map(({ date, bankAccountId, rows, toJustify }) => ({
+          date,
+          bankAccountId,
+          rows,
+          toJustify,
+        })),
+    };
+    return { reconcile, categories, partners, prefs, justify, strip };
   });
   const locale = await requestLocale(data.prefs.data?.locale);
   const t = translator(locale);
@@ -62,6 +83,7 @@ export default async function ReconcileRoute({
         justifyOptions={data.justify}
         canWrite={can(auth, "create", "bank_transaction")}
         initialRowId={rowId}
+        strip={data.strip}
       />
     </ListPage>
   );
