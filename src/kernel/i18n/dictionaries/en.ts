@@ -1720,6 +1720,8 @@ export const en = {
   "rates.schedule":
     "Fetched by itself every weekday at 16:30 (Stockholm) while the app is running; missed days catch up on the next start.",
   "rates.fetchNow": "Fetch now",
+  "rates.fetchMissing": "Fetch the {count} missing day(s)",
+  "rates.page.transfers": "My {from} → {base} transfers",
   "rates.fetching": "Fetching…",
   "rates.queued": "Fetching the last {count} ECB days…",
   "rates.alreadyRunning": "A fetch is already running",

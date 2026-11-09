@@ -120,3 +120,7 @@ DTOs in `modules/rates/types.ts` as plain strings (`RateLookupResult`, `EcbRateF
 - **A day** — `ratesOnDayAction({ date })` → `ratesOnDay`: `rateToBase` per currency, with `ecb_nearest` and the day borrowed, or nothing within the 4-day cap.
 - **The rail's count** — the distinct missing days of the last 30 (the dashboard's *rate gap* count, which now links here).
 
+
+## My transfers on the chart (F161, the owner's gap audit 2026-11-09)
+
+The chart's **⇄ My CHF → SEK transfers** chip (shown when there is one) draws each transfer out of a foreign account into the base as a dashed line on its day, labelled with the bank's rate and the ECB's of that day — `2026-03-16 · CHF 10.7400 · ECB 10.7500`. The transfers are banking's `foreignTransfers` (`implicit-rate.ts`): every outgoing foreign-currency row paired as a `transfer` with a base-currency row, the pair's implied rate (D44) — derived on read, nothing stored; the page reads it in the tenant's transaction (the rates themselves are global). The primary names the gap: **Fetch the N missing day(s)** when weekdays are missing since the first stored day, else *Fetch now*.

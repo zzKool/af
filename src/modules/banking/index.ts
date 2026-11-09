@@ -44,7 +44,8 @@ export {
   transactionIdsByAmount,
 } from "./facts";
 export { transactionHistory } from "./history";
-export { impliedRate, withImplicitRates } from "./implicit-rate";
+export type { ForeignTransfer } from "./implicit-rate";
+export { foreignTransfers, impliedRate, withImplicitRates } from "./implicit-rate";
 export {
   deleteImport,
   describeHeaderError,
