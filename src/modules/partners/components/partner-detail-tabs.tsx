@@ -205,8 +205,9 @@ export function PartnerDetailTabs({
       />
 
       <TabsContent value="overview" className="flex flex-col gap-[18px]">
-        {figures}
-        <div className="grid items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_22rem]">
+        {/* keyed: the panel hands its children on as a list (React's key warning, the owner 2026-11-09) */}
+        <div key="figures">{figures}</div>
+        <div key="body" className="grid items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-[18px]">
             {activity}
             <section className={CARD}>
@@ -344,7 +345,7 @@ export function PartnerDetailTabs({
   );
 }
 
-const CARD = "rounded-2xl border border-subtle bg-surface p-4 shadow-card";
+const CARD = "pulse-card p-4";
 
 /** F144: the active contract at a glance — the rate, the period, the references the client asks for, the terms. */
 function ContractCard({ contract: c }: { contract: ContractRow | null }) {

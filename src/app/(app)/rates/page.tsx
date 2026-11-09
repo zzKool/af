@@ -71,7 +71,7 @@ export default async function RatesPage() {
           <DayRatesCard base={base} today={today} initial={onDay} />
         </div>
         <section
-          className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+          className="flex flex-col gap-3 pulse-card px-4 py-3.5"
           aria-label={t("rates.page.pairs")}
         >
           <h2 className="text-[15px] font-semibold">{t("rates.page.pairs")}</h2>

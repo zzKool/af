@@ -57,9 +57,7 @@ export function MonthsPanel({
     <section
       aria-label={t("banking.months.title")}
       data-testid={embedded ? "months-year" : "months-panel"}
-      className={cn(
-        !embedded && "rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card",
-      )}
+      className={cn(!embedded && "pulse-card px-4 py-3.5")}
     >
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         {!embedded && <h2 className="text-[13px] font-semibold">{t("banking.months.title")}</h2>}

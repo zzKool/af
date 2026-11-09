@@ -21,7 +21,7 @@ import type {
 } from "@/modules/dashboard/types";
 import { PRIORITY_FAMILY } from "../priority-family";
 
-const CARD = "rounded-2xl border border-subtle bg-surface shadow-card";
+const CARD = "pulse-card";
 const EYEBROW = "text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase";
 /** the moves shown before *Show the other N* */
 const MOVES = 3;

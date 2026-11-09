@@ -17,6 +17,7 @@ import { authClient } from "@/kernel/auth/auth-client";
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { useT } from "@/kernel/i18n/use-t";
 import type { RunSearch } from "@/kernel/search/types";
+import { PrivacyToggle } from "@/kernel/ui/shell/privacy-toggle";
 import { SearchPalette } from "@/kernel/ui/shell/search-palette";
 import { TenantSwitcher } from "@/kernel/ui/shell/tenant-switcher";
 import { type SaveTheme, ThemeToggle } from "@/kernel/ui/shell/theme-toggle";
@@ -66,6 +67,7 @@ export function Topbar({
         <SearchPalette role={role} search={search} />
       </div>
       <TenantSwitcher tenants={tenants} />
+      <PrivacyToggle />
       <ThemeToggle save={saveTheme} />
       <UserMenu userLabel={userLabel} />
     </header>

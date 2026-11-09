@@ -551,7 +551,9 @@ export function TransactionTable({
               )}
             >
               {t(`banking.segments.${k}`)}
-              <span className="text-[11px] tabular-nums opacity-80">{countOf(k)}</span>
+              <span className="text-[11px] tabular-nums opacity-80" data-public>
+                {countOf(k)}
+              </span>
             </button>
           );
         })}
@@ -615,7 +617,7 @@ export function TransactionTable({
         />
       )}
       <section
-        className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 pt-3.5 pb-2 shadow-card"
+        className="flex flex-col gap-3 pulse-card px-4 pt-3.5 pb-2"
         aria-label={t("banking.list")}
       >
         <DataTable

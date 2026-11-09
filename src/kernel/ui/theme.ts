@@ -23,3 +23,22 @@ export function applyTheme(theme: Theme | null): void {
     ? `${THEME_COOKIE}=${theme}; path=/; max-age=31536000; samesite=lax`
     : `${THEME_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }
+
+// The screenshot veil (F150, the owner 2026-11-09): an eye in the top bar blurs the figures — amounts, balances,
+// rates, keys — so a screenshot shows the page and not the books. Per browser (a cookie the root layout reads, so
+// the first HTML is already veiled); a PDF renders without it (the print renderer has no such cookie).
+export const PRIVACY_COOKIE = "af-privacy";
+
+export function parsePrivacy(value: string | null | undefined): boolean {
+  return value === "on";
+}
+
+/** In the browser: veil or unveil now and remember it for this browser. */
+export function applyPrivacy(on: boolean): void {
+  const root = document.documentElement;
+  if (on) root.dataset.privacy = "on";
+  else delete root.dataset.privacy;
+  document.cookie = on
+    ? `${PRIVACY_COOKIE}=on; path=/; max-age=31536000; samesite=lax`
+    : `${PRIVACY_COOKIE}=; path=/; max-age=0; samesite=lax`;
+}

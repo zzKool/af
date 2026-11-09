@@ -64,7 +64,7 @@ export function DayStrip({
     <section
       aria-label={t("banking.days.title", { month })}
       data-testid="months-panel"
-      className="rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+      className="pulse-card px-4 py-3.5"
     >
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 className="text-[13px] font-semibold">
@@ -82,6 +82,7 @@ export function DayStrip({
                     key={m}
                     data-month={m}
                     aria-pressed={on}
+                    data-public
                     onClick={() => onSelectMonth(on ? null : m)}
                     className={cn(
                       "h-7 rounded-[7px] px-2.5 text-[12px] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -182,6 +183,7 @@ export function DayStrip({
             return (
               <div
                 key={d}
+                data-public
                 className={cn(
                   "pt-1 text-center text-[10px] tabular-nums text-muted-foreground",
                   d === selectedDay && "font-semibold text-primary",

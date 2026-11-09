@@ -27,6 +27,24 @@ test.describe("Shell", () => {
     expect(errors).toEqual([]);
   });
 
+  // F150: the eye veils the figures for a screenshot, across a reload (cookie), and lifts the veil again
+  test("the eye blurs the amounts, stays on after a reload, and shows them again", async ({
+    page,
+  }) => {
+    await page.goto("/banking");
+    const amount = page.locator("main .tabular-nums").first();
+    await expect(amount).toBeVisible();
+    await page.getByTestId("privacy-toggle").click();
+    await expect(page.locator("html")).toHaveAttribute("data-privacy", "on");
+    await expect(amount).toHaveCSS("filter", /blur/);
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-privacy", "on");
+    await expect(page.getByTestId("privacy-toggle")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("privacy-toggle").click();
+    await expect(page.locator("html")).not.toHaveAttribute("data-privacy", "on");
+    await expect(page.locator("main .tabular-nums").first()).toHaveCSS("filter", "none");
+  });
+
   // F73: + New opens the page's dialog — from another page, and on the page itself (same route, new params)
   test("+ New opens the dialog: from the dashboard, and again on the page it lands on", async ({
     page,

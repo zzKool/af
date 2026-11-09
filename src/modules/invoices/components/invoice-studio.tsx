@@ -15,7 +15,7 @@ import type { StudioFacts } from "../studio";
 import type { Registration, VatTreatment } from "../vat-treatment";
 import { type EditorDraft, type EditorInvoice, InvoiceEditor } from "./invoice-editor";
 
-const CARD = "rounded-2xl border border-subtle bg-surface p-4 shadow-card";
+const CARD = "pulse-card p-4";
 const MARK: Record<ReadyState, string> = { ok: "✓", warn: "!", todo: "○" };
 
 // Each checklist line's words, by key and state (only the pairs `readyToSend` gives).
@@ -178,7 +178,7 @@ export function InvoiceStudio({
         {details && <div className={CARD}>{details}</div>}
       </aside>
 
-      <div className="min-w-0 rounded-2xl border border-subtle bg-surface-2 p-4 shadow-card">
+      <div className="min-w-0 pulse-card-2 p-4">
         <InvoiceEditor
           invoice={invoice}
           parties={parties}

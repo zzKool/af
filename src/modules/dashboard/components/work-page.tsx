@@ -30,7 +30,7 @@ const FAMILY: Record<CloseStepState, StateFamily> = {
   waiting: "neutral",
 };
 
-const CARD = "rounded-2xl border border-subtle bg-surface shadow-card";
+const CARD = "pulse-card";
 
 type T = (key: MessageKey, params?: MessageParams) => string;
 
@@ -254,7 +254,7 @@ export function MonthlyCloseView({
 
         {step && card && (
           <div
-            className="flex flex-wrap items-center gap-4 rounded-2xl border border-subtle bg-surface-2 px-5 py-4"
+            className="flex flex-wrap items-center gap-4 pulse-card-2 px-5 py-4"
             data-testid="work-step-card"
             data-step={step.kind}
           >
