@@ -100,7 +100,17 @@ Tests: `home.pure.test.ts`, `home.test.ts` (an invented world: balances in CHF a
 
 ### The year, week by week (F158, the owner's gap audit 2026-11-09)
 
-Under the cash and the next moves, full width: `YearStrip` (`components/year-strip.tsx`) over `yearWeeks` (`year-weeks.ts`, pure, `year-weeks.pure.test.ts`). Fifty-two weeks back from today's (Monday → Sunday, the ISO number): on top the money in (up) and out (down) of the statement accounts in the base (a square-root scale, as the bank's day strip); under it one square per statement account per week — **done** (every row justified) · **open** (rows to justify, in last month or this one: the close still runs) · **late** (rows to justify in a month before last month: its close is past) · **nothing that week**. A week is a button: its range, in and out (whole units), how many rows are still to justify, *Open this week* → Banking filtered to the week (`f.bookingDate=dates:from=…|to=…`). Built from the day cells `bankMonths` already gives the home — no new read. The board's other rows (invoices, expenses, documents, subscriptions) and *Where the money went* (the flow) are not built yet.
+Under the cash and the next moves, full width: `YearStrip` (`components/year-strip.tsx`) over `yearWeeks` (`year-weeks.ts`, pure, `year-weeks.pure.test.ts`). Fifty-two weeks back from today's (Monday → Sunday, the ISO number): on top the money in (up) and out (down) of the statement accounts in the base (a square-root scale, as the bank's day strip); under it one square per statement account per week — **done** (every row justified) · **open** (rows to justify, in last month or this one: the close still runs) · **late** (rows to justify in a month before last month: its close is past) · **nothing that week**. A week is a button: its range, in and out (whole units), how many rows are still to justify, *Open this week* → Banking filtered to the week (`f.bookingDate=dates:from=…|to=…`). Built from the day cells `bankMonths` already gives the home — no new read.
+
+**The books' rows (F171)** under the accounts, the board's *Invoices · Expenses · Documents*: one square per week, the worst of the week's things (late › open › done › nothing). `bookFacts` (`home.ts`) reads each module's own list through its `index.ts` — `invoices.listInvoices` (issued that week), `expenses.listExpenses` (dated that week), `documents.listDocuments` (received that week, the Stockholm day of `created_at`) — and the pure mappers in `year-weeks.ts` turn each module's derived state into the strip's family; nothing stored:
+
+| Row | done | open | late |
+|---|---|---|---|
+| Invoices (`invoiceCell`) | paid · credited | issued · sent · partly paid | overdue (the invoice's own state) |
+| Expenses (`expenseCell`) | paid / refunded **and** justified (receipt attached, declared lost, or a per diem) | otherwise | otherwise, dated before last month |
+| Documents (`documentCell`) | filed · archived | in the inbox (OCR pending / failed, ready) | in the inbox, received before last month |
+
+Drafts, quotes, credit notes and the app's own PDFs are not on the rows. The week's panel lists each row that has something (*2 invoice(s) issued · 1 not paid yet*). The subscriptions row is not built.
 
 The cash headline and its month are **whole units** (`formatMoney(…, { whole: true })`, half up — the board's *693 295 SEK*); every other figure keeps its cents.
 
