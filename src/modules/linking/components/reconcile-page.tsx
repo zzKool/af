@@ -46,7 +46,7 @@ import { EntityLabel } from "./entity-label";
 import type { JustifyOptions } from "./justify-panel";
 import { useReasonLabel } from "./suggestions-section";
 
-const CARD = "rounded-2xl border border-subtle bg-surface shadow-card";
+const CARD = "pulse-card";
 const EYEBROW = "text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase";
 const NONE = "__none__";
 

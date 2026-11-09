@@ -21,7 +21,7 @@ import { proposeGroupForDate } from "@/modules/expenses/group-proposal";
 import type { PhoneSummary } from "@/modules/expenses/phone";
 import type { CategoryOption, GroupOption, SourceOption } from "@/modules/expenses/types";
 
-const CARD = "rounded-2xl border border-subtle bg-surface p-5 shadow-card";
+const CARD = "pulse-card p-5";
 /** how long the page waits for the reading before it lets the owner type it */
 const READ_TIMEOUT_MS = 45_000;
 const POLL_MS = 1200;

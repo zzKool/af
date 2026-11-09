@@ -44,6 +44,8 @@ export const en = {
   "nav.expand": "Expand sidebar",
   "nav.main": "Main navigation",
   "shell.theme.toggle": "Switch between light and dark",
+  "shell.privacy.hide": "Hide the figures (for a screenshot)",
+  "shell.privacy.show": "Show the figures",
   "shell.search.placeholder": "Search pages, keys, names, amounts",
   "shell.search.label": "Search",
   "shell.search.empty": "Nothing matches",

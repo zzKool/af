@@ -3,7 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Toaster } from "@/components/ui/sonner";
-import { parseTheme, THEME_COOKIE } from "@/kernel/ui/theme";
+import { PRIVACY_COOKIE, parsePrivacy, parseTheme, THEME_COOKIE } from "@/kernel/ui/theme";
 import "./globals.css";
 
 // D76: Geist and Geist Mono, self-hosted from the `geist` package (next/font/local) — the files ship in the
@@ -20,11 +20,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // the user's theme (D43) in the first HTML — the cookie mirrors user_preferences.theme; none = the OS decides
-  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const jar = await cookies();
+  const theme = parseTheme(jar.get(THEME_COOKIE)?.value);
+  // F150: the screenshot veil, per browser
+  const privacy = parsePrivacy(jar.get(PRIVACY_COOKIE)?.value);
   return (
     <html
       lang="en"
       data-theme={theme ?? undefined}
+      data-privacy={privacy ? "on" : undefined}
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body className="antialiased">

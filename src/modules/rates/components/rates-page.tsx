@@ -145,7 +145,7 @@ export function RatesOverview({
             <section
               key={s.currency}
               data-testid="rates-card"
-              className="flex flex-col gap-1.5 rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+              className="flex flex-col gap-1.5 pulse-card px-4 py-3.5"
               style={{ boxShadow: `inset 3px 0 0 ${colourOf(s.currency)}, var(--elev-card)` }}
             >
               <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export function RatesOverview({
 
       {/* the chart: every currency against the base, one line each */}
       <section
-        className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+        className="flex flex-col gap-3 pulse-card px-4 py-3.5"
         aria-label={t("rates.page.chartTitle", { base })}
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -427,7 +427,7 @@ export function CoverageCard({
   ];
   return (
     <section
-      className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+      className="flex flex-col gap-3 pulse-card px-4 py-3.5"
       aria-label={t("rates.page.coverageTitle")}
       data-testid="rates-coverage"
     >
@@ -558,7 +558,7 @@ export function DayRatesCard({
   const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
   return (
     <section
-      className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface px-4 py-3.5 shadow-card"
+      className="flex flex-col gap-3 pulse-card px-4 py-3.5"
       aria-label={t("rates.page.dayTitle")}
       data-testid="rates-day"
     >

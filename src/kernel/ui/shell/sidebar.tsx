@@ -87,6 +87,7 @@ export function Sidebar({
               collapsed ? "absolute top-0.5 right-0.5" : "ml-auto",
             )}
             aria-hidden
+            data-public
           >
             {count}
           </span>

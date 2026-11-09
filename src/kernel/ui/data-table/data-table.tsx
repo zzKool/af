@@ -118,7 +118,7 @@ function defaultCell<Row>(
     case "date": {
       const d = raw instanceof Date ? raw : new Date(String(raw));
       return (
-        <span className="tabular-nums">
+        <span className="tabular-nums" data-public>
           {Number.isNaN(d.getTime()) ? String(raw) : d.toISOString().slice(0, 10)}
         </span>
       );
@@ -556,6 +556,8 @@ export function DataTable<Row extends { id: string }>({
                     return (
                       <TableCell
                         key={column.key}
+                        // F150: a date is not a secret — the veil leaves it, custom cells included
+                        data-public={column.type === "date" ? "" : undefined}
                         style={width ? { width, minWidth: width, maxWidth: width } : undefined}
                         className={cn(
                           "px-3 py-2.5",
@@ -589,7 +591,7 @@ export function DataTable<Row extends { id: string }>({
       </div>
 
       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="tabular-nums">
+        <span className="tabular-nums" data-public>
           {t("table.range", { first, last, total: result.total })}
         </span>
         {result.sums &&
@@ -628,7 +630,7 @@ export function DataTable<Row extends { id: string }>({
             <ChevronLeft aria-hidden />
             {t("table.previous")}
           </Button>
-          <span className="tabular-nums">
+          <span className="tabular-nums" data-public>
             {query.page} / {totalPages}
           </span>
           <Button

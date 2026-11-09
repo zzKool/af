@@ -296,6 +296,36 @@
   }
 }
 
+/* D76: a card as the board draws it — a faint light from the top edge, the subtle border, 20 px, the card
+   shadow (the board's `.card`). Every card on the ground uses it. */
+@utility pulse-card {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.025), rgb(255 255 255 / 0) 40%), var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  box-shadow: var(--elev-card);
+}
+
+/* The board's eyebrow: a KPI's or a card section's label — small, spaced capitals, muted. */
+@utility eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* F150: the screenshot veil — the eye in the top bar blurs every figure (amounts, balances, rates, counts in
+   tabular figures) and whatever a component marks `data-sensitive` (IBANs, references, keys); `data-public`
+   keeps a figure readable (dates). Never in print: a PDF is rendered without it. */
+@media screen {
+  :root[data-privacy="on"]
+    :is(.tabular-nums, [data-sensitive]):not([data-public], [data-public] *) {
+    filter: blur(6px);
+    user-select: none;
+  }
+}
+
 /* D76: a table row's state as a bar on its left edge (DataTable `rowAccent`), the row open in the panel
    (`activeRowId`) highlighted with a wider primary bar. Neutral rows carry no bar. */
 @layer components {

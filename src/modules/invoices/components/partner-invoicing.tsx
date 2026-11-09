@@ -12,7 +12,7 @@ import { formatMoney } from "@/kernel/money/format-money";
 import { cn } from "@/lib/utils";
 import type { InsightEvent, PartnerInsight } from "../partner-insight";
 
-const CARD = "rounded-2xl border border-subtle bg-surface p-4 shadow-card";
+const CARD = "pulse-card p-4";
 const BAR: Record<string, string> = {
   CHF: "bg-cur-chf",
   EUR: "bg-cur-eur",
@@ -39,8 +39,8 @@ function Figure({
 }) {
   return (
     <section className={cn(CARD, "flex flex-col gap-1")} data-testid={testId}>
-      <h2 className="text-xs font-medium text-muted-foreground">{label}</h2>
-      <div className="text-[22px] leading-tight font-semibold tabular-nums">{value}</div>
+      <h2 className="eyebrow">{label}</h2>
+      <div className="text-[26px] leading-tight font-semibold tabular-nums">{value}</div>
       <p className="text-xs text-muted-foreground">{sub}</p>
     </section>
   );

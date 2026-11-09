@@ -34,6 +34,7 @@ export function CodeChip({ children, className }: { children: ReactNode; classNa
 export function CountBadge({ count, className }: { count: number; className?: string }) {
   return (
     <span
+      data-public
       className={cn(
         "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-subtle px-1.5 text-[11px] font-semibold text-muted-foreground tabular-nums",
         className,

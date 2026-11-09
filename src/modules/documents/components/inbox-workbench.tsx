@@ -495,7 +495,7 @@ export function InboxWorkbench({
       <div className="grid items-start gap-[18px] xl:grid-cols-[22rem_minmax(0,1fr)]">
         {/* left: the queue — D76: a card on the ground */}
         <section
-          className="min-w-0 overflow-hidden rounded-2xl border border-subtle bg-surface shadow-card"
+          className="min-w-0 overflow-hidden pulse-card"
           aria-label={t("documents.inbox.title")}
         >
           {rows.length === 0 ? (
@@ -579,10 +579,7 @@ export function InboxWorkbench({
         </section>
 
         {/* right: the open document */}
-        <section
-          className="min-w-0 rounded-2xl border border-subtle bg-surface p-5 shadow-card"
-          aria-label={t("documents.inbox.pane")}
-        >
+        <section className="min-w-0 pulse-card p-5" aria-label={t("documents.inbox.pane")}>
           {open ? (
             <InboxPane
               key={open.id}

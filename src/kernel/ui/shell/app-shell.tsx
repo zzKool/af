@@ -51,7 +51,7 @@ export function AppShell({
             saveTheme={saveTheme}
           />
           {/* a page on the ground (`ListPage ground`, D76) turns the card off: its own cards sit on the dots */}
-          <div className="group/canvas mx-3 mb-3 flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-subtle bg-surface shadow-card has-[[data-ground]]:overflow-visible has-[[data-ground]]:border-transparent has-[[data-ground]]:bg-transparent has-[[data-ground]]:shadow-none">
+          <div className="group/canvas mx-3 mb-3 flex min-h-0 flex-1 overflow-hidden pulse-card has-[[data-ground]]:overflow-visible has-[[data-ground]]:border-transparent has-[[data-ground]]:bg-transparent has-[[data-ground]]:bg-none has-[[data-ground]]:shadow-none">
             <DockedCanvas>
               {/* main is the intentional scroll container — sticky table headers depend on it */}
               <main className="min-h-0 min-w-0 flex-1 overflow-auto">

@@ -99,7 +99,7 @@ export function AccountCards({
               onClick={() => onToggle(b.label)}
               data-testid={`account-card-${b.bankAccountId}`}
               className={cn(
-                "flex min-w-0 flex-col gap-1.5 rounded-2xl border border-subtle bg-surface px-4 py-3.5 text-left shadow-card outline-none transition-shadow hover:border-border focus-visible:ring-2 focus-visible:ring-ring",
+                "flex min-w-0 flex-col gap-1.5 pulse-card px-4 py-3.5 text-left outline-none transition-shadow hover:border-border focus-visible:ring-2 focus-visible:ring-ring",
                 active && "ring-2 ring-primary",
               )}
             >

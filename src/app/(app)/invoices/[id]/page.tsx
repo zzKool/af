@@ -167,7 +167,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 email={ctx.parties.partner.email}
               />
             )}
-            <div className="rounded-2xl border border-subtle bg-surface-2 p-4 shadow-card">
+            <div className="pulse-card-2 p-4">
               <InvoiceSheet
                 mode="print"
                 doc={toSheetDocument(inv, {
@@ -178,7 +178,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               />
             </div>
           </div>
-          <aside className="w-full shrink-0 rounded-2xl border border-subtle bg-surface p-4 shadow-card xl:w-[380px]">
+          <aside className="w-full shrink-0 pulse-card p-4 xl:w-[380px]">
             <InvoiceDetails
               invoice={{
                 id: inv.id,

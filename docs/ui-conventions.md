@@ -108,8 +108,15 @@ One format in every UI language: thousands with a narrow no-break space (U+202F)
   Settings · Collapse
   ```
   The group labels are i18n keys (`nav.group.*`). The rates page joined *Records* (F136); the group *Close* becomes *Plan and close* in its phase (nav constants, one PR at a time).
-- **Top bar** (56 px, on the ground right of the rail): full logo · the search pill (40 px, 12 px corners, up to 640 px, `Ctrl K`) · tenant switcher · **sun / moon** (flips light ↔ dark and saves it as the user's choice — D43; *System* is picked again in My Preferences) · avatar (ink, 36 px).
+- **Top bar** (56 px, on the ground right of the rail): full logo · the search pill (40 px, 12 px corners, up to 640 px, `Ctrl K`) · tenant switcher · **eye** (F150: veils the figures for a screenshot — see *The screenshot veil* below) · **sun / moon** (flips light ↔ dark and saves it as the user's choice — D43; *System* is picked again in My Preferences) · avatar (ink, 36 px).
 - **Content canvas**: one raised card — `--surface`, `--border-subtle` edge, 20 px corners, `shadow-card`, 12 px from the window's right and bottom edges. A page moves to its own cards on the ground in its phase.
+
+### Cards and eyebrows (F150)
+- **A card is `pulse-card`** (the utility in `globals.css`): `--surface` under a faint top light (2.5 % white fading out by 40 % — seen in dark only), the `--border-subtle` edge, 20 px corners, `--elev-card`. Never spell the four classes again; `components/ui/card.tsx` uses it too. A page's own cards sit on the ground (`data-ground`), the canvas then drops its gradient.
+- **A KPI's label is an `eyebrow`** (11 / 500, 0.12 em spaced capitals, `--text-muted`); its value 26 / 600 `tabular-nums`, its line under 12 muted.
+
+### The screenshot veil (F150)
+The eye in the top bar blurs every figure so the owner can take a screenshot of his real data (D51): `<html data-privacy="on">`, from the cookie `af-privacy` (one year) so the first HTML is veiled before React runs. The CSS blurs (6 px, not selectable) every `.tabular-nums` and every `[data-sensitive]` (mark an IBAN, a reference, a key or a name that is not a figure), except inside `[data-public]` (dates, a DataTable's date column, pager and range, count badges, the rail's counts, the banking month and day labels). Screen only: print and the PDF are never veiled. A new figure is veiled for free when it uses `tabular-nums`; a new date or count that is not a secret gets `data-public`.
 
 ### Page anatomy (list and entity pages)
 1. **Breadcrumb** — links in `--primary`, `›` separators, the current page not repeated. Names, never ids (`Partners › Valtech Switzerland SA`, not `353ec92f`).
