@@ -116,3 +116,16 @@ describe("ReminderCard", () => {
     );
   });
 });
+
+describe("the days calendar's month (F160)", () => {
+  it("reads the period label in en, fr, sv or ISO; nothing else", async () => {
+    const { monthOfPeriod, weekdaysOf } = await import("./invoice-studio");
+    expect(monthOfPeriod("2026 October")).toBe("2026-10");
+    expect(monthOfPeriod("Juillet 2026")).toBe("2026-07");
+    expect(monthOfPeriod("augusti 2026")).toBe("2026-08");
+    expect(monthOfPeriod("2026-03")).toBe("2026-03");
+    expect(monthOfPeriod("Q3 2026")).toBeNull();
+    expect(monthOfPeriod("")).toBeNull();
+    expect(weekdaysOf("2026-07")).toHaveLength(23);
+  });
+});
