@@ -29,7 +29,7 @@ test.describe("Document upload — several files at once", () => {
     test.setTimeout(240_000);
     await trackToasts(page);
     await withToastReport(page, async () => {
-      await page.goto("/documents");
+      await page.goto("/documents/library");
       await page.locator('input[type="file"]').setInputFiles([
         { name: `multi-a-${stamp}.pdf`, mimeType: "application/pdf", buffer: receipt },
         { name: `multi-copy-${stamp}.pdf`, mimeType: "application/pdf", buffer: receipt },
@@ -67,11 +67,11 @@ test.describe("Document upload — several files at once", () => {
 
       // 3. the inbox, opened by URL: the two stored documents, each read by its own OCR job
       await page.goto("/documents/inbox");
-      await expect(page.getByRole("heading", { name: "Document inbox" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
       await page.getByTestId("inbox-search").fill(stamp);
       const inboxRows = page.getByTestId("inbox-row");
       await expect(inboxRows).toHaveCount(2, { timeout: 15_000 });
-      await page.getByRole("heading", { name: "Document inbox" }).click(); // out of the search field
+      await page.getByRole("heading", { name: "Documents", exact: true }).click(); // out of the search field
       await expect(async () => {
         await page.keyboard.press("r"); // refresh until the mock OCR has run on both
         await expect(page.locator('[data-inbox-state="ready"]')).toHaveCount(2, {

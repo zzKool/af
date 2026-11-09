@@ -41,6 +41,8 @@ type FileUploadZoneProps = {
   /** F92: once a batch of several files is through (and after a row's retry) — the parent refreshes once */
   onBatchComplete?: () => void;
   onError?: (error: AppError) => void;
+  /** F153: the desk's hero holds a lower zone (the hero says what to drop) */
+  compact?: boolean;
 };
 
 type UploadState = "idle" | "dragover" | "uploading" | "complete" | "duplicate" | "error" | "batch";
@@ -49,6 +51,7 @@ export function FileUploadZone({
   onUploadComplete,
   onBatchComplete,
   onError,
+  compact = false,
 }: FileUploadZoneProps) {
   const t = useT();
   const [state, setState] = useState<UploadState>("idle");
@@ -302,7 +305,8 @@ export function FileUploadZone({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={cn(
-          "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer",
+          "flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors cursor-pointer",
+          compact ? "min-h-28 bg-surface p-4" : "p-8",
           state === "idle" && "border-muted-foreground/25 hover:border-muted-foreground/50",
           state === "dragover" && "border-primary bg-primary/5",
           state === "uploading" && "border-muted-foreground/25 cursor-wait",
@@ -317,7 +321,9 @@ export function FileUploadZone({
           <>
             <Upload className="mb-2 size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {isTouchDevice ? t("documents.upload.tap") : t("documents.upload.drop")}
+              {isTouchDevice
+                ? t("documents.upload.tap")
+                : t(compact ? "documents.upload.dropCompact" : "documents.upload.drop")}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t("documents.upload.hint", { max: MAX_FILE_SIZE_MB })}

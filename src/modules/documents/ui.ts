@@ -14,6 +14,7 @@ export * from "./components/document-review-header";
 export * from "./components/document-state-label";
 export * from "./components/document-viewer";
 export * from "./components/documents-table";
+export * from "./components/drop-hero";
 export * from "./components/field-confidence";
 export * from "./components/file-upload-zone";
 export * from "./components/financial-fields-section";
