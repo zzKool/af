@@ -101,7 +101,11 @@ docker compose -p af-restore-test -f docker-compose.prod.yml down -v
 
 ### A fresh start, whole or in part (2026-11-09)
 
-`scripts/reset-working-data.sh box` (in the checkout next to `docker-compose.prod.yml`) or `… laptop` (the dev database and Azurite — Docker only, Git Bash on Windows) asks:
+**A fresh app** (choice 2, `scripts/reset-factory.sql`): every table emptied — the login, the organisation, the company and its logo, the VAT registrations, the bank accounts, the traktamente rates, every item and every file — but the **BAS chart** and the **ECB rates** (they come from outside and must stay right) and the app's own configuration (`bank_formats`, the migrations). A dry run lists the tables and their rows first; `RESET`; a backup on the box. Then the first account registered owns the new company: remove `AUTH_SIGNUP=closed` from `.env.prod`, `up -d app`, register on `/register`, put the line back, `up -d app`; Settings → company, VAT, bank accounts. The system partners and the two default rules come back with the first bank import.
+
+**Choose what to drop** (choice 1):
+
+`scripts/reset-working-data.sh box` (in the checkout next to `docker-compose.prod.yml`) or `… laptop` (the dev database and Azurite — Docker only, Git Bash on Windows) asks first the kind of reset, then for choice 1:
 
 1. **the period** — everything · this year · this month · from a date (bank rows by booking date, invoices by issue date, expenses and supplier invoices by their date, documents by upload date; partners, contracts, subscriptions and rules by creation);
 2. **the scopes**, one yes / no each — banking (rows, imports and their CSVs, refund settlements on them) · documents (uploads and files, month packages) · invoices (quotes, credit notes, their PDFs, Swiss VAT declarations) · expenses (supplier invoices, trips, settlements, empty groups) · subscriptions · partners (with contacts and contracts — only those nothing kept still uses) · the owner's rules;
