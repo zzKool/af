@@ -232,15 +232,16 @@ test.describe("Justify", () => {
       await expect(page.getByText(`Always like this for PRISAVGIFT ${stamp}?`)).toBeVisible();
       await expect(inboxRow(`PRISAVGIFT ${stamp}`)).toHaveCount(0, { timeout: 20_000 });
 
-      // 6. the card row: the fourth exit shows (an outgoing row, the owner owed the train) and leads to the settle
-      //    page with this row preselected; then x → the dialog without a paper → an expense with the flag, the
-      //    merchant picked
+      // 6. the card row: the fourth exit shows (an outgoing row, the owner owed the train) and opens the FIFO
+      //    picker in place on this row (T021, cancelled here); then x → the dialog without a paper → an expense
+      //    with the flag, the merchant picked
       await inboxRow(`CAFE ${stamp}`).first().click();
       await expect(page.getByTestId("justify-panel")).toBeVisible();
-      await expect(page.getByTestId("justify-refund")).toHaveAttribute(
-        "href",
-        /\/expenses\/settle\?row=[0-9a-f-]{36}$/,
-      );
+      await page.getByTestId("justify-refund").click();
+      await expect(page.getByTestId("refund-picker")).toBeVisible();
+      await expect(page.getByTestId("refund-line").first()).toBeVisible();
+      await page.getByTestId("refund-cancel").click();
+      await expect(page.getByTestId("refund-picker")).toHaveCount(0);
       await page.keyboard.press("x");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByTestId("reading-title")).toContainText("Receipt lost");

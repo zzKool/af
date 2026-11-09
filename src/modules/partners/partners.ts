@@ -612,8 +612,12 @@ const ROLE_ALIASES: Readonly<Record<SystemRole, readonly string[]>> = {
 export async function systemPartner(
   tx: TransactionClient,
   role: SystemRole,
+  /** narrows it for a caller outside RLS (the seed, a CLI as the migration role) — lessons *F129 build* (T026) */
+  tenantId?: string,
 ): Promise<PartnerDto | null> {
-  const row = await tx.partner.findFirst({ where: { systemRole: role, isActive: true } });
+  const row = await tx.partner.findFirst({
+    where: { systemRole: role, isActive: true, ...(tenantId ? { tenantId } : {}) },
+  });
   return row ? toPartnerDto(row) : null;
 }
 

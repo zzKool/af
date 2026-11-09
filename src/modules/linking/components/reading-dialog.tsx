@@ -52,6 +52,13 @@ import {
   type BasSuggestionSource,
   partnerBasSuggestions,
 } from "@/modules/settings/ui";
+import {
+  type NewTrip,
+  NewTripFields,
+  newTripFor,
+  newTripMissing,
+  useCreateTripGroup,
+} from "@/modules/traktamente/ui";
 import { checkProof, warningMessage } from "../check-proof";
 import {
   type GreenCheck,
@@ -145,6 +152,7 @@ function ReadingDialogBody({
   const { executeAsync: createRule } = useAction(createRuleFromTransactionAction);
   const { executeAsync: loadFacts } = useAction(proofFactsAction);
   const { resolveGroupId, isPending: creatingGroup } = useCreateGroupIfNew();
+  const { createTrip, isPending: creatingTrip } = useCreateTripGroup();
 
   // --- what the paper becomes (D75: derived, a switch for the rare case) ---
   const [kind, setKind] = useState<JustifyKind>(() => proposeKind(row, reading));
@@ -288,12 +296,25 @@ function ReadingDialogBody({
   }, [groupProposal, groupTouched, date, row.bookingDate]);
   const groupReason: GroupProposalReason | null =
     groupId && groupId === groupProposal.groupId ? groupProposal.reason : null;
-  const groupOptions = options.groups.map((g) => ({
-    id: g.id,
-    number: g.number ?? 0,
-    description: g.description ?? g.label,
-    kind: g.kind ?? ("batch" as const),
-  }));
+  // *+ New group* is a month's group or a trip (review §5.2, T020): the trip in place — departure, return, country;
+  // the per-diem comes with it (the group page types the meals and writes the per-diem expense)
+  const [newGroupKind, setNewGroupKind] = useState<"batch" | "trip">("batch");
+  const [newTrip, setNewTrip] = useState<NewTrip>(() => newTripFor(date || row.bookingDate));
+  // a group created by a submit that then failed is picked, not created twice on the next click
+  const [createdGroups, setCreatedGroups] = useState<
+    { id: string; number: number; description: string; kind: "trip" | "batch" }[]
+  >([]);
+  const groupOptions = [
+    ...options.groups.map((g) => ({
+      id: g.id,
+      number: g.number ?? 0,
+      description: g.description ?? g.label,
+      kind: g.kind ?? ("batch" as const),
+    })),
+    ...createdGroups,
+  ];
+  const newTripTodo =
+    groupId === NEW_GROUP && newGroupKind === "trip" ? newTripMissing(newTrip) : [];
 
   // --- the checks (F130): the facts from the server, the comparison in the browser ---
   const [facts, setFacts] = useState<ProofFacts | null>(null);
@@ -366,13 +387,25 @@ function ReadingDialogBody({
     ...(!groupId || (groupId === NEW_GROUP && !newGroupDescription.trim())
       ? [t("linking.reading.group")]
       : []),
+    ...newTripTodo.map((f) => t(`linking.reading.newTrip.${f}`)),
     ...(basCode === NONE ? [t("linking.reading.category")] : []),
   ];
 
   async function submit() {
     if (!picked) return;
-    const gid = await resolveGroupId(groupId, newGroupDescription);
+    const gid =
+      groupId === NEW_GROUP && newGroupKind === "trip"
+        ? await createTrip(newGroupDescription, newTrip)
+        : await resolveGroupId(groupId, newGroupDescription);
     if (!gid) return;
+    if (groupId === NEW_GROUP) {
+      setCreatedGroups((list) => [
+        ...list,
+        { id: gid, number: 0, description: newGroupDescription.trim(), kind: newGroupKind },
+      ]);
+      setGroupTouched(true);
+      setGroupId(gid);
+    }
     const common = {
       transactionId: row.id,
       ...(documentId ? { documentId } : {}),
@@ -459,7 +492,7 @@ function ReadingDialogBody({
   );
   const paperWord = t(`linking.justify.paper.${paper}`).toLowerCase();
   const otherKind: JustifyKind = kind === "supplier_invoice" ? "expense" : "supplier_invoice";
-  const busy = rereading || isPending || creatingGroup;
+  const busy = rereading || isPending || creatingGroup || creatingTrip;
   const signedAmount = formatMoney(row.amount, row.currency, { signed: true });
   const title = documentId
     ? t("linking.reading.title", {
@@ -857,6 +890,33 @@ function ReadingDialogBody({
                   newDescription={newGroupDescription}
                   onNewDescription={setNewGroupDescription}
                 />
+                {groupId === NEW_GROUP && (
+                  <div
+                    className="flex flex-wrap items-center gap-1 sm:col-span-2"
+                    role="radiogroup"
+                    aria-label={t("linking.reading.newGroupKind")}
+                  >
+                    <span className="mr-1 text-xs font-medium">
+                      {t("linking.reading.newGroupKind")}
+                    </span>
+                    {(["batch", "trip"] as const).map((k) => (
+                      <Button
+                        key={k}
+                        size="sm"
+                        variant={newGroupKind === k ? "secondary" : "ghost"}
+                        role="radio"
+                        aria-checked={newGroupKind === k}
+                        onClick={() => setNewGroupKind(k)}
+                        data-testid={`reading-new-group-${k}`}
+                      >
+                        {t(`linking.reading.newGroupKind.${k}`)}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                {groupId === NEW_GROUP && newGroupKind === "trip" && (
+                  <NewTripFields idPrefix={`${ids}-trip`} value={newTrip} onChange={setNewTrip} />
+                )}
               </div>
               <p className="mt-1 text-xs text-muted-foreground" data-testid="reading-group-hint">
                 {groupReason

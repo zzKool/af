@@ -41,10 +41,12 @@ export {
 export type { PerDiemStatement } from "./statement";
 export { resolvePerDiemStatement } from "./statement";
 export * from "./traktamente.actions";
-export type { TripInput } from "./trip";
+export type { NewTripInput, TripInput } from "./trip";
 export {
   computeForTrip,
   createOrReplacePerDiemExpense,
+  createTripGroup,
+  newTripSchema,
   tripInputSchema,
   upsertTrip,
 } from "./trip";

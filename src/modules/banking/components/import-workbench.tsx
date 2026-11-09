@@ -58,10 +58,16 @@ export function willBeMessage(row: ImportPreviewRow): { key: MessageKey; params?
     case "duplicate":
       return { key: "banking.import.willBe.duplicate" };
     case "invoice":
-      return {
-        key: "banking.import.willBe.invoice",
-        params: { number: row.invoice?.number ?? "" },
-      };
+      // a foreign invoice paid into this account names its currency (T022)
+      return row.invoice?.currency && row.invoice.currency !== row.currency
+        ? {
+            key: "banking.import.willBe.invoiceCross",
+            params: { number: row.invoice.number, currency: row.invoice.currency },
+          }
+        : {
+            key: "banking.import.willBe.invoice",
+            params: { number: row.invoice?.number ?? "" },
+          };
     case "no_proof":
       return row.rule?.partnerName
         ? {

@@ -11,6 +11,7 @@ import {
   NO_PROOF_REASONS,
   PAPERS,
   paperOfPrefixType,
+  paperOfReading,
   prefixTypeOfPaper,
   proposedPartnerRole,
   proposeKind,
@@ -162,6 +163,11 @@ describe("F131 — the paper question (D75) and the green checks", () => {
     expect(paperOfPrefixType("expense")).toBe("receipt");
     expect(paperOfPrefixType("invoice")).toBe("invoice");
     expect(paperOfPrefixType(undefined)).toBe("invoice");
+    // T030: the model that read it speaks first — an expense PDF read by the invoice model is an invoice
+    expect(paperOfReading("prebuilt-invoice", "expense")).toBe("invoice");
+    expect(paperOfReading("prebuilt-receipt", "invoice")).toBe("receipt");
+    expect(paperOfReading("prebuilt-layout", "expense")).toBe("receipt");
+    expect(paperOfReading(null, "expense")).toBe("receipt");
   });
 
   it("greenChecks: a ✓ line only for what was read and nothing warned about — every claim true", () => {

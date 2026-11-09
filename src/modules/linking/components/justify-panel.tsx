@@ -4,13 +4,20 @@
 // drop the proof (the paper question *Invoice / Receipt* (D75) → upload → OCR → the READING DIALOG → *Confirm &
 // link*), pick what exists (the Suggestions below it, *Use it* on an inbox proof → the dialog), no proof needed
 // (the reasons, the partner line), the receipt lost (the dialog without a paper), and — while the owner is owed
-// something — *This row refunds me* (§5.1: the settle page run from the row, `/expenses/settle?row=`). Rendered by
+// something — *This row refunds me* (§5.1, T021: the FIFO picker in place, `RefundPicker`). Rendered by
 // the banking panel and the inbox's right pane for an open outgoing row; the keyboard bumps `proofKey` /
 // `noProofKey` / `lostKey` (p · n · x). The F97 compare card, *Create as* and *Fix the reading →* retired with the
 // dialog (review §7).
-import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
-import { type ChangeEvent, type DragEvent, useEffect, useId, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +36,7 @@ import {
   getDocumentForReviewAction,
   uploadDocumentAction,
 } from "@/modules/documents/ui";
+import { RefundPicker } from "@/modules/expenses/ui";
 import { isSystemRole } from "@/modules/partners/ui";
 import type { BasOption } from "@/modules/settings/ui";
 import {
@@ -39,7 +47,7 @@ import {
   PAPERS,
   type Paper,
   type ProposedPartner,
-  paperOfPrefixType,
+  paperOfReading,
   prefixTypeOfPaper,
   proposedPartnerRole,
   type Reading,
@@ -130,6 +138,7 @@ export function JustifyPanel({
   proofKey = 0,
   noProofKey = 0,
   lostKey = 0,
+  heading = true,
 }: {
   row: RowForJustify;
   canWrite: boolean;
@@ -143,12 +152,19 @@ export function JustifyPanel({
   proofKey?: number;
   noProofKey?: number;
   lostKey?: number;
+  /**
+   * false: no section of its own — the host's heading says it (the work surface's *the proof* zone, T024); the
+   * default keeps the collapsible *Justify* section (the inbox's right pane)
+   */
+  heading?: boolean;
 }) {
   const t = useT();
   const fileInput = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [dragging, setDragging] = useState(false);
   const [reasonsOpen, setReasonsOpen] = useState(false);
+  /** *This row refunds me* open: the FIFO picker in place (T021) */
+  const [refunding, setRefunding] = useState(false);
   /** the *no proof* reason picked — the partner line follows it (F129 US3) */
   const [reason, setReason] = useState<NoProofReason | null>(null);
   /** the paper question (D75): asked on every drop, *Invoice* by default — it picks the reading model */
@@ -213,8 +229,9 @@ export function JustifyPanel({
       if (!live) return;
       if (d && READ_STATES.has(d.status)) {
         const reading = d.status === "ocr_failed" ? {} : d.resolvedData;
-        // a document uploaded before (*Use it*, a duplicate) carries its own type — the paper radio says it
-        setPaper(paperOfPrefixType(d.prefixType));
+        // a document uploaded before (*Use it*, a duplicate): the paper radio says what read it — the model, else
+        // its type (T030: an `expense` PDF read by the invoice model is an invoice on screen)
+        setPaper(paperOfReading(d.extractedData?.modelUsed, d.prefixType));
         setPhase({
           kind: "card",
           documentId,
@@ -431,7 +448,7 @@ export function JustifyPanel({
     ) : null;
 
   return (
-    <DetailsSection title={t("linking.justify.title")}>
+    <Frame heading={heading} title={t("linking.justify.title")}>
       {dialog}
       {incoming ? (
         <div className="flex flex-col gap-3" data-testid="justify-panel">
@@ -543,24 +560,34 @@ export function JustifyPanel({
               </Button>
             )}
             {(options?.openPrivateCount ?? 0) > 0 && (
-              // the fourth exit (review §5.1): the settle page with this row preselected — the FIFO over the open
-              // private expenses, the settlement and its statement written there as today; it stays while the
-              // reasons are open (the inbox's `n` keeps them open on the next rows) — it is not one of them
+              // the fourth exit (review §5.1, T021): the FIFO over the open private expenses in place — the
+              // settlement and its statement written as the settle page does (one link away for the rest); it stays
+              // while the reasons are open (the inbox's `n` keeps them open on the next rows) — it is not one of them
               <Button
                 size="sm"
-                variant="outline"
-                nativeButton={false}
-                render={<Link href={`/expenses/settle?row=${row.id}`} />}
+                variant={refunding ? "secondary" : "outline"}
+                aria-expanded={refunding}
+                onClick={() => setRefunding((r) => !r)}
                 data-testid="justify-refund"
               >
                 {t("linking.justify.refundsMe")}
               </Button>
             )}
           </div>
+          {refunding && (
+            <RefundPicker
+              transactionId={row.id}
+              onCancel={() => setRefunding(false)}
+              onDone={() => {
+                setRefunding(false);
+                onDone?.();
+              }}
+            />
+          )}
           {partnerLine}
         </div>
       )}
-    </DetailsSection>
+    </Frame>
   );
 }
 
@@ -693,6 +720,20 @@ function NoProofPartnerLine({
       </div>
     </div>
   );
+}
+
+/** The panel's frame: its own collapsible section, or nothing when the host's heading names it (T024). */
+function Frame({
+  heading,
+  title,
+  children,
+}: {
+  heading: boolean;
+  title: string;
+  children: ReactNode;
+}) {
+  if (heading) return <DetailsSection title={title}>{children}</DetailsSection>;
+  return <div data-testid="justify-frame">{children}</div>;
 }
 
 /** The paper question (D75, O5): *(•) Invoice ( ) Receipt* before DI runs — the paper picks the reading model. */

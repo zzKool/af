@@ -174,6 +174,8 @@ export type ImportPreviewInvoice = {
   invoiceId: string;
   number: string;
   partnerName: string | null;
+  /** the invoice's own currency — another than the row's when a foreign invoice is paid into this account (T022) */
+  currency: string | null;
   /** the confidence linking's scorer gives the pair today — what *Suggestions* will show after Import */
   confidence: Confidence;
 };

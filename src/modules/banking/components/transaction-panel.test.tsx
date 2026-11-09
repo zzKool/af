@@ -17,7 +17,11 @@ vi.mock("@/modules/banking/banking.actions", () => ({
   categoriseTransactionAction: "categorise",
 }));
 vi.mock("@/modules/linking/ui", () => ({
-  JustifyPanel: () => <div data-testid="justify-panel">justify</div>,
+  JustifyPanel: ({ heading }: { heading?: boolean }) => (
+    <div data-testid="justify-panel" data-heading={String(heading ?? true)}>
+      justify
+    </div>
+  ),
   LinksList: ({ links }: { links: unknown[] }) => (
     <div data-testid="links-list">{links.length} links</div>
   ),
@@ -185,6 +189,8 @@ describe("the work surface — the hero, three steps and two collapsed footers (
 
     const proof = screen.getByTestId("zone-proof");
     expect(within(proof).getByTestId("justify-panel")).toBeInTheDocument();
+    // the zone's step is the heading: the panel takes no section of its own (T024)
+    expect(within(proof).getByTestId("justify-panel")).toHaveAttribute("data-heading", "false");
     expect(within(proof).getByTestId("suggestions")).toBeInTheDocument();
     expect(within(proof).queryByTestId("links-list")).toBeNull(); // nothing linked: no list
 

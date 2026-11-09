@@ -1069,6 +1069,53 @@ describe("F128 — the import preview (review 2026-10-31 §6.1): the file read a
     expect(later.data?.invoicesFound).toBe(0);
   });
 
+  it("T022: a foreign invoice paid into the SEK account is named too — its currency, the bases compared at the ECB rate", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const { sek } = await accounts(caller);
+    // 2 000.00 CHF issued on 2026-07-01 (the base at June 30's rate ≈ 23 763 SEK); the client pays 23 800.00 SEK
+    const inv = await issuedInvoice(caller, "2000.00", "CHF");
+    const r = await run(caller, (tx) =>
+      preview(
+        tx,
+        caller,
+        sek,
+        "in.csv",
+        Buffer.from(
+          [
+            HEADER,
+            `2026/07/08;23800,00;${inv.client.toUpperCase()};;${inv.client.toUpperCase()};;${inv.number};;;SEK;`,
+          ].join("\n"),
+          "latin1",
+        ),
+      ),
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.data?.invoicesFound).toBe(1);
+    expect(r.data?.rows[0]).toMatchObject({
+      currency: "SEK",
+      willBe: "invoice",
+      invoice: { invoiceId: inv.id, number: inv.number, currency: "CHF", confidence: "HIGH" },
+    });
+    // the same-currency claim keeps its own currency on the DTO
+    const local = await issuedInvoice(caller, "5000.00");
+    const same = await run(caller, (tx) =>
+      preview(
+        tx,
+        caller,
+        sek,
+        "in2.csv",
+        Buffer.from(
+          [
+            HEADER,
+            `2026/07/08;5000,00;;;${local.client.toUpperCase()};;${local.number};;;SEK;`,
+          ].join("\n"),
+          "latin1",
+        ),
+      ),
+    );
+    expect(same.data?.rows[0]?.invoice).toMatchObject({ number: local.number, currency: "SEK" });
+  });
+
   it("the balance chain line is the import's: the July export that skipped a day previews one gap and 'complete to June 28' — before anything is written", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const { sek } = await accounts(caller);
