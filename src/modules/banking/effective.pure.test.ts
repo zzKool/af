@@ -4,7 +4,7 @@
 // spec, and as a property: the result's partner is the typed one, one of the proofs' (or the owner's), or null.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { effectiveFactsOf, type ProofFact } from "./effective";
+import { effectiveFactsOf, learnedFacts, type ProofFact } from "./effective";
 
 const SKATTEPUNKTEN = "11111111-1111-4111-8111-111111111111";
 const OPENAI = "22222222-2222-4222-8222-222222222222";
@@ -183,5 +183,64 @@ describe("effectiveFactsOf", () => {
         },
       ),
     );
+  });
+});
+
+describe("D82 (T028): a rule's guess yields to the proof, the owner's hand does not", () => {
+  const ruled = { partnerId: TYPED, basCode: "6570", categorisedBy: "rule" };
+  it("a rule-typed row with a proof shows the proof's facts", () => {
+    expect(effectiveFactsOf(ruled, [justifies("1297.20", SKATTEPUNKTEN, "6540")], OWNER)).toEqual({
+      partnerId: SKATTEPUNKTEN,
+      partnerFrom: "proof",
+      basCode: "6540",
+      basFrom: "proof",
+      mixed: false,
+    });
+  });
+  it("the rule fills only what the proof leaves blank (a plain document)", () => {
+    expect(effectiveFactsOf(ruled, [justifies("450.00", null, null)], OWNER)).toMatchObject({
+      partnerId: TYPED,
+      partnerFrom: "row",
+      basCode: "6570",
+      basFrom: "row",
+    });
+  });
+  it("without a proof the rule's values read; typed by hand they win over the proof (example 2)", () => {
+    expect(effectiveFactsOf(ruled, [], OWNER)).toMatchObject({ partnerId: TYPED, basCode: "6570" });
+    expect(
+      effectiveFactsOf(
+        { partnerId: null, basCode: "6530", categorisedBy: "manual" },
+        [justifies("1297.20", SKATTEPUNKTEN, "6540")],
+        OWNER,
+      ),
+    ).toMatchObject({
+      partnerId: SKATTEPUNKTEN,
+      partnerFrom: "proof",
+      basCode: "6530",
+      basFrom: "row",
+    });
+  });
+  it("learnedFacts: the hand's and the proof's values teach, a rule's never", () => {
+    const proofOverRule = effectiveFactsOf(
+      ruled,
+      [justifies("450.00", SKATTEPUNKTEN, null)],
+      OWNER,
+    );
+    expect(learnedFacts("rule", proofOverRule)).toEqual({
+      partnerId: SKATTEPUNKTEN,
+      basCode: null,
+    });
+    expect(learnedFacts("rule", effectiveFactsOf(ruled, [], OWNER))).toEqual({
+      partnerId: null,
+      basCode: null,
+    });
+    const hand = { partnerId: TYPED, basCode: "6570", categorisedBy: "manual" };
+    expect(learnedFacts("manual", effectiveFactsOf(hand, [], OWNER))).toEqual({
+      partnerId: TYPED,
+      basCode: "6570",
+    });
+    expect(
+      learnedFacts(null, effectiveFactsOf(none, [justifies("1.00", OPENAI, "6540")], OWNER)),
+    ).toEqual({ partnerId: OPENAI, basCode: "6540" });
   });
 });

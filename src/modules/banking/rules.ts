@@ -543,8 +543,32 @@ export function changedBy(before: RuleFacts | undefined, after: RuleFacts): bool
 }
 
 /**
+ * The rows of `ids` with a proof (a `justifies` / `settles` link from them): their partner and category are the
+ * proof's, a rule never speaks for them (D82, T028) — the derived fact, not a typed mark. Linking is read at call
+ * time: `banking.actions` loads this file for its schemas ([[lessons]] *module-load cycles*).
+ */
+async function provenRows(tx: TransactionClient, ids: readonly string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const linking = await import("@/modules/linking");
+  return linking.rowsWithProof(tx, ids);
+}
+
+/** `targets` without the rows a proof justifies (D82). */
+async function withoutProven<T extends { transactionId: string }>(
+  tx: TransactionClient,
+  targets: readonly T[],
+): Promise<T[]> {
+  const proven = await provenRows(
+    tx,
+    targets.map((t) => t.transactionId),
+  );
+  return proven.size === 0 ? [...targets] : targets.filter((t) => !proven.has(t.transactionId));
+}
+
+/**
  * Run the ordered rules over rows and write the hits through `categorise` (which refuses to overwrite hand-set
- * facts). Returns the hits; `dryRun` writes nothing.
+ * facts). A row with a proof is skipped (D82): the proof gives its partner and category. Returns the hits;
+ * `dryRun` writes nothing.
  */
 export async function applyToTransactions(
   tx: TransactionClient,
@@ -553,6 +577,17 @@ export async function applyToTransactions(
   rules: readonly CategorisationRule[],
   targets: readonly RuleTarget[],
   options: { dryRun?: boolean } = {},
+): Promise<ServiceResult<ApplyRulesResult>> {
+  return applyToUnproven(tx, caller, audit, rules, await withoutProven(tx, targets), options);
+}
+
+async function applyToUnproven(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  audit: AuditLogger,
+  rules: readonly CategorisationRule[],
+  targets: readonly RuleTarget[],
+  options: { dryRun?: boolean },
 ): Promise<ServiceResult<ApplyRulesResult>> {
   const ordered = orderRules(rules);
   const preview: ApplyRulesResult["preview"] = [];
@@ -645,13 +680,16 @@ export function ruleTarget(t: {
   };
 }
 
-/** The tenant's uncategorised rows with their text (the candidates of an on-demand apply), newest first. */
+/**
+ * The tenant's uncategorised rows with their text (the candidates of an on-demand apply), newest first — a row
+ * with a proof is not one (D82): nothing typed it, its proof gives its facts.
+ */
 export async function uncategorisedTargets(
   tx: TransactionClient,
   limit = 20_000,
 ): Promise<RuleTarget[]> {
   const rows = await uncategorisedTransactions(tx, limit);
-  return rows.map(ruleTarget);
+  return withoutProven(tx, rows.map(ruleTarget));
 }
 
 /** On demand: every active rule over every uncategorised row; dry run previews ≤ 50 and writes nothing. */
@@ -663,7 +701,7 @@ export async function applyRules(
 ): Promise<ServiceResult<ApplyRulesResult>> {
   const rules = await tx.categorisationRule.findMany({ where: { isActive: true } });
   const targets = await uncategorisedTargets(tx);
-  return applyToTransactions(tx, caller, audit, rules, targets, options);
+  return applyToUnproven(tx, caller, audit, rules, targets, options);
 }
 
 /**
@@ -680,7 +718,13 @@ export async function ruleNearMisses(tx: TransactionClient, limit = 100): Promis
     (r) => r.bankAccountId || r.sign !== "any" || r.expectedAmount !== null,
   );
   if (conditional.length > 0) {
-    for (const t of await uncategorisedTransactions(tx, 2_000)) {
+    const rows = await uncategorisedTransactions(tx, 2_000);
+    const proven = await provenRows(
+      tx,
+      rows.map((r) => r.id),
+    );
+    for (const t of rows) {
+      if (proven.has(t.id)) continue;
       const near = firstNearMiss(ordered, ruleTarget(t).text);
       if (!near) continue;
       out.push({

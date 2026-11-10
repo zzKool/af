@@ -4,6 +4,7 @@
 // counterparty key. Read only: nothing here writes.
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import * as partners from "@/modules/partners";
+import { learnedRows } from "./learned";
 import { rowFacts } from "./queries";
 import { bankText, firstHit, orderRules, type RuleLike, ruleTarget } from "./rules";
 
@@ -55,6 +56,7 @@ const OPEN_SELECT = {
   amountBase: true,
   partnerId: true,
   basCode: true,
+  categorisedBy: true,
 } as const;
 
 /**
@@ -151,9 +153,10 @@ export async function proposalInputs(
 }
 
 /**
- * Per counterparty key, what the owner set **by hand** on the key's rows (`categorised_by = manual`) — the
- * category and the partner, counted, most frequent first (ties: the code / id, for a stable order). The rows
- * being proposed for are left out, so a row never remembers itself.
+ * Per counterparty key, what the key's rows teach (`learnedRows`, D82): the category and the partner the owner set
+ * **by hand** or his **proof** gives (a justified row types nothing since T028 — its facts are the proof's), counted,
+ * most frequent first (ties: the code / id, for a stable order). A rule's values never count. The rows being
+ * proposed for are left out, so a row never remembers itself.
  */
 export async function categoryMemory(
   tx: TransactionClient,
@@ -163,22 +166,21 @@ export async function categoryMemory(
   const wanted = [...new Set(keys.filter((k) => k.trim() !== ""))];
   const out = new Map<string, CategoryMemory>();
   if (wanted.length === 0) return out;
-  const where = {
+  const rows = await learnedRows(tx, {
     counterpartyKey: { in: wanted },
-    categorisedBy: "manual" as const,
     ...(excludeIds.length ? { id: { notIn: [...excludeIds] } } : {}),
+  });
+  const bas = new Map<string, Map<string, number>>();
+  const partner = new Map<string, Map<string, number>>();
+  const bump = (m: Map<string, Map<string, number>>, key: string, v: string) => {
+    const inner = m.get(key) ?? new Map<string, number>();
+    inner.set(v, (inner.get(v) ?? 0) + 1);
+    m.set(key, inner);
   };
-  // one after the other: one transaction client (F53)
-  const bas = await tx.bankTransaction.groupBy({
-    by: ["counterpartyKey", "basCode"],
-    where: { ...where, basCode: { not: null } },
-    _count: { _all: true },
-  });
-  const partner = await tx.bankTransaction.groupBy({
-    by: ["counterpartyKey", "partnerId"],
-    where: { ...where, partnerId: { not: null } },
-    _count: { _all: true },
-  });
+  for (const r of rows) {
+    if (r.learned.basCode) bump(bas, r.counterpartyKey, r.learned.basCode);
+    if (r.learned.partnerId) bump(partner, r.counterpartyKey, r.learned.partnerId);
+  }
   const entry = (key: string) => {
     let m = out.get(key);
     if (!m) {
@@ -187,10 +189,9 @@ export async function categoryMemory(
     }
     return m;
   };
-  for (const g of bas)
-    if (g.basCode) entry(g.counterpartyKey).bas.push({ code: g.basCode, n: g._count._all });
-  for (const g of partner)
-    if (g.partnerId) entry(g.counterpartyKey).partner.push({ id: g.partnerId, n: g._count._all });
+  for (const [key, counts] of bas) for (const [code, n] of counts) entry(key).bas.push({ code, n });
+  for (const [key, counts] of partner)
+    for (const [id, n] of counts) entry(key).partner.push({ id, n });
   for (const m of out.values()) {
     m.bas.sort((a, b) => b.n - a.n || a.code.localeCompare(b.code));
     m.partner.sort((a, b) => b.n - a.n || a.id.localeCompare(b.id));
@@ -198,27 +199,30 @@ export async function categoryMemory(
   return out;
 }
 
-/** A row the owner categorised by hand — an example the model reads (F98 PR 2, FR-201). */
+/** A row the owner categorised by hand or justified — an example the model reads (F98 PR 2, FR-201; D82). */
 export type ConfirmedExample = { text: string; amount: string; currency: string; basCode: string };
 export type ConfirmedExampleRow = ConfirmedExample & { id: string };
 
-/** The owner's own categorised rows (`categorised_by = manual`), newest first — the pool examples are picked from. */
+/**
+ * The owner's own categorised rows — by hand, or justified by a proof with a category (`learnedRows`, D82) —
+ * newest first: the pool examples are picked from.
+ */
 export async function confirmedExampleRows(
   tx: TransactionClient,
   take = 500,
 ): Promise<ConfirmedExampleRow[]> {
-  const rows = await tx.bankTransaction.findMany({
-    where: { categorisedBy: "manual", basCode: { not: null } },
-    orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
-    take,
-  });
-  return rows.map((r) => ({
-    id: r.id,
-    text: bankText(r),
-    amount: r.amount.toFixed(2),
-    currency: r.currency,
-    basCode: r.basCode as string,
-  }));
+  // a proof without a category (a plain document) teaches none: read a margin, keep `take`
+  const rows = await learnedRows(tx, {}, { take: take * 2 });
+  return rows
+    .filter((r) => r.learned.basCode !== null)
+    .slice(0, take)
+    .map((r) => ({
+      id: r.id,
+      text: bankText(r),
+      amount: r.amount.toFixed(2),
+      currency: r.currency,
+      basCode: r.learned.basCode as string,
+    }));
 }
 
 /**
@@ -250,23 +254,22 @@ export async function confirmedExamples(
 }
 
 /**
- * The eval's replay (F98 PR 2, FR-010): the rows the owner categorised by hand since a day, each as stage 1 would
- * have seen it before he did — category off, his own row taken out of the history (leave one out). The partner
- * stays as he set it. The truth (his code) comes back beside each input. Read only.
+ * The eval's replay (F98 PR 2, FR-010): the rows the owner categorised by hand or justified (D82) since a day,
+ * each as stage 1 would have seen it before he did — category off, his own row taken out of the history (leave one
+ * out). The partner stays as he set it. The truth (his code) comes back beside each input. Read only.
  */
 export async function proposalReplayInputs(
   tx: TransactionClient,
   opts: { since: string; limit?: number },
 ): Promise<{ input: ProposalInput; truth: string }[]> {
-  const rows = await tx.bankTransaction.findMany({
-    where: {
-      categorisedBy: "manual",
-      basCode: { not: null },
-      bookingDate: { gte: new Date(`${opts.since}T00:00:00Z`) },
-    },
-    orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
-    take: opts.limit ?? 1_000,
-  });
+  // by hand or justified (D82): the truth is the category the owner typed or his proof gives
+  const rows = (
+    await learnedRows(
+      tx,
+      { bookingDate: { gte: new Date(`${opts.since}T00:00:00Z`) } },
+      { take: opts.limit ?? 1_000 },
+    )
+  ).filter((r) => r.learned.basCode !== null);
   if (rows.length === 0) return [];
   const rules = orderRules(
     (await tx.categorisationRule.findMany({ where: { isActive: true } })).filter(
@@ -288,8 +291,10 @@ export async function proposalReplayInputs(
         .map((x) => (self(x) ? { ...x, n: x.n - 1 } : x))
         .filter((x) => x.n > 0)
         .sort((a, b) => b.n - a.n);
+    const truth = r.learned.basCode as string;
+    const partnerId = r.learned.partnerId ?? r.partnerId;
     return {
-      truth: r.basCode as string,
+      truth,
       input: {
         row: {
           id: r.id,
@@ -299,7 +304,7 @@ export async function proposalReplayInputs(
           counterpartyKey: r.counterpartyKey,
           text: bankText(r),
           basCode: null,
-          partnerId: r.partnerId,
+          partnerId,
           categorisedBy: null,
         },
         rule: hit
@@ -311,10 +316,10 @@ export async function proposalReplayInputs(
               partnerId: hit.partnerId,
             }
           : null,
-        partnerDefault: r.partnerId ? (defaults.get(r.partnerId) ?? null) : null,
+        partnerDefault: partnerId ? (defaults.get(partnerId) ?? null) : null,
         memory: {
-          bas: minus(own.bas, (x) => x.code === r.basCode),
-          partner: minus(own.partner, (x) => x.id === r.partnerId),
+          bas: minus(own.bas, (x) => x.code === truth),
+          partner: minus(own.partner, (x) => x.id === r.learned.partnerId),
         },
       },
     };

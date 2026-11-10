@@ -119,11 +119,18 @@ const ROW_CAP = 20_000;
 // --- the derived state ---
 
 /** A row as the shared read needs it: the link facts' columns and the typed partner / category. */
-export type RowForRowFacts = RowForFacts & { partnerId: string | null; basCode: string | null };
+export type RowForRowFacts = RowForFacts & {
+  partnerId: string | null;
+  basCode: string | null;
+  /** who typed them — a rule's values yield to a proof's (D82) */
+  categorisedBy: string | null;
+};
 
 export type RowFacts = LinkFacts & {
-  /** per row, the effective partner and category (typed, else the proof's) and their source */
+  /** per row, the effective partner and category (by hand, else the proof's, else a rule's) and their source */
   effective: Map<string, EffectiveFacts>;
+  /** the rows with a proof — a `justifies` or `settles` link from them (D82: a rule never speaks for one) */
+  proven: Set<string>;
 };
 
 /**
@@ -138,7 +145,8 @@ export async function rowFacts(
   rows: readonly RowForRowFacts[],
 ): Promise<RowFacts> {
   const effective = new Map<string, EffectiveFacts>();
-  if (rows.length === 0) return { allocated: new Map(), transfer: new Set(), effective };
+  if (rows.length === 0)
+    return { allocated: new Map(), transfer: new Set(), effective, proven: new Set() };
   const links = await linking.linksTouching(
     tx,
     "bank_transaction",
@@ -198,12 +206,12 @@ export async function rowFacts(
     effective.set(
       r.id,
       effectiveFactsOf(
-        { partnerId: r.partnerId, basCode: r.basCode },
+        { partnerId: r.partnerId, basCode: r.basCode, categorisedBy: r.categorisedBy },
         proofsByRow.get(r.id) ?? [],
         owner?.id ?? null,
       ),
     );
-  return { ...facts, effective };
+  return { ...facts, effective, proven: new Set(proofsByRow.keys()) };
 }
 
 /**
@@ -553,6 +561,7 @@ export async function transactionStates(
       noDocumentNeeded: true,
       partnerId: true,
       basCode: true,
+      categorisedBy: true,
       bankAccount: { select: { role: true } },
     },
   });

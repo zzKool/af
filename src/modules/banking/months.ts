@@ -209,6 +209,7 @@ export async function bankMonths(
       noDocumentNeeded: true,
       partnerId: true,
       basCode: true,
+      categorisedBy: true,
     },
   });
   const built = await accountantPackage.builtPeriods(tx, months);
