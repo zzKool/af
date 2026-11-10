@@ -126,6 +126,9 @@ The row is the fact, the document its evidence (review 2026-10-26 §1.1): one pa
 
 ### The reading dialog — `components/reading-dialog.tsx`, `reading-partner.tsx` (F131 T016, [[review-2026-10-31]] §6.3)
 
+**F186 (2026-11-10, the board *Documents*): the same column pair as the documents desk** ([[document-inbox]] *The board, piece by piece*) — left the document as paper (`DocumentViewer bare` with the reading: a box on every field read, the field focused on the right lit), its header *Supplier invoice · read as invoice · 1 page · read in 1.2 s*; right **What it read** (documents' `WhatItRead` in *form* mode: each value its own quiet input — the entity takes the edits, nothing is written on the document —, its % and bar; an ambiguous numeric date or a total ≠ net + VAT asks in place, `askFor`) then **When you accept**: *creates* the kind (the *Paper* radio and the *switch* in that step) · *links* this row — `Bank row 2026-07-08 · −1 297.20 SEK`, the checks (`checkProof`, `greenChecks`) as its evidence under it, *n ✓* or *m to look at* on the right · *files* the category, the partner and the group — the partner match / new partner, the group picker and the category open in that step (open to begin with, closed by a click; amber while one lacks). One primary, *Accept all three* (`justify-create`), what is missing said under it. The layout below is F131's; the blocks are the same, placed in the chain.
+
+
 Full screen (the kit's `Dialog`, `100dvh − 2rem`, the right pane scrolls on its own, Escape and *Cancel* close without writing; the only modal in the row flow — O1), DI Studio's shape, replacing the F97 compare card:
 
 ```
