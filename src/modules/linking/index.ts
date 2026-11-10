@@ -2,6 +2,7 @@
 // Importing it registers every module's linkable (see ./linkables).
 import "./linkables";
 
+export { type AcceptChain, type AcceptMissing, documentAcceptChain } from "./accept-chain";
 export {
   canAllocate,
   isSettled,

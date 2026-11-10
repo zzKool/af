@@ -1,5 +1,6 @@
-// The boxes over a page (F141): one polygon per field on that page in the page's own unit, the active one marked,
-// nothing for another page or without the page's size. Invented marks (D51).
+// The boxes over a page (F141; F185 the board's boxes): one box per field on that page, placed in percent of the
+// page from its polygon, the active one marked, a corrected field sure; nothing for another page or without the
+// page's size. Invented marks (D51).
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -36,15 +37,29 @@ const marks: ReadingMarks = {
 };
 
 describe("MarksOverlay", () => {
-  it("the page's fields as polygons in its unit; sure green, to check amber, the active one in the action colour", () => {
+  it("the page's fields as boxes in percent of the page; sure in the reading colour, to check amber, the active one ringed", () => {
     const { container } = render(<MarksOverlay marks={marks} page={1} active="invoiceNumber" />);
-    const svg = container.querySelector("svg");
-    expect(svg?.getAttribute("viewBox")).toBe("0 0 8.5 11");
-    const polys = [...container.querySelectorAll("polygon")];
-    expect(polys.map((p) => p.getAttribute("data-mark"))).toEqual(["vendorName", "invoiceNumber"]);
-    expect(polys[0]?.getAttribute("class")).toContain("stroke-state-done");
-    expect(polys[1]?.getAttribute("data-active")).toBe("true");
-    expect(polys[1]?.getAttribute("class")).toContain("stroke-action");
+    const boxes = [...container.querySelectorAll<HTMLElement>("[data-mark]")];
+    expect(boxes.map((b) => b.getAttribute("data-mark"))).toEqual(["vendorName", "invoiceNumber"]);
+    // x 1 in on 8.5 in, less a little air (0.6 % of the width) → ≈ 11.2 %
+    expect(Number.parseFloat(boxes[0]?.style.left ?? "")).toBeCloseTo(
+      ((1 - 8.5 * 0.006) / 8.5) * 100,
+      3,
+    );
+    expect(boxes[0]?.getAttribute("data-sure")).toBe("true");
+    expect(boxes[0]?.className).toContain("bg-read/6");
+    expect(boxes[1]?.getAttribute("data-sure")).toBeNull();
+    expect(boxes[1]?.getAttribute("data-active")).toBe("true");
+    expect(boxes[1]?.className).toContain("bg-state-attention/16");
+  });
+
+  it("a field the owner corrected is sure, whatever DI said", () => {
+    const { container } = render(
+      <MarksOverlay marks={marks} page={1} corrected={["invoiceNumber"]} />,
+    );
+    expect(container.querySelector('[data-mark="invoiceNumber"]')?.getAttribute("data-sure")).toBe(
+      "true",
+    );
   });
 
   it("nothing on a page without boxes or without its size", () => {

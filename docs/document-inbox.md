@@ -1,13 +1,37 @@
 # Document inbox — the documents desk
 
-`/documents` (since F153; `/documents/inbox` redirects there) — the documents work page, the board *Documents*: **Drop anything here** on top (`DropHero`: the upload zone, no type to pick — D78; `?new=1` opens it in a dialog), then **three columns** at 1280 px and more — what still needs a decision (cards with the vendor, the key and state, the kind, the amount and date read; a left edge per state, red for a duplicate), **the document** with the boxes of what was read (hovering a field lights its box), and **What it read** (each field, its value, a confidence bar and glyph — the plain facts fold away when there are marks), the bank rows that could justify it, and the actions (*Expense* · *Supplier invoice* · *Just file it* · *Archive* · *Open*). Narrower, the three stack. *All documents (n)* opens the library ([[document-library]]). Driven from the keyboard. Spec: `specs/documents/spec.md` US4 (FR-016 – FR-024), decisions D32 / D34. Shaped like the banking inbox ([[linking]]).
+`/documents` (since F153; `/documents/inbox` redirects there; **F185: the page is the board *Documents***, the owner 2026-11-10) — the documents work page. No title row: the hero is the headline (an `sr-only` *Documents* h1 keeps the page's name). Spec: `specs/documents/spec.md` US4 (FR-016 – FR-024), decisions D32 / D34 / D77 / D78.
 
 ```
-upload ──► OCR ──► inbox row ──► Make it… Expense / Supplier invoice ──► out (became)
-                      │      └─► Just file it (= reviewed) ─────────────► out (filed)
-                      │      └─► Enter / 1–3: a bank row justifies it ──► stays until made / filed
-                      └─► d archive ──► Archived tab ──► r / u restore ──► back in its pipeline state
+┌ Drop anything here ─────────────────────── [file.pdf 45% ▬▬ queued to be read] [IMG.HEIC 75% ▬▬▬ reading the page] [Add more] ┐
+├ Inbox 5 · 1 need a look  ⚙ ┬ [Supplier invoice] detected · 1 page · read in 1.2 s · doc_…   hover a field ┬ What it read   7 sure · 1 to check ┤
+│ ▌▢ Lindgren Kontorsservice │                                                                              │ Vendor   Lindgren …        99% │
+│   [Supplier invoice] 1 269 │        ┌──────────── the page as paper ────────────┐                         │ ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ │
+│   1 field to check         │        │ [box] [box]          one box per field    │                         │ Due date 2026-08-07         72% │
+│ ▢ … (cards)                │        │        the active one ringed + glowing    │                         │ “07-08” — Aug 7 or Jul 8? [a][b]│
+│                            │        └───────────────────────────────────────────┘                         │ WHEN YOU ACCEPT                 │
+│ ┌ Duplicate? … ┐           │                                                                              │ [creates] Supplier invoice SI…  │
+│ │ Discard · Keep both │    │                                                                              │ [links] Bank row … −1 269   98 %│
+└────────────────────────────┴──────────────────────────────────────────────────────────────────────────────┴ [files] 6540 … · partner …     ┘
+                                                                                                               [ Accept all three  Enter ]
 ```
+
+```
+upload ──► OCR ──► inbox row ──► Accept (Enter): creates · links · files ─────────► out (became) + a done card
+                      │      └─► Make it… Expense / Supplier invoice (the form) ───► out (became)
+                      │      └─► Just file it (= reviewed) ─────────────────────────► out (filed)
+                      │      └─► 1–3 / Bank rows…: a bank row justifies it ─────────► stays until made / filed
+                      └─► d archive (or *Discard it* on a duplicate) ──► Archived ──► r / u restore
+```
+
+## The board, piece by piece (F185)
+
+- **Drop anything here** (`drop-hero.tsx`): the whole card takes a drop (and the tile *Choose files* opens the picker); each file goes through `uploadDocumentAction` as one drop does, no type (D78). On the right, one tile per file in flight — the files this page sends (*waiting* · *uploading* · *queued to be read*; a duplicate says *the same file as doc_…* with *Upload anyway*; a refusal its reason with *Try again*), then the inbox's rows still being read (*queued to be read* 45 % · *reading the page* 75 % · *stuck*); the % is the stage, not bytes. While anything is in flight the desk reads the inbox again every 3 s. `?new=1` still opens the upload zone in a dialog. The board's mail-forward address waits for a mailbox (F103).
+- **Inbox** (`inbox-workbench.tsx`): *Inbox n · m need(s) a look* (*a look* = a field to check, a duplicate, stuck, failed, nothing read). A card per document: the paper thumbnail (`--paper` tokens), who (vendor, else the file), the kind as a **toned tag** (`BoardTag`: *Supplier invoice* blue, *Receipt* amber, *Duplicate?* red — D77, the board wins over D40's grey tag here), the amount in mono, one line (*1 field(s) to check* · *All read — ready to accept* · *Same file as doc_…* · *queued to be read* …; the state word for a row not ready); a 3 px left edge — the open card blue, a duplicate red, a done card green. A card accepted on this visit stays as **done** (*Became SI12-IT-03 · linked to bank row 2026-07-24*) until the page is left. The tick box shows on hover (or while any is ticked). The **tools** button (⚙) shows the search, the tabs with their counts, *All documents (n)* and the help — open by itself while a tab or a search is set. **The duplicate question** at the bottom: *{file} is the same file as {key}* — *Discard it* archives it (undoable, `u`), *Keep both* hides the question for this visit (nothing stored: two copies are allowed, FR-011).
+- **The document** (`inbox-pane.tsx`): the header — the kind (`kindWord`: typed, or *detected* from the reading for a drop nobody typed), the pages, *read in n s* (DI's `processingTimeMs`, kept in the reading), the key in mono, the state for a row not ready, *hover a field on the right*; the page as **paper** (`DocumentPreview bare`: no toolbar, fitted whole into the column, the pages as chips under it when there are several — zoom and rotate stay on the review page) with a box on every field read (`MarksOverlay`: placed in % of the page from DI's polygon; sure in the reading colour `--read`, to check amber; the active one ringed 2.5 px and glowing).
+- **What it read** (`read-fields.tsx` `WhatItRead`, shared with the reading dialog, F186): *n sure · m to check* (sure = DI's high band or the owner's word — `corrected`, the keys of `documents.corrections`); a row per field — label, value bold, the % on the right and a 3 px bar in its band (high `--read`, medium amber, low red; corrected: a check, full bar). Hover, focus or click makes it the active field (the first to check to begin with — the board). **A field to check opens in place** (`to-check.ts` `checkAsk`): a date printed with numbers only whose day and month could swap (`07-08`) → *“07-08” — Aug 7 or Jul 8?* with the two dates; a total ≠ net + VAT → both amounts; else *Read at 81 % — is it right?* · *Yes, it is* · *Change*. Every value can be corrected in place (the pencil, or double-click; Enter keeps it, Escape drops it). An answer or an edit is a **correction on the document** (`updateDocumentCorrectionsAction`, the review page's own write): the field becomes sure and the chain reads it again.
+- **When you accept** (`accept-chain-view.tsx`; the read `documentAcceptChain` in linking, the pure half `accept-chain-rules.ts`): **creates** the entity — the kind from the type, else the reading (D78) — and its key peeked from the group's series (final at commit) · **links** the scorer's best **HIGH** bank row that `justifyRow` can take (outgoing, a main account, not justified yet) with its score · **files** the category (the document's BAS proposal F126, else the matched partner's default — one with a short code) and the partner (the match on the paper's vendor / VAT number, ≥ 60 %). The group is the one the paper's date proposes (`proposeGroupForDate`), else a new group for the month, made on the click (said under the button). One primary, worded by the steps — *Accept all three* / *Accept both* / *Accept* — and **Enter**: with a bank row `justifyRowAction` (entity + payment, one transaction), without one the supplier invoice's create (`createSupplierInvoiceAction`, the document picked); an expense without its bank row needs the form (its payer). What the chain lacks (a partner, a category, the invoice number…) shows in amber in its step, the primary becomes *Finish it in the form* and opens the module's pre-filled form (*Make it…*, as before). No new business rule: the actions validate their inputs as always.
+- **Under the chain**: *Expense…* / *Supplier invoice…* (the forms), *Bank rows…* (the suggestions and *Link to…*, `l`; `1`–`3` link the n-th), *Just file it*, *Archive*, *Open* (the review page). The accountant sees the cards, the page and what was read — no chain, no answer, no edit.
 
 ## Who is in it
 
@@ -34,12 +58,11 @@ Derived, never stored (`modules/documents/inbox.ts`, `listInbox` in `queries.ts`
 - `candidateDocuments(tx, caller, types, { limit = 200 })` — the documents of those `prefixType`s still waiting in the inbox (any state but `archived`), newest first, each with its `state`. The rule runs before the limit, so taken documents never hide a free one. For the expense and supplier-invoice dialogs' document picker (their own copies move to it in their lanes).
 - `documentsByIds(tx, ids)` carries `documentState` (`documentState()`: the inbox state, else `filed` / `generated`); `DocumentStateLabel` is on `documents/ui` — the partner page's Documents tab (partners T011).
 
-## The pane
+## The actions by state
 
-**D78 — a drop nobody typed** (`prefixType` `document`, `doc_…`): once read, the pane says what the reading proposes (`readingProposes` in `proposes.ts` — an invoice number or a VAT number → *supplier invoice*, a merchant without a vendor → *expense*) and that *Make it…* button leads; no amount read → *What is it?* with the five kinds, the answer types it (`classifyDocument`: the key follows, the model re-reads only when it differs).
+**D78 — a drop nobody typed** (`prefixType` `document`, `doc_…`): once read, the header says what the reading proposes (`readingProposes` in `proposes.ts` — an invoice number or a VAT number → *Supplier invoice · detected*, a merchant without a vendor → *Receipt · detected*) and the chain makes that; no amount read → *What is it?* with the five kinds, the answer types it (`classifyDocument`: the key follows, the model re-reads only when it differs).
 
-
-Key (code chip), state (`<DocumentStateLabel>` — the module's one family map, the same word as the library and the review page: *Needs OCR* / *Processing* / *Ready* in progress ◐, *Processing* stuck / *OCR failed* attention !, *Archived* neutral –), kind (tag), file; *Duplicate of* links the oldest twin. One primary in the pane: *Run OCR* while the OCR is due, then *From subscription X (2026-10)* when the document is offered to a subscription's period (F183, [[subscriptions]] US7 — first among *Make it…*, the subscription's confirm with the document picked), else *Expense* once the facts are there; the rest are secondaries, *Open* a link. Then the D40 `DetailsSection`s: *Financial Details* (the facts, `DetailsGrid`, the amount through `formatMoney`), the suggestions (`SuggestionsSection`, its own *Suggestions* heading — the kit's *Proof* title waits for F74's keys), *Document preview*. The tabs are underline tabs (the counts stay in the words until F74), the list's date is `yyyy-mm-dd`. Actions by state:
+The state word (`<DocumentStateLabel>` — the module's one family map, the same word as the library and the review page) shows on a card and in the header for a row not ready. One primary: the chain's (*Accept…* / *Finish it in the form*); without a chain *Run OCR* while the OCR is due, then *From subscription X (2026-10)* (F183), then what the reading proposes. The rest are quiet buttons under the chain.
 
 | State | Actions |
 |---|---|
@@ -68,7 +91,8 @@ Quiet while typing in a field or while a dialog / list is open.
 | `o` | run the OCR (pending, stuck, failed) | — |
 | `e` / `i` | Make it… Expense / Supplier invoice (ready or failed) | — |
 | `l` | Link to… (ready, financial) | — |
-| `Enter` / `1`–`3` | link the top HIGH bank row / the n-th | — |
+| `Enter` | accept the chain (F185) — or open its form when it lacks something | — |
+| `1`–`3` | link the n-th bank row | — |
 | `d` | archive the ticked rows, else the open one (not on Archived) | — |
 | `r` | on Archived with ticks: restore them; else refresh | — |
 | `u` / `z` | undo the last archive / restore | — |

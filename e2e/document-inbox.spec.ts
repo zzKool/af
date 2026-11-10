@@ -60,12 +60,14 @@ test.describe("Document inbox — owner", () => {
       await page.getByTestId("documents-inbox-link").click();
       // F153: the inbox is the documents desk
       await expect(page).toHaveURL(/\/documents$/);
-      await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeAttached();
       await expect(page.getByTestId("drop-hero")).toBeVisible();
+      // F185: the search and the tabs sit behind the inbox's tools button (the board shows the cards alone)
+      await page.getByTestId("inbox-tools").click();
       await page.getByTestId("inbox-search").fill(stamp);
       const rows = page.getByTestId("inbox-row");
       await expect(rows).toHaveCount(3);
-      await page.getByRole("heading", { name: "Documents", exact: true }).click(); // out of the search field
+      await page.getByTestId("inbox-search").blur(); // out of the search field
       await expect(async () => {
         await page.keyboard.press("r"); // refresh until the mock OCR has run on the three
         await expect(page.locator('[data-inbox-state="ready"]')).toHaveCount(3, { timeout: 2_000 });
@@ -75,7 +77,9 @@ test.describe("Document inbox — owner", () => {
       await page.getByTestId("inbox-tab-duplicates").click();
       await expect(rows).toHaveCount(2);
       await expect(page.getByTestId("inbox-dup")).toHaveCount(1);
-      await expect(page.getByTestId("inbox-dup")).toContainText(/Duplicate of doc_/);
+      await expect(page.getByTestId("inbox-dup")).toContainText(/Same file as doc_/);
+      // the board's question at the bottom of the inbox: discard it (archive) or keep both
+      await expect(page.getByTestId("inbox-dup-banner")).toContainText(/is the same file as doc_/);
       await page.getByTestId("inbox-tab-all").click();
       await expect(rows).toHaveCount(3);
 
@@ -86,6 +90,12 @@ test.describe("Document inbox — owner", () => {
       await expect(paneKey).not.toHaveText(first);
       await page.keyboard.press("k");
       await expect(paneKey).toHaveText(first);
+      // F185: what it read, and what one click would do with it (the mock reads an invoice: a supplier invoice)
+      await expect(page.getByTestId("inbox-what-it-read")).toBeVisible();
+      await expect(page.getByTestId("chain-creates")).toContainText("Supplier invoice", {
+        timeout: 15_000,
+      });
+      await expect(page.getByTestId("chain-accept")).toBeVisible();
       await snap(page, "inbox");
 
       // 5. d archives the open row, the bar says so; u restores it
@@ -121,8 +131,9 @@ test.describe("Document inbox — accountant", () => {
 
   test("reads the queue, changes nothing", async ({ page }) => {
     await page.goto("/documents/inbox"); // F153: redirects to the desk
-    await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeAttached();
     await expect(page.getByTestId("inbox-row-check")).toHaveCount(0);
+    await expect(page.getByTestId("accept-chain")).toHaveCount(0); // nothing to accept for the accountant
     const pane = page.getByTestId("inbox-pane");
     if (await pane.isVisible()) {
       // Open → the review page is the only thing left (a link styled as a button)

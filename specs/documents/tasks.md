@@ -81,3 +81,10 @@ Notes from the build (2026-10-21): the DB tests of T011 / T012 live in `inbox.te
 - [x] T044 documents: `readingMarks` / `sureCount` (pure); `MarksOverlay` in the preview (the page fits the width); the inbox pane — the document beside *What it read*, hover lights the box; the review page draws them; the inbox on the ground.
 - [x] T045 Tests: the mapper, `readingMarks`, the overlay; e2e `document-boxes.spec.ts` on `mockInvoicePdf`.
 
+
+## F185 — the documents page IS the board *Documents* (2026-11-10, `feat/documents-board`)
+
+- [x] T046 documents: `reading-marks` carries the printed text and the reading's time, `isSure` (the owner's word is sure), `corrected` on the inbox rows, `proposes` on `inboxFinancialFacts`; `to-check.ts` (`checkAsk`, `correctionFor`); `accept-chain-rules.ts` (missing, steps, payloads).
+- [x] T047 linking: `documentAcceptChain` (kind, partner match, category, group or a new month group, peeked key, the best HIGH bank row) + `documentAcceptChainAction` (owner read).
+- [x] T048 UI: the hero with the tiles in flight (`drop-hero.tsx`), the inbox cards, tools and duplicate question (`inbox-workbench.tsx`), the document as paper with the boxes (`document-preview.tsx` *bare*, `MarksOverlay` as boxes), *What it read* (`read-fields.tsx`) and *When you accept* (`accept-chain-view.tsx`, `inbox-pane.tsx`); Enter accepts; tokens `--read`, `--paper`.
+- [x] T049 Tests: `accept-chain.test.ts`, `accept-chain-rules.pure.test.ts`, `to-check.pure.test.ts`, `read-fields.test.tsx`, `inbox-pane.test.tsx`, `inbox-workbench.test.tsx`, `marks-overlay.test.tsx`; e2e `document-inbox`, `document-boxes`, `document-multi-upload`; screenshots `specs/documents/screenshots/f185-*`.

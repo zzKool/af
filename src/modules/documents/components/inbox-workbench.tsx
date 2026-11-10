@@ -1,10 +1,12 @@
 "use client";
 
-// The document inbox (specs/documents US4, D32, D34): every document that still needs a decision on the left —
-// tabs with counts, search, selection — the open one on the right with its preview, facts, the bank rows that
-// could justify it and the actions its state allows. Keyboard first, shaped like /banking/inbox. Archive and
-// restore go on an undo stack that lives as long as the page. The accountant reads, nothing more.
-import { FileText } from "lucide-react";
+// The documents desk (specs/documents US4, D32, D34; F185 the board *Documents*): *Drop anything here* on top
+// (the files in flight as tiles), then three columns — the **Inbox** (a card per document: its page, who, its kind,
+// the amount, one line of what it needs; a left edge by state: the open one blue, done green, a duplicate red; the
+// duplicate question at the bottom), **the document** with its boxes and **What it read** with *When you accept*
+// (`inbox-pane.tsx`). Keyboard first: ↑ / ↓ move, Enter accepts. The tabs and the search sit behind the inbox's
+// tools button. Archive and restore go on an undo stack that lives as long as the page. The accountant reads.
+import { SlidersHorizontal } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -19,9 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { extractError } from "@/kernel/errors/extract-error";
-import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT } from "@/kernel/i18n/use-t";
-import { CodeChip, Tag } from "@/kernel/ui/tags";
 import { cn } from "@/lib/utils";
 import {
   archiveDocumentsAction,
@@ -32,25 +32,61 @@ import {
 } from "@/modules/documents/documents.actions";
 import type { InboxState, InboxTab } from "@/modules/documents/inbox";
 import type { InboxData, InboxItem } from "@/modules/documents/queries";
+import { sureCount } from "@/modules/documents/reading-marks";
 import { NewExpensePanel } from "@/modules/expenses/ui";
 import { NewSupplierInvoiceDialog } from "@/modules/supplier-invoices/ui";
+import { BoardTag } from "./board-tag";
 import { DocumentStateLabel } from "./document-state-label";
-import { InboxPane, money } from "./inbox-pane";
+import { DropHero } from "./drop-hero";
+import { type Accepted, InboxPane, kindWord, money } from "./inbox-pane";
 import { initialFromFacts, type MakeItOptions } from "./make-it-section";
 import { INBOX_KEYS, useInboxKeys } from "./use-inbox-keys";
 import { useInboxUndo } from "./use-inbox-undo";
 
 const TABS: readonly InboxTab[] = ["all", "pending", "ready", "duplicates", "archived"];
 const PENDING: readonly InboxState[] = ["needs_ocr", "processing", "stuck", "ocr_failed"];
-/** the queue card's left edge (the board): what the document needs, at a glance — the state label says it in words */
-const ROW_EDGE: Partial<Record<InboxState, string>> = {
-  ready: "border-l-primary",
-  needs_ocr: "border-l-state-progress",
-  processing: "border-l-state-progress",
-  stuck: "border-l-state-attention",
-  ocr_failed: "border-l-destructive",
-  archived: "border-l-border",
-};
+/** in flight: the hero's tiles show them, the page reads the inbox again until they are read */
+const IN_FLIGHT: readonly InboxState[] = ["needs_ocr", "processing", "stuck"];
+const POLL_MS = 3000;
+
+/** A card's one line (the board): what the document needs — or what became of it. */
+function cardNote(r: InboxItem, t: ReturnType<typeof useT>): { text: string; attention: boolean } {
+  if (r.duplicateOf)
+    return {
+      text: t("documents.inbox.sameFileAs", { key: r.duplicateOf.businessKey }),
+      attention: true,
+    };
+  if (r.state === "stuck") return { text: t("documents.inbox.stuck"), attention: true };
+  if (r.state === "ocr_failed") return { text: t("documents.card.failed"), attention: true };
+  if (r.state === "needs_ocr") return { text: t("documents.flight.queued"), attention: false };
+  if (r.state === "processing") return { text: t("documents.flight.reading"), attention: false };
+  if (r.state === "archived") return { text: t("documents.card.archived"), attention: false };
+  const marks = r.reading?.marks ?? [];
+  if (marks.length === 0) return { text: t("documents.card.nothingRead"), attention: true };
+  const { check } = sureCount(marks, r.corrected ?? []);
+  return check > 0
+    ? { text: t("documents.card.toCheck", { count: check }), attention: true }
+    : { text: t("documents.card.allSure"), attention: false };
+}
+
+/** A paper page in miniature — the board's thumbnail */
+function Thumb() {
+  return (
+    <div
+      className="flex h-11 w-[34px] shrink-0 flex-col gap-[3px] rounded-[4px] bg-paper p-[5px]"
+      aria-hidden
+    >
+      <i className="block h-0.5 w-[70%] rounded-full bg-paper-line brightness-75" />
+      <i className="block h-0.5 rounded-full bg-paper-line" />
+      <i className="block h-0.5 w-[80%] rounded-full bg-paper-line" />
+      <i className="block h-0.5 rounded-full bg-paper-line" />
+      <i className="block h-0.5 w-[55%] rounded-full bg-paper-line" />
+    </div>
+  );
+}
+
+/** what the page made of a document this visit — it stays as a done card until the page is left */
+type DoneCard = { row: InboxItem; note: string };
 
 export { isTyping } from "./use-inbox-keys";
 export { INBOX_UNDO_MAX } from "./use-inbox-undo";
@@ -59,11 +95,17 @@ export function InboxWorkbench({
   initial,
   canWrite,
   options,
+  canUpload = false,
+  total,
 }: {
   initial: InboxData;
   canWrite: boolean;
   /** the two creation dialogs' option lists (owner only) */
   options: MakeItOptions | null;
+  /** the owner drops files on the hero */
+  canUpload?: boolean;
+  /** every document, for *All documents (n)* */
+  total?: number;
 }) {
   const t = useT();
   const [data, setData] = useState<InboxData>(initial);
@@ -80,6 +122,10 @@ export function InboxWorkbench({
   >(undefined);
   const listRef = useRef<HTMLUListElement>(null);
   const loadSeq = useRef(0);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [acceptRequest, setAcceptRequest] = useState(0);
+  const [done, setDone] = useState<DoneCard[]>([]);
+  const [keptBoth, setKeptBoth] = useState<Set<string>>(new Set());
 
   const { executeAsync: load } = useAction(listInboxAction);
   const { executeAsync: archive, isPending: archiving } = useAction(archiveDocumentsAction);
@@ -105,6 +151,14 @@ export function InboxWorkbench({
     },
     [load, tab, q],
   );
+
+  // files in flight: read the inbox again until they are read (the hero's tiles turn into cards)
+  const inFlight = data.rows.some((r) => IN_FLIGHT.includes(r.state));
+  useEffect(() => {
+    if (!inFlight) return;
+    const h = setInterval(() => void reload(), POLL_MS);
+    return () => clearInterval(h);
+  }, [inFlight, reload]);
 
   // the list changes under the pane (a row archived, made into something): the next row opens in its place —
   // unless the owner closed the pane (Esc), which stays closed until he moves again
@@ -244,6 +298,25 @@ export function InboxWorkbench({
     await reload();
   }
 
+  /** the chain was accepted (F185): the card stays as done for this visit, the inbox reloads */
+  const accepted = useCallback(
+    (a: Accepted) => {
+      const r = rows.find((x) => x.id === a.id);
+      if (r)
+        setDone((list) => [
+          {
+            row: r,
+            note: a.bankRowDate
+              ? t("documents.card.becameLinked", { key: a.key, date: a.bankRowDate })
+              : t("documents.card.became", { key: a.key }),
+          },
+          ...list.filter((d) => d.row.id !== a.id),
+        ]);
+      void reload();
+    },
+    [rows, reload, t],
+  );
+
   const canFile = (row: InboxItem | null) =>
     !!row && canWrite && !!options && (row.state === "ready" || row.state === "ocr_failed");
   // a relationship document (contract, NDA) becomes nothing: it is filed or archived
@@ -281,6 +354,7 @@ export function InboxWorkbench({
     park: (kind, ids) => void park(kind, ids),
     refresh: () => void reload().then(() => toast.message(t("documents.inbox.toast.refreshed"))),
     undo: () => void undoLast(),
+    accept: () => setAcceptRequest((n) => n + 1),
     apply: (index, requireHigh) =>
       setApplyRequest((prev) => ({
         index,
@@ -314,55 +388,26 @@ export function InboxWorkbench({
   };
   const lastUndo = undo.last;
 
+  const pendingRows = rows.filter((r) => IN_FLIGHT.includes(r.state));
+  const knownIds = useMemo(() => new Set(rows.map((r) => r.id)), [rows]);
+  const needsLook = rows.filter((r) => cardNote(r, t).attention).length;
+  const doneCards = done.filter((d) => !rows.some((r) => r.id === d.row.id));
+  const dupBanner = rows.find((r) => r.duplicateOf && !keptBoth.has(r.id)) ?? null;
+  const showTools = toolsOpen || tab !== "all" || q !== "";
+
   return (
-    <div className="flex flex-col gap-3" data-testid="document-inbox">
-      {/* tabs, search, help */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* D40 underline tabs, the kit's look (the counts are in the words until F74 splits them into badges) */}
-        <div className="flex h-9 flex-wrap items-stretch gap-4 border-b" role="tablist">
-          {TABS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="tab"
-              aria-selected={tab === k}
-              onClick={() => switchTab(k)}
-              data-testid={`inbox-tab-${k}`}
-              className={`relative -mb-px border-b-2 px-0.5 text-[13px] whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 ${
-                tab === k
-                  ? "border-primary font-semibold text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t(`documents.inbox.tab.${k}`, { count: countOf[k] })}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            className="h-8 w-64"
-            placeholder={t("documents.inbox.search")}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label={t("documents.inbox.search")}
-            data-testid="inbox-search"
-          />
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setHelpOpen(true)}
-            aria-label={t("documents.inbox.help.title")}
-            title={t("documents.inbox.help.title")}
-          >
-            ?
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4" data-testid="document-inbox">
+      <DropHero
+        pending={pendingRows}
+        knownIds={knownIds}
+        onUploaded={() => void reload()}
+        canUpload={canUpload}
+      />
 
       {/* the bulk bar and the undo bar */}
       {canWrite && (checked.size > 0 || lastUndo) && (
         <div
-          className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-sm"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-subtle bg-surface px-3 py-1.5 text-sm"
           data-testid="inbox-bar"
         >
           {checked.size > 0 && (
@@ -412,115 +457,261 @@ export function InboxWorkbench({
         </div>
       )}
 
-      {/* F153, the board *Documents*: three columns — what waits, the document, what it read. F180: the new expense
-          form docks beside them (as on /expenses); while it is open the queue folds away, the document and what it
-          read stay in view beside the form */}
+      {/* F185, the board *Documents*: the inbox, the document, what it read. F180: the new expense form docks beside
+          them (as on /expenses); while it is open the inbox folds away */}
       <div
         className={cn(
-          "grid items-start gap-[18px]",
+          "grid items-stretch gap-4",
           expenseDocked
-            ? "xl:grid-cols-[minmax(0,1fr)_minmax(21rem,25rem)]"
-            : "xl:grid-cols-[19rem_minmax(0,1fr)_minmax(21rem,25rem)]",
+            ? "xl:grid-cols-[minmax(0,1fr)_minmax(21rem,360px)]"
+            : "xl:grid-cols-[280px_minmax(0,1fr)_360px]",
         )}
         data-expense-docked={expenseDocked ? "" : undefined}
       >
-        {/* left: the queue — D76: a card on the ground */}
+        {/* left: the inbox — D76: a card on the ground */}
         <section
           hidden={expenseDocked}
-          className="min-w-0 overflow-hidden pulse-card"
+          className="flex min-h-[420px] min-w-0 flex-col gap-2 pulse-card p-3.5"
           aria-label={t("documents.inbox.title")}
         >
-          {rows.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground" data-testid="inbox-empty">
-              {t(
-                tab === "all"
-                  ? "documents.inbox.empty.all"
-                  : tab === "archived"
-                    ? "documents.inbox.empty.archived"
-                    : tab === "duplicates"
-                      ? "documents.inbox.empty.duplicates"
-                      : "documents.inbox.empty.tab",
-              )}
-            </p>
-          ) : (
-            <ul
-              ref={listRef}
-              className="flex max-h-[75vh] flex-col gap-2 overflow-auto p-2 text-sm"
+          <div className="flex items-center gap-2 px-1 pt-0.5 pb-1.5">
+            <h2 className="text-[13px] font-semibold">{t("documents.inbox.heading")}</h2>
+            <span
+              className="min-w-0 truncate text-muted-foreground"
+              data-public
+              data-testid="inbox-meta"
             >
-              {rows.map((r) => {
-                const active = r.id === openId;
-                return (
-                  <li
-                    key={r.id}
-                    data-row-id={r.id}
-                    data-testid="inbox-row"
-                    data-state={active ? "selected" : undefined}
-                    data-inbox-state={r.state}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-2.5 rounded-xl border border-l-[3px] border-subtle px-3 py-2.5",
-                      r.duplicateOf
-                        ? "border-l-destructive"
-                        : (ROW_EDGE[r.state] ?? "border-l-border"),
-                      active ? "border-primary/60 bg-selection" : "hover:bg-hover",
-                    )}
-                    onClick={() => {
-                      paneClosed.current = false;
-                      setOpenId(r.id);
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && setOpenId(r.id)}
-                  >
-                    {canWrite && (
-                      <Checkbox
-                        className="mt-1"
-                        checked={checked.has(r.id)}
-                        onCheckedChange={(v) => toggle(r.id, v === true)}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`${t("documents.inbox.select")} ${r.businessKey}`}
-                        data-testid="inbox-row-check"
-                      />
-                    )}
-                    <FileText
-                      aria-hidden
-                      className="mt-0.5 size-8 shrink-0 rounded-md bg-surface-2 p-1.5 text-muted-foreground"
-                    />
-                    <div className="min-w-0 flex-1">
-                      {r.vendor && (
-                        <div className="truncate text-[13.5px] font-semibold">{r.vendor}</div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <CodeChip>{r.businessKey}</CodeChip>
-                        <DocumentStateLabel state={r.state} testId="inbox-state" />
-                      </div>
-                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                        <Tag>{t(`documents.prefix.${r.prefixType}` as MessageKey)}</Tag>
-                        <span className="truncate" title={r.fileName}>
-                          {r.fileName}
-                        </span>
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground tabular-nums">
-                        {/* the amount and the date read; the upload day (yyyy-mm-dd, D40) when nothing was read */}
-                        {[
-                          r.amount ? money(r.amount, r.currency) : null,
-                          r.documentDate ?? r.createdAt.slice(0, 10),
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-                      {r.state === "stuck" && (
-                        <div className="text-xs text-muted-foreground">
-                          {t("documents.inbox.stuck")}
+              {needsLook > 0
+                ? t("documents.inbox.metaLook", { count: counts.total, look: needsLook })
+                : String(counts.total)}
+            </span>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="ml-auto"
+              onClick={() => setToolsOpen((o) => !o)}
+              aria-expanded={showTools}
+              aria-label={t("documents.inbox.tools")}
+              title={t("documents.inbox.tools")}
+              data-testid="inbox-tools"
+            >
+              <SlidersHorizontal aria-hidden />
+            </Button>
+          </div>
+          <div
+            hidden={!showTools}
+            className="flex flex-col gap-2 px-1 pb-1"
+            data-testid="inbox-toolbar"
+          >
+            <Input
+              className="h-8 rounded-lg bg-surface-2"
+              placeholder={t("documents.inbox.search")}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              aria-label={t("documents.inbox.search")}
+              data-testid="inbox-search"
+            />
+            <div className="flex flex-wrap gap-1" role="tablist">
+              {TABS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === k}
+                  onClick={() => switchTab(k)}
+                  data-testid={`inbox-tab-${k}`}
+                  className={cn(
+                    "h-6 rounded-full px-2 text-[11.5px] whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                    tab === k
+                      ? "bg-selection font-semibold text-foreground"
+                      : "text-muted-foreground hover:bg-hover hover:text-foreground",
+                  )}
+                >
+                  {t(`documents.inbox.tab.${k}`, { count: countOf[k] })}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <a
+                href="/documents/library"
+                className="text-primary hover:underline"
+                data-testid="documents-library-link"
+              >
+                {t("documents.desk.all", { count: total ?? counts.total })}
+              </a>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setHelpOpen(true)}
+              >
+                {t("documents.inbox.help.title")} <kbd className="font-mono">?</kbd>
+              </button>
+            </div>
+          </div>
+
+          <div className="relative min-h-[240px] flex-1">
+            <div className="absolute inset-0 overflow-auto">
+              {rows.length === 0 && doneCards.length === 0 ? (
+                <p className="p-2 text-sm text-muted-foreground" data-testid="inbox-empty">
+                  {t(
+                    tab === "all"
+                      ? "documents.inbox.empty.all"
+                      : tab === "archived"
+                        ? "documents.inbox.empty.archived"
+                        : tab === "duplicates"
+                          ? "documents.inbox.empty.duplicates"
+                          : "documents.inbox.empty.tab",
+                  )}
+                </p>
+              ) : (
+                <ul ref={listRef} className="flex flex-col gap-2 p-px">
+                  {rows.map((r) => {
+                    const active = r.id === openId;
+                    const note = cardNote(r, t);
+                    const kind = kindWord(r);
+                    return (
+                      <li
+                        key={r.id}
+                        data-row-id={r.id}
+                        data-testid="inbox-row"
+                        data-state={active ? "selected" : undefined}
+                        data-inbox-state={r.state}
+                        className={cn(
+                          "group/card relative flex cursor-pointer items-center gap-2.5 overflow-hidden rounded-xl border p-2.5",
+                          active
+                            ? "border-primary/45 bg-selection shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_10%,transparent)]"
+                            : "border-subtle bg-surface-2 hover:bg-hover",
+                        )}
+                        onClick={() => {
+                          paneClosed.current = false;
+                          setOpenId(r.id);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && setOpenId(r.id)}
+                      >
+                        {(active || r.duplicateOf) && (
+                          <span
+                            className={cn(
+                              "absolute inset-y-0 left-0 w-[3px]",
+                              r.duplicateOf && !active ? "bg-destructive" : "bg-primary",
+                            )}
+                            aria-hidden
+                          />
+                        )}
+                        <Thumb />
+                        <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                          <div className="truncate font-semibold" title={r.fileName}>
+                            {r.vendor ?? r.fileName}
+                          </div>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {r.duplicateOf ? (
+                              <BoardTag tone="danger">{t("documents.card.duplicate")}</BoardTag>
+                            ) : (
+                              <BoardTag tone={kind.tone}>{t(kind.key)}</BoardTag>
+                            )}
+                            {r.amount && (
+                              <span className="truncate font-mono text-[11.5px] text-muted-foreground tabular-nums">
+                                {money(r.amount, r.currency)}
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            className="flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground"
+                            data-testid={r.duplicateOf ? "inbox-dup" : "inbox-note"}
+                          >
+                            {r.state !== "ready" ? (
+                              <DocumentStateLabel state={r.state} testId="inbox-state" />
+                            ) : null}
+                            <span className="truncate">{note.text}</span>
+                          </div>
                         </div>
-                      )}
-                      {r.duplicateOf && (
-                        <div className="text-xs text-muted-foreground" data-testid="inbox-dup">
-                          {t("documents.inbox.duplicateOf", { key: r.duplicateOf.businessKey })}
+                        {canWrite && (
+                          <Checkbox
+                            className={cn(
+                              "absolute top-2 right-2",
+                              checked.size === 0 &&
+                                "opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100",
+                            )}
+                            checked={checked.has(r.id)}
+                            onCheckedChange={(v) => toggle(r.id, v === true)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`${t("documents.inbox.select")} ${r.businessKey}`}
+                            data-testid="inbox-row-check"
+                          />
+                        )}
+                      </li>
+                    );
+                  })}
+                  {doneCards.map((d) => {
+                    const kind = kindWord(d.row);
+                    return (
+                      <li
+                        key={d.row.id}
+                        className="relative flex items-center gap-2.5 overflow-hidden rounded-xl border border-subtle bg-surface-2 p-2.5"
+                        data-testid="inbox-done"
+                      >
+                        <span
+                          className="absolute inset-y-0 left-0 w-[3px] bg-state-done"
+                          aria-hidden
+                        />
+                        <Thumb />
+                        <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                          <div className="truncate font-semibold">
+                            {d.row.vendor ?? d.row.fileName}
+                          </div>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <BoardTag tone={kind.tone}>{t(kind.key)}</BoardTag>
+                            {d.row.amount && (
+                              <span className="truncate font-mono text-[11.5px] text-muted-foreground tabular-nums">
+                                {money(d.row.amount, d.row.currency)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="truncate text-[11.5px] text-muted-foreground">
+                            {d.note}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </li>
-                );
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* the duplicate question (the board): the same file twice — discard (archive, undoable) or keep both */}
+          {dupBanner?.duplicateOf && (
+            <div
+              className="rounded-xl border border-destructive/25 bg-destructive/6 p-3 text-xs text-destructive"
+              data-testid="inbox-dup-banner"
+            >
+              <b>{t("documents.card.duplicate")}</b>{" "}
+              {t("documents.inbox.dupBanner", {
+                file: dupBanner.fileName,
+                key: dupBanner.duplicateOf.businessKey,
               })}
-            </ul>
+              {canWrite && (
+                <div className="mt-2 flex gap-1.5">
+                  <Button
+                    size="xs"
+                    className="h-7 rounded-lg px-2.5"
+                    disabled={archiving}
+                    onClick={() => void park("archive", [dupBanner.id])}
+                    data-testid="inbox-dup-discard"
+                  >
+                    {t("documents.inbox.dupDiscard")}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="h-7 rounded-lg px-2.5"
+                    onClick={() => setKeptBoth((s) => new Set(s).add(dupBanner.id))}
+                    data-testid="inbox-dup-keep"
+                  >
+                    {t("documents.inbox.dupKeep")}
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
         </section>
 
@@ -536,12 +727,14 @@ export function InboxWorkbench({
             busy={archiving || restoring || ocrRunning || filing}
             openSearchKey={openSearchKey}
             applyRequest={applyRequest}
+            acceptRequest={acceptRequest}
             onOcr={() => void ocr(open)}
             onMake={(d) => setDialog(d)}
             onFile={() => void justFile(open)}
             onArchive={() => void park("archive", [open.id])}
             onRestore={() => void park("restore", [open.id])}
             onLinked={() => void reload()}
+            onAccepted={accepted}
           />
         ) : (
           <section className="pulse-card p-5 xl:col-span-2" aria-label={t("documents.inbox.pane")}>
