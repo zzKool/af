@@ -41,6 +41,16 @@ vi.mock("@/modules/expenses/ui", () => ({
       </div>
     ) : null,
 }));
+const sub = vi.hoisted(() => ({ matches: [] as { name: string; period: string }[] }));
+vi.mock("@/modules/subscriptions/ui", () => ({
+  useSubscriptionMatches: () => sub.matches,
+  FromSubscriptionButtons: ({ matches }: { matches: { name: string; period: string }[] }) =>
+    matches.map((x) => (
+      <button key={x.name} type="button" data-testid="make-it-from-subscription">
+        {`From subscription ${x.name} (${x.period})`}
+      </button>
+    )),
+}));
 vi.mock("@/modules/supplier-invoices/ui", () => ({
   NewSupplierInvoiceDialog: ({ open }: { open: boolean }) =>
     open ? <div role="dialog" data-testid="si-dialog" /> : null,
@@ -301,6 +311,15 @@ describe("InboxWorkbench — the page", () => {
     expect(within(actions()).getByTestId("inbox-run-ocr")).toBeInTheDocument();
     expect(within(actions()).queryByTestId("inbox-make-expense")).not.toBeInTheDocument();
     expect(screen.queryByTestId("suggestions")).not.toBeInTheDocument(); // not ready → no bank rows
+  });
+
+  it("US7: a subscription's period comes first among the actions, and takes the primary", () => {
+    sub.matches = [{ name: "Tabula", period: "2026-10" }];
+    renderOwner();
+    const buttons = within(screen.getByTestId("inbox-actions")).getAllByRole("button");
+    expect(buttons[0]).toHaveTextContent("From subscription Tabula (2026-10)");
+    expect(screen.getByTestId("inbox-make-expense")).not.toHaveClass("bg-action");
+    sub.matches = [];
   });
 
   it("a relationship document is filed or archived, never made into an expense", () => {

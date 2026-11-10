@@ -415,12 +415,13 @@ export async function collectPeriod(
 
   // --- 6. the bank sheet ---
   // the accountant's sheet: his chart's Swedish name, the English one beside it (D72); the account and the partner
-  // are the effective ones (F129, D73): typed on the row, else the proof's — banking's `transactionStates`
-  const effectiveCode = (id: string, typed: string | null) => rowStates.get(id)?.basCode ?? typed;
+  // are the effective ones (F129, D73, D82): typed by hand, else the proof's, else a rule's — banking's
+  // `transactionStates`, the one read (never the row's typed copy: a rule's guess on a proven row does not print)
+  const effectiveCode = (id: string) => rowStates.get(id)?.basCode ?? null;
   const labels = await settings.basLabels(
     tx,
     rows.flatMap((r) => {
-      const code = effectiveCode(r.id, r.basCode);
+      const code = effectiveCode(r.id);
       return code ? [code] : [];
     }),
     "sv+en",
@@ -460,7 +461,7 @@ export async function collectPeriod(
     }
     // the proofs disagree on the account or the partner: the larger one shows, the cell says so (not a flag)
     if (state?.mixed) rowFlags.push("mixed");
-    const code = effectiveCode(r.id, r.basCode);
+    const code = effectiveCode(r.id);
     return {
       id: r.id,
       account: r.accountLabel,

@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { expectToast, trackToasts, withToastReport } from "./fixtures/toasts";
 
-// Subscriptions (specs/subscriptions US1, US3; SEK only — CI has no ECB rates): a vendor → a monthly expense
-// subscription with its own new group (Q2 B) → the card row imported into banking → the period offers it (*to
-// confirm*) → one *Confirm* creates the expense and attaches the row → *Charged · receipt* still to come. The
-// accountant reads, writes nothing. The journey owns its data (a stamped vendor) and opens rows by deep link.
+// Subscriptions (specs/subscriptions US1, US3, US7; SEK only — CI has no ECB rates): a vendor → a monthly expense
+// subscription with its own new group (Q2 B) → the card row imported into banking → the row's own panel says
+// *Subscription X · month* (US7) and the period offers it (*to confirm*) → one *Confirm* creates the expense and
+// attaches the row → *Charged · receipt* still to come. The accountant reads, writes nothing. The journey owns its
+// data (a stamped vendor) and opens rows by deep link.
 const HEADER =
   "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
 
@@ -64,6 +65,19 @@ test.describe("Subscriptions", () => {
         timeout: 20_000,
       });
       await page.keyboard.press("Escape");
+
+      // 3b. US7 (F183): the row's own panel says which period it is — the same confirm, opened from the row
+      await page.goto(`/banking?q=${encodeURIComponent(vendor.toUpperCase())}`);
+      await page.getByRole("row").filter({ hasText: vendor.toUpperCase() }).first().click();
+      const rowPanel = page.getByTestId("transaction-panel");
+      await expect(rowPanel.getByTestId("subscription-match-label")).toHaveText(
+        `Subscription ${vendor} · ${iso(-1).slice(0, 7)}`,
+      );
+      await rowPanel.getByTestId("subscription-match-confirm").click();
+      const fromRow = page.getByTestId("confirm-period-dialog");
+      await expect(fromRow.getByTestId("confirm-amount")).toHaveValue("199.00");
+      await fromRow.getByRole("button", { name: "Cancel" }).click();
+      await expect(fromRow).toHaveCount(0);
 
       // 4. the period offers the row; one confirm
       await page.goto(`/subscriptions?q=${encodeURIComponent(vendor)}`);

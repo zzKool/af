@@ -5,6 +5,7 @@ import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { LocaleProvider } from "@/kernel/i18n/locale-provider";
 import { browserLocale } from "@/kernel/i18n/request-locale";
+import { navCounts } from "@/kernel/nav/nav-counts";
 import { TablePreferencesProvider } from "@/kernel/ui/data-table";
 import { AppShell } from "@/kernel/ui/shell/app-shell";
 import { parseTheme } from "@/kernel/ui/theme";
@@ -70,15 +71,14 @@ export default async function AppLayout({
           const supplierInvoices = await overdueSupplierInvoiceCount(tx, today);
           // F136: the ECB days without a rate in any pair, each once — the dashboard's rate-gap count
           const rateDays = new Set((await rateGaps(tx, today)).flatMap((g) => g.missingDays)).size;
-          return {
-            // Work (F97 US4, F137): the rows to justify and the documents to review, one number
-            "/work": banking + documents,
-            "/banking": banking,
-            "/documents": documents,
-            "/invoices": invoices,
-            "/supplier-invoices": supplierInvoices,
-            "/rates": rateDays,
-          };
+          // F182: the keys are nav paths, Work's one count is rows to justify + documents to review
+          return navCounts({
+            rowsToJustify: banking,
+            documentsToReview: documents,
+            overdueInvoices: invoices,
+            overdueSupplierInvoices: supplierInvoices,
+            rateGapDays: rateDays,
+          });
         })
       : Promise.resolve({}),
   ]);
