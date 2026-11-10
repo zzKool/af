@@ -24,13 +24,46 @@ test.describe("Owner authentication and navigation", () => {
     await expect(nav.getByRole("link", { name: "Declarations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Banking" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
-    // Work (F97 US4): the inbox, first after Dashboard, the owner's
-    await expect(nav.getByRole("link", { name: /^Work/ })).toBeVisible();
+    // Work (F97 US4, F137, F182): the monthly close, first after Dashboard, the owner's — one Work; the linking
+    // inbox is Banking › Inbox
+    const links = nav.getByRole("link");
+    await expect(links.nth(0)).toHaveAccessibleName("Dashboard");
+    await expect(links.nth(1)).toHaveAccessibleName("Work");
+    await expect(links.nth(1)).toHaveAttribute("href", "/work");
+    await expect(links.nth(2)).toHaveAccessibleName("Banking");
+    await expect(nav.getByRole("link", { name: /^Work/ })).toHaveCount(1);
     // the journal page went with F113 (D59): the rows carry their facts on /banking
     await expect(nav.getByRole("link", { name: "Journal" })).not.toBeVisible();
 
     // Not yet enabled — these appear as epics are completed
     await expect(nav.getByRole("link", { name: "Reconciliation" })).not.toBeVisible();
+  });
+
+  // F182: Ctrl K knows the two pages — Work (the close) and the Inbox under Banking; on the inbox the rail marks
+  // Banking, the breadcrumb reads Banking
+  test("Ctrl K finds Work and Banking › Inbox; on the inbox Banking is the current item", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await page.keyboard.press("Control+k");
+    const input = page.getByRole("combobox", { name: "Search" });
+    await expect(input).toBeFocused();
+    await input.fill("work");
+    await page.getByRole("option", { name: /^Work$/ }).click();
+    await expect(page).toHaveURL(/\/work$/);
+    await expect(page.getByTestId("work-percent")).toBeVisible();
+
+    await page.keyboard.press("Control+k");
+    await page.getByRole("combobox", { name: "Search" }).fill("inbox bank");
+    await page.getByRole("option", { name: /Banking.*Inbox/ }).click();
+    await expect(page).toHaveURL(/\/banking\/inbox$/);
+    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    await expect(nav.getByRole("link", { name: "Banking" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(nav.getByRole("link", { name: "Work" })).not.toHaveAttribute("aria-current");
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Banking");
   });
 });
 

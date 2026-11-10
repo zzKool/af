@@ -23,6 +23,13 @@ describe("crumbsFor — names, never ids; the current page not repeated (D40)", 
     expect(crumbsFor("/links/document/abc")).toEqual([]);
   });
 
+  test("F182: Work is a top page (no trail, its ?month= is not a segment); the inbox sits under Banking", () => {
+    expect(crumbsFor("/work")).toEqual([]);
+    expect(crumbsFor("/banking/inbox")).toEqual([{ href: "/banking", key: "nav.banking" }]);
+    expect(navItemFor("/work")?.labelKey).toBe("nav.work");
+    expect(navItemFor("/banking/inbox")?.path).toBe("/banking");
+  });
+
   test("a disabled nav item is not a crumb", () => {
     expect(crumbsFor("/reconciliation/x")).toEqual([]);
   });
@@ -35,6 +42,19 @@ describe("destinationsFor — what the search finds, by role", () => {
     expect(d.map((x) => x.href)).toContain("/documents/library");
     expect(d.map((x) => x.href)).not.toContain("/reconciliation");
     expect(d.filter((x) => x.parent)).toHaveLength(Object.keys(SUB_PAGES).length);
+  });
+
+  test("F182, Ctrl K: the owner finds Work (the close) as a page and the Inbox under Banking — one Work", () => {
+    const d = destinationsFor("owner");
+    const work = d.filter((x) => x.key === "nav.work");
+    expect(work).toEqual([{ href: "/work", key: "nav.work", icon: "ListChecks" }]);
+    expect(d.find((x) => x.href === "/banking/inbox")).toEqual({
+      href: "/banking/inbox",
+      key: "banking.nav.inbox",
+      parent: "nav.banking",
+      icon: "Landmark",
+    });
+    expect(destinationsFor("accountant").map((x) => x.href)).not.toContain("/work");
   });
 
   test("the accountant does not find owner-only pages nor their sub-pages", () => {
