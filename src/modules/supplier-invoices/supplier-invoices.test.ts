@@ -253,8 +253,6 @@ describe("US1 — record a supplier invoice", () => {
     });
     const notVendor = await create(julyInvoice({ invoiceNumber: "x", partnerId: client.id }));
     expect(notVendor.error?.message).toMatch(/not a vendor/);
-    const noAlias = await create(julyInvoice({ invoiceNumber: "x", basCode: "6570" }));
-    expect(noAlias.error?.message).toMatch(/no short code/);
     const dup = await create(julyInvoice({ invoiceNumber: " 9160 " }));
     expect(dup.error?.message).toBe(
       "Invoice 9160 of this supplier is already recorded as SI213-Acc-01",

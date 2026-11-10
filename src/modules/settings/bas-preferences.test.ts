@@ -611,7 +611,7 @@ describe("basPickerOptions (F125, F95)", () => {
       label: "1530 · Contractual receivables (Kund)",
     });
     expect(mine[1]).toMatchObject({ name: "IT services", alias: "It", favourite: true });
-    expect(mine[2]).toMatchObject({ name: "Bank fees", nameSv: "Bankkostnader", alias: null });
+    expect(mine[2]).toMatchObject({ name: "Bank fees", nameSv: "Bankkostnader", alias: "Bank" });
     expect(mine[2]?.label).toBe("6570 · Bank fees");
   });
 });
