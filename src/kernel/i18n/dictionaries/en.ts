@@ -1689,6 +1689,31 @@ export const en = {
   "settings.bas.notes.label": "Use for (English — what goes on this account)",
   "settings.bas.notes.placeholder": "e.g. software licences and cloud subscriptions; not hardware",
   "settings.bas.notes.saveFailed": "Failed to save the note: {error}",
+  "settings.bas.mine.button": "Use my usual accounts",
+  "settings.bas.mine.title": "Use my usual accounts",
+  "settings.bas.mine.intro":
+    "Every category picker and the AI proposals offer only your active accounts. This makes your usual ones the active set.",
+  "settings.bas.mine.loading": "Reading your accounts…",
+  "settings.bas.mine.set": "Your accounts ({count})",
+  "settings.bas.mine.new": "new",
+  "settings.bas.mine.activate": "Activates {count} accounts",
+  "settings.bas.mine.notes":
+    "Writes the note on {count} accounts — a note you wrote yourself is never replaced",
+  "settings.bas.mine.nothing": "Your usual accounts are already active with their notes",
+  "settings.bas.mine.deactivate": "Deactivate the others ({count})",
+  "settings.bas.mine.deactivateHint":
+    "Their settings row is removed; you can activate any of them again later.",
+  "settings.bas.mine.kept":
+    "{count} other accounts stay active — they hold your own data or records use them:",
+  "settings.bas.mine.reason.shortCode": "short code",
+  "settings.bas.mine.reason.note": "your note",
+  "settings.bas.mine.reason.favourite": "favourite",
+  "settings.bas.mine.reason.translations": "your name",
+  "settings.bas.mine.reason.inUse": "used by {count} records",
+  "settings.bas.mine.apply": "Apply",
+  "settings.bas.mine.done":
+    "Your accounts are active — {activated} activated, {deactivated} deactivated",
+  "settings.bas.mine.failed": "Could not apply your accounts: {error}",
   "settings.bas.class.1": "Assets",
   "settings.bas.class.2": "Equity & Liabilities",
   "settings.bas.class.3": "Revenue",

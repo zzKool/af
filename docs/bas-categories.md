@@ -75,3 +75,32 @@ One English line per **active** account saying what goes there — `tenant_bas_p
 - **Draft with AI** (Settings → BAS, the notes bar): the job `settings.draft-use-for` asks the local model (`prompts/bas-use-for.ts` v1) for every active account without a confirmed note, twelve per call, outside any transaction; the answers are written as **drafts**. Disabled while AI is off.
 - **The owner**: a draft shows in italics with *Draft* and *Confirm*; *Confirm N drafts* takes them all; editing the *Use for* field writes his own words (confirmed); emptying it clears the note. A draft never overwrites a confirmed note, even one written while the model was answering.
 - **Who reads them**: the BAS picker (the second line, and a word of the note finds the account) and the BAS proposals' prompt (`linking/proposals/prompts/bas-proposal.ts`: `code English (Swedish) — use for: …`). An edited note changes the prompt's facts, so the open rows are asked again on the next run.
+
+## The owner's accounts — *Use my usual accounts* (F187, D84 — 2026-11-10)
+
+Every BAS picker and the model's proposals offer **only the active accounts** (`basPickerOptions`; stage 2's prompt and enum read it). The owner keeps few: taxes, VAT in both countries, his salary, the accountant, rent, subscriptions, sales. Those are **one constant**, `src/modules/settings/my-accounts.ts` (`MY_ACCOUNTS` + `KEPT_FOR_THE_APP` = `MY_ACCOUNT_SET`), each with a short English *Use for* note:
+
+| Account | Use for |
+|---|---|
+| 1630 Tax account | Skatteverket's tax account: preliminary tax, employer fees, Swedish VAT |
+| 2650 VAT payable | Swedish VAT settlement |
+| 2890 Other current liabilities | Swiss VAT owed to / paid to the ESTV |
+| 3305 / 3308 Sales of services | invoices to Swiss / EU clients |
+| 5010 Rent | office rent |
+| 5420 Software | per-user software and SaaS seats |
+| 5800 Travel expenses | trains, flights, hotels, meals on trips |
+| 6530 Accountancy services | the accountant, bookkeeping, payroll, payslips |
+| 6540 IT services | cloud and hosting billed on use |
+| 6570 Banking costs | bank and card fees |
+| 7220 / 7510 | the owner's salary / employer social fees on it |
+| 8310 Interest income | kept for the app: the default *Savings interest* rule and the *interest* no-proof reason write it |
+
+No module needs another fixed account to work: 1930 / 2440 / 2893 are never written by the app (bank rows carry their own account; the owner's reimbursements are links, not a ledger account); 3960 / 7960 are only named on the reimbursement statement. The no-proof reasons propose from the set (`noProofBas`: tax 1630, 2890 on a CHF account; salary 7220 — [[linking]]).
+
+**Settings → BAS → *Use my usual accounts*** (`MyAccountsDialog`): the dialog reads the plan first (`getMyAccountsPlanAction` → `planMyAccounts`, nothing written) and says what happens — the set with its notes (*new* on the ones to activate), *Activates N* · *Writes the note on M*, the box **Deactivate the others (K)** ticked by default, and the accounts that **stay** all the same with their reason. *Apply* (`applyMyAccountsAction` → `applyMyAccounts`, owner only through `can()`, one audit line per account):
+- activates the set's missing accounts with their note, **confirmed**;
+- writes the note on a set account that has none or only the model's **draft** — a **confirmed** note is the owner's word and is never replaced;
+- with the box, removes the preference row of every other active account **except** one that holds the owner's data — a short code, a confirmed note, a favourite, a translation — or that a record carries (`basCodesInUse`: expenses, supplier invoices and their lines, bank rows, rules, subscriptions, journal entries, partners' defaults — a count read, tenant named in every where);
+- returns the new list, which replaces the page's. A second run changes nothing.
+
+The seed (`prisma/seed.ts`) runs the same `applyMyAccounts` after the short codes its fixtures key on (`5830 Rep` stays through its short code), so the dev data matches.
