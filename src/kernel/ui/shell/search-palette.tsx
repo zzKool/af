@@ -39,7 +39,7 @@ export function isPaletteShortcut(
   return (e.ctrlKey || e.metaKey) && !e.altKey && (key === "k" || key === "p");
 }
 
-/** Pages first unless an entity group holds an exact key (`VA23-INV-001` typed in full). */
+/** Pages first unless an entity group holds an exact key (`LK23-INV-001` typed in full). */
 export function sectionsFor(pages: Destination[], groups: SearchGroup[]): Section[] {
   const pageSection: Section = {
     id: "pages",

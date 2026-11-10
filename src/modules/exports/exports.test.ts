@@ -164,7 +164,7 @@ async function issued(
   return r.data;
 }
 
-/** Q2 2026 under the CH registration: Vaudoise 10 000 CHF (8.1 %), Berlin GmbH 5 000 CHF (export), a 1 000 credit, CH input VAT. */
+/** Q2 2026 under the CH registration: Lakeside 10 000 CHF (8.1 %), Berlin GmbH 5 000 CHF (export), a 1 000 credit, CH input VAT. */
 async function quarter(): Promise<Fixture> {
   const caller = owner.caller;
   return run(caller, async (tx) => {
@@ -174,7 +174,7 @@ async function quarter(): Promise<Fixture> {
       rateSchedule: { rates: [8.1, 2.6, 3.8] },
     });
     const regId = reg.data?.id as string;
-    const swiss = await client(caller, tx, "Vaudoise Assurances", "VA", "CH", regId);
+    const swiss = await client(caller, tx, "Lakeside Assurance", "LK", "CH", regId);
     const german = await client(caller, tx, "Berlin GmbH", "BG", "DE", regId);
     const swissInv = await issued(
       caller,
@@ -291,8 +291,8 @@ describe("the return of a quarter", () => {
     expect(ret.warnings).toEqual([]);
     expect(ret.invoices.map((i) => [i.number, i.type, i.swissClient, i.net, i.vat])).toEqual([
       ["BG26-INV-001", "invoice", false, "5000.00", "0.00"],
-      ["VA26-CN-001", "credit_note", true, "1000.00", "81.00"],
-      ["VA26-INV-001", "invoice", true, "10000.00", "810.00"],
+      ["LK26-CN-001", "credit_note", true, "1000.00", "81.00"],
+      ["LK26-INV-001", "invoice", true, "10000.00", "810.00"],
     ]);
     expect(ret.inputSources.map((s) => [s.kind, s.key, s.vat])).toEqual([
       ["supplier_invoice", "SI213-Acc-01", "97.20"],
@@ -341,8 +341,8 @@ describe("the return of a quarter", () => {
     ).data;
     expect(q2?.invoices.map((i) => i.number)).toEqual([
       "BG26-INV-001",
-      "VA26-CN-001",
-      "VA26-INV-001",
+      "LK26-CN-001",
+      "LK26-INV-001",
     ]);
     const q1 = (
       await run(owner.caller, (tx) =>

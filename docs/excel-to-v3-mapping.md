@@ -49,7 +49,7 @@ Observations
 
 | Excel column | v3 |
 |---|---|
-| Number `VA26-INV-001` | `invoice.number`; series key = `{client short}{yy}-INV`; gap-free per series (`number_series` table) |
+| Number `LK26-INV-001` | `invoice.number`; series key = `{client short}{yy}-INV`; gap-free per series (`number_series` table) |
 | Client / Client Short | `partner` + `partner.short_code` |
 | Invoice Date / Due Date | invoice fields; due date defaults from `contract.payment_terms` |
 | Activity (`Consulting Services`) | line description, default from contract |
@@ -107,7 +107,7 @@ Monthly (D13):
 ```
 2026-06/
   bank-statements/        SEK.csv  CHF.csv  (savings.csv once a year)
-  client-invoices/        InvoiceAF_VA26-00x.pdf
+  client-invoices/        InvoiceAF_LK26-00x.pdf
   supplier-invoices/      Ex2xx-Acc-01_date_.pdf …
   expenses/               Ex2xx-…_date_.pdf  (receipts, reimbursement statements, Swiss VAT payment proofs)
   summary.xlsx            bank lines → linked artefact · invoices · expenses · manual entries — generated

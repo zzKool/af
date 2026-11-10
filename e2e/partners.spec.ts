@@ -124,7 +124,7 @@ test.describe("Partners", () => {
     await contacts.getByRole("textbox", { name: "Name" }).fill("Anne Muster");
     await contacts.getByRole("textbox", { name: "Role" }).fill("Head of BI");
     await contacts.getByRole("textbox", { name: "E-mail" }).fill("anne@");
-    await contacts.getByRole("textbox", { name: "Phone" }).fill("+41 21 618 80 80");
+    await contacts.getByRole("textbox", { name: "Phone" }).fill("+41 32 555 01 23");
     await contacts.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("Not a valid e-mail address")).toBeVisible();
     await contacts.getByRole("textbox", { name: "E-mail" }).fill("anne.muster@example.ch");
@@ -137,9 +137,9 @@ test.describe("Partners", () => {
       "href",
       "mailto:anne.muster@example.ch",
     );
-    await expect(row.getByRole("link", { name: "+41 21 618 80 80" })).toHaveAttribute(
+    await expect(row.getByRole("link", { name: "+41 32 555 01 23" })).toHaveAttribute(
       "href",
-      "tel:+41216188080",
+      "tel:+41325550123",
     );
 
     mkdirSync("e2e-screenshots", { recursive: true });

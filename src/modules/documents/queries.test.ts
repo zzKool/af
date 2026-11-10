@@ -98,8 +98,8 @@ beforeEach(async () => {
     fileSize: 100_000,
   });
   const generated = await make({
-    businessKey: "InvoiceAF_VA26-INV-001.pdf",
-    fileName: "InvoiceAF_VA26-INV-001.pdf",
+    businessKey: "InvoiceAF_LK26-INV-001.pdf",
+    fileName: "InvoiceAF_LK26-INV-001.pdf",
     prefixType: "invoice",
     status: "generated",
     fileSize: 30_000,

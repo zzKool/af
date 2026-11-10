@@ -37,7 +37,7 @@ export async function nextInSeries(
   return rows[0].value;
 }
 
-/** What the series would hand out next — a read, no lock, for previews ("will be VA26-004"). */
+/** What the series would hand out next — a read, no lock, for previews ("will be LK26-004"). */
 export async function peekSeries(
   tx: TransactionClient,
   series: string,

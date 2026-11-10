@@ -6,13 +6,13 @@
 
 **Status**: Ready for planning (B1–B4 answered → D21, D22, D23; harvest `specs/invoices/harvest.md`)
 
-**Input**: "Once a month the owner bills his client for the days worked: one invoice per client and month, days × the contract rate of the period, in the client's currency, with the client's references printed, Swiss VAT when the Swiss registration applies, a PDF for the client and the accountant (`InvoiceAF_VA26-INV-001.pdf`), a number the client's AP can read (`VA26-INV-001`). Quotes before a contract; credit notes instead of edits; 'paid' from the bank, never typed; the quarter each invoice is declared in."
+**Input**: "Once a month the owner bills his client for the days worked: one invoice per client and month, days × the contract rate of the period, in the client's currency, with the client's references printed, Swiss VAT when the Swiss registration applies, a PDF for the client and the accountant (`InvoiceAF_LK26-INV-001.pdf`), a number the client's AP can read (`LK26-INV-001`). Quotes before a contract; credit notes instead of edits; 'paid' from the bank, never typed; the quarter each invoice is declared in."
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Draft and issue a monthly invoice (Priority: P1)
 
-The owner opens *Invoices → New*, picks the client and the contract; currency, payment terms, VAT registration, language and the printed references fill themselves. He types the period (`2026 January`) and the days (20): the line reads *Consulting Services · 20 days × 1 200.00 = 24 000.00*, VAT 8.1 % 1 944.00, total 25 944.00 CHF, because the contract's rate valid on 2026-01-01 is 1 200. The draft shows *will be VA26-INV-004*. He clicks **Issue**: the number is assigned, the SEK base amounts are written with the ECB rate of the issue date, the declaration period `CH 2026/Q1` is set, the invoice is locked, and the PDF appears for download a second later.
+The owner opens *Invoices → New*, picks the client and the contract; currency, payment terms, VAT registration, language and the printed references fill themselves. He types the period (`2026 January`) and the days (20): the line reads *Consulting Services · 20 days × 1 200.00 = 24 000.00*, VAT 8.1 % 1 944.00, total 25 944.00 CHF, because the contract's rate valid on 2026-01-01 is 1 200. The draft shows *will be LK26-INV-004*. He clicks **Issue**: the number is assigned, the SEK base amounts are written with the ECB rate of the issue date, the declaration period `CH 2026/Q1` is set, the invoice is locked, and the PDF appears for download a second later.
 
 **Why this priority**: it is the company's revenue document; everything else (quotes, credit notes, payment matching) hangs off it.
 
@@ -20,9 +20,9 @@ The owner opens *Invoices → New*, picks the client and the contract; currency,
 
 **Acceptance Scenarios**:
 
-1. **Given** client VA with a CHF contract (CH registration, 30 days, rate 1 200 from 2026-01-01) **When** the owner creates a draft for period 2026 January **Then** the draft carries currency CHF, language `fr` (partner default), due date = issue date + 30 days, VAT registration CH, references from partner + contract, and one line pre-filled with the contract's description, unit `day`, unit price 1 200.00, VAT 8.1 %.
+1. **Given** client LK with a CHF contract (CH registration, 30 days, rate 1 200 from 2026-01-01) **When** the owner creates a draft for period 2026 January **Then** the draft carries currency CHF, language `fr` (partner default), due date = issue date + 30 days, VAT registration CH, references from partner + contract, and one line pre-filled with the contract's description, unit `day`, unit price 1 200.00, VAT 8.1 %.
 2. **Given** that draft with 20 days **When** totals are computed **Then** subtotal 24 000.00, VAT (8.1 %) 1 944.00, total 25 944.00; every amount has 2 decimals.
-3. **Given** the draft **When** issued on 2026-01-31 **Then** number `VA26-INV-001` (first of the series), `issued_at` set, status `issued`, SEK base = amounts × the ECB CHF/SEK rate of 2026-01-31 with `rate_source` recorded, `declaration_period = CH 2026/Q1`; a second invoice issued the same day gets `VA26-INV-002`; 15 concurrent issues get 15 consecutive numbers.
+3. **Given** the draft **When** issued on 2026-01-31 **Then** number `LK26-INV-001` (first of the series), `issued_at` set, status `issued`, SEK base = amounts × the ECB CHF/SEK rate of 2026-01-31 with `rate_source` recorded, `declaration_period = CH 2026/Q1`; a second invoice issued the same day gets `LK26-INV-002`; 15 concurrent issues get 15 consecutive numbers.
 4. **Given** an issued invoice **When** any field or line is edited, or the invoice deleted **Then** refused — corrections are credit notes.
 5. **Given** an issued invoice **When** the owner clicks *Mark as sent* **Then** `sent_at` is stamped; nothing else changes.
 6. **Given** a draft whose contract has no rate for the period **When** the line is pre-filled **Then** the unit price is empty with *No contract rate for this period — enter manually*; issuing is still allowed once a price is typed.
@@ -40,22 +40,22 @@ The invoice page *is* the invoice: in edit mode the inputs sit where the values 
 
 **Acceptance Scenarios**:
 
-1. **Given** the fixture invoice (`fixtures/sample-invoice.json`) **When** printed in `fr` **Then** the page shows `Facture VA26-INV-001`, `20 Jours`, `CHF 1'200`, `CHF 24'000.00`, `TVA (8.1%)`, `CHF 25'944.00`, the CHE VAT number, the CHF IBAN, *Veuillez indiquer le numéro de facture VA26-INV-001*, and no VAT column (every line at the registration rate).
+1. **Given** the fixture invoice (`fixtures/sample-invoice.json`) **When** printed in `fr` **Then** the page shows `Facture LK26-INV-001`, `20 Jours`, `CHF 1'200`, `CHF 24'000.00`, `TVA (8.1%)`, `CHF 25'944.00`, the CHE VAT number, the CHF IBAN, *Veuillez indiquer le numéro de facture LK26-INV-001*, and no VAT column (every line at the registration rate).
 2. **Given** an invoice under the SE registration to an EU business with a VAT number at 0 % **When** printed **Then** the reverse-charge sentence (Art. 196) and the client's VAT number appear; **Given** a CH-registration invoice to a non-Swiss client **Then** the export line appears.
 3. **Given** a 40-line invoice **When** rendered to PDF **Then** 2 pages, the table header repeated, the footer `{company} • {email} • {website}` on both.
 4. **Given** a credit note **When** printed **Then** title `Note de crédit` / `Credit Note`, every amount prefixed `−`, the original number referenced.
 5. **Given** a quote **When** printed **Then** title `Devis` / `Quote` and *Valid until* instead of *Due date*.
-6. **Given** an issued invoice **When** the owner downloads the PDF twice **Then** the same stored document (`InvoiceAF_VA26-INV-001.pdf`) is served; nothing re-renders.
+6. **Given** an issued invoice **When** the owner downloads the PDF twice **Then** the same stored document (`InvoiceAF_LK26-INV-001.pdf`) is served; nothing re-renders.
 
 ---
 
 ### User Story 3 - Credit note (Priority: P2)
 
-A wrong issued invoice is corrected by a credit note: *Create credit note* opens a draft with the original's lines (`Credit: …`), full by default or partial by quantity, that is issued like an invoice (`VA26-CN-001`, own PDF). The original shows *credited 25 944.00* and its derived state becomes *credited*; Σ credited never exceeds the original.
+A wrong issued invoice is corrected by a credit note: *Create credit note* opens a draft with the original's lines (`Credit: …`), full by default or partial by quantity, that is issued like an invoice (`LK26-CN-001`, own PDF). The original shows *credited 25 944.00* and its derived state becomes *credited*; Σ credited never exceeds the original.
 
 **Acceptance Scenarios**:
 
-1. **Given** issued `VA26-INV-001` **When** a full credit note is created and issued **Then** it is `VA26-CN-001`, totals equal the original's, the original reads `credited` with 25 944.00 credited.
+1. **Given** issued `LK26-INV-001` **When** a full credit note is created and issued **Then** it is `LK26-CN-001`, totals equal the original's, the original reads `credited` with 25 944.00 credited.
 2. **Given** the same original **When** a second credit note of 10 days is attempted **Then** refused (Σ credited would exceed the original).
 3. **Given** a draft invoice **When** a credit note is requested **Then** refused (only issued invoices).
 
@@ -63,12 +63,12 @@ A wrong issued invoice is corrected by a credit note: *Create credit note* opens
 
 ### User Story 4 - Quote → invoice (Priority: P2)
 
-Before a contract, the owner sends a quote: same sheet, type `quote`, number `VA26-QUO-001`, *valid until* 30 days by default, title *Devis*. The client accepts (hand-set) or declines; *expired* is derived. *Convert* copies the lines into a new invoice draft that remembers its source quote.
+Before a contract, the owner sends a quote: same sheet, type `quote`, number `LK26-QUO-001`, *valid until* 30 days by default, title *Devis*. The client accepts (hand-set) or declines; *expired* is derived. *Convert* copies the lines into a new invoice draft that remembers its source quote.
 
 **Acceptance Scenarios**:
 
-1. **Given** a quote draft **When** issued **Then** `VA26-QUO-001`, PDF `InvoiceAF_VA26-QUO-001.pdf`; no declaration period, no due date.
-2. **Given** an issued quote **When** marked accepted and converted **Then** a new invoice draft with the same lines, currency, references and `source_quote_id`; the quote shows *converted → VA26-INV-003* once that draft is issued.
+1. **Given** a quote draft **When** issued **Then** `LK26-QUO-001`, PDF `InvoiceAF_LK26-QUO-001.pdf`; no declaration period, no due date.
+2. **Given** an issued quote **When** marked accepted and converted **Then** a new invoice draft with the same lines, currency, references and `source_quote_id`; the quote shows *converted → LK26-INV-003* once that draft is issued.
 3. **Given** an issued quote with `valid_until` in the past and no decision **When** listed **Then** state `expired` (derived).
 
 ---

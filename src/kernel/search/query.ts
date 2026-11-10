@@ -109,7 +109,7 @@ export function emptyGroup(kind: SearchKind, seeAllHref: string): SearchGroup {
   return { kind, hits: [], more: false, seeAllHref };
 }
 
-/** `/invoices` + query → `/invoices?q=VA23` — the module's list, filtered by its own search. */
+/** `/invoices` + query → `/invoices?q=LK23` — the module's list, filtered by its own search. */
 export function seeAllHref(listPath: string, q: SearchQuery | string): string {
   const text = typeof q === "string" ? q.trim() : q.text;
   return `${listPath}?q=${encodeURIComponent(text)}`;

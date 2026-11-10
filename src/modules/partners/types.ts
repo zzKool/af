@@ -35,7 +35,7 @@ export type PartnerDto = {
   id: string;
   tenantId: string;
   name: string;
-  /** `VA` — the invoice series key is `{shortCode}{yy}` (D5). */
+  /** `LK` — the invoice series key is `{shortCode}{yy}` (D5). */
   shortCode: string | null;
   orgNumber: string | null;
   vatNumber: string | null;

@@ -10,7 +10,7 @@ Once a month the owner sends the accountant everything needed to book the month:
   ```
   2026-06/
     bank-statements/      SEK.csv  CHF.csv            (savings.csv only in the December package, i.e. yearly)
-    client-invoices/      InvoiceAF_VA26-00x.pdf       every invoice issued in the period (+ credit notes)
+    client-invoices/      InvoiceAF_LK26-00x.pdf       every invoice issued in the period (+ credit notes)
     supplier-invoices/    <business key>.pdf           supplier invoices dated in the period
     expenses/             <business key>.pdf           receipts of expenses dated in the period, reimbursement statements of settlements in the period, Swiss VAT payment proofs
     summary.xlsx          generated — see §4

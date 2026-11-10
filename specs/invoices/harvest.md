@@ -11,7 +11,7 @@ Sources read (af_core, commit a2fe220):
 - v3 context applied: D5, D6, D7, D11, D12, D13 (`docs/feature-inventory.md`), `docs/excel-to-v3-mapping.md` sheet 2, `.claude/skills/invoice-pdf/SKILL.md`, `specs/numbering/spec.md` + `src/modules/numbering/keys.ts`, `specs/kernel-4-3-pdf/spec.md`, `prisma/schema/{partners,contracts,numbering,settings}.prisma`.
 
 ## 1. What the feature is for
-Once a month the owner bills his client for the days worked: one invoice per client and month, days × the contract rate of the period, in the client's currency (CHF for the Swiss client), with the client's purchase-order / supplier references printed, 8.1 % Swiss VAT when the Swiss registration applies, a PDF that goes to the client and to the accountant (`InvoiceAF_VA26-001.pdf`), and a number the client's accounts-payable can read (`VA26-001`). The app must know which invoices are still open, what was paid (from the bank), and — for the Swiss VAT return — in which quarter each invoice is declared. Corrections are credit notes, never edits. Quotes exist in the owner's practice (a proposal before a contract) but v1 never built them.
+Once a month the owner bills his client for the days worked: one invoice per client and month, days × the contract rate of the period, in the client's currency (CHF for the Swiss client), with the client's purchase-order / supplier references printed, 8.1 % Swiss VAT when the Swiss registration applies, a PDF that goes to the client and to the accountant (`InvoiceAF_LK26-001.pdf`), and a number the client's accounts-payable can read (`LK26-001`). The app must know which invoices are still open, what was paid (from the bank), and — for the Swiss VAT return — in which quarter each invoice is declared. Corrections are credit notes, never edits. Quotes exist in the owner's practice (a proposal before a contract) but v1 never built them.
 
 ## 2. Behaviour — rules as numbered statements
 
@@ -63,7 +63,7 @@ Once a month the owner bills his client for the days worked: one invoice per cli
 ### H1 — invoice (one model in v3; the v1 columns both models agree on, V2 names)
 | field | type | meaning | constraints / derived? | v3 note |
 |---|---|---|---|---|
-| number | text | `VA26-001`; credit notes `VA26-001b` (v1) | unique per tenant; v1: client-typed; v1 `InvoiceV2.invoiceNumber` | assigned at issue by `number_series` (D5); drafts have none; credit note `VA26-CN-001`, quote `VA26-QT-001` (`keys.ts`, D21) |
+| number | text | `LK26-001`; credit notes `LK26-001b` (v1) | unique per tenant; v1: client-typed; v1 `InvoiceV2.invoiceNumber` | assigned at issue by `number_series` (D5); drafts have none; credit note `LK26-CN-001`, quote `LK26-QT-001` (`keys.ts`, D21) |
 | type | enum | `INVOICE` / `CREDIT_NOTE` (`documentType`) | credit note ⇒ `related_invoice_id` required | add `QUOTE` (R19); or a `quote` table with `converted_invoice_id` — see §8 |
 | related_invoice_id | uuid | original of a credit note | self-reference; v1 `creditNoteSuffix` b/c/d | keep; drop the suffix (series instead) |
 | partner_id | uuid | client | must be a customer of the tenant | keep; validated UUID, not FK across modules |
@@ -88,7 +88,7 @@ Line (`InvoiceLineV2` → v3 `invoice_line`): `line_number`, `description`, `qua
 
 Payment (`InvoiceV2Payment`): `invoice_id`, `bank_transaction_id`, `allocated_amount (19,4)`, `currency`, `notes`, `reconciled_at/by`; unique per pair → v3: a `link` row kind `justifies` with `allocated_amount` (D18); the table disappears.
 
-Sequence (`InvoiceSequence`): `(tenant, partner, year) → lastNumber` → v3 `number_series (tenant, series = 'VA26') → next_value` (exists).
+Sequence (`InvoiceSequence`): `(tenant, partner, year) → lastNumber` → v3 `number_series (tenant, series = 'LK26') → next_value` (exists).
 
 Status transitions, v3 (derived where D7 says so):
 ```
@@ -127,7 +127,7 @@ Per invoice:
 Worked cases A–L in `fixtures/invoice-totals-cases.json`. Property for v3: `total == net + Σ breakdown` and `subtotal == Σ line.net` after rounding; `|Σ line.total − total| ≤ 0.01 × lines` is **not** guaranteed by v1 (line totals are rounded separately) — v3 should print line nets and compute VAT once per rate on the summed base (what the FTA and the accountant expect), then `total = net + Σ vat_by_rate`. Negative lines via FIXED discount > gross are accepted by v1 (fixture K) — reject in v3. No 5-cent rounding anywhere (`roundTo5Cents` exists, tested, unused).
 
 ### H1 — numbering (what survives: the format)
-v1 (260 lines): lazy `(tenant, partner, year)` row, serializable transaction, 5 retries, number consumed at preview time, year = today. v3: `nextInSeries(tx, caller, invoiceSeries(partner.short_code, issue_date))` inside the issuing transaction (`specs/numbering/spec.md` R1), formatted `formatSeriesNumber(series, n)` → `VA26-001`; `peekSeries` for the "next number will be" hint on the draft; credit notes `VA26-CN-001`, quotes `VA26-QT-001` (D21). Year from the **issue date**, not the clock. No retry loop (row lock queues writers), no reset, no settings.
+v1 (260 lines): lazy `(tenant, partner, year)` row, serializable transaction, 5 retries, number consumed at preview time, year = today. v3: `nextInSeries(tx, caller, invoiceSeries(partner.short_code, issue_date))` inside the issuing transaction (`specs/numbering/spec.md` R1), formatted `formatSeriesNumber(series, n)` → `LK26-001`; `peekSeries` for the "next number will be" hint on the draft; credit notes `LK26-CN-001`, quotes `LK26-QT-001` (D21). Year from the **issue date**, not the clock. No retry loop (row lock queues writers), no reset, no settings.
 
 ### H1 — credit note amounts (v1, `credit-note/route.ts` L94-131)
 For each credited line: `qty = creditQuantity ?? original.quantity`; `gross = qty × unit_price`; `discount = original.discount_amount × qty / original.quantity`; `net = gross − discount`; `vat = net × original.vat_rate / 100`; header `subtotal = Σ net`, `vat = Σ vat`, `total = subtotal + vat`, no invoice discount, unrounded floats. v3: same proportional rule through the §4 totals function, Decimal, and `Σ credited ≤ original` enforced across all credit notes of one invoice.
@@ -156,11 +156,11 @@ Rates by date: a line at 7.7 % (issue date ≤ 2023-12-31) goes to the form's ol
 Screens in v1: list (`/dashboard/invoices`: columns `Invoice # | Client | Date | Due | Status | Amount | In {base} | Remaining`, status badges `Draft, Finalized, Sent, Paid, Partial, Overdue, Cancelled`), new/edit (split editor + preview), detail (header with status badge, `Edit` (draft), `Duplicate`, `PDF` (never shown, R28), `Approve/Revoke`, `Create Credit Note` (finalized+), `Delete` (draft); an "Actions" card with the allowed transitions as buttons `Finalize, Mark as Sent, Mark as Paid, Cancel`; cards for lines, payments (transaction name, date, amount), credit notes, related invoice, PDF embed when `pdfUrl`).
 
 Keep in v3 (D7, D19 work-page archetype):
-- One `InvoiceSheet` component, `mode="edit"` on the draft page with inputs in place (number shown as `VA26-xxx (assigned at issue)` from `peekSeries`), `mode="print"` on `/print/invoice/[id]` and on the issued invoice's page (read-only, same layout, the stored PDF downloadable next to it). No separate preview pane: the edit mode *is* the preview (skill: "what you see in edit mode is what the PDF shows").
+- One `InvoiceSheet` component, `mode="edit"` on the draft page with inputs in place (number shown as `LK26-xxx (assigned at issue)` from `peekSeries`), `mode="print"` on `/print/invoice/[id]` and on the issued invoice's page (read-only, same layout, the stored PDF downloadable next to it). No separate preview pane: the edit mode *is* the preview (skill: "what you see in edit mode is what the PDF shows").
 - Partner → contract → defaults chain: choosing the contract fills currency, payment terms (→ due date), VAT registration (→ VAT rate list, VAT number, reverse-charge text), rate valid for the period (→ unit price), printed references. Changing the contract on a draft re-applies the defaults and warns if lines were edited.
 - Line editing: drag reorder, duplicate, delete (not the last), `Ctrl+Enter` add, `Ctrl+D` duplicate, `Ctrl+Backspace` delete, `Ctrl+S` save, `Esc` blur; quantity in days with 0.5 step; unit from the list; VAT rate popover limited to the registration's rates + 0 %.
 - Totals block updating live; VAT rows per rate; discount row only when > 0.
-- Issue action = one confirm ("Issue VA26-001? The number is assigned and the PDF is generated; the invoice can no longer be edited."); afterwards `Mark as sent`, `Create credit note`, `Copy to new draft`, `Download PDF`.
+- Issue action = one confirm ("Issue LK26-001? The number is assigned and the PDF is generated; the invoice can no longer be edited."); afterwards `Mark as sent`, `Create credit note`, `Copy to new draft`, `Download PDF`.
 - Status badges: `Draft, Issued, Sent, Paid, Partially paid, Overdue, Credited` — the last four derived.
 - Strings: every label from the dictionaries in `fixtures/invoice-strings.{en,fr,sv}.json` (printed strings `invoice.*` existed in all three; the `_uiOnly.*` keys were English-only in v1 and need French). German exists in v1 and is dropped.
 
@@ -181,23 +181,23 @@ Swiss VAT page (keep as the "declaration" work page of the exports module): quar
 
 ## 6. Tests to port
 H1
-- `sequence-numbering.test › should generate invoice number with partner prefix` → `VA{yy}-001` for a new series; fixture: partner `VA`, issue date `2026-01-31` → `VA26-001` (v3: year from issue date).
+- `sequence-numbering.test › should generate invoice number with partner prefix` → `LK{yy}-001` for a new series; fixture: partner `LK`, issue date `2026-01-31` → `LK26-001` (v3: year from issue date).
 - `… › should generate separate sequences per partner` → `CA26-011`, `CB26-006` independent counters.
 - `… › should maintain separate invoice sequences per tenant` → same partner code in two tenants → independent numbers (RLS).
 - `… › should prevent duplicate invoice numbers under concurrent load` → 15 concurrent issues → 15 distinct consecutive numbers (skill: "no gaps, no duplicates"); add: a rolled-back issue hands its number back (numbering spec R1).
 - `… › should format numbers with zero padding` → `001, 042, 999, 1234`.
 - `… › should throw if partner not found` → issuing for a partner of another tenant fails with not-found.
-- new: draft has no number; `peekSeries` does not consume; issue date 2027 → `VA27-001` restarts at 1.
+- new: draft has no number; `peekSeries` does not consume; issue date 2027 → `LK27-001` restarts at 1.
 - `InvoiceV2CreateSchema` refinements → due before issue rejected; credit note without original rejected; discount type without value rejected; zero lines rejected; description empty rejected.
 - totals: cases A–J of `invoice-totals-cases.json` as table tests; K and L as rejections; property test (fast-check): random lines → `subtotal = Σ net`, `total = net + Σ vat_by_rate`, every amount has ≤ 2 dp, breakdown sorted.
 - lifecycle: `draft→issued` locks every field; PATCH on issued → error; delete on issued → error; `issued→sent` stamps `sent_at`; `paid` derived from allocations (cases of `payment-tolerance.json`); over-allocation rejected.
-- credit note: from an issued invoice → `VA26-CN-001`, lines copied with `Credit: ` prefix, totals of fixture I; partial (fixture J); second credit note → `VA26-CN-002`; `Σ credited ≤ original`; original shows `credited` amount; credit note from a draft rejected.
+- credit note: from an issued invoice → `LK26-CN-001`, lines copied with `Credit: ` prefix, totals of fixture I; partial (fixture J); second credit note → `LK26-CN-002`; `Σ credited ≤ original`; original shows `credited` amount; credit note from a draft rejected.
 - events/audit: create, issue, mark sent, credit note → audit rows with provenance.
 H2
 - snapshot of print-mode HTML for `sample-invoice.json` in `en` and `fr` (and `sv` once the dictionary exists); assertions of `expectedPrintFr` (labels, `20 Jours`, `CHF 1'200`, `CHF 24'000.00`, `TVA (8.1%)`, VAT column hidden, payment sentence, CHF IBAN).
 - VAT column shown when one line differs from the registration rate; hidden when all equal; no VAT row for 0 % invoices; two rates → two rows ascending (fixture F).
 - credit note print: red title, `-` prefixed amounts, red total band.
-- PDF through `kernel/pdf`: A4, footer `{company} • {email} • {website}` on every page, a 40-line invoice → 2 pages with the table header repeated; PDF generated once at issue, stored as document `InvoiceAF_VA26-001.pdf` type `invoice_pdf`, re-download does not regenerate.
+- PDF through `kernel/pdf`: A4, footer `{company} • {email} • {website}` on every page, a 40-line invoice → 2 pages with the table header repeated; PDF generated once at issue, stored as document `InvoiceAF_LK26-001.pdf` type `invoice_pdf`, re-download does not regenerate.
 - due date table (`format-cases.json#dueDate`), money/date/quantity/VAT% formats (`format-cases.json`).
 - e2e (`tests/e2e/dashboards/invoices.spec.ts`): unauthenticated `/dashboard/invoices` → login; `/api/invoices*` → 401 — port as the module's auth smoke test; add: issue flow end to end with the PDF screenshot attached to the PR.
 H6
@@ -225,7 +225,7 @@ H6
 
 **Two models → one (D7).** `Invoice` (old) and `InvoiceV2` collapse into one `invoice` table with the V2 shape minus the dropped columns (approval ×3, template ×3, `sourceInvoiceId`, `consultantId`, `projectId`, `pdfUrl`, `paidAmount/paidDate/status` as typed state, `creditNoteSuffix`) plus the new ones (`contract_id`, `vat_registration_id`, `declaration_period`, `rate_source`, `issued_at`, `sent_at`, `document_id` of the PDF). The old model's only extras — header-level `vatRate` and the `InvoicePayment.bankingFeeAmount` — become "VAT per rate in the totals" and "fee tolerance on the link". Every reader that still used the old table in v1 (dashboard, matcher, graph, document links, Swiss return) reads the one table through `modules/invoices/index.ts` DTOs. `InvoiceLineV2` → `invoice_line` without `service_id`, `project_id`, `pricing_rule_id` (their modules are dropped, D11). `InvoiceV2Payment` and `InvoicePayment` → `link` rows (D18). `InvoiceSequence` → `number_series` (exists). `VatCode` → the registration's dated `rate_schedule` (§3.16); a line stores its `vat_rate`, not a code id.
 
-**Numbering (D5).** Of the 260-line `sequence-numbering.ts` the only thing that survives is the **format** `{partner short code}{yy}-{nnn}` — already implemented in `src/modules/numbering/keys.ts` and `number-series.ts`. Everything else goes: the lazy row creation with `P2002` recovery, the serializable transaction with 5 retries and backoff, the per-partner-per-year table, the `INV` fallback prefix, the year taken from the clock, the preview endpoint that burns numbers, the client-supplied `invoiceNumber`, the `check-number` endpoint and the letter suffix for credit notes. v3: the number is assigned **once, at issue, inside the issuing transaction**, from the issue date's year; drafts show a peek; credit notes get their own series `VA26-CN`; quotes `VA26-QT` (D21: client code and year first, then the marker).
+**Numbering (D5).** Of the 260-line `sequence-numbering.ts` the only thing that survives is the **format** `{partner short code}{yy}-{nnn}` — already implemented in `src/modules/numbering/keys.ts` and `number-series.ts`. Everything else goes: the lazy row creation with `P2002` recovery, the serializable transaction with 5 retries and backoff, the per-partner-per-year table, the `INV` fallback prefix, the year taken from the clock, the preview endpoint that burns numbers, the client-supplied `invoiceNumber`, the `check-number` endpoint and the letter suffix for credit notes. v3: the number is assigned **once, at issue, inside the issuing transaction**, from the issue date's year; drafts show a peek; credit notes get their own series `LK26-CN`; quotes `LK26-QT` (D21: client code and year first, then the marker).
 
 **Component and PDF (D7, skill).** The four layouts (editor form, server preview with the old strings, React preview, PDF template) become one `InvoiceSheet` with `mode="edit" | "print"`; `/print/invoice/[id]` (server-rendered, `requirePrintCaller`) is what `kernel/pdf` renders at issue, from a job (`invoice.issue` → render → upload → `document` of type `invoice_pdf`, business key `InvoiceAF_{number}.pdf`, link `generated`); no on-demand regeneration route; download = the stored document, forever. Puppeteer margins/footer move to print CSS (`@page { size: A4; margin: 20mm 15mm 25mm }`, fixed footer, `thead { display: table-header-group }`, `tr { break-inside: avoid }`). Strings from `kernel/i18n` dictionaries seeded by the fixtures; no `de`. VAT number, rate list, IBAN and reverse-charge text come from the **registration on the contract** and the **bank account of the currency**, not from a currency switch. Logo: tenant setting, inlined at render.
 
@@ -239,7 +239,7 @@ H6
 
 ## 9. Open questions for the owner
 - Q1 **Quotes** — answered 2026-10-20, D22 ("yes to all"). v1 never had them. Asked: same component and table, series `QUO26-001`, printed title `Quote` / `Devis` (or `Offre`?), a "valid until" date (default 30 days?), and conversion = copy into a new invoice draft. Do quotes need a PDF stored at issue like invoices?
-- Q2 **Credit-note numbering** — answered 2026-10-20, D21: `VA26-CN-001` (client code and year first, then the marker; own counter). Asked: v1 used `VA26-001b`; the numbering spec had `CN-VA26-001`.
+- Q2 **Credit-note numbering** — answered 2026-10-20, D21: `LK26-CN-001` (client code and year first, then the marker; own counter). Asked: v1 used `LK26-001b`; the numbering spec had `CN-LK26-001`.
 - Q3 **Money format** — answered 2026-10-20, D22: apostrophe style everywhere, 2 decimals. Asked: v1's PDF printed `CHF 25'944.00` in every language; the preview printed locale Intl (`25 944,00 CHF` in Swedish). Keep the apostrophe style for all languages, or Intl per language? Unit prices with 0 decimals (`CHF 1'200`) — keep?
 - Q4 **Reverse charge text** — answered 2026-10-20, D23: the Art. 196 sentence printed automatically for EU-business clients under the SE registration; CH-registration invoices to non-Swiss clients print the export line. Asked: v1 had none (0 % lines just print no VAT). For an EU B2B invoice under the SE registration, confirm the sentence to print (e.g. `Reverse charge — VAT to be accounted for by the recipient, Art. 196 Directive 2006/112/EC` + the client's VAT number) and whether a Swiss-registration invoice to a non-Swiss client prints anything (v1 declares it on ref 221 silently).
 - Q5 **Declaration period** — answered 2026-10-20, D23: derived, overridable per invoice; every issued invoice counts; non-CHF converted at the FTA rate. Asked: derived from the issue date (quarter) at issue — can it be overridden by hand (an invoice dated 30 June declared in Q3), as the typed Excel column allowed? And should **issued-but-not-sent** invoices count (v1: only SENT+), and non-CHF invoices under the CH registration (v1: excluded by currency)?

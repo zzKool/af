@@ -287,7 +287,7 @@ describe("listInbox", () => {
     await became(madeInto.id);
     const filed = await make({ businessKey: "exp_20260308_001", status: "extracted" });
     await setDoc(filed.id, "reviewed_at = now()");
-    await make({ businessKey: "InvoiceAF_VA26-INV-001.pdf", status: "generated" });
+    await make({ businessKey: "InvoiceAF_LK26-INV-001.pdf", status: "generated" });
     const contract = await make({
       businessKey: "ctrt_20260309_001",
       prefixType: "contract",
@@ -333,7 +333,7 @@ describe("listInbox", () => {
 
   it("FR-011: a twin of a generated PDF counts — the forced upload of an issued invoice's copy is captioned", async () => {
     const issued = await make({
-      businessKey: "InvoiceAF_VA26-INV-007.pdf",
+      businessKey: "InvoiceAF_LK26-INV-007.pdf",
       prefixType: "invoice",
       status: "generated",
       contentHash: HASH_B,
@@ -349,7 +349,7 @@ describe("listInbox", () => {
     expect(r.rows.map((x) => x.id)).toEqual([copy.id]); // the generated PDF is never an inbox row
     expect(r.rows[0]).toMatchObject({
       hasTwin: true,
-      duplicateOf: { id: issued.id, businessKey: "InvoiceAF_VA26-INV-007.pdf" },
+      duplicateOf: { id: issued.id, businessKey: "InvoiceAF_LK26-INV-007.pdf" },
     });
     expect(r.counts.duplicates).toBe(1);
   });

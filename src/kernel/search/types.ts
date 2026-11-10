@@ -30,7 +30,7 @@ export type SearchRank = (typeof RANK)[keyof typeof RANK];
 export type SearchHit = {
   kind: SearchKind;
   id: string;
-  /** the business key (`VA23-INV-001`, `Ex213-Tr-01`, a short code); null when the entity has none (a bank row, a draft) */
+  /** the business key (`LK23-INV-001`, `Ex213-Tr-01`, a short code); null when the entity has none (a bank row, a draft) */
   key: string | null;
   label: string;
   /** ISO date (yyyy-mm-dd) that dates the entity; null when none fits (a partner) */

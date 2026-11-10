@@ -232,7 +232,7 @@ export const fr: PartialDictionary = {
   "partners.form.typeRequired": "Au moins un type est requis",
   "partners.form.identifiersMax": "5 identifiants externes au maximum",
   "partners.form.basic": "Informations de base",
-  "partners.form.shortCodePlaceholder": "VA — les numéros de facture deviennent VA26-INV-001",
+  "partners.form.shortCodePlaceholder": "LK — les numéros de facture deviennent LK26-INV-001",
   "partners.form.phone": "Téléphone",
   "partners.form.defaults": "Valeurs par défaut",
   "partners.form.none": "Aucun",

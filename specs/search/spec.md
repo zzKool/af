@@ -10,7 +10,7 @@ One palette, opened from anywhere, finds a page **or an entity** by what the own
 |---|---|---|---|
 | Pages | `kernel/ui/shell` (client side, no query) | page name in the UI language (today's Ctrl P) | the page |
 | Partners | partners | name, short code, org / VAT number | `/partners/<id>` |
-| Invoices (quotes, invoices, credit notes; drafts too) | invoices | number `VA23-INV-001`, period label, total | `/invoices/<id>` |
+| Invoices (quotes, invoices, credit notes; drafts too) | invoices | number `LK23-INV-001`, period label, total | `/invoices/<id>` |
 | Supplier invoices | supplier-invoices | key `SI213-Acc-01`, the supplier's number `9160`, total / paid amount | `/supplier-invoices?open=<id>` |
 | Expenses | expenses | key `Ex213-Tr-01`, description, amount / paid amount | `/expenses?open=<id>` |
 | Settlements | expenses | number `ST23-001`, note, refund amount | `/expenses/settlements/<id>` |
@@ -26,8 +26,8 @@ One palette, opened from anywhere, finds a page **or an entity** by what the own
 Inside a group, best first, then newest:
 
 ```
-0 exact key (or short code, or the supplier's number)   VA23-INV-001
-1 key starts with the query                              VA23-INV
+0 exact key (or short code, or the supplier's number)   LK23-INV-001
+1 key starts with the query                              LK23-INV
 2 amount equal                                           1 250
 3 key / name contains                                     INV-00
 4 another text contains (bank row details, file name …)

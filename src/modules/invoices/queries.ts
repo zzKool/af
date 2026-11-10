@@ -153,7 +153,7 @@ export async function getInvoice(
   return { data: { ...dto, ...deriveFor(dto, sums, today) } };
 }
 
-/** "Will be VA26-004" — a read, no lock; the hint can be overtaken by a concurrent issue. */
+/** "Will be LK26-004" — a read, no lock; the hint can be overtaken by a concurrent issue. */
 export async function nextNumberHint(
   tx: TransactionClient,
   type: InvoiceType,

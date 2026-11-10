@@ -30,31 +30,31 @@ import {
 
 describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", () => {
   it("invoice: {short code}{yy}-INV-{nnn} (B1: INV / QUO / CN)", () => {
-    expect(invoiceSeries("VA", "2026-10-20")).toBe("VA26-INV");
-    expect(invoiceNumber("VA", "2026-10-20", 1)).toBe("VA26-INV-001");
-    expect(invoiceNumber("VA", "2026-10-20", 42)).toBe("VA26-INV-042");
+    expect(invoiceSeries("LK", "2026-10-20")).toBe("LK26-INV");
+    expect(invoiceNumber("LK", "2026-10-20", 1)).toBe("LK26-INV-001");
+    expect(invoiceNumber("LK", "2026-10-20", 42)).toBe("LK26-INV-042");
     expect(invoiceNumber("XYY", "2026-01-05", 2)).toBe("XYY26-INV-002");
   });
 
   it("quote and credit note: client code + year first, then the type marker (D21)", () => {
-    expect(quoteSeries("VA", "2026-03-01")).toBe("VA26-QUO");
-    expect(quoteNumber("VA", "2026-03-01", 7)).toBe("VA26-QUO-007");
-    expect(creditNoteSeries("VA", "2027-02-02")).toBe("VA27-CN");
-    expect(creditNoteNumber("VA", "2027-02-02", 1)).toBe("VA27-CN-001");
+    expect(quoteSeries("LK", "2026-03-01")).toBe("LK26-QUO");
+    expect(quoteNumber("LK", "2026-03-01", 7)).toBe("LK26-QUO-007");
+    expect(creditNoteSeries("LK", "2027-02-02")).toBe("LK27-CN");
+    expect(creditNoteNumber("LK", "2027-02-02", 1)).toBe("LK27-CN-001");
     // three independent counters per client-year: an invoice, a quote and a credit note can all be 001
     expect(
       new Set([
-        invoiceSeries("VA", "2026-01-01"),
-        quoteSeries("VA", "2026-01-01"),
-        creditNoteSeries("VA", "2026-01-01"),
+        invoiceSeries("LK", "2026-01-01"),
+        quoteSeries("LK", "2026-01-01"),
+        creditNoteSeries("LK", "2026-01-01"),
       ]).size,
     ).toBe(3);
   });
 
   it("invoice PDF document key", () => {
-    expect(invoicePdfKey("VA26-INV-001")).toBe("InvoiceAF_VA26-INV-001.pdf");
-    expect(invoicePdfKey("VA27-CN-001")).toBe("InvoiceAF_VA27-CN-001.pdf");
-    expect(invoicePdfKey("VA26-QUO-012")).toBe("InvoiceAF_VA26-QUO-012.pdf");
+    expect(invoicePdfKey("LK26-INV-001")).toBe("InvoiceAF_LK26-INV-001.pdf");
+    expect(invoicePdfKey("LK27-CN-001")).toBe("InvoiceAF_LK27-CN-001.pdf");
+    expect(invoicePdfKey("LK26-QUO-012")).toBe("InvoiceAF_LK26-QUO-012.pdf");
     expect(() => invoicePdfKey("draft")).toThrow();
   });
 
@@ -98,7 +98,7 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(settlementSeries("2026-03-31")).toBe("ST26");
     expect(settlementNumber("2026-03-31", 1)).toBe("ST26-001");
     expect(statementPdfKey("ST26-001", "2026-03-31")).toBe("Reimb_ST26-001_2026-03-31.pdf");
-    expect(() => statementPdfKey("VA26-INV-001", "2026-03-31")).toThrow(/settlement number/);
+    expect(() => statementPdfKey("LK26-INV-001", "2026-03-31")).toThrow(/settlement number/);
     expect(() => expenseSeries(213, "Tr-1")).toThrow(/alias/);
   });
 
@@ -135,14 +135,14 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
     expect(reprefixUploadKey("ctrt_20261020_1234", "nda")).toBe("nda_20261020_1234");
     expect(reprefixUploadKey("exp_20261020_001", "expense")).toBe("exp_20261020_001");
     expect(reprefixUploadKey("Ex213-Tr-01_2026-03-10_", "invoice")).toBeNull();
-    expect(reprefixUploadKey("InvoiceAF_VA26-INV-001", "expense")).toBeNull();
+    expect(reprefixUploadKey("InvoiceAF_LK26-INV-001", "expense")).toBeNull();
     expect(reprefixUploadKey("exp_2026102_001", "invoice")).toBeNull();
   });
 
   it("validates its inputs instead of producing garbage keys", () => {
     expect(() => yy("20261020")).toThrow(/ISO date/);
     expect(() => invoiceSeries("va", "2026-10-20")).toThrow(/short code/);
-    expect(() => formatSeriesNumber("VA26", 0)).toThrow(/positive/);
+    expect(() => formatSeriesNumber("LK26", 0)).toThrow(/positive/);
     expect(() => expenseRef(213, "Tr-1", 1)).toThrow(/alias/);
   });
 
@@ -152,8 +152,8 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
         fc.integer({ min: 1, max: 100_000 }),
         fc.integer({ min: 1, max: 100_000 }),
         (a, b) => {
-          const na = formatSeriesNumber("VA26", a);
-          const nb = formatSeriesNumber("VA26", b);
+          const na = formatSeriesNumber("LK26", a);
+          const nb = formatSeriesNumber("LK26", b);
           if (a === b) return na === nb;
           // distinct sequences → distinct numbers; both parse back to their sequence
           return na !== nb && Number(na.slice(5)) === a && Number(nb.slice(5)) === b;

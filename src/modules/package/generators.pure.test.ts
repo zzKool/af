@@ -79,9 +79,9 @@ const data: PeriodData = {
       bookingDate: "2026-06-15",
       amount: "25000.00",
       currency: "CHF",
-      name: "VAUDOISE",
-      message: "VA26-INV-001",
-      related: ["VA26-INV-001"],
+      name: "LAKESIDE",
+      message: "LK26-INV-001",
+      related: ["LK26-INV-001"],
       allocated: "25000.00",
       amountBase: "268750.00",
       rate: "10.75",
@@ -106,9 +106,9 @@ const data: PeriodData = {
   income: [
     {
       id: "i1",
-      number: "VA26-INV-001",
+      number: "LK26-INV-001",
       type: "invoice",
-      client: "Vaudoise Assurances",
+      client: "Lakeside Assurance",
       issueDate: "2026-06-10",
       dueDate: "2026-07-10",
       periodLabel: "2026 May",
@@ -125,7 +125,7 @@ const data: PeriodData = {
       fxDifference: "250.00",
       status: "paid",
       declarationPeriod: "2026/Q2",
-      pdfKey: "InvoiceAF_VA26-INV-001.pdf",
+      pdfKey: "InvoiceAF_LK26-INV-001.pdf",
       reason: "issued, paid",
       flags: [],
     },
@@ -232,8 +232,8 @@ const data: PeriodData = {
     {
       id: "d1",
       folder: "client-invoices",
-      fileName: "InvoiceAF_VA26-INV-001.pdf",
-      businessKey: "InvoiceAF_VA26-INV-001.pdf",
+      fileName: "InvoiceAF_LK26-INV-001.pdf",
+      businessKey: "InvoiceAF_LK26-INV-001.pdf",
       mimeType: "application/pdf",
       fileSize: 3,
     },
@@ -337,10 +337,10 @@ describe("summary.xlsx", () => {
       wb.Sheets[SHEETS.income] as XLSX.WorkSheet,
     );
     expect(income[0]).toMatchObject({
-      Number: "VA26-INV-001",
+      Number: "LK26-INV-001",
       Total: 25000,
       Status: "paid",
-      PDF: "InvoiceAF_VA26-INV-001.pdf",
+      PDF: "InvoiceAF_LK26-INV-001.pdf",
       "In this package because": "issued, paid",
       // F114: what the bank gave in base and the signed difference, derived from the links
       "Total SEK": 268750,
@@ -386,7 +386,7 @@ describe("notes.md", () => {
     expect(md).toContain("(implied rate 0.093023)");
     expect(md).toContain("- Private CH: 1290.00 SEK open over 1 expense");
     expect(md).toContain("## FX differences (1)");
-    expect(md).toContain("- client invoice **VA26-INV-001** (25000.00 CHF): 250.00 SEK");
+    expect(md).toContain("- client invoice **LK26-INV-001** (25000.00 CHF): 250.00 SEK");
     expect(md).toContain("- 2026/Q2: 1 invoice, net 25000.00 CHF");
     expect(notesMd({ ...data, flags: [], transfers: [], liability: [], vatPeriods: [] })).toContain(
       "Nothing to ask about",
@@ -402,7 +402,7 @@ describe("the zip", () => {
       "2026-06/bank-statements/CHF.csv",
       "2026-06/bank-statements/SEK.csv",
       "2026-06/bank-statements/savings.csv",
-      "2026-06/client-invoices/InvoiceAF_VA26-INV-001.pdf",
+      "2026-06/client-invoices/InvoiceAF_LK26-INV-001.pdf",
       "2026-06/notes.md",
       "2026-06/summary.xlsx",
       "2026-06/supplier-invoices/SI213-Acc-01_2026-06-01_Skattepunkten.pdf",
@@ -428,7 +428,7 @@ describe("the zip", () => {
     ).sort();
     expect(files).toContain("2026/2026-06/summary.xlsx");
     expect(files).toContain("2026/2026-05/notes.md");
-    expect(files).toContain("2026/2026-06/client-invoices/InvoiceAF_VA26-INV-001.pdf");
+    expect(files).toContain("2026/2026-06/client-invoices/InvoiceAF_LK26-INV-001.pdf");
     expect(files).toContain("2026/bank-statements/savings.csv");
     expect(files).toContain("2026/summary.xlsx");
     expect(files).toContain("2026/notes.md");
@@ -466,7 +466,7 @@ describe("the bytes the accountant gets (F71 golden)", () => {
         kind: "unpaid_invoice",
         entity: "invoice",
         id: "i2",
-        key: "VA26-INV-002",
+        key: "LK26-INV-002",
         detail: "partially paid, 24000.00 CHF open",
         amount: "24000.00",
         currency: "CHF",
@@ -492,6 +492,7 @@ describe("the bytes the accountant gets (F71 golden)", () => {
   // Re-capturing (a reviewed change of the sheets): `PACKAGE_GOLDEN_OUT=<dir> npx vitest run …generators.pure`
   // writes the four files and the new `package-golden.json` there — open the workbook with a second reader
   // (openpyxl, SheetJS) before copying the JSON over (lessons: three readers prove a format).
+  // Re-captured 2026-11-10 for F132: the invented client name and its short code in the fixtures, nothing else.
   it("zip, summary.xlsx, notes.md and the year zip are byte-identical to the golden", () => {
     const year: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026") };
     const may: PeriodData = { ...withMoneyFlags, period: parsePeriod("2026-05"), documents: [] };

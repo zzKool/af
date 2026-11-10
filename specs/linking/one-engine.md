@@ -40,7 +40,7 @@ after      candidates   by the window the entity's own terms give — [issue dat
 
 | | the row | today | after |
 |---|---|---|---|
-| 1. an invoice on terms | 2026-07-30 +24 000.00 CHF `BYTEFORM AG VA26-003`, the invoice issued 2026-06-30 due 2026-07-30 | not a candidate (30 days off the issue date) | candidate by its window; number in the text (+40), client token (+25), exact amount (+40), paid on the due date (+30) → HIGH 135 |
+| 1. an invoice on terms | 2026-07-30 +24 000.00 CHF `BYTEFORM AG LK26-003`, the invoice issued 2026-06-30 due 2026-07-30 | not a candidate (30 days off the issue date) | candidate by its window; number in the text (+40), client token (+25), exact amount (+40), paid on the due date (+30) → HIGH 135 |
 | 2. a truncated name | 2026-07-28 −2 312.43 SEK `ANTHROPIC* CLAU 1234`, the supplier invoice 2026-07-27 2 312.43 SEK from *Anthropic PBC* | the whole name is not in the text → no name points | token `anthropic` → +25; exact amount, within 2 days → HIGH |
 | 3. the 40th OpenAI row | 2026-07-28 −132.52 SEK `OPENAI *CHATGPT 1234`, a supplier invoice from OpenAI 2026-07-27 | scored like the first | + *Linked to OpenAI 39 times before* (+25); OpenAI's open invoices fetched first |
 | 4. nothing true | 2026-07-24 −1 324.00 SEK `SKATTEVERKET`, a supplier invoice 2026-07-20 9 160.00 SEK from Skattepunkten | 15 points: "Approximate amount match", "4 days apart" | not a suggestion: the amount is 86 % off, no name token, no reference |

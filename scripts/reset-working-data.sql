@@ -153,7 +153,7 @@ BEGIN
   DELETE FROM pgboss.job j WHERE j.state IN ('created', 'retry', 'active')
     AND EXISTS (SELECT 1 FROM gone g WHERE g.t = 'document' AND j.data::text LIKE '%' || g.id || '%');
 
-  -- the numbers start again after the last one kept: client documents (VA26-INV, -QUO, -CN), refunds (ST26),
+  -- the numbers start again after the last one kept: client documents (LK26-INV, -QUO, -CN), refunds (ST26),
   -- expense keys (exg-213-Tr); an upload month with nothing left; the group counter only on a full reset
   DELETE FROM number_series ns WHERE ns.series ~ '-(INV|QUO|CN)$'
     AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.tenant_id = ns.tenant_id AND i.number LIKE ns.series || '-%');
