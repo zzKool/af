@@ -14,6 +14,8 @@ vi.mock("@/modules/settings/bas-preferences.actions", () => ({
   updateBasPreferenceAction: {},
   draftUseForNotesAction: {},
   confirmUseForNotesAction: confirmAction,
+  getMyAccountsPlanAction: {},
+  applyMyAccountsAction: {},
 }));
 vi.mock("next-safe-action/hooks", () => ({
   useAction: (a: unknown) => ({
