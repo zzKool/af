@@ -21,9 +21,9 @@ import * as expenses from "@/modules/expenses";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 import {
   type JustifyKind,
-  NO_PROOF_BAS,
   NO_PROOF_REASONS,
   type NoProofReason,
+  noProofBas,
   proposeVendorRule,
   type VendorRuleDraft,
 } from "./justify-rules";
@@ -53,6 +53,7 @@ export {
   NO_PROOF_REASONS,
   NO_PROOF_REASONS_INCOMING,
   type NoProofReason,
+  noProofBas,
   type ProposedPartner,
   proposedPartnerRole,
   proposeKind,
@@ -351,7 +352,7 @@ export async function noProofNeeded(
   const state = (await banking.transactionStates(tx, [v.transactionId])).get(v.transactionId);
   if (state && LINKED.has(state.state))
     return { error: violation("This row is linked — remove the link first") };
-  const code = v.basCode !== undefined ? v.basCode : NO_PROOF_BAS[v.reason];
+  const code = v.basCode !== undefined ? v.basCode : noProofBas(v.reason, row.currency);
   const facts = await banking.categorise(tx, caller, audit, v.transactionId, {
     noDocumentNeeded: true,
     partnerId: v.partnerId,

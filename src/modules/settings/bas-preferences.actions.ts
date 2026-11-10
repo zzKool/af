@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { aiStatus } from "@/kernel/ai/ai";
 import { enqueue } from "@/kernel/jobs/queue";
+import { applyMyAccounts, planMyAccounts } from "@/modules/settings/bas-my-accounts";
 import { confirmUseForNotes } from "@/modules/settings/bas-notes";
 import * as basService from "@/modules/settings/bas-preferences";
 import { draftUseForJob } from "@/modules/settings/jobs/draft-use-for";
@@ -108,4 +109,18 @@ export const confirmUseForNotesAction = ownerAction
   .metadata({ name: "confirmUseForNotes" })
   .action(async ({ ctx, parsedInput }) =>
     confirmUseForNotes(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput.codes),
+  );
+
+/** F187: what *Use my usual accounts* would do — the confirm dialog's facts, nothing written. */
+export const getMyAccountsPlanAction = ownerAction
+  .schema(z.object({}).strict())
+  .metadata({ name: "getMyAccountsPlan" })
+  .action(async ({ ctx }) => planMyAccounts(ctx.tx, ctx.callerIdentity));
+
+/** F187: the owner's set active with its notes; the others removed when he ticks the box (never his data, never a used one). */
+export const applyMyAccountsAction = ownerAction
+  .schema(z.object({ deactivateOthers: z.boolean() }).strict())
+  .metadata({ name: "applyMyAccounts" })
+  .action(async ({ ctx, parsedInput }) =>
+    applyMyAccounts(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
   );

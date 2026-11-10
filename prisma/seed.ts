@@ -16,6 +16,7 @@ import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { ensureSystemPartners } from "@/modules/partners";
+import { applyMyAccounts } from "@/modules/settings";
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("Seed script cannot run in production");
@@ -280,47 +281,8 @@ async function seed() {
     }
     console.log("  ✓ Categorisation rules seeded (bank fees, savings interest)");
 
-    // the owner's working BAS set: the common groups plus the ones his aliases point to (Excel Sheet 3)
-    const wanted = new Set([
-      ...(await tx.basCategory.findMany({ where: { isCommon: true }, select: { code: true } })).map(
-        (c) => c.code,
-      ),
-      "5010",
-      "5700",
-      "6530",
-      "6540",
-      "6570",
-      "6310",
-      "7210",
-      "8310",
-      "2630",
-    ]);
-    const known = new Set(
-      (
-        await tx.basCategory.findMany({
-          where: { code: { in: [...wanted] } },
-          select: { code: true },
-        })
-      ).map((c) => c.code),
-    );
-    const active = new Set(
-      (await tx.tenantBasPreference.findMany({ select: { basCode: true } })).map((p) => p.basCode),
-    );
-    const toActivate = [...wanted].filter((c) => known.has(c) && !active.has(c));
-    if (toActivate.length) {
-      await tx.tenantBasPreference.createMany({
-        data: toActivate.map((code) => ({
-          tenantId: orgId,
-          basCode: code,
-          isFavorite: ["6540", "6570", "5700", "5010"].includes(code),
-          createdBy: ownerUserId,
-          source: "seed",
-        })),
-      });
-    }
-    console.log(`  ✓ BAS categories activated (${toActivate.length} new)`);
-
-    // the owner's aliases on the categories his expense keys use (Ex213-Tr-01, Ex213-Rep-01)
+    // the aliases the seed's own fixtures key on (Ex213-Tr-01, Ex213-Rep-01; the e2e pick 5800, 5830, 6530, 6540);
+    // 5830 is not in the owner's set — its short code keeps it active
     for (const [code, shortCode] of [
       ["5800", "Tr"],
       ["5830", "Rep"],
@@ -328,7 +290,6 @@ async function seed() {
       ["6530", "Acc"],
       ["6540", "IT"],
     ] as const) {
-      if (!known.has(code) && !(await tx.basCategory.findUnique({ where: { code } }))) continue;
       await tx.tenantBasPreference.upsert({
         where: { tenantId_basCode: { tenantId: orgId, basCode: code } },
         update: { shortCode },
@@ -341,6 +302,17 @@ async function seed() {
         },
       });
     }
+    // F187 (D84): the owner's usual accounts are the active set — the same action as Settings → BAS *Use my usual
+    // accounts* (their notes; the others removed unless they hold data or a record uses them)
+    const mine = await applyMyAccounts(tx, caller, noAudit, { deactivateOthers: true });
+    if (mine.error) throw new Error(`BAS accounts: ${mine.error.message}`);
+    await tx.tenantBasPreference.updateMany({
+      where: { tenantId: orgId, basCode: { in: ["5010", "5420", "6540", "6570"] } },
+      data: { isFavorite: true },
+    });
+    console.log(
+      `  ✓ BAS accounts: the owner's set (${mine.data.activated} activated, ${mine.data.deactivated} deactivated, ${mine.data.kept} kept)`,
+    );
 
     // the owner's private instruments (F114, D60): bank accounts with role owner_private, no format — the
     // payers of a private expense; the main accounts pay the company's

@@ -16,6 +16,7 @@ import {
   draftUseForNotesAction,
   updateBasPreferenceAction,
 } from "@/modules/settings/bas-preferences.actions";
+import { MyAccountsDialog } from "./my-accounts-dialog";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -360,6 +361,14 @@ export function BasCategoriesTab({
     else toast.success(t("settings.bas.notes.queued"));
   }, [execDraft, t]);
 
+  // ─── F187: the owner's set applied — the server's list replaces ours ───
+  const handleMineApplied = useCallback((rows: BasPreference[]) => {
+    setPreferences(new Map(rows.map((p) => [p.basCode, p])));
+    setExpandedRows(new Set());
+    // the classes that hold an active account open: the list shows the set
+    setExpandedClasses(new Set(rows.map((p) => p.basCategory.classNum)));
+  }, []);
+
   // ─── Quick-start ───
   const commonCategories = useMemo(
     () => initialCategories.filter((c) => c.isCommon && !preferences.has(c.code)),
@@ -409,15 +418,18 @@ export function BasCategoriesTab({
 
   return (
     <div className="space-y-4">
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t("settings.bas.search")}
-          className="pl-10"
-        />
+      {/* Search bar · F187 *Use my usual accounts* */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("settings.bas.search")}
+            className="pl-10"
+          />
+        </div>
+        <MyAccountsDialog categories={initialCategories} onApplied={handleMineApplied} />
       </div>
 
       {/* Empty states & Quick-start */}
