@@ -53,6 +53,19 @@ describe("the four-digit chart (D68)", () => {
     });
   });
 
+  it("every account has a short code that can be part of a key (the owner, 2026-11-10: fill all accounts)", async () => {
+    // `SI213-<code>-01` / `Ex213-<code>-01` take 1–6 ASCII letters (resolveAlias): an account without one, or with
+    // `ö` or seven letters, stopped *Confirm* on a document the model filed there (6900)
+    expect(
+      await one(
+        "SELECT count(*)::int AS n FROM bas_categories WHERE suggested_alias IS NULL OR suggested_alias !~ '^[A-Za-z]{1,6}$'",
+      ),
+    ).toEqual({ n: 0 });
+    expect(
+      await one("SELECT suggested_alias AS a FROM bas_categories WHERE code IN ('6530') "),
+    ).toEqual({ a: "Redov" });
+  });
+
   it("no column keeps a three-digit code", async () => {
     for (const [table, column] of [
       ["bank_transactions", "bas_code"],
