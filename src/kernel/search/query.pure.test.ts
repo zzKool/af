@@ -35,7 +35,7 @@ describe("parseAmount — the formats people type", () => {
     expect(parseAmount(raw)).toBe(expected);
   });
 
-  it.each(["VA23-INV-001", "Ex213", "1.2.3", "abc", "", "1250.123", "1-250"])(
+  it.each(["LK23-INV-001", "Ex213", "1.2.3", "abc", "", "1250.123", "1-250"])(
     "%s is not an amount",
     (raw) => {
       expect(parseAmount(raw)).toBeNull();
@@ -65,10 +65,10 @@ describe("rankOf", () => {
   const q = (text: string) => parseSearchQuery(text) ?? { text, amount: null };
 
   it("exact key, then prefix, then amount, then name, then text", () => {
-    expect(rankOf(q("va23-inv-001"), { keys: ["VA23-INV-001"] })).toBe(RANK.exactKey);
-    expect(rankOf(q("VA23-INV"), { keys: ["VA23-INV-001"] })).toBe(RANK.keyPrefix);
+    expect(rankOf(q("lk23-inv-001"), { keys: ["LK23-INV-001"] })).toBe(RANK.exactKey);
+    expect(rankOf(q("LK23-INV"), { keys: ["LK23-INV-001"] })).toBe(RANK.keyPrefix);
     expect(rankOf(q("1 250"), { keys: ["X"], amounts: ["-1250.00"] })).toBe(RANK.amount);
-    expect(rankOf(q("INV-00"), { keys: ["VA23-INV-001"] })).toBe(RANK.keyOrName);
+    expect(rankOf(q("INV-00"), { keys: ["LK23-INV-001"] })).toBe(RANK.keyOrName);
     expect(rankOf(q("acme"), { names: ["ACME Consulting AB"] })).toBe(RANK.keyOrName);
     expect(rankOf(q("spotify"), { texts: ["Kortköp SPOTIFY P1234"] })).toBe(RANK.text);
     expect(rankOf(q("nothing"), { keys: ["A"], names: ["B"], texts: ["C"] })).toBeNull();
@@ -124,6 +124,6 @@ describe("toGroup / orderGroups", () => {
   });
 
   it("see all keeps the query in the URL", () => {
-    expect(seeAllHref("/invoices", "VA23 INV")).toBe("/invoices?q=VA23%20INV");
+    expect(seeAllHref("/invoices", "LK23 INV")).toBe("/invoices?q=LK23%20INV");
   });
 });

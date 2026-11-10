@@ -187,7 +187,7 @@ describe("US1 — import a month of Nordea rows", () => {
     const august = [
       "2026/08/03;-99,00;;;;Kortköp 260801 ANTHROPIC* CLAUDE SU;ANTHROPIC* CLAU 1234;;1234,56;SEK;",
       "2026/08/02;-85,00;;;AVGIFTER NORDEA;Priset for juli;;;;SEK;",
-      "2026/08/01;25000,00;Client VA SA;;Client VA SA;;VA26-007;;5000,00;SEK;",
+      "2026/08/01;25000,00;Lakeside Assurance SA;;Lakeside Assurance SA;;LK26-007;;5000,00;SEK;",
     ];
     const later = Buffer.from([lines[0], ...august, ...lines.slice(1, 6)].join("\n"), "latin1");
     const third = await run(caller, (tx) =>

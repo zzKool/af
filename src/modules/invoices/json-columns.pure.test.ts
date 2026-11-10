@@ -23,7 +23,7 @@ const parties: PrintedParties = {
     vatCountry: "CH",
   },
   partner: {
-    name: "Client VA SA",
+    name: "Lakeside Assurance SA",
     address: { street: "Rue Exemple 10", postalCode: "1000", city: "Lausanne", country: "CH" },
     vatNumber: null,
     orgNumber: null,
@@ -59,7 +59,7 @@ describe("printed_parties", () => {
         vatCountry: null,
       },
       partner: {
-        name: "Client VA SA",
+        name: "Lakeside Assurance SA",
         address: null,
         vatNumber: null,
         orgNumber: null,

@@ -92,8 +92,8 @@ async function world(): Promise<{ registrationId: string; partnerId: string; con
       rateSchedule: { rates: [8.1] },
     });
     const partner = await partners.createPartner(tx, caller, noopAudit, {
-      name: "Vaudoise Assurances",
-      shortCode: "VA",
+      name: "Lakeside Assurance",
+      shortCode: "LK",
       types: ["client"],
       defaultCurrency: "CHF",
       defaultLanguage: "fr",

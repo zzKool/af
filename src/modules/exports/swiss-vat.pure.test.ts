@@ -204,10 +204,10 @@ describe("the Swiss VAT return on the harvest's cases", () => {
 describe("v3 corrections", () => {
   const inv = (over: Partial<ReturnInvoice>): ReturnInvoice => ({
     id: "i",
-    number: "VA26-INV-001",
+    number: "LK26-INV-001",
     type: "invoice",
     issueDate: "2026-05-10",
-    client: "Vaudoise",
+    client: "Lakeside",
     clientCountry: "CH",
     swissClient: true,
     currency: "CHF",

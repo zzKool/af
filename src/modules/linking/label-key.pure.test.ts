@@ -4,9 +4,9 @@ import { splitLabelKey } from "./label-key";
 
 describe("splitLabelKey", () => {
   it("takes the head of a keyed type's label as its key", () => {
-    expect(splitLabelKey("invoice", "VA26-INV-001 · Vaudoise · 1000.00 CHF")).toEqual({
-      key: "VA26-INV-001",
-      rest: "Vaudoise · 1000.00 CHF",
+    expect(splitLabelKey("invoice", "LK26-INV-001 · Lakeside · 1000.00 CHF")).toEqual({
+      key: "LK26-INV-001",
+      rest: "Lakeside · 1000.00 CHF",
     });
     expect(splitLabelKey("supplier_invoice", "SI-2026-031")).toEqual({
       key: "SI-2026-031",
@@ -15,11 +15,11 @@ describe("splitLabelKey", () => {
   });
 
   it("leaves unkeyed types whole — a bank row leads with its date, a partner is a name", () => {
-    const row = "2026-10-01 · 1000.00 SEK · VA26-INV-001 · SEK main";
+    const row = "2026-10-01 · 1000.00 SEK · LK26-INV-001 · SEK main";
     expect(splitLabelKey("bank_transaction", row)).toEqual({ key: null, rest: row });
-    expect(splitLabelKey("partner", "Vaudoise · Lausanne")).toEqual({
+    expect(splitLabelKey("partner", "Lakeside · Lausanne")).toEqual({
       key: null,
-      rest: "Vaudoise · Lausanne",
+      rest: "Lakeside · Lausanne",
     });
   });
 

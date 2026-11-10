@@ -7,7 +7,7 @@ The month (or the year) as one zip, generated from the links — what the owner 
 ```
 2026-06/
   bank-statements/   SEK.csv  CHF.csv            (savings.csv in the month its export was imported, D31)
-  client-invoices/   InvoiceAF_VA26-INV-001.pdf
+  client-invoices/   InvoiceAF_LK26-INV-001.pdf
   supplier-invoices/ SI214-Acc-01_2026-06-01_Skattepunkten_Office_Services_AB.pdf
   expenses/          Ex213-Rep-01_2026-06-04_.pdf  Reimb_ST26-001_2026-06-28.pdf  (per-diem breakdowns too)
   documents/         <plain documents linked straight to a bank row>

@@ -319,7 +319,7 @@ export const en = {
   "partners.form.basic": "Basic Information",
   "partners.form.identity": "Identity",
   "partners.form.contact": "Contact",
-  "partners.form.shortCodePlaceholder": "VA — invoice numbers become VA26-INV-001",
+  "partners.form.shortCodePlaceholder": "LK — invoice numbers become LK26-INV-001",
   "partners.form.phone": "Phone",
   "partners.form.defaults": "Invoicing defaults",
   "partners.form.none": "None",

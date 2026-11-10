@@ -35,7 +35,7 @@ const flags: PackageFlag[] = [
     kind: "unpaid_invoice",
     entity: "invoice",
     id: "i1",
-    key: "VA26-INV-002",
+    key: "LK26-INV-002",
     detail: "partially paid, 24000.00 CHF open",
     amount: "24000.00",
     currency: "CHF",
@@ -82,7 +82,7 @@ describe("FlagList (F71)", () => {
     expect(screen.getByText("200.00\u00A0CHF open", exact)).toBeInTheDocument();
     expect(screen.getByText("24\u202F000.00\u00A0CHF open", exact)).toBeInTheDocument();
     // keys as code chips; a document not rendered says no more than its section
-    expect(screen.getByText("VA26-INV-002").tagName).toBe("CODE");
+    expect(screen.getByText("LK26-INV-002").tagName).toBe("CODE");
     expect(screen.getByText("Ex213-Tr-01").tagName).toBe("CODE");
     expect(screen.getByText("Train Zürich")).toBeInTheDocument();
     expect(screen.queryByText(/has not been rendered yet/)).toBeNull();

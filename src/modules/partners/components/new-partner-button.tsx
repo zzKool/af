@@ -94,7 +94,7 @@ function NewPartnerDialog({ onClose }: { onClose: () => void }) {
               id="new-partner-short"
               value={shortCode}
               onChange={(e) => setShortCode(e.target.value.toUpperCase())}
-              placeholder="VA"
+              placeholder="LK"
               maxLength={6}
               className="uppercase"
             />

@@ -75,7 +75,7 @@ Radius: 4 px tags, chips and checks · 8 px controls (buttons, inputs, menu item
 ### Type
 - **Geist** for everything, **Geist Mono** for keys, file names and figures in a ticker — from the `geist` package through `next/font/local` (`app/layout.tsx`): the files ship in the image, nothing is fetched at build or at run time (D51's *the box sends out only*), the system stack shows while they load. D40 had dropped Geist for the system stack; D76 brings it back for the look.
 - Scale: page title 26 / 700 (D77) · panel title 15 / 600 · body, table, labels 13 / 400 · table headers 10.5 / 500 uppercase, 0.1 em (D77) · section heads 13 / 600 · secondary 12 / 400 · the rail 13.5 / 400 (600 active) · rail group labels 10.5 / 500 uppercase, 0.12 em · the selected amount in the details panel 22 / 600.
-- `font-variant-numeric: tabular-nums` on every figure (amounts, dates, counts, rates). Business keys (`VA26-INV-007`, `SI-2026-031`, `Ex12-6540-003_2026-07-28_`) render as a mono **code chip** (`--tag` background, 4 px radius).
+- `font-variant-numeric: tabular-nums` on every figure (amounts, dates, counts, rates). Business keys (`LK26-INV-007`, `SI-2026-031`, `Ex12-6540-003_2026-07-28_`) render as a mono **code chip** (`--tag` background, 4 px radius).
 
 ### Numbers
 One format in every UI language: thousands with a narrow no-break space (U+202F), `.` decimals, a true minus (U+2212), `+` only where the sign is the point (bank rows), the currency code after: `−2 312.43 SEK`, `+237 740.00 SEK`, `24 000.00 CHF`. One kernel formatter (`kernel/money`), never `toLocaleString` in a component. Printed documents (invoices, statements) keep their language's format — that is [[pdf]]'s rule, not this one.

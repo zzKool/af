@@ -17,7 +17,7 @@ export type ReadyItem = { key: ReadyKey; state: ReadyState; params?: Record<stri
 
 export type ReadyFacts = {
   type: "invoice" | "quote" | "credit_note";
-  /** the client's short code — the number's series needs it (`VA26-INV-001`) */
+  /** the client's short code — the number's series needs it (`LK26-INV-001`) */
   partnerShortCode: string | null;
   lines: readonly { description: string; quantity: string; unitPrice: string }[];
   periodLabel: string | null;

@@ -15,7 +15,7 @@ function pageCount(pdf: Buffer): number {
 const doc = (lineCount: number): SheetDocument => ({
   type: "invoice",
   status: "issued",
-  number: "VA26-INV-001",
+  number: "LK26-INV-001",
   issueDate: "2026-01-31",
   dueDate: "2026-03-02",
   periodLabel: "2026 January",
@@ -34,7 +34,7 @@ const doc = (lineCount: number): SheetDocument => ({
       vatCountry: "CH",
     },
     partner: {
-      name: "Client VA SA",
+      name: "Lakeside Assurance SA",
       address: { city: "Lausanne", country: "CH" },
       vatNumber: null,
       orgNumber: null,

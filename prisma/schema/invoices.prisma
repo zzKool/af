@@ -32,7 +32,7 @@ model Invoice {
   tenantId          String        @map("tenant_id") @db.Uuid
   type              InvoiceType
   status            InvoiceStatus @default(draft)
-  /// `VA26-001` / `VA26-QT-001` / `VA26-CN-001` — assigned at issue, null while draft (D21)
+  /// `LK26-001` / `LK26-QT-001` / `LK26-CN-001` — assigned at issue, null while draft (D21)
   number            String?       @db.VarChar(30)
   partnerId         String        @map("partner_id") @db.Uuid
   contractId        String?       @map("contract_id") @db.Uuid

@@ -113,7 +113,7 @@ export type EntityFacts = {
   amountBase: string | null;
   /** ISO date that anchors the ± window: issue date, invoice date, expense date, booking date */
   date: string;
-  /** the number or key that may appear in a bank row's text (`VA26-INV-001`, `Ex213-Tr-01`, `9160`) */
+  /** the number or key that may appear in a bank row's text (`LK26-INV-001`, `Ex213-Tr-01`, `9160`) */
   reference: string | null;
   partnerName: string | null;
   /** free text the other side's reference / name is searched in */

@@ -1,6 +1,6 @@
 // Metadata, the D40 way — three small grey things, never a colour:
 //   <Tag>        bank, currency, document type, VAT registration (12 px, 4 px radius, --tag)
-//   <CodeChip>   a business key: VA26-INV-007, SI-2026-031, Ex12-6540-003_2026-07-28_ (mono)
+//   <CodeChip>   a business key: LK26-INV-007, SI-2026-031, Ex12-6540-003_2026-07-28_ (mono)
 //   <CountBadge> an open-work or tab count (round, 11 px / 600, --border-subtle)
 // and the Pulse header's <Chip> (D76, the board *Partner*): a fact about the entity under its title — a city, the
 // invoicing currency — round, 24 px, on a faint tint; `tone="info"` for the entity's kind. A state is never a

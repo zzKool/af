@@ -89,7 +89,7 @@ interface PartnerDetailTabsProps {
   activity?: ReactNode;
   /** F144: the partner's invoices and credit notes, for *Linked* */
   invoiceCount?: number;
-  /** today's year (the clock's), for the short code's "→ invoices VA26-INV-…" */
+  /** today's year (the clock's), for the short code's "→ invoices LK26-INV-…" */
   year: string;
 }
 

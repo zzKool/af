@@ -234,7 +234,7 @@ export const sv: PartialDictionary = {
   "partners.form.typeRequired": "Minst en typ krävs",
   "partners.form.identifiersMax": "Högst 5 externa identifierare",
   "partners.form.basic": "Grunduppgifter",
-  "partners.form.shortCodePlaceholder": "VA — fakturanumren blir VA26-INV-001",
+  "partners.form.shortCodePlaceholder": "LK — fakturanumren blir LK26-INV-001",
   "partners.form.phone": "Telefon",
   "partners.form.defaults": "Standardvärden",
   "partners.form.none": "Ingen",

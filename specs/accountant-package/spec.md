@@ -17,7 +17,7 @@ The owner opens `/package`. One row per month that has bank rows (newest first; 
 ```
 2026-06/
   bank-statements/   SEK.csv  CHF.csv            (savings.csv in the month its export was imported, D31)
-  client-invoices/   InvoiceAF_VA26-INV-001.pdf
+  client-invoices/   InvoiceAF_LK26-INV-001.pdf
   supplier-invoices/ SI213-Acc-01_2026-06-24_Skattepunkten.pdf
   expenses/          Ex213-Tr-01_2026-06-11_.pdf  Reimb_ST26-001_2026-06-30.pdf
   documents/         <plain documents linked straight to a bank row>

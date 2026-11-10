@@ -21,7 +21,7 @@ const invoices: SearchGroup = {
     {
       kind: "invoice",
       id: "i1",
-      key: "VA23-INV-001",
+      key: "LK23-INV-001",
       label: "Acme AB · April 2023",
       date: "2023-04-30",
       amount: "1250.00",
@@ -31,7 +31,7 @@ const invoices: SearchGroup = {
     },
   ],
   more: false,
-  seeAllHref: "/invoices?q=VA23-INV-001",
+  seeAllHref: "/invoices?q=LK23-INV-001",
 };
 const bank: SearchGroup = {
   kind: "bank_transaction",
@@ -40,7 +40,7 @@ const bank: SearchGroup = {
       kind: "bank_transaction",
       id: "b1",
       key: null,
-      label: "INVOICE VA23",
+      label: "INVOICE LK23",
       date: "2023-05-10",
       amount: "1250.00",
       currency: "CHF",
@@ -49,7 +49,7 @@ const bank: SearchGroup = {
     },
   ],
   more: true,
-  seeAllHref: "/banking?q=VA23-INV-001",
+  seeAllHref: "/banking?q=LK23-INV-001",
 };
 
 async function openAndType(text: string) {
@@ -104,12 +104,12 @@ describe("SearchPalette (F93)", () => {
   it("asks the server, shows the groups, ↓ ↑ Enter opens the deep link", async () => {
     const search = vi.fn(async () => ({ data: { data: [invoices, bank] } }));
     render(<SearchPalette role={OWNER} search={search} />);
-    const input = await openAndType("VA23-INV-001");
+    const input = await openAndType("LK23-INV-001");
 
-    expect(search).toHaveBeenCalledWith({ q: "VA23-INV-001" });
+    expect(search).toHaveBeenCalledWith({ q: "LK23-INV-001" });
     expect(await screen.findByRole("group", { name: "Invoices" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Bank rows" })).toBeInTheDocument();
-    const first = screen.getByRole("option", { name: /VA23-INV-001/ });
+    const first = screen.getByRole("option", { name: /LK23-INV-001/ });
     expect(first).toHaveAttribute("aria-selected", "true");
     expect(input).toHaveAttribute("aria-activedescendant", first.id);
     expect(first).toHaveTextContent("1 250.00 CHF");
@@ -133,8 +133,8 @@ describe("SearchPalette (F93)", () => {
       })
       .mockImplementationOnce(async () => ({ data: { data: [invoices] } }));
     render(<SearchPalette role={OWNER} search={search} />);
-    const input = await openAndType("VA");
-    fireEvent.change(input, { target: { value: "VA23-INV-001" } });
+    const input = await openAndType("LK");
+    fireEvent.change(input, { target: { value: "LK23-INV-001" } });
     await act(async () => {
       vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS + 10);
     });

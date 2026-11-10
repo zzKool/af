@@ -128,8 +128,8 @@ async function juneFixture(): Promise<Fixture> {
       rateSchedule: { rates: [8.1] },
     });
     const partner = await partners.createPartner(tx, caller, noopAudit, {
-      name: "Vaudoise Assurances",
-      shortCode: "VA",
+      name: "Lakeside Assurance",
+      shortCode: "LK",
       types: ["client"],
       defaultCurrency: "CHF",
       defaultLanguage: "fr",
@@ -265,7 +265,7 @@ async function juneFixture(): Promise<Fixture> {
     ]);
     const chf = await importRows(tx, caller, owner.accounts.chf, "CHF", [
       { date: "2026-06-05", amount: "1000.00", name: "CHANGE CHFSEK", message: "from SEK" },
-      { date: "2026-06-15", amount: "24980.00", name: "VAUDOISE ASSURANCES", message: inv.number },
+      { date: "2026-06-15", amount: "24980.00", name: "LAKESIDE ASSURANCE", message: inv.number },
     ]);
     return {
       transferOut: sek[0] as string,
@@ -416,7 +416,7 @@ describe("SC-001 — the fixture month", () => {
     expect(data.income).toHaveLength(1);
     expect(data.income[0]).toMatchObject({
       number: f.invoiceNumber,
-      client: "Vaudoise Assurances",
+      client: "Lakeside Assurance",
       total: "25000.00",
       paid: "24980.00",
       remaining: "20.00",
@@ -529,7 +529,7 @@ describe("SC-001 — the fixture month", () => {
           ?.id as string,
       );
       const [julyRow] = await importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-07-03", amount: "25000.00", name: "VAUDOISE", message: f.invoiceNumber },
+        { date: "2026-07-03", amount: "25000.00", name: "LAKESIDE", message: f.invoiceNumber },
       ]);
       await rate("2026-07-03");
       await linking.createLink(tx, owner.caller, noopAudit, {
@@ -799,7 +799,7 @@ describe("F83 — periodFlags: the flags without the package (the dashboard's it
         { date: "2026-07-03", amount: "-150.00", name: "INVENTED SOFTWARE" },
       ]);
       const [client] = await importRows(tx, caller, owner.accounts.chf, "CHF", [
-        { date: "2026-07-03", amount: "10.00", name: "VAUDOISE", message: f.invoiceNumber },
+        { date: "2026-07-03", amount: "10.00", name: "LAKESIDE", message: f.invoiceNumber },
       ]);
       const paid = await supplierInvoices.recordPayment(tx, caller, noopAudit, {
         invoiceId: si.data.id,

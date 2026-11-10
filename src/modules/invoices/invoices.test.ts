@@ -76,7 +76,7 @@ afterAll(async () => {
   await adminPool.end();
 });
 
-/** The owner's world: Swiss client VA (fr, CHF), CH registration 8.1 %, contract NET_30 with the rate history. */
+/** The owner's world: Swiss client LK (fr, CHF), CH registration 8.1 %, contract NET_30 with the rate history. */
 async function world(caller: CallerIdentity, opts: { shortCode?: string | null } = {}) {
   return withTenantTransaction(prisma, caller.tenantId, async (tx) => {
     const reg = await settings.createVatRegistration(tx, caller, noopAudit, {
@@ -85,8 +85,8 @@ async function world(caller: CallerIdentity, opts: { shortCode?: string | null }
       rateSchedule: { rates: [8.1, 2.6, 3.8] },
     });
     const partner = await partners.createPartner(tx, caller, noopAudit, {
-      name: "Client VA SA",
-      shortCode: opts.shortCode === undefined ? "VA" : (opts.shortCode ?? ""),
+      name: "Lakeside Assurance SA",
+      shortCode: opts.shortCode === undefined ? "LK" : (opts.shortCode ?? ""),
       types: ["client"],
       defaultCurrency: "CHF",
       defaultLanguage: "fr",
@@ -237,9 +237,9 @@ describe("US1 — draft and issue a monthly invoice", () => {
       vatByRate: [{ rate: "8.1", base: "24000.00", vat: "1944.00" }],
     });
     const hint = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
-      queries.nextNumberHint(tx, "invoice", "VA", "2026-01-31"),
+      queries.nextNumberHint(tx, "invoice", "LK", "2026-01-31"),
     );
-    expect(hint).toBe("VA26-INV-001");
+    expect(hint).toBe("LK26-INV-001");
   });
 
   it("issue: number, base amounts at the ECB rate of the issue date, declaration period, snapshot, lock (scenario 3)", async () => {
@@ -253,7 +253,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
     const inv = issued.data as NonNullable<typeof issued.data>;
     expect(inv).toMatchObject({
       status: "issued",
-      number: "VA26-INV-001",
+      number: "LK26-INV-001",
       issuedAt: NOW,
       rateToBase: "11.987041",
       rateSource: "ecb_nearest", // 2026-01-31 is a Saturday → Friday's rate, and it says so
@@ -263,7 +263,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
       totalBase: "310991.79", // = subtotalBase + vatBase, reconciles with the SEK parts
       declarationPeriod: "CH 2026/Q1",
     });
-    expect(inv.printedParties?.partner).toMatchObject({ name: "Client VA SA" });
+    expect(inv.printedParties?.partner).toMatchObject({ name: "Lakeside Assurance SA" });
     expect(inv.printedParties?.tenant).toMatchObject({
       vatNumber: "CHE-000.000.000 TVA",
       vatCountry: "CH",
@@ -274,7 +274,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
     const second = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
       invoices.issue(tx, caller, noopAudit, NOW, { id: d2.id }),
     );
-    expect(second.data?.number).toBe("VA26-INV-002");
+    expect(second.data?.number).toBe("LK26-INV-002");
     await assertAuditLogged(adminPool, caller.tenantId, "update", "invoice", inv.id);
   });
 
@@ -382,7 +382,7 @@ describe("US1 — draft and issue a monthly invoice", () => {
 
     // a USD invoice with no ECB rate for USD → refused, never a silent null base
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
-      await partners.updatePartner(tx, caller, noopAudit, w.partnerId, { shortCode: "VA" });
+      await partners.updatePartner(tx, caller, noopAudit, w.partnerId, { shortCode: "LK" });
       const usd = await invoices.createDraft(tx, caller, noopAudit, TODAY, {
         partnerId: w.partnerId,
         currency: "USD",
@@ -419,21 +419,21 @@ describe("US1 — draft and issue a monthly invoice", () => {
     );
     const numbers = results.map((r) => r.data?.number).sort();
     expect(numbers).toEqual(
-      Array.from({ length: 15 }, (_, i) => `VA26-INV-${String(i + 1).padStart(3, "0")}`),
+      Array.from({ length: 15 }, (_, i) => `LK26-INV-${String(i + 1).padStart(3, "0")}`),
     );
 
     const d16 = await januaryDraft(caller, w);
     await expect(
       withTenantTransaction(prisma, caller.tenantId, async (tx) => {
         const r = await invoices.issue(tx, caller, noopAudit, NOW, { id: d16.id });
-        expect(r.data?.number).toBe("VA26-INV-016");
+        expect(r.data?.number).toBe("LK26-INV-016");
         throw new Error("rollback");
       }),
     ).rejects.toThrow("rollback");
     const again = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
       invoices.issue(tx, caller, noopAudit, NOW, { id: d16.id }),
     );
-    expect(again.data?.number).toBe("VA26-INV-016");
+    expect(again.data?.number).toBe("LK26-INV-016");
   });
 });
 
@@ -466,7 +466,7 @@ describe("F57 — base figures with a header discount", () => {
 });
 
 describe("US3 — credit notes", () => {
-  it("full credit note: VA26-CN-001 with the original's totals; the original reads credited (scenario 1)", async () => {
+  it("full credit note: LK26-CN-001 with the original's totals; the original reads credited (scenario 1)", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const w = await world(caller);
     const d = await januaryDraft(caller, w);
@@ -482,14 +482,14 @@ describe("US3 — credit notes", () => {
         status: "draft",
         relatedInvoiceId: d.id,
         totalAmount: "25944.00",
-        internalNote: "Credit note for VA26-INV-001",
+        internalNote: "Credit note for LK26-INV-001",
       });
       expect(draft.data?.lines[0].description).toBe("Credit: Consulting Services");
       // before it is issued the original is untouched
       expect((await queries.getInvoice(tx, d.id, TODAY)).data?.state).toBe("issued");
       return invoices.issue(tx, caller, noopAudit, NOW, { id: draft.data?.id as string });
     });
-    expect(cn.data).toMatchObject({ number: "VA26-CN-001", declarationPeriod: "CH 2026/Q1" });
+    expect(cn.data).toMatchObject({ number: "LK26-CN-001", declarationPeriod: "CH 2026/Q1" });
     const original = await withTenantTransaction(prisma, caller.tenantId, (tx) =>
       queries.getInvoice(tx, d.id, TODAY),
     );
@@ -556,7 +556,7 @@ describe("US3 — credit notes", () => {
 });
 
 describe("US4 — quotes", () => {
-  it("quote: valid until +30, VA26-QUO-001, no declaration period; accept; convert; converted state (scenarios 1–3)", async () => {
+  it("quote: valid until +30, LK26-QUO-001, no declaration period; accept; convert; converted state (scenarios 1–3)", async () => {
     const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
     const w = await world(caller);
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
@@ -571,7 +571,7 @@ describe("US4 — quotes", () => {
       });
       expect(q.data?.dueDate).toBe("2026-02-14");
       const issued = await invoices.issue(tx, caller, noopAudit, NOW, { id: q.data?.id as string });
-      expect(issued.data).toMatchObject({ number: "VA26-QUO-001", declarationPeriod: null });
+      expect(issued.data).toMatchObject({ number: "LK26-QUO-001", declarationPeriod: null });
       const id = issued.data?.id as string;
 
       expect((await queries.getInvoice(tx, id, "2026-03-01")).data?.state).toBe("expired");
@@ -595,11 +595,11 @@ describe("US4 — quotes", () => {
       await invoices.issue(tx, caller, noopAudit, NOW, { id: converted.data?.id as string });
       expect((await queries.getInvoice(tx, id, TODAY)).data).toMatchObject({
         state: "converted",
-        convertedTo: "VA26-INV-001",
+        convertedTo: "LK26-INV-001",
       });
       // money never settles a quote; the related list shows the invoice
       const related = await queries.relatedDocuments(tx, id);
-      expect(related.map((r) => r.number)).toEqual(["VA26-INV-001"]);
+      expect(related.map((r) => r.number)).toEqual(["LK26-INV-001"]);
     });
   });
 
@@ -720,7 +720,7 @@ describe("US5 — derived states and the list", () => {
       }
       const header =
         "Date;Amount;Sender;Recipient;Name;Additional details;Message;Own notes;Balance;Currency;";
-      const line = `2026/02/10;${amount.replace(".", ",")};;;Client VA SA;;Payment ${crypto.randomUUID().slice(0, 8)};;;CHF;`;
+      const line = `2026/02/10;${amount.replace(".", ",")};;;Lakeside Assurance SA;;Payment ${crypto.randomUUID().slice(0, 8)};;;CHF;`;
       const r = await banking.importCsv(tx, caller, noopAudit, storage, {
         bankAccountId: accountId,
         fileName: `PLUSGIROKONTO FTG 123 45 67-8 - ${crypto.randomUUID().slice(0, 8)}.csv`,
@@ -814,7 +814,7 @@ describe("US5 — derived states and the list", () => {
       const all = await queries.listInvoices(tx, q, "2026-02-10");
       expect(all.total).toBe(3);
       expect(all.rows.map((r) => r.state).sort()).toEqual(["draft", "paid", "sent"]);
-      expect(all.rows[0].partnerName).toBe("Client VA SA");
+      expect(all.rows[0].partnerName).toBe("Lakeside Assurance SA");
       expect(all.sums?.totalAmount).toBe("77832.00");
       expect(all.sums?.remaining).toBe("25944.00");
 
@@ -823,23 +823,27 @@ describe("US5 — derived states and the list", () => {
         { ...q, filters: { state: { kind: "in", values: ["paid"] } } },
         "2026-02-10",
       );
-      expect(paid.rows.map((r) => r.number)).toEqual(["VA26-INV-001"]);
+      expect(paid.rows.map((r) => r.number)).toEqual(["LK26-INV-001"]);
 
       const byNumber = await queries.listInvoices(
         tx,
         { ...q, sort: [{ col: "number", dir: "asc" }] },
         "2026-02-10",
       );
-      expect(byNumber.rows.map((r) => r.number)).toEqual(["VA26-INV-001", "VA26-INV-002", null]); // blanks last
+      expect(byNumber.rows.map((r) => r.number)).toEqual(["LK26-INV-001", "LK26-INV-002", null]); // blanks last
 
-      const search = await queries.listInvoices(tx, { ...q, search: "client va" }, "2026-02-10");
+      const search = await queries.listInvoices(
+        tx,
+        { ...q, search: "lakeside assurance" },
+        "2026-02-10",
+      );
       expect(search.total).toBe(3);
       const search2 = await queries.listInvoices(
         tx,
-        { ...q, search: "VA26-INV-002" },
+        { ...q, search: "LK26-INV-002" },
         "2026-02-10",
       );
-      expect(search2.rows.map((r) => r.number)).toEqual(["VA26-INV-002"]);
+      expect(search2.rows.map((r) => r.number)).toEqual(["LK26-INV-002"]);
 
       const states = await queries.distinctInvoiceValues(tx, "state", q, "2026-02-10");
       expect(states.map((s) => s.value).sort()).toEqual(["draft", "paid", "sent"]);
@@ -861,7 +865,7 @@ describe("US5 — derived states and the list", () => {
         { ...q, filters: { remaining: { kind: "range", min: "1" } } },
         "2026-02-10",
       );
-      expect(remaining.rows.map((r) => r.number)).toEqual(["VA26-INV-002"]);
+      expect(remaining.rows.map((r) => r.number)).toEqual(["LK26-INV-002"]);
     });
   });
 

@@ -344,7 +344,7 @@ describe("linking service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const { tenantId } = owner.callerIdentity;
     const invoiceId = uuid();
-    fakeInvoices.set(invoiceId, { label: "VA26-INV-001", amount: "1000.00", currency: "CHF" });
+    fakeInvoices.set(invoiceId, { label: "LK26-INV-001", amount: "1000.00", currency: "CHF" });
     const tx1 = uuid();
     const tx2 = uuid();
     const tx3 = uuid();
@@ -411,8 +411,8 @@ describe("linking service", () => {
     const [a, b, idle] = [uuid(), uuid(), uuid()];
     for (const id of [a, b, idle]) fakeTransactions.add(id);
     const [inv1, inv2] = [uuid(), uuid()];
-    fakeInvoices.set(inv1, { label: "VA26-INV-001", amount: "1000.00", currency: "CHF" });
-    fakeInvoices.set(inv2, { label: "VA26-INV-002", amount: "1000.00", currency: "CHF" });
+    fakeInvoices.set(inv1, { label: "LK26-INV-001", amount: "1000.00", currency: "CHF" });
+    fakeInvoices.set(inv2, { label: "LK26-INV-002", amount: "1000.00", currency: "CHF" });
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
       const link = (from: string, to: string, allocatedAmount?: string) =>
         linking.createLink(tx, caller, noopAudit, {
@@ -455,10 +455,10 @@ describe("linking service", () => {
     const [row1, row2, row3] = [uuid(), uuid(), uuid()];
     for (const id of [row1, row2, row3]) fakeTransactions.add(id);
     const [paid, partly, bare, untouched] = [uuid(), uuid(), uuid(), uuid()];
-    fakeInvoices.set(paid, { label: "VA26-INV-010", amount: "1000.00", currency: "CHF" });
-    fakeInvoices.set(partly, { label: "VA26-INV-011", amount: "500.00", currency: "CHF" });
-    fakeInvoices.set(bare, { label: "VA26-INV-012", amount: "80.00", currency: "CHF" });
-    fakeInvoices.set(untouched, { label: "VA26-INV-013", amount: "40.00", currency: "CHF" });
+    fakeInvoices.set(paid, { label: "LK26-INV-010", amount: "1000.00", currency: "CHF" });
+    fakeInvoices.set(partly, { label: "LK26-INV-011", amount: "500.00", currency: "CHF" });
+    fakeInvoices.set(bare, { label: "LK26-INV-012", amount: "80.00", currency: "CHF" });
+    fakeInvoices.set(untouched, { label: "LK26-INV-013", amount: "40.00", currency: "CHF" });
     await withTenantTransaction(prisma, caller.tenantId, async (tx) => {
       const justify = (from: string, to: string, allocatedAmount?: string) =>
         linking.createLink(tx, caller, noopAudit, {
@@ -496,7 +496,7 @@ describe("linking service", () => {
     const owner = await createAuthenticatedContext(auth, "owner");
     const { tenantId } = owner.callerIdentity;
     const invoiceId = uuid();
-    fakeInvoices.set(invoiceId, { label: "VA26-INV-002", amount: "100.00", currency: "CHF" });
+    fakeInvoices.set(invoiceId, { label: "LK26-INV-002", amount: "100.00", currency: "CHF" });
     const t = uuid();
     fakeTransactions.add(t);
 

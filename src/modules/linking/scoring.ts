@@ -162,7 +162,7 @@ export function nameInTexts(
 }
 
 /**
- * The tokens of a row's text that could be an entity's number (`VA26-003`, `9160`, `2026-0031`): three characters
+ * The tokens of a row's text that could be an entity's number (`LK26-003`, `9160`, `2026-0031`): three characters
  * or more with a digit, as written and upper-cased — what a finder looks numbers up by, whatever their date.
  */
 export function referenceTokens(texts: readonly (string | null)[]): string[] {

@@ -46,9 +46,9 @@
     },
     {
       "col": "name",
-      "filter": { "op": "equals", "value": "Vaudoise" },
-      "url": "f.name=equals:Vaudoise",
-      "sql": "lower(name) = lower('Vaudoise')"
+      "filter": { "op": "equals", "value": "Lakeside" },
+      "url": "f.name=equals:Lakeside",
+      "sql": "lower(name) = lower('Lakeside')"
     },
     {
       "col": "note",

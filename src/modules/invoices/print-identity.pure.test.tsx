@@ -81,10 +81,10 @@ const issued: SheetDocument = {
 const creditNote: SheetDocument = {
   ...issued,
   type: "credit_note",
-  number: "VA26-CN-001",
+  number: "LK26-CN-001",
   language: "sv",
   currency: "EUR",
-  relatedNumber: "VA26-INV-001",
+  relatedNumber: "LK26-INV-001",
   notes: "Kreditering av januari.",
   discountPercent: "5",
   lines: [
@@ -128,7 +128,7 @@ describe("the printed sheet is unchanged by the screens' kit (F71)", () => {
 
   it("a quote", async () => {
     await expect(
-      html({ ...issued, type: "quote", number: "VA26-QUO-001", language: "en" }),
+      html({ ...issued, type: "quote", number: "LK26-QUO-001", language: "en" }),
     ).toMatchFileSnapshot("__snapshots__/print-identity/quote-en.html");
   });
 });

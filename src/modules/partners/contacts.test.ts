@@ -51,7 +51,7 @@ async function owner() {
   return callerIdentity;
 }
 
-async function partnerOf(caller: CallerIdentity, name = "Vaudoise") {
+async function partnerOf(caller: CallerIdentity, name = "Lakeside") {
   const p = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
     name,
     types: ["client"],
@@ -72,8 +72,8 @@ describe("US1 — add a contact person", () => {
         partnerId,
         name: "  Anne Muster ",
         role: "Head of BI",
-        email: "anne.muster@vaudoise.ch",
-        phone: " +41 21 618 80 80",
+        email: "anne.muster@lakeside.example",
+        phone: " +41 32 555 01 23",
       }),
     );
     expect(r.error).toBeUndefined();
@@ -81,8 +81,8 @@ describe("US1 — add a contact person", () => {
       partnerId,
       name: "Anne Muster",
       role: "Head of BI",
-      email: "anne.muster@vaudoise.ch",
-      phone: "+41 21 618 80 80",
+      email: "anne.muster@lakeside.example",
+      phone: "+41 32 555 01 23",
     });
     await assertAuditLogged(adminPool, caller.tenantId, "create", "partner_contact", r.data?.id);
 
@@ -174,8 +174,8 @@ describe("US2 — correct or remove a contact", () => {
         partnerId,
         name: "Anne Muster",
         role: "Head of BI",
-        email: "anne@vaudoise.ch",
-        phone: "+41 21 618 80 80",
+        email: "anne@lakeside.example",
+        phone: "+41 32 555 01 23",
       }),
     );
     if (!created.data) throw new Error("setup failed");
@@ -190,8 +190,8 @@ describe("US2 — correct or remove a contact", () => {
     expect(r.data).toMatchObject({
       name: "Anne Muster",
       role: "CDO",
-      email: "anne@vaudoise.ch",
-      phone: "+41 21 618 80 80",
+      email: "anne@lakeside.example",
+      phone: "+41 32 555 01 23",
     });
     await assertAuditLogged(adminPool, caller.tenantId, "update", "partner_contact", id);
     const audit = await adminPool.query(

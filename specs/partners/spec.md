@@ -16,7 +16,7 @@ A partner today has one company-level e-mail and phone. A client has people: the
 
 ### User Story 1 - Add a contact person (Priority: P1)
 
-The owner opens a partner (`/partners/<id>`), goes to the **Contacts** tab, clicks **Add contact**, types *Anne Muster* · *Head of BI* · `anne.muster@vaudoise.ch` · `+41 21 618 80 80`, and saves. The row appears in the list; the tab label reads *Contacts (1)*.
+The owner opens a partner (`/partners/<id>`), goes to the **Contacts** tab, clicks **Add contact**, types *Anne Muster* · *Head of BI* · `anne.muster@lakeside.example` · `+41 32 555 01 23`, and saves. The row appears in the list; the tab label reads *Contacts (1)*.
 
 **Why this priority**: it is the feature.
 

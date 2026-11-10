@@ -8,13 +8,13 @@ import { inWindow, paymentWindow, termsSpan } from "./window";
 const invoice = (over: Partial<EntityFacts> = {}): EntityFacts => ({
   type: "invoice",
   id: "i1",
-  label: "VA26-003",
+  label: "LK26-003",
   amount: "24000.00",
   currency: "CHF",
   amountBase: "258000.00",
   date: "2026-06-30",
   dueDate: "2026-07-30",
-  reference: "VA26-003",
+  reference: "LK26-003",
   partnerName: "Byteform AG",
   partnerId: "p-byteform",
   texts: [],
@@ -85,8 +85,8 @@ describe("names, numbers, memory (F116 FR-003 / FR-004)", () => {
   });
 
   it("reference tokens keep what could be a number", () => {
-    expect(referenceTokens(["BYTEFORM AG VA26-003", null, "Kortköp 260727 OPENAI"])).toEqual(
-      expect.arrayContaining(["VA26-003", "260727"]),
+    expect(referenceTokens(["BYTEFORM AG LK26-003", null, "Kortköp 260727 OPENAI"])).toEqual(
+      expect.arrayContaining(["LK26-003", "260727"]),
     );
     expect(referenceTokens(["OPENAI *CHATGPT"])).toEqual([]);
   });
@@ -96,7 +96,7 @@ describe("names, numbers, memory (F116 FR-003 / FR-004)", () => {
     currency: "CHF",
     amountBase: "258000.00",
     date: over.date ?? "2026-07-30",
-    texts: over.texts ?? ["BYTEFORM AG", "VA26-003"],
+    texts: over.texts ?? ["BYTEFORM AG", "LK26-003"],
   });
 
   it("case 1 — the invoice paid on its terms: number, client token, exact amount, the due date → HIGH 135", () => {

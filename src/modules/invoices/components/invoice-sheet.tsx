@@ -17,7 +17,7 @@ export type SheetDocument = {
   type: InvoiceType;
   status: "draft" | "issued" | "sent" | "accepted" | "declined";
   number: string | null;
-  /** the hint for drafts: "will be VA26-004" */
+  /** the hint for drafts: "will be LK26-004" */
   numberHint?: string | null;
   issueDate: string;
   dueDate: string | null;
@@ -125,7 +125,7 @@ export function sheetCountry(country: string | undefined, language: string): str
   return countryName(country, language);
 }
 
-// The shape (F145) is the owner's own invoice: the logo centred on top; "Invoice VA26-…" on the right; the
+// The shape (F145) is the owner's own invoice: the logo centred on top; "Invoice LK26-…" on the right; the
 // company (left) and the client (right), the dates, period and references under the client as a bold list;
 // a grey table header; the totals with a grey total row; the payment box grey; the footer line.
 const GREY = "#f3f4f6";
@@ -178,7 +178,7 @@ export function InvoiceSheet({ mode, doc, slots = {} }: SheetProps) {
         </div>
       )}
 
-      {/* "Invoice VA26-004" on the right */}
+      {/* "Invoice LK26-004" on the right */}
       <header className="mb-[7mm] text-right">
         <div className="text-[15pt]" style={isCredit ? { color: "#b91c1c" } : undefined}>
           <span style={{ color: MUTED }}>{title}</span>{" "}

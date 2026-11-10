@@ -15,7 +15,7 @@ Every module of [[feature-inventory]] §3 has a build behind it; the status line
 | Module | What works | Doc |
 |---|---|---|
 | Partners, contracts | hub with types, identifiers, defaults; contracts with dated rates; the 360° entity page (documents, journal, graph) | [[partners]], [[contracts]] |
-| Invoices | quotes → invoices → credit notes, `VA26-INV-001` series, one sheet edit/print, Chromium PDF stored as a document, paid derived from links, CH declaration period | [[invoices]] |
+| Invoices | quotes → invoices → credit notes, `LK26-INV-001` series, one sheet edit/print, Chromium PDF stored as a document, paid derived from links, CH declaration period | [[invoices]] |
 | Supplier invoices | payables with `SI` keys, terms, derived status, payment links, cancel, copy last | [[supplier-invoices]] |
 | Expenses, traktamente | groups, four payment sources, `Ex` keys, owner liability ledger, FIFO settlements + statement PDF, trips with the half-day rule + per-diem PDF | [[expenses]], [[traktamente]] |
 | Documents | upload → blob → key → OCR job → review page (auto-save, corrections, classify, mark reviewed, *Make it…*) → library with Excel filters, retention guard on delete; content-hash duplicates; the inbox work page with archive + undo and the keyboard | [[document-upload]], [[document-review]], [[document-library]], [[document-inbox]] |

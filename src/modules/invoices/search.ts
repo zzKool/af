@@ -1,4 +1,4 @@
-// Global search (F93, D56): quotes, invoices and credit notes — by number (`VA23-INV-001`), period label, total.
+// Global search (F93, D56): quotes, invoices and credit notes — by number (`LK23-INV-001`), period label, total.
 // Drafts too (no number yet: found by period or amount). One query; the client names of the shown hits in one
 // batched read through partners' index.
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";

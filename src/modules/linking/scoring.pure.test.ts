@@ -242,13 +242,13 @@ describe("scoreMatch — cross-currency, partial payments, references", () => {
   const base = (over: Partial<EntityFacts> = {}): EntityFacts => ({
     type: "invoice",
     id: "i1",
-    label: "VA26-INV-001",
+    label: "LK26-INV-001",
     amount: "25000.00",
     currency: "CHF",
     amountBase: "268750.00",
     date: "2026-03-10",
-    reference: "VA26-INV-001",
-    partnerName: "Vaudoise Assurances",
+    reference: "LK26-INV-001",
+    partnerName: "Lakeside Assurance",
     texts: [],
     direction: "incoming",
     remaining: "25000.00",
@@ -259,7 +259,7 @@ describe("scoreMatch — cross-currency, partial payments, references", () => {
     currency: "CHF",
     amountBase: "268750.00",
     date: "2026-03-12",
-    texts: ["VAUDOISE ASSURANCES", "", "", "", "Payment VA26-INV-001"],
+    texts: ["LAKESIDE ASSURANCE", "", "", "", "Payment LK26-INV-001"],
     ...over,
   });
 
@@ -280,7 +280,7 @@ describe("scoreMatch — cross-currency, partial payments, references", () => {
   });
 
   it("a short payment (foreign bank fee of 20 on 25 000) is still an exact match; 200 off is very close", () => {
-    const m = scoreMatch(r({ amount: "24980.00", texts: ["VAUDOISE ASSURANCES"] }), base());
+    const m = scoreMatch(r({ amount: "24980.00", texts: ["LAKESIDE ASSURANCE"] }), base());
     expect(m?.reasons).toContain("Exact amount match");
     expect(m?.confidence).toBe("HIGH");
     expect(scoreMatch(r({ amount: "24800.00", texts: [""] }), base())?.reasons).toContain(
@@ -298,7 +298,7 @@ describe("scoreMatch — cross-currency, partial payments, references", () => {
       currency: "SEK",
       amount: "268000.00",
       amountBase: "268000.00",
-      texts: ["Vaudoise Assurances"],
+      texts: ["Lakeside Assurance"],
     });
     const m = scoreMatch(sekRow, base());
     expect(m?.crossCurrency).toBe(true);
@@ -311,13 +311,13 @@ describe("scoreMatch — cross-currency, partial payments, references", () => {
     // no base on one side: only a full number keeps the candidate
     expect(scoreMatch({ ...sekRow, amountBase: null, texts: [""] }, base())).toBeNull();
     expect(
-      scoreMatch({ ...sekRow, amountBase: null, texts: ["VA26-INV-001"] }, base())?.reasons,
+      scoreMatch({ ...sekRow, amountBase: null, texts: ["LK26-INV-001"] }, base())?.reasons,
     ).toContain("Cross-currency match (no rate to compare)");
   });
 
   it("partial tokens: INV-2025-042 → 042; years and the word invoice are not tokens", () => {
     expect(partialTokens("INV-2025-042")).toEqual(["042"]);
-    expect(partialTokens("VA26-INV-001")).toEqual(["va26", "001"]);
+    expect(partialTokens("LK26-INV-001")).toEqual(["lk26", "001"]);
     expect(partialTokens("Invoice_2024")).toEqual([]);
   });
 
@@ -332,13 +332,13 @@ describe("properties (SC-002)", () => {
   const arbEntity = fc.record({
     amount: fc.integer({ min: 1, max: 1_000_000 }).map((n) => (n / 100).toFixed(2)),
     date: fc.integer({ min: 0, max: 30 }).map((d) => `2026-03-${String(1 + d).padStart(2, "0")}`),
-    reference: fc.constantFrom("VA26-INV-001", "Ex213-Tr-01", "9160", null),
-    partnerName: fc.constantFrom("Acme Corp", "Vaudoise", null),
+    reference: fc.constantFrom("LK26-INV-001", "Ex213-Tr-01", "9160", null),
+    partnerName: fc.constantFrom("Acme Corp", "Lakeside", null),
   });
   const arbRow = fc.record({
     amount: fc.integer({ min: 1, max: 1_000_000 }).map((n) => (n / 100).toFixed(2)),
     date: fc.integer({ min: 0, max: 30 }).map((d) => `2026-03-${String(1 + d).padStart(2, "0")}`),
-    texts: fc.array(fc.constantFrom("payment", "VA26-INV-001", "acme corp", "", "Ex213-Tr-01"), {
+    texts: fc.array(fc.constantFrom("payment", "LK26-INV-001", "acme corp", "", "Ex213-Tr-01"), {
       maxLength: 4,
     }),
   });

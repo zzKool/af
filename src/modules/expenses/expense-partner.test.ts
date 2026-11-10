@@ -112,7 +112,7 @@ describe("FR-001 — who can be an expense's partner", () => {
     const cerf = await vendor(owner.caller, "Restaurant Le Cerf");
     const client = await run(owner.caller, (tx) =>
       partners.createPartner(tx, owner.caller, noopAudit, {
-        name: "Vaudoise",
+        name: "Lakeside",
         types: ["client"],
         externalIdentifiers: [],
       }),

@@ -82,8 +82,8 @@ async function issuedInvoice(caller: CallerIdentity, opts: { amountDays?: string
       rateSchedule: { rates: [8.1] },
     });
     const partner = await partners.createPartner(tx, caller, noopAudit, {
-      name: "Vaudoise Assurances",
-      shortCode: "VA",
+      name: "Lakeside Assurance",
+      shortCode: "LK",
       types: ["client"],
       defaultCurrency: "CHF",
       defaultLanguage: "fr",
@@ -140,7 +140,7 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
         {
           date: "2026-03-12",
           amount: "25000.00",
-          name: "VAUDOISE ASSURANCES",
+          name: "LAKESIDE ASSURANCE",
           message: `${invoice.number}`,
         },
         { date: "2026-03-13", amount: "3100.00", name: "SOMEONE ELSE", message: "no ref" },
@@ -198,7 +198,7 @@ describe("US1 — suggestions for a bank row and for an entity", () => {
         {
           date: "2026-03-12",
           amount: "268750.00",
-          name: "VAUDOISE ASSURANCES",
+          name: "LAKESIDE ASSURANCE",
           message: "payment",
         },
       ]),
@@ -506,7 +506,7 @@ describe("US2 — apply, allocate, unlink", () => {
     const { invoice } = await issuedInvoice(owner.caller);
     const [paid] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-03-12", amount: "25000.00", name: "VAUDOISE", message: invoice.number ?? "" },
+        { date: "2026-03-12", amount: "25000.00", name: "LAKESIDE", message: invoice.number ?? "" },
       ]),
     );
     const link = await run(owner.caller, (tx) =>
@@ -550,7 +550,7 @@ describe("US2 — apply, allocate, unlink", () => {
     const { invoice } = await issuedInvoice(owner.caller);
     const [paid] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-03-12", amount: "24980.00", name: "VAUDOISE ASSURANCES" },
+        { date: "2026-03-12", amount: "24980.00", name: "LAKESIDE ASSURANCE" },
       ]),
     );
     const s = await run(owner.caller, (tx) => suggestionsForTransaction(tx, paid as string));
@@ -568,7 +568,7 @@ describe("US2 — apply, allocate, unlink", () => {
     // the invoice is settled: it is no candidate any more
     const [another] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-03-16", amount: "20.00", name: "VAUDOISE ASSURANCES" },
+        { date: "2026-03-16", amount: "20.00", name: "LAKESIDE ASSURANCE" },
       ]),
     );
     const none = await run(owner.caller, (tx) => suggestionsForTransaction(tx, another as string));
@@ -579,8 +579,8 @@ describe("US2 — apply, allocate, unlink", () => {
     const { invoice } = await issuedInvoice(owner.caller);
     const [first, second] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-03-12", amount: "10000.00", name: "VAUDOISE ASSURANCES", message: "part 1" },
-        { date: "2026-03-13", amount: "15000.00", name: "VAUDOISE ASSURANCES", message: "part 2" },
+        { date: "2026-03-12", amount: "10000.00", name: "LAKESIDE ASSURANCE", message: "part 1" },
+        { date: "2026-03-13", amount: "15000.00", name: "LAKESIDE ASSURANCE", message: "part 2" },
       ]),
     );
     const l1 = await run(owner.caller, (tx) =>
@@ -716,9 +716,9 @@ describe("US2 — apply, allocate, unlink", () => {
 
   it("Link to…: searches every registered type by number, key, name or file name", async () => {
     const { invoice } = await issuedInvoice(owner.caller);
-    const hits = await run(owner.caller, (tx) => searchLinkables(tx, "VA26"));
+    const hits = await run(owner.caller, (tx) => searchLinkables(tx, "LK26"));
     expect(hits.map((h) => [h.type, h.id])).toContainEqual(["invoice", invoice.id]);
-    const byName = await run(owner.caller, (tx) => searchLinkables(tx, "vaudoise", ["invoice"]));
+    const byName = await run(owner.caller, (tx) => searchLinkables(tx, "lakeside", ["invoice"]));
     expect(byName.map((h) => h.id)).toEqual([invoice.id]);
     expect(await run(owner.caller, (tx) => searchLinkables(tx, "x"))).toEqual([]);
   });
@@ -730,7 +730,7 @@ describe("F116 — the window on terms, the number anywhere, the counterparty me
     expect(invoice.dueDate).toBe("2026-04-09");
     const [onTerms] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-04-09", amount: "25000.00", name: "VAUDOISE ASSURANCES", message: "" },
+        { date: "2026-04-09", amount: "25000.00", name: "LAKESIDE ASSURANCE", message: "" },
       ]),
     );
     const r = await run(owner.caller, (tx) => suggestionsForTransaction(tx, onTerms as string));
@@ -754,7 +754,7 @@ describe("F116 — the window on terms, the number anywhere, the counterparty me
     // a deposit on the due date — linked by the owner
     const [deposit] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-04-09", amount: "10000.00", name: "VAUDOISE ASSURANCES", message: "" },
+        { date: "2026-04-09", amount: "10000.00", name: "LAKESIDE ASSURANCE", message: "" },
       ]),
     );
     const l = await run(owner.caller, (tx) =>
@@ -766,21 +766,21 @@ describe("F116 — the window on terms, the number anywhere, the counterparty me
     );
     expect(l.error).toBeUndefined();
 
-    // the memory of that counterparty: Vaudoise, once
+    // the memory of that counterparty: Lakeside, once
     const key = await run(owner.caller, async (tx) => {
       const t = await tx.bankTransaction.findUniqueOrThrow({ where: { id: deposit as string } });
       return t.counterpartyKey;
     });
     const memory = await run(owner.caller, (tx) => memoryForKeys(tx, [key]));
     expect([...(memory.get(key)?.values() ?? [])]).toEqual([
-      { name: "Vaudoise Assurances", count: 1 },
+      { name: "Lakeside Assurance", count: 1 },
     ]);
 
     // the balance arrives three months later (window closed on 2026-05-09), no number in it: the memory brings
     // the client's open invoice back as a candidate, and says why
     const [late, byNumber] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-07-01", amount: "15000.00", name: "VAUDOISE ASSURANCES", message: "" },
+        { date: "2026-07-01", amount: "15000.00", name: "LAKESIDE ASSURANCE", message: "" },
         {
           date: "2026-07-01",
           amount: "15000.00",
@@ -797,13 +797,13 @@ describe("F116 — the window on terms, the number anywhere, the counterparty me
     });
     expect(m.data?.suggestions[0]?.reasons).toEqual([
       "Client name match",
-      "Linked to Vaudoise Assurances once before",
+      "Linked to Lakeside Assurance once before",
       "Exact amount match",
     ]);
     // the Justify panel's proposal reads the same memory (US3)
     const proposal = await run(owner.caller, (tx) => memoryForRow(tx, late as string));
     expect(proposal).toEqual([
-      { partnerId: invoice.partnerId, name: "Vaudoise Assurances", count: 1 },
+      { partnerId: invoice.partnerId, name: "Lakeside Assurance", count: 1 },
     ]);
     // another payer quoting the number: the number alone fetches it, whatever the date
     const n = await run(owner.caller, (tx) => suggestionsForTransaction(tx, byNumber as string));
@@ -820,7 +820,7 @@ describe("US3 — bulk apply HIGH with the skip reasons", () => {
         {
           date: "2026-03-12",
           amount: "25000.00",
-          name: "VAUDOISE ASSURANCES",
+          name: "LAKESIDE ASSURANCE",
           message: invoice.number ?? "",
         },
         { date: "2026-03-31", amount: "900.00", name: "INTEREST" },
@@ -858,7 +858,7 @@ describe("US3 — bulk apply HIGH with the skip reasons", () => {
     expect(second).toBeNull(); // the client short code is unique — build the twin by hand instead
     const twin = await run(owner.caller, async (tx) => {
       const p = await partners.createPartner(tx, owner.caller, noopAudit, {
-        name: "Vaudoise Assurances SA",
+        name: "Lakeside Assurance SA",
         shortCode: "VB",
         types: ["client"],
         defaultCurrency: "CHF",
@@ -903,7 +903,7 @@ describe("US3 — bulk apply HIGH with the skip reasons", () => {
     expect(twin?.number).toBe("VB26-INV-001");
     const [row] = await run(owner.caller, (tx) =>
       importRows(tx, owner.caller, owner.accounts.chf, "CHF", [
-        { date: "2026-03-12", amount: "25000.00", name: "VAUDOISE ASSURANCES SA", message: "" },
+        { date: "2026-03-12", amount: "25000.00", name: "LAKESIDE ASSURANCE SA", message: "" },
       ]),
     );
     const r = await run(owner.caller, (tx) =>
@@ -923,7 +923,7 @@ describe("US3 — the inbox read model", () => {
         {
           date: "2026-03-12",
           amount: "25000.00",
-          name: "VAUDOISE ASSURANCES",
+          name: "LAKESIDE ASSURANCE",
           message: invoice.number ?? "",
         },
         { date: "2026-03-16", amount: "-7.70", details: "AVGIFTER NORDEA" },

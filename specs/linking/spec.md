@@ -35,7 +35,7 @@ The owner opens a bank row in the banking workbench. Under *Suggestions* the app
 
 **Acceptance Scenarios**:
 
-1. **Given** an incoming 25 000.00 CHF row and the invoice `VA26-INV-001` 25 000.00 CHF **When** linked **Then** one `justifies` link with 25 000.00 CHF, the row derives *linked*, the invoice *paid*; **When** unlinked **Then** both reopen (audited both ways).
+1. **Given** an incoming 25 000.00 CHF row and the invoice `LK26-INV-001` 25 000.00 CHF **When** linked **Then** one `justifies` link with 25 000.00 CHF, the row derives *linked*, the invoice *paid*; **When** unlinked **Then** both reopen (audited both ways).
 2. **Given** a 24 980.00 CHF row for that invoice **When** linked **Then** the allocation is 24 980.00 (what the row has), the invoice is *paid* (20.00 within 0.5 %), the row is *linked*.
 3. **Given** a row with 500.00 left and an invoice with 1 200.00 open **When** linked **Then** 500.00 is allocated, the invoice *partially paid*, the row *linked*; a second row completes it.
 4. **Given** an allocation above either remaining, a zero amount, a wrong currency **Then** refused with the service's message (the DB checks hold behind it).

@@ -40,7 +40,7 @@ describe.skipIf(!executable)("kernel/pdf (Chromium)", () => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       res.end(
         PAGE(
-          `<h1>Invoice VA26-INV-001</h1><p>tenant ${payload.tenantId} / user ${payload.userId}</p>`,
+          `<h1>Invoice LK26-INV-001</h1><p>tenant ${payload.tenantId} / user ${payload.userId}</p>`,
         ),
       );
     });

@@ -80,7 +80,7 @@ describe("derived invoice state (never typed)", () => {
     expect(deriveState({ ...quote, status: "accepted" }, "2026-03-01")).toBe("accepted");
     expect(deriveState({ ...quote, status: "declined" }, "2026-02-01")).toBe("declined");
     expect(
-      deriveState({ ...quote, status: "accepted", convertedTo: "VA26-003" }, "2026-02-01"),
+      deriveState({ ...quote, status: "accepted", convertedTo: "LK26-003" }, "2026-02-01"),
     ).toBe("converted");
     expect(deriveState({ ...quote, allocated: "100.00" }, "2026-02-01")).toBe("issued"); // money never settles a quote
   });
