@@ -1,7 +1,8 @@
 // The row's facts (F113, D59 — specs/banking/one-table.md): the bank row carries its SEK base (written once by the
 // import, `bank_transactions_lock_facts`) and the owner's facts — category, partner, note, *no document needed* —
 // which change freely through `categorise` and are never overwritten by a rule. What the journal module did for
-// `journal_entries` until 2026-10-27, on the row itself. Never reads the links: `banking.actions` reads this file's
+// `journal_entries` until 2026-10-27, on the row itself. No static edge to linking (one call-time read of whether a
+// proof leaves the row, `hasProof`, D82): `banking.actions` reads this file's
 // schema at load time, and linking's registry loads every module — a static edge to linking from here would close
 // the cycle the journal hid behind `await import` ([[lessons]] *module-load cycles*); the implied rate of a transfer
 // pair is `implicit-rate.ts`, read by `queries.ts`. MUST NOT import from next/* or src/components/*.
@@ -204,7 +205,11 @@ export async function categorise(
 
   let data: Prisma.BankTransactionUncheckedUpdateInput;
   if (by === "manual") {
+    // D82: on a proven row a rule's guess is not what the row says — an edit by hand of one fact must not turn the
+    // rule's other fact into a hand-typed one that would then speak over the proof: the guess goes, the proof stays
+    const dropGuess = row.categorisedBy === "rule" && (await hasProof(tx, id));
     data = {
+      ...(dropGuess ? { basCode: null, partnerId: null } : {}),
       ...(facts.basCode !== undefined ? { basCode: facts.basCode } : {}),
       ...(facts.partnerId !== undefined ? { partnerId: facts.partnerId } : {}),
       ...(facts.note !== undefined ? { note: facts.note } : {}),
@@ -242,6 +247,15 @@ export async function categorise(
     newData: toAuditData(ownerFacts(updated)),
   });
   return { data: toTransactionDto(updated) };
+}
+
+/**
+ * Whether a proof (a `justifies` / `settles` link) leaves the row — linking's `rowsWithProof`, imported at call
+ * time: a static edge to linking from here would close the module-load cycle (the header).
+ */
+async function hasProof(tx: TransactionClient, id: string): Promise<boolean> {
+  const linking = await import("@/modules/linking");
+  return (await linking.rowsWithProof(tx, [id])).has(id);
 }
 
 /** The owner's facts of a row — what a categorisation's audit row holds (the History diffs them). */

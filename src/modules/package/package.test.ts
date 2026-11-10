@@ -550,6 +550,80 @@ describe("SC-001 — the fixture month", () => {
     expect(july.income.map((i) => [i.number, i.reason])).toEqual([[f.invoiceNumber, "paid"]]);
     expect(july.documents.map((d) => d.fileName)).toEqual([`InvoiceAF_${f.invoiceNumber}.pdf`]);
   });
+
+  it("T050 (D82): the bank sheet prints the proof's account over a rule's guess, and a value typed by hand over the proof's", async () => {
+    const f = await juneFixture();
+    const caller = owner.caller;
+    await run(caller, async (tx) => {
+      // a rule guesses the open OPENAI row: 6570 · Old Guess AB
+      const guess = await partners.createPartner(tx, caller, noopAudit, {
+        name: "Old Guess AB",
+        shortCode: "OGA",
+        types: ["vendor"],
+        defaultCurrency: "SEK",
+      });
+      const rule = await banking.createRule(tx, caller, noopAudit, {
+        name: "OpenAI guess",
+        matchType: "contains",
+        matchPattern: "OPENAI",
+        basCode: "6570",
+        partnerId: guess.data?.id as string,
+      });
+      if (guess.error || rule.error) throw new Error("rule");
+      await banking.applyRules(tx, caller, noopAudit);
+      expect(
+        (await banking.transactionFacts(tx, [f.rows.openai])).get(f.rows.openai),
+      ).toMatchObject({ basCode: "6570", categorisedBy: "rule" });
+      // then its proof: a 6530 supplier invoice of another vendor, paid by the row
+      const vendor = await partners.createPartner(tx, caller, noopAudit, {
+        name: "Molnkontor AB",
+        shortCode: "MOK",
+        types: ["vendor"],
+        defaultCurrency: "SEK",
+      });
+      const group = await expenses.createGroup(tx, caller, noopAudit, {
+        description: "June cloud",
+      });
+      const si = await supplierInvoices.createSupplierInvoice(tx, caller, noopAudit, {
+        groupId: group.data?.id as string,
+        partnerId: vendor.data?.id as string,
+        invoiceNumber: "MK-6",
+        invoiceDate: "2026-06-26",
+        amountNet: "198.52",
+        vatAmount: "0.00",
+        amountTotal: "198.52",
+        basCode: "6530",
+      });
+      if (si.error) throw new Error(si.error.message);
+      const paid = await supplierInvoices.recordPayment(tx, caller, noopAudit, {
+        invoiceId: si.data.id,
+        bankTransactionId: f.rows.openai,
+        amount: "198.52",
+      });
+      if (paid.error) throw new Error(paid.error.message);
+      // the supplier payment row (proof: 6530 · Skattepunkten): the owner types 6570 by hand
+      const typed = await banking.categorise(tx, caller, noopAudit, f.rows.supplierPayment, {
+        basCode: "6570",
+      });
+      if (typed.error) throw new Error(typed.error.message);
+    });
+    const data = await run(caller, (tx) => collectPeriod(tx, parsePeriod("2026-06"), TODAY));
+    const row = (id: string) => data.bank.find((r) => r.id === id);
+    expect(row(f.rows.openai)).toMatchObject({
+      basCode: "6530",
+      partnerName: "Molnkontor AB",
+      status: "linked",
+    });
+    expect(row(f.rows.openai)?.basLabel).toMatch(/^6530 · /);
+    expect(row(f.rows.supplierPayment)).toMatchObject({
+      basCode: "6570",
+      partnerName: "Skattepunkten Office Services AB",
+    });
+    expect(row(f.rows.supplierPayment)?.basLabel).toMatch(/^6570 · /);
+    // the summary's bank sheet is the same cells
+    const cells = summaryRows(data).bank.find((c) => c[2] === -198.52);
+    expect(cells?.slice(12, 15)).toEqual(["6530", row(f.rows.openai)?.basLabel, "Molnkontor AB"]);
+  });
 });
 
 describe("the build job (FR-005, SC-001, SC-002)", () => {
