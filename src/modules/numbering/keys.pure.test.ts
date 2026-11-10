@@ -141,7 +141,7 @@ describe("fixed key functions (D5, D6, D21, D28) — the owner's conventions", (
 
   it("validates its inputs instead of producing garbage keys", () => {
     expect(() => yy("20261020")).toThrow(/ISO date/);
-    expect(() => invoiceSeries("va", "2026-10-20")).toThrow(/short code/);
+    expect(() => invoiceSeries("lk", "2026-10-20")).toThrow(/short code/);
     expect(() => formatSeriesNumber("LK26", 0)).toThrow(/positive/);
     expect(() => expenseRef(213, "Tr-1", 1)).toThrow(/alias/);
   });

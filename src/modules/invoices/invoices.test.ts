@@ -832,7 +832,7 @@ describe("US5 — derived states and the list", () => {
       );
       expect(byNumber.rows.map((r) => r.number)).toEqual(["LK26-INV-001", "LK26-INV-002", null]); // blanks last
 
-      const search = await queries.listInvoices(tx, { ...q, search: "client va" }, "2026-02-10");
+      const search = await queries.listInvoices(tx, { ...q, search: "lakeside assurance" }, "2026-02-10");
       expect(search.total).toBe(3);
       const search2 = await queries.listInvoices(
         tx,
