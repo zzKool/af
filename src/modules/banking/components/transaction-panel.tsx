@@ -298,6 +298,17 @@ export function TransactionDetailView({
   }
 
   const tx = detail?.transaction;
+  // the partner and category controls show what the row says (D82): the proof's value where it speaks — a rule's
+  // guess under it is not the row's, and a partner picked by hand must not take a proven category for blank
+  const factsEntry =
+    tx && detail
+      ? {
+          ...tx,
+          partnerId: detail.effective.partnerId,
+          basCode: detail.effective.basCode,
+          categorisedBy: detail.effective.basFrom === "proof" ? null : tx.categorisedBy,
+        }
+      : null;
   // the Nordea columns keep the export's own (English) names — what the owner sees in the CSV
   const about: [ReactNode, ReactNode][] =
     tx && detail
@@ -645,7 +656,7 @@ export function TransactionDetailView({
                 {steps.partner !== "none" && (
                   <CategoriseForm
                     part="partner"
-                    entry={tx}
+                    entry={factsEntry ?? tx}
                     categories={categories}
                     partners={partners}
                     canWrite={canWrite}
@@ -681,7 +692,7 @@ export function TransactionDetailView({
                 )}
                 <CategoriseForm
                   part="category"
-                  entry={tx}
+                  entry={factsEntry ?? tx}
                   categories={categories}
                   partners={partners}
                   canWrite={canWrite}

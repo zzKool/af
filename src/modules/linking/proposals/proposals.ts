@@ -182,8 +182,8 @@ export async function currentProposals(
     tx,
     [...facts.values()].map((f) => ({
       id: f.id,
-      basCode: effective.get(f.id)?.basCode ?? f.basCode,
-      partnerId: effective.get(f.id)?.partnerId ?? f.partnerId,
+      basCode: effective.get(f.id)?.basCode ?? null,
+      partnerId: effective.get(f.id)?.partnerId ?? null,
       categorisedBy: f.categorisedBy,
     })),
   );

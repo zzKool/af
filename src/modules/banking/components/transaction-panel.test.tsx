@@ -33,7 +33,7 @@ vi.mock("@/modules/linking/ui", () => ({
 }));
 vi.mock("@/modules/settings/ui", () => ({
   BasPicker: ({ id, value }: { id?: string; value: string }) => (
-    <select id={id} value={value} onChange={() => {}}>
+    <select id={id} value={value} data-value={value} onChange={() => {}}>
       <option value="">—</option>
     </select>
   ),
@@ -284,6 +284,37 @@ describe("the work surface — the hero, three steps and two collapsed footers (
     expect(within(category).getByLabelText("Category")).toBeInTheDocument();
     expect(within(category).getByLabelText("Note")).toBeInTheDocument();
     expect(within(category).queryByLabelText("Partner")).toBeNull();
+  });
+
+  it("T050 (D82): a rule's guess under a proof — the controls show the proof's partner and category, no rule note", async () => {
+    const base = makeDetail();
+    renderView(
+      makeDetail({
+        state: "linked",
+        allocated: "1297.20",
+        transaction: {
+          ...base.transaction,
+          basCode: "6570",
+          partnerId: "p2",
+          categorisedBy: "rule",
+        },
+        effective: {
+          partnerId: "p1",
+          partnerFrom: "proof",
+          basCode: "6540",
+          basFrom: "proof",
+          mixed: false,
+          partnerName: "Skattepunkten Office Services AB",
+          basLabel: "6540 · IT-tjänster",
+        },
+      }),
+    );
+    const category = await screen.findByTestId("step-category");
+    expect(within(category).getByLabelText("Category")).toHaveAttribute("data-value", "6540");
+    expect(within(category).queryByText(/Set by the rule/)).toBeNull();
+    expect(within(screen.getByTestId("step-partner")).getByLabelText("Partner")).toHaveTextContent(
+      "Skattepunkten Office Services AB",
+    );
   });
 
   it("a row the statement proves (a savings row, no link): the proof zone says so and offers no candidates", async () => {

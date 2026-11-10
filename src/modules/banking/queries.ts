@@ -327,13 +327,14 @@ async function loadRows(
   );
   const names = await partners.partnerNames(tx, partnerIds);
   const labels = await settings.basLabels(tx, codes);
-  // a row whose category or partner is derived lacks nothing: no proposal shows for it (F129)
+  // a row whose category or partner is derived lacks nothing: no proposal shows for it (F129) — the effective
+  // facts only, never the typed copy (a rule's guess on a proven row is not what the row says, D82)
   const proposals = await linking.currentForRows(
     tx,
     rows.map((r) => ({
       id: r.id,
-      basCode: effectiveOf(r.id)?.basCode ?? r.basCode,
-      partnerId: effectiveOf(r.id)?.partnerId ?? r.partnerId,
+      basCode: effectiveOf(r.id)?.basCode ?? null,
+      partnerId: effectiveOf(r.id)?.partnerId ?? null,
       categorisedBy: r.categorisedBy,
     })),
   );
