@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
-const { mockMarkReviewed, mockRefresh, mockPush, mockToast } = vi.hoisted(() => ({
+const { mockMarkReviewed, mockRefresh, mockPush, mockToast, mockMatches } = vi.hoisted(() => ({
+  mockMatches: { list: [] as { name: string; period: string }[] },
   mockMarkReviewed: vi.fn(),
   mockRefresh: vi.fn(),
   mockPush: vi.fn(),
@@ -30,6 +31,17 @@ vi.mock("@/modules/expenses/ui", () => ({
 vi.mock("@/modules/supplier-invoices/ui", () => ({
   NewSupplierInvoiceDialog: ({ open, initial }: { open: boolean; initial?: unknown }) =>
     open ? <div data-testid="si-dialog">{JSON.stringify(initial)}</div> : null,
+}));
+
+// US7 (F183): the subscription's buttons are subscriptions' (their own test); here, the place and the primary
+vi.mock("@/modules/subscriptions/ui", () => ({
+  useSubscriptionMatches: () => mockMatches.list,
+  FromSubscriptionButtons: ({ matches }: { matches: { name: string; period: string }[] }) =>
+    matches.map((m) => (
+      <button key={m.name} type="button" data-testid="make-it-from-subscription">
+        {`From subscription ${m.name} (${m.period})`}
+      </button>
+    )),
 }));
 
 import { initialFromFacts, MakeItSection } from "./make-it-section";
@@ -137,6 +149,24 @@ describe("MakeItSection (specs/documents US1)", () => {
     fireEvent.click(screen.getByTestId("make-it-expense"));
     expect(screen.getByTestId("expense-dialog")).toHaveTextContent('"amount":"85.00"');
     expect(screen.getByTestId("expense-dialog")).toHaveTextContent('"documentId":"doc-1"');
+  });
+
+  it("US7: a subscription's period comes first among Make it…, and the expense steps down from primary", () => {
+    mockMatches.list = [{ name: "Tabula", period: "2026-10" }];
+    render(
+      <MakeItSection
+        documentId="doc-1"
+        documentKey="exp_20260304_001"
+        facts={facts}
+        reviewedAt={null}
+        became={null}
+        options={options}
+      />,
+    );
+    const buttons = screen.getAllByRole("button");
+    expect(buttons[0]).toHaveTextContent("From subscription Tabula (2026-10)");
+    expect(screen.getByTestId("make-it-expense")).not.toHaveClass("bg-action");
+    mockMatches.list = [];
   });
 
   it("Just file it marks the document reviewed and refreshes", async () => {
