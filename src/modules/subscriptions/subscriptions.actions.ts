@@ -15,6 +15,7 @@ import {
   confirmSchema,
   periodCandidates,
 } from "./confirm";
+import { matchForDocument, matchForRow } from "./match";
 import {
   distinctSubscriptionValues,
   getSubscriptionDetail,
@@ -128,6 +129,31 @@ export const periodCandidatesAction = authedAction
   .action(async ({ ctx, parsedInput }) => {
     if (!can(ctx.callerIdentity, "read", "subscription")) return forbidden;
     return periodCandidates(ctx.tx, ctx.callerIdentity, parsedInput, clock.today());
+  });
+
+// US7 (F183): the periods a bank row / an inbox document is offered to — the banking panel, the linking inbox, the
+// review page and the documents inbox. A caller who may not read subscriptions sees none (the panels are shared).
+export const subscriptionMatchesAction = authedAction
+  .schema(z.union([z.object({ bankTransactionId: uuid }), z.object({ documentId: uuid })]))
+  .metadata({ name: "subscriptionMatches" })
+  .action(async ({ ctx, parsedInput }) => {
+    if (!can(ctx.callerIdentity, "read", "subscription")) return { data: [] };
+    return {
+      data:
+        "bankTransactionId" in parsedInput
+          ? await matchForRow(
+              ctx.tx,
+              ctx.callerIdentity,
+              parsedInput.bankTransactionId,
+              clock.today(),
+            )
+          : await matchForDocument(
+              ctx.tx,
+              ctx.callerIdentity,
+              parsedInput.documentId,
+              clock.today(),
+            ),
+    };
   });
 
 // --- writes (owner) ---

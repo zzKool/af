@@ -51,6 +51,7 @@ import {
   SuggestionsSection,
   useRowProposals,
 } from "@/modules/linking/ui";
+import { SubscriptionRowMatch } from "@/modules/subscriptions/ui";
 import { CategoriseForm, type CategoryOption, type PartnerOption } from "./categorise-form";
 import { RuleDialog } from "./rule-dialog";
 import { TransactionHistory } from "./transaction-history";
@@ -580,6 +581,13 @@ export function TransactionDetailView({
                   />
                 </div>
               )}
+              {/* US7 (F183): a subscription's period this row is offered to — above the suggestions */}
+              <SubscriptionRowMatch
+                bankTransactionId={tx.id}
+                canWrite={canWrite}
+                refreshKey={version}
+                onConfirmed={changed}
+              />
               {/* what this row could justify — the scored candidates, "Link to…" (specs/linking) */}
               {!NO_DOCUMENT_STATES.has(detail.state) && (
                 <SuggestionsSection

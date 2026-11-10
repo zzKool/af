@@ -21,6 +21,7 @@ import { type ExpenseInitial, NewExpensePanel } from "@/modules/expenses/ui";
 // it* = mark reviewed). Once the document became something the section shows what, with a link. The forms stay the
 // modules'; this is the composition.
 import type { BasProposalHint } from "@/modules/settings/ui";
+import { FromSubscriptionButtons, useSubscriptionMatches } from "@/modules/subscriptions/ui";
 import type {
   RegistrationOption,
   CategoryOption as SiCategoryOption,
@@ -130,6 +131,11 @@ export function MakeItSection({
   const router = useRouter();
   const [dialog, setDialog] = useState<"expense" | "supplier" | null>(null);
   const { executeAsync: markReviewed, isPending: filing } = useAction(markDocumentReviewedAction);
+  // US7 (F183): a subscription's period this receipt / bill is offered to comes first, as the primary
+  const fromSubscription = useSubscriptionMatches(
+    { documentId },
+    { enabled: !became && !!options && financial },
+  );
 
   if (became) {
     return (
@@ -180,7 +186,17 @@ export function MakeItSection({
       <div className="mt-3 flex flex-wrap gap-2">
         {financial && (
           <>
-            <Button size="sm" onClick={() => setDialog("expense")} data-testid="make-it-expense">
+            <FromSubscriptionButtons
+              documentId={documentId}
+              matches={fromSubscription}
+              onConfirmed={() => router.refresh()}
+            />
+            <Button
+              size="sm"
+              variant={fromSubscription.length > 0 ? "secondary" : "default"}
+              onClick={() => setDialog("expense")}
+              data-testid="make-it-expense"
+            >
               {t("documents.makeIt.expense")}
             </Button>
             <Button

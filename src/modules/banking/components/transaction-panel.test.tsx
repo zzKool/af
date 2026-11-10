@@ -39,6 +39,8 @@ vi.mock("@/modules/settings/ui", () => ({
   ),
 }));
 vi.mock("./rule-dialog", () => ({ RuleDialog: () => null }));
+// US7 (F183): the subscription line self-loads — its own test is subscriptions' (subscription-match.test.tsx)
+vi.mock("@/modules/subscriptions/ui", () => ({ SubscriptionRowMatch: () => null }));
 
 let detail: TransactionDetailWire;
 const sheetProps: Record<string, unknown>[] = [];

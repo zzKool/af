@@ -3,6 +3,7 @@ export * from "./components/confirm-all-button";
 export * from "./components/new-subscription-button";
 export * from "./components/period-state";
 export * from "./components/subscription-form-dialog";
+export * from "./components/subscription-match";
 export * from "./components/subscription-table";
 export * from "./components/subscriptions-hero";
 export * from "./subscriptions.actions";
