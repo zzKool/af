@@ -114,7 +114,7 @@ function NodeLine({ node: n }: { node: ChainNode }) {
       <BoardTag tone={n.lacking ? "attention" : VERB_TONE[n.verb]}>
         {t(`documents.chain.${n.verb}`)}
       </BoardTag>
-      <span className={cn("min-w-0 flex-1 truncate", n.lacking && "text-state-attention")}>
+      <span className={cn("line-clamp-2 min-w-0 flex-1", n.lacking && "text-state-attention")}>
         {n.body}
       </span>
       {n.aside && <span className="ml-auto shrink-0 font-mono text-[11px]">{n.aside}</span>}

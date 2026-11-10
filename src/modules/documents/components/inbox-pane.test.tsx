@@ -169,7 +169,7 @@ describe("InboxPane — the document and what it read", () => {
   it("the header says the kind, detected, its pages and the reading's time; the field to check is lit first, a hover moves it", async () => {
     renderPane();
     expect(screen.getByTestId("inbox-proposes")).toHaveTextContent(
-      "Supplier invoicedetected · 1 page(s) · read in 2.4 s",
+      "Supplier invoicedetected · 1 page · read in 2.4 s",
     );
     expect(screen.getByTestId("preview")).toHaveAttribute("data-active", "dueDate");
     const total = screen
