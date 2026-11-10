@@ -643,7 +643,11 @@ function ReadingDialogBody({
   const nodes: ChainNode[] = [
     {
       verb: "creates",
-      body: <span data-testid="reading-becomes">{t(`linking.reading.becomes.${kind}`)}</span>,
+      body: (
+        <span className="inline-block first-letter:uppercase" data-testid="reading-becomes">
+          {t(`linking.reading.becomes.${kind}`)}
+        </span>
+      ),
       children: (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5" data-testid="reading-paper">
           <div className="flex items-center gap-1.5">

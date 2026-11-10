@@ -1276,7 +1276,7 @@ export const en = {
   "linking.reading.check.sameDay": "same day",
   "linking.reading.check.vendor": "vendor = counterparty",
   "linking.reading.warningsConfirmed":
-    "Confirm & link writes the warnings left standing on the link's trail — you saw them.",
+    "Accepting writes the warnings left standing on the link's trail — you saw them.",
   "linking.reading.group": "Group",
   "linking.reading.groupProposed.trip": "proposed (the trip)",
   "linking.reading.groupProposed.month": "proposed (the month)",
