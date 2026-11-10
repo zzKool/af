@@ -34,7 +34,7 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   markDocumentReviewedAction: m.markReviewed,
 }));
 vi.mock("@/modules/expenses/ui", () => ({
-  NewExpenseDialog: ({ open, initial }: { open: boolean; initial?: unknown }) =>
+  NewExpensePanel: ({ open, initial }: { open: boolean; initial?: unknown }) =>
     open ? (
       <div role="dialog" data-testid="expense-dialog">
         {JSON.stringify(initial)}

@@ -32,6 +32,7 @@ import {
   deleteExpense,
   isExpenseOpen,
   payExpense,
+  previewNewExpense,
   unpayExpense,
   updateExpense,
 } from "./expenses";
@@ -223,6 +224,54 @@ describe("US1 — a receipt becomes an expense in a group", () => {
       });
       expect(typed.data).toMatchObject({ rateSource: "manual", amountBase: "6300.00" });
     });
+  });
+
+  it("F179: the form's previews — the next key and the base the creation will write; nothing written, nothing taken", async () => {
+    const g = await group213();
+    const fx = FIXTURE.expenses[0];
+    const ask = (over: Partial<Parameters<typeof previewNewExpense>[1]> = {}) =>
+      run(owner.caller, (tx) =>
+        previewNewExpense(tx, {
+          groupId: g.id,
+          basCode: "5800",
+          date: fx.date,
+          amount: fx.amount.toFixed(2),
+          currency: "CHF",
+          ...over,
+        }),
+      );
+    const first = await ask();
+    expect(first.key).toBe(`Ex213-Tr-01_${fx.date}_`);
+    // asked twice: the counter did not move
+    expect((await ask()).key).toBe(`Ex213-Tr-01_${fx.date}_`);
+    const created = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, fixtureInput(g.id, fx)),
+    );
+    // the preview said what the creation wrote: the key's ref and the base at the date's ECB rate
+    expect(created.data?.key).toBe("Ex213-Tr-01");
+    expect(first.base).toEqual({
+      amountBase: created.data?.amountBase,
+      rate: created.data?.rate,
+      rateSource: "ecb_daily",
+      rateDate: fx.date,
+    });
+    expect((await ask()).key).toBe(`Ex213-Tr-02_${fx.date}_`);
+    // a weekend → the nearest ECB day, as the creation does
+    expect((await ask({ date: "2026-03-14" })).base).toMatchObject({
+      rateSource: "ecb_nearest",
+      rateDate: "2026-03-13",
+    });
+    // a base-currency amount, no amount, no rate: no base; no group or no category: no key
+    expect((await ask({ currency: "SEK" })).base).toBeNull();
+    expect((await ask({ amount: "" })).base).toBeNull();
+    expect((await ask({ currency: "USD" })).base).toBeNull();
+    expect((await ask({ groupId: undefined })).key).toBeNull();
+    expect((await ask({ basCode: undefined })).key).toBeNull();
+    const count = await adminPool.query(
+      "SELECT count(*)::int AS n FROM expenses WHERE tenant_id = $1",
+      [owner.caller.tenantId],
+    );
+    expect(count.rows[0].n).toBe(1);
   });
 
   it("refuses a category without a short code, an unknown group, a foreign source", async () => {

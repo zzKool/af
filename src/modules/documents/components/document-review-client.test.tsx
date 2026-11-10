@@ -30,7 +30,7 @@ vi.mock("next-safe-action/hooks", () => ({
   useAction: (action: unknown) => ({ executeAsync: action, isPending: false }),
 }));
 // the modules' dialogs are not under test here
-vi.mock("@/modules/expenses/ui", () => ({ NewExpenseDialog: () => null }));
+vi.mock("@/modules/expenses/ui", () => ({ NewExpensePanel: () => null }));
 vi.mock("@/modules/supplier-invoices/ui", () => ({ NewSupplierInvoiceDialog: () => null }));
 
 // Mock sonner

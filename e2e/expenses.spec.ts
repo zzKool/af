@@ -57,7 +57,7 @@ test.describe("Expenses", () => {
         await page.getByTestId("open-new-expense").click();
         await expect(dialog).toBeVisible();
         await pick("Group", new RegExp(groupName));
-        await pick("Paid by", "Private SE");
+        await dialog.getByRole("radio", { name: "Private SE" }).click();
         await dialog.getByLabel("Date", { exact: true }).fill(`2025-03-1${i}`);
         await page.getByTestId("expense-description").fill(desc);
         await pick("Category", category);
@@ -269,7 +269,7 @@ test.describe("Expenses", () => {
       await page.getByTestId("open-new-expense").click();
       await expect(dialog).toBeVisible();
       await pick("Group", new RegExp(batch));
-      await pick("Paid by", "Private SE");
+      await dialog.getByRole("radio", { name: "Private SE" }).click();
       await dialog.getByLabel("Date", { exact: true }).fill("2025-04-02");
       await page.getByTestId("expense-description").fill("Dinner with the client");
       await pick("Partner", vendorName);
@@ -338,7 +338,7 @@ test.describe("Expenses", () => {
     };
     await pick("Group", "+ New group…");
     await page.getByTestId("new-group-description").fill(`Docked ${stamp}`);
-    await pick("Paid by", "Private SE");
+    await form.getByRole("radio", { name: "Private SE" }).click();
     await form.getByLabel("Date", { exact: true }).fill("2025-05-06");
     await page.getByTestId("expense-description").fill(desc);
     await pick("Category", /^5800/);
@@ -363,5 +363,53 @@ test.describe("Expenses", () => {
     await page.getByTestId("open-new-expense").click();
     await expect(form).toBeVisible();
     await expect(page.getByTestId("expense-panel")).toBeHidden();
+  });
+
+  // F179 (the board *Pulse — Expenses*): Paid by in one click, the key it will be filed as, Save and add another —
+  // the panel stays, the group made inline, the date and the payer carried over, the focus on the amount
+  test("the form's extras: the key previewed, Save and add another keeps the panel for the next receipt", async ({
+    page,
+  }) => {
+    await trackToasts(page);
+    const group = `Batch ${stamp}`;
+    await page.goto("/expenses");
+    await page.getByTestId("open-new-expense").click();
+    const form = page.getByTestId("new-expense-dialog");
+    await expect(form).toBeVisible();
+    const pick = async (label: string, option: RegExp | string) => {
+      await form.getByLabel(label, { exact: true }).click();
+      await page.getByRole("option", { name: option }).click();
+    };
+    await pick("Group", "+ New group…");
+    await page.getByTestId("new-group-description").fill(group);
+    const privateSe = form.getByRole("radio", { name: "Private SE" });
+    await privateSe.click();
+    await expect(privateSe).toHaveAttribute("aria-checked", "true");
+    await expect(form.getByTestId("paid-with-hint")).toHaveText(
+      "You paid privately — the company owes you this.",
+    );
+    await form.getByLabel("Date", { exact: true }).fill("2025-05-07");
+    await page.getByTestId("expense-description").fill(`Parking ${stamp}`);
+    await pick("Category", /^5800/);
+    await page.getByTestId("expense-amount").fill("40.00");
+    await page.getByTestId("create-expense-again").click();
+    await expectToast(page, "Tr-01 created");
+    // still open, ready for the next one: the rest empty, the focus on the amount
+    await expect(form).toBeVisible();
+    await expect(page.getByTestId("expense-amount")).toBeFocused();
+    await expect(page.getByTestId("expense-description")).toHaveValue("");
+    await expect(form.getByLabel("Date", { exact: true })).toHaveValue("2025-05-07");
+    await expect(privateSe).toHaveAttribute("aria-checked", "true");
+    await expect(form.getByLabel("Group", { exact: true })).toContainText(group);
+    // the key the next one will be filed as, from the group's counter
+    await pick("Category", /^5800/);
+    await expect(form.getByTestId("expense-key-preview")).toHaveText(
+      /^Will be filed as Ex\d+-Tr-02_2025-05-07_$/,
+    );
+    await page.getByTestId("expense-description").fill(`Toll ${stamp}`);
+    await page.getByTestId("expense-amount").fill("12.00");
+    await page.getByTestId("create-expense").click();
+    await expectToast(page, "Tr-02 created");
+    await expect(form).toBeHidden();
   });
 });

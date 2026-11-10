@@ -24,12 +24,24 @@ import {
 import * as banking from "@/modules/banking";
 import * as documents from "@/modules/documents";
 import * as linking from "@/modules/linking";
-import { expenseDocumentKey, expenseRef, expenseSeries, nextInSeries } from "@/modules/numbering";
+import {
+  expenseDocumentKey,
+  expenseRef,
+  expenseSeries,
+  nextInSeries,
+  peekSeries,
+} from "@/modules/numbering";
 import * as partners from "@/modules/partners";
 import * as rates from "@/modules/rates";
 import * as settings from "@/modules/settings";
 import { invalid, notFound, violation } from "./errors";
-import { EXPENSE_KINDS, type ExpenseDto, type ExpenseKind, type ExpenseRateSource } from "./types";
+import {
+  EXPENSE_KINDS,
+  type ExpenseDto,
+  type ExpenseKind,
+  type ExpensePreview,
+  type ExpenseRateSource,
+} from "./types";
 
 const D = Prisma.Decimal;
 type Dec = InstanceType<typeof Prisma.Decimal>;
@@ -171,6 +183,51 @@ async function baseFor(
       rateDate: r.source === "same_currency" ? null : r.rateDate,
     },
   };
+}
+
+// --- the new-expense form's previews (F179) ---
+
+export const expensePreviewSchema = z.object({
+  groupId: uuid.optional(),
+  basCode: basCode.optional(),
+  date: isoDate,
+  amount: z.string().max(20).optional(),
+  currency: z.enum(CURRENCIES),
+});
+export type ExpensePreviewInput = z.infer<typeof expensePreviewSchema>;
+
+/**
+ * The form's two previews (F179, the board *Pulse — Expenses*): the key — the existing key functions on the counter
+ * as it stands (`peekSeries`: a read, no lock; a concurrent creation can overtake it) — and the base at the ECB rate
+ * of the date, the same `baseFor` creation runs. Display only: nothing is written, nothing taken from the counter.
+ */
+export async function previewNewExpense(
+  tx: TransactionClient,
+  input: ExpensePreviewInput,
+): Promise<ExpensePreview> {
+  let key: string | null = null;
+  if (input.groupId && input.basCode) {
+    const group = await tx.expenseGroup.findUnique({ where: { id: input.groupId } });
+    const alias = group ? await resolveAlias(tx, input.basCode) : null;
+    if (group && alias?.data) {
+      const series = await peekSeries(tx, expenseSeries(group.number, alias.data));
+      const ref = expenseRef(group.number, alias.data, series.data?.nextValue ?? 1);
+      key = expenseDocumentKey(ref, input.date);
+    }
+  }
+  let base: ExpensePreview["base"] = null;
+  const amount = input.amount?.trim() ?? "";
+  if (input.currency !== BASE_CURRENCY && /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0) {
+    const b = await baseFor(tx, input.date, new D(amount), input.currency, undefined);
+    if (b.data)
+      base = {
+        amountBase: b.data.amountBase.toFixed(2),
+        rate: b.data.rate.toString(),
+        rateSource: b.data.rateSource,
+        rateDate: b.data.rateDate,
+      };
+  }
+  return { key, base };
 }
 
 // --- validation of the owner's facts ---

@@ -179,7 +179,7 @@ test.describe("Document review page — owner", () => {
     const stamp = String(Date.now()).slice(-5);
     await pick("Group", "+ New group…");
     await page.getByTestId("new-group-description").fill(`Receipts ${stamp}`);
-    await pick("Paid by", "Private SE");
+    await dialog.getByRole("radio", { name: "Private SE" }).click();
     await pick("Category", /^5800/);
     if (!(await page.getByTestId("expense-description").inputValue())) {
       await page.getByTestId("expense-description").fill("ICA Maxi");

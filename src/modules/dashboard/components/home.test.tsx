@@ -129,7 +129,7 @@ describe("CurrenciesCard", () => {
   });
 });
 
-describe("YearStrip (F158, F171)", () => {
+describe("YearStrip (F158, F171, F181)", () => {
   const today = "2026-11-11";
   const data = yearWeeks(
     [{ id: "a", label: "Main SEK", currency: "SEK" }],
@@ -151,10 +151,14 @@ describe("YearStrip (F158, F171)", () => {
       ],
       expenses: [{ date: "2026-11-11", cell: "done" }],
       documents: [],
+      subscriptions: [
+        { date: "2026-11-10", cell: "done" },
+        { date: "2026-11-14", cell: "open" },
+      ],
     },
   );
 
-  it("the bank's row, then invoices, expenses and documents; the week says what is in it", () => {
+  it("the bank's row, then invoices, expenses, documents and subscriptions; the week says what is in it", () => {
     const { container } = render(
       <LocaleProvider initialLocale="en">
         <YearStrip data={data} base="SEK" />
@@ -165,6 +169,7 @@ describe("YearStrip (F158, F171)", () => {
       "Invoices",
       "Expenses",
       "Documents",
+      "Subscriptions",
     ]);
     const states = (lane: string) =>
       [...container.querySelectorAll(`span[data-lane="${lane}"][data-state]`)].map((c) =>
@@ -174,11 +179,16 @@ describe("YearStrip (F158, F171)", () => {
     expect(states("invoices").at(-1)).toBe("late");
     expect(states("expenses").at(-1)).toBe("done");
     expect(states("documents").every((s) => s === "none")).toBe(true);
+    expect(states("subscriptions")).toHaveLength(52);
+    expect(states("subscriptions").at(-1)).toBe("open");
     // the last busy week is picked: its books, the lanes without a thing left out
     const books = screen.getByTestId("home-year-books");
     expect(books.textContent).toContain("2 invoice(s) issued · 1 not paid yet");
     expect(books.textContent).toContain("1 expense(s), all settled and justified");
     expect(books.querySelector('[data-lane="documents"]')).toBeNull();
+    expect(books.querySelector('[data-lane="subscriptions"]')?.textContent).toBe(
+      "2 subscription charge(s) expected · 1 not charged or justified yet",
+    );
     expect(screen.getByTestId("home-year-detail").textContent).toContain(
       "1 of 2 bank rows still to justify.",
     );

@@ -2,7 +2,8 @@
 
 // The year, week by week (F158, the Pulse board): fifty-two columns — the money in (up) and out (down) of the
 // statement accounts in the base on top, one square per account under it (done · open · late · nothing that week),
-// then the books' rows (F171): the invoices issued, the expenses dated, the documents received that week.
+// then the books' rows (F171): the invoices issued, the expenses dated, the documents received that week, and
+// (F181) the subscription charges expected that week.
 // A column is a button: it shows its week on the right (the range, in and out, the rows still to justify) with the
 // way into Banking filtered to that week. Derived on request (`yearWeeks`), read only.
 import Link from "next/link";

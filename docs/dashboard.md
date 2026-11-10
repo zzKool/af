@@ -110,7 +110,11 @@ Under the cash and the next moves, full width: `YearStrip` (`components/year-str
 | Expenses (`expenseCell`) | paid / refunded **and** justified (receipt attached, declared lost, or a per diem) | otherwise | otherwise, dated before last month |
 | Documents (`documentCell`) | filed · archived | in the inbox (OCR pending / failed, ready) | in the inbox, received before last month |
 
-Drafts, quotes, credit notes and the app's own PDFs are not on the rows. The week's panel lists each row that has something (*2 invoice(s) issued · 1 not paid yet*). The subscriptions row is not built.
+| Subscriptions (`subscriptionCell`, F181) | the period *done* (charged and justified: paid with its receipt / bill; a private one with its receipt) | expected but not seen, or seen and not justified (*upcoming* this week, *due*, *charged* without a receipt, *documented* not paid) | the same, expected before last month |
+
+Drafts, quotes, credit notes and the app's own PDFs are not on the rows. The week's panel lists each row that has something (*2 invoice(s) issued · 1 not paid yet*).
+
+**The subscriptions row (F181)**, the board's last lane: one square per expected charge, on its expected date — the subscriptions module's own periods (`subscriptions.expectedCharges(tx, caller, from, to, today)`, `queries.ts`: every period of the strip's weeks with its derived state and marks, over `loadSubscriptions`). A paused period (*skipped*) is not on the row; the periods after this week's Sunday are not in the strip. Nothing stored.
 
 The cash headline and its month are **whole units** (`formatMoney(…, { whole: true })`, half up — the board's *693 295 SEK*); every other figure keeps its cents.
 

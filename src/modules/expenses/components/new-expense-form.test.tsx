@@ -1,20 +1,30 @@
-// F87 (US1, US4; FR-003, FR-009): the partner in the new-expense dialog — the default category proposed, never
+// F87 (US1, US4; FR-003, FR-009): the partner in the new-expense form — the default category proposed, never
 // overwriting the owner's choice; the match card from a document; nothing picked without a click; the partner sent.
 // F131 §5.2: the group proposed from the date — the covering trip, else the month's group, else empty — marked with
 // its source, following the date until the owner picks by hand.
+// F179 (the board *Pulse — Expenses*): the payer as one click, the key and base previews (shown, never sent), the
+// trip's traktamente switch, *Save and add another*.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 const calls = vi.hoisted(() => ({
   create: vi.fn().mockResolvedValue({ data: { data: { id: "e1", key: "Ex1-Rep-01" } } }),
+  preview: vi.fn().mockResolvedValue({ data: { data: { key: null, base: null } } }),
+  trip: vi.fn().mockResolvedValue({ data: { data: null } }),
+  perDiem: vi.fn().mockResolvedValue({
+    data: { data: { expense: { id: "e2", key: "Ex4-Tr-02" } } },
+  }),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 vi.mock("next-safe-action/hooks", () => ({
   useAction: (action: string) => ({
-    executeAsync: action === "create" ? calls.create : vi.fn().mockResolvedValue(undefined),
+    executeAsync:
+      action === "create" || action === "preview" || action === "trip" || action === "perDiem"
+        ? calls[action]
+        : vi.fn().mockResolvedValue(undefined),
     isPending: false,
   }),
 }));
@@ -23,6 +33,11 @@ vi.mock("@/modules/expenses/expenses.actions", () => ({
   checkExpenseDuplicatesAction: "dup",
   createExpenseGroupAction: "group",
   expenseVendorsAction: "vendors",
+  previewNewExpenseAction: "preview",
+}));
+vi.mock("@/modules/traktamente/ui", () => ({
+  getTripAction: "trip",
+  createPerDiemExpenseAction: "perDiem",
 }));
 vi.mock("./duplicate-panel", () => ({
   DuplicatePanel: () => null,
@@ -109,7 +124,7 @@ vi.mock("./group-picker", async () => {
   };
 });
 
-import { defaultSourceId, NewExpenseDialog } from "./new-expense-dialog";
+import { defaultSourceId, NewExpensePanel } from "./new-expense-panel";
 
 const thisMonth = new Date().toISOString().slice(0, 7);
 const props = {
@@ -162,14 +177,14 @@ const category = () => screen.getByLabelText("Category");
 const pick = (id: string) =>
   fireEvent.change(screen.getByTestId("expense-partner"), { target: { value: id } });
 
-describe("NewExpenseDialog — the partner (F87)", () => {
+describe("NewExpensePanel — the partner (F87)", () => {
   afterEach(() => {
     cleanup();
     calls.create.mockClear();
   });
 
   it("US1-1/3/4: no category until chosen (F124 (5)); the default fills it and replaces a previous default, marked from partner; none leaves it", () => {
-    render(<NewExpenseDialog {...props} />);
+    render(<NewExpensePanel {...props} />);
     expect(category()).toHaveTextContent("—");
     expect(screen.queryByTestId("category-from-partner")).toBeNull();
     pick("cerf");
@@ -210,21 +225,24 @@ describe("NewExpenseDialog — the partner (F87)", () => {
     expect(defaultSourceId(sources)).toBe("00000000-0000-4000-8000-000000000011");
     expect(defaultSourceId(props.sources, "SEK")).toBe("00000000-0000-4000-8000-000000000002");
     render(
-      <NewExpenseDialog
+      <NewExpensePanel
         {...props}
         sources={sources}
         initial={{ currency: "SEK", amount: "123.88", description: "Northwind" }}
       />,
     );
-    expect(screen.getByLabelText("Paid by")).toHaveTextContent("Plusgirokonto SEK");
+    expect(screen.getByRole("radio", { name: "Plusgirokonto SEK" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 
   it("US4: no card without OCR facts; with them, nothing is picked until Use match, which proposes the default", () => {
-    const { unmount } = render(<NewExpenseDialog {...props} />);
+    const { unmount } = render(<NewExpensePanel {...props} />);
     expect(screen.queryByTestId("partner-match-use")).toBeNull();
     unmount();
     render(
-      <NewExpenseDialog
+      <NewExpensePanel
         {...props}
         initial={{
           description: "RESTAURANT LE CERF SA",
@@ -241,7 +259,7 @@ describe("NewExpenseDialog — the partner (F87)", () => {
   });
 
   it("sends the picked partner with the form, its proposed category with it", async () => {
-    render(<NewExpenseDialog {...props} />);
+    render(<NewExpensePanel {...props} />);
     fireEvent.change(screen.getByTestId("expense-description"), { target: { value: "Dinner" } });
     fireEvent.change(screen.getByTestId("expense-amount"), { target: { value: "120.00" } });
     pick("cerf");
@@ -256,7 +274,7 @@ describe("NewExpenseDialog — the partner (F87)", () => {
   });
 });
 
-describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", () => {
+describe("NewExpensePanel — the group proposed from the date (F131 §5.2)", () => {
   afterEach(() => {
     cleanup();
     calls.create.mockClear();
@@ -265,7 +283,7 @@ describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", (
   const date = () => screen.getByLabelText("Date");
 
   it("opens on the month's group, marked as proposed (the month); the date moved into the trip → the trip, marked so", () => {
-    render(<NewExpenseDialog {...props} />);
+    render(<NewExpensePanel {...props} />);
     expect(group()).toHaveValue("00000000-0000-4000-8000-000000000003");
     expect(screen.getByTestId("group-hint")).toHaveTextContent("proposed (the month)");
     fireEvent.change(date(), { target: { value: "2026-03-10" } });
@@ -284,7 +302,7 @@ describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", (
   });
 
   it("the owner's own pick stands: the proposal stops following the date, and no source is claimed for it", () => {
-    render(<NewExpenseDialog {...props} />);
+    render(<NewExpensePanel {...props} />);
     fireEvent.change(group(), { target: { value: "00000000-0000-4000-8000-000000000001" } });
     expect(screen.queryByTestId("group-hint")).toBeNull();
     fireEvent.change(date(), { target: { value: "2026-03-10" } });
@@ -294,12 +312,12 @@ describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", (
 
   it("a document's date drives the proposal; a group the page gave (the group page) is kept, not proposed over", () => {
     const { unmount } = render(
-      <NewExpenseDialog {...props} initial={{ date: "2026-03-14", amount: "45.00" }} />,
+      <NewExpensePanel {...props} initial={{ date: "2026-03-14", amount: "45.00" }} />,
     );
     expect(group()).toHaveValue("00000000-0000-4000-8000-000000000004");
     expect(screen.getByTestId("group-hint")).toHaveTextContent("proposed (the trip)");
     unmount();
-    render(<NewExpenseDialog {...props} defaultGroupId="00000000-0000-4000-8000-000000000001" />);
+    render(<NewExpensePanel {...props} defaultGroupId="00000000-0000-4000-8000-000000000001" />);
     expect(group()).toHaveValue("00000000-0000-4000-8000-000000000001");
     expect(screen.queryByTestId("group-hint")).toBeNull();
     fireEvent.change(date(), { target: { value: "2026-03-10" } });
@@ -307,7 +325,7 @@ describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", (
   });
 
   it("+ New group… without a description: Create waits", () => {
-    render(<NewExpenseDialog {...props} />);
+    render(<NewExpensePanel {...props} />);
     fireEvent.change(screen.getByTestId("expense-description"), { target: { value: "Taxi" } });
     fireEvent.change(screen.getByTestId("expense-amount"), { target: { value: "20.00" } });
     pick("sas");
@@ -316,12 +334,12 @@ describe("NewExpenseDialog — the group proposed from the date (F131 §5.2)", (
   });
 });
 
-describe("NewExpenseDialog — the AI's account for the receipt (F126)", () => {
+describe("NewExpensePanel — the AI's account for the receipt (F126)", () => {
   afterEach(cleanup);
   const ai = { code: "6900", reason: "Small office supplies", prefill: true };
 
   it("HIGH fills the empty field, marked as the AI's; a partner's default replaces it", () => {
-    render(<NewExpenseDialog {...props} initial={{ currency: "CHF", basProposal: ai }} />);
+    render(<NewExpensePanel {...props} initial={{ currency: "CHF", basProposal: ai }} />);
     expect(category()).toHaveTextContent(/6900\s*Other/);
     expect(screen.getByTestId("expense-category")).toHaveAttribute("data-prefilled", "true");
     expect(screen.getByTestId("category-from-ai")).toBeInTheDocument();
@@ -332,12 +350,182 @@ describe("NewExpenseDialog — the AI's account for the receipt (F126)", () => {
 
   it("MEDIUM (no prefill) leaves the field empty — the account waits on top of the picker", () => {
     render(
-      <NewExpenseDialog
+      <NewExpensePanel
         {...props}
         initial={{ currency: "CHF", basProposal: { ...ai, prefill: false } }}
       />,
     );
     expect(category()).toHaveTextContent("—");
     expect(screen.queryByTestId("category-from-ai")).toBeNull();
+  });
+});
+
+describe("NewExpensePanel — the board's extras (F179)", () => {
+  afterEach(() => {
+    cleanup();
+    for (const f of Object.values(calls)) f.mockClear();
+    calls.preview.mockResolvedValue({ data: { data: { key: null, base: null } } });
+    calls.trip.mockResolvedValue({ data: { data: null } });
+  });
+  const companySek = {
+    id: "00000000-0000-4000-8000-000000000012",
+    label: "Plusgirokonto SEK",
+    kind: "bank_account" as const,
+    bankAccountId: "00000000-0000-4000-8000-000000000012",
+    currency: "SEK",
+    isActive: true,
+  };
+  const fill = (desc: string, amount: string) => {
+    fireEvent.change(screen.getByTestId("expense-description"), { target: { value: desc } });
+    fireEvent.change(screen.getByTestId("expense-amount"), { target: { value: amount } });
+  };
+
+  it("Paid with is one click: the picked account is checked, says what it means and goes with the form", async () => {
+    render(<NewExpensePanel {...props} sources={[...props.sources, companySek]} />);
+    const priv = screen.getByRole("radio", { name: "Private CH" });
+    const company = screen.getByRole("radio", { name: "Plusgirokonto SEK" });
+    // the company account comes first (defaultSourceId)
+    expect(company).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTestId("paid-with-hint")).toHaveTextContent("matched to its bank row");
+    fireEvent.click(priv);
+    expect(priv).toHaveAttribute("aria-checked", "true");
+    expect(company).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByTestId("paid-with-hint")).toHaveTextContent("the company owes you this");
+    fireEvent.click(company);
+    fill("Licence", "123.88");
+    pick("sas");
+    fireEvent.click(screen.getByTestId("create-expense"));
+    await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(1));
+    expect(calls.create.mock.calls[0]?.[0]).toMatchObject({
+      paidFromAccountId: companySek.id,
+      // the payer's currency pre-fills the expense's
+      currency: "SEK",
+    });
+  });
+
+  it("previews the key and the base from the server — shown, never sent with the form", async () => {
+    calls.preview.mockResolvedValue({
+      data: {
+        data: {
+          key: "Ex3-Tr-05_2026-07-06_",
+          base: {
+            amountBase: "754.30",
+            rate: "11.786",
+            rateSource: "ecb_daily",
+            rateDate: "2026-07-06",
+          },
+        },
+      },
+    });
+    render(<NewExpensePanel {...props} />);
+    fill("Train", "64.00");
+    pick("sas");
+    expect(await screen.findByTestId("expense-key-preview")).toHaveTextContent(
+      "Will be filed as Ex3-Tr-05_2026-07-06_",
+    );
+    expect(screen.getByTestId("expense-base-preview")).toHaveTextContent(
+      "In SEK at ECB 2026-07-06 (11.786)",
+    );
+    expect(screen.getByTestId("expense-base-preview")).toHaveTextContent("754.30");
+    // asked with what the form holds: the month's group, the partner's category, the CHF of the payer
+    expect(calls.preview.mock.calls.at(-1)?.[0]).toMatchObject({
+      groupId: "00000000-0000-4000-8000-000000000003",
+      basCode: "5800",
+      amount: "64.00",
+      currency: "CHF",
+    });
+    fireEvent.click(screen.getByTestId("create-expense"));
+    await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(1));
+    const sent = calls.create.mock.calls[0]?.[0] as Record<string, unknown>;
+    for (const field of ["key", "amountBase", "rate", "base"])
+      expect(sent).not.toHaveProperty(field);
+  });
+
+  it("no preview without a key to show and nothing foreign to convert", async () => {
+    render(<NewExpensePanel {...props} sources={[companySek]} />);
+    fill("Lunch", "100.00");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(calls.preview).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("expense-key-preview")).toBeNull();
+    expect(screen.queryByTestId("expense-base-preview")).toBeNull();
+  });
+
+  it("Save and add another: saved, the panel stays open, group / date / payer kept, the rest empty, focus on the amount", async () => {
+    const onOpenChange = vi.fn();
+    render(<NewExpensePanel {...props} onOpenChange={onOpenChange} />);
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-03-10" } });
+    fill("Taxi", "20.00");
+    pick("sas");
+    fireEvent.click(screen.getByTestId("create-expense-again"));
+    await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("expense-amount")).toHaveFocus());
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(screen.getByTestId("expense-description")).toHaveValue("");
+    expect(screen.getByTestId("expense-amount")).toHaveValue("");
+    expect(category()).toHaveTextContent("—");
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-03-10");
+    expect(screen.getByTestId("group-select")).toHaveValue("00000000-0000-4000-8000-000000000004");
+    expect(screen.getByRole("radio", { name: "Private CH" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    // the next one goes to the same group, on the same day, paid the same way; a plain Save closes the panel
+    fill("Bus", "4.40");
+    fireEvent.change(screen.getByTestId("expense-partner"), { target: { value: "" } });
+    pick("sas");
+    fireEvent.click(screen.getByTestId("create-expense"));
+    await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(2));
+    expect(calls.create.mock.calls[1]?.[0]).toMatchObject({
+      groupId: "00000000-0000-4000-8000-000000000004",
+      date: "2026-03-10",
+      paidFromAccountId: "00000000-0000-4000-8000-000000000002",
+      description: "Bus",
+    });
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it("a trip with its breakdown and no per-diem yet: the switch, off; turned on, Save writes the traktamente too", async () => {
+    calls.trip.mockResolvedValue({
+      data: {
+        data: { computed: { days: 3, total: "870.00" }, perDiemExpenseId: null },
+      },
+    });
+    render(<NewExpensePanel {...props} />);
+    // a batch group: no switch, the trip is not even asked for
+    expect(screen.queryByTestId("expense-per-diem")).toBeNull();
+    expect(calls.trip).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-03-10" } });
+    const sw = await screen.findByTestId("expense-per-diem");
+    expect(calls.trip).toHaveBeenCalledWith({ groupId: "00000000-0000-4000-8000-000000000004" });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    expect(sw).toHaveAccessibleName("Add traktamente for the 3 trip days");
+    fireEvent.click(sw);
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    fill("Train", "64.00");
+    pick("taxi");
+    fireEvent.change(screen.getByTestId("expense-partner"), { target: { value: "sas" } });
+    fireEvent.click(screen.getByTestId("create-expense"));
+    await waitFor(() => expect(calls.perDiem).toHaveBeenCalledTimes(1));
+    expect(calls.create).toHaveBeenCalledTimes(1);
+    // the travel category (short code Tr), into the trip's group
+    expect(calls.perDiem).toHaveBeenCalledWith({
+      groupId: "00000000-0000-4000-8000-000000000004",
+      basCode: "5800",
+    });
+  });
+
+  it("the switch stays off the form once the trip has its per-diem, and Save leaves it alone", async () => {
+    calls.trip.mockResolvedValue({
+      data: { data: { computed: { days: 3, total: "870.00" }, perDiemExpenseId: "pd1" } },
+    });
+    render(<NewExpensePanel {...props} />);
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-03-10" } });
+    await waitFor(() => expect(calls.trip).toHaveBeenCalled());
+    expect(screen.queryByTestId("expense-per-diem")).toBeNull();
+    fill("Train", "64.00");
+    pick("sas");
+    fireEvent.click(screen.getByTestId("create-expense"));
+    await waitFor(() => expect(calls.create).toHaveBeenCalledTimes(1));
+    expect(calls.perDiem).not.toHaveBeenCalled();
   });
 });
