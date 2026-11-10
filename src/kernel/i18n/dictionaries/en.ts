@@ -2797,7 +2797,7 @@ export const en = {
     "Similar expense exists: {key} for {amount} {currency} on {date}",
   "documents.makeIt.title": "Make it…",
   "documents.makeIt.hint":
-    "What this document is — the dialog opens pre-filled from the facts above.",
+    "What this document is — the form opens pre-filled from the facts above.",
   "documents.makeIt.expense": "Expense",
   "documents.makeIt.supplierInvoice": "Supplier invoice",
   "documents.makeIt.justFile": "Just file it",
