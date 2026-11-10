@@ -243,6 +243,8 @@ export function JustifyPanel({
             prefixType: d.prefixType,
             fields: d.extractedData?.fields,
             modelUsed: d.extractedData?.modelUsed,
+            pages: d.extractedData?.pages,
+            processingTimeMs: d.extractedData?.processingTimeMs,
           },
           reading,
           note: d.status === "ocr_failed" ? t("linking.reading.readFailed") : null,

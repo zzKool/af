@@ -15,7 +15,12 @@ import { Button } from "@/components/ui/button";
 // `confirmedWarnings`) · the Group proposed from the paper's date (the covering trip, else the month's group — never
 // list order) · the Category with its source · one primary, *Confirm & link* → `justifyRowAction` (one transaction),
 // then the D74 toast when the result proposes a rule. Escape closes without writing. Replaces the F97 compare card.
-import { DateInput } from "@/components/ui/date-input";
+// F186 (the board *Documents*): the same column pair as the documents desk — the document as paper with a box on
+// every field read, the field active on the right lit — and on the right *What it read* (`WhatItRead` in form mode:
+// each value its own quiet input, its confidence and bar; an ambiguous date or a total ≠ net + VAT asks) then *When
+// you accept*: **creates** the kind (the paper radio and the switch in its step) · **links** this row, the checks
+// as its evidence · **files** the category, the partner and the group — the partner match / new partner, the group
+// and the category open in that step on a click (open while one lacks). One primary, *Accept all three*.
 import {
   Dialog,
   DialogContent,
@@ -23,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -35,10 +39,27 @@ import { extractError } from "@/kernel/errors/extract-error";
 import { useT } from "@/kernel/i18n/use-t";
 import { formatMoney } from "@/kernel/money/format-money";
 import { CURRENCIES } from "@/kernel/nav/constants";
-import { fieldConfidence, type OcrFieldMap, type OcrTypedKey } from "@/kernel/ocr/fields";
+import { confidenceLabel } from "@/kernel/ocr/confidence";
+import {
+  fieldConfidence,
+  fieldContent,
+  type OcrFieldMap,
+  type OcrPage,
+  type OcrTypedKey,
+} from "@/kernel/ocr/fields";
 import { DetailsSection } from "@/kernel/ui/details-section";
 import { createRuleFromTransactionAction } from "@/modules/banking/ui";
-import { AlsoReadSection, DocumentViewer, FieldConfidence } from "@/modules/documents/ui";
+import {
+  AcceptChainView,
+  AlsoReadSection,
+  askFor,
+  BoardTag,
+  type ChainNode,
+  DocumentViewer,
+  type MarkedKey,
+  type ReadField,
+  WhatItRead,
+} from "@/modules/documents/ui";
 import {
   GroupPicker,
   type GroupProposalReason,
@@ -86,6 +107,9 @@ export type ReadDocument = {
   /** the OCR's own reading (before corrections): `fields` and `modelUsed` give the glyphs and *Also read* */
   fields: OcrFieldMap | undefined;
   modelUsed: string | undefined;
+  /** F186: the pages the boxes are measured in, and how long the reading took */
+  pages?: OcrPage[];
+  processingTimeMs?: number;
 };
 
 /** a proposal's source as the picker names it (F98 → F125) */
@@ -480,18 +504,14 @@ function ReadingDialogBody({
     onDone();
   }
 
-  // --- the glyphs: DI's confidence of the field each value was read from (F127) ---
+  // --- what it read (F186): the dialog's fields as the board's rows — DI's confidence, the box on the page ---
   const docReading = document
     ? { fields: document.fields, modelUsed: document.modelUsed ?? "" }
     : null;
-  const glyph = (...keys: OcrTypedKey[]) => (
-    <FieldConfidence
-      confidence={keys.reduce<number | null>(
-        (found, key) => found ?? fieldConfidence(docReading, key),
-        null,
-      )}
-    />
-  );
+  const conf = (...keys: OcrTypedKey[]) =>
+    keys.reduce<number | null>((found, key) => found ?? fieldConfidence(docReading, key), null);
+  const content = (...keys: OcrTypedKey[]) =>
+    keys.reduce<string | null>((found, key) => found ?? fieldContent(docReading, key), null);
   const paperWord = t(`linking.justify.paper.${paper}`).toLowerCase();
   const otherKind: JustifyKind = kind === "supplier_invoice" ? "expense" : "supplier_invoice";
   const busy = rereading || isPending || creatingGroup || creatingTrip;
@@ -508,6 +528,332 @@ function ReadingDialogBody({
         counterparty: row.counterpartyKey || row.description,
       });
   const items = reading.items ?? [];
+  const vendorKey: MarkedKey = receiptRead ? "merchantName" : "vendorName";
+  const dateKey: MarkedKey = receiptRead ? "transactionDate" : "invoiceDate";
+  const asked = {
+    [vendorKey]: vendorName,
+    [dateKey]: date,
+    dueDate,
+    invoiceTotal: Number(amount) || undefined,
+    totalTax: Number(vat) || undefined,
+    subtotal: reading.subtotal,
+  };
+  const row_ = (
+    key: MarkedKey,
+    label: string,
+    raw: string,
+    input: ReadField["input"],
+    testId: string,
+    extra: Partial<ReadField> = {},
+  ): ReadField => {
+    const c = documentId ? conf(key) : null;
+    return {
+      key,
+      label,
+      value: raw,
+      raw,
+      input,
+      confidence: c,
+      sure: confidenceLabel(c) === "high",
+      ask: documentId && raw ? askFor(key, c, content(key), asked) : null,
+      testId,
+      ...extra,
+    };
+  };
+  const fields: ReadField[] = [
+    row_(vendorKey, t("linking.reading.field.vendor"), vendorName, "text", "justify-vendor"),
+    row_(
+      "vendorTaxId",
+      t("linking.reading.field.vatNumber"),
+      vatNumber,
+      "text",
+      "justify-vat-number",
+    ),
+    ...(kind === "supplier_invoice"
+      ? [
+          row_(
+            "invoiceNumber",
+            t("linking.reading.field.invoiceNumber"),
+            invoiceNumber,
+            "text",
+            "justify-invoice-number",
+          ),
+        ]
+      : []),
+    row_(
+      dateKey,
+      receiptRead
+        ? t("linking.reading.field.transactionDate")
+        : t("linking.reading.field.invoiceDate"),
+      date,
+      "date",
+      "justify-date",
+    ),
+    ...(kind === "supplier_invoice"
+      ? [row_("dueDate", t("linking.reading.field.dueDate"), dueDate, "date", "justify-due")]
+      : []),
+    row_("invoiceTotal", t("linking.reading.field.total"), amount, "amount", "justify-amount", {
+      suffix: (
+        <Select value={currency} onValueChange={(v) => setCurrency(v ?? row.currency)}>
+          <SelectTrigger
+            id={`${ids}-currency`}
+            className="h-7 w-[4.5rem] shrink-0"
+            aria-label={t("linking.reading.field.currency")}
+            data-testid="justify-currency"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRENCIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    }),
+    row_("totalTax", t("linking.reading.field.vat"), vat, "amount", "justify-vat"),
+    row_("subtotal", t("linking.reading.field.net"), net, "amount", "reading-net", {
+      readOnly: true,
+      ask: null,
+    }),
+  ];
+  const setters: Record<string, (v: string) => void> = {
+    vendorName: setVendorName,
+    merchantName: setVendorName,
+    vendorTaxId: setVatNumber,
+    invoiceNumber: setInvoiceNumber,
+    invoiceDate: setDate,
+    transactionDate: setDate,
+    dueDate: setDueDate,
+    invoiceTotal: setAmount,
+    totalTax: setVat,
+  };
+  const [active, setActive] = useState<string | null>(null);
+
+  // --- when you accept: creates · links · files (the board's chain; the checks are the links step's evidence) ---
+  const lacksFiles = !picked || basCode === NONE || !groupId;
+  const [filesOpen, setFilesOpen] = useState(true);
+  const groupName =
+    groupId === NEW_GROUP
+      ? `${newGroupDescription.trim() || monthOf(date || row.bookingDate)} (${t("linking.reading.newGroupShort")})`
+      : (groupOptions.find((g) => g.id === groupId)?.description ?? "");
+  const category = options.categories.find((c) => c.code === basCode);
+  const nodes: ChainNode[] = [
+    {
+      verb: "creates",
+      body: (
+        <span className="inline-block first-letter:uppercase" data-testid="reading-becomes">
+          {t(`linking.reading.becomes.${kind}`)}
+        </span>
+      ),
+      children: (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5" data-testid="reading-paper">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">{t("linking.justify.paper")}</span>
+            <div className="flex gap-1" role="radiogroup" aria-label={t("linking.justify.paper")}>
+              {PAPERS.map((p) => (
+                <Button
+                  key={p}
+                  size="xs"
+                  variant={paper === p ? "secondary" : "ghost"}
+                  role="radio"
+                  aria-checked={paper === p}
+                  disabled={busy || !documentId}
+                  onClick={() => p !== paper && onPaper(p)}
+                  data-testid={`reading-paper-${p}`}
+                >
+                  {t(`linking.justify.paper.${p}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="link"
+            className="h-auto p-0 text-xs"
+            onClick={() => setKind(otherKind)}
+            disabled={busy}
+            data-testid="reading-switch"
+          >
+            {t("linking.reading.switch", { kind: t(`linking.reading.becomes.${otherKind}`) })}
+          </Button>
+        </div>
+      ),
+    },
+    {
+      verb: "links",
+      body: (
+        <span className="tabular-nums">
+          {t("linking.reading.bankRow", { date: row.bookingDate, amount: signedAmount })}
+        </span>
+      ),
+      aside: facts ? (
+        <span className={warnings.length ? "text-state-attention" : "text-state-done"} data-public>
+          {warnings.length
+            ? t("linking.reading.warningsCount", { count: warnings.length })
+            : t("linking.reading.checksCount", { count: green.length })}
+        </span>
+      ) : null,
+      children: (
+        <>
+          <ul className="flex flex-col gap-1 text-xs" data-testid="reading-checks">
+            {green.map((g) => (
+              <li
+                key={g.code}
+                className="flex items-start gap-2 text-muted-foreground"
+                data-testid="reading-check-ok"
+              >
+                <span aria-hidden className="w-3 shrink-0 text-center text-state-done">
+                  ✓
+                </span>
+                <span>{greenText(g, t)}</span>
+              </li>
+            ))}
+            {warnings.map((w) => (
+              <li
+                key={w.code}
+                className="flex items-start gap-2 text-state-attention"
+                data-testid="reading-check-warning"
+                data-code={w.code}
+              >
+                <span aria-hidden className="w-3 shrink-0 text-center font-semibold">
+                  !
+                </span>
+                <span>{warningMessage(w, t)}</span>
+              </li>
+            ))}
+            {facts && green.length === 0 && warnings.length === 0 && (
+              <li className="text-muted-foreground">{t("linking.reading.checksNone")}</li>
+            )}
+          </ul>
+          {warnings.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("linking.reading.warningsConfirmed")}
+            </p>
+          )}
+        </>
+      ),
+    },
+    {
+      verb: "files",
+      lacking: lacksFiles,
+      onOpen: () => setFilesOpen((o) => !o),
+      body: (
+        <span data-testid="reading-files">
+          {category ? category.label.replace(" · ", " ") : t("linking.reading.pickCategory")}
+          {" · "}
+          {picked
+            ? t("documents.chain.partner", { name: picked.name })
+            : t("linking.reading.pickPartner")}
+          {groupName ? ` · ${groupName}` : ""}
+        </span>
+      ),
+      children: filesOpen ? (
+        <div className="flex flex-col gap-3">
+          <Block label={t("linking.reading.partner")}>
+            <ReadingPartnerBlock
+              rowId={row.id}
+              incoming={incoming}
+              vendor={{
+                name: vendorName || null,
+                vatNumber: vatNumber || null,
+                address: reading.vendorAddress ?? null,
+              }}
+              readingCurrency={currency || null}
+              partners={partners}
+              pick={pick}
+              onPick={pickPartner}
+              onPropose={proposePartner}
+              onCreated={(p) => {
+                setExtraPartners((prev) => [p, ...prev.filter((x) => x.id !== p.id)]);
+                pickPartner({ partnerId: p.id, from: "created" });
+              }}
+              paperWord={paperWord}
+              disabled={busy}
+            />
+          </Block>
+          <Block label={t("linking.reading.group")}>
+            <div className="grid gap-2" data-testid="justify-group">
+              <GroupPicker
+                idPrefix={`${ids}-grp`}
+                label={t("linking.reading.group")}
+                groups={groupOptions}
+                value={groupId}
+                onChange={(id) => {
+                  setGroupTouched(true);
+                  setGroupId(id);
+                }}
+                newDescription={newGroupDescription}
+                onNewDescription={setNewGroupDescription}
+              />
+              {groupId === NEW_GROUP && (
+                <div
+                  className="flex flex-wrap items-center gap-1"
+                  role="radiogroup"
+                  aria-label={t("linking.reading.newGroupKind")}
+                >
+                  <span className="mr-1 text-xs font-medium">
+                    {t("linking.reading.newGroupKind")}
+                  </span>
+                  {(["batch", "trip"] as const).map((k) => (
+                    <Button
+                      key={k}
+                      size="sm"
+                      variant={newGroupKind === k ? "secondary" : "ghost"}
+                      role="radio"
+                      aria-checked={newGroupKind === k}
+                      onClick={() => setNewGroupKind(k)}
+                      data-testid={`reading-new-group-${k}`}
+                    >
+                      {t(`linking.reading.newGroupKind.${k}`)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              {groupId === NEW_GROUP && newGroupKind === "trip" && (
+                <NewTripFields idPrefix={`${ids}-trip`} value={newTrip} onChange={setNewTrip} />
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="reading-group-hint">
+              {groupReason
+                ? t(`linking.reading.groupProposed.${groupReason}`)
+                : !groupId
+                  ? t("linking.reading.groupNone", {
+                      date: date || row.bookingDate,
+                      month: monthOf(date || row.bookingDate),
+                    })
+                  : null}
+            </p>
+          </Block>
+          <Block label={t("linking.reading.category")}>
+            <BasPicker
+              id={`${ids}-cat`}
+              options={options.categories}
+              value={basCode === NONE ? "" : basCode}
+              onChange={(code) => setBasCode(code || NONE)}
+              suggestions={basSuggestions}
+              direction="cost"
+              requireAlias
+              data-testid="justify-category"
+            />
+            {categorySource && (
+              <p className="mt-1 text-xs text-muted-foreground" data-testid="reading-category-hint">
+                {t("linking.reading.categoryProposed", {
+                  source: t(`linking.reading.categorySource.${categorySource}`),
+                })}
+              </p>
+            )}
+          </Block>
+        </div>
+      ) : undefined,
+    },
+  ];
+  const kindTag =
+    kind === "supplier_invoice" ? "documents.kind.supplierInvoice" : "documents.kind.receipt";
+  const pages = document?.pages?.length ?? 0;
+  const readMs = document?.processingTimeMs;
 
   return (
     <>
@@ -523,12 +869,49 @@ function ReadingDialogBody({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        {/* left — the preview, the whole height */}
-        <div className="hidden min-h-0 border-r bg-muted/30 md:flex md:flex-col">
+      <div className="grid min-h-0 flex-1 grid-cols-1 bg-app md:grid-cols-[minmax(0,1fr)_400px]">
+        {/* left — the document, its boxes lit by the field active on the right (the board *Documents*) */}
+        <div className="hidden min-h-0 flex-col gap-3 p-5 md:flex">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+            <BoardTag tone={kind === "supplier_invoice" ? "progress" : "attention"}>
+              {t(kindTag)}
+            </BoardTag>
+            <span data-public>
+              {[
+                t("linking.reading.readAs", { paper: paperWord }),
+                pages > 0
+                  ? t(pages === 1 ? "documents.desk.page" : "documents.desk.pages", {
+                      count: pages,
+                    })
+                  : null,
+                readMs ? t("documents.desk.readIn", { seconds: (readMs / 1000).toFixed(1) }) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+            {document && <span className="ml-auto">{t("documents.desk.previewHint")}</span>}
+          </div>
           {document ? (
-            <div className="min-h-0 flex-1 overflow-hidden" data-testid="reading-preview">
-              <DocumentViewer fileUrl={document.fileUrl} mimeType={document.mimeType} />
+            <div className="relative min-h-0 flex-1" data-testid="reading-preview">
+              <div className="absolute inset-0">
+                <DocumentViewer
+                  bare
+                  fileUrl={document.fileUrl}
+                  mimeType={document.mimeType}
+                  reading={
+                    document.fields && document.modelUsed
+                      ? {
+                          ...reading,
+                          fields: document.fields,
+                          modelUsed: document.modelUsed,
+                          pages: document.pages,
+                          processingTimeMs: document.processingTimeMs ?? 0,
+                        }
+                      : null
+                  }
+                  active={active}
+                />
+              </div>
             </div>
           ) : (
             <p className="p-6 text-sm text-muted-foreground" data-testid="reading-no-document">
@@ -537,226 +920,44 @@ function ReadingDialogBody({
           )}
         </div>
 
-        {/* right — the facts, scrolling on their own */}
-        <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain px-5 py-4 text-sm">
-          <div className="flex flex-col gap-4">
-            {/* Paper · Becomes */}
-            <div
-              className="flex flex-wrap items-center gap-x-6 gap-y-2"
-              data-testid="reading-paper"
+        {/* right — what it read, and what one click does with it */}
+        <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain border-l border-subtle bg-surface px-4 py-4 text-sm">
+          {rereading && (
+            <p className="mb-2 px-1 text-xs text-muted-foreground" data-testid="reading-rereading">
+              {t("linking.reading.rereading", { paper: paperWord })}
+            </p>
+          )}
+          {note && !rereading && (
+            <p className="mb-2 px-1 text-xs text-muted-foreground" data-testid="reading-note">
+              {note}
+            </p>
+          )}
+          <fieldset disabled={busy} className="min-w-0" data-testid="reading-fields">
+            <WhatItRead
+              mode="form"
+              fields={fields}
+              active={active}
+              onActive={setActive}
+              onAnswer={(key, raw) => setters[key]?.(raw)}
+              canWrite
+              formatAmount={(v) => formatMoney(v, currency || row.currency)}
+              testId="reading-what-it-read"
+            />
+          </fieldset>
+          {documentId && billedTo && (
+            <p
+              className="mt-1 px-2.5 text-xs text-muted-foreground"
+              data-testid="reading-billed-to"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium">{t("linking.justify.paper")}</span>
-                <div
-                  className="flex gap-1"
-                  role="radiogroup"
-                  aria-label={t("linking.justify.paper")}
-                >
-                  {PAPERS.map((p) => (
-                    <Button
-                      key={p}
-                      size="sm"
-                      variant={paper === p ? "secondary" : "ghost"}
-                      role="radio"
-                      aria-checked={paper === p}
-                      disabled={busy || !documentId}
-                      onClick={() => p !== paper && onPaper(p)}
-                      data-testid={`reading-paper-${p}`}
-                    >
-                      {t(`linking.justify.paper.${p}`)}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium">{t("linking.reading.becomes")}</span>
-                <span data-testid="reading-becomes">{t(`linking.reading.becomes.${kind}`)}</span>
-                <Button
-                  size="sm"
-                  variant="link"
-                  className="h-auto p-0 text-xs"
-                  onClick={() => setKind(otherKind)}
-                  disabled={busy}
-                  data-testid="reading-switch"
-                >
-                  {t("linking.reading.switch", { kind: t(`linking.reading.becomes.${otherKind}`) })}
-                </Button>
-              </div>
-            </div>
-            {rereading && (
-              <p className="text-xs text-muted-foreground" data-testid="reading-rereading">
-                {t("linking.reading.rereading", { paper: paperWord })}
-              </p>
-            )}
-            {note && !rereading && (
-              <p className="text-xs text-muted-foreground" data-testid="reading-note">
-                {note}
-              </p>
-            )}
-
-            {/* the typed fields, a glyph each */}
-            <fieldset
-              className="grid gap-3 sm:grid-cols-2"
-              disabled={busy}
-              data-testid="reading-fields"
-            >
-              <Field
-                id={`${ids}-vendor`}
-                label={t("linking.reading.field.vendor")}
-                glyph={glyph("vendorName", "merchantName")}
-              >
-                <Input
-                  id={`${ids}-vendor`}
-                  value={vendorName}
-                  onChange={(e) => setVendorName(e.target.value)}
-                  data-testid="justify-vendor"
-                />
-              </Field>
-              <Field
-                id={`${ids}-vat-number`}
-                label={t("linking.reading.field.vatNumber")}
-                glyph={glyph("vendorTaxId")}
-              >
-                <Input
-                  id={`${ids}-vat-number`}
-                  value={vatNumber}
-                  onChange={(e) => setVatNumber(e.target.value)}
-                  data-testid="justify-vat-number"
-                />
-              </Field>
-              {kind === "supplier_invoice" && (
-                <Field
-                  id={`${ids}-number`}
-                  label={t("linking.reading.field.invoiceNumber")}
-                  glyph={glyph("invoiceNumber")}
-                >
-                  <Input
-                    id={`${ids}-number`}
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    data-testid="justify-invoice-number"
-                  />
-                </Field>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <Field
-                  id={`${ids}-date`}
-                  label={
-                    receiptRead
-                      ? t("linking.reading.field.transactionDate")
-                      : t("linking.reading.field.invoiceDate")
-                  }
-                  glyph={glyph("invoiceDate", "transactionDate")}
-                >
-                  <DateInput
-                    id={`${ids}-date`}
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    data-testid="justify-date"
-                  />
-                </Field>
-                {kind === "supplier_invoice" && (
-                  <Field
-                    id={`${ids}-due`}
-                    label={t("linking.reading.field.dueDate")}
-                    glyph={glyph("dueDate")}
-                  >
-                    <DateInput
-                      id={`${ids}-due`}
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      data-testid="justify-due"
-                    />
-                  </Field>
-                )}
-              </div>
-              <div className="grid grid-cols-[1fr_5.5rem] gap-2">
-                <Field
-                  id={`${ids}-amount`}
-                  label={t("linking.reading.field.total")}
-                  glyph={glyph("invoiceTotal")}
-                >
-                  <Input
-                    id={`${ids}-amount`}
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    data-testid="justify-amount"
-                  />
-                </Field>
-                <Field id={`${ids}-currency`} label={t("linking.reading.field.currency")}>
-                  <Select value={currency} onValueChange={(v) => setCurrency(v ?? row.currency)}>
-                    <SelectTrigger
-                      id={`${ids}-currency`}
-                      className="w-full"
-                      data-testid="justify-currency"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Field
-                  id={`${ids}-vat`}
-                  label={t("linking.reading.field.vat")}
-                  glyph={glyph("totalTax")}
-                >
-                  <Input
-                    id={`${ids}-vat`}
-                    inputMode="decimal"
-                    value={vat}
-                    onChange={(e) => setVat(e.target.value)}
-                    data-testid="justify-vat"
-                  />
-                </Field>
-                <Field
-                  id={`${ids}-net`}
-                  label={t("linking.reading.field.net")}
-                  glyph={glyph("subtotal")}
-                >
-                  <Input
-                    id={`${ids}-net`}
-                    value={net}
-                    readOnly
-                    tabIndex={-1}
-                    data-testid="reading-net"
-                  />
-                </Field>
-              </div>
-              {documentId && (
-                <Field
-                  id={`${ids}-billed`}
-                  label={t("linking.reading.field.billedTo")}
-                  glyph={glyph("customerName", "customerTaxId")}
-                >
-                  <Input
-                    id={`${ids}-billed`}
-                    value={billedTo || "—"}
-                    readOnly
-                    tabIndex={-1}
-                    data-testid="reading-billed-to"
-                  />
-                </Field>
-              )}
-              {kind === "expense" && (
-                <p
-                  className="text-xs text-muted-foreground sm:col-span-2"
-                  data-testid="reading-payer"
-                >
-                  {t("linking.reading.payer", { account: row.accountLabel })}
-                </p>
-              )}
-            </fieldset>
-
-            {/* Also read (N) · Lines (N) — collapsed */}
+              {t("linking.reading.billedToLine", { who: billedTo })}
+            </p>
+          )}
+          {kind === "expense" && (
+            <p className="mt-1 px-2.5 text-xs text-muted-foreground" data-testid="reading-payer">
+              {t("linking.reading.payer", { account: row.accountLabel })}
+            </p>
+          )}
+          <div className="mt-2 flex flex-col gap-1">
             {document && (
               <AlsoReadSection fields={document.fields} modelUsed={document.modelUsed} />
             )}
@@ -776,13 +977,7 @@ function ReadingDialogBody({
                         {t("linking.reading.lines.quantity")}
                       </th>
                       <th className="w-24 text-right font-normal">
-                        {t("linking.reading.lines.unitPrice")}
-                      </th>
-                      <th className="w-24 text-right font-normal">
                         {t("linking.reading.lines.amount")}
-                      </th>
-                      <th className="w-16 text-right font-normal">
-                        {t("linking.reading.lines.tax")}
                       </th>
                     </tr>
                   </thead>
@@ -793,17 +988,7 @@ function ReadingDialogBody({
                         <td className="truncate py-0.5">{line.description ?? "—"}</td>
                         <td className="py-0.5 text-right tabular-nums">{line.quantity ?? ""}</td>
                         <td className="py-0.5 text-right tabular-nums">
-                          {typeof line.unitPrice === "number" ? line.unitPrice.toFixed(2) : ""}
-                        </td>
-                        <td className="py-0.5 text-right tabular-nums">
                           {typeof line.amount === "number" ? line.amount.toFixed(2) : ""}
-                        </td>
-                        <td className="py-0.5 text-right tabular-nums">
-                          {typeof line.taxRate === "number"
-                            ? `${line.taxRate} %`
-                            : typeof line.tax === "number"
-                              ? line.tax.toFixed(2)
-                              : ""}
                         </td>
                       </tr>
                     ))}
@@ -811,170 +996,28 @@ function ReadingDialogBody({
                 </table>
               </DetailsSection>
             )}
-
-            <hr className="border-subtle" />
-
-            {/* Partner */}
-            <Block label={t("linking.reading.partner")}>
-              <ReadingPartnerBlock
-                rowId={row.id}
-                incoming={incoming}
-                vendor={{
-                  name: vendorName || null,
-                  vatNumber: vatNumber || null,
-                  address: reading.vendorAddress ?? null,
-                }}
-                readingCurrency={currency || null}
-                partners={partners}
-                pick={pick}
-                onPick={pickPartner}
-                onPropose={proposePartner}
-                onCreated={(p) => {
-                  setExtraPartners((prev) => [p, ...prev.filter((x) => x.id !== p.id)]);
-                  pickPartner({ partnerId: p.id, from: "created" });
-                }}
-                paperWord={paperWord}
-                disabled={busy}
-              />
-            </Block>
-
-            {/* Checks */}
-            <Block label={t("linking.reading.checks")}>
-              <ul className="flex flex-col gap-1" data-testid="reading-checks">
-                {green.map((g) => (
-                  <li
-                    key={g.code}
-                    className="flex items-start gap-2 text-muted-foreground"
-                    data-testid="reading-check-ok"
-                  >
-                    <span aria-hidden className="w-3 shrink-0 text-center">
-                      ✓
-                    </span>
-                    <span>{greenText(g, t)}</span>
-                  </li>
-                ))}
-                {warnings.map((w) => (
-                  <li
-                    key={w.code}
-                    className="flex items-start gap-2"
-                    data-testid="reading-check-warning"
-                    data-code={w.code}
-                  >
-                    <span aria-hidden className="w-3 shrink-0 text-center font-semibold">
-                      !
-                    </span>
-                    <span>{warningMessage(w, t)}</span>
-                  </li>
-                ))}
-                {facts && green.length === 0 && warnings.length === 0 && (
-                  <li className="text-muted-foreground">{t("linking.reading.checksNone")}</li>
-                )}
-              </ul>
-              {warnings.length > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("linking.reading.warningsConfirmed")}
-                </p>
-              )}
-            </Block>
-
-            {/* Group */}
-            <Block label={t("linking.reading.group")}>
-              <div className="grid gap-2 sm:grid-cols-2" data-testid="justify-group">
-                <GroupPicker
-                  idPrefix={`${ids}-grp`}
-                  label={t("linking.reading.group")}
-                  groups={groupOptions}
-                  value={groupId}
-                  onChange={(id) => {
-                    setGroupTouched(true);
-                    setGroupId(id);
-                  }}
-                  newDescription={newGroupDescription}
-                  onNewDescription={setNewGroupDescription}
-                />
-                {groupId === NEW_GROUP && (
-                  <div
-                    className="flex flex-wrap items-center gap-1 sm:col-span-2"
-                    role="radiogroup"
-                    aria-label={t("linking.reading.newGroupKind")}
-                  >
-                    <span className="mr-1 text-xs font-medium">
-                      {t("linking.reading.newGroupKind")}
-                    </span>
-                    {(["batch", "trip"] as const).map((k) => (
-                      <Button
-                        key={k}
-                        size="sm"
-                        variant={newGroupKind === k ? "secondary" : "ghost"}
-                        role="radio"
-                        aria-checked={newGroupKind === k}
-                        onClick={() => setNewGroupKind(k)}
-                        data-testid={`reading-new-group-${k}`}
-                      >
-                        {t(`linking.reading.newGroupKind.${k}`)}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-                {groupId === NEW_GROUP && newGroupKind === "trip" && (
-                  <NewTripFields idPrefix={`${ids}-trip`} value={newTrip} onChange={setNewTrip} />
-                )}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground" data-testid="reading-group-hint">
-                {groupReason
-                  ? t(`linking.reading.groupProposed.${groupReason}`)
-                  : !groupId
-                    ? t("linking.reading.groupNone", {
-                        date: date || row.bookingDate,
-                        month: monthOf(date || row.bookingDate),
-                      })
-                    : null}
-              </p>
-            </Block>
-
-            {/* Category */}
-            <Block label={t("linking.reading.category")}>
-              <BasPicker
-                id={`${ids}-cat`}
-                options={options.categories}
-                value={basCode === NONE ? "" : basCode}
-                onChange={(code) => setBasCode(code || NONE)}
-                suggestions={basSuggestions}
-                direction="cost"
-                requireAlias
-                data-testid="justify-category"
-              />
-              {categorySource && (
-                <p
-                  className="mt-1 text-xs text-muted-foreground"
-                  data-testid="reading-category-hint"
-                >
-                  {t("linking.reading.categoryProposed", {
-                    source: t(`linking.reading.categorySource.${categorySource}`),
-                  })}
-                </p>
-              )}
-            </Block>
           </div>
+
+          <AcceptChainView
+            nodes={nodes}
+            label={t("documents.chain.accept.three")}
+            onAccept={() => void submit()}
+            disabled={busy || missing.length > 0}
+            buttonTestId="justify-create"
+            hint={
+              missing.length > 0 ? (
+                <span data-testid="justify-missing">
+                  {t("linking.justify.missing", { fields: missing.join(" · ") })}
+                </span>
+              ) : null
+            }
+          />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t px-5 py-3">
-        {missing.length > 0 && (
-          <span className="text-xs text-muted-foreground" data-testid="justify-missing">
-            {t("linking.justify.missing", { fields: missing.join(" · ") })}
-          </span>
-        )}
-        <span className="grow" />
+      <div className="flex items-center justify-end gap-2 border-t px-5 py-2.5">
         <Button variant="ghost" onClick={onCancel} data-testid="justify-cancel">
           {t("linking.justify.cancel")}
-        </Button>
-        <Button
-          onClick={() => void submit()}
-          disabled={busy || missing.length > 0}
-          data-testid="justify-create"
-        >
-          {t("linking.reading.confirm")}
         </Button>
       </div>
     </>
@@ -996,30 +1039,6 @@ function greenText(g: GreenCheck, t: ReturnType<typeof useT>): string {
     case "vendor":
       return t("linking.reading.check.vendor");
   }
-}
-
-function Field({
-  id,
-  label,
-  glyph,
-  children,
-}: {
-  id: string;
-  label: string;
-  glyph?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div data-field={id}>
-      <div className="mb-1 flex items-center gap-1.5">
-        <label htmlFor={id} className="block text-xs font-medium">
-          {label}
-        </label>
-        {glyph}
-      </div>
-      {children}
-    </div>
-  );
 }
 
 function Block({ label, children }: { label: string; children: ReactNode }) {

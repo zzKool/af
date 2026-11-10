@@ -19,7 +19,12 @@ vi.mock("@/modules/banking/ui", () => ({ createRuleFromTransactionAction: "rule"
 vi.mock("@/modules/documents/ui", async () => ({
   ...(await import("@/modules/documents/components/field-confidence")),
   ...(await import("@/modules/documents/components/also-read-section")),
-  DocumentViewer: () => <div data-testid="viewer" />,
+  ...(await import("@/modules/documents/components/read-fields")),
+  ...(await import("@/modules/documents/components/accept-chain-view")),
+  ...(await import("@/modules/documents/components/board-tag")),
+  DocumentViewer: ({ active }: { active?: string | null }) => (
+    <div data-testid="viewer" data-active={active ?? ""} />
+  ),
 }));
 // the match card as a stub: it reports the matches the test set, offers *Use match* and the host's *New*
 const matchState = vi.hoisted(() => ({
@@ -318,12 +323,21 @@ function mount(
   return { onCancel, onDone };
 }
 
-const bandOf = (fieldTestId: string) =>
-  screen
-    .getByTestId(fieldTestId)
-    .closest("[data-field]")
-    ?.querySelector("[data-testid=field-confidence]")
-    ?.getAttribute("data-confidence-band");
+/** F186: a row of *What it read* — its confidence in its band's colour */
+const bandOf = (fieldTestId: string) => {
+  const cls =
+    screen
+      .getByTestId(fieldTestId)
+      .closest("[data-testid=read-field]")
+      ?.querySelector("[data-testid=read-field-confidence]")?.className ?? "";
+  return cls.includes("text-read")
+    ? "high"
+    : cls.includes("text-state-attention")
+      ? "medium"
+      : cls.includes("text-destructive")
+        ? "low"
+        : null;
+};
 
 describe("ReadingDialog — the fields, the partner first, Confirm waits for a partner", () => {
   afterEach(cleanup);
@@ -343,7 +357,7 @@ describe("ReadingDialog — the fields, the partner first, Confirm waits for a p
     expect(screen.getByTestId("justify-amount")).toHaveValue("1297.20");
     expect(screen.getByTestId("justify-vat")).toHaveValue("259.44");
     expect(screen.getByTestId("reading-net")).toHaveValue("1037.76");
-    expect(screen.getByTestId("reading-billed-to")).toHaveValue("Dev AB");
+    expect(screen.getByTestId("reading-billed-to")).toHaveTextContent("Billed to Dev AB");
     expect(bandOf("justify-vendor")).toBe("high");
     expect(bandOf("justify-invoice-number")).toBe("medium");
     expect(bandOf("justify-vat-number")).toBe("low");
@@ -357,13 +371,19 @@ describe("ReadingDialog — the fields, the partner first, Confirm waits for a p
     expect(screen.getByTestId("reading-payer")).toHaveTextContent("Paid from Plusgirokonto SEK");
   });
 
-  it("the partner block comes before the checks; Confirm & link is disabled until a partner is named (F129)", async () => {
+  it("the chain: creates · links (the checks, its evidence) · files (the partner, open while it lacks); Accept waits for a partner (F129, F186)", async () => {
     mount();
     const partnerBlock = screen.getByTestId("reading-partner");
     const checks = screen.getByTestId("reading-checks");
-    expect(
-      partnerBlock.compareDocumentPosition(checks) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(within(screen.getByTestId("chain-links")).getByTestId("reading-checks")).toBe(checks);
+    expect(within(screen.getByTestId("chain-files")).getByTestId("reading-partner")).toBe(
+      partnerBlock,
+    );
+    expect(screen.getByTestId("chain-files")).toHaveAttribute("data-lacking", "true");
+    expect(screen.getByTestId("chain-links")).toHaveTextContent(
+      "Bank row 2026-07-08 · −1 297.20 SEK",
+    );
+    expect(screen.getByTestId("justify-create")).toHaveTextContent("Accept all three");
     expect(within(partnerBlock).getByTestId("partner-match")).toBeInTheDocument();
     expect(screen.getByTestId("justify-create")).toBeDisabled();
     expect(screen.getByTestId("justify-missing")).toHaveTextContent("Still needed: Partner");
@@ -445,6 +465,42 @@ describe("ReadingDialog — the fields, the partner first, Confirm waits for a p
     expect(screen.getByTestId("justify-partner")).toHaveTextContent(
       "Skattepunkten Office Services AB",
     );
+  });
+});
+
+describe("ReadingDialog — the board's column pair (F186)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    for (const k of Object.keys(calls)) delete calls[k];
+    matchState.matches = [];
+  });
+
+  it("a field focused on the right is the box lit on the page; an ambiguous due date asks which, one click sets it", async () => {
+    mount({
+      reading: { ...reading, dueDate: "2026-08-07" },
+      document: {
+        ...document,
+        fields: {
+          ...document.fields,
+          DueDate: { type: "date", value: "2026-08-07", confidence: 0.72, content: "07-08" },
+        },
+      },
+    });
+    fireEvent.focus(screen.getByTestId("justify-amount"));
+    expect(screen.getByTestId("viewer")).toHaveAttribute("data-active", "invoiceTotal");
+    const due = screen
+      .getByTestId("justify-due")
+      .closest("[data-testid=read-field]") as HTMLElement;
+    expect(within(due).getByTestId("read-field-ask")).toHaveTextContent(
+      "“07-08” — Aug 7 or Jul 8?",
+    );
+    fireEvent.click(within(due).getByRole("button", { name: "2026-07-08" }));
+    expect(screen.getByTestId("justify-due")).toHaveValue("2026-07-08");
+    // a value the reading is not sure of but cannot doubt is just edited, no question in a form
+    const number = screen
+      .getByTestId("justify-invoice-number")
+      .closest("[data-testid=read-field]") as HTMLElement;
+    expect(within(number).queryByTestId("read-field-ask")).not.toBeInTheDocument();
   });
 });
 

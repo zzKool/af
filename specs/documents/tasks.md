@@ -88,3 +88,9 @@ Notes from the build (2026-10-21): the DB tests of T011 / T012 live in `inbox.te
 - [x] T047 linking: `documentAcceptChain` (kind, partner match, category, group or a new month group, peeked key, the best HIGH bank row) + `documentAcceptChainAction` (owner read).
 - [x] T048 UI: the hero with the tiles in flight (`drop-hero.tsx`), the inbox cards, tools and duplicate question (`inbox-workbench.tsx`), the document as paper with the boxes (`document-preview.tsx` *bare*, `MarksOverlay` as boxes), *What it read* (`read-fields.tsx`) and *When you accept* (`accept-chain-view.tsx`, `inbox-pane.tsx`); Enter accepts; tokens `--read`, `--paper`.
 - [x] T049 Tests: `accept-chain.test.ts`, `accept-chain-rules.pure.test.ts`, `to-check.pure.test.ts`, `read-fields.test.tsx`, `inbox-pane.test.tsx`, `inbox-workbench.test.tsx`, `marks-overlay.test.tsx`; e2e `document-inbox`, `document-boxes`, `document-multi-upload`; screenshots `specs/documents/screenshots/f185-*`.
+
+## F186 — the reading dialog on the board's column pair (2026-11-10, `feat/documents-board-dialog`)
+
+- [x] T050 documents: `WhatItRead` *form* mode (quiet inputs, `testId`, `readOnly`, `suffix`), `askFor`; `AcceptChainView` `buttonTestId`; `DocumentViewer` takes the reading (boxes, `bare`); `ui.ts` exports them.
+- [x] T051 linking: `reading-dialog.tsx` — the page as paper + *What it read* + *When you accept* (creates · links with the checks · files with the partner, the group, the category); `justify-panel.tsx` passes the pages and the reading's time.
+- [x] T052 Tests: `reading-dialog.test.tsx` (the chain, the hover, the date question); e2e `justify.spec.ts`; screenshots `specs/documents/screenshots/f186-*`.

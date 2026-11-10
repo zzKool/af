@@ -136,7 +136,9 @@ test.describe("Justify", () => {
       await expect(dialog.getByTestId("justify-vendor")).not.toHaveValue("");
       await expect(dialog.getByTestId("justify-invoice-number")).not.toHaveValue("");
       await expect(dialog.getByTestId("justify-amount")).toHaveValue("1250.00");
-      expect(await dialog.getByTestId("field-confidence").count()).toBeGreaterThan(3);
+      // F186: the board's rows — a confidence and its bar per field read, the page beside them with its boxes
+      expect(await dialog.getByTestId("read-field-confidence").count()).toBeGreaterThan(3);
+      await expect(dialog.getByTestId("chain-links")).toContainText("Bank row");
       await expect(dialog.getByTestId("reading-preview")).toBeVisible();
       // the partner block first: the match card, then + New partner from this invoice → the full form, pre-filled
       await expect(dialog.getByTestId("partner-match")).toBeVisible();

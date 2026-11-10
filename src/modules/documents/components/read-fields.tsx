@@ -18,7 +18,25 @@ import { useT } from "@/kernel/i18n/use-t";
 import { confidenceLabel } from "@/kernel/ocr/confidence";
 import { monthName } from "@/kernel/ui/data-table/filters/date-filter";
 import { cn } from "@/lib/utils";
-import type { CheckAsk } from "@/modules/documents/to-check";
+import type { InboxFacts } from "@/modules/documents/queries";
+import type { MarkedKey } from "@/modules/documents/reading-marks";
+
+export type { MarkedKey };
+
+import { type CheckAsk, checkAsk } from "@/modules/documents/to-check";
+
+/**
+ * The question a value asks (F186, for a host outside the module — the reading dialog): the to-check rule on a field
+ * read at `confidence`, printed as `content`, the values as edited in `facts`.
+ */
+export function askFor(
+  key: MarkedKey,
+  confidence: number | null,
+  content: string | null,
+  facts: InboxFacts,
+): CheckAsk | null {
+  return checkAsk({ key, confidence, content, box: null }, facts);
+}
 
 export type ReadField = {
   key: string;
@@ -35,6 +53,12 @@ export type ReadField = {
   corrected?: boolean;
   /** the question it asks while not sure; null = nothing to ask */
   ask: CheckAsk | null;
+  /** form mode (F186): the value's input's test id */
+  testId?: string;
+  /** form mode: shown, never typed (a value derived from the others) */
+  readOnly?: boolean;
+  /** form mode: a control after the value (the total's currency) */
+  suffix?: ReactNode;
 };
 
 /** the bar and the figure by DI's band: sure in the reading colour, to check amber, low red */
@@ -59,6 +83,7 @@ export function WhatItRead({
   formatAmount = (v) => v,
   testId = "what-it-read",
   footer,
+  mode = "answer",
 }: {
   fields: ReadField[];
   active: string | null;
@@ -71,6 +96,12 @@ export function WhatItRead({
   formatAmount?: (raw: string) => string;
   testId?: string;
   footer?: ReactNode;
+  /**
+   * `answer` (the desk): the values read, a question for a field to check, a correction on a click; `form` (the
+   * reading dialog, F186): every value is its own quiet input — what the entity will take, nothing written on the
+   * document; only the questions a reading can answer (a date's order, a total) are asked
+   */
+  mode?: "answer" | "form";
 }) {
   const t = useT();
   const sure = fields.filter((f) => f.sure).length;
@@ -91,6 +122,7 @@ export function WhatItRead({
           onAnswer={canWrite && onAnswer ? (raw) => onAnswer(f.key, raw) : undefined}
           busy={busy}
           formatAmount={formatAmount}
+          form={mode === "form"}
         />
       ))}
       {footer}
@@ -105,6 +137,7 @@ function FieldRow({
   onAnswer,
   busy,
   formatAmount,
+  form = false,
 }: {
   field: ReadField;
   on: boolean;
@@ -112,6 +145,7 @@ function FieldRow({
   onAnswer?: (raw: string) => void;
   busy: boolean;
   formatAmount: (raw: string) => string;
+  form?: boolean;
 }) {
   const t = useT();
   const lang = useLocale().effectiveLocale ?? "en";
@@ -123,7 +157,7 @@ function FieldRow({
     onActive();
     setEditing(true);
   };
-  const ask = !f.sure ? f.ask : null;
+  const ask = !f.sure && !(form && f.ask?.kind === "confirm") ? f.ask : null;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the hover joins the row to its box on the page — the row's button carries focus and click
@@ -140,57 +174,58 @@ function FieldRow({
       data-sure={f.sure ? "true" : undefined}
       data-testid="read-field"
     >
-      <div className="flex min-w-0 items-baseline gap-2">
-        <button
-          type="button"
-          className="flex min-w-0 flex-1 items-baseline gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40 rounded-sm"
-          onFocus={onActive}
-          onClick={onActive}
-          onDoubleClick={onAnswer ? edit : undefined}
-        >
-          <span className="w-[92px] shrink-0 truncate text-[11.5px] text-muted-foreground">
+      {form ? (
+        <div className="flex min-w-0 items-center gap-2">
+          <label
+            htmlFor={`read-${f.key}`}
+            className="w-[92px] shrink-0 truncate text-[11.5px] text-muted-foreground"
+          >
             {f.label}
-          </span>
-          {!editing && (
-            <span className="min-w-0 flex-1 truncate font-medium tabular-nums">{f.value}</span>
-          )}
-        </button>
-        {editing && onAnswer && (
-          <InlineEdit
-            field={f}
-            onDone={(raw) => {
-              setEditing(false);
-              if (raw !== null && raw !== f.raw) onAnswer(raw);
-            }}
-          />
-        )}
-        {onAnswer && !editing && (
+          </label>
+          <FormValue field={f} onActive={onActive} onAnswer={onAnswer} />
+          {f.suffix}
+          <ConfidenceFigure field={f} pct={pct} look={look} />
+        </div>
+      ) : (
+        <div className="flex min-w-0 items-baseline gap-2">
           <button
             type="button"
-            className="shrink-0 rounded-sm text-muted-foreground opacity-0 outline-none group-hover/field:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/40"
-            onClick={edit}
-            aria-label={t("documents.read.correct", { field: f.label })}
-            title={t("documents.read.correct", { field: f.label })}
-            data-testid="read-field-edit"
+            className="flex min-w-0 flex-1 items-baseline gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40 rounded-sm"
+            onFocus={onActive}
+            onClick={onActive}
+            onDoubleClick={onAnswer ? edit : undefined}
           >
-            <Pencil className="size-3" aria-hidden />
+            <span className="w-[92px] shrink-0 truncate text-[11.5px] text-muted-foreground">
+              {f.label}
+            </span>
+            {!editing && (
+              <span className="min-w-0 flex-1 truncate font-medium tabular-nums">{f.value}</span>
+            )}
           </button>
-        )}
-        <span
-          className={cn("shrink-0 font-mono text-[11px]", look?.text ?? "text-muted-foreground")}
-          data-public
-          title={f.corrected ? t("documents.read.checked") : undefined}
-          data-testid="read-field-confidence"
-        >
-          {f.corrected ? (
-            <Check className="inline size-3" aria-label={t("documents.read.checked")} />
-          ) : pct !== null ? (
-            `${pct}%`
-          ) : (
-            "—"
+          {editing && onAnswer && (
+            <InlineEdit
+              field={f}
+              onDone={(raw) => {
+                setEditing(false);
+                if (raw !== null && raw !== f.raw) onAnswer(raw);
+              }}
+            />
           )}
-        </span>
-      </div>
+          {onAnswer && !editing && (
+            <button
+              type="button"
+              className="shrink-0 rounded-sm text-muted-foreground opacity-0 outline-none group-hover/field:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/40"
+              onClick={edit}
+              aria-label={t("documents.read.correct", { field: f.label })}
+              title={t("documents.read.correct", { field: f.label })}
+              data-testid="read-field-edit"
+            >
+              <Pencil className="size-3" aria-hidden />
+            </button>
+          )}
+          <ConfidenceFigure field={f} pct={pct} look={look} />
+        </div>
+      )}
       <div className="h-[3px] overflow-hidden rounded-full bg-subtle" aria-hidden>
         <div
           className={cn("h-full rounded-full", look?.bar ?? "bg-transparent")}
@@ -209,6 +244,74 @@ function FieldRow({
         />
       )}
     </div>
+  );
+}
+
+/** The confidence on the right: the % in its band's colour, a check for the owner's word, a dash for none. */
+function ConfidenceFigure({
+  field: f,
+  pct,
+  look,
+}: {
+  field: ReadField;
+  pct: number | null;
+  look: { text: string } | null;
+}) {
+  const t = useT();
+  return (
+    <span
+      className={cn("shrink-0 font-mono text-[11px]", look?.text ?? "text-muted-foreground")}
+      data-public
+      title={f.corrected ? t("documents.read.checked") : undefined}
+      data-testid="read-field-confidence"
+    >
+      {f.corrected ? (
+        <Check className="inline size-3" aria-label={t("documents.read.checked")} />
+      ) : pct !== null ? (
+        `${pct}%`
+      ) : (
+        "—"
+      )}
+    </span>
+  );
+}
+
+/** Form mode (F186): the value as a quiet input — bold like the board's value, a border only on hover and focus. */
+function FormValue({
+  field: f,
+  onActive,
+  onAnswer,
+}: {
+  field: ReadField;
+  onActive: () => void;
+  onAnswer?: (raw: string) => void;
+}) {
+  const quiet =
+    "h-7 min-w-0 flex-1 rounded-md border-transparent bg-transparent px-1.5 font-medium shadow-none hover:border-border focus-visible:border-primary";
+  const common = {
+    id: `read-${f.key}`,
+    onFocus: onActive,
+    readOnly: f.readOnly || !onAnswer,
+    tabIndex: f.readOnly ? -1 : undefined,
+    "data-testid": f.testId,
+  };
+  if (f.input === "date" && !f.readOnly)
+    return (
+      <DateInput
+        {...common}
+        className={cn(quiet, "pr-7")}
+        value={f.raw}
+        onChange={(e) => onAnswer?.(e.target.value)}
+      />
+    );
+  return (
+    <Input
+      {...common}
+      className={cn(quiet, "text-[13px] tabular-nums")}
+      inputMode={f.input === "amount" ? "decimal" : undefined}
+      value={f.raw}
+      onChange={(e) => onAnswer?.(e.target.value)}
+    />
   );
 }
 

@@ -5,7 +5,9 @@
 // whose graph reaches this barrel; the review client loads it with next/dynamic({ ssr: false }) — and so does
 // `document-viewer`, the wrapper other modules mount (the reading dialog, F131).
 
+export * from "./components/accept-chain-view";
 export * from "./components/also-read-section";
+export * from "./components/board-tag";
 export * from "./components/document-classification-section";
 export * from "./components/document-review-client";
 export * from "./components/document-review-footer";
@@ -22,6 +24,7 @@ export * from "./components/inbox-workbench";
 export * from "./components/line-items-section";
 export * from "./components/make-it-section";
 export * from "./components/payment-details-section";
+export * from "./components/read-fields";
 export * from "./components/relationship-fields-section";
 export * from "./documents.actions";
 export type { BilledToCheck, CompanyIdentity } from "./types";
