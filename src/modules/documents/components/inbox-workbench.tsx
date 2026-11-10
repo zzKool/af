@@ -65,7 +65,12 @@ function cardNote(r: InboxItem, t: ReturnType<typeof useT>): { text: string; att
   if (marks.length === 0) return { text: t("documents.card.nothingRead"), attention: true };
   const { check } = sureCount(marks, r.corrected ?? []);
   return check > 0
-    ? { text: t(check === 1 ? "documents.card.toCheckOne" : "documents.card.toCheck", { count: check }), attention: true }
+    ? {
+        text: t(check === 1 ? "documents.card.toCheckOne" : "documents.card.toCheck", {
+          count: check,
+        }),
+        attention: true,
+      }
     : { text: t("documents.card.allSure"), attention: false };
 }
 

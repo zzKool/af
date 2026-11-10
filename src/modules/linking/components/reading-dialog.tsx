@@ -875,7 +875,11 @@ function ReadingDialogBody({
             <span data-public>
               {[
                 t("linking.reading.readAs", { paper: paperWord }),
-                pages > 0 ? t("documents.desk.pages", { count: pages }) : null,
+                pages > 0
+                  ? t(pages === 1 ? "documents.desk.page" : "documents.desk.pages", {
+                      count: pages,
+                    })
+                  : null,
                 readMs ? t("documents.desk.readIn", { seconds: (readMs / 1000).toFixed(1) }) : null,
               ]
                 .filter(Boolean)
