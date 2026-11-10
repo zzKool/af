@@ -239,6 +239,18 @@ export type GroupOption = {
   /** the month a batch group stands for (`YYYY-MM`, T025) — the pickers propose the date's month group from it */
   month?: string | null;
 };
+/** What the new-expense form shows before *Save* (F179): never stored — `createExpense` takes the key and writes the base itself. */
+export type ExpensePreview = {
+  /** `Ex2-Tr-05_2026-07-06_` — the receipt's file name the next expense of (group, category) gets; null when unknown */
+  key: string | null;
+  /** the base at the date's rate, for a foreign amount; null for a base-currency amount or without a rate */
+  base: {
+    amountBase: string;
+    rate: string;
+    rateSource: ExpenseRateSource;
+    rateDate: string | null;
+  } | null;
+};
 /** A payer the pickers offer (F114): a bank account — `kind` says whether a bank row pays it or a settlement refunds it. */
 export type SourceOption = {
   id: string;

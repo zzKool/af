@@ -11,7 +11,7 @@ export * from "./components/group-picker";
 export * from "./components/groups-table";
 export * from "./components/header-actions";
 export * from "./components/labels";
-export * from "./components/new-expense-dialog";
+export * from "./components/new-expense-panel";
 export * from "./components/phone-capture";
 export * from "./components/refund-picker";
 export * from "./components/settle-work";

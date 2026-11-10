@@ -9,17 +9,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 // New expense (US1): the group — proposed from the date (F131 §5.2: the trip whose days cover it, else the month's
 // group, else empty with *+ New group…*; it follows the date until the owner picks by hand) or a new one inline —,
 // kind, date, description, the partner (F87 — optional, its default category proposed, never overwriting; from a
-// document the match card offers the OCR merchant's vendor), category, amount, currency, who paid, the receipt from
-// the inbox (or "no receipt"), a note. The key and the base come from the service.
+// document the match card offers the OCR merchant's vendor), category, amount, currency, who paid (F179: one click,
+// the board's segmented control), the receipt from the inbox (or "no receipt"), a note. The key and the base come
+// from the service; the form previews both (F179) and stores neither.
 import { DateInput } from "@/components/ui/date-input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -63,7 +56,9 @@ import {
   type BasProposalHint,
   partnerBasSuggestions,
 } from "@/modules/settings/ui";
+import { createPerDiemExpenseAction } from "@/modules/traktamente/ui";
 import { DuplicatePanel, hasHighMatch, useDuplicateCheck } from "./duplicate-panel";
+import { EXPENSES_BASE } from "./expense-table";
 import {
   forProposal,
   GroupPicker,
@@ -72,6 +67,15 @@ import {
   proposeGroupForDate,
   useCreateGroupIfNew,
 } from "./group-picker";
+import {
+  BasePreviewLine,
+  KeyPreviewLine,
+  PaidWithControl,
+  PerDiemSwitch,
+  travelCategory,
+  useExpensePreview,
+  useTripPerDiem,
+} from "./new-expense-extras";
 import { PartnerPicker, useVendors } from "./partner-picker";
 
 /** What the review page pre-fills from the OCR facts as corrected (specs/documents US1). */
@@ -105,7 +109,7 @@ export function defaultSourceId(
   return (inCurrency ?? company[0] ?? sources[0])?.id ?? "";
 }
 
-/** What the new-expense form takes — the dialog (from a document) and the docked panel (the expenses pages) alike. */
+/** What the new-expense form takes — on the expenses pages and from a document (the inbox, the review page) alike. */
 export type NewExpenseProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -121,21 +125,12 @@ export type NewExpenseProps = {
   onCreated?: (expense: { id: string; key: string }) => void;
 };
 
-/** The form as a dialog — where it interrupts another page (the inbox, a document's review). */
-export function NewExpenseDialog(props: NewExpenseProps) {
-  return <NewExpenseForm {...props} variant="dialog" />;
-}
-
 /**
- * The form as the docked side panel (F170, the board *Pulse — Expenses*): on the expenses pages it opens beside the
- * list like a row's panel — the list narrows, nothing is covered; × and Escape close it.
+ * The new-expense form, docked (F170, the board *Pulse — Expenses*): it opens beside the page like a row's panel —
+ * the page narrows, nothing is covered; × and Escape close it. Since F180 the documents pages (the inbox, the review
+ * page's *Make it…*) dock it too — the modal dialog is gone.
  */
-export function NewExpensePanel(props: NewExpenseProps) {
-  return <NewExpenseForm {...props} variant="panel" />;
-}
-
-function NewExpenseForm({
-  variant,
+export function NewExpensePanel({
   open,
   onOpenChange,
   groups,
@@ -146,7 +141,7 @@ function NewExpenseForm({
   defaultGroupId,
   initial,
   onCreated,
-}: NewExpenseProps & { variant: "dialog" | "panel" }) {
+}: NewExpenseProps) {
   const t = useT();
   const ids = useId();
   const router = useRouter();
@@ -177,14 +172,20 @@ function NewExpenseForm({
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const { vendors, add: addVendor } = useVendors(open);
   const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<string>("SEK");
+  const [currency, setCurrency] = useState<string>(EXPENSES_BASE);
   const [sourceId, setSourceId] = useState(defaultSourceId(sources, initial?.currency));
   const [documentId, setDocumentId] = useState(NONE);
   const [documentMissing, setDocumentMissing] = useState(false);
   const [vatAmount, setVatAmount] = useState("");
   const [note, setNote] = useState("");
   const [ackNote, setAckNote] = useState("");
+  // F179: the trip's traktamente, written with the receipt when the owner turns the switch on (off by default)
+  const [perDiemOn, setPerDiemOn] = useState(false);
+  const amountRef = useRef<HTMLInputElement>(null);
   const { executeAsync: create, isPending } = useAction(createExpenseAction);
+  const { executeAsync: writePerDiem, isPending: writingPerDiem } = useAction(
+    createPerDiemExpenseAction,
+  );
   const { resolveGroupId, isPending: creatingGroup } = useCreateGroupIfNew();
   const { executeAsync: checkDuplicates } = useAction(checkExpenseDuplicatesAction);
 
@@ -295,7 +296,15 @@ function NewExpenseForm({
     if (sourceCurrency) setCurrency(sourceCurrency);
   }, [sourceCurrency]);
 
-  async function submit() {
+  // F179: the key it will be filed as and the base of a foreign amount — previews, never stored
+  const preview = useExpensePreview(open, { groupId, basCode, date, amount, currency });
+  const { perDiem, refresh: refreshPerDiem } = useTripPerDiem(open, groupId, groups);
+  useEffect(() => {
+    if (!perDiem) setPerDiemOn(false);
+  }, [perDiem]);
+
+  /** Save; with `again` the panel stays open for the next receipt — group, date and payer kept, focus on the amount. */
+  async function submit(again = false) {
     const targetGroup = await resolveGroupId(groupId, newGroup);
     if (!targetGroup) return;
     const r = await create({
@@ -326,6 +335,18 @@ function NewExpenseForm({
     }
     const created = r?.data?.data;
     toast.success(t("expenses.form.created", { key: created?.key ?? "" }));
+    if (perDiem && perDiemOn) {
+      const travel = travelCategory(categories);
+      const pd = travel ? await writePerDiem({ groupId: targetGroup, basCode: travel }) : null;
+      const pdError = pd ? extractError(pd) : t("expenses.form.perDiemNoCategory");
+      if (pdError) toast.error(pdError);
+      else
+        toast.success(
+          t("expenses.form.perDiemWritten", { key: pd?.data?.data?.expense.key ?? "" }),
+        );
+      setPerDiemOn(false);
+      refreshPerDiem();
+    }
     setDescription("");
     setAmount("");
     setVatAmount("");
@@ -335,34 +356,43 @@ function NewExpenseForm({
     setDocumentMissing(false);
     setNewGroup("");
     setPartnerId(null);
-    onOpenChange(false);
     if (created) onCreated?.(created);
     router.refresh();
+    if (!again) {
+      onOpenChange(false);
+      return;
+    }
+    // the next receipt: the group (a new one is now this one), the date and the payer stay; the rest starts empty
+    if (targetGroup !== groupId) {
+      setGroupTouched(true);
+      setGroupId(targetGroup);
+    }
+    setCategory({ code: "", source: null });
+    requestAnimationFrame(() => amountRef.current?.focus());
   }
 
-  // two columns from `sm` (the board: date · amount, category · trip) — `wide` spans the row, `pair` is half a row
-  // in the dialog and the whole row in the narrower panel
-  const panel = variant === "panel";
+  // two columns from `sm` (the board: date · amount, category · trip) — `wide` spans the row of the narrow panel
   const wide = "sm:col-span-2";
-  const pair = panel ? "sm:col-span-2" : "";
   const submitDisabled =
     isPending ||
     creatingGroup ||
+    writingPerDiem ||
     !groupId ||
     (groupId === NEW_GROUP && !newGroup.trim()) ||
     !basCode ||
     !sourceId ||
     (blocked && !ackNote.trim());
-  const submitLabel = blocked
-    ? t("documents.duplicate.panel.createAnyway")
-    : t("expenses.form.create");
+  const submitLabel = blocked ? t("documents.duplicate.panel.createAnyway") : t("common.save");
 
   const form = (
     <form
       className="grid gap-3 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
-        void submit();
+        // *Save and add another* is a submit button too: Enter in a field is a plain *Save*
+        const again =
+          (e.nativeEvent as SubmitEvent).submitter?.getAttribute("data-again") === "true";
+        void submit(again);
       }}
     >
       <GroupPicker
@@ -472,29 +502,22 @@ function NewExpenseForm({
           </p>
         )}
       </div>
-      <div className={pair}>
-        <label htmlFor={`${ids}-src`} className="mb-1 block text-xs font-medium">
-          {t("expenses.form.paidBy")}
-        </label>
-        <Select value={sourceId} onValueChange={(v) => v && setSourceId(v)}>
-          <SelectTrigger id={`${ids}-src`} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {sources.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className={wide}>
+        <PaidWithControl
+          id={`${ids}-src`}
+          label={t("expenses.form.paidBy")}
+          sources={sources}
+          value={sourceId}
+          onChange={setSourceId}
+        />
       </div>
-      <div className={cn("grid grid-cols-[1fr_auto] gap-2", pair)}>
+      <div className={cn("grid grid-cols-[1fr_auto] gap-2", wide)}>
         <div>
           <label htmlFor={`${ids}-amount`} className="mb-1 block text-xs font-medium">
             {t("expenses.form.amount")}
           </label>
           <Input
+            ref={amountRef}
             id={`${ids}-amount`}
             inputMode="decimal"
             value={amount}
@@ -522,7 +545,8 @@ function NewExpenseForm({
           </Select>
         </div>
       </div>
-      <div className={pair}>
+      <BasePreviewLine base={preview.base} />
+      <div className={wide}>
         <label htmlFor={`${ids}-doc`} className="mb-1 block text-xs font-medium">
           {t("expenses.form.document")}
         </label>
@@ -569,62 +593,43 @@ function NewExpenseForm({
         <Input id={`${ids}-note`} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       <DuplicatePanel matches={duplicates} ackNote={ackNote} onAckNote={setAckNote} />
-      {panel ? (
-        // the board's footer: the two buttons share the row, at the end of the panel
-        <div className="sticky bottom-0 flex gap-2 bg-surface pt-2 pb-1 sm:col-span-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => onOpenChange(false)}
-          >
-            {t("common.cancel")}
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            className="flex-1"
-            disabled={submitDisabled}
-            data-testid="create-expense"
-          >
-            {submitLabel}
-          </Button>
-        </div>
-      ) : (
-        <DialogFooter className="sm:col-span-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.cancel")}
-          </Button>
-          <Button type="submit" disabled={submitDisabled} data-testid="create-expense">
-            {submitLabel}
-          </Button>
-        </DialogFooter>
-      )}
+      {perDiem && <PerDiemSwitch perDiem={perDiem} on={perDiemOn} onChange={setPerDiemOn} />}
+      <KeyPreviewLine fileKey={preview.key} />
+      {/* the board's footer: the two buttons share the row, at the end of the panel; × and Escape close it */}
+      <div className="sticky bottom-0 flex gap-2 bg-surface pt-2 pb-1 sm:col-span-2">
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          disabled={submitDisabled}
+          data-again="true"
+          data-testid="create-expense-again"
+        >
+          {t("expenses.form.saveAndAddAnother")}
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          className="flex-1"
+          disabled={submitDisabled}
+          data-testid="create-expense"
+        >
+          {submitLabel}
+        </Button>
+      </div>
     </form>
   );
 
-  if (panel)
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent data-testid="new-expense-dialog" data-variant="panel" defaultWidth={420}>
-          <SheetHeader>
-            <SheetTitle>{t("expenses.form.title")}</SheetTitle>
-            <SheetDescription>{t("expenses.form.description")}</SheetDescription>
-          </SheetHeader>
-          {form}
-        </SheetContent>
-      </Sheet>
-    );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="new-expense-dialog" className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t("expenses.form.title")}</DialogTitle>
-          <DialogDescription>{t("expenses.form.description")}</DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent data-testid="new-expense-dialog" data-variant="panel" defaultWidth={420}>
+        <SheetHeader>
+          <SheetTitle>{t("expenses.form.title")}</SheetTitle>
+          <SheetDescription>{t("expenses.form.description")}</SheetDescription>
+        </SheetHeader>
         {form}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

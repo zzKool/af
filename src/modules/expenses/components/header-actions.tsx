@@ -21,7 +21,7 @@ import type {
 import { announceDockedPanel, useOtherDockedPanel } from "./dock-channel";
 import { EXPENSES_BASE } from "./expense-table";
 import { GroupDialog } from "./groups-table";
-import { NewExpensePanel } from "./new-expense-dialog";
+import { NewExpensePanel } from "./new-expense-panel";
 
 export type NewExpenseOptions = {
   groups: GroupOption[];

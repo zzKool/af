@@ -4,9 +4,8 @@ import { useEffect, useRef } from "react";
 
 // F170: the expenses pages dock one panel at a time — a row's details or the new-expense form. The title row's
 // *New expense* and the list are siblings on the page; each says on this window event which panel it opened, the
-// other closes its own. A window event rather than a shared store: the production bundle may instantiate a
-// module once per importer (seen on the landing pad, 2026-11-10 — a Zustand store held two states), the window
-// is one.
+// other closes its own. One event, no shared state to keep in step with `?new=1` (a module store would be shared
+// too — the bundle instantiates a module once; docs/lessons.md *F170*, corrected in F179).
 export type DockedExpensePanel = "new" | "row";
 
 const EVENT = "af:expenses-dock";

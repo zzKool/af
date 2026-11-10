@@ -1,6 +1,6 @@
 // F170 (the board *Pulse — Expenses*): the new-expense form docks beside the list instead of covering it — the
-// panel sits in the shell's dock (not an overlay), keeps the form (its fields, its proposals, its Create), closes on
-// × / Cancel, and shares the dock with the row's details: one panel at a time (the dock store), `?new=1` opens it
+// panel sits in the shell's dock (not an overlay), keeps the form (its fields, its proposals, its Save), closes on
+// × (F179: the board's footer is *Save and add another* · *Save*, no Cancel), and shares the dock with the row's details: one panel at a time (the dock store), `?new=1` opens it
 // and closing it drops the param.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +31,11 @@ vi.mock("@/modules/expenses/expenses.actions", () => ({
   checkExpenseDuplicatesAction: "dup",
   createExpenseGroupAction: "group",
   expenseVendorsAction: "vendors",
+  previewNewExpenseAction: "preview",
+}));
+vi.mock("@/modules/traktamente/ui", () => ({
+  getTripAction: "trip",
+  createPerDiemExpenseAction: "perDiem",
 }));
 vi.mock("./duplicate-panel", () => ({
   DuplicatePanel: () => null,
@@ -54,7 +59,7 @@ vi.mock("@/modules/partners/ui", () => ({ PartnerMatchCard: () => null }));
 import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
 import { announceDockedPanel } from "./dock-channel";
 import { NewExpenseButton } from "./header-actions";
-import { NewExpensePanel } from "./new-expense-dialog";
+import { NewExpensePanel } from "./new-expense-panel";
 
 const thisMonth = new Date().toISOString().slice(0, 7);
 const options = {
@@ -146,16 +151,14 @@ describe("NewExpensePanel — docked beside the list (F170)", () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it("Cancel and × close it", () => {
+  it("× closes it (the board's footer has no Cancel)", () => {
     const onOpenChange = vi.fn();
     render(
       <Canvas>
         <NewExpensePanel open onOpenChange={onOpenChange} {...options} />
       </Canvas>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(onOpenChange).toHaveBeenLastCalledWith(false);
-    onOpenChange.mockClear();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onOpenChange.mock.calls[0]?.[0]).toBe(false);
   });
