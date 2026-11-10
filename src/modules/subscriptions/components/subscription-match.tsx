@@ -112,7 +112,7 @@ export function SubscriptionRowMatch({
             ) : undefined
           }
         >
-          <div className="truncate font-medium" data-testid="subscription-match-label">
+          <div className="font-medium" data-testid="subscription-match-label">
             {t("subscriptions.match.row", { name: m.name, period: m.period })}
           </div>
           <div className="text-xs text-muted-foreground">
