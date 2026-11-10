@@ -112,13 +112,15 @@ export function SubscriptionRowMatch({
             ) : undefined
           }
         >
-          <span className="font-medium" data-testid="subscription-match-label">
+          <div className="truncate font-medium" data-testid="subscription-match-label">
             {t("subscriptions.match.row", { name: m.name, period: m.period })}
-          </span>
-          {how(m, "row") && <span className="text-muted-foreground"> — {how(m, "row")}</span>}{" "}
-          <Link href={`/subscriptions?open=${m.subscriptionId}`}>
-            {t("subscriptions.match.open")}
-          </Link>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {how(m, "row") && <>{how(m, "row")} · </>}
+            <Link href={`/subscriptions?open=${m.subscriptionId}`}>
+              {t("subscriptions.match.open")}
+            </Link>
+          </div>
         </InfoBanner>
       ))}
       <ConfirmPeriodDialog
