@@ -40,6 +40,8 @@ model ExpenseGroup {
   number      Int
   description String           @db.VarChar(200)
   kind        ExpenseGroupKind @default(batch)
+  /// the month a batch group stands for (`YYYY-MM`, T025) — set when the reading dialog creates the paper's month group
+  month       String?          @db.Char(7)
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
   createdBy   String           @map("created_by") @db.Uuid

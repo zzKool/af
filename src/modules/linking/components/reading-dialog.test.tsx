@@ -67,12 +67,19 @@ vi.mock("@/modules/partners/ui", async () => ({
     );
   },
 }));
+const groupState = vi.hoisted(() => ({
+  created: [] as { description: string; month: string | null }[],
+}));
 // the group picker as a native select (the dialog's proposal is under test, not Base UI's listbox)
 vi.mock("@/modules/expenses/ui", async () => ({
   ...(await import("@/modules/expenses/group-proposal")),
   NEW_GROUP: "__new__",
   useCreateGroupIfNew: () => ({
-    resolveGroupId: async (id: string) => (id === "__new__" ? "created-group" : id),
+    resolveGroupId: async (id: string, description: string, month?: string | null) => {
+      if (id !== "__new__") return id;
+      groupState.created.push({ description, month: month ?? null });
+      return "created-group";
+    },
     isPending: false,
   }),
   GroupPicker: ({
@@ -197,7 +204,14 @@ const options: JustifyOptions = {
       departure: "2026-03-02",
       return: "2026-03-21",
     },
-    { id: "july", label: "7 — 2026-07", number: 7, description: "2026-07", kind: "batch" },
+    {
+      id: "july",
+      label: "7 — 2026-07",
+      number: 7,
+      description: "2026-07",
+      kind: "batch",
+      month: "2026-07",
+    },
   ],
   categories: [
     { code: "6540", label: "6540 · IT services (It)" },
@@ -556,9 +570,51 @@ describe("ReadingDialog — the checks (F130) and the group (§5.2)", () => {
     expect(screen.getByTestId("new-group-description")).toHaveValue("2026-09");
     fireEvent.click(screen.getByTestId("partner-match-use"));
     await waitFor(() => expect(screen.getByTestId("justify-create")).toBeEnabled());
+    groupState.created = [];
     fireEvent.click(screen.getByTestId("justify-create"));
     await waitFor(() => expect(calls.justify).toHaveBeenCalled());
     expect(calls.justify.mock.calls[0][0].supplier.groupId).toBe("created-group");
+    // the month's group carries the paper's month as a fact (T025) — the next paper of September finds it
+    expect(groupState.created).toEqual([{ description: "2026-09", month: "2026-09" }]);
+  });
+
+  it("+ New group as a trip (T020): departure, return, country in place — the trip is created, the entity goes into it", async () => {
+    tripState.created = [];
+    mount();
+    fireEvent.change(screen.getByTestId("group-select"), { target: { value: "__new__" } });
+    // a month's group by default; the trip asks for its three facts
+    expect(screen.getByTestId("reading-new-group-batch")).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByTestId("new-trip-departure")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("reading-new-group-trip"));
+    // the paper's day at both ends, no country yet → Confirm names what the trip still needs
+    expect(screen.getByTestId("new-trip-departure")).toHaveValue("2026-07-06T08:00");
+    expect(screen.getByTestId("new-trip-return")).toHaveValue("2026-07-06T18:00");
+    fireEvent.change(screen.getByTestId("new-group-description"), {
+      target: { value: "Zurich, July 2026" },
+    });
+    fireEvent.click(screen.getByTestId("partner-match-use"));
+    await waitFor(() =>
+      expect(screen.getByTestId("justify-missing")).toHaveTextContent("the trip's country"),
+    );
+    expect(screen.getByTestId("justify-create")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("new-trip-country"), { target: { value: "CH" } });
+    fireEvent.change(screen.getByTestId("new-trip-return"), {
+      target: { value: "2026-07-09T19:30" },
+    });
+    await waitFor(() => expect(screen.getByTestId("justify-create")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("justify-create"));
+    await waitFor(() => expect(calls.justify).toHaveBeenCalled());
+    expect(tripState.created).toEqual([
+      {
+        description: "Zurich, July 2026",
+        trip: {
+          departureAt: "2026-07-06T08:00",
+          returnAt: "2026-07-09T19:30",
+          countryCode: "CH",
+        },
+      },
+    ]);
+    expect(calls.justify.mock.calls[0][0].supplier.groupId).toBe("created-trip");
   });
 
   it("+ New group as a trip (T020): departure, return, country in place — the trip is created, the entity goes into it", async () => {

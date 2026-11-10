@@ -11,7 +11,7 @@ export type GroupForProposal = {
   /** the trip's first and last day (`yyyy-mm-dd`, a timestamp is read to its day); both needed for a trip to count */
   departure?: string | null;
   return?: string | null;
-  /** the month a batch group stands for (`yyyy-mm`); `monthOfGroupName` reads it from the name when nothing stored it */
+  /** the month a batch group stands for (`yyyy-mm`, the stored fact — T025; a name is never read for it) */
   month?: string | null;
 };
 
@@ -22,46 +22,14 @@ export type GroupProposal = {
   reason: GroupProposalReason | null;
 };
 
-const MONTHS = [
-  "january",
-  "february",
-  "march",
-  "april",
-  "may",
-  "june",
-  "july",
-  "august",
-  "september",
-  "october",
-  "november",
-  "december",
-];
-
 const day = (s: string | null | undefined): string | null =>
   s && /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
 
-/** The month a group's name says it stands for: `2026-07 …` / `… 2026-07` → `2026-07`; `July 2026`, `Jul 2026` → `2026-07`; else null. */
-export function monthOfGroupName(name: string): string | null {
-  const iso = /(?:^|[^\d])(\d{4})-(\d{2})(?!\d)/.exec(name);
-  if (iso) {
-    const m = Number(iso[2]);
-    if (m >= 1 && m <= 12) return `${iso[1]}-${iso[2]}`;
-  }
-  const words = /\b([A-Za-z]{3,9})\.?\s+(\d{4})\b/.exec(name);
-  if (words) {
-    const token = words[1].toLowerCase();
-    const index = MONTHS.findIndex(
-      (m) => m === token || (token.length >= 3 && m.startsWith(token)),
-    );
-    if (index >= 0) return `${words[2]}-${String(index + 1).padStart(2, "0")}`;
-  }
-  return null;
-}
-
 /**
  * `proposeGroupForDate(date, groups)`: the trip whose days cover `date` (several → the shortest, the most specific;
- * the same length → the later departure, the trip under way — never list order), else the group whose month is the
- * date's (a stored `month`, else the one its name says), else nothing.
+ * the same length → the later departure, the trip under way — never list order), else the batch group whose stored
+ * `month` is the date's (T025 — the name is never parsed: `monthOfGroupName` became the migration's one-time
+ * backfill), else nothing.
  */
 export function proposeGroupForDate(
   date: string,
@@ -83,9 +51,7 @@ export function proposeGroupForDate(
   if (trip) return { groupId: trip.id, reason: "trip" };
 
   const month = paperDay.slice(0, 7);
-  const byMonth = groups.find(
-    (g) => g.kind !== "trip" && (g.month ?? monthOfGroupName(g.name)) === month,
-  );
+  const byMonth = groups.find((g) => g.kind !== "trip" && g.month === month);
   if (byMonth) return { groupId: byMonth.id, reason: "month" };
 
   return { groupId: null, reason: null };
