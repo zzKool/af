@@ -274,14 +274,15 @@ describe("US1 — a receipt becomes an expense in a group", () => {
     expect(count.rows[0].n).toBe(1);
   });
 
-  it("refuses a category without a short code, an unknown group, a foreign source", async () => {
+  it("files on any account (every one has a short code since 2026-11-10), refuses an unknown group", async () => {
     const g = await group213();
     await run(owner.caller, async (tx) => {
       const noAlias = await createExpense(tx, owner.caller, noopAudit, {
         ...fixtureInput(g.id, FIXTURE.expenses[0]),
         basCode: "6570",
       });
-      expect(noAlias.error?.message).toMatch(/6570 Banking costs has no short code/);
+      // 6570 had no short code before the owner's "fill all accounts": it stopped the key — now `Bank`
+      expect(noAlias.error).toBeUndefined();
       const noGroup = await createExpense(tx, owner.caller, noopAudit, {
         ...fixtureInput("00000000-0000-0000-0000-000000000000", FIXTURE.expenses[0]),
       });

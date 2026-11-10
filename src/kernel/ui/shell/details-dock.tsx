@@ -186,7 +186,7 @@ export function DockedCanvas({
           data-slot="details-dock"
           className={
             inline
-              ? "sticky top-3 flex h-[calc(100dvh-7.5rem)] shrink-0 empty:hidden"
+              ? "sticky top-3 z-20 flex h-[calc(100dvh-7.5rem)] shrink-0 empty:hidden"
               : "flex min-h-0 shrink-0"
           }
         />
