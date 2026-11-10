@@ -65,7 +65,7 @@ function cardNote(r: InboxItem, t: ReturnType<typeof useT>): { text: string; att
   if (marks.length === 0) return { text: t("documents.card.nothingRead"), attention: true };
   const { check } = sureCount(marks, r.corrected ?? []);
   return check > 0
-    ? { text: t("documents.card.toCheck", { count: check }), attention: true }
+    ? { text: t(check === 1 ? "documents.card.toCheckOne" : "documents.card.toCheck", { count: check }), attention: true }
     : { text: t("documents.card.allSure"), attention: false };
 }
 
@@ -482,7 +482,10 @@ export function InboxWorkbench({
               data-testid="inbox-meta"
             >
               {needsLook > 0
-                ? t("documents.inbox.metaLook", { count: counts.total, look: needsLook })
+                ? t(needsLook === 1 ? "documents.inbox.metaLookOne" : "documents.inbox.metaLook", {
+                    count: counts.total,
+                    look: needsLook,
+                  })
                 : String(counts.total)}
             </span>
             <Button
