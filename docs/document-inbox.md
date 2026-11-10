@@ -44,7 +44,7 @@ Key (code chip), state (`<DocumentStateLabel>` — the module's one family map, 
 | State | Actions |
 |---|---|
 | pending / stuck / failed | **Run OCR** (`o`) — `prepareOcrRerun` puts the document back to `uploaded`, the action queues the job after the commit (`singletonKey` = the document: one run at a time). A completed document is re-run only with `force`, from its review page; corrections are kept. |
-| ready, OCR failed | **Expense** (`e`) / **Supplier invoice** (`i`) — financial documents only; a contract or NDA is filed or archived — — the modules' dialogs pre-filled from the OCR facts as corrected (`initialFromFacts`, as on the review page), the document pre-selected; **Just file it** (= mark reviewed) |
+| ready, OCR failed | **Expense** (`e`) / **Supplier invoice** (`i`) — financial documents only; a contract or NDA is filed or archived — — the modules' forms pre-filled from the OCR facts as corrected (the expense **docked** beside the open document since F180, as on `/expenses` — the queue folds away while it is open, the document and what it read stay beside it; the supplier invoice a dialog) (`initialFromFacts`, as on the review page), the document pre-selected; **Just file it** (= mark reviewed) |
 | ready (financial) | the bank rows that could justify it, top 3 (`SuggestionsSection`), *Link* / *Link to…* (`l`), `Enter` = the top one when HIGH, `1`–`3` = the n-th |
 | any inbox row | **Archive** (`d`) |
 | archived | **Restore** |

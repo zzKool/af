@@ -32,7 +32,7 @@ import {
 } from "@/modules/documents/documents.actions";
 import type { InboxState, InboxTab } from "@/modules/documents/inbox";
 import type { InboxData, InboxItem } from "@/modules/documents/queries";
-import { NewExpenseDialog } from "@/modules/expenses/ui";
+import { NewExpensePanel } from "@/modules/expenses/ui";
 import { NewSupplierInvoiceDialog } from "@/modules/supplier-invoices/ui";
 import { DocumentStateLabel } from "./document-state-label";
 import { InboxPane, money } from "./inbox-pane";
@@ -302,6 +302,8 @@ export function InboxWorkbench({
         : null,
     [open, options?.basProposals],
   );
+  // F180: the new expense form docked beside the open document (the queue folds away meanwhile)
+  const expenseDocked = dialog === "expense" && !!options && !!makeInitial && !!open;
   const counts = data.counts;
   const countOf: Record<InboxTab, number> = {
     all: counts.total,
@@ -410,10 +412,21 @@ export function InboxWorkbench({
         </div>
       )}
 
-      {/* F153, the board *Documents*: three columns — what waits, the document, what it read */}
-      <div className="grid items-start gap-[18px] xl:grid-cols-[19rem_minmax(0,1fr)_minmax(21rem,25rem)]">
+      {/* F153, the board *Documents*: three columns — what waits, the document, what it read. F180: the new expense
+          form docks beside them (as on /expenses); while it is open the queue folds away, the document and what it
+          read stay in view beside the form */}
+      <div
+        className={cn(
+          "grid items-start gap-[18px]",
+          expenseDocked
+            ? "xl:grid-cols-[minmax(0,1fr)_minmax(21rem,25rem)]"
+            : "xl:grid-cols-[19rem_minmax(0,1fr)_minmax(21rem,25rem)]",
+        )}
+        data-expense-docked={expenseDocked ? "" : undefined}
+      >
         {/* left: the queue — D76: a card on the ground */}
         <section
+          hidden={expenseDocked}
           className="min-w-0 overflow-hidden pulse-card"
           aria-label={t("documents.inbox.title")}
         >
@@ -537,10 +550,11 @@ export function InboxWorkbench({
         )}
       </div>
 
-      {/* Make it… — the modules' own dialogs, pre-filled from the open document */}
+      {/* Make it… — the modules' own forms, pre-filled from the open document: the expense docked (F180), the
+          supplier invoice a dialog */}
       {options && makeInitial && open && (
         <>
-          <NewExpenseDialog
+          <NewExpensePanel
             open={dialog === "expense"}
             onOpenChange={(o) => setDialog(o ? "expense" : null)}
             groups={options.expense.groups}

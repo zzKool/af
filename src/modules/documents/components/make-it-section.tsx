@@ -14,11 +14,12 @@ import type {
   GroupOption as ExpenseGroupOption,
   SourceOption,
 } from "@/modules/expenses/ui";
-import { type ExpenseInitial, NewExpenseDialog } from "@/modules/expenses/ui";
+import { type ExpenseInitial, NewExpensePanel } from "@/modules/expenses/ui";
 // Make it… (specs/documents US1): under the review form the owner says what the document is — an expense, a
-// supplier invoice (the modules' own dialogs, pre-filled from the OCR facts as corrected, the document
-// pre-selected) or nothing to create (*Just file it* = mark reviewed). Once the document became something the
-// section shows what, with a link. The dialogs stay the modules'; this is the composition.
+// supplier invoice (the modules' own forms, pre-filled from the OCR facts as corrected, the document pre-selected:
+// the expense docked beside the page since F180, the supplier invoice a dialog) or nothing to create (*Just file
+// it* = mark reviewed). Once the document became something the section shows what, with a link. The forms stay the
+// modules'; this is the composition.
 import type { BasProposalHint } from "@/modules/settings/ui";
 import type {
   RegistrationOption,
@@ -203,7 +204,7 @@ export function MakeItSection({
           {reviewedAt ? t("documents.makeIt.filed") : t("documents.makeIt.justFile")}
         </Button>
       </div>
-      <NewExpenseDialog
+      <NewExpensePanel
         open={dialog === "expense"}
         onOpenChange={(o) => setDialog(o ? "expense" : null)}
         groups={options.expense.groups}

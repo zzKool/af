@@ -24,7 +24,7 @@ vi.mock("@/modules/documents/documents.actions", () => ({
 }));
 // the modules' dialogs are stubs here: what matters is that they open with the right `initial`
 vi.mock("@/modules/expenses/ui", () => ({
-  NewExpenseDialog: ({ open, initial }: { open: boolean; initial?: unknown }) =>
+  NewExpensePanel: ({ open, initial }: { open: boolean; initial?: unknown }) =>
     open ? <div data-testid="expense-dialog">{JSON.stringify(initial)}</div> : null,
 }));
 vi.mock("@/modules/supplier-invoices/ui", () => ({

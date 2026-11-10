@@ -172,6 +172,14 @@ export const checkExpenseDuplicatesAction = ownerAction
     data: await findExpenseDuplicates(ctx.tx, parsedInput),
   }));
 
+/** F179: the new-expense form's key and base previews — a read; nothing is written or taken from the counter. */
+export const previewNewExpenseAction = ownerAction
+  .schema(expenseService.expensePreviewSchema)
+  .metadata({ name: "previewNewExpense" })
+  .action(async ({ ctx, parsedInput }) => ({
+    data: await expenseService.previewNewExpense(ctx.tx, parsedInput),
+  }));
+
 // --- writes (owner only) ---
 
 export const createExpenseGroupAction = ownerAction

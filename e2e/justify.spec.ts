@@ -77,8 +77,7 @@ test.describe("Justify", () => {
       await expenseDialog.getByLabel("Date", { exact: true }).fill("2025-03-12");
       await expect(expenseDialog.getByTestId("group-hint")).toHaveText("proposed (the trip)");
       await expect(expenseDialog.getByLabel("Group", { exact: true })).toContainText(tripName);
-      await expenseDialog.getByLabel("Paid by", { exact: true }).click();
-      await page.getByRole("option", { name: "Private SE" }).click();
+      await expenseDialog.getByRole("radio", { name: "Private SE" }).click();
       await page.getByTestId("expense-description").fill(`Train ${stamp}`);
       await expenseDialog.getByLabel("Category", { exact: true }).click();
       await page.getByRole("option", { name: /^5800/ }).click();
