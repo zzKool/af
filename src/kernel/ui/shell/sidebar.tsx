@@ -18,13 +18,13 @@ import {
 import type { CallerIdentity } from "@/kernel/auth/caller-identity";
 import { useT } from "@/kernel/i18n/use-t";
 import { NAV_GROUPS, NAV_ITEMS, type NavItem, NEW_ITEMS } from "@/kernel/nav/constants";
+import type { NavCounts } from "@/kernel/nav/nav-counts";
 import { filterNavItems } from "@/kernel/nav/nav-filter";
 import { SHELL_ICONS } from "@/kernel/ui/shell/icons";
 import { useShell } from "@/kernel/ui/shell/shell-context";
 import { cn } from "@/lib/utils";
 
-/** open work per nav path (`/banking` → rows to justify, …); absent or 0 = no badge */
-export type NavCounts = Partial<Record<string, number>>;
+export type { NavCounts } from "@/kernel/nav/nav-counts";
 
 /** one rail button: 42 px square collapsed, 38 px high with its label open */
 const railItem = (collapsed: boolean) =>

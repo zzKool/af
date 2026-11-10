@@ -120,7 +120,7 @@ The cash headline and its month are **whole units** (`formatMoney(…, { whole: 
 
 ## Work — the monthly close (F137, D76 phase 4)
 
-`/work` — *Work* in the rail, the owner's (the accountant has no Work; `requireCaller` sends him to the dashboard) — is the owner's monthly loop as he wrote it (2026-11-07): the exchange rates up to date, the bank statements imported, every bank row justified, the private expenses added — and the package that ends the month. Built from the board *Pulse · Work* (D77). The linking inbox stays at `/banking/inbox` (Banking › Inbox).
+`/work` — *Work* in the rail, the owner's (the accountant has no Work; `requireCaller` sends him to the dashboard) — is the owner's monthly loop as he wrote it (2026-11-07): the exchange rates up to date, the bank statements imported, every bank row justified, the private expenses added — and the package that ends the month. Built from the board *Pulse · Work* (D77). The linking inbox stays at `/banking/inbox` (Banking › Inbox). Its rail badge is the one count of `specs/justify` FR-007 — the rows to justify + the documents to review (`kernel/nav/nav-counts.ts`, F182).
 
 ```
 workData(tx, caller, today, month?)          close.ts — read only, nothing stored

@@ -40,9 +40,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
     enabled: true,
     group: null,
   },
-  // Work (F97 US4, review 2026-10-26 §1.4; F137, D76 phase 4): the monthly close in one place — the owner's four
-  // steps and the package; the count is still the rows to justify and the documents to review. The accountant
-  // reads; the loop is the owner's. The linking inbox stays at /banking/inbox (Banking › Inbox).
+  // Work (F97 US4, review 2026-10-26 §1.4; F137, D76 phase 4; F182): the monthly close in one place — the owner's
+  // four steps and the package; first after Dashboard as the Pulse boards draw it (D77), its one count the rows to
+  // justify + the documents to review (`nav-counts.ts`). One Work only: the linking inbox stays at /banking/inbox
+  // (Banking › Inbox) — specs/justify FR-007's "/banking/inbox labelled Work" was superseded by F137. The
+  // accountant reads; the loop is the owner's.
   {
     path: "/work",
     label: "Work",

@@ -65,4 +65,19 @@ describe("Sidebar — counts of open work (F72)", () => {
     expect(screen.getByRole("link", { name: "Banking" })).not.toHaveAttribute("aria-current");
     pathname = "/dashboard";
   });
+
+  it("F182: on /banking/inbox (Banking › Inbox) Banking is active, not Work — one Work in the rail, the close", () => {
+    pathname = "/banking/inbox";
+    render(<Sidebar role={OWNER} counts={{ "/work": 5, "/banking": 3 }} />);
+    expect(screen.getAllByRole("link", { name: "Work" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Work" })).toHaveAttribute("href", "/work");
+    expect(screen.getByRole("link", { name: "Banking" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Work" })).not.toHaveAttribute("aria-current");
+    pathname = "/dashboard";
+  });
+
+  it("F182: the accountant has no Work and no badge on it, even if a count were handed", () => {
+    render(<Sidebar role={ACCOUNTANT} counts={{ "/work": 5 }} />);
+    expect(screen.queryByRole("link", { name: "Work" })).toBeNull();
+  });
 });
