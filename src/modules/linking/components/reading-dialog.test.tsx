@@ -380,7 +380,9 @@ describe("ReadingDialog — the fields, the partner first, Confirm waits for a p
       partnerBlock,
     );
     expect(screen.getByTestId("chain-files")).toHaveAttribute("data-lacking", "true");
-    expect(screen.getByTestId("chain-links")).toHaveTextContent("Bank row 2026-07-08 · −1 297.20 SEK");
+    expect(screen.getByTestId("chain-links")).toHaveTextContent(
+      "Bank row 2026-07-08 · −1 297.20 SEK",
+    );
     expect(screen.getByTestId("justify-create")).toHaveTextContent("Accept all three");
     expect(within(partnerBlock).getByTestId("partner-match")).toBeInTheDocument();
     expect(screen.getByTestId("justify-create")).toBeDisabled();
@@ -486,8 +488,12 @@ describe("ReadingDialog — the board's column pair (F186)", () => {
     });
     fireEvent.focus(screen.getByTestId("justify-amount"));
     expect(screen.getByTestId("viewer")).toHaveAttribute("data-active", "invoiceTotal");
-    const due = screen.getByTestId("justify-due").closest("[data-testid=read-field]") as HTMLElement;
-    expect(within(due).getByTestId("read-field-ask")).toHaveTextContent("“07-08” — Aug 7 or Jul 8?");
+    const due = screen
+      .getByTestId("justify-due")
+      .closest("[data-testid=read-field]") as HTMLElement;
+    expect(within(due).getByTestId("read-field-ask")).toHaveTextContent(
+      "“07-08” — Aug 7 or Jul 8?",
+    );
     fireEvent.click(within(due).getByRole("button", { name: "2026-07-08" }));
     expect(screen.getByTestId("justify-due")).toHaveValue("2026-07-08");
     // a value the reading is not sure of but cannot doubt is just edited, no question in a form
