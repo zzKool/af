@@ -53,7 +53,10 @@ test.describe("Documents — what it read, and where", () => {
     await expect(marks).toBeVisible({ timeout: 30_000 });
     await expect(marks.locator("[data-mark]")).toHaveCount(7);
     await read.locator('[data-mark="invoiceTotal"]').hover();
-    await expect(marks.locator('[data-mark="invoiceTotal"]')).toHaveAttribute("data-active", "true");
+    await expect(marks.locator('[data-mark="invoiceTotal"]')).toHaveAttribute(
+      "data-active",
+      "true",
+    );
     await snap(page, "boxes");
 
     // the field to check: its question in place, Yes → a correction on the document → sure, its box too

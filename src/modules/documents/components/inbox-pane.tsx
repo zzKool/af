@@ -359,7 +359,11 @@ export function InboxPane({
             <span data-public>
               {[
                 kind.detected ? t("documents.desk.detected") : null,
-                pages > 0 ? t(pages === 1 ? "documents.desk.page" : "documents.desk.pages", { count: pages }) : null,
+                pages > 0
+                  ? t(pages === 1 ? "documents.desk.page" : "documents.desk.pages", {
+                      count: pages,
+                    })
+                  : null,
                 readSeconds ? t("documents.desk.readIn", { seconds: readSeconds }) : null,
               ]
                 .filter(Boolean)
