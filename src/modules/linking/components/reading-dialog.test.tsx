@@ -617,6 +617,45 @@ describe("ReadingDialog — the checks (F130) and the group (§5.2)", () => {
     expect(calls.justify.mock.calls[0][0].supplier.groupId).toBe("created-trip");
   });
 
+  it("+ New group as a trip (T020): departure, return, country in place — the trip is created, the entity goes into it", async () => {
+    tripState.created = [];
+    mount();
+    fireEvent.change(screen.getByTestId("group-select"), { target: { value: "__new__" } });
+    // a month's group by default; the trip asks for its three facts
+    expect(screen.getByTestId("reading-new-group-batch")).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByTestId("new-trip-departure")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("reading-new-group-trip"));
+    // the paper's day at both ends, no country yet → Confirm names what the trip still needs
+    expect(screen.getByTestId("new-trip-departure")).toHaveValue("2026-07-06T08:00");
+    expect(screen.getByTestId("new-trip-return")).toHaveValue("2026-07-06T18:00");
+    fireEvent.change(screen.getByTestId("new-group-description"), {
+      target: { value: "Zurich, July 2026" },
+    });
+    fireEvent.click(screen.getByTestId("partner-match-use"));
+    await waitFor(() =>
+      expect(screen.getByTestId("justify-missing")).toHaveTextContent("the trip's country"),
+    );
+    expect(screen.getByTestId("justify-create")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("new-trip-country"), { target: { value: "CH" } });
+    fireEvent.change(screen.getByTestId("new-trip-return"), {
+      target: { value: "2026-07-09T19:30" },
+    });
+    await waitFor(() => expect(screen.getByTestId("justify-create")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("justify-create"));
+    await waitFor(() => expect(calls.justify).toHaveBeenCalled());
+    expect(tripState.created).toEqual([
+      {
+        description: "Zurich, July 2026",
+        trip: {
+          departureAt: "2026-07-06T08:00",
+          returnAt: "2026-07-09T19:30",
+          countryCode: "CH",
+        },
+      },
+    ]);
+    expect(calls.justify.mock.calls[0][0].supplier.groupId).toBe("created-trip");
+  });
+
   it("Cancel closes without writing; a receipt lost opens without a preview, the facts typed", async () => {
     const { onCancel } = mount();
     fireEvent.click(screen.getByTestId("justify-cancel"));
