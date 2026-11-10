@@ -626,7 +626,10 @@ export function InboxWorkbench({
                             className="flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground"
                             data-testid={r.duplicateOf ? "inbox-dup" : "inbox-note"}
                           >
-                            {r.state !== "ready" ? (
+                            {/* in flight the line says it (the hero's tile too); stuck, failed, parked get the word */}
+                            {r.state === "stuck" ||
+                            r.state === "ocr_failed" ||
+                            r.state === "archived" ? (
                               <DocumentStateLabel state={r.state} testId="inbox-state" />
                             ) : null}
                             <span className="truncate">{note.text}</span>
