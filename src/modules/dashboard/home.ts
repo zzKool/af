@@ -16,6 +16,7 @@ import * as documents from "@/modules/documents";
 import * as expenses from "@/modules/expenses";
 import * as invoices from "@/modules/invoices";
 import * as rates from "@/modules/rates";
+import * as subscriptions from "@/modules/subscriptions";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 import { workData } from "./close";
 import { dashboardOverview } from "./overview";
@@ -27,6 +28,7 @@ import {
   expenseCell,
   invoiceCell,
   mondayOf,
+  subscriptionCell,
   YEAR_WEEKS,
   yearWeeks,
 } from "./year-weeks";
@@ -173,7 +175,8 @@ export async function homeData(
 /**
  * F171: the year strip's other rows — the invoices issued, the expenses dated and the documents received in the
  * strip's fifty-two weeks, each with the state its own module derives (the list reads, through their index),
- * mapped to the strip's family. Read only.
+ * mapped to the strip's family; F181: the subscription charges expected in those weeks, their periods' state
+ * (`subscriptions.expectedCharges`). Read only.
  */
 export async function bookFacts(
   tx: TransactionClient,
@@ -201,6 +204,7 @@ export async function bookFacts(
     caller,
     all({ createdAt: { kind: "dates", from: addDays(from, -1), to: addDays(to, 1) } }),
   );
+  const expected = await subscriptions.expectedCharges(tx, caller, from, to, today);
   const keep = (date: string, cell: BookFact["cell"] | null): BookFact[] =>
     cell ? [{ date, cell }] : [];
   return {
@@ -210,6 +214,7 @@ export async function bookFacts(
       const day = stockholmDay(r.createdAt);
       return keep(day, documentCell(r.state, day, today));
     }),
+    subscriptions: expected.flatMap((p) => keep(p.date, subscriptionCell(p, today))),
   };
 }
 

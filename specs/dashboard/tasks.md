@@ -49,4 +49,11 @@ From the board *Pulse*'s lanes. One PR, `feat/dashboard-strip-rows`; shared file
 
 - [x] T014 `year-weeks.ts`: `invoiceCell`, `expenseCell`, `documentCell` (each module's derived state → done / open / late), the week the worst of its things per lane (`YearWeek.books`); `home.ts` `bookFacts` reads the three lists through their `index.ts`. Pure + DB tests.
 - [x] T015 `YearStrip`: the *Invoices · Expenses · Documents* rows under the accounts, the week's panel lists what each row holds; `home.test.tsx`; e2e `dashboard.spec.ts` sees the three rows; screenshots `screenshots/f171-year-strip-{light,dark}.png`.
-- [ ] Not built: the board's *Subscriptions* row.
+- [x] ~~Not built: the board's *Subscriptions* row~~ → Phase 6.
+
+## Phase 6: The year strip's subscriptions row (F181)
+
+The owner chose to build it (2026-11-10). One PR, `feat/dashboard-strip-subscriptions`; shared files: `en.ts`.
+
+- [x] T016 `subscriptions/queries.ts` `expectedCharges` (the periods expected between two days, their state and marks — a read over `loadSubscriptions`); `year-weeks.ts` `subscriptionCell` (done · open · late, a pause off the row), `BOOK_LANES` + `subscriptions`; `bookFacts` reads it. Pure + DB tests (`year-weeks.pure.test.ts`, `home.test.ts`).
+- [x] T017 `YearStrip`: the *Subscriptions* row under *Documents*, the week's panel lists it; `home.test.tsx`; e2e `dashboard.spec.ts` sees four rows; screenshots `screenshots/f181-year-strip-{light,dark}.png`.

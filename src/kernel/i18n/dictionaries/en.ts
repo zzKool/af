@@ -2441,12 +2441,17 @@ export const en = {
   "home.year.lane.invoices": "Invoices",
   "home.year.lane.expenses": "Expenses",
   "home.year.lane.documents": "Documents",
+  "home.year.lane.subscriptions": "Subscriptions",
   "home.year.books.invoices": "{count} invoice(s) issued · {pending} not paid yet",
   "home.year.books.invoicesDone": "{count} invoice(s) issued, all paid",
   "home.year.books.expenses": "{count} expense(s) · {pending} to settle or justify",
   "home.year.books.expensesDone": "{count} expense(s), all settled and justified",
   "home.year.books.documents": "{count} document(s) received · {pending} to review",
   "home.year.books.documentsDone": "{count} document(s) received, all filed",
+  "home.year.books.subscriptions":
+    "{count} subscription charge(s) expected · {pending} not charged or justified yet",
+  "home.year.books.subscriptionsDone":
+    "{count} subscription charge(s) expected, all charged and justified",
   "home.cash.eyebrow": "Cash · all accounts, in {base}",
   "home.cash.month": "{delta} this month",
   "home.cash.incomplete": "an account without a rate today is left out",

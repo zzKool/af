@@ -4,7 +4,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
-import { cleanupTestData, createTestDocument } from "@/kernel/db/test-fixtures";
+import { cleanupTestData, createTestDocument, createTestPartner } from "@/kernel/db/test-fixtures";
 import { createExpense, createGroup } from "@/modules/expenses";
 import {
   importRows,
@@ -13,6 +13,7 @@ import {
   run,
   setupOwner,
 } from "@/modules/expenses/__fixtures__/harness";
+import { expectedCharges, makeRecurring } from "@/modules/subscriptions";
 import { bookFacts, homeData } from "./home";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
@@ -138,5 +139,74 @@ describe("bookFacts (F171)", () => {
 
     const h = await run(owner.caller, (tx) => homeData(tx, owner.caller, TODAY, null));
     expect(h.weeks.weeks.at(-1)?.books.documents).toEqual({ cell: "open", count: 1, pending: 1 });
+  });
+});
+
+describe("the subscriptions row (F181)", () => {
+  it("each expected charge of the strip's weeks with its period's state, mapped; nothing after the strip", async () => {
+    const vendor = await createTestPartner(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      name: "Invented Kodkassen",
+      types: ["vendor"],
+    });
+    const g = await run(owner.caller, (tx) =>
+      createGroup(tx, owner.caller, noopAudit, { description: "Kodkassen", kind: "batch" }),
+    );
+    const groupId = g.data?.id ?? "";
+    const doc = await createTestDocument(adminPool, owner.caller.tenantId, owner.caller.userId, {
+      status: "extracted",
+    });
+    // June's charge, paid privately, its receipt attached → the period is done
+    const e = await run(owner.caller, (tx) =>
+      createExpense(tx, owner.caller, noopAudit, {
+        groupId,
+        date: "2026-06-10",
+        description: "Kodkassen",
+        basCode: "5800",
+        amount: "199.00",
+        currency: "SEK",
+        paidFromAccountId: owner.sources.privateSe.id,
+        documentId: doc.id,
+      }),
+    );
+    expect(e.error).toBeUndefined();
+    const s = await run(owner.caller, (tx) =>
+      makeRecurring(tx, owner.caller, noopAudit, {
+        entity: { type: "expense", id: e.data?.id ?? "" },
+        subscription: {
+          name: "Kodkassen",
+          partnerId: vendor.id,
+          becomes: "expense",
+          basCode: "5800",
+          groupId,
+          paidFromAccountId: owner.sources.privateSe.id,
+          cadence: "monthly",
+          startDate: "2026-05-10",
+          price: { amount: "199.00", currency: "SEK" },
+        },
+      }),
+    );
+    expect(s.error).toBeUndefined();
+
+    const charges = await run(owner.caller, (tx) =>
+      expectedCharges(tx, owner.caller, "2026-05-01", "2026-07-19", TODAY),
+    );
+    expect(charges.map((c) => [c.date, c.state])).toEqual([
+      ["2026-05-10", "due"],
+      ["2026-06-10", "done"],
+      ["2026-07-10", "due"],
+    ]);
+
+    const books = await run(owner.caller, (tx) => bookFacts(tx, owner.caller, TODAY));
+    // May: before last month → late; June: done; July: open; August's (upcoming) is after the strip
+    expect(books.subscriptions).toEqual([
+      { date: "2026-05-10", cell: "late" },
+      { date: "2026-06-10", cell: "done" },
+      { date: "2026-07-10", cell: "open" },
+    ]);
+    // the accountant reads the same row
+    const theirs = await run(owner.caller, (tx) =>
+      bookFacts(tx, { ...owner.caller, role: "accountant" }, TODAY),
+    );
+    expect(theirs.subscriptions).toEqual(books.subscriptions);
   });
 });
