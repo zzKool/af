@@ -65,6 +65,7 @@ Screenshots: `specs/subscriptions/screenshots/{list,panel,confirm,form}-{light,d
 ## The dashboard and the search (PR5)
 
 - Dashboard to-do: one item *n subscription period(s) need you — x to confirm · y charge(s) missing · z receipt(s) / bill(s) missing* (`subscriptions_attention`, medium), the owner's only; it opens the list filtered on *To do* ≥ 1.
+- The home's year strip (F181): `expectedCharges(tx, caller, from, to, today)` (`queries.ts`) — every period expected between two days with its state and marks; the dashboard maps the state to its row's *done · open · late* ([[dashboard]]).
 - `Ctrl K`: `searchSubscriptionHits` — by name, match text, the vendor's name, or any expected price (any amount format); the hit opens the panel (`?open=`).
 
 ## Tests

@@ -19,6 +19,8 @@ import { type LoadedSubscription, loadSubscriptions } from "./facts";
 import {
   ATTENTION_MARKS,
   type AttentionCounts,
+  type PeriodMark,
+  type PeriodState,
   type PeriodView,
   type SubscriptionDetail,
   type SubscriptionListRow,
@@ -178,4 +180,39 @@ export async function attentionCounts(
         out.documentMissing++;
     }
   return out;
+}
+
+/** One expected charge of a subscription (F181, the dashboard's year strip): its date and its period's state. */
+export type ExpectedCharge = {
+  subscriptionId: string;
+  name: string;
+  /** the expected date, yyyy-mm-dd */
+  date: string;
+  state: PeriodState;
+  marks: PeriodMark[];
+};
+
+/**
+ * F181: every period expected between `from` and `to` (both inclusive) of every subscription, with the state and
+ * the marks the periods' own read derives — the pauses' skipped ones included (the caller decides). Read only.
+ */
+export async function expectedCharges(
+  tx: TransactionClient,
+  caller: CallerIdentity,
+  from: string,
+  to: string,
+  today: string,
+): Promise<ExpectedCharge[]> {
+  const loaded = await loadSubscriptions(tx, caller, today);
+  return loaded.flatMap((s) =>
+    s.periods
+      .filter((p) => p.date >= from && p.date <= to)
+      .map((p) => ({
+        subscriptionId: s.subscription.id,
+        name: s.subscription.name,
+        date: p.date,
+        state: p.state,
+        marks: p.marks,
+      })),
+  );
 }

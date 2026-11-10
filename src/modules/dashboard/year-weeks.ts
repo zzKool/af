@@ -6,6 +6,8 @@
 // F171, the board's other rows: one square per week for the invoices issued, the expenses dated and the documents
 // received that week, in the same families — each thing's state derived by its own module (`invoiceCell`,
 // `expenseCell`, `documentCell` map it), the week the worst of its things: late › open › done › none.
+// F181, the board's last row: the subscription charges expected that week, from the subscriptions' own derived
+// periods (`subscriptionCell` maps a period's state).
 import { Prisma } from "@/generated/prisma/browser";
 import { addDays } from "@/kernel/clock/calendar";
 
@@ -15,7 +17,7 @@ export type WeekCellState = "done" | "open" | "late" | "none";
 export type BookCell = Exclude<WeekCellState, "none">;
 
 /** The board's rows under the bank accounts, in its order. */
-export const BOOK_LANES = ["invoices", "expenses", "documents"] as const;
+export const BOOK_LANES = ["invoices", "expenses", "documents", "subscriptions"] as const;
 export type BookLane = (typeof BOOK_LANES)[number];
 /** One thing of the books on its day (yyyy-mm-dd), its state already in the strip's family. */
 export type BookFact = { date: string; cell: BookCell };
@@ -36,7 +38,7 @@ export type YearWeek = {
   toJustify: number;
   /** per account, in `accounts`' order */
   cells: WeekCellState[];
-  /** F171: the invoices, expenses and documents of the week */
+  /** F171: the invoices, expenses and documents of the week; F181: the subscription charges expected */
   books: Record<BookLane, BookWeek>;
 };
 
@@ -113,13 +115,28 @@ export function documentCell(state: string, day: string, today: string): BookCel
   return day.slice(0, 7) < lateBefore(today) ? "late" : "open";
 }
 
+/**
+ * A subscription charge's square (F181), on its expected date — the period's state as the subscriptions module
+ * derives it: done (charged and justified: paid with its receipt / bill, or a private one with its receipt) → done;
+ * expected but not seen yet, or seen and not justified (upcoming, due, charged without a receipt, documented and not
+ * paid) → open, late when expected in a month before last month (the bank rows' rule). A paused period: null.
+ */
+export function subscriptionCell(
+  p: { date: string; state: string },
+  today: string,
+): BookCell | null {
+  if (p.state === "skipped") return null;
+  if (p.state === "done") return "done";
+  return p.date.slice(0, 7) < lateBefore(today) ? "late" : "open";
+}
+
 const RANK: Record<WeekCellState, number> = { none: 0, done: 1, open: 2, late: 3 };
-const NO_BOOKS: BookFacts = { invoices: [], expenses: [], documents: [] };
-const emptyBooks = (): Record<BookLane, BookWeek> => ({
-  invoices: { cell: "none", count: 0, pending: 0 },
-  expenses: { cell: "none", count: 0, pending: 0 },
-  documents: { cell: "none", count: 0, pending: 0 },
-});
+const NO_BOOKS: BookFacts = { invoices: [], expenses: [], documents: [], subscriptions: [] };
+const emptyBooks = (): Record<BookLane, BookWeek> =>
+  Object.fromEntries(BOOK_LANES.map((l) => [l, { cell: "none", count: 0, pending: 0 }])) as Record<
+    BookLane,
+    BookWeek
+  >;
 
 export function yearWeeks(
   accounts: readonly { id: string; label: string; currency: string }[],
@@ -132,7 +149,7 @@ export function yearWeeks(
     outBase: string;
   }[],
   today: string,
-  books: BookFacts = NO_BOOKS,
+  books: Partial<BookFacts> = NO_BOOKS,
 ): YearWeeks {
   const last = mondayOf(today);
   const first = addDays(last, -7 * (YEAR_WEEKS - 1));
@@ -173,7 +190,7 @@ export function yearWeeks(
     if (d.toJustify > 0 && d.date.slice(0, 7) < late) t.late = true;
   }
   for (const lane of BOOK_LANES)
-    for (const f of books[lane]) {
+    for (const f of books[lane] ?? []) {
       const w = index.get(mondayOf(f.date));
       const b = w === undefined ? undefined : weeks[w]?.books[lane];
       if (!b) continue;
