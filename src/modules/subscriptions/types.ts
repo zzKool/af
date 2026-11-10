@@ -195,3 +195,24 @@ export type SubscriptionDetailWire = Omit<SubscriptionDetail, "subscription"> & 
     updatedAt: string;
   };
 };
+
+/** US7 (F183): one period a row / a document is offered to. */
+export type SubscriptionMatch = {
+  subscriptionId: string;
+  name: string;
+  becomes: Becomes;
+  cadence: Cadence;
+  /** the period's expected date — what the confirm takes */
+  periodDate: string;
+  /** the period as the owner names it: `2026-10` (monthly), `2026` (yearly) */
+  period: string;
+  state: PeriodState;
+  /** the period already has its entity: the confirm completes it instead of creating one */
+  entityKey: string | null;
+  /** a row: exact (same currency, within 0.5 %, by the text) · a document: the VAT number matches */
+  sure: boolean;
+  /** another period is offered the same item, or this period another item — the owner picks */
+  ambiguous: boolean;
+  /** |found − expected| / expected × 100, null when not comparable */
+  diffPct: string | null;
+};

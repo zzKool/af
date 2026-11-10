@@ -24,6 +24,7 @@ import { ASK_KINDS, readingProposes } from "@/modules/documents/proposes";
 import type { InboxFacts, InboxItem } from "@/modules/documents/queries";
 import { type MarkedKey, sureCount } from "@/modules/documents/reading-marks";
 import { SuggestionsSection } from "@/modules/linking/ui";
+import { FromSubscriptionButtons, useSubscriptionMatches } from "@/modules/subscriptions/ui";
 import { DocumentStateLabel } from "./document-state-label";
 import { FieldConfidence } from "./field-confidence";
 
@@ -232,6 +233,12 @@ export function InboxPane({
   const proposal = untyped ? readingProposes(row.facts) : null;
   const ask = proposal === "ask";
   const supplierFirst = proposal === "supplier_invoice";
+  // US7 (F183): a subscription's period this receipt / bill is offered to — first among *Make it…*, the primary
+  const fromSubscription = useSubscriptionMatches(
+    { documentId: row.id },
+    { enabled: canMake && !ask },
+  );
+  const subscriptionFirst = fromSubscription.length > 0;
 
   return (
     <>
@@ -335,10 +342,21 @@ export function InboxPane({
           )}
           {canMake && !ask && (
             <>
+              <FromSubscriptionButtons
+                documentId={row.id}
+                matches={fromSubscription}
+                variant={canWrite && ocrable ? "outline" : "default"}
+                onConfirmed={onLinked}
+              />
               <Button
                 size="sm"
-                // one primary in the pane: *Run OCR* while the OCR is due, then what the reading proposes (D78)
-                variant={(canWrite && ocrable) || supplierFirst ? "outline" : "default"}
+                // one primary in the pane: *Run OCR* while the OCR is due, then a subscription's period (F183),
+                // then what the reading proposes (D78)
+                variant={
+                  (canWrite && ocrable) || supplierFirst || subscriptionFirst
+                    ? "outline"
+                    : "default"
+                }
                 onClick={() => onMake("expense")}
                 data-testid="inbox-make-expense"
               >
@@ -346,7 +364,7 @@ export function InboxPane({
               </Button>
               <Button
                 size="sm"
-                variant={supplierFirst ? "default" : "outline"}
+                variant={supplierFirst && !subscriptionFirst ? "default" : "outline"}
                 onClick={() => onMake("supplier")}
                 data-testid="inbox-make-supplier-invoice"
               >
