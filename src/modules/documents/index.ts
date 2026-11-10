@@ -3,6 +3,14 @@
 // Never import this file from a client component — use ./ui for components and stores.
 
 // D53's rule, the one place: the review form and linking's proof facts (F131) judge *billed to* with it
+export {
+  type AcceptChain,
+  type AcceptKind,
+  type AcceptMissing,
+  acceptMissing,
+  expensePayload,
+  supplierPayload,
+} from "./accept-chain-rules";
 export { checkBilledTo } from "./billed-to";
 export { generateBusinessKey, getDocumentClassification, getUploadKinds } from "./business-key";
 export type {

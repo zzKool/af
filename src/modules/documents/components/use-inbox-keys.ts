@@ -1,7 +1,7 @@
 "use client";
 
 // The document inbox's keyboard (FR-022) in one place: the map the help dialog lists and the handler that reads it.
-// Quiet while typing or inside a dialog; the accountant has j k ? Esc only (US4-7). Split out of the workbench
+// Quiet while typing or inside a dialog; the accountant has j k ? Esc only (US4-7). F185: Enter accepts the chain. Split out of the workbench
 // (F67, lessons *Components over 400 lines*) — the workbench hands the current state and its commands each render.
 import { useEffect } from "react";
 import type { MessageKey } from "@/kernel/i18n/translate";
@@ -67,7 +67,9 @@ export type InboxKeyContext = {
   park: (kind: "archive" | "restore", ids: string[]) => void;
   refresh: () => void;
   undo: () => void;
-  /** Enter applies the first suggestion when it is high; 1 – 3 the nth */
+  /** Enter (F185): accept the open document's chain — or open its form when the chain lacks something */
+  accept: () => void;
+  /** 1 – 3 link the nth bank row */
   apply: (index: number, requireHigh: boolean) => void;
 };
 
@@ -126,9 +128,12 @@ export function useInboxKeys(ctx: InboxKeyContext): void {
       } else if (key === "u" || key === "z") {
         e.preventDefault();
         ctx.undo();
-      } else if ((key === "Enter" || /^[1-3]$/.test(key)) && open && ctx.canLink(open)) {
+      } else if (key === "Enter" && open && ctx.canMake(open)) {
         e.preventDefault();
-        ctx.apply(key === "Enter" ? 0 : Number(key) - 1, key === "Enter");
+        ctx.accept();
+      } else if (/^[1-3]$/.test(key) && open && ctx.canLink(open)) {
+        e.preventDefault();
+        ctx.apply(Number(key) - 1, false);
       }
     }
     window.addEventListener("keydown", onKey);

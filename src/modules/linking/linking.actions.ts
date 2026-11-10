@@ -5,6 +5,7 @@ import { authedAction, ownerAction } from "@/kernel/actions/action-client";
 import { can } from "@/kernel/auth/can";
 import "./linkables"; // make sure every module's linkable is registered before a link is validated
 import { basCode, uuid } from "@/kernel/validation/scalars";
+import { documentAcceptChain } from "./accept-chain";
 import { GRAPH_MAX_DEPTH, neighbourhood } from "./graph";
 import { justifyRow, justifySchema, noProofNeeded, noProofSchema } from "./justify";
 import * as linkingService from "./linking";
@@ -191,6 +192,18 @@ export const acceptMatchAction = ownerAction
   .metadata({ name: "acceptMatch" })
   .action(async ({ ctx, parsedInput }) =>
     acceptMatch(ctx.tx, ctx.callerIdentity, ctx.audit, parsedInput),
+  );
+
+/**
+ * *When you accept* (F185): what one click would do with an inbox document — the entity, its key, the bank row, the
+ * category and the partner. A read for the owner (the accountant accepts nothing); the click calls `justifyRow` or
+ * the supplier invoice's create.
+ */
+export const documentAcceptChainAction = ownerAction
+  .schema(z.object({ documentId: uuid }))
+  .metadata({ name: "documentAcceptChain" })
+  .action(async ({ ctx, parsedInput }) =>
+    documentAcceptChain(ctx.tx, ctx.callerIdentity, parsedInput.documentId),
   );
 
 // --- Justify from the bank row (F97): one click, one transaction — owner only ---

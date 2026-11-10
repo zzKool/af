@@ -67,6 +67,8 @@ Light / dark: System (the default) follows the OS; My Preferences — or the top
 | `--rail` · `--rail-fg` · `--rail-fg-active` · `--rail-hover` · `--rail-active` · `--rail-group` | `#1B2230` · `#A3AFBF` · `#FFF` · white 8 % · white 13 % · `#8794A5` | the ground · `#8D9AA7` · `#EEF2F5` · `#151B22` · `#1A212A` + a 1 px `--border` ring · `#8D9AA7` | the rail only |
 | `--rail-badge` / `--rail-badge-fg` | `#F2B04A` / `#0B0F14` | same | the rail's counts of open work (amber, light on navy) |
 | `--cur-sek` · `--cur-chf` · `--cur-eur` · `--cur-usd` | `#0B847A` · `#CC4F2B` · `#1F6FB2` · `#9C6B00` | `#4FD1C5` · `#FF7A59` · `#7CC4FF` · `#E8C15A` | one colour per currency in charts, tickers and exposure bars (the rates and home phases); never for a state |
+| `--read` | `#0B847A` | `#4FD1C5` | F185 (the board *Documents*): what the app read — the boxes on a page, the sure confidence bars, the drop hero's edge and bars; never a state, never a currency |
+| `--paper` / `--paper-line` | `#F3F1EC` / `#C9C5BB` | same | a page of paper in both schemes (the inbox's thumbnails, the page behind a preview) |
 | `--elev-card` → `shadow-card` | three soft layers | an inner top light + a deep drop | cards and the canvas card |
 | `--elev-pop` → `shadow-pop` | | | popovers, menus, selects, dialogs, sheets |
 
@@ -91,7 +93,7 @@ One format in every UI language: thousands with a narrow no-break space (U+202F)
   | neutral | `–` circle, `--state-neutral` | Draft, Transfer, No document needed, Cancelled, Archived |
 
   One component, `<StateLabel family state />`, in the kernel kit; a module maps its derived status to a family in one place.
-- A **tag** is metadata (bank, currency, document type, VAT registration): grey `--tag` rectangle, 4 px radius, 12 px text, never a colour.
+- A **tag** is metadata (bank, currency, document type, VAT registration): grey `--tag` rectangle, 4 px radius, 12 px text, never a colour. **Exception, the board *Documents* (F185, D77 — the board wins):** a document's kind and an accept step's verb are a round **toned tag** (`BoardTag` in `modules/documents`): *Supplier invoice* / *creates* on a 14 % tint of `--state-progress`, *Receipt* / *files* amber, *Duplicate?* red, *links* green — the word always carries it.
 - A **count** is a round grey badge (`--border-subtle`, 11 px / 600): tab counts, sidebar counts of open items.
 
 ### Shell

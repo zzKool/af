@@ -240,6 +240,17 @@ export function fieldBox(reading: Reading, key: OcrTypedKey): OcrBox | null {
   return null;
 }
 
+/** The text a typed value was read from, as printed (F185) — the same fall-through as `fieldConfidence`. */
+export function fieldContent(reading: Reading, key: OcrTypedKey): string | null {
+  const fields = reading?.fields;
+  if (!fields) return null;
+  for (const name of TYPED_SOURCES[reading.modelUsed]?.[key] ?? []) {
+    const field = fields[name];
+    if (field && field.value !== null) return field.content ?? null;
+  }
+  return null;
+}
+
 function typedNames(modelUsed: string): Set<string> {
   return new Set(Object.values(TYPED_SOURCES[modelUsed] ?? {}).flat());
 }

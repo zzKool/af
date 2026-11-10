@@ -10,6 +10,10 @@ const m = vi.hoisted(() => ({
   runOcr: vi.fn(),
   list: vi.fn(),
   markReviewed: vi.fn(),
+  chain: vi.fn(),
+  justify: vi.fn(),
+  createSupplier: vi.fn(),
+  correct: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() },
 }));
 
@@ -32,8 +36,16 @@ vi.mock("@/modules/documents/documents.actions", () => ({
   runOcrAction: m.runOcr,
   listInboxAction: m.list,
   markDocumentReviewedAction: m.markReviewed,
+  updateDocumentCorrectionsAction: m.correct,
+  classifyDocumentAction: vi.fn(),
 }));
+vi.mock("./drop-hero", () => ({ DropHero: () => <div data-testid="drop-hero" /> }));
 vi.mock("@/modules/expenses/ui", () => ({
+  NEW_GROUP: "__new__",
+  useCreateGroupIfNew: () => ({
+    resolveGroupId: async (id: string) => (id === "__new__" ? "created-group" : id),
+    isPending: false,
+  }),
   NewExpensePanel: ({ open, initial }: { open: boolean; initial?: unknown }) =>
     open ? (
       <div role="dialog" data-testid="expense-dialog">
@@ -52,10 +64,13 @@ vi.mock("@/modules/subscriptions/ui", () => ({
     )),
 }));
 vi.mock("@/modules/supplier-invoices/ui", () => ({
+  createSupplierInvoiceAction: m.createSupplier,
   NewSupplierInvoiceDialog: ({ open }: { open: boolean }) =>
     open ? <div role="dialog" data-testid="si-dialog" /> : null,
 }));
-vi.mock("@/modules/linking/ui", () => ({
+vi.mock("@/modules/linking/ui", async () => ({
+  documentAcceptChainAction: m.chain,
+  justifyRowAction: m.justify,
   SuggestionsSection: ({
     applyRequest,
     openSearchKey,
@@ -92,6 +107,7 @@ function row(id: string, over: Partial<InboxItem> = {}): InboxItem {
     quality: "high",
     facts: { vendorName: "SBB", invoiceTotal: 85, currency: "CHF", invoiceDate: "2026-03-01" },
     reading: null,
+    corrected: [],
     reviewedAt: null,
     archivedAt: null,
     createdAt: "2026-03-01T10:00:00.000Z",
@@ -108,6 +124,34 @@ const options = {
   supplier: { groups: [], categories: [], suppliers: [], registrations: [] },
 };
 
+const CHAIN = {
+  documentId: "001",
+  kind: "supplier_invoice" as const,
+  key: "SI12-IT-03",
+  vendor: "SBB",
+  group: { id: "g-1", number: 12, name: "March 2026", month: "2026-03", isNew: false },
+  category: { code: "6540", label: "6540 · IT services (IT)", source: "partner" as const },
+  partner: { id: "p-1", name: "SBB", percent: 100 },
+  bankRow: {
+    id: "row-1",
+    date: "2026-03-02",
+    amount: "-85.00",
+    currency: "CHF",
+    score: 98,
+    label: "SBB",
+  },
+  fields: {
+    invoiceNumber: "A-1",
+    date: "2026-03-01",
+    dueDate: null,
+    currency: "CHF",
+    amountTotal: "85.00",
+    vatAmount: null,
+    amountNet: "85.00",
+  },
+  missing: [],
+};
+
 const key = (k: string, target: Element | Window = window) => fireEvent.keyDown(target, { key: k });
 const openKey = () => screen.getByTestId("inbox-pane-key").textContent;
 
@@ -116,6 +160,7 @@ function renderOwner(rows = ROWS) {
 }
 
 beforeEach(() => {
+  m.chain.mockResolvedValue({ data: { data: null } });
   m.list.mockResolvedValue({ data: { data: data() } });
   m.runOcr.mockResolvedValue({ data: { data: { id: "002", previousStatus: "uploaded" } } });
 });
@@ -221,12 +266,23 @@ describe("InboxWorkbench — the keyboard (specs/documents US4-3, inbox-shortcut
     expect(screen.getByTestId("si-dialog")).toBeInTheDocument();
   });
 
-  it("Enter asks for the top HIGH bank row, 1–3 for the n-th, l opens Link to…", () => {
+  it("Enter accepts the open document's chain (F185); 1–3 link the n-th bank row; l opens Link to…", async () => {
+    m.chain.mockResolvedValue({ data: { data: CHAIN } });
+    m.justify.mockResolvedValue({ data: { data: { entity: { key: "SI12-IT-03" } } } });
     renderOwner();
+    await waitFor(() =>
+      expect(screen.getByTestId("chain-accept")).toHaveTextContent("Accept all three"),
+    );
+    await act(async () => key("Enter"));
+    expect(m.justify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transactionId: "row-1",
+        documentId: "001",
+        kind: "supplier_invoice",
+      }),
+    );
     const sug = () => screen.getByTestId("suggestions");
     expect(sug()).toHaveAttribute("data-limit", "3");
-    key("Enter");
-    expect(JSON.parse(sug().textContent ?? "null")).toMatchObject({ index: 0, requireHigh: true });
     key("2");
     expect(JSON.parse(sug().textContent ?? "null")).toMatchObject({ index: 1, requireHigh: false });
     key("9");
@@ -294,7 +350,11 @@ describe("InboxWorkbench — the page", () => {
     expect(screen.getByTestId("inbox-tab-pending")).toHaveTextContent("Pending (1)");
     expect(screen.getByTestId("inbox-tab-archived")).toHaveTextContent("Archived (1)");
     const [first, second] = screen.getAllByTestId("inbox-row");
-    expect(first).toHaveTextContent("Duplicate of exp_20260228_000");
+    expect(first).toHaveTextContent("Same file as exp_20260228_000");
+    expect(first).toHaveTextContent("Duplicate?");
+    expect(screen.getByTestId("inbox-dup-banner")).toHaveTextContent(
+      "001.pdf is the same file as exp_20260228_000",
+    );
     expect(second).toHaveTextContent("Processing seems stuck");
     expect(within(second as HTMLElement).getByTestId("inbox-state")).toHaveTextContent(
       "Processing",

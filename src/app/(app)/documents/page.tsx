@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { requireCaller } from "@/kernel/auth/caller";
 import { can } from "@/kernel/auth/can";
 import { prisma } from "@/kernel/db/client";
@@ -9,15 +7,15 @@ import { translator } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { getDocumentStats, listInbox, toInboxData } from "@/modules/documents";
 import type { MakeItOptions } from "@/modules/documents/ui";
-import { DropHero, InboxWorkbench } from "@/modules/documents/ui";
+import { InboxWorkbench } from "@/modules/documents/ui";
 import { expensePageOptions } from "@/modules/expenses";
 import { documentBasHints } from "@/modules/linking";
 import { getUserPreferences } from "@/modules/settings";
 import { supplierInvoicePageOptions } from "@/modules/supplier-invoices";
 
-// The documents desk (F153, the board *Documents*; specs/documents US4, D78): drop anything on top — the app reads
-// it and proposes what it becomes —, then the inbox in three columns: what waits for a decision, the document with
-// the boxes of what was read, and *What it read* with the actions. Every document is one click away (*All
+// The documents desk (F153 → F185, the board *Documents*; specs/documents US4, D78): drop anything on top — the app
+// reads it and proposes what it becomes —, then the inbox in three columns: what waits for a decision, the document
+// with the boxes of what was read, and *What it read* with *When you accept*. Every document is one click away (*All
 // documents*, /documents/library). The owner also gets the creation dialogs' option lists so *Make it…* opens
 // pre-filled. The accountant reads (financial documents only).
 export default async function DocumentsDeskPage() {
@@ -61,23 +59,18 @@ export default async function DocumentsDeskPage() {
   const t = translator(await requestLocale(data.prefs.data?.locale));
   const canUpload = can(auth, "create", "financial_document");
 
+  // F185, the board *Documents*: no title row — the hero is the page's headline; the page keeps its name for the
+  // landmarks and the screen readers. *All documents (n)* sits with the inbox's tools.
   return (
-    <ListPage
-      ground
-      title={t("documents.title")}
-      meta={t("documents.desk.meta", { count: data.inbox.counts.total })}
-      actions={
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={<Link href="/documents/library" data-testid="documents-library-link" />}
-        >
-          {t("documents.desk.all", { count: data.total })}
-        </Button>
-      }
-    >
-      {canUpload && <DropHero />}
-      <InboxWorkbench initial={data.inbox} canWrite={canWrite} options={data.options} />
+    <ListPage ground>
+      <h1 className="sr-only">{t("documents.title")}</h1>
+      <InboxWorkbench
+        initial={data.inbox}
+        canWrite={canWrite}
+        options={data.options}
+        canUpload={canUpload}
+        total={data.total}
+      />
     </ListPage>
   );
 }

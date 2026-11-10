@@ -22,7 +22,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Every string through `useT()` / `translator()` — en, fr, sv in the same PR.
 
 ## Colour and type
-- [ ] Colours only through tokens (`--app`, `--surface`, `--surface-2`, `--border`, `--border-subtle`, `--text`, `--text-muted`, `--primary`, `--action`, `--selection`, `--state-*`, `--tag`, `--destructive`, `--brand`, `--rail-*`, `--cur-*`). No hex in a component, no Tailwind palette colours (`text-green-600`), no gradients (the ground's dots are the one), shadows only `shadow-card` (cards) and `shadow-pop` (popovers, menus, dialogs).
+- [ ] Colours only through tokens (`--app`, `--surface`, `--surface-2`, `--border`, `--border-subtle`, `--text`, `--text-muted`, `--primary`, `--action`, `--selection`, `--state-*`, `--tag`, `--destructive`, `--brand`, `--rail-*`, `--cur-*`, `--read`, `--paper`). No hex in a component, no Tailwind palette colours (`text-green-600`), no gradients (the ground's dots are the one), shadows only `shadow-card` (cards) and `shadow-pop` (popovers, menus, dialogs).
 - [ ] Crimson (`--brand`) only in the logo and **+ New**. The primary button is ink (`--action`); links and in-progress are `--primary` blue; errors are `--destructive`; a currency's colour (`--cur-*`) only for that currency in a chart or ticker, never a state.
 - [ ] Geist / Geist Mono through `next/font/local` (`app/layout.tsx`, the `geist` package) — nothing fetched; mono for keys, file names and tickers. Never `next/font/google`.
 - [ ] Sizes from the scale: 26/700 title · 15/600 panel title · 13 body · 10.5/500 uppercase table headers · 13/600 section heads · 12 secondary.
@@ -38,7 +38,7 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 
 ## States and tags
 - [ ] A state is **derived** (never typed) and shown with `<StateLabel>`: circle icon in its family colour + the word. Families: attention · in progress · done · neutral. The module maps status → family in one place.
-- [ ] A tag is metadata only (bank, currency, type) — grey, 4 px, never coloured. Never use a tag for a state, never a coloured pill.
+- [ ] A tag is metadata only (bank, currency, type) — grey, 4 px, never coloured. Never use a tag for a state, never a coloured pill. (The one exception is the board *Documents*' `BoardTag` — a document's kind, an accept step — F185, see *States and tags* in the doc.)
 - [ ] Colour is never the only signal: the icon shape and the word carry it too.
 
 ## Lists (DataTable)

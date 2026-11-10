@@ -67,11 +67,12 @@ test.describe("Document upload — several files at once", () => {
 
       // 3. the inbox, opened by URL: the two stored documents, each read by its own OCR job
       await page.goto("/documents/inbox");
-      await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeAttached();
+      await page.getByTestId("inbox-tools").click(); // F185: the search sits behind the tools button
       await page.getByTestId("inbox-search").fill(stamp);
       const inboxRows = page.getByTestId("inbox-row");
       await expect(inboxRows).toHaveCount(2, { timeout: 15_000 });
-      await page.getByRole("heading", { name: "Documents", exact: true }).click(); // out of the search field
+      await page.getByTestId("inbox-search").blur(); // out of the search field
       await expect(async () => {
         await page.keyboard.press("r"); // refresh until the mock OCR has run on both
         await expect(page.locator('[data-inbox-state="ready"]')).toHaveCount(2, {

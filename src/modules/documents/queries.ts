@@ -35,6 +35,7 @@ import {
   parseOcrPayload,
   resolveDocumentData,
 } from "./ocr-payload";
+import { type ReadingProposal, readingProposes } from "./proposes";
 import { type ReadingMarks, readingMarks } from "./reading-marks";
 import { type DocumentState, documentState } from "./state-family";
 
@@ -257,6 +258,8 @@ export type InboxListRow = {
   facts: InboxFacts;
   /** F141: what the reading found and where — the fields' confidences and boxes, the pages' size; null before OCR */
   reading: ReadingMarks | null;
+  /** F185: the fields the owner corrected or confirmed — sure, whatever the reading's confidence */
+  corrected: string[];
   reviewedAt: Date | null;
   archivedAt: Date | null;
   createdAt: Date;
@@ -390,10 +393,8 @@ export async function listInbox(
     );
     if (!state) continue;
     const payload = parseOcrPayload(d.ocrData);
-    const resolved = resolveDocumentData(
-      payload?.extractedData ?? null,
-      parseCorrections(d.corrections),
-    );
+    const corrections = parseCorrections(d.corrections);
+    const resolved = resolveDocumentData(payload?.extractedData ?? null, corrections);
     const oldest = dupOf.get(d.id) ?? null;
     all.push({
       id: d.id,
@@ -418,6 +419,7 @@ export async function listInbox(
         ]),
       ) as InboxFacts,
       reading: payload?.extractedData ? readingMarks(payload.extractedData) : null,
+      corrected: Object.keys(corrections ?? {}),
       reviewedAt: d.reviewedAt,
       archivedAt: d.archivedAt,
       createdAt: d.createdAt,
@@ -569,6 +571,9 @@ export type InboxDocumentFacts = {
   currency: string | null;
   /** the line items' descriptions as read (at most eight) — what was bought, for the BAS proposal (F126) */
   lines: string[];
+  /** D78: what the reading alone proposes it becomes (`readingProposes`) — the accept chain's kind for a drop
+   *  nobody typed (F185) */
+  proposes: ReadingProposal;
 };
 
 /**
@@ -649,6 +654,7 @@ export async function inboxFinancialFacts(
         .map((i) => i.description?.trim() ?? "")
         .filter((s) => s !== "")
         .slice(0, 8),
+      proposes: readingProposes(r),
     });
   }
   return out;
