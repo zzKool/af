@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimit } from "@/kernel/actions/rate-limit";
@@ -255,6 +257,42 @@ describe("vat registrations service", () => {
       [created.data!.id],
     );
     expect(rows[0].sql_null).toBe(false); // JSON null, not SQL NULL — the read side maps both to null
+  });
+
+  it("V6 data fix: the migration turns an old JSON 'null' into SQL NULL and leaves real rates alone", async () => {
+    const owner = await createAuthenticatedContext(auth, "owner");
+    const tenantId = owner.callerIdentity.tenantId;
+    const [cleared, kept] = await withTenantTransaction(prisma, tenantId, async (tx) => [
+      await vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "CH",
+        vatNumber: "CHE-111.222.333 MWST",
+        rateSchedule: { rates: [8.1] },
+      }),
+      await vatService.createVatRegistration(tx, owner.callerIdentity, noopAudit, {
+        country: "SE",
+        vatNumber: "SE556677889901",
+        rateSchedule: { rates: [25, 12, 6] },
+      }),
+    ]);
+    await adminPool.query(
+      "UPDATE vat_registrations SET rate_schedule = 'null'::jsonb WHERE id = $1",
+      [cleared.data!.id],
+    );
+    const sql = readFileSync(
+      join(
+        process.cwd(),
+        "prisma/migrations/20261110170000_vat_rate_schedule_one_null/migration.sql",
+      ),
+      "utf8",
+    );
+    await adminPool.query(sql);
+    const { rows } = await adminPool.query(
+      "SELECT id, rate_schedule IS NULL AS sql_null, rate_schedule FROM vat_registrations WHERE id = ANY($1)",
+      [[cleared.data!.id, kept.data!.id]],
+    );
+    const by = new Map(rows.map((r) => [r.id, r]));
+    expect(by.get(cleared.data!.id).sql_null).toBe(true);
+    expect(by.get(kept.data!.id).rate_schedule).toEqual({ rates: [25, 12, 6] });
   });
 
   it("delete: remove registration, verify audit captures old state", async () => {

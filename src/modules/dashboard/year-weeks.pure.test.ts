@@ -1,5 +1,6 @@
 // The year strip (F158) — pure: weeks Monday → Sunday, the money summed per week, the square per account derived;
-// F171: the invoices', expenses' and documents' rows, each thing's state mapped, the week the worst of them.
+// F171: the invoices', expenses' and documents' rows, each thing's state mapped, the week the worst of them;
+// F181: the subscriptions' row, each expected charge's period state mapped.
 import { describe, expect, it } from "vitest";
 import {
   documentCell,
@@ -7,6 +8,7 @@ import {
   invoiceCell,
   isoWeek,
   mondayOf,
+  subscriptionCell,
   YEAR_WEEKS,
   yearWeeks,
 } from "./year-weeks";
@@ -151,5 +153,38 @@ describe("the books' squares (F171)", () => {
     expect(y.weeks.at(-2)?.books.invoices).toEqual({ cell: "none", count: 0, pending: 0 });
     expect(y.weeks.reduce((n, w) => n + w.books.invoices.count, 0)).toBe(3);
     expect(last?.cells).toEqual(["none", "none"]); // the bank's squares untouched
+  });
+});
+
+describe("the subscriptions' squares (F181)", () => {
+  const today = "2026-11-11";
+
+  it("a charge: done when the period is done; expected, unseen or unjustified open — late before last month", () => {
+    const c = (state: string, date = "2026-11-05") => subscriptionCell({ date, state }, today);
+    expect(c("done")).toBe("done");
+    expect(c("done", "2025-12-01")).toBe("done"); // done stays done, however old
+    expect(c("upcoming", "2026-11-15")).toBe("open"); // expected this week, not seen yet
+    expect(c("due")).toBe("open"); // nothing arrived yet
+    expect(c("charged", "2026-10-03")).toBe("open"); // paid, the receipt missing — last month: the close runs
+    expect(c("documented")).toBe("open"); // the bill, not paid yet
+    expect(c("due", "2026-09-30")).toBe("late"); // its month's close is past
+    expect(c("charged", "2026-08-03")).toBe("late");
+    expect(c("skipped")).toBeNull(); // a pause: no charge expected
+  });
+
+  it("the row: one per expected charge on its date, the week the worst; the other rows untouched", () => {
+    const y = yearWeeks(accounts, [], today, {
+      subscriptions: [
+        { date: "2026-11-09", cell: "done" },
+        { date: "2026-11-15", cell: "open" },
+        { date: "2026-09-07", cell: "late" },
+        { date: "2027-01-04", cell: "open" }, // after the strip
+      ],
+    });
+    expect(y.weeks.at(-1)?.books.subscriptions).toEqual({ cell: "open", count: 2, pending: 1 });
+    const sept = y.weeks.find((w) => w.from === "2026-09-07");
+    expect(sept?.books.subscriptions).toEqual({ cell: "late", count: 1, pending: 1 });
+    expect(y.weeks.reduce((n, w) => n + w.books.subscriptions.count, 0)).toBe(3);
+    expect(y.weeks.at(-1)?.books.invoices).toEqual({ cell: "none", count: 0, pending: 0 });
   });
 });
