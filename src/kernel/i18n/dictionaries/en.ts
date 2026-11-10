@@ -1291,6 +1291,14 @@ export const en = {
   "linking.reading.categorySource.proposal": "proposal",
   "linking.reading.payer": "Paid from {account}",
   "linking.reading.confirm": "Confirm & link",
+  "linking.reading.newGroupShort": "new",
+  "linking.reading.bankRow": "Bank row {date} · {amount}",
+  "linking.reading.checksCount": "{count} ✓",
+  "linking.reading.warningsCount": "{count} to look at",
+  "linking.reading.pickCategory": "pick a category",
+  "linking.reading.pickPartner": "pick a partner",
+  "linking.reading.readAs": "read as {paper}",
+  "linking.reading.billedToLine": "Billed to {who}",
   // --- the consistency checks of a proof (F130, review 2026-10-31 §4): one line per warning, the facts in it ---
   "linking.checks.vendor_counterparty":
     "The paper names {vendorName}, the bank says {counterpartyKey} — the same supplier?",

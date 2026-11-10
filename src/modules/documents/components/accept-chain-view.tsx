@@ -40,6 +40,7 @@ export function AcceptChainView({
   hint,
   extra,
   testId = "accept-chain",
+  buttonTestId = "chain-accept",
 }: {
   nodes: ChainNode[];
   /** the primary's word; null = no primary (the accountant, or nothing to accept) */
@@ -51,6 +52,7 @@ export function AcceptChainView({
   /** secondary actions under the primary */
   extra?: ReactNode;
   testId?: string;
+  buttonTestId?: string;
 }) {
   const t = useT();
   return (
@@ -89,7 +91,7 @@ export function AcceptChainView({
           className="mt-2.5 h-[42px] rounded-[10px] text-[13px]"
           onClick={onAccept}
           disabled={disabled}
-          data-testid="chain-accept"
+          data-testid={buttonTestId}
         >
           {label}
           <kbd className="rounded-md border border-action-fg/20 bg-action-fg/10 px-[7px] py-px font-mono text-[11px] font-normal text-action-fg/70">
