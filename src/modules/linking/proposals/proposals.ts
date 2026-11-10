@@ -176,7 +176,17 @@ export async function currentProposals(
   const ids = [...new Set(transactionIds)];
   if (ids.length === 0) return new Map();
   const facts = await banking.transactionFacts(tx, ids);
-  return currentForRows(tx, [...facts.values()]);
+  // the effective facts (D82): a justified row's partner and category are its proof's, typed or not
+  const effective = await banking.transactionStates(tx, ids);
+  return currentForRows(
+    tx,
+    [...facts.values()].map((f) => ({
+      id: f.id,
+      basCode: effective.get(f.id)?.basCode ?? f.basCode,
+      partnerId: effective.get(f.id)?.partnerId ?? f.partnerId,
+      categorisedBy: f.categorisedBy,
+    })),
+  );
 }
 
 /** The row facts the current proposals depend on (the list passes the rows it already read). */

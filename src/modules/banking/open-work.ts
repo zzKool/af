@@ -23,6 +23,7 @@ export async function rowsToJustifyCount(tx: TransactionClient): Promise<number>
       noDocumentNeeded: true,
       partnerId: true,
       basCode: true,
+      categorisedBy: true,
     },
   });
   if (rows.length === 0) return 0;

@@ -24,7 +24,7 @@ import * as partners from "@/modules/partners";
 import * as settings from "@/modules/settings";
 import * as supplierInvoices from "@/modules/supplier-invoices";
 import { justifyRow, noProofNeeded } from "./justify";
-import { getLinksFor } from "./linking";
+import { getLinksFor, removeLink } from "./linking";
 
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 
@@ -148,14 +148,17 @@ describe("justifyRow (US1)", () => {
       expect(docLinks.data?.map((l) => [l.kind, l.from.type])).toEqual([
         ["created_from", "supplier_invoice"],
       ]);
+      // D82 (T028): the click types nothing on the row and marks nothing — the facts are the proof's, on read
       const facts = (await banking.transactionFacts(tx, [s.row])).get(s.row);
-      expect(facts).toMatchObject({
-        partnerId: s.supplierId,
-        basCode: "6540",
-        categorisedBy: "manual",
-      });
+      expect(facts).toMatchObject({ partnerId: null, basCode: null, categorisedBy: null });
       const state = (await banking.transactionStates(tx, [s.row])).get(s.row);
-      expect(state?.state).toBe("linked");
+      expect(state).toMatchObject({
+        state: "linked",
+        partnerId: s.supplierId,
+        partnerFrom: "proof",
+        basCode: "6540",
+        basFrom: "proof",
+      });
       const doc = await documents.getDocument(tx, s.documentId);
       expect(doc.data?.businessKey).toMatch(new RegExp(`^${r.data?.entity.key}_2026-07-06_`));
     });
@@ -605,5 +608,171 @@ describe("justifyRow's rule proposal (F129 US6, D74)", () => {
     );
     expect(next.error).toBeUndefined();
     expect(next.data?.proposeRule).toBeNull();
+  });
+});
+
+describe("T028 — the proof is the one source of a justified row's partner and category (D82)", () => {
+  /** The scene's row justified by a supplier invoice (Skattepunkten, 6540); returns the justifies link's id. */
+  async function justified(caller: CallerIdentity, s: Awaited<ReturnType<typeof scene>>) {
+    const r = await run(caller, (tx) =>
+      justifyRow(tx, caller, noopAudit, {
+        transactionId: s.row,
+        documentId: s.documentId,
+        kind: "supplier_invoice",
+        supplier: {
+          groupId: s.groupId,
+          partnerId: s.supplierId,
+          invoiceNumber: "2026-071",
+          invoiceDate: "2026-07-06",
+          currency: "SEK",
+          amountNet: "1037.76",
+          vatAmount: "259.44",
+          amountTotal: "1297.20",
+          basCode: "6540",
+        },
+      }),
+    );
+    if (r.error) throw new Error(`justify: ${r.error.message}`);
+    expect(r.data.row).toEqual({ partnerId: s.supplierId, basCode: "6540" });
+    const links = await run(caller, (tx) =>
+      getLinksFor(tx, { type: "bank_transaction", id: s.row }),
+    );
+    return links.data?.find((l) => l.kind === "justifies")?.id as string;
+  }
+
+  /** A second vendor and an active rule on the row's key that would say something else (6570). */
+  async function otherRule(caller: CallerIdentity) {
+    return run(caller, async (tx) => {
+      await settings.activateBasCategories(tx, caller, noopAudit, ["6570"]);
+      const guess = await partners.createPartner(tx, caller, noopAudit, {
+        name: "Old Guess AB",
+        shortCode: "OGA",
+        types: ["vendor"],
+        defaultCurrency: "SEK",
+      });
+      const rule = await banking.createRule(tx, caller, noopAudit, {
+        name: "Skattepunkten guess",
+        matchType: "contains",
+        matchPattern: "SKATTEPUNKTEN",
+        basCode: "6570",
+        partnerId: guess.data?.id as string,
+      });
+      if (guess.error || rule.error) throw new Error("otherRule failed");
+      return guess.data?.id as string;
+    });
+  }
+
+  const typed = (caller: CallerIdentity, id: string) =>
+    run(caller, async (tx) => (await banking.transactionFacts(tx, [id])).get(id));
+  const shown = (caller: CallerIdentity, id: string) =>
+    run(caller, async (tx) => (await banking.transactionStates(tx, [id])).get(id));
+
+  it("a rule run later skips the justified row: nothing typed, the proof's facts stay; the test and the near misses ignore it", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    await justified(caller, s);
+    await otherRule(caller);
+    const dry = await run(caller, (tx) =>
+      banking.applyRules(tx, caller, noopAudit, { dryRun: true }),
+    );
+    expect(dry.data?.preview.map((p) => p.transactionId)).not.toContain(s.row);
+    const applied = await run(caller, (tx) => banking.applyRules(tx, caller, noopAudit));
+    expect(applied.error).toBeUndefined();
+    expect(await typed(caller, s.row)).toMatchObject({
+      partnerId: null,
+      basCode: null,
+      categorisedBy: null,
+      ruleId: null,
+    });
+    expect(await shown(caller, s.row)).toMatchObject({
+      state: "linked",
+      partnerId: s.supplierId,
+      basCode: "6540",
+    });
+    const tested = await run(caller, (tx) =>
+      banking.testRule(tx, {
+        matchType: "contains",
+        matchPattern: "SKATTEPUNKTEN",
+        matchField: "counterparty_key",
+      }),
+    );
+    expect(tested.data?.matches).toBe(0);
+  });
+
+  it("a rule's earlier guess yields to the proof; un-justified, the row is back to what the rule says", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    const guess = await otherRule(caller);
+    await run(caller, (tx) => banking.applyRules(tx, caller, noopAudit));
+    expect(await typed(caller, s.row)).toMatchObject({
+      partnerId: guess,
+      basCode: "6570",
+      categorisedBy: "rule",
+    });
+    const linkId = await justified(caller, s);
+    // justified: the proof speaks over the rule's typed guess; the guess stays on the row, unwritten
+    expect(await shown(caller, s.row)).toMatchObject({
+      partnerId: s.supplierId,
+      partnerFrom: "proof",
+      basCode: "6540",
+      basFrom: "proof",
+    });
+    expect(await typed(caller, s.row)).toMatchObject({ partnerId: guess, basCode: "6570" });
+    // un-justified: the rule's values read again
+    const removed = await run(caller, (tx) => removeLink(tx, caller, noopAudit, linkId));
+    expect(removed.error).toBeUndefined();
+    expect(await shown(caller, s.row)).toMatchObject({
+      state: "open",
+      partnerId: guess,
+      partnerFrom: "row",
+      basCode: "6570",
+      basFrom: "row",
+    });
+  });
+
+  it("un-justified with nothing typed: the next rule run categorises the row", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    const linkId = await justified(caller, s);
+    const guess = await otherRule(caller);
+    await run(caller, (tx) => banking.applyRules(tx, caller, noopAudit));
+    expect((await typed(caller, s.row))?.categorisedBy).toBeNull();
+    await run(caller, (tx) => removeLink(tx, caller, noopAudit, linkId));
+    await run(caller, (tx) => banking.applyRules(tx, caller, noopAudit));
+    expect(await typed(caller, s.row)).toMatchObject({
+      partnerId: guess,
+      basCode: "6570",
+      categorisedBy: "rule",
+    });
+    expect(await shown(caller, s.row)).toMatchObject({ state: "open", partnerId: guess });
+  });
+
+  it("the learning reads the proof's facts: the key's memory, the partner's BAS history, the model's examples", async () => {
+    const caller = owner.caller;
+    const s = await scene(caller);
+    await justified(caller, s);
+    // a rule's row on the same key never teaches
+    await otherRule(caller);
+    const [byRule] = await run(caller, (tx) =>
+      importRows(tx, caller, owner.accounts.sek, "SEK", [
+        { date: "2026-07-09", amount: "-99.00", name: "SKATTEPUNKTEN OFFICE" },
+      ]),
+    );
+    expect((await typed(caller, byRule as string))?.categorisedBy).toBe("rule");
+    await run(caller, async (tx) => {
+      const key = (await banking.getBankTransaction(tx, s.row))?.counterpartyKey as string;
+      const memory = (await banking.categoryMemory(tx, [key])).get(key);
+      expect(memory).toEqual({
+        bas: [{ code: "6540", n: 1 }],
+        partner: [{ id: s.supplierId, n: 1 }],
+      });
+      // the row being proposed for never remembers itself
+      expect((await banking.categoryMemory(tx, [key], [s.row])).get(key)).toBeUndefined();
+      expect(await banking.partnerBasUsage(tx)).toEqual([
+        { partnerId: s.supplierId, basCode: "6540", count: 1 },
+      ]);
+      const examples = await banking.confirmedExampleRows(tx);
+      expect(examples.map((e) => [e.id, e.basCode])).toEqual([[s.row, "6540"]]);
+    });
   });
 });

@@ -71,6 +71,28 @@ export async function linksTouching(
 }
 
 /**
+ * The bank rows with a proof — an allocating link (`justifies`, `settles`) from them — among `ids`, or among all the
+ * tenant's rows when `ids` is omitted, in one query. What a rule run skips and what the learning reads (D82, T028):
+ * the proof, not a typed mark, says a row is justified.
+ */
+export async function rowsWithProof(
+  tx: TransactionClient,
+  ids?: readonly string[],
+): Promise<Set<string>> {
+  if (ids && ids.length === 0) return new Set();
+  const rows = await tx.link.findMany({
+    where: {
+      fromType: "bank_transaction",
+      kind: { in: [...ALLOCATING_KINDS] },
+      ...(ids ? { fromId: { in: [...ids] } } : {}),
+    },
+    select: { fromId: true },
+    distinct: ["fromId"],
+  });
+  return new Set(rows.map((r) => r.fromId));
+}
+
+/**
  * The usage of each bank row in `ids` (allocating kinds only — `justifies`, `settles`), in one query; rows with
  * no allocation are absent. What "how much of this movement is proven" reads (audit 22) — through `rowRemaining`,
  * since a cross-currency link consumes the row by its base, not by an amount in another currency.

@@ -3,8 +3,9 @@
 // days between, the kind the facts propose); the service is one transaction around the owning modules' services —
 // the entity (`supplierInvoices.createSupplierInvoice` / `expenses.createExpense`, with the document → the
 // `created_from` link and the key), its payment (`recordPayment` / `attachPayment` / `attachBankTransaction`: the
-// `justifies` link with the allocation, D26 / D37) and the row's facts (`banking.categorise` by hand: the owner's
-// click is the categorisation). Nothing new is stored: no table, no link kind, no status (SC-005).
+// `justifies` link with the allocation, D26 / D37). The row's partner and category are the proof's, derived on read
+// (D73 (a)) — the click types nothing on the row and marks nothing (D82, T028): one source per fact. Nothing new is
+// stored: no table, no link kind, no status (SC-005).
 // MUST NOT import from next/* or src/components/*. Load-time safe: the schema below names its own fields (the
 // modules' schemas are not imported — expenses ↔ supplier-invoices ↔ linking meet through the registry at load).
 import { z } from "zod/v4";
@@ -127,7 +128,7 @@ export type NoProofInput = z.input<typeof noProofSchema>;
 
 export type JustifyResult = {
   entity: { type: JustifyKind; id: string; key: string };
-  /** the row as categorised by the click */
+  /** the row's effective partner and category after the click — the proof's, derived (D82), unless typed by hand */
   row: { partnerId: string | null; basCode: string | null };
   /**
    * D74 (F129 FR-008): the rule to propose — the counterparty key → the proof's partner — when no active rule names
@@ -138,8 +139,8 @@ export type JustifyResult = {
 
 // --- the composite ---
 
-/** A refused step names itself in the message (US1 scenario 8): *entity: …*, *payment: …*, *row: …*. */
-function step<T>(name: "entity" | "payment" | "row", r: ServiceResult<T>): ServiceResult<T> {
+/** A refused step names itself in the message (US1 scenario 8): *entity: …*, *payment: …*. */
+function step<T>(name: "entity" | "payment", r: ServiceResult<T>): ServiceResult<T> {
   return r.error ? { error: { ...r.error, message: `${name}: ${r.error.message}` } } : r;
 }
 
@@ -235,9 +236,18 @@ async function vendorRuleProposal(
   return proposeVendorRule(key, partnerId, basCode);
 }
 
+/** The row as it reads once the proof is linked: its effective partner and category (D73 (a), D82). */
+async function rowAfter(
+  tx: TransactionClient,
+  id: string,
+): Promise<{ partnerId: string | null; basCode: string | null }> {
+  const facts = (await banking.transactionStates(tx, [id])).get(id);
+  return { partnerId: facts?.partnerId ?? null, basCode: facts?.basCode ?? null };
+}
+
 /**
- * One click, one transaction (US1, US3 *receipt lost*): the entity from the card's fields, its payment by the
- * row, the row's partner and category. A returned error rolls everything back (F111); the uploaded document is
+ * One click, one transaction (US1, US3 *receipt lost*): the entity from the card's fields and its payment by the
+ * row — the row's partner and category follow from the proof, nothing is typed on it (D82). A returned error rolls everything back (F111); the uploaded document is
  * its own earlier transaction and survives.
  */
 export async function justifyRow(
@@ -272,24 +282,11 @@ export async function justifyRow(
     );
     if (paid.error) return { error: paid.error };
     await auditConfirmedWarnings(audit, paid.data.linkId, v.confirmedWarnings);
-    const facts = step(
-      "row",
-      await banking.categorise(tx, caller, audit, v.transactionId, {
-        partnerId: s.partnerId,
-        basCode: s.basCode,
-      }),
-    );
-    if (facts.error) return { error: facts.error };
     return {
       data: {
         entity: { type: "supplier_invoice", id: created.data.id, key: created.data.key },
-        row: { partnerId: facts.data.partnerId, basCode: facts.data.basCode },
-        proposeRule: await vendorRuleProposal(
-          tx,
-          row.data.counterpartyKey,
-          s.partnerId,
-          facts.data.basCode,
-        ),
+        row: await rowAfter(tx, v.transactionId),
+        proposeRule: await vendorRuleProposal(tx, row.data.counterpartyKey, s.partnerId, s.basCode),
       },
     };
   }
@@ -314,24 +311,11 @@ export async function justifyRow(
   );
   if (paid.error) return { error: paid.error };
   await auditConfirmedWarnings(audit, paid.data.linkId, v.confirmedWarnings);
-  const facts = step(
-    "row",
-    await banking.categorise(tx, caller, audit, v.transactionId, {
-      partnerId: e.partnerId ?? null,
-      basCode: e.basCode,
-    }),
-  );
-  if (facts.error) return { error: facts.error };
   return {
     data: {
       entity: { type: "expense", id: created.data.id, key: created.data.key },
-      row: { partnerId: facts.data.partnerId, basCode: facts.data.basCode },
-      proposeRule: await vendorRuleProposal(
-        tx,
-        row.data.counterpartyKey,
-        e.partnerId,
-        facts.data.basCode,
-      ),
+      row: await rowAfter(tx, v.transactionId),
+      proposeRule: await vendorRuleProposal(tx, row.data.counterpartyKey, e.partnerId, e.basCode),
     },
   };
 }
