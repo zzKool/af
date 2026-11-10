@@ -88,7 +88,7 @@ accountant: invite ✗ A2 ──► read-only ✓ ──► package ✓
 ~~F113 PR A~~ ─► ~~the Justify panel (F97)~~ ─► ~~F114~~ (#318 merged 2026-10-27, PR 2 #319 the package columns) ─► ~~F115~~ (#320) ─► ~~F116~~ (#326 · #327 · #328 · #329, 2026-10-27/28) ─► **F124** the owner's first proof (2026-10-29/30: #333 · #334 · #335 · #336 · #337 · #338) — **next: B1, the owner's real month**
                                                      │
                                                      ▼
-                                         B1 — one real month on the box (D65)
+                                         B1 — one real month, local dev env (D65, D83)
                                                      │
                                                      ▼
                               F113 PR B (drop journal_entries) · PR C (linked = categorised)
@@ -116,9 +116,9 @@ F130 checkProof + fxTolerance (pure) ───┘      (D73 · D74 · the one mi
 
 Left from the review for later, as rows in `specs/justify/tasks.md` T020+: the trip created in place from the dialog (§5.2), the FIFO picker inside the panel (§5.1), the cross-currency invoice in the import preview, a `PartnerCreateForm` in `partners/ui` replacing the dialog's inline copy, a `heading` prop on `JustifyPanel` instead of the host's CSS reach, a `month` fact on groups, `systemPartner` taking the tenant for the migration role, the migration log naming the partner per attached role, the Justify click no longer typing what the proof derives (closes F113 PR C), F132 the client fixture name.
 
-### 1. B1 — 2023-Q2 end to end, on the owner's box
+### 1. B1 — 2023-Q2 end to end, on the local dev env (D83: the box later)
 
-The acceptance test: one real quarter, from the start of the activity, through every module, ending in a package compared with what the accountant filed. The owner does the entering; the agent fixes what he reports (D51: never on the box, never with his values).
+The acceptance test: one real quarter, from the start of the activity, through every module, ending in the package sent to the accountant — information; he reports as it suits him (D83). The owner does the entering; the agent fixes what he reports (D51: never on the box, never with his values).
 
 ```
 settings ─► partners ─► contracts ─► rates backfill ─► bank CSVs ─► invoices
@@ -127,7 +127,7 @@ settings ─► partners ─► contracts ─► rates backfill ─► bank CSVs
                                                           │             │
                                                           └──► links ◄──┘
                                                                  │
-                                    package 2023-04 · 05 · 06 ─► compare 2023-06 with what was filed
+                                    package 2023-04 · 05 · 06 ─► sent (information)
 ```
 
 1. **Settings** — company profile, VAT registrations, the three Nordea accounts, BAS categories as the accountant uses them.
@@ -138,7 +138,7 @@ settings ─► partners ─► contracts ─► rates backfill ─► bank CSVs
 6. **Invoices** — the quarter's invoices, numbered as they were issued.
 7. **Supplier invoices / receipts** — uploaded with their type (F90), read by the real OCR (B2), reviewed, *Make it…* expense / supplier invoice; owner-paid expenses and their reimbursements; traktamente trips if any.
 8. **Links** — the bank rows justified (the inbox's suggestions, *Link to…* for the rest); nothing left to justify for the quarter.
-9. **Package** — 2023-04, 05, 06; **the 2023-06 package compared with what was filed** — every difference is either explained or a bug report.
+9. **Package** — 2023-04, 05, 06; each one complete and readable on its own — every oddity is a bug report.
 
 Done when the 2023-06 package matches what was filed, or every difference has a reason written down. Each oddity → a row in [[features]] or a line in [[lessons]], reproduced on seed / invented data before a test or a fix.
 
