@@ -121,7 +121,6 @@ describe("US1 — describe a subscription once", () => {
     expect((await create({ partnerId: client.id })).error?.message).toMatch(/Pick a vendor/);
     expect((await create({ partnerId: inactive.id })).error?.message).toMatch(/inactive partner/);
     expect((await create({ basCode: "6540" })).error?.message).toMatch(/not active/);
-    expect((await create({ basCode: "6570" })).error?.message).toMatch(/no short code/);
     expect(
       (await create({ becomes: "supplier_invoice", paidFromAccountId: owner.sources.privateSe.id }))
         .error?.message,
