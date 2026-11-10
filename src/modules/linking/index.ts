@@ -41,6 +41,7 @@ export {
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
   NO_PROOF_REASONS_INCOMING,
+  noProofBas,
   noProofNeeded,
   noProofSchema,
   PARTNER_REQUIRED,

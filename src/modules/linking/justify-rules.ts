@@ -220,15 +220,26 @@ export const NO_PROOF_REASONS_INCOMING: readonly NoProofReason[] = [
   "fee",
   "other",
 ];
-/** the account each reason proposes (the owner's active set may not hold it — then none is written) */
+/**
+ * The account each reason proposes — the owner's accounts (D84, F187): Skatteverket's tax account 1630, his salary
+ * 7220; a tax row on a CHF account is Swiss VAT, 2890 (`noProofBas`). Editable on the row.
+ */
 export const NO_PROOF_BAS: Record<NoProofReason, string | null> = {
   fee: "6570",
-  tax: "2510",
-  salary: "7210",
+  tax: "1630",
+  salary: "7220",
   interest: "8310",
   client: null,
   other: null,
 };
+const TAX_BAS_BY_CURRENCY: Record<string, string> = { CHF: "2890" };
+
+/** The reason's account for a row of an account in this currency: tax goes by the country, like its partner. Pure. */
+export function noProofBas(reason: NoProofReason, accountCurrency: string): string | null {
+  if (reason === "tax")
+    return TAX_BAS_BY_CURRENCY[accountCurrency.toUpperCase()] ?? NO_PROOF_BAS.tax;
+  return NO_PROOF_BAS[reason];
+}
 
 /** The partner a reason proposes, by type: a system partner's role, the client (the picker), or none (F129 FR-007). */
 export type ProposedPartner = SystemRole | "client" | null;

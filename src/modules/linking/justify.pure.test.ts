@@ -9,6 +9,7 @@ import {
   monthOf,
   NO_PROOF_BAS,
   NO_PROOF_REASONS,
+  noProofBas,
   PAPERS,
   paperOfPrefixType,
   paperOfReading,
@@ -124,6 +125,14 @@ describe("the small rules", () => {
     expect(NO_PROOF_BAS.fee).toBe("6570");
     expect(NO_PROOF_BAS.interest).toBe("8310");
     expect(NO_PROOF_BAS.other).toBeNull();
+  });
+  it("D84: the reasons propose the owner's accounts — tax by the account's country, salary 7220", () => {
+    expect(noProofBas("tax", "SEK")).toBe("1630");
+    expect(noProofBas("tax", "chf")).toBe("2890");
+    expect(noProofBas("tax", "EUR")).toBe("1630");
+    expect(noProofBas("salary", "SEK")).toBe("7220");
+    expect(noProofBas("fee", "CHF")).toBe("6570");
+    expect(noProofBas("client", "CHF")).toBeNull();
   });
 });
 
