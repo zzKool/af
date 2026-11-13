@@ -42,6 +42,7 @@ export const acceptProposalsAction = ownerAction
         basCode: r.data.transaction.basCode,
         partnerId: r.data.transaction.partnerId,
         accepted: r.data.accepted,
+        createdPartnerId: r.data.createdPartnerId,
         proposeRule: r.data.proposeRule,
       },
     };

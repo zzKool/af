@@ -1,5 +1,6 @@
 // A proposal's payload per kind (F98, specs/ai FR-003) — written from these types, parsed on read (lessons 29:
-// a JSON column is never cast). `newPartner` arrives with the model (PR 2).
+// a JSON column is never cast). `newPartner` is the model's (T013b): a company not among the partners yet, created
+// on the owner's accept.
 import { z } from "zod";
 
 export const PROPOSAL_KINDS = ["bas", "partner"] as const;
@@ -27,6 +28,18 @@ export const partnerPayloadSchema = z.union([
   }),
 ]);
 export type PartnerPayload = z.infer<typeof partnerPayloadSchema>;
+
+/**
+ * The model was asked who a row's counterparty is and named nobody (T013b). Stored as the proposal's payload so
+ * the row is not asked again on the same facts; it fits no payload schema on purpose — `parsePayload` returns null
+ * and every read ignores it (never current, never shown, never accepted).
+ */
+export const NO_PARTNER_PAYLOAD = { none: true } as const;
+
+/** A proposed new partner's kind → the partner type it is created with. */
+export function newPartnerType(type: "supplier" | "client" | "authority" | "other") {
+  return type === "client" ? "client" : type === "authority" ? "authority" : "vendor";
+}
 
 export type ParsedPayload =
   | { kind: "bas"; payload: BasPayload }

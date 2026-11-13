@@ -1158,6 +1158,8 @@ export const en = {
   "linking.proposals.reject": "Reject",
   "linking.proposals.rejectThis": "Reject this one",
   "linking.proposals.accepted": "Accepted",
+  "linking.proposals.acceptedNewPartner": "Accepted — the partner was created",
+  "linking.proposals.newPartner": "new — created when you accept",
   "linking.proposals.rejected": "Rejected — not proposed again while the row is unchanged",
   "linking.proposals.unknownPartner": "A partner no longer listed",
   "linking.proposals.ruleOffer": "Make it a rule, so the next rows are categorised on import?",
