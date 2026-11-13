@@ -3,7 +3,8 @@
 // The *Proposed* line above a bank row's category form (F98, specs/ai FR-009 + the owner's answers 2026-10-27):
 // the proposed category / partner, its family (D40 state colours, the suggestions' words), the source as a word —
 // *rule* · *partner default* · *remembered* · *proposed* — the reason, Accept (`a`), Reject (`r`), the
-// alternatives as chips. Nothing here is saved until Accept: the categorise service writes, on the owner's key.
+// alternatives as chips. A partner the model named that is not listed yet (T013b) is tagged *new* — Accept creates
+// it. Nothing here is saved until Accept: the categorise service writes, on the owner's key.
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -86,7 +87,11 @@ export function ProposalLine({
       const error = extractError(r);
       if (error) return toast.error(error);
       const d = r?.data && "data" in r.data ? r.data.data : undefined;
-      toast.success(t("linking.proposals.accepted"));
+      toast.success(
+        d?.createdPartnerId
+          ? t("linking.proposals.acceptedNewPartner")
+          : t("linking.proposals.accepted"),
+      );
       onDecided(
         d ? { basCode: d.basCode, partnerId: d.partnerId, proposeRule: d.proposeRule } : null,
       );
@@ -144,6 +149,11 @@ export function ProposalLine({
                   ? partnerName(p.payload.partnerId)
                   : p.payload.newPartner.name}
             </span>
+            {p.kind === "partner" && "newPartner" in p.payload && (
+              <span data-testid="proposal-partner-new">
+                <Tag>{t("linking.proposals.newPartner")}</Tag>
+              </span>
+            )}
             <ConfidenceLabel confidence={FAMILY_WORD[p.family]} />
             <Tag>{t(`linking.proposals.source.${p.source}`)}</Tag>
           </div>

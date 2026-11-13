@@ -537,12 +537,11 @@ describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
         detail: "down",
       })),
     };
-    expect((await proposeForRows(scope, down)).model).toEqual({
-      asked: 1,
-      proposed: 0,
-      failed: 1,
-      stopped: true,
-    });
+    const stopped = await proposeForRows(scope, down);
+    expect(stopped.model).toEqual({ asked: 1, proposed: 0, failed: 1, stopped: true });
+    // T013b: an unreachable model is not asked for the partners either
+    expect(stopped.partnerModel).toEqual({ asked: 0, proposed: 0, failed: 0, stopped: true });
+    expect(down.complete).toHaveBeenCalledTimes(1);
 
     let calls = 0;
     const slowOnce: AiService = {
@@ -555,11 +554,146 @@ describe("stage 2 — the model, from the first row (F98 PR 2, FR-201)", () => {
     };
     const r = await proposeForRows(scope, slowOnce);
     expect(r.model).toMatchObject({ asked: 4, proposed: 4, failed: 0 });
-    expect(calls).toBe(5);
+    // four categories, one of them asked twice — and one partner question the mock has no answer for (stops there)
+    expect(calls).toBe(6);
+    expect(r.partnerModel).toEqual({ asked: 1, proposed: 0, failed: 1, stopped: true });
 
     const off: AiService = { kind: "off", complete: vi.fn() };
     expect((await proposeForRows(scope, off)).model.asked).toBe(0);
     expect(off.complete).not.toHaveBeenCalled();
+  });
+});
+
+describe("stage 2 — the model names the partner (F98 T013b, US2)", () => {
+  const BAS = { basCode: "6540", confidence: 0.86, reason: "IT", alternatives: [] };
+  const NEW = {
+    partner: null,
+    newPartner: { name: "Byteform", type: "supplier", country: "SE" },
+    confidence: 0.9,
+    reason: "The text names the company",
+  };
+  const mock = (partner: unknown = NEW) =>
+    createMockAiService({ "linking.bas-proposal": BAS, "linking.partner-proposal": partner });
+  const scopeOf = (caller: CallerIdentity) => ({
+    tenantId: caller.tenantId,
+    userId: caller.userId,
+    all: true as const,
+  });
+  async function activate(caller: CallerIdentity) {
+    await run(caller, (tx) =>
+      settings.activateBasCategories(tx, caller, auditFor(tx, caller), ["6540"]),
+    );
+  }
+  const partnerNames = (caller: CallerIdentity) =>
+    run(caller, async (tx) =>
+      (await tx.partner.findMany({ where: { systemRole: null } })).map((p) => p.name),
+    );
+
+  it("US2: asked once per counterparty; accepting both creates the partner and categorises the row in one go", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await imported(caller);
+    await activate(caller);
+    const r = await proposeForRows(scopeOf(caller), mock());
+    // CLOUDHOST (three rows) and BYTEFORM (one): two questions, four rows answered
+    expect(r.partnerModel).toEqual({ asked: 2, proposed: 4, failed: 0, stopped: false });
+    expect(await partnerNames(caller)).toEqual([]); // proposed, never written
+
+    const current =
+      (await run(caller, (tx) => currentProposals(tx, [ids.byteform]))).get(ids.byteform) ?? [];
+    expect(current.map((p) => p.kind)).toEqual(["bas", "partner"]);
+    expect(current[1]).toMatchObject({
+      kind: "partner",
+      source: "model",
+      family: "high",
+      payload: { newPartner: { name: "Byteform", type: "supplier", country: "SE" } },
+    });
+
+    const accepted = await run(caller, (tx) =>
+      acceptProposals(tx, caller, auditFor(tx, caller), { transactionId: ids.byteform }),
+    );
+    expect(accepted.error).toBeUndefined();
+    const created = accepted.data?.createdPartnerId as string;
+    expect(created).toBeTruthy();
+    expect(accepted.data?.transaction).toMatchObject({ basCode: "6540", partnerId: created });
+    const partner = await run(caller, (tx) => tx.partner.findUnique({ where: { id: created } }));
+    expect(partner).toMatchObject({ name: "Byteform", types: ["vendor"] });
+
+    // another row carrying the same new name: the partner exists now — used, not created twice (D70)
+    const again = await run(caller, (tx) =>
+      acceptProposals(tx, caller, auditFor(tx, caller), { transactionId: ids.inv3 }),
+    );
+    expect(again.data?.createdPartnerId).toBeNull();
+    expect(again.data?.transaction.partnerId).toBe(created);
+    expect(await partnerNames(caller)).toEqual(["Byteform"]);
+  });
+
+  it("a listed partner is proposed by its handle; *nobody* is kept, not shown, not asked again, not counted", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await imported(caller);
+    const cloud = await createTestPartner(adminPool, caller.tenantId, caller.userId, {
+      name: "Cloudhost AB",
+      types: ["vendor"],
+    });
+    await activate(caller);
+    const base = mock();
+    const ai: AiService = {
+      kind: "mock",
+      complete: async (call) => {
+        if (call.task !== "linking.partner-proposal") return base.complete(call);
+        const [system, user] = call.messages.map((m) => m.content);
+        const ref = system?.match(/^(p\d+) Cloudhost AB/m)?.[1] ?? null;
+        const answer = user?.includes("CLOUDHOST")
+          ? { partner: ref, newPartner: null, confidence: 0.92, reason: "Listed" }
+          : { partner: null, newPartner: null, confidence: 0.2, reason: "Cannot tell" };
+        return createMockAiService({ [call.task]: answer }).complete(call);
+      },
+    };
+    const r = await proposeForRows(scopeOf(caller), ai);
+    expect(r.partnerModel).toMatchObject({ asked: 2, proposed: 3 });
+
+    const current = await run(caller, (tx) => currentProposals(tx, [ids.inv3, ids.byteform]));
+    expect(current.get(ids.inv3)?.find((p) => p.kind === "partner")).toMatchObject({
+      payload: { partnerId: cloud.id },
+      prefilled: true,
+    });
+    expect(current.get(ids.byteform)?.map((p) => p.kind)).toEqual(["bas"]);
+
+    expect((await proposeForRows(scopeOf(caller), ai)).partnerModel.asked).toBe(0);
+    const stats = await run(caller, (tx) => proposalStats(tx, 30));
+    // four categories + three partners; the *nobody* answer is no proposal
+    expect(stats.bySource).toEqual([{ source: "model", made: 7, accepted: 0, rejected: 0 }]);
+  });
+
+  it("a rejected partner stands on the next run; a refused accept creates nothing", async () => {
+    const { callerIdentity: caller } = await createAuthenticatedContext(auth, "owner");
+    const ids = await imported(caller);
+    await activate(caller);
+    await proposeForRows(scopeOf(caller), mock());
+
+    // the category is not an active account any more: the accept is refused, the partner it created goes with it
+    await expect(
+      run(caller, (tx) =>
+        acceptProposals(tx, caller, auditFor(tx, caller), {
+          transactionId: ids.inv3,
+          overrideBasCode: "9999",
+        }),
+      ),
+    ).rejects.toThrow();
+    expect(await partnerNames(caller)).toEqual([]);
+
+    const of = async (kind: "bas" | "partner") =>
+      (
+        (await run(caller, (tx) => currentProposals(tx, [ids.byteform]))).get(ids.byteform) ?? []
+      ).find((p) => p.kind === kind);
+    await run(caller, async (tx) =>
+      rejectProposal(tx, caller, auditFor(tx, caller), {
+        proposalId: (await of("partner"))?.id as string,
+      }),
+    );
+    const next = await proposeForRows(scopeOf(caller), mock());
+    expect(next.partnerModel.asked).toBe(0);
+    expect(await of("partner")).toBeUndefined();
+    expect((await of("bas"))?.source).toBe("model"); // the category proposal is untouched
   });
 });
 

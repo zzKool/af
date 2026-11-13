@@ -545,3 +545,9 @@ Related: [[roadmap]] · [[constitution]] · [[verify-gate]] · [[feature-invento
 
 ## F132 — the client fixture name (2026-11-10)
 - [ ] **A fixture written "like the real one" is real data** (D51): the owner's real main client's name went into the first slice's tests and every later test copied it. Fixtures start from the invented client (`Lakeside Assurance SA`, `LK`); the real-names guard (`src/kernel/guards`) holds a SHA-256 per forbidden word, never the word — add one with `printf %s '<word>' | sha256sum`. A phone or e-mail domain copied from a real company is the same slip.
+
+## F98 T013b — the model's partner proposal (2026-11-13)
+
+- [ ] **A model asked row by row answers row by row** (the owner, 2026-11-13: two subscriptions of the same kind, two different accounts). Each question is independent and nothing ties two answers together until the owner confirms one. Where the same thing is asked twice, ask once and write the answer on every row (the partner: once per counterparty key). The category is still per row — the same fix needs a spec (it changes a rule).
+- [ ] **A proposal run only proposes inside the active accounts** — a full chart active means near-equal accounts to pick from and no *Use for* note to decide. Before judging the model's categories, check Settings → BAS: *Use my usual accounts* (F187) is the lever.
+- [ ] **"The model had no answer" must be stored**, or the nightly run asks the same row forever: a kept non-answer (`NO_PARTNER_PAYLOAD`) is what makes *asked once* true.

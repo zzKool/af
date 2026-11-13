@@ -15,9 +15,11 @@ import { can } from "@/kernel/auth/can";
 import type { TransactionClient } from "@/kernel/db/tenant-client";
 import { type AppError, RollbackError, type ServiceResult } from "@/kernel/errors/app-error";
 import * as banking from "@/modules/banking";
+import * as partners from "@/modules/partners";
 import type { ProposalDto } from "../types";
 import { factsHash } from "./facts-hash";
 import {
+  newPartnerType,
   type ParsedPayload,
   type ProposalKindName,
   type ProposalSourceName,
@@ -240,7 +242,8 @@ export async function proposalStats(
   const since = new Date(now.getTime() - days * 86_400_000);
   const groups = await tx.proposal.groupBy({
     by: ["source", "decision"],
-    where: { createdAt: { gte: since } },
+    // confidence 0 = the model named nobody (T013b): asked, nothing proposed — not a proposal the owner saw
+    where: { createdAt: { gte: since }, confidence: { gt: 0 } },
     _count: { _all: true },
   });
   const last = await tx.proposal.findFirst({
@@ -268,6 +271,8 @@ export type AcceptResult = {
   transaction: banking.BankTransactionDto;
   accepted: string[];
   proposeRule: boolean;
+  /** the partner this accept created from a `newPartner` proposal (T013b), else null */
+  createdPartnerId: string | null;
 };
 
 /**
@@ -296,11 +301,32 @@ export async function acceptProposals(
   const picked = wanted as ProposalDto[];
 
   const facts: { basCode?: string; partnerId?: string } = {};
+  let createdPartnerId: string | null = null;
   for (const p of picked) {
     if (p.kind === "bas") facts.basCode = input.overrideBasCode ?? p.payload.basCode;
     if (p.kind === "partner") {
-      if (!("partnerId" in p.payload)) return { error: stale() }; // a new partner arrives with PR 2
-      facts.partnerId = p.payload.partnerId;
+      if ("partnerId" in p.payload) {
+        facts.partnerId = p.payload.partnerId;
+        continue;
+      }
+      // a company the model named that is not a partner yet (T013b): created on the owner's key, in this
+      // transaction — or the partner of that name, when one was created since (D70: one partner per name)
+      const np = p.payload.newPartner;
+      const created = await partners.createPartner(tx, caller, audit, {
+        name: np.name,
+        types: [newPartnerType(np.type)],
+        externalIdentifiers: [],
+        ...(np.country ? { address: { country: np.country } } : {}),
+      });
+      if (created.error) {
+        const existingId = created.error.details?.existingId;
+        if (created.error.code !== "DUPLICATE_ENTRY" || typeof existingId !== "string")
+          return { error: created.error };
+        facts.partnerId = existingId;
+      } else {
+        facts.partnerId = created.data.id;
+        createdPartnerId = created.data.id;
+      }
     }
   }
 
@@ -309,7 +335,11 @@ export async function acceptProposals(
   const proposeRule = !!inputRow && inputRow.rule === null;
 
   const r = await banking.categorise(tx, caller, audit, input.transactionId, facts);
-  if (r.error) return { error: r.error };
+  // a refused categorise takes the partner created above back with it
+  if (r.error) {
+    if (createdPartnerId) throw new RollbackError(r.error);
+    return { error: r.error };
+  }
 
   const decidedAt = new Date();
   for (const p of picked) {
@@ -331,10 +361,13 @@ export async function acceptProposals(
         ...(p.kind === "bas" && input.overrideBasCode
           ? { overrideBasCode: input.overrideBasCode }
           : {}),
+        ...(p.kind === "partner" && createdPartnerId ? { createdPartnerId } : {}),
       }),
     });
   }
-  return { data: { transaction: r.data, accepted: picked.map((p) => p.id), proposeRule } };
+  return {
+    data: { transaction: r.data, accepted: picked.map((p) => p.id), proposeRule, createdPartnerId },
+  };
 }
 
 /** Reject one proposal: recorded with a time; the next runs skip that kind while the row's facts are unchanged. */
