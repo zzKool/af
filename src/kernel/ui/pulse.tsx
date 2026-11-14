@@ -246,6 +246,71 @@ export function Kpi({
   );
 }
 
+const HALO: Record<PulseTone, string> = {
+  done: "bg-state-done/16 text-state-done",
+  attention: "bg-state-attention/14 text-state-attention",
+  danger: "bg-destructive/12 text-destructive",
+  progress: "bg-state-progress/12 text-state-progress",
+  neutral: "bg-tag text-muted-foreground",
+};
+
+/**
+ * The board *States*: what a place says when it has nothing to show — a round halo with the place's icon, what is
+ * (not) there in 18/600, one line on what to do, the one or two ways forward. `tone="done"` is the *all done* state
+ * (green halo); `compact` is the same inside a table or a small card (no halo ring, 15/600).
+ */
+export function EmptyState({
+  icon,
+  title,
+  children,
+  actions,
+  tone = "progress",
+  compact = false,
+  className,
+  testId,
+}: {
+  icon?: ReactNode;
+  title: ReactNode;
+  children?: ReactNode;
+  actions?: ReactNode;
+  tone?: PulseTone;
+  compact?: boolean;
+  className?: string;
+  testId?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-start gap-2.5 text-left",
+        compact ? "px-4 py-5" : "px-6 py-7",
+        className,
+      )}
+      data-testid={testId}
+      data-empty={tone}
+    >
+      {icon && (
+        <span
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-full [&_svg]:size-1/2",
+            compact ? "size-10" : "size-14",
+            HALO[tone],
+          )}
+          aria-hidden
+        >
+          {icon}
+        </span>
+      )}
+      <div className={cn("font-semibold text-foreground", compact ? "text-[15px]" : "text-lg")}>
+        {title}
+      </div>
+      {children && (
+        <div className="max-w-[52ch] text-[13px] font-normal text-foreground/80">{children}</div>
+      )}
+      {actions && <div className="flex flex-wrap items-center gap-2 pt-0.5">{actions}</div>}
+    </div>
+  );
+}
+
 /** a section of the page as its card: the title 15/600, one muted line beside it, actions right */
 export function PulseSection({
   title,

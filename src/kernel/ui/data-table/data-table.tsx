@@ -16,7 +16,9 @@ import {
   Columns3,
   Filter as FilterIcon,
   GripVertical,
+  Inbox,
   Search,
+  SearchX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -52,6 +54,7 @@ import type {
 import { PAGE_SIZE_OPTIONS } from "@/kernel/list-query/types";
 import { formatMoney } from "@/kernel/money/format-money";
 import type { Currency } from "@/kernel/nav/constants";
+import { EmptyState } from "@/kernel/ui/pulse";
 import { useDockedPanel } from "@/kernel/ui/shell/details-dock";
 import type { StateFamily } from "@/kernel/ui/state-label";
 import { cn } from "@/lib/utils";
@@ -277,6 +280,7 @@ export function DataTable<Row extends { id: string }>({
 
   const colSpan = columns.length + (selectable ? 1 : 0) + 1;
   const activeFilters = Object.keys(query.filters);
+  const filtered = activeFilters.length > 0 || !!query.search;
   const barColumns = allColumns.filter(
     (c) => c.filterable !== false && (c.key in query.filters || c.quickFilter),
   );
@@ -502,11 +506,45 @@ export function DataTable<Row extends { id: string }>({
                 <TableCell colSpan={colSpan} className="h-24 text-center text-muted-foreground">
                   {isPending ? (
                     <Skeleton className="mx-auto h-4 w-40" />
+                  ) : filtered ? (
+                    // the board *States* — *No results*: what did not match, and the one way back
+                    <EmptyState
+                      compact
+                      tone="neutral"
+                      icon={<SearchX />}
+                      className="mx-auto items-center text-center"
+                      title={
+                        query.search
+                          ? t("table.emptySearch", { search: query.search })
+                          : t("table.emptyFiltered")
+                      }
+                      actions={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            state.clearFilters();
+                            state.setSearch("");
+                            setSearch("");
+                          }}
+                        >
+                          {query.search ? t("table.clearSearch") : t("table.clearFilters")}
+                        </Button>
+                      }
+                      testId="table-empty-filtered"
+                    />
+                  ) : emptyState && typeof emptyState !== "string" ? (
+                    emptyState
                   ) : (
-                    (emptyState ??
-                    (activeFilters.length || query.search
-                      ? t("table.emptyFiltered")
-                      : t("table.empty")))
+                    // *Empty*: the module's own words when it has some, in the same shape
+                    <EmptyState
+                      compact
+                      tone="neutral"
+                      icon={<Inbox />}
+                      className="mx-auto items-center text-center"
+                      title={emptyState ?? t("table.empty")}
+                      testId="table-empty"
+                    />
                   )}
                 </TableCell>
               </TableRow>

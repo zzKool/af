@@ -21,11 +21,13 @@ import {
   type YearWeeks,
 } from "@/modules/dashboard/year-weeks";
 
-const MONEY = 40;
+/** the board: money in up to 64 px above the line, out up to 38 px under it */
+const IN = 64;
+const OUT = 38;
 const CELL: Record<WeekCellState, string> = {
   done: "bg-state-done",
   open: "bg-state-attention",
-  late: "bg-destructive",
+  late: "bg-destructive pulse-glow-late",
   none: "bg-border/60",
 };
 
@@ -40,7 +42,13 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
   const week = weeks.find((w) => w.from === selected) ?? null;
   const max = Math.max(1, ...weeks.map((w) => Math.max(Number(w.inBase), Number(w.outBase))));
   // a square-root scale, as the day strip: one large transfer does not flatten the year
-  const h = (v: string) => (Number(v) > 0 ? Math.max(2, Math.sqrt(Number(v) / max) * MONEY) : 0);
+  const h = (v: string, box: number) =>
+    Number(v) > 0 ? Math.max(3, Math.round(Math.sqrt(Number(v) / max) * box)) : 0;
+  // the money in takes the base currency's own colour (the board's teal for SEK)
+  const cur = base.toLowerCase();
+  const inColor = ["sek", "chf", "eur", "usd"].includes(cur)
+    ? `var(--cur-${cur})`
+    : "var(--state-done)";
   if (accounts.length === 0 && !weeks.some(busy)) return null;
 
   return (
@@ -50,7 +58,7 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
       aria-label={t("home.year.title")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="flex flex-wrap items-baseline gap-x-2 text-[15px] font-semibold">
+        <h2 className="flex flex-wrap items-baseline gap-x-3.5 text-lg font-semibold tracking-tight">
           {t("home.year.title")}
           <span className="text-xs font-normal text-muted-foreground">
             {t("home.year.sub", { base })}
@@ -66,10 +74,10 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
         </ul>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_16rem]">
+      <div className="grid gap-[18px] xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 overflow-x-auto">
           <div
-            className="grid min-w-[44rem] gap-x-[3px]"
+            className="grid min-w-[44rem] gap-x-[2px]"
             style={{ gridTemplateColumns: `7rem repeat(${weeks.length}, minmax(0, 1fr))` }}
           >
             {/* the money: in above the line, out below */}
@@ -78,7 +86,7 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
               <br />
               {t("home.year.out")}
             </span>
-            {weeks.map((w) => (
+            {weeks.map((w, i) => (
               <button
                 key={w.from}
                 type="button"
@@ -89,20 +97,24 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
                   "row-span-2 flex flex-col items-center rounded-sm",
                   w.from === selected ? "bg-selection" : "hover:bg-hover",
                 )}
-                style={{ height: MONEY * 2 + 4 }}
+                style={{ height: IN + OUT + 3 }}
                 data-testid="home-year-week"
               >
-                <span className="flex h-10 w-full items-end justify-center">
+                <span className="flex w-full items-end justify-center" style={{ height: IN }}>
                   <span
-                    className="w-1.5 rounded-t-sm bg-state-done/70"
-                    style={{ height: h(w.inBase) }}
+                    className="pulse-rise w-[70%] rounded-t-[3px]"
+                    style={{
+                      height: h(w.inBase, IN),
+                      background: inColor,
+                      animationDelay: `${i * 12}ms`,
+                    }}
                   />
                 </span>
-                <span className="h-px w-full bg-border" />
-                <span className="flex h-10 w-full items-start justify-center">
+                <span className="h-px w-full bg-foreground/15" />
+                <span className="flex w-full items-start justify-center" style={{ height: OUT }}>
                   <span
-                    className="w-1.5 rounded-b-sm bg-foreground/40"
-                    style={{ height: h(w.outBase) }}
+                    className="pulse-fall w-[70%] rounded-b-[3px] bg-foreground/35"
+                    style={{ height: h(w.outBase, OUT), animationDelay: `${i * 12}ms` }}
                   />
                 </span>
               </button>
@@ -111,14 +123,14 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
             {/* the squares: one row per statement account */}
             {accounts.map((a, i) => (
               <div key={a.id} className="contents">
-                <span className="truncate pr-2 text-[11px] leading-[14px] text-muted-foreground">
+                <span className="truncate pr-2 text-[11.5px] leading-4 text-muted-foreground">
                   {a.label}
                 </span>
                 {weeks.map((w) => (
                   <span
                     key={w.from}
                     className={cn(
-                      "my-[2px] h-[10px] rounded-[2px]",
+                      "my-[1.5px] h-[13px] rounded-[3px]",
                       CELL[w.cells[i] ?? "none"],
                       w.from === selected && "ring-1 ring-foreground/50",
                     )}
@@ -131,7 +143,7 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
             {BOOK_LANES.map((lane) => (
               <div key={lane} className="contents">
                 <span
-                  className="truncate pr-2 text-[11px] leading-[14px] text-muted-foreground"
+                  className="truncate pr-2 text-[11.5px] leading-4 text-muted-foreground"
                   data-testid="home-year-lane"
                   data-lane={lane}
                 >
@@ -141,7 +153,7 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
                   <span
                     key={w.from}
                     className={cn(
-                      "my-[2px] h-[10px] rounded-[2px]",
+                      "my-[1.5px] h-[13px] rounded-[3px]",
                       CELL[w.books[lane].cell],
                       w.from === selected && "ring-1 ring-foreground/50",
                     )}
@@ -170,23 +182,23 @@ export function YearStrip({ data, base }: { data: YearWeeks; base: string }) {
 
         {week && (
           <aside
-            className="flex flex-col gap-3 rounded-xl border border-subtle bg-surface-2 p-4"
+            className="flex flex-col gap-3 rounded-2xl border border-subtle bg-surface-2 p-[18px]"
             data-testid="home-year-detail"
           >
             <span className="eyebrow">{t("home.year.weekNumber", { number: week.number })}</span>
-            <span className="text-[17px] font-semibold tabular-nums">
+            <span className="text-xl font-semibold tracking-tight tabular-nums">
               {week.from} → {week.to}
             </span>
             <dl className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <dt className="text-muted-foreground">{t("home.year.in")}</dt>
-                <dd className="text-[13px] font-semibold tabular-nums">
+                <dd className="text-[17px] font-semibold text-state-done tabular-nums">
                   {formatMoney(week.inBase, base, { whole: true })}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">{t("home.year.out")}</dt>
-                <dd className="text-[13px] font-semibold tabular-nums">
+                <dd className="text-[17px] font-semibold tabular-nums">
                   {formatMoney(week.outBase, base, { whole: true })}
                 </dd>
               </div>

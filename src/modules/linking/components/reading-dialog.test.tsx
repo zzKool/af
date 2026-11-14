@@ -416,7 +416,7 @@ describe("ReadingDialog — the fields, the partner first, Confirm waits for a p
     mount();
     await waitFor(() =>
       expect(screen.getByTestId("justify-partner-hint")).toHaveTextContent(
-        "Northwind Cloud AB — remembered (3 time(s))",
+        "Northwind Cloud AB — remembered (3 times)",
       ),
     );
   });
@@ -517,7 +517,7 @@ describe("ReadingDialog — the checks (F130) and the group (§5.2)", () => {
     await waitFor(() => expect(screen.getAllByTestId("reading-check-ok")).toHaveLength(3));
     const ok = screen.getAllByTestId("reading-check-ok").map((li) => li.textContent);
     expect(ok[0]).toContain("amount equal");
-    expect(ok[1]).toContain("2 day(s)");
+    expect(ok[1]).toContain("2 days");
     expect(ok[2]).toContain("vendor = counterparty");
     expect(screen.queryByTestId("reading-check-warning")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("justify-create"));
@@ -564,7 +564,7 @@ describe("ReadingDialog — the checks (F130) and the group (§5.2)", () => {
       "Off by +7.20 SEK — the paper shows 1 290.00 SEK, the bank took 1 297.20 SEK",
     );
     expect(screen.getAllByTestId("reading-check-ok").map((li) => li.textContent?.trim())).toEqual([
-      "✓2 day(s)",
+      "✓2 days",
     ]);
     expect(screen.getByTestId("justify-create")).toBeEnabled(); // warn, never block
     fireEvent.click(screen.getByTestId("justify-create"));

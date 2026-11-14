@@ -112,7 +112,7 @@ describe("homeSentence (FR-008)", () => {
 
   it("what is late, then the month and its next step", () => {
     expect(homeSentence([late, late], close, "July 2026", t)).toBe(
-      "2 thing(s) are late. July 2026 is 57 % done — next: 6 bank row(s) to justify.",
+      "2 things late. July 2026 is 57 % done — next: 6 bank rows to justify.",
     );
   });
 

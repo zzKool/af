@@ -176,7 +176,7 @@ test.describe("Supplier invoices", () => {
       await page.getByRole("link", { name: groupName }).first().click();
       await expect(page).toHaveURL(/\/expenses\/groups\/[0-9a-f-]+$/);
       const section = page.getByTestId("group-supplier-invoices");
-      await expect(section).toContainText("2 supplier invoice(s)");
+      await expect(section).toContainText("2 supplier invoices");
       await expect(section).toContainText(key);
       await expect(section).toContainText("Cancelled");
     });

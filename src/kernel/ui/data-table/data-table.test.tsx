@@ -75,6 +75,37 @@ describe("DataTable", () => {
     expect(screen.getByText("1–2 of 2")).toBeTruthy();
   });
 
+  it("an empty list says so in the board's shape; a search that finds nothing names it and offers the way back", () => {
+    const { unmount } = render(
+      <DataTable
+        tableKey="t"
+        columns={columns}
+        result={{ rows: [], total: 0 }}
+        state={makeState()}
+        emptyState="No partner yet."
+      />,
+    );
+    expect(screen.getByTestId("table-empty").textContent).toBe("No partner yet.");
+    expect(screen.queryByTestId("table-empty-filtered")).toBeNull();
+    unmount();
+
+    const state = makeState({ search: "githb" });
+    render(
+      <DataTable
+        tableKey="t"
+        columns={columns}
+        result={{ rows: [], total: 0 }}
+        state={state}
+        emptyState="No partner yet."
+      />,
+    );
+    const none = screen.getByTestId("table-empty-filtered");
+    expect(none.textContent).toContain("No row matches “githb”");
+    fireEvent.click(screen.getByRole("button", { name: "Clear the search" }));
+    expect(state.calls.clearFilters).toEqual([]);
+    expect(state.calls.setSearch).toEqual([""]);
+  });
+
   it("header click cycles sort asc → desc → none; shift-click adds a secondary sort", () => {
     const state = makeState({ sort: [{ col: "name", dir: "asc" }] });
     render(<DataTable tableKey="t" columns={columns} result={{ rows, total: 2 }} state={state} />);

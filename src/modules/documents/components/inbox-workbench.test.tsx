@@ -212,9 +212,9 @@ describe("InboxWorkbench — the keyboard (specs/documents US4-3, inbox-shortcut
     await act(async () => key("d"));
     expect(m.archive).toHaveBeenCalledWith({ ids: ["001", "003"] });
     expect(m.toast.message).toHaveBeenCalledWith(
-      "Archived 1 document(s), 1 refused — archive is only for inbox rows",
+      "Archived 1 document, 1 refused — archive is only for inbox rows",
     );
-    expect(screen.getByTestId("inbox-undo")).toHaveTextContent("Archived 1 document(s)");
+    expect(screen.getByTestId("inbox-undo")).toHaveTextContent("Archived 1 document");
     expect(m.list).toHaveBeenCalled(); // the list reloads
 
     await act(async () => key("u"));
