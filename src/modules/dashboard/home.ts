@@ -18,6 +18,7 @@ import * as invoices from "@/modules/invoices";
 import * as rates from "@/modules/rates";
 import * as subscriptions from "@/modules/subscriptions";
 import * as supplierInvoices from "@/modules/supplier-invoices";
+import { booksDay, lastRowDay } from "./books-day";
 import { workData } from "./close";
 import { dashboardOverview } from "./overview";
 import type { CashSummary, CurrencyTicker, HomeData, MoneyFlow } from "./types";
@@ -152,7 +153,9 @@ export async function homeData(
   const currencies = rates.crossSeries(window, base, CURRENCIES).map(ticker);
 
   const months = await banking.bankMonths(tx, { today });
-  const year = today.slice(0, 4);
+  // F189: the year's views end where the books do — today, unless the newest bank row is older than last month
+  const books = booksDay(today, lastRowDay(months.days.filter((d) => d.date <= today)));
+  const year = books.day.slice(0, 4);
   const inYear = months.months.filter((m) => m.month.startsWith(year));
   const counts = {
     year,
@@ -165,11 +168,25 @@ export async function homeData(
     : null;
 
   const statement = months.accounts.filter((a) => banking.STATEMENT_ROLES.includes(a.role));
-  const weeks = yearWeeks(statement, months.days, today, await bookFacts(tx, caller, today));
+  const weeks = yearWeeks(
+    statement,
+    months.days,
+    books.day,
+    await bookFacts(tx, caller, books.day),
+  );
 
-  const flow = await moneyFlow(tx, today);
+  const flow = await moneyFlow(tx, books.day);
 
-  return { overview, cash, currencies, year: counts, work, weeks, flow };
+  return {
+    overview,
+    cash,
+    currencies,
+    year: counts,
+    work,
+    weeks,
+    flow,
+    booksTo: books.behind ? books.day : null,
+  };
 }
 
 /**

@@ -2509,6 +2509,9 @@ export const en = {
   "home.ring.label": "{year}: {justified} bank row(s) justified, {open} still open",
   "home.ring.done": "done",
   "home.ring.open": "open",
+  "home.booksTo":
+    "Your books stop on {day}. The year, the ring and the money flow below end in {month} — not today.",
+  "home.booksTo.import": "Import the next statement",
   "home.moves.title": "Next moves",
   "home.moves.sub": "{shown} of {count} · the most urgent first",
   "home.moves.none": "Nothing to do — the books are up to date.",

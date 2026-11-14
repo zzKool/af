@@ -96,6 +96,23 @@ describe("homeData (F138)", () => {
     ]);
     expect(h.year).toEqual({ year: "2026", justified: 0, toJustify: 4 });
     expect(h.work?.close.month).toBe("2026-06");
+    // the books are up to date: the year ends today
+    expect(h.booksTo).toBeNull();
+  });
+
+  it("books that stop before last month: the year, the strip and Work end in their last month (F189)", async () => {
+    await world();
+    // the same books, read eight months later with nothing imported since
+    const later = "2027-03-10";
+    const h = await run(owner.caller, (tx) => homeData(tx, owner.caller, later, null));
+    const lastRow = h.weeks.weeks.filter((w) => w.rows > 0).at(-1);
+    expect(h.booksTo).toBe(`${TODAY.slice(0, 7)}-31`);
+    expect(h.year.year).toBe("2026");
+    expect(h.year.justified + h.year.toJustify).toBe(4);
+    // the strip's last week holds the books' last day — not eight empty months
+    expect((h.weeks.weeks.at(-1)?.to ?? "") >= (h.booksTo ?? "")).toBe(true);
+    expect(lastRow).toBeDefined();
+    expect(h.work?.close.month).toBe(TODAY.slice(0, 7));
   });
 });
 

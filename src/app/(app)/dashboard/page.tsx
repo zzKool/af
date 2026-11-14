@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireCaller } from "@/kernel/auth/caller";
 import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
@@ -5,6 +6,7 @@ import { withTenantTransaction } from "@/kernel/db/tenant-client";
 import { formatMonth } from "@/kernel/i18n/format-date";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator, uiLanguage } from "@/kernel/i18n/translate";
+import { InfoBanner } from "@/kernel/ui/info-banner";
 import { ListPage } from "@/kernel/ui/shell/page";
 import { getDashboardData, homeData, homeSentence, TICKER_DAYS } from "@/modules/dashboard";
 import {
@@ -50,6 +52,23 @@ export default async function DashboardPage() {
           screen reader and the tab; who and when moved to the briefing. */}
       <h1 className="sr-only">{t("nav.dashboard")}</h1>
       <div className="flex flex-col gap-[18px]">
+        {home.booksTo && (
+          // F189: the books stop before last month — the year below ends there, and the way on is the import
+          <div data-testid="home-books-to">
+            <InfoBanner
+              action={
+                home.work ? (
+                  <Link href="/banking/import">{t("home.booksTo.import")}</Link>
+                ) : undefined
+              }
+            >
+              {t("home.booksTo", {
+                day: home.booksTo,
+                month: formatMonth(home.booksTo.slice(0, 7), lang),
+              })}
+            </InfoBanner>
+          </div>
+        )}
         <div className="flex flex-wrap items-stretch gap-[18px]">
           <CashHero
             cash={home.cash}

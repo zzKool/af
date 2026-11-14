@@ -178,6 +178,12 @@ export type HomeData = {
   weeks: YearWeeks;
   /** F167: where the year's money went — income by client, costs by kind, what is kept */
   flow: MoneyFlow;
+  /**
+   * F189: the day the year's views end on when the books stop before last month (the end of the newest bank
+   * row's month) — the year strip, the ring and the money flow are drawn to it, and the home says so; null when
+   * the books are up to date (they end today).
+   */
+  booksTo: string | null;
 };
 
 /** F167, the board's *Where 2026's money went*: the year so far, in the base. */
