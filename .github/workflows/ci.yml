@@ -142,6 +142,9 @@ jobs:
       AZURE_STORAGE_CONTAINER: documents
       # F108: the mock OCR runs only when named; the e2e upload flows wait for its readings
       OCR_PROVIDER: mock
+      # two workers drive one user at machine speed: far above the 300 actions a minute an owner is allowed
+      # (kernel/actions/rate-limit) — without this, `Too many requests` fails whichever journey is running
+      ACTION_RATE_LIMIT_PER_MINUTE: "3000"
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
