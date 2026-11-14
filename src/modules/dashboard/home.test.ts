@@ -110,7 +110,7 @@ describe("homeData (F138)", () => {
     expect(h.year.year).toBe("2026");
     expect(h.year.justified + h.year.toJustify).toBe(4);
     // the strip's last week holds the books' last day — not eight empty months
-    expect(h.weeks.weeks.at(-1)?.to >= (h.booksTo ?? "")).toBe(true);
+    expect((h.weeks.weeks.at(-1)?.to ?? "") >= (h.booksTo ?? "")).toBe(true);
     expect(lastRow).toBeDefined();
     expect(h.work?.close.month).toBe(TODAY.slice(0, 7));
   });
