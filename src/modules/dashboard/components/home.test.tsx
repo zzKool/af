@@ -67,6 +67,46 @@ describe("NextMoves", () => {
     expect(screen.queryByTestId("home-close")).toBeNull();
   });
 
+  it("the button says what you will do there, the first move is tinted — red only for something late", () => {
+    render(
+      <LocaleProvider initialLocale="en">
+        <NextMoves
+          items={[
+            item("late", "high", { kind: "invoices_overdue", count: 1 }),
+            item("rows", "high", { kind: "rows_to_justify", count: 6 }),
+            item("docs", "medium", { kind: "documents_to_review", count: 1 }),
+          ]}
+          work={null}
+        />
+      </LocaleProvider>,
+    );
+    const [late, rows, docs] = screen.getAllByTestId("action-item");
+    expect(late?.querySelector("a")?.textContent).toBe("Remind");
+    expect(rows?.querySelector("a")?.textContent).toBe("Justify");
+    expect(docs?.querySelector("a")?.textContent).toBe("Review");
+    // the words agree with the count — never `(s)`
+    expect(late?.textContent).toContain("1 client invoice overdue");
+    expect(rows?.textContent).toContain("6 bank lines to justify");
+    expect(docs?.textContent).toContain("1 document to review");
+    expect(late?.hasAttribute("data-first")).toBe(true);
+    expect(late?.className).toContain("border-destructive/30");
+    expect(rows?.className).not.toContain("destructive");
+  });
+
+  it("a first move that is not late is amber, not red", () => {
+    render(
+      <LocaleProvider initialLocale="en">
+        <NextMoves
+          items={[item("rows", "high", { kind: "rows_to_justify", count: 2 })]}
+          work={null}
+        />
+      </LocaleProvider>,
+    );
+    const first = screen.getByTestId("action-item");
+    expect(first.className).toContain("border-state-attention/30");
+    expect(first.className).not.toContain("destructive");
+  });
+
   it("three moves first, the others on demand", () => {
     render(
       <LocaleProvider initialLocale="en">
@@ -183,11 +223,11 @@ describe("YearStrip (F158, F171, F181)", () => {
     expect(states("subscriptions").at(-1)).toBe("open");
     // the last busy week is picked: its books, the lanes without a thing left out
     const books = screen.getByTestId("home-year-books");
-    expect(books.textContent).toContain("2 invoice(s) issued · 1 not paid yet");
-    expect(books.textContent).toContain("1 expense(s), all settled and justified");
+    expect(books.textContent).toContain("2 invoices issued · 1 not paid yet");
+    expect(books.textContent).toContain("1 expense, all settled and justified");
     expect(books.querySelector('[data-lane="documents"]')).toBeNull();
     expect(books.querySelector('[data-lane="subscriptions"]')?.textContent).toBe(
-      "2 subscription charge(s) expected · 1 not charged or justified yet",
+      "2 subscription charges expected · 1 not charged or justified yet",
     );
     expect(screen.getByTestId("home-year-detail").textContent).toContain(
       "1 of 2 bank rows still to justify.",

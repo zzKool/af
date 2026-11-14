@@ -68,7 +68,7 @@ test.describe("Invoices", () => {
           (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
         );
       const days = page.getByTestId("invoice-days");
-      await expect(page.getByTestId("invoice-days-hint")).toContainText("20 day(s) suggested");
+      await expect(page.getByTestId("invoice-days-hint")).toContainText("20 days suggested");
       let saved = draftSaved();
       await days.locator('[data-day="2026-01-05"]').click();
       await expect(qty).toHaveValue("19");
@@ -84,7 +84,7 @@ test.describe("Invoices", () => {
         "false",
       );
       await expect(days.locator('[data-day="2026-01-06"]')).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByTestId("invoice-days-hint")).toContainText("19 day(s)");
+      await expect(page.getByTestId("invoice-days-hint")).toContainText("19 days");
       await expect(page.getByTestId("line-net").first()).toContainText("24");
 
       // F145: no discount row unless there is one; the PDF is there on demand, even for a draft

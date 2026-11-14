@@ -320,6 +320,52 @@
   box-shadow: var(--elev-card);
 }
 
+/* The boards move a little (the board *Pulse*): a bar rises from its baseline once, a live dot breathes. Never for
+   someone who asked for less motion. */
+@keyframes pulse-rise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes pulse-live {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--state-done) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@utility pulse-rise {
+  transform-origin: bottom;
+  animation: pulse-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility pulse-fall {
+  transform-origin: top;
+  animation: pulse-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility pulse-live {
+  animation: pulse-live 2s infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+/* what is late glows (the board's `.s-late`) */
+@utility pulse-glow-late {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--destructive) 55%, transparent);
+}
+
 /* The board's eyebrow: a KPI's or a card section's label — small, spaced capitals, muted. */
 @utility eyebrow {
   font-size: 11px;

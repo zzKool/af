@@ -72,7 +72,7 @@ Light / dark: System (the default) follows the OS; My Preferences — or the top
 | `--elev-card` → `shadow-card` | three soft layers | an inner top light + a deep drop | cards and the canvas card |
 | `--elev-pop` → `shadow-pop` | | | popovers, menus, selects, dialogs, sheets |
 
-Radius: 4 px tags, chips and checks · 8 px controls (buttons, inputs, menu items) · 10 px menus and popovers · 14 px panels · **20 px cards** and the canvas card. Gradients: the ground's dot grid only (a card's top light lives in its shadow, not a gradient).
+Radius: 4 px tags, chips and checks · 8 px controls (buttons, inputs, menu items) · 10 px menus and popovers · 14 px panels · **20 px cards** and the canvas card. Gradients: the ground's dot grid, and the tint of the first thing to do (F188, below) — nothing else (a card's top light lives in its shadow, not a gradient).
 
 ### Type
 - **Geist** for everything, **Geist Mono** for keys, file names and figures in a ticker — from the `geist` package through `next/font/local` (`app/layout.tsx`): the files ship in the image, nothing is fetched at build or at run time (D51's *the box sends out only*), the system stack shows while they load. D40 had dropped Geist for the system stack; D76 brings it back for the look.
@@ -116,6 +116,14 @@ One format in every UI language: thousands with a narrow no-break space (U+202F)
 ### Cards and eyebrows (F150)
 - **A card is `pulse-card`** (the utility in `globals.css`): `--surface` under a faint top light (2.5 % white fading out by 40 % — seen in dark only), the `--border-subtle` edge, 20 px corners, `--elev-card`. Never spell the four classes again; `components/ui/card.tsx` uses it too. A page's own cards sit on the ground (`data-ground`), the canvas then drops its gradient.
 - **A KPI's label is an `eyebrow`** (11 / 500, 0.12 em spaced capitals, `--text-muted`); its value 26 / 600 `tabular-nums`, its line under 12 muted.
+
+### The boards' voice, states and motion (F188)
+- **Never `(s)` on screen.** A dictionary string may still be written `{count} bank line(s)`: `translate` (`pluralise`) drops or keeps the ending from the number just before the word in its clause, else from the first numeric parameter, else the plural. Pass the count as a parameter when the number is drawn apart from the words (the briefing).
+- **A button says what happens there** — *Justify*, *Review*, *Remind*, *Settle* — never a bare *Open* beside a count (the board: *Send*, *Review*, *Accept 3*).
+- **Nothing to show is a state, not a sentence** (the board *States*): `EmptyState` from `kernel/ui/pulse` — a halo with the place's icon, what is (not) there in 18 / 600, one line on what to do, one or two ways forward; `tone="done"` (green) when everything is done; `compact` inside a table or a small card. The DataTable does it by itself: `emptyState="No partner yet."` gives the empty list, a search or a filter that finds nothing gives *No row matches “…”* with *Clear the search*.
+- **Motion, once**: a bar rises from its baseline when it appears (`pulse-rise`, `pulse-fall`), a live dot breathes (`pulse-live`), what is late glows (`pulse-glow-late`). Nothing loops but the live dot; all of it is off under `prefers-reduced-motion`.
+- **A tint for the one thing to do first**: the first of a ranked list may carry a top-to-bottom tint of its state colour (10 % → 3 %) with a 30 % edge — red only when it is late, amber when it needs you. It is the second gradient the look allows, after the ground's dots.
+- **The cash is read first on the home**: no title row, no greeting — the page's name is there for a screen reader only.
 
 ### Entity header (F151, the board *Partner*)
 `PageHeader` with `leading={<EntityTile name>}` (64 px initial tile, `kernel/ui/company-avatar.tsx`): the title 30 / 600, the `tags` on their own line as `<Chip>`s (a state as `<StateLabel variant="chip">`), `figures` (the entity's KPIs) between the title row and the tabs. The entity's facts are a read-only card; editing them is a dialog, never a form spread over the page. A country is always shown by name (`countryName`) and picked with `<CountryPicker>`.

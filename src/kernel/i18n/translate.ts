@@ -25,6 +25,26 @@ function interpolate(template: string, params?: MessageParams): string {
   );
 }
 
+/**
+ * `3 row(s)` → `3 rows`, `1 row(s)` → `1 row` (the Pulse boards speak; they never write `(s)`): the last number
+ * before the word in its clause decides; with none in the text, the first numeric parameter; with neither, the plural.
+ * One rule for every dictionary — `2 ligne(s)` → `2 lignes` too.
+ */
+export function pluralise(text: string, params?: MessageParams): string {
+  if (!text.includes("(s)") && !text.includes("(es)")) return text;
+  const fromParams = params ? Object.values(params).find((v) => typeof v === "number") : undefined;
+  return text.replace(/\((s|es)\)/g, (_match, suffix: string, at: number) => {
+    const clause =
+      text
+        .slice(0, at)
+        .split(/[.:;—·(] ?(?=\D|$)|, /)
+        .at(-1) ?? "";
+    const numbers = clause.match(/\d+(?:[.,]\d+)?/g);
+    const n = numbers ? Number(numbers.at(-1)?.replace(",", ".")) : fromParams;
+    return n === 1 ? "" : suffix;
+  });
+}
+
 /** The string for `key` in the user's language, English when the language has no dictionary. */
 export function translate(
   locale: string | null | undefined,
@@ -32,7 +52,7 @@ export function translate(
   params?: MessageParams,
 ): string {
   const dict = DICTIONARIES[uiLanguage(locale)] ?? en;
-  return interpolate(dict[key] ?? en[key] ?? key, params);
+  return pluralise(interpolate(dict[key] ?? en[key] ?? key, params), params);
 }
 
 /** A bound translator for one locale (server components, PDFs, jobs). */

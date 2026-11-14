@@ -22,13 +22,19 @@ The rules live in `docs/ui-conventions.md` (*Layout*, *Visual direction*, *DataT
 - [ ] Every string through `useT()` / `translator()` — en, fr, sv in the same PR.
 
 ## Colour and type
-- [ ] Colours only through tokens (`--app`, `--surface`, `--surface-2`, `--border`, `--border-subtle`, `--text`, `--text-muted`, `--primary`, `--action`, `--selection`, `--state-*`, `--tag`, `--destructive`, `--brand`, `--rail-*`, `--cur-*`, `--read`, `--paper`). No hex in a component, no Tailwind palette colours (`text-green-600`), no gradients (the ground's dots are the one), shadows only `shadow-card` (cards) and `shadow-pop` (popovers, menus, dialogs).
+- [ ] Colours only through tokens (`--app`, `--surface`, `--surface-2`, `--border`, `--border-subtle`, `--text`, `--text-muted`, `--primary`, `--action`, `--selection`, `--state-*`, `--tag`, `--destructive`, `--brand`, `--rail-*`, `--cur-*`, `--read`, `--paper`). No hex in a component, no Tailwind palette colours (`text-green-600`), no gradients (the ground's dots, and the tint of the first thing to do — F188), shadows only `shadow-card` (cards) and `shadow-pop` (popovers, menus, dialogs).
 - [ ] Crimson (`--brand`) only in the logo and **+ New**. The primary button is ink (`--action`); links and in-progress are `--primary` blue; errors are `--destructive`; a currency's colour (`--cur-*`) only for that currency in a chart or ticker, never a state.
 - [ ] Geist / Geist Mono through `next/font/local` (`app/layout.tsx`, the `geist` package) — nothing fetched; mono for keys, file names and tickers. Never `next/font/google`.
 - [ ] Sizes from the scale: 26/700 title · 15/600 panel title · 13 body · 10.5/500 uppercase table headers · 13/600 section heads · 12 secondary.
 - [ ] Contrast ≥ 4.5:1 for any text, in light **and** dark.
 
 - [ ] A card is `pulse-card` (never the four classes spelled out); a KPI label is `eyebrow` (F150).
+
+## Voice, states, motion (F188)
+- [ ] No `(s)` on screen — `translate` agrees the word with its number; pass `count` when the number is drawn apart.
+- [ ] A button says what happens there (*Justify*, *Review*, *Remind*), never *Open* beside a count.
+- [ ] Nothing to show → `EmptyState` (`kernel/ui/pulse`): icon halo, what is not there, what to do, the way forward; `tone="done"` when all is done. A DataTable takes `emptyState="…"` as a string.
+- [ ] Motion only through `pulse-rise` / `pulse-fall` / `pulse-live` / `pulse-glow-late` — once, never looping (the live dot aside), off under reduced motion.
 
 ## Numbers and dates
 - [ ] Figures use `tabular-nums` so the top bar's eye veils them (F150); a date or count that is no secret gets `data-public`, a non-figure secret (IBAN, reference) `data-sensitive`.

@@ -8,7 +8,7 @@ AF uses five page archetypes to maintain consistent UX:
 
 | Archetype | Example | Key Traits |
 |---|---|---|
-| **Dashboard** | `/dashboard` | Welcome + widgets, server-rendered, no forms |
+| **Dashboard** | `/dashboard` | The home — the cash first, no greeting (F188); server-rendered, no forms |
 | **Entity List** | `/journal`, `/partners` | Filterable table, pagination, bulk actions |
 | **Entity Detail** | `/partners/[id]` | Read/edit form, related entities, audit trail |
 | **Workbench** | `/reconciliation` | Split-pane interactive workspace |
@@ -80,10 +80,10 @@ Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widge
 
 ```
 ┌ Cash · all accounts, in SEK ──────────────────────┐ ┌ Next moves  3 of N ────────────┐
-│ 127 500  SEK   ▲ 27 500 this month  ╱╲_╱‾ (12 mo) │ │ 1 … [Open]  2 …  3 …          │
-│ N thing(s) are late. July is 57 % done — next: …  │ │ Show the other N               │
+│ 127 500  SEK   ▲ 27 500 this month  ╱╲_╱‾● (12 mo)│ │ 1 … [Justify]  2 … [Review]   │
+│ 2 things late. July is 57 % done — next: …        │ │ Show the other N               │
 │ Receivables · Payables · Owed to you · Invoiced   │ │ ▬▬▬▬░░ July · 35 of 41 rows    │
-│                                   ( 87 % ring )   │ │ 3 month(s) closed in a row     │
+│                                   ( 87 % ring )   │ │ 3 months closed in a row       │
 └───────────────────────────────────────────────────┘ └────────────────────────────────┘
 ┌ Since your last visit (briefing) ─────────────────┐ ┌ Currencies  SEK per unit · 90 d ┐
                                                       │ CHF  EUR  USD (now, %, line)   │
@@ -94,6 +94,7 @@ Strings `dashboard.*` (en + fr + sv); the widgets in `components/dashboard-widge
 - **The cash** (`cashSummary`, pure): `banking.balanceHistory(tx, days)` gives each statement account's balance on each day — the balance of the latest booking date on or before it, the file's first row of that date (the rule of `accountBalances`); the days are the last day of each of the twelve months before this one, then today. Each balance through that day's nearest-day rate to the base; an account with no rate today is left out of the total and the hero says so. The month's move = today − last month's last day (it includes the currency effect — it is the cash in the base). The 1 % sentence takes the largest foreign holding.
 - **The tickers**: the rates page's cross over 90 days (`TICKER_DAYS`), now and the change over the window; a ticker links to `/rates`.
 - **The sentence** (`homeSentence`, server-side): the high-priority items, then the close's month, percent and current step in Work's words.
+- **As the board reads (F188)**: no title row — the cash is the first thing read (the `h1` is for a screen reader); the trend takes the base currency's colour and ends on today's dot; the first move is tinted (red only for an overdue invoice, amber otherwise) and every move's button is a verb (`VERB` in `components/home.tsx`, by the item's kind); the year's bars take 70 % of their week, the money in in the base currency's colour, and rise once; a currency without a rate shows *—* and *fetch the ECB rates*. The words agree with their counts (`pluralise`).
 - Retired: `ActionItemsWidget` and `BusinessPulseWidget` (the moves and the hero's figures replace them; the per-account balances moved to the currencies' shares). `BriefingWidget` stays.
 
 Tests: `home.pure.test.ts`, `home.test.ts` (an invented world: balances in CHF and SEK, rates at 12.5), `components/home.test.tsx` (F71's money and state checks carried over), `e2e/dashboard.spec.ts`.

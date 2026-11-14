@@ -45,7 +45,8 @@ test.describe("Dashboard", () => {
       });
 
       await page.goto("/dashboard");
-      await expect(page.getByRole("heading", { name: /Welcome back/ })).toBeVisible();
+      // the board *Pulse*: no greeting — the cash is the first thing read
+      await expect(page.getByTestId("home-cash")).toBeVisible();
       // F138: the next moves show three — the others on demand
       const todo = page.getByTestId("action-items");
       await expect(todo).toBeVisible();
@@ -53,7 +54,7 @@ test.describe("Dashboard", () => {
       if (await more.isVisible()) await more.click();
       const rows = todo.locator('[data-testid="action-item"][data-kind="rows_to_justify"]');
       await expect(rows).toBeVisible();
-      await expect(rows).toContainText(/\d+ bank line\(s\) to justify/);
+      await expect(rows).toContainText(/\d+ bank lines? to justify/);
       await expect(page.getByTestId("home-cash")).toBeVisible();
       await expect(page.getByTestId("home-currencies")).toBeVisible();
       // F158 / F171 / F181: the year strip — the weeks, then the books' rows under the accounts

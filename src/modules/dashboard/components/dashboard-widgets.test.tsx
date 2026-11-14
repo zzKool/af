@@ -21,8 +21,6 @@ describe("BriefingWidget", () => {
       </LocaleProvider>,
     );
     expect(screen.getByText(`Depuis le ${formatDateTime(SINCE, "fr")}`)).toBeTruthy();
-    expect(screen.getByTestId("briefing-line").textContent).toBe(
-      "2 transaction(s) bancaire(s) créé(s)",
-    );
+    expect(screen.getByTestId("briefing-line").textContent).toBe("2 transactions bancaires créés");
   });
 });

@@ -60,7 +60,7 @@ describe("MonthlyCloseView", () => {
     ]);
     const card = screen.getByTestId("work-step-card");
     expect(card.getAttribute("data-step")).toBe("justified");
-    expect(card.textContent).toContain("6 bank row(s) of July 2026 still need");
+    expect(card.textContent).toContain("6 bank rows of July 2026 still need");
     expect(within(card).getByRole("link", { name: "Continue — 6 left" }).getAttribute("href")).toBe(
       "/banking/reconcile?month=2026-07",
     );
@@ -82,9 +82,7 @@ describe("MonthlyCloseView", () => {
     expect(screen.getByTestId("work-reminder").textContent).toContain(
       "Invoice Acme Consulting for July 2026 — not prepared yet",
     );
-    expect(screen.getByTestId("work-also-item").textContent).toContain(
-      "1 client invoice(s) overdue",
-    );
+    expect(screen.getByTestId("work-also-item").textContent).toContain("1 client invoice overdue");
     const months = screen.getAllByTestId("work-past-month");
     expect(months.map((m) => m.textContent)).toEqual([
       "Jun 2026closed 2026-07-04",
@@ -98,7 +96,7 @@ describe("leftSentence", () => {
   it("names what is left in a few words", () => {
     const t = translator("en");
     expect(leftSentence(close, "July 2026", t)).toBe(
-      "3 step(s) left: 6 bank row(s) to justify, your private expenses, the package.",
+      "3 steps left: 6 bank rows to justify, your private expenses, the package.",
     );
   });
 });

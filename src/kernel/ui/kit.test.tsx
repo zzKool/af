@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DetailsGrid, DetailsSection } from "@/kernel/ui/details-section";
+import { EmptyState } from "@/kernel/ui/pulse";
 import { DockedCanvas } from "@/kernel/ui/shell/details-dock";
 import { STATE_FAMILIES, StateLabel } from "@/kernel/ui/state-label";
 
@@ -54,6 +55,27 @@ describe("Sheet — docked inside the shell, overlay outside", () => {
     render(<Panel />);
     expect(screen.getByTestId("panel").hasAttribute("data-docked")).toBe(false);
     expect(document.querySelector("[data-slot=sheet-overlay]")).not.toBeNull();
+  });
+});
+
+describe("EmptyState — the board *States*", () => {
+  it("what is not there, what to do, the way forward; the all-done state is the green one", () => {
+    render(
+      <EmptyState
+        testId="empty"
+        tone="done"
+        icon={<svg aria-label="tick" />}
+        title="All 41 rows justified"
+        actions={<a href="/package">Build the package</a>}
+      >
+        July is ready to close.
+      </EmptyState>,
+    );
+    const el = screen.getByTestId("empty");
+    expect(el.getAttribute("data-empty")).toBe("done");
+    expect(el.textContent).toBe("All 41 rows justifiedJuly is ready to close.Build the package");
+    expect(el.querySelector("span[aria-hidden]")?.className).toContain("text-state-done");
+    expect(screen.getByRole("link", { name: "Build the package" })).toBeTruthy();
   });
 });
 

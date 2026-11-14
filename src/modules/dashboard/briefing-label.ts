@@ -6,19 +6,23 @@ import type { BriefingLine } from "./types";
 
 type T = (key: MessageKey, params?: MessageParams) => string;
 
-function lookup(t: T, key: string, fallback: string): string {
-  const s = t(key as MessageKey);
+// `count` is the line's count: the words agree with it (`1 partner reactivated`, `2 partners reactivated`)
+function lookup(t: T, key: string, fallback: string, count?: number): string {
+  const s = t(key as MessageKey, count === undefined ? undefined : { count });
   return s === key ? fallback : s;
 }
 
-export function briefingEntity(t: T, entityType: string): string {
-  return lookup(t, `dashboard.briefing.entity.${entityType}`, entityType.replace(/_/g, " "));
+export function briefingEntity(t: T, entityType: string, count?: number): string {
+  return lookup(t, `dashboard.briefing.entity.${entityType}`, entityType.replace(/_/g, " "), count);
 }
 
-export function briefingAction(t: T, action: string): string {
-  return lookup(t, `dashboard.briefing.action.${action}`, action);
+export function briefingAction(t: T, action: string, count?: number): string {
+  return lookup(t, `dashboard.briefing.action.${action}`, action, count);
 }
 
-export function briefingText(t: T, line: Pick<BriefingLine, "entityType" | "action">): string {
-  return `${briefingEntity(t, line.entityType)} ${briefingAction(t, line.action)}`;
+export function briefingText(
+  t: T,
+  line: Pick<BriefingLine, "entityType" | "action"> & { count?: number },
+): string {
+  return `${briefingEntity(t, line.entityType, line.count)} ${briefingAction(t, line.action, line.count)}`;
 }

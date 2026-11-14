@@ -163,7 +163,7 @@ describe("ReminderCard", () => {
         email="ap@invented.example"
       />,
     );
-    expect(screen.getByTestId("invoice-reminder")).toHaveTextContent("8 day(s) late");
+    expect(screen.getByTestId("invoice-reminder")).toHaveTextContent("8 days late");
     fireEvent.click(screen.getByTestId("invoice-reminder-toggle"));
     expect(screen.getByTestId("invoice-reminder-body")).toHaveTextContent("reste ouvert");
     expect(screen.getByRole("link", { name: "Open in mail" })).toHaveAttribute(

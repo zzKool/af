@@ -45,17 +45,19 @@ describe("the briefing's words", () => {
 
   it("a line reads in the reader's language, not in English", () => {
     const line = { entityType: "bank_transaction", action: "create" };
-    expect(briefingText(translator("en"), line)).toBe("bank transaction(s) created");
-    expect(briefingText(translator("fr"), line)).toBe("transaction(s) bancaire(s) créé(s)");
+    expect(briefingText(translator("en"), line)).toBe("bank transactions created");
+    // the words agree with the line's count (the boards never write `(s)`)
+    expect(briefingText(translator("en"), { ...line, count: 1 })).toBe("bank transaction created");
+    expect(briefingText(translator("fr"), line)).toBe("transactions bancaires créés");
     expect(briefingText(translator("sv"), line)).toBe("banktransaktion(er) skapade");
   });
 
   it("the partners' deactivate / reactivate are words, not raw keys", () => {
     expect(briefingText(translator("fr"), { entityType: "partner", action: "deactivate" })).toBe(
-      "partenaire(s) désactivé(s)",
+      "partenaires désactivés",
     );
     expect(briefingText(translator("en"), { entityType: "partner", action: "reactivate" })).toBe(
-      "partner(s) reactivated",
+      "partners reactivated",
     );
   });
 

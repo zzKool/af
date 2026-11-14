@@ -33,7 +33,8 @@ test.describe("Auth pages in French", () => {
     );
     // no preference yet: the server-rendered page follows the browser too, not English (F56)
     await expect(
-      page.getByRole("heading", { name: `Bon retour, Fr Owner ${stamp}` }),
+      // no greeting on the home since the board *Pulse* took it over: the page's own name, in French
+      page.getByRole("heading", { name: "Tableau de bord" }),
     ).toBeVisible();
     await page.goto("/invoices");
     await expect(page.getByRole("heading", { name: "Factures" })).toBeVisible();

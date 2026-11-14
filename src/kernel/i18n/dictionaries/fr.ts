@@ -1370,9 +1370,6 @@ export const fr: PartialDictionary = {
   "invoices.declaredPaid": "Déclaré le {date} · payé le {paid}",
 
   // --- dashboard (feature inventory §3.14) ---
-  "dashboard.welcome": "Bon retour, {name}",
-  "dashboard.lastLogin": "Dernière connexion : {date}",
-  "dashboard.firstLogin": "Première connexion",
   "dashboard.actions.title": "À faire",
   "dashboard.actions.none":
     "Rien à faire : chaque ligne bancaire est justifiée, chaque document est là.",

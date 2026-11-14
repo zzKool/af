@@ -2,7 +2,7 @@ import { requireCaller } from "@/kernel/auth/caller";
 import { createClock } from "@/kernel/clock/clock";
 import { prisma } from "@/kernel/db/client";
 import { withTenantTransaction } from "@/kernel/db/tenant-client";
-import { formatDateTime, formatMonth } from "@/kernel/i18n/format-date";
+import { formatMonth } from "@/kernel/i18n/format-date";
 import { requestLocale } from "@/kernel/i18n/request-locale";
 import { translator, uiLanguage } from "@/kernel/i18n/translate";
 import { ListPage } from "@/kernel/ui/shell/page";
@@ -37,9 +37,6 @@ export default async function DashboardPage() {
   const { header, home } = data;
   const close = home.work?.close ?? null;
 
-  const lastLogin = header.lastLoginAt
-    ? t("dashboard.lastLogin", { date: formatDateTime(header.lastLoginAt, lang) })
-    : t("dashboard.firstLogin");
   const sentence = homeSentence(
     home.overview.items,
     close,
@@ -48,11 +45,10 @@ export default async function DashboardPage() {
   );
 
   return (
-    <ListPage
-      ground
-      title={t("dashboard.welcome", { name: header.userName })}
-      meta={header.companyName ? `${header.companyName} · ${lastLogin}` : lastLogin}
-    >
+    <ListPage ground className="pt-1.5">
+      {/* the board *Pulse* has no title row: the cash is the first thing read. The page's name stays for a
+          screen reader and the tab; who and when moved to the briefing. */}
+      <h1 className="sr-only">{t("nav.dashboard")}</h1>
       <div className="flex flex-col gap-[18px]">
         <div className="flex flex-wrap items-stretch gap-[18px]">
           <CashHero

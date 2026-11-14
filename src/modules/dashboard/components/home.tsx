@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { formatMonth } from "@/kernel/i18n/format-date";
+import type { MessageKey } from "@/kernel/i18n/translate";
 import { useT, useUiLanguage } from "@/kernel/i18n/use-t";
 import { formatMoney, formatMoneyCompact } from "@/kernel/money/format-money";
 import { StateIcon } from "@/kernel/ui/state-label";
@@ -25,6 +26,38 @@ const CARD = "pulse-card";
 const EYEBROW = "text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase";
 /** the moves shown before *Show the other N* */
 const MOVES = 3;
+
+/** the first move stands out (the board tints it): red when it is something late, amber when it needs you */
+const LATE: ReadonlyArray<ActionItem["kind"]> = ["invoices_overdue", "supplier_invoices_overdue"];
+const firstTone = (item: ActionItem) =>
+  LATE.includes(item.kind)
+    ? {
+        box: "border-destructive/30 bg-linear-to-b from-destructive/10 to-destructive/[0.03]",
+        n: "bg-destructive/18 text-destructive",
+      }
+    : item.priority === "low"
+      ? { box: "border-subtle bg-surface-2", n: "bg-foreground/6 text-muted-foreground" }
+      : {
+          box: "border-state-attention/30 bg-linear-to-b from-state-attention/10 to-state-attention/[0.03]",
+          n: "bg-state-attention/18 text-state-attention",
+        };
+/** the button says what you will do there (the board: *Send*, *Review*, *Accept 3*) — never a bare *Open* */
+const VERB: Partial<Record<ActionItem["kind"], MessageKey>> = {
+  rows_to_justify: "home.moves.verb.justify",
+  documents_to_review: "home.moves.verb.review",
+  unlinked_documents: "home.moves.verb.link",
+  expenses_awaiting_row: "home.moves.verb.link",
+  supplier_invoices_overdue: "home.moves.verb.see",
+  supplier_invoices_due: "home.moves.verb.see",
+  invoices_overdue: "home.moves.verb.remind",
+  owner_liability: "home.moves.verb.settle",
+  receipts_missing: "home.moves.verb.receipts",
+  subscriptions_attention: "home.moves.verb.check",
+  rate_gaps: "home.moves.verb.fetch",
+  package_not_built: "home.moves.verb.build",
+  package_flags: "home.moves.verb.flags",
+  vat_not_declared: "home.moves.verb.declare",
+};
 
 /** a currency's colour token (D76: --cur-sek / chf / eur / usd), neutral for any other */
 const curColor = (currency: string) =>
@@ -68,6 +101,8 @@ export function CashHero({
     220,
     34,
   );
+  // the last point of the line, for its dot (the board ends the line on today)
+  const trendEnd = trend.match(/L([\d.]+) ([\d.]+)$/)?.slice(1, 3) ?? null;
   const rows = year.justified + year.toJustify;
   const percent = rows > 0 ? Math.floor((year.justified / rows) * 100) : 0;
   const C = 2 * Math.PI * 80;
@@ -109,7 +144,8 @@ export function CashHero({
           {trend && (
             <svg
               viewBox="0 0 220 34"
-              className="h-[34px] w-[220px] text-action"
+              className="h-[34px] w-[220px] overflow-visible"
+              style={{ color: curColor(cash.base) }}
               role="img"
               aria-label={t("home.cash.trend")}
             >
@@ -121,6 +157,7 @@ export function CashHero({
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
+              {trendEnd && <circle cx={trendEnd[0]} cy={trendEnd[1]} r="3.5" fill="currentColor" />}
             </svg>
           )}
           {cash.incomplete && (
@@ -271,24 +308,23 @@ export function NextMoves({ items, work }: { items: ActionItem[]; work: WorkData
               key={item.id}
               data-testid="action-item"
               data-kind={item.kind}
+              data-first={i === 0 ? "" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-xl border border-subtle px-3 py-2.5",
-                i === 0 && "bg-surface-2",
+                "flex items-center gap-3.5 rounded-[14px] border p-3.5",
+                i === 0 ? firstTone(item).box : "border-subtle bg-surface-2",
               )}
             >
               <span
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-                  item.priority === "high"
-                    ? "bg-state-attention/15 text-state-attention"
-                    : "bg-surface-2 text-muted-foreground",
+                  "flex size-7 shrink-0 items-center justify-center rounded-[9px] font-mono text-xs",
+                  i === 0 ? firstTone(item).n : "bg-foreground/6 text-muted-foreground",
                 )}
                 aria-hidden
               >
                 {i + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold">
+                <div className="text-[13px] font-semibold">
                   <MoveText item={item} />
                 </div>
                 {item.amount && (
@@ -300,9 +336,12 @@ export function NextMoves({ items, work }: { items: ActionItem[]; work: WorkData
               <StateIcon family={PRIORITY_FAMILY[item.priority]} />
               <Link
                 href={item.href}
-                className={buttonVariants({ variant: i === 0 ? "default" : "outline", size: "sm" })}
+                className={cn(
+                  buttonVariants({ variant: i === 0 ? "default" : "outline", size: "sm" }),
+                  "h-[34px] rounded-[10px] px-3.5 font-semibold",
+                )}
               >
-                {t("home.moves.open")}
+                {t(VERB[item.kind] ?? "home.moves.open")}
               </Link>
             </li>
           ))}
@@ -414,8 +453,13 @@ export function CurrenciesCard({
                 )}
               </span>
               <span className="font-mono text-[22px] font-medium tracking-tight tabular-nums">
-                {x.now ? Number(x.now).toFixed(4) : t("home.fx.none")}
+                {x.now ? Number(x.now).toFixed(4) : "—"}
               </span>
+              {!x.now && (
+                <span className="text-xs text-muted-foreground" data-public>
+                  {t("home.fx.none")}
+                </span>
+              )}
               {path && (
                 <svg
                   viewBox="0 0 120 30"

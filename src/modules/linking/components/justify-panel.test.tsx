@@ -367,7 +367,7 @@ describe("JustifyPanel — no proof needed names a partner (F129 US3)", () => {
     fireEvent.click(await screen.findByTestId("justify-reason-other"));
     await waitFor(() =>
       expect(screen.getByTestId("justify-partner-hint")).toHaveTextContent(
-        "Northwind Cloud AB — remembered (3 time(s))",
+        "Northwind Cloud AB — remembered (3 times)",
       ),
     );
     expect(screen.getByTestId("justify-no-proof-done")).toBeEnabled();

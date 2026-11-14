@@ -100,7 +100,7 @@ test.describe("Document inbox — owner", () => {
 
       // 5. d archives the open row, the bar says so; u restores it
       await page.keyboard.press("d");
-      await expect(page.getByTestId("inbox-undo")).toContainText("Archived 1 document(s)");
+      await expect(page.getByTestId("inbox-undo")).toContainText("Archived 1 document");
       await expect(rows).toHaveCount(2);
       await page.keyboard.press("u");
       await expect(rows).toHaveCount(3);

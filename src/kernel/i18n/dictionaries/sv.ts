@@ -1219,9 +1219,6 @@ export const sv: PartialDictionary = {
   "invoices.declaredPaid": "Deklarerad {date} · betald {paid}",
 
   // --- dashboard ---
-  "dashboard.welcome": "Välkommen tillbaka, {name}",
-  "dashboard.lastLogin": "Senaste inloggning: {date}",
-  "dashboard.firstLogin": "Första inloggningen",
   "dashboard.actions.title": "Att göra",
   "dashboard.actions.none": "Inget att göra — varje bankrad är styrkt, varje dokument finns.",
   "dashboard.action.rows_to_justify": "{count} bankrad(er) att styrka",
