@@ -13,6 +13,7 @@ import * as expenses from "@/modules/expenses";
 import * as invoices from "@/modules/invoices";
 import * as packageModule from "@/modules/package";
 import * as rates from "@/modules/rates";
+import { booksDay, lastRowDay } from "./books-day";
 import { dashboardOverview } from "./overview";
 import {
   type ActionItem,
@@ -114,8 +115,16 @@ export function closeSteps(f: CloseFacts): { steps: CloseStep[]; percent: number
   return { steps, percent: Math.floor((sum / CLOSE_STEPS.length) * 100) };
 }
 
-/** The month Work opens on: last month until its package is built, then this month. */
-export function defaultCloseMonth(today: string, built: ReadonlySet<string>): string {
+/**
+ * The month Work opens on: last month until its package is built, then this month — and (F189) when the books
+ * stop before last month (`booksTo`, the end of their last month), that month: the newest one there is work in.
+ */
+export function defaultCloseMonth(
+  today: string,
+  built: ReadonlySet<string>,
+  booksTo: string | null = null,
+): string {
+  if (booksTo) return monthOf(booksTo);
   const last = banking.addMonths(monthOf(today), -1);
   return built.has(last) ? monthOf(today) : last;
 }
@@ -210,7 +219,8 @@ export async function workData(
   const built = new Set(builtOn.keys());
   const months = await banking.bankMonths(tx, { today });
   const first = months.from;
-  const wanted = month ?? defaultCloseMonth(today, built);
+  const books = booksDay(today, lastRowDay(months.days.filter((d) => d.date <= today)));
+  const wanted = month ?? defaultCloseMonth(today, built, books.behind ? books.day : null);
   const shown = wanted < first ? first : wanted > thisMonth ? thisMonth : wanted;
 
   // the months the page reads: the shown one and the PAST_MONTHS before this month

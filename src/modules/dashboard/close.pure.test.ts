@@ -86,6 +86,9 @@ describe("defaultCloseMonth · closeStreak", () => {
     expect(defaultCloseMonth("2026-08-07", new Set())).toBe("2026-07");
     expect(defaultCloseMonth("2026-08-07", new Set(["2026-07"]))).toBe("2026-08");
     expect(defaultCloseMonth("2026-01-03", new Set())).toBe("2025-12");
+    // F189: books that stop before last month — Work opens on their last month, built or not
+    expect(defaultCloseMonth("2026-11-14", new Set(), "2023-06-30")).toBe("2023-06");
+    expect(defaultCloseMonth("2026-11-14", new Set(["2026-10"]), "2023-06-30")).toBe("2023-06");
   });
 
   it("the months closed in a row back from last month — last month still open does not break it", () => {
