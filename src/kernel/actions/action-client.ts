@@ -78,9 +78,14 @@ export const publicAction = baseClient;
 const rateLimitMiddleware = createMiddleware<{
   serverError: AppError;
   ctx: { userId: string };
-}>().define(async ({ ctx, next }) => {
+}>().define(async ({ ctx, next, metadata }) => {
   const { allowed } = checkRateLimit(ctx.userId);
   if (!allowed) {
+    // a warning in the server log: a refused action otherwise shows only as a page that did not react
+    logger.warn(
+      { userId: ctx.userId, action: (metadata as { name?: string } | undefined)?.name },
+      "Rate limit hit: action refused",
+    );
     throw new ActionError({
       code: "RATE_LIMITED",
       message: "Too many requests",

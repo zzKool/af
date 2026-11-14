@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { checkRateLimit, resetRateLimit } from "@/kernel/actions/rate-limit";
+import { checkRateLimit, maxRequestsPerWindow, resetRateLimit } from "@/kernel/actions/rate-limit";
 
 beforeEach(() => {
   resetRateLimit();
@@ -52,5 +52,13 @@ describe("rate-limit", () => {
 
     resetRateLimit();
     expect(checkRateLimit("user-1", 3, 60_000).allowed).toBe(true);
+  });
+
+  it("the limit is 300 unless ACTION_RATE_LIMIT_PER_MINUTE is a positive whole number", () => {
+    expect(maxRequestsPerWindow({})).toBe(300);
+    expect(maxRequestsPerWindow({ ACTION_RATE_LIMIT_PER_MINUTE: "3000" })).toBe(3000);
+    expect(maxRequestsPerWindow({ ACTION_RATE_LIMIT_PER_MINUTE: " 50 " })).toBe(50);
+    for (const bad of ["", "0", "-5", "1.5", "many", "1e3"])
+      expect(maxRequestsPerWindow({ ACTION_RATE_LIMIT_PER_MINUTE: bad })).toBe(300);
   });
 });

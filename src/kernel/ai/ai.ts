@@ -241,6 +241,13 @@ export const MOCK_ANSWERS: Record<string, unknown> = {
     reason: "Looks like a software or cloud service (mock answer)",
     alternatives: [],
   },
+  // T013b: a company not among the partners (invented) — the row gets a *new partner* proposal
+  "linking.partner-proposal": {
+    partner: null,
+    newPartner: { name: "Northwind Cloud", type: "supplier", country: null },
+    confidence: 0.84,
+    reason: "The bank text names this company (mock answer)",
+  },
 };
 
 export function createAiService(

@@ -20,7 +20,8 @@ Spec `spec.md` · plan `plan.md`. PR 1 = T001–T012, PR 2 = T013–T016.
 ## PR 2 — `feat/ai-model-stage`
 
 - [x] T013 Prompt `bas-proposal` v1 (static prefix first), output schema with the active-code enum (2026-10-31)
-- [ ] T013b Prompt `partner-proposal` v1 + `newPartner` — after F126 (the category was the owner's ask)
+- [x] T013b `feat/ai-partner-proposal` (2026-11-13) Prompt `partner-proposal` v1 + `newPartner`: `prompts/partner-proposal.ts` (the partners as `p1 … pn` handles, the enum), `stage2-partner.ts` (asked **once per counterparty key** — every row of the key gets the one answer; *nobody* kept so the row is not asked again), accept creates the partner in the categorise transaction (a name that exists is used — D70), the *new* tag on the Proposed line, the mock's answer; pure + DB tests; screenshot `screenshots/panel-partner-proposal-light.png`
+- [ ] T017 The owner's answer 6 (2026-11-08), the *model* half: a rejected proposal comes back when the **model** changes. Today only the prompt version (and, for the category, the accounts and notes) is in a model proposal's facts hash — the model's name is stored on the proposal but not compared. Needs the configured model's name before asking (`AiService` exposes none; the server's reported name can differ from `AI_MODEL`)
 - [x] T014 Stage 2 in the run: only what stage 1 left open (a disagreement keeps stage 1's capped answer + alternative); one request at a time, ≤ 60 per run; timeout retried once; unreachable stops the run
 - [x] T015 The eval — `npx tsx scripts/ai-eval.ts` (no `package.json` script: one less serialised file), counts only
 - [x] T016 The mock's fixed answer (`linking.bas-proposal`); docs. CI keeps AI off (the stage-1 e2e asserts it), stage 2 is covered by DB tests with an injected service

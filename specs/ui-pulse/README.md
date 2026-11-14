@@ -20,7 +20,11 @@ The owner: "the Pulse design was amazing, but you failed to implement it … I d
 
 | # | On the boards | In the app | Row |
 |---|---|---|---|
+<<<<<<< HEAD
 | 1 | Screens full of a living year | Home, Work and Banking open on **today**; with data that stops earlier (the owner's 2023-Q2) they show zeros and grey squares | F189 |
+=======
+| 1 | Screens full of a living year | Home, Work and Banking open on **today**; with data that stops earlier (the owner's 2023-Q2) they show zeros and grey squares | open — *the latest month that has data* |
+>>>>>>> origin/main
 | 2 | It talks: *Send NW26-008 to Northwind · ready for 7 days — **Send*** | counters and *Open*; `(s)` in 118 strings | F188 |
 | 3 | Bold charts: wide bars that rise, a glow on what is late, a live dot | 3 px sticks, no motion | F188 (the home); the live dot open |
 | 4 | Designed empty · all done · loading · no results (the board *States*) | a muted sentence | F188 (the kit, every DataTable); the modules' own places open |

@@ -14,6 +14,7 @@ import * as banking from "@/modules/banking";
 import { prepareDocumentProposals, writeDocumentProposals } from "../documents";
 import { type RunResult, runProposals } from "../proposals";
 import { askStage2, prepareStage2, writeStage2 } from "../stage2";
+import { askPartnerStage2, preparePartnerStage2, writePartnerStage2 } from "../stage2-partner";
 
 export type ProposeForRowsData = {
   tenantId: string;
@@ -22,6 +23,8 @@ export type ProposeForRowsData = {
 
 export type ProposeResult = RunResult & {
   model: { asked: number; proposed: number; failed: number; stopped: boolean };
+  /** T013b: the model's partner answers — `asked` counts counterparties, `proposed` rows */
+  partnerModel: { asked: number; proposed: number; failed: number; stopped: boolean };
 };
 
 /**
@@ -39,14 +42,15 @@ export async function proposeForRows(
         ? { transactionIds: data.transactionIds }
         : { all: true as const };
   const runId = randomUUID();
-  const { stage1, prepared } = await withJobContext(
+  const { stage1, prepared, preparedPartner } = await withJobContext(
     data.tenantId,
     data.userId,
     async (tx, caller) => {
       const ids = await banking.proposalRowIds(tx, scope);
       const stage1 = await runProposals(tx, caller, { runId, transactionIds: ids });
       const prepared = ai.kind === "off" ? null : await prepareStage2(tx, ids);
-      return { stage1, prepared };
+      const preparedPartner = ai.kind === "off" ? null : await preparePartnerStage2(tx, ids);
+      return { stage1, prepared, preparedPartner };
     },
   );
   const model = { asked: 0, proposed: 0, failed: 0, stopped: false };
@@ -60,7 +64,19 @@ export async function proposeForRows(
         writeStage2(tx, caller, runId, outcome.drafts),
       );
   }
-  const result: ProposeResult = { ...stage1, model };
+  // the partner after the category (the owner's first ask); skipped when the model just proved unreachable
+  const partnerModel = { asked: 0, proposed: 0, failed: 0, stopped: model.stopped };
+  if (preparedPartner && !model.stopped) {
+    const outcome = await askPartnerStage2(ai, preparedPartner);
+    partnerModel.asked = outcome.asked;
+    partnerModel.failed = outcome.failed;
+    partnerModel.stopped = outcome.stopped;
+    if (outcome.drafts.length)
+      partnerModel.proposed = await withJobContext(data.tenantId, data.userId, (tx, caller) =>
+        writePartnerStage2(tx, caller, runId, outcome.drafts),
+      );
+  }
+  const result: ProposeResult = { ...stage1, model, partnerModel };
   // counts only — never a row, a name or an amount (D51)
   logger.info({ tenantId: data.tenantId, ...result }, "linking.propose: run done");
   return result;
