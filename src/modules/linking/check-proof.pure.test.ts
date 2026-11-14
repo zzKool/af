@@ -431,7 +431,7 @@ describe("warningMessage — the English sentences, the facts in them", () => {
       [
         "The paper names Microsoft Ireland Operations Ltd, the bank says MSFT — the same supplier?",
         `${formatMoney("12.00", "EUR")} at 11.42 = ${formatMoney("137.04", "SEK")}; the bank took ${formatMoney("143.50", "SEK")} (+4.7 %) — more than the 4 % margin of a card purchase`,
-        "Booked 12 day(s) after the paper's date (2026-07-08)",
+        "Booked 12 days after the paper's date (2026-07-08)",
       ],
     );
   });
@@ -448,7 +448,7 @@ describe("warningMessage — the English sentences, the facts in them", () => {
     ]);
     const early = checkProof(input({ row: transferRow({ bookingDate: "2026-06-30" }) }));
     expect(early.map((w) => warningMessage(w, t))).toEqual([
-      "Booked 6 day(s) before the invoice date (2026-07-06)",
+      "Booked 6 days before the invoice date (2026-07-06)",
     ]);
     const other = checkProof(
       input({
