@@ -232,7 +232,6 @@ export function ImportWorkbench({ accounts }: { accounts: AccountOption[] }) {
 
   async function submit() {
     if (!ready) return;
-    const summaries: ImportSummary[] = [];
     // one file after the other: each is its own transaction (F109) — a failed one does not undo the others
     for (const item of pending) {
       const fd = new FormData();
@@ -247,28 +246,11 @@ export function ImportWorkbench({ accounts }: { accounts: AccountOption[] }) {
       }
       const s = r?.data?.data as ImportSummary | undefined;
       if (!s) continue;
-      summaries.push(s);
       update(item.key, { summary: s, preview: null, error: null });
     }
     setDone(true);
-    if (summaries.length > 0) {
-      const sum = (k: "importedCount" | "duplicateCount" | "errorCount") =>
-        summaries.reduce((n, s) => n + s[k], 0);
-      toast.success(
-        summaries.length === 1
-          ? t("banking.import.done", {
-              imported: sum("importedCount"),
-              duplicates: sum("duplicateCount"),
-              errors: sum("errorCount"),
-            })
-          : t("banking.import.doneMany", {
-              files: summaries.length,
-              imported: sum("importedCount"),
-              duplicates: sum("duplicateCount"),
-              errors: sum("errorCount"),
-            }),
-      );
-    }
+    // no toast for a success: the page itself now says what was imported, per file and in total — and a toast in
+    // the bottom right sat on *Show the new rows* for as long as the pointer rested there (lessons, 2026-11-14)
     router.refresh();
   }
 
